@@ -32,7 +32,12 @@ const isaretleme = {
 }
 ---
 
-<Temel baslik={baslik} aciklama={ozet} isaretleme={isaretleme}>
+<Temel
+  baslik={baslik}
+  aciklama={ozet}
+  isaretleme={isaretleme}
+  dizinlenmesin={durum === 'hazirlaniyor'}
+>
   <KirintiYolu basamaklar={basamaklar} />
 
   <article>

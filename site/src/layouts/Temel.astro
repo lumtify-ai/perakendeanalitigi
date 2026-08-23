@@ -6,9 +6,11 @@ interface Props {
   baslik: string
   aciklama: string
   isaretleme?: Record<string, unknown>
+  /** Sayfa arama motorlarına ve yapay zekâ tarayıcılarına kapatılsın mı? */
+  dizinlenmesin?: boolean
 }
 
-const { baslik, aciklama, isaretleme } = Astro.props
+const { baslik, aciklama, isaretleme, dizinlenmesin = false } = Astro.props
 const tamBaslik = baslik === 'perakendeanalitigi.com'
   ? baslik
   : `${baslik} · perakendeanalitigi.com`
@@ -18,7 +20,7 @@ const kurum = {
   '@type': 'Organization',
   name: 'Lumtify',
   url: 'https://lumtify.com',
-  subjectOf: 'https://perakendeanalitigi.com',
+  subjectOf: Astro.site?.href,
 }
 ---
 
@@ -29,6 +31,12 @@ const kurum = {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{tamBaslik}</title>
     <meta name="description" content={aciklama} />
+    {
+      /* Gövdesi tek cümlelik bir yer tutucu sayfa, ilk taramada geri alması en
+         zor birinci izlenimi bırakır. Sayfa üretilmeye devam eder — dizi
+         kapağı ona bağlanıyor — ama indekslenmez. */
+      dizinlenmesin && <meta name="robots" content="noindex" />
+    }
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
     <script type="application/ld+json" set:html={JSON.stringify(kurum)} is:inline />
     {
@@ -41,6 +49,10 @@ const kurum = {
     <header>
       <a href="/tr/" class="logo">perakendeanalitigi.com</a>
       <nav>
+        {/* Tasarım dokümanı §9. "Alanlar" ayrı bir sayfa değil, ana sayfadaki
+            ağaç bölümüne çapa: ana sayfa zaten o haritadır. "Hakkında" yerine
+            "Kadro" duruyor; gerekçesi tasarım dokümanı §9'da. */}
+        <a href="/tr/#alanlar">Alanlar</a>
         <a href="/tr/veri-seti/">Veri seti</a>
         <a href="/tr/sozluk/">Sözlük</a>
         <a href="/tr/kadro/">Kadro</a>
