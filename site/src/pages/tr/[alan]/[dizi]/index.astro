@@ -5,6 +5,7 @@ import Temel from '../../../../layouts/Temel.astro'
 import KirintiYolu from '../../../../components/KirintiYolu.astro'
 import Rozet from '../../../../components/Rozet.astro'
 import { diziYazilari } from '../../../../lib/agac'
+import { zorunlu } from '../../../../lib/zorunlu'
 
 export async function getStaticPaths() {
   const diziler = await getCollection('dizi')
@@ -18,10 +19,11 @@ const { girdi } = Astro.props
 const [alanId, diziId] = girdi.id.split('/')
 const { Content } = await render(girdi)
 
-const [alanGirdi, hepsi] = await Promise.all([
+const [hamAlan, hepsi] = await Promise.all([
   getEntry('alan', alanId),
   getCollection('yazi'),
 ])
+const alanGirdi = zorunlu(hamAlan, 'alan', alanId)
 const sirali = diziYazilari(hepsi, alanId, diziId)
 
 const isaretleme = {
@@ -33,7 +35,7 @@ const isaretleme = {
   hasPart: sirali.map((yazi) => ({
     '@type': 'Article',
     name: yazi.baslik,
-    url: `https://perakendeanalitigi.com${yazi.adres}`,
+    url: new URL(yazi.adres, Astro.site).href,
     position: yazi.sira,
   })),
 }
@@ -42,7 +44,7 @@ const isaretleme = {
 <Temel baslik={girdi.data.baslik} aciklama={girdi.data.ozet} isaretleme={isaretleme}>
   <KirintiYolu
     basamaklar={[
-      { ad: alanGirdi!.data.baslik, adres: `/tr/${alanId}/` },
+      { ad: alanGirdi.data.baslik, adres: `/tr/${alanId}/` },
       { ad: girdi.data.baslik },
     ]}
   />

@@ -3,6 +3,7 @@
 import { getCollection, getEntry, render } from 'astro:content'
 import Yazi from '../../../layouts/Yazi.astro'
 import { yaziYolunuAyristir } from '../../../lib/yol'
+import { zorunlu } from '../../../lib/zorunlu'
 
 export async function getStaticPaths() {
   const yazilar = await getCollection('yazi')
@@ -21,7 +22,7 @@ export async function getStaticPaths() {
 const { girdi } = Astro.props
 const yol = yaziYolunuAyristir(girdi.id)
 const { Content } = await render(girdi)
-const alanGirdi = await getEntry('alan', yol.alan)
+const alanGirdi = zorunlu(await getEntry('alan', yol.alan), 'alan', yol.alan)
 ---
 
 <Yazi
@@ -31,7 +32,7 @@ const alanGirdi = await getEntry('alan', yol.alan)
   yazar={girdi.data.yazar}
   durum={girdi.data.durum}
   basamaklar={[
-    { ad: alanGirdi!.data.baslik, adres: `/tr/${yol.alan}/` },
+    { ad: alanGirdi.data.baslik, adres: `/tr/${yol.alan}/` },
     { ad: girdi.data.baslik },
   ]}
 >

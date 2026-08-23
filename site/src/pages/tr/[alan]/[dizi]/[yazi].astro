@@ -4,6 +4,7 @@ import { getCollection, getEntry, render } from 'astro:content'
 import Yazi from '../../../../layouts/Yazi.astro'
 import { diziYazilari } from '../../../../lib/agac'
 import { yaziYolunuAyristir } from '../../../../lib/yol'
+import { zorunlu } from '../../../../lib/zorunlu'
 
 export async function getStaticPaths() {
   const yazilar = await getCollection('yazi')
@@ -23,11 +24,14 @@ const { girdi } = Astro.props
 const yol = yaziYolunuAyristir(girdi.id)
 const { Content } = await render(girdi)
 
-const [alanGirdi, diziGirdi, hepsi] = await Promise.all([
+const diziId = `${yol.alan}/${yol.dizi}`
+const [hamAlan, hamDizi, hepsi] = await Promise.all([
   getEntry('alan', yol.alan),
-  getEntry('dizi', `${yol.alan}/${yol.dizi}`),
+  getEntry('dizi', diziId),
   getCollection('yazi'),
 ])
+const alanGirdi = zorunlu(hamAlan, 'alan', yol.alan)
+const diziGirdi = zorunlu(hamDizi, 'dizi', diziId)
 
 const sirali = diziYazilari(hepsi, yol.alan, yol.dizi!)
 const diziAdresi = `/tr/${yol.alan}/${yol.dizi}/`
@@ -40,12 +44,12 @@ const diziAdresi = `/tr/${yol.alan}/${yol.dizi}/`
   yazar={girdi.data.yazar}
   durum={girdi.data.durum}
   basamaklar={[
-    { ad: alanGirdi!.data.baslik, adres: `/tr/${yol.alan}/` },
-    { ad: diziGirdi!.data.baslik, adres: diziAdresi },
+    { ad: alanGirdi.data.baslik, adres: `/tr/${yol.alan}/` },
+    { ad: diziGirdi.data.baslik, adres: diziAdresi },
     { ad: girdi.data.baslik },
   ]}
   dizi={{
-    baslik: diziGirdi!.data.baslik,
+    baslik: diziGirdi.data.baslik,
     adres: diziAdresi,
     sirali,
     suanki: yol.slug,

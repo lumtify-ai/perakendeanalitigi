@@ -4,6 +4,7 @@ import { getCollection, getEntry } from 'astro:content'
 import Temel from '../../../../layouts/Temel.astro'
 import KirintiYolu from '../../../../components/KirintiYolu.astro'
 import Demo from '../../../../components/Demo.astro'
+import { zorunlu } from '../../../../lib/zorunlu'
 
 export async function getStaticPaths() {
   const diziler = await getCollection('dizi')
@@ -17,7 +18,7 @@ export async function getStaticPaths() {
 
 const { girdi } = Astro.props
 const [alanId, diziId] = girdi.id.split('/')
-const alanGirdi = await getEntry('alan', alanId)
+const alanGirdi = zorunlu(await getEntry('alan', alanId), 'alan', alanId)
 
 const aciklama = `${girdi.data.baslik} demosu: parametreleri değiştirin, önerinin nasıl değiştiğini görün.`
 ---
@@ -25,7 +26,7 @@ const aciklama = `${girdi.data.baslik} demosu: parametreleri değiştirin, öner
 <Temel baslik={`${girdi.data.baslik} · Demo`} aciklama={aciklama}>
   <KirintiYolu
     basamaklar={[
-      { ad: alanGirdi!.data.baslik, adres: `/tr/${alanId}/` },
+      { ad: alanGirdi.data.baslik, adres: `/tr/${alanId}/` },
       { ad: girdi.data.baslik, adres: `/tr/${alanId}/${diziId}/` },
       { ad: 'Demo' },
     ]}
