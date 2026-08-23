@@ -1,0 +1,93 @@
+---
+// site/src/pages/tr/veri-seti.astro
+import Temel from '../../layouts/Temel.astro'
+
+const SURUM = 'v1'
+const DEPO = 'https://github.com/lumtify-ai/perakendeanalitigi'
+const INDIRME = `${DEPO}/releases/tag/veri-${SURUM}`
+
+// Türkçe kesme işareti yüzünden çift tırnak: 'master'ı' tek tırnakta kırılır
+const TABLOLAR = [
+  { ad: "magaza", satir: "25", aciklama: "Mağaza master'ı: şehir, tip, metrekare, kapasite" },
+  { ad: "urun", satir: "1.200", aciklama: "SKU master'ı ve ürün hiyerarşisi" },
+  { ad: "takvim", satir: "365", aciklama: "Tarih boyutu: hafta, ay, sezon, tatil" },
+  { ad: "satis", satir: "~535 bin", aciklama: "Günlük satış; negatif adet iadedir" },
+  { ad: "stok", satir: "~643 bin", aciklama: "Haftalık stok fotoğrafı" },
+  { ad: "sevkiyat", satir: "~213 bin", aciklama: "Depodan mağazaya giren mal" },
+  { ad: "kayip_satis", satir: "~41 bin", aciklama: "Stoksuzluk yüzünden karşılanamayan talep" },
+]
+
+const ACIKLAMA =
+  "Lumoda, perakendeanalitigi.com'daki bütün vakaların kullandığı sentetik " +
+  "moda perakende veri setidir: 25 mağaza, 1.200 SKU, 2025 yılının tamamı. " +
+  "CSV, Parquet ve tek dosya DuckDB olarak indirilebilir."
+
+const isaretleme = {
+  '@context': 'https://schema.org',
+  '@type': 'Dataset',
+  name: 'Lumoda — Sentetik Moda Perakende Veri Seti',
+  description: ACIKLAMA,
+  version: SURUM,
+  inLanguage: 'tr',
+  license: 'https://creativecommons.org/licenses/by/4.0/',
+  creator: { '@type': 'Organization', name: 'Lumtify', url: 'https://lumtify.com' },
+  isAccessibleForFree: true,
+  distribution: [
+    { '@type': 'DataDownload', encodingFormat: 'text/csv', contentUrl: INDIRME },
+    { '@type': 'DataDownload', encodingFormat: 'application/vnd.apache.parquet', contentUrl: INDIRME },
+    { '@type': 'DataDownload', encodingFormat: 'application/octet-stream', contentUrl: INDIRME },
+  ],
+}
+---
+
+<Temel baslik="Lumoda Veri Seti" aciklama={ACIKLAMA} isaretleme={isaretleme}>
+  <h1>Lumoda — Sentetik Moda Perakende Veri Seti</h1>
+  <p class="tanim">{ACIKLAMA}</p>
+
+  <p>
+    Veri <strong>tamamen sentetiktir</strong>; hiçbir gerçek şirket, müşteri
+    veya kişi verisi içermez. Lumoda kurgusal bir zincirdir.
+  </p>
+
+  <h2>Tablolar</h2>
+  <table>
+    <thead>
+      <tr><th>Tablo</th><th>Satır</th><th>Açıklama</th></tr>
+    </thead>
+    <tbody>
+      {
+        TABLOLAR.map((tablo) => (
+          <tr>
+            <td><code>{tablo.ad}</code></td>
+            <td>{tablo.satir}</td>
+            <td>{tablo.aciklama}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  <h2>İndirme</h2>
+  <p>Üç format da aynı veriyi taşır; hangisini kullanacağınız işinize bağlı.</p>
+  <ul>
+    <li><strong>CSV</strong> — herkes için, kurulum gerekmez</li>
+    <li><strong>Parquet</strong> — büyük sorgular ve pandas için</li>
+    <li><strong>DuckDB</strong> — tek dosya; indirip saniyeler içinde SQL çalıştırırsınız</li>
+  </ul>
+  <p><a href={INDIRME}>Veri setini indir ({SURUM})</a></p>
+
+  <h2>Yeniden üretim</h2>
+  <p>
+    Üretici script depoda açıktır ve tohum sabittir: aynı komut her zaman aynı
+    veriyi üretir.
+  </p>
+  <pre><code>git clone {DEPO}
+cd perakendeanalitigi/veri
+pip install -e ".[dev]"
+python -m perakende_veri.uret</code></pre>
+
+  <p>
+    Şemanın tamamı, verinin kasten bırakılmış kusurları ve yetmediği yerler:
+    <a href={`${DEPO}/blob/main/veri/README.md`}>veri/README.md</a>
+  </p>
+</Temel>

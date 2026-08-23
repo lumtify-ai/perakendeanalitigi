@@ -171,3 +171,43 @@ describe('alan sayfası', () => {
     expect(oku('tr/transfer/index.html')).not.toContain('<pre')
   })
 })
+
+describe('ana sayfa', () => {
+  it('tanım paragrafıyla açılır', () => {
+    const govde = oku('tr/index.html')
+    expect(govde).toMatch(/Perakende analitiği/)
+  })
+
+  it('ağacın tamamını gösterir', () => {
+    const html = oku('tr/index.html')
+    expect(html).toContain('href="/tr/transfer/"')
+    expect(html).toContain('href="/tr/temeller/"')
+    expect(html).toContain('href="/tr/transfer/blok-transfer/"')
+  })
+
+  it('akış veya son yazılar bölümü içermez', () => {
+    const html = oku('tr/index.html')
+    expect(html).not.toMatch(/son yazılar|en yeni|güncel yazılar/i)
+  })
+})
+
+describe('veri seti sayfası', () => {
+  it('Dataset olarak işaretlenir', () => {
+    // Rakipler veri yayınlamaz; bu işaretleme ayrıştırıcıdır
+    expect(oku('tr/veri-seti/index.html')).toContain('"@type":"Dataset"')
+  })
+
+  it('yedi tabloyu da listeler', () => {
+    const html = oku('tr/veri-seti/index.html')
+    for (const tablo of ['magaza', 'urun', 'takvim', 'satis', 'stok', 'sevkiyat', 'kayip_satis']) {
+      expect(html).toContain(tablo)
+    }
+  })
+
+  it('üç formatı da duyurur', () => {
+    const html = oku('tr/veri-seti/index.html')
+    expect(html).toContain('CSV')
+    expect(html).toContain('Parquet')
+    expect(html).toContain('DuckDB')
+  })
+})

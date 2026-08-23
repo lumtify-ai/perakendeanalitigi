@@ -1,10 +1,84 @@
 ---
+// site/src/pages/tr/index.astro
+import { getCollection } from 'astro:content'
 import Temel from '../../layouts/Temel.astro'
+import { alanYazilari, diziYazilari } from '../../lib/agac'
+
+const [alanlar, diziler, yazilar] = await Promise.all([
+  getCollection('alan'),
+  getCollection('dizi'),
+  getCollection('yazi'),
+])
+
+const sirali = alanlar.sort((a, b) => a.data.sira - b.data.sira)
+
+const agac = sirali.map((alan) => ({
+  alan,
+  diziler: diziler
+    .filter((d) => d.data.alan === alan.id)
+    .map((dizi) => {
+      const [, diziId] = dizi.id.split('/')
+      return { dizi, diziId, yazilar: diziYazilari(yazilar, alan.id, diziId) }
+    }),
+  tekilYazilar: alanYazilari(yazilar, alan.id),
+}))
+
+const TANIM =
+  'Perakende analitiği, mağaza ve ürün verisini kullanarak stok, fiyat ve ' +
+  'dağıtım kararlarını ölçülebilir hâle getirme işidir. Bu sitede her problem ' +
+  'somut bir soruyla başlar, matematiksel modeliyle kurulur ve SQL ile Python ' +
+  'çözümüyle uçtan uca gösterilir.'
 ---
 
-<Temel
-  baslik="perakendeanalitigi.com"
-  aciklama="Türkçe perakende analitiği vakaları: matematiksel model, SQL ve Python ile uçtan uca çözümler ve açık sentetik veri seti."
->
-  <h1>perakendeanalitigi.com</h1>
+<Temel baslik="perakendeanalitigi.com" aciklama={TANIM}>
+  <h1>Perakende Analitiği</h1>
+  <p class="tanim">{TANIM}</p>
+  <p>
+    Bütün çözümler tek bir açık veri setinin üzerinde çalışır:
+    <a href="/tr/veri-seti/">Lumoda</a>, 25 mağazalık kurgusal bir moda
+    perakende zinciri. Veri, kod ve model açıktır; hiçbiri form arkasında
+    değildir.
+  </p>
+
+  {
+    agac.map(({ alan, diziler: altDiziler, tekilYazilar }) => (
+      <section class="alan-bolumu">
+        <h2>
+          <a href={`/tr/${alan.id}/`}>{alan.data.baslik}</a>
+        </h2>
+        <p>{alan.data.tanim}</p>
+
+        {altDiziler.length > 0 && (
+          <ul class="dizi-listesi">
+            {altDiziler.map(({ dizi, diziId, yazilar: uyeler }) => (
+              <li>
+                <a href={`/tr/${alan.id}/${diziId}/`}>{dizi.data.baslik}</a>
+                <span class="sayac"> · {uyeler.length} yazı</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {tekilYazilar.length > 0 && (
+          <ul class="yazi-listesi">
+            {tekilYazilar.map((yazi) => (
+              <li>
+                <a href={yazi.adres}>{yazi.baslik}</a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    ))
+  }
+
+  <section class="kim-yaziyor">
+    <h2>Kim yazıyor</h2>
+    <p>
+      Bu site <a href="https://lumtify.com">Lumtify</a>'ın perakende analitiği
+      çalışmalarının açık kısmıdır. Hikâyelerdeki
+      <a href="/tr/kadro/">Ali, Veli ve Pelin</a> kurgusaldır; problemler
+      değildir.
+    </p>
+  </section>
 </Temel>
