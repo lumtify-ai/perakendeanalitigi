@@ -39,3 +39,26 @@ def gun_carpani(hafta_gunu: int, tatil_mi: bool) -> float:
 
 def taban_talep(kategori: str) -> float:
     return TABAN_TALEP[kategori]
+
+
+CINSIYET_CARPANLARI = {"Kadın": 1.15, "Erkek": 0.85, "Unisex": 0.95}
+
+# Devamlı (NOS) ürünün sezon etkisi bastırılır: sezon çarpanı 1'e doğru
+# çekilir. 0 = sezondan hiç etkilenmez, 1 = sezonluk ürünle aynı.
+DEVAMLI_SEZON_ETKISI = 0.35
+
+
+def cinsiyet_carpani(cinsiyet: str) -> float:
+    return CINSIYET_CARPANLARI[cinsiyet]
+
+
+def mevsimsellik_carpani(mevsimsellik: str, kategori: str, sezon: str) -> float:
+    """Sezon çarpanını ürünün mevsimsellik eksenine göre yumuşatır.
+
+    Sezonluk ürün sezon çarpanını olduğu gibi alır. Devamlı ürün yıl
+    boyu satar; sezon dalgalanması bastırılır ama sıfırlanmaz.
+    """
+    ham = sezon_carpani(kategori, sezon)
+    if mevsimsellik == "Sezonluk":
+        return ham
+    return 1.0 + (ham - 1.0) * DEVAMLI_SEZON_ETKISI

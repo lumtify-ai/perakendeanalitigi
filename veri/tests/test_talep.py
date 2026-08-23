@@ -30,3 +30,23 @@ def test_hafta_sonu_ve_tatil_artisi():
     tatil = talep.gun_carpani(1, True)
     assert cumartesi > salı
     assert tatil > salı
+
+
+def test_devamli_urun_sezondan_az_etkilenir():
+    # Devamlı (NOS) ürün yıl boyu satar; sezonluk ürün sezonuyla gelir gider.
+    # Transfer kararı ikisinde farklı işler, veri bu farkı taşımalı.
+    sezonluk_kis = talep.mevsimsellik_carpani("Sezonluk", "Dış Giyim", "Sonbahar/Kış")
+    sezonluk_yaz = talep.mevsimsellik_carpani("Sezonluk", "Dış Giyim", "İlkbahar/Yaz")
+    devamli_kis = talep.mevsimsellik_carpani("Devamlı", "Dış Giyim", "Sonbahar/Kış")
+    devamli_yaz = talep.mevsimsellik_carpani("Devamlı", "Dış Giyim", "İlkbahar/Yaz")
+
+    sezonluk_oran = sezonluk_kis / sezonluk_yaz
+    devamli_oran = devamli_kis / devamli_yaz
+    assert sezonluk_oran > devamli_oran > 1.0
+
+
+def test_cinsiyet_carpani_tanimli():
+    for cinsiyet in sabitler.CINSIYETLER:
+        assert talep.cinsiyet_carpani(cinsiyet) > 0
+    # Kadın giyim hacmi erkekten yüksektir
+    assert talep.cinsiyet_carpani("Kadın") > talep.cinsiyet_carpani("Erkek")
