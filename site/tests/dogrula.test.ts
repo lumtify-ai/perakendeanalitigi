@@ -97,4 +97,14 @@ describe('hepsiniDogrula', () => {
     yazilar[2].body = 'Sonuçlar.\n\n<Lumtify />'
     expect(hepsiniDogrula(yazilar, DIZILER, ALANLAR, TERIMLER)).toEqual([])
   })
+
+  it('dizinin klasörü ile data.alan uyuştuğunda hata vermez', () => {
+    expect(hepsiniDogrula(tamDizi(), DIZILER, ALANLAR, TERIMLER)).toEqual([])
+  })
+
+  it('dizinin klasörü ile data.alan uyuşmadığında yakalar', () => {
+    const diziler: DiziGirdi[] = [{ id: 'transfer/blok-transfer', data: { alan: 'temeller' } }]
+    const hatalar = hepsiniDogrula(tamDizi(), diziler, ALANLAR, TERIMLER)
+    expect(hatalar.join('\n')).toMatch(/blok-transfer/)
+  })
 })

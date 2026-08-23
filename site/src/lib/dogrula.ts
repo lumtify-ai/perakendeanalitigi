@@ -53,6 +53,34 @@ function yollariDogrula(
   return hatalar
 }
 
+/**
+ * Her dizinin `data.alan` değeri, bulunduğu klasörle aynı mı?
+ *
+ * Hiyerarşi dosya yolunda yaşar, üstveride değil — bu ilke yazılarda zaten
+ * uygulanıyor (`yazi` şemasında `alan`/`dizi` alanı yok). Dizi koleksiyonu
+ * ise `data.alan`'ı ayrıca taşıyor (bkz. `content.config.ts`), bu da yol ile
+ * üstverinin ayrışmasına izin veriyor: `id` klasörden türetilir ama
+ * `data.alan` frontmatter'dan gelir ve ikisi hiç karşılaştırılmazsa bir
+ * dizinin `alan` alanını yanlış yazması build'i sessizce geçer, sadece
+ * dizi kendi alan sayfasından düşer ve o alanın sayfası kırık bir bağlantı
+ * basar.
+ */
+function diziAlanlariDogrula(diziler: DiziGirdi[]): string[] {
+  const hatalar: string[] = []
+
+  for (const dizi of diziler) {
+    const [klasorAlani] = dizi.id.split('/')
+    if (dizi.data.alan !== klasorAlani) {
+      hatalar.push(
+        `"${dizi.id}" dizisinin bulunduğu klasör "${klasorAlani}" alanını gösteriyor, ` +
+          `ama frontmatter'daki "alan" değeri "${dizi.data.alan}". ` +
+          `src/content/dizi/${dizi.id}.md içindeki "alan" alanını "${klasorAlani}" olarak düzeltin.`,
+      )
+    }
+  }
+  return hatalar
+}
+
 /** Aynı dizideki sıra değerleri benzersiz ve 1'den kesintisiz mi? */
 function siralariDogrula(yazilar: YaziGirdi[]): string[] {
   const hatalar: string[] = []
@@ -137,8 +165,11 @@ export function hepsiniDogrula(
   terimler: string[],
 ): string[] {
   const yolHatalari = yollariDogrula(yazilar, diziler, alanlar)
+  const diziAlanHatalari = diziAlanlariDogrula(diziler)
   // Yol bozuksa sıra ve dizi kontrolleri anlamsız çıktı üretir
-  if (yolHatalari.length > 0) return yolHatalari
+  if (yolHatalari.length > 0 || diziAlanHatalari.length > 0) {
+    return [...yolHatalari, ...diziAlanHatalari]
+  }
 
   return [
     ...siralariDogrula(yazilar),
