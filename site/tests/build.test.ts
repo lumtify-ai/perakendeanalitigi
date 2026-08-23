@@ -28,3 +28,13 @@ describe('build çıktısı', () => {
     expect(oku('tr/index.html')).toContain('lang="tr"')
   })
 })
+
+describe('içerik koleksiyonları', () => {
+  it('beş koleksiyon da dolu', async () => {
+    const { readdirSync } = await import('node:fs')
+    const icerik = fileURLToPath(new URL('../src/content/', import.meta.url))
+    for (const ad of ['alan', 'dizi', 'yazi', 'sozluk', 'kadro']) {
+      expect(readdirSync(icerik + ad).length).toBeGreaterThan(0)
+    }
+  })
+})
