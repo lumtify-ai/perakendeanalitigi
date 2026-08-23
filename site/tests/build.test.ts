@@ -130,3 +130,44 @@ describe('yazı sayfası', () => {
     expect(html).toContain('Allocator')
   })
 })
+
+describe('dizi sayfası', () => {
+  it('beş yazıyı sırayla listeler', () => {
+    const html = oku('tr/transfer/blok-transfer/index.html')
+    const sira = ['magazanin-sorunu', 'karar-nasil-verilir', 'matematiksel-model', 'sql-ve-python', 'sonuclar']
+    const yerler = sira.map((slug) => html.indexOf(slug))
+    expect(yerler.every((y) => y > -1)).toBe(true)
+    expect([...yerler].sort((a, b) => a - b)).toEqual(yerler)
+  })
+
+  it('kısayolu açıkça söyler', () => {
+    expect(oku('tr/transfer/blok-transfer/index.html')).toMatch(/hikâye|hikaye/i)
+  })
+
+  it('CreativeWorkSeries olarak işaretlenir', () => {
+    expect(oku('tr/transfer/blok-transfer/index.html')).toContain('CreativeWorkSeries')
+  })
+})
+
+describe('alan sayfası', () => {
+  it('dizili alan dizileri listeler', () => {
+    const html = oku('tr/transfer/index.html')
+    expect(html).toContain('href="/tr/transfer/blok-transfer/"')
+  })
+
+  it('tekil alan yazıları listeler', () => {
+    const html = oku('tr/temeller/index.html')
+    expect(html).toContain('href="/tr/temeller/urun-hiyerarsisi/"')
+  })
+
+  it('tanım paragrafıyla açılır', () => {
+    // Hikâyeyle açılan sayfa alıntılanmaz (ana spec §9)
+    const html = oku('tr/transfer/index.html')
+    const govde = html.slice(html.indexOf('<main'))
+    expect(govde).toMatch(/Transfer,\s*bir mağazada/)
+  })
+
+  it('alan sayfası kod içermez', () => {
+    expect(oku('tr/transfer/index.html')).not.toContain('<pre')
+  })
+})

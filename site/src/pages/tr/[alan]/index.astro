@@ -1,0 +1,81 @@
+---
+// site/src/pages/tr/[alan]/index.astro
+import { getCollection, render } from 'astro:content'
+import Temel from '../../../layouts/Temel.astro'
+import KirintiYolu from '../../../components/KirintiYolu.astro'
+import { alanYazilari } from '../../../lib/agac'
+
+export async function getStaticPaths() {
+  const alanlar = await getCollection('alan')
+  return alanlar.map((girdi) => ({ params: { alan: girdi.id }, props: { girdi } }))
+}
+
+const { girdi } = Astro.props
+const { Content } = await render(girdi)
+
+const [tumDiziler, tumYazilar] = await Promise.all([
+  getCollection('dizi'),
+  getCollection('yazi'),
+])
+
+const diziler = tumDiziler.filter((d) => d.data.alan === girdi.id)
+const tekilYazilar = alanYazilari(tumYazilar, girdi.id)
+
+const isaretleme = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: girdi.data.baslik,
+  description: girdi.data.tanim,
+  inLanguage: 'tr',
+}
+---
+
+<Temel baslik={girdi.data.baslik} aciklama={girdi.data.tanim} isaretleme={isaretleme}>
+  <KirintiYolu basamaklar={[{ ad: girdi.data.baslik }]} />
+
+  <h1>{girdi.data.baslik}</h1>
+
+  {/* İlk paragraf doğrudan tanımla açılır — hikâyeyle açılan sayfa alıntılanmaz */}
+  <p class="tanim">{girdi.data.tanim}</p>
+
+  <Content />
+
+  {
+    diziler.length > 0 && (
+      <section>
+        <h2>Algoritmalar</h2>
+        <ul class="dizi-kartlari">
+          {diziler.map((dizi) => {
+            const [, diziId] = dizi.id.split('/')
+            return (
+              <li>
+                <h3>
+                  <a href={`/tr/${girdi.id}/${diziId}/`}>{dizi.data.baslik}</a>
+                </h3>
+                <p>{dizi.data.ozet}</p>
+              </li>
+            )
+          })}
+        </ul>
+      </section>
+    )
+  }
+
+  {
+    tekilYazilar.length > 0 && (
+      <section>
+        <h2>Yazılar</h2>
+        <ul class="yazi-listesi">
+          {tekilYazilar.map((yazi) => (
+            <li>
+              <h3>
+                <a href={yazi.adres}>{yazi.baslik}</a>
+              </h3>
+              <p>{yazi.ozet}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+</Temel>

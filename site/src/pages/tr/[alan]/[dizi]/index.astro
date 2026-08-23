@@ -1,0 +1,82 @@
+---
+// site/src/pages/tr/[alan]/[dizi]/index.astro
+import { getCollection, getEntry, render } from 'astro:content'
+import Temel from '../../../../layouts/Temel.astro'
+import KirintiYolu from '../../../../components/KirintiYolu.astro'
+import Rozet from '../../../../components/Rozet.astro'
+import { diziYazilari } from '../../../../lib/agac'
+
+export async function getStaticPaths() {
+  const diziler = await getCollection('dizi')
+  return diziler.map((girdi) => {
+    const [alan, dizi] = girdi.id.split('/')
+    return { params: { alan, dizi }, props: { girdi } }
+  })
+}
+
+const { girdi } = Astro.props
+const [alanId, diziId] = girdi.id.split('/')
+const { Content } = await render(girdi)
+
+const [alanGirdi, hepsi] = await Promise.all([
+  getEntry('alan', alanId),
+  getCollection('yazi'),
+])
+const sirali = diziYazilari(hepsi, alanId, diziId)
+
+const isaretleme = {
+  '@context': 'https://schema.org',
+  '@type': 'CreativeWorkSeries',
+  name: girdi.data.baslik,
+  description: girdi.data.ozet,
+  inLanguage: 'tr',
+  hasPart: sirali.map((yazi) => ({
+    '@type': 'Article',
+    name: yazi.baslik,
+    url: `https://perakendeanalitigi.com${yazi.adres}`,
+    position: yazi.sira,
+  })),
+}
+---
+
+<Temel baslik={girdi.data.baslik} aciklama={girdi.data.ozet} isaretleme={isaretleme}>
+  <KirintiYolu
+    basamaklar={[
+      { ad: alanGirdi!.data.baslik, adres: `/tr/${alanId}/` },
+      { ad: girdi.data.baslik },
+    ]}
+  />
+
+  <h1>{girdi.data.baslik}</h1>
+  <Content />
+
+  <section class="dizi-icerik">
+    <h2>Dizideki yazılar</h2>
+    <p class="okuma-onerisi">
+      Diziyi baştan sona okuyabilirsiniz. Acelesi olan için kısa yol: hikâye ve
+      sonuç yazıları problemi ve çıktıyı tek başına anlatır; teknik yazılar
+      modelin ve kodun tamamını taşır.
+    </p>
+    <ol class="dizi-listesi">
+      {
+        sirali.map((yazi) => (
+          <li>
+            <Rozet tip={yazi.tip as 'hikaye' | 'anlatici' | 'teknik' | 'sonuc'} />
+            <a href={yazi.adres}>{yazi.baslik}</a>
+            {yazi.durum === 'hazirlaniyor' && <span class="durum"> · hazırlanıyor</span>}
+            <p class="ozet">{yazi.ozet}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  {
+    girdi.data.demo && (
+      <p class="demo-baglanti">
+        <a href={`/tr/${alanId}/${diziId}/demo/`}>Demoyu aç</a> — parametreleri
+        değiştirin, sonucun nasıl değiştiğini görün.
+      </p>
+    )
+  }
+</Temel>
