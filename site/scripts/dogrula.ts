@@ -14,10 +14,19 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, relative, resolve, sep } from 'node:path'
 import matter from 'gray-matter'
-import { hepsiniDogrula, type DiziGirdi, type YaziGirdi } from '../src/lib/dogrula'
+import {
+  hepsiniDogrula,
+  type AlanGirdi,
+  type DiziGirdi,
+  type YaziGirdi,
+} from '../src/lib/dogrula'
+import { agacSekliniDogrula, type AgacDosyasi, type Koleksiyon } from '../src/lib/agacSekli'
 
 type Girdi = { id: string; data: Record<string, unknown>; body: string }
 type KoleksiyonSonucu = { girdiler: Girdi[]; eksik: boolean }
+
+/** Ağaç şekli kontrolüne giren bütün koleksiyonlar. */
+const KOLEKSIYONLAR: Koleksiyon[] = ['alan', 'dizi', 'yazi', 'sozluk', 'kadro']
 
 /**
  * Bir alt dizini verilen uzantıya göre özyinelemeli tarar.
@@ -28,16 +37,18 @@ type KoleksiyonSonucu = { girdiler: Girdi[]; eksik: boolean }
  * bir catch, boş/yanlış bir kökte "hata yok" yanılsaması yaratan asıl
  * kusurdu.
  */
-function dosyalariTara(baslangic: string, uzanti: string): string[] {
+function dosyalariTara(baslangic: string, uzanti: string | null): string[] {
   const sonuclar: string[] = []
 
   function gez(dizin: string) {
     for (const ad of readdirSync(dizin)) {
+      // Nokta ile başlayan dosyalar içerik değildir (.gitkeep, .DS_Store).
+      if (ad.startsWith('.')) continue
       const tamYol = join(dizin, ad)
       const bilgi = statSync(tamYol)
       if (bilgi.isDirectory()) {
         gez(tamYol)
-      } else if (bilgi.isFile() && extname(ad) === uzanti) {
+      } else if (bilgi.isFile() && (uzanti === null || extname(ad) === uzanti)) {
         sonuclar.push(tamYol)
       }
     }
@@ -79,6 +90,37 @@ function koleksiyonuOku(icerikKoku: string, altDizin: string, uzanti: string): K
   return { girdiler, eksik: false }
 }
 
+/**
+ * İçerik ağacındaki **bütün** dosyaları toplar — uzantısına bakmadan.
+ *
+ * koleksiyonuOku beklenen uzantıyı süzer; ağaç kontrolünün asıl işlerinden
+ * biri ise tam olarak "beklenmeyen uzantılı dosya var mı" sorusu olduğu için
+ * burada süzme yapılamaz. Frontmatter yalnızca Astro'nun yükleyebileceği
+ * uzantılarda okunur; bir `.txt` dosyasını gray-matter'a vermenin anlamı yok.
+ */
+function agacDosyalariniTopla(icerikKoku: string): AgacDosyasi[] {
+  const dosyalar: AgacDosyasi[] = []
+
+  for (const koleksiyon of KOLEKSIYONLAR) {
+    const koleksiyonKoku = join(icerikKoku, koleksiyon)
+    if (!existsSync(koleksiyonKoku)) continue
+
+    for (const tamYol of dosyalariTara(koleksiyonKoku, null)) {
+      const goreliYol = relative(koleksiyonKoku, tamYol).split(sep).join('/')
+      const uzanti = extname(tamYol)
+      const okunabilir = uzanti === '.md' || uzanti === '.mdx'
+      dosyalar.push({
+        koleksiyon,
+        goreliYol,
+        data: okunabilir
+          ? (matter(readFileSync(tamYol, 'utf-8')).data as Record<string, unknown>)
+          : undefined,
+      })
+    }
+  }
+  return dosyalar
+}
+
 function calistir(): void {
   const icerikKokuGirdi = process.argv[2] ?? 'src/content'
   const icerikKoku = resolve(process.cwd(), icerikKokuGirdi)
@@ -108,6 +150,23 @@ function calistir(): void {
     .filter(([, sonuc]) => sonuc.eksik)
     .map(([ad]) => ad)
 
+  // Ağaç şekli önce. Bozuk bir ağaçta üretilen içerik hataları yanıltıcıdır:
+  // tek bir eksik alan dosyası, o alandaki her yazı için ayrı bir "tanımsız
+  // alan" satırı doğurur ve asıl eksik dosya kaybolur.
+  const agacHatalari = agacSekliniDogrula(agacDosyalariniTopla(icerikKoku))
+  if (agacHatalari.length > 0) {
+    for (const hata of agacHatalari) {
+      console.error(hata)
+    }
+    console.error(
+      `İçerik ağacının şekli ${agacHatalari.length} hatayla geçersiz. ` +
+        'İçerik kontrolleri hiç koşmadı: bozuk bir ağaçta üretilen içerik ' +
+        'hataları yanıltıcı olur. Önce yukarıdaki dosya yerleşimini düzeltin.',
+    )
+    process.exitCode = 1
+    return
+  }
+
   const yazilar: YaziGirdi[] = yaziSonuc.girdiler.map((g) => ({
     id: g.id,
     body: g.body,
@@ -119,7 +178,7 @@ function calistir(): void {
     data: g.data as DiziGirdi['data'],
   }))
 
-  const alanlar = alanSonuc.girdiler.map((g) => g.id)
+  const alanlar: AlanGirdi[] = alanSonuc.girdiler.map((g) => ({ id: g.id, body: g.body }))
   const terimler = sozlukSonuc.girdiler.map((g) => g.id)
 
   // Boş ya da yanlış bir içerik kökünde sessiz "başarı" en tehlikeli kusur

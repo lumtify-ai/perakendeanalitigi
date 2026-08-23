@@ -62,3 +62,31 @@ describe('scripts/dogrula.ts', () => {
     expect(sonuc.cikti).toMatch(/0 yazı, 0 terim/)
   })
 })
+
+// Ağaç şekli kontrolü içerik kontrollerinin *önünde* durur ve bozuk bir
+// ağaçta onlara hiç girmez. Birim testleri saf fonksiyonu doğruluyor; bu iki
+// test script'in gerçekten build'i durdurduğunu ve mesajın teşhis edici
+// olduğunu kanıtlar. Karşılaştırma noktası, düzeltmeden önce kullanıcının
+// gördüğü şeydi: `dist/.prerender/chunks/index_CXHTl5Oh.mjs:54`.
+describe('ağaç şekli doğrulaması', () => {
+  it('alan dosyası olmayan dizide başarısız olur ve eksik dosyayı adıyla söyler', () => {
+    const sonuc = scriptiCalistir('tests/fixtures/yetim-dizi')
+    expect(sonuc.kod).not.toBe(0)
+    expect(sonuc.cikti).toContain('src/content/dizi/fiyatlama/dinamik-fiyat.md')
+    expect(sonuc.cikti).toContain('src/content/alan/fiyatlama.md')
+    expect(sonuc.cikti).toMatch(/ağacının şekli/i)
+  })
+
+  it('yazi koleksiyonundaki .md dosyasında başarısız olur', () => {
+    const sonuc = scriptiCalistir('tests/fixtures/yanlis-uzanti')
+    expect(sonuc.kod).not.toBe(0)
+    expect(sonuc.cikti).toContain('taslak.md')
+    expect(sonuc.cikti).toMatch(/sessizce yok sayılır/)
+  })
+
+  it('gerçek içeriğin ağaç şekli sağlamdır', () => {
+    const sonuc = scriptiCalistir('src/content')
+    expect(sonuc.kod).toBe(0)
+    expect(sonuc.cikti).not.toMatch(/ağacının şekli/i)
+  })
+})

@@ -1,13 +1,16 @@
 import { defineCollection } from 'astro:content'
 import { glob } from 'astro/loaders'
 import { z } from 'astro/zod'
+import { TANIM_ASGARI_UZUNLUK } from './lib/agacSekli'
 
 const alan = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/alan' }),
   schema: z.object({
     baslik: z.string(),
-    // İlk paragraf doğrudan tanımla açılır; hikâyeyle açılan sayfa alıntılanmaz
-    tanim: z.string(),
+    // İlk paragraf doğrudan tanımla açılır; hikâyeyle açılan sayfa alıntılanmaz.
+    // Alt sınır olmadan boş dize geçiyordu; aynı sınır ağaç doğrulamasında da
+    // uygulanır (src/lib/agacSekli.ts).
+    tanim: z.string().min(TANIM_ASGARI_UZUNLUK),
     sira: z.number().int(),
   }),
 })
