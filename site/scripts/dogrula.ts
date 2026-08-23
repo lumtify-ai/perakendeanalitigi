@@ -11,26 +11,28 @@
 // Kullanım: tsx scripts/dogrula.ts [icerikKoku]
 // icerikKoku verilmezse "src/content" kullanılır.
 
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { extname, join, relative, sep } from 'node:path'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { extname, join, relative, resolve, sep } from 'node:path'
 import matter from 'gray-matter'
 import { hepsiniDogrula, type DiziGirdi, type YaziGirdi } from '../src/lib/dogrula'
 
 type Girdi = { id: string; data: Record<string, unknown>; body: string }
+type KoleksiyonSonucu = { girdiler: Girdi[]; eksik: boolean }
 
-/** Bir alt dizini verilen uzantıya göre özyinelemeli tarar. */
+/**
+ * Bir alt dizini verilen uzantıya göre özyinelemeli tarar.
+ *
+ * `baslangic`'in var olduğu çağıran tarafından (koleksiyonuOku'da) zaten
+ * doğrulanır — burada readdirSync hatası yutulmaz; gerçekten beklenmedik
+ * bir durumsa (örn. izin sorunu) script gürültülü şekilde patlar. Sessiz
+ * bir catch, boş/yanlış bir kökte "hata yok" yanılsaması yaratan asıl
+ * kusurdu.
+ */
 function dosyalariTara(baslangic: string, uzanti: string): string[] {
   const sonuclar: string[] = []
 
   function gez(dizin: string) {
-    let girdiler: string[]
-    try {
-      girdiler = readdirSync(dizin)
-    } catch {
-      // Alt dizin (örn. isteğe bağlı bir koleksiyon) hiç yoksa sessizce atla.
-      return
-    }
-    for (const ad of girdiler) {
+    for (const ad of readdirSync(dizin)) {
       const tamYol = join(dizin, ad)
       const bilgi = statSync(tamYol)
       if (bilgi.isDirectory()) {
@@ -59,31 +61,83 @@ function idUret(koleksiyonKoku: string, dosyaYolu: string): string {
   return uzantisiz.split(sep).join('/')
 }
 
-function koleksiyonuOku(icerikKoku: string, altDizin: string, uzanti: string): Girdi[] {
+/**
+ * Bir koleksiyon dizinini okur. Dizin hiç yoksa boş dizi yerine `eksik: true`
+ * döner ki çağıran bunu sessizce "koleksiyon boş" ile karıştırmasın —
+ * eksik bir klasör her zaman bir hatadır, boş bir koleksiyon değildir.
+ */
+function koleksiyonuOku(icerikKoku: string, altDizin: string, uzanti: string): KoleksiyonSonucu {
   const koleksiyonKoku = join(icerikKoku, altDizin)
-  return dosyalariTara(koleksiyonKoku, uzanti).map((dosyaYolu) => {
+  if (!existsSync(koleksiyonKoku)) {
+    return { girdiler: [], eksik: true }
+  }
+  const girdiler = dosyalariTara(koleksiyonKoku, uzanti).map((dosyaYolu) => {
     const ham = readFileSync(dosyaYolu, 'utf-8')
     const { data, content } = matter(ham)
     return { id: idUret(koleksiyonKoku, dosyaYolu), data, body: content }
   })
+  return { girdiler, eksik: false }
 }
 
 function calistir(): void {
-  const icerikKoku = process.argv[2] ?? 'src/content'
+  const icerikKokuGirdi = process.argv[2] ?? 'src/content'
+  const icerikKoku = resolve(process.cwd(), icerikKokuGirdi)
 
-  const yazilar: YaziGirdi[] = koleksiyonuOku(icerikKoku, 'yazi', '.mdx').map((g) => ({
+  if (!existsSync(icerikKoku)) {
+    console.error(
+      `İçerik kökü bulunamadı: "${icerikKoku}" (verilen argüman: "${icerikKokuGirdi}"). ` +
+        'Doğrulama koşulamadı — bu build\'i durdurmalı, sessizce geçmemeli.',
+    )
+    process.exitCode = 1
+    return
+  }
+
+  const yaziSonuc = koleksiyonuOku(icerikKoku, 'yazi', '.mdx')
+  const diziSonuc = koleksiyonuOku(icerikKoku, 'dizi', '.md')
+  const alanSonuc = koleksiyonuOku(icerikKoku, 'alan', '.md')
+  const sozlukSonuc = koleksiyonuOku(icerikKoku, 'sozluk', '.md')
+
+  const eksikKlasorler = (
+    [
+      ['yazi', yaziSonuc],
+      ['dizi', diziSonuc],
+      ['alan', alanSonuc],
+      ['sozluk', sozlukSonuc],
+    ] as const
+  )
+    .filter(([, sonuc]) => sonuc.eksik)
+    .map(([ad]) => ad)
+
+  const yazilar: YaziGirdi[] = yaziSonuc.girdiler.map((g) => ({
     id: g.id,
     body: g.body,
     data: g.data as YaziGirdi['data'],
   }))
 
-  const diziler: DiziGirdi[] = koleksiyonuOku(icerikKoku, 'dizi', '.md').map((g) => ({
+  const diziler: DiziGirdi[] = diziSonuc.girdiler.map((g) => ({
     id: g.id,
     data: g.data as DiziGirdi['data'],
   }))
 
-  const alanlar = koleksiyonuOku(icerikKoku, 'alan', '.md').map((g) => g.id)
-  const terimler = koleksiyonuOku(icerikKoku, 'sozluk', '.md').map((g) => g.id)
+  const alanlar = alanSonuc.girdiler.map((g) => g.id)
+  const terimler = sozlukSonuc.girdiler.map((g) => g.id)
+
+  // Boş ya da yanlış bir içerik kökünde sessiz "başarı" en tehlikeli kusur
+  // sınıfıdır: doğrulama hiç koşmamış olur ama build yine de yayına çıkar.
+  // Gerçek bir kullanımda içeriksiz bir build istenen bir şey değil, o
+  // yüzden hiç yazı ya da hiç terim bulunamamasını da hata sayıyoruz —
+  // kararı script'in kendi takdirine bırakmıyoruz.
+  if (yazilar.length === 0 || terimler.length === 0) {
+    console.error(
+      `İçerik kökünde yeterli içerik bulunamadı: "${icerikKoku}" (verilen argüman: "${icerikKokuGirdi}"). ` +
+        `${yazilar.length} yazı, ${terimler.length} terim bulundu.` +
+        (eksikKlasorler.length > 0
+          ? ` Eksik koleksiyon klasörleri: ${eksikKlasorler.join(', ')}.`
+          : ' Bu klasörler var ama içi boş; yanlış kökte mi çalıştırdınız?'),
+    )
+    process.exitCode = 1
+    return
+  }
 
   const hatalar = hepsiniDogrula(yazilar, diziler, alanlar, terimler)
 

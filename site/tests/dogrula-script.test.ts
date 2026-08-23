@@ -44,4 +44,21 @@ describe('scripts/dogrula.ts', () => {
     expect(sonuc.kod).toBe(0)
     expect(sonuc.cikti).toMatch(/İçerik doğrulandı/)
   })
+
+  // Kritik gözden geçirme bulgusu: var olmayan ya da boş bir içerik kökü,
+  // sessizce "0 hata" (dolayısıyla exit 0) döndürüp doğrulamanın hiç
+  // koşmadığını gizleyebiliyordu. Bu iki test o davranışı kilitler.
+  it('var olmayan bir kökte sıfırdan farklı çıkış koduyla başarısız olur', () => {
+    const sonuc = scriptiCalistir('tests/fixtures/yok-boyle-bir-dizin')
+    expect(sonuc.kod).not.toBe(0)
+    expect(sonuc.cikti).toMatch(/yok-boyle-bir-dizin/)
+    expect(sonuc.cikti).toMatch(/bulunamadı/i)
+  })
+
+  it('var olan ama boş bir kökte sıfırdan farklı çıkış koduyla başarısız olur', () => {
+    const sonuc = scriptiCalistir('tests/fixtures/bos-icerik')
+    expect(sonuc.kod).not.toBe(0)
+    expect(sonuc.cikti).toMatch(/bos-icerik/)
+    expect(sonuc.cikti).toMatch(/0 yazı, 0 terim/)
+  })
 })
