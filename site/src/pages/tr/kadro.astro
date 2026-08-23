@@ -2,6 +2,7 @@
 // site/src/pages/tr/kadro.astro
 import { getCollection } from 'astro:content'
 import Temel from '../../layouts/Temel.astro'
+import KirintiYolu from '../../components/KirintiYolu.astro'
 
 const kisiler = (await getCollection('kadro')).sort((a, b) =>
   a.data.ad.localeCompare(b.data.ad, 'tr'),
@@ -12,6 +13,8 @@ const kisiler = (await getCollection('kadro')).sort((a, b) =>
   baslik="Kadro — Ali, Veli, Pelin"
   aciklama="Sitedeki hikâyelerde geçen kurgusal karakterler ve perakendedeki rolleri: allocator ve planner ne iş yapar."
 >
+  <KirintiYolu basamaklar={[{ ad: "Kadro" }]} />
+
   <h1>Kadro</h1>
   <p>
     Bu sitedeki hikâyeler üç kişinin etrafında dönüyor. Üçü de kurgusal, ama

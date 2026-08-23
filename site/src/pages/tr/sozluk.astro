@@ -2,6 +2,7 @@
 // site/src/pages/tr/sozluk.astro
 import { getCollection } from 'astro:content'
 import Temel from '../../layouts/Temel.astro'
+import KirintiYolu from '../../components/KirintiYolu.astro'
 
 const maddeler = (await getCollection('sozluk')).sort((a, b) =>
   a.data.terim.localeCompare(b.data.terim, 'tr'),
@@ -13,7 +14,7 @@ const isaretleme = {
   name: 'Perakende Analitiği Sözlüğü',
   hasDefinedTerm: maddeler.map((m) => ({
     '@type': 'DefinedTerm',
-    '@id': `https://perakendeanalitigi.com/tr/sozluk/#${m.id}`,
+    '@id': new URL(`/tr/sozluk/#${m.id}`, Astro.site).href,
     name: m.data.terim,
     description: m.data.kisa,
   })),
@@ -24,6 +25,8 @@ const isaretleme = {
   baslik="Perakende Sözlüğü"
   aciklama="Moda perakendesi ve perakende analitiği terimlerinin Türkçe tanımları."
 >
+  <KirintiYolu basamaklar={[{ ad: "Sözlük" }]} />
+
   <h1>Perakende Sözlüğü</h1>
   <p>
     Moda perakendesinde terim her şeydir. Aşağıdaki tanımlar sitedeki bütün

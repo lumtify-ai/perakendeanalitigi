@@ -40,12 +40,16 @@ const TANIM =
     değildir.
   </p>
 
+  {/* Üst menüdeki "Alanlar" bağlantısının hedefi (tasarım dokümanı §9) */}
+  <section id="alanlar" class="agac">
+    <h2 class="agac-basligi">Alanlar</h2>
+
   {
     agac.map(({ alan, diziler: altDiziler, tekilYazilar }) => (
       <section class="alan-bolumu">
-        <h2>
+        <h3>
           <a href={`/tr/${alan.id}/`}>{alan.data.baslik}</a>
-        </h2>
+        </h3>
         <p>{alan.data.tanim}</p>
 
         {altDiziler.length > 0 && (
@@ -71,6 +75,7 @@ const TANIM =
       </section>
     ))
   }
+  </section>
 
   <section class="kim-yaziyor">
     <h2>Kim yazıyor</h2>

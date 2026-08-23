@@ -6,6 +6,10 @@ interface Props {
 
 const { basamaklar } = Astro.props
 
+// Alan adı hâlâ açık bir soru (tasarım dokümanı §14.3). Origin tek yerde,
+// astro.config.mjs'deki `site` alanında tanımlıdır; elle yazılan bir kopya
+// alan adı değiştiğinde JSON-LD'yi sessizce yanlış URL'e bağlar.
+
 const isaretleme = {
   '@context': 'https://schema.org',
   '@type': 'BreadcrumbList',
@@ -13,7 +17,7 @@ const isaretleme = {
     '@type': 'ListItem',
     position: sira + 1,
     name: basamak.ad,
-    ...(basamak.adres ? { item: `https://perakendeanalitigi.com${basamak.adres}` } : {}),
+    ...(basamak.adres ? { item: new URL(basamak.adres, Astro.site).href } : {}),
   })),
 }
 ---

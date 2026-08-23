@@ -1,6 +1,7 @@
 ---
 // site/src/pages/tr/veri-seti.astro
 import Temel from '../../layouts/Temel.astro'
+import KirintiYolu from '../../components/KirintiYolu.astro'
 
 const SURUM = 'v1'
 const DEPO = 'https://github.com/lumtify-ai/perakendeanalitigi'
@@ -41,6 +42,8 @@ const isaretleme = {
 ---
 
 <Temel baslik="Lumoda Veri Seti" aciklama={ACIKLAMA} isaretleme={isaretleme}>
+  <KirintiYolu basamaklar={[{ ad: "Veri seti" }]} />
+
   <h1>Lumoda — Sentetik Moda Perakende Veri Seti</h1>
   <p class="tanim">{ACIKLAMA}</p>
 
