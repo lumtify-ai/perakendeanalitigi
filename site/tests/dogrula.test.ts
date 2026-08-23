@@ -116,3 +116,56 @@ describe('hepsiniDogrula', () => {
     expect(hatalar.join('\n')).toMatch(/blok-transfer/)
   })
 })
+
+// Tasarım dokümanı §11: "Yazar her yazıda isimlidir." Yer tutucu `TBD` hem
+// görünür metne hem JSON-LD'nin author alanına giriyordu ve hiçbir şey
+// yayına çıkmasını engellemiyordu. Bugün hiçbir yazı yayında değil; kural
+// ilk yayın gününde tutar.
+describe('yazar kuralı', () => {
+  function yazarli(durum: string, yazar: string): YaziGirdi[] {
+    const yazilar = tamDizi()
+    yazilar[0].data.durum = durum
+    yazilar[0].data.yazar = yazar
+    return yazilar
+  }
+
+  it('yayındaki yazıda TBD yazarını yakalar', () => {
+    const hatalar = hepsiniDogrula(yazarli('yayinda', 'TBD'), DIZILER, ALANLAR, TERIMLER)
+    expect(hatalar.join('\n')).toMatch(/TBD/)
+    expect(hatalar.join('\n')).toMatch(/transfer\/blok-transfer\/a/)
+  })
+
+  it('hazırlanıyor yazıda TBD yazarına izin verir', () => {
+    expect(hepsiniDogrula(yazarli('hazirlaniyor', 'TBD'), DIZILER, ALANLAR, TERIMLER)).toEqual([])
+  })
+
+  it('yayındaki yazıda isimli yazara izin verir', () => {
+    expect(hepsiniDogrula(yazarli('yayinda', 'Pelin'), DIZILER, ALANLAR, TERIMLER)).toEqual([])
+  })
+})
+
+// Tasarım dokümanı §3: alan sayfası problemi kavram düzeyinde tanımlar ve
+// **kod içermez**. Şablon gövdeyi süzmez, süzmemeli de: süzülen kod sessizce
+// kaybolurdu. Kural build'i kırarak zorlanır.
+describe('alan sayfası kod içermez', () => {
+  it('alan gövdesindeki çitli kod bloğunu yakalar', () => {
+    const alanlar: AlanGirdi[] = [
+      { id: 'transfer', body: 'Giris.\n\n```sql\nSELECT 1\n```\n' },
+      { id: 'temeller', body: 'Zemin.' },
+    ]
+    const hatalar = hepsiniDogrula(tamDizi(), DIZILER, alanlar, TERIMLER)
+    expect(hatalar.join('\n')).toMatch(/transfer.*kod/is)
+  })
+
+  it('tilde ile açılan kod bloğunu da yakalar', () => {
+    const alanlar: AlanGirdi[] = [
+      { id: 'transfer', body: '~~~python\nx = 1\n~~~\n' },
+      { id: 'temeller', body: 'Zemin.' },
+    ]
+    expect(hepsiniDogrula(tamDizi(), DIZILER, alanlar, TERIMLER)).not.toEqual([])
+  })
+
+  it('kodsuz alan gövdesine dokunmaz', () => {
+    expect(hepsiniDogrula(tamDizi(), DIZILER, ALANLAR, TERIMLER)).toEqual([])
+  })
+})
