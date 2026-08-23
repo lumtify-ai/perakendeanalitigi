@@ -275,3 +275,13 @@ describe('demo', () => {
     expect(kuralSayisi).toBe(beklenenAnahtarSayisi)
   })
 })
+
+describe("dağıtım", () => {
+  it("site haritası üretilir", () => {
+    expect(existsSync(DIST + "sitemap-index.xml")).toBe(true)
+  })
+
+  it("robots.txt site haritasına işaret eder", () => {
+    expect(oku("robots.txt")).toContain("Sitemap: https://perakendeanalitigi.com/sitemap-index.xml")
+  })
+})

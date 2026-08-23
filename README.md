@@ -18,6 +18,20 @@ Bir [Lumtify](https://lumtify.com) projesidir.
 Sitedeki kod küratörlüdür: okunabilir tek bir SQL ve tek bir Python dosyası
 gösterilir. Ham katman — tam çözüm, testler, alternatifler — bu depodadır.
 
+## Dağıtım
+
+Site Cloudflare Pages üzerinde barındırılır.
+
+| Ayar | Değer |
+|---|---|
+| Build komutu | `npm run build` |
+| Çıktı dizini | `site/dist` |
+| Kök dizin | `site` |
+| İzlenen yollar | `site/*`, `vakalar/*` |
+
+`veri/` izlenen yolların dışındadır: veri üreticisindeki bir Python commit'i
+siteyi yeniden kurmaz.
+
 ## Veri seti
 
 Tek kurgusal moda perakende zinciri: 25 mağaza, 1.200 SKU (80 model × 3 renk ×
