@@ -1,0 +1,19 @@
+# Üretilen veri seti — GitHub Releases ile dağıtılır, repoya girmez
+veri/cikti/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Node / Astro
+node_modules/
+dist/
+.astro/
+
+# Ortam
+.env
+.env.local
+.DS_Store

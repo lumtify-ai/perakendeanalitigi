@@ -1,0 +1,24 @@
+# Veri ve içerik lisansı
+
+Bu depodaki **kod** MIT lisansıyla dağıtılır (bkz. `LICENSE`).
+
+Bu depoda ve perakendeanalitigi.com üzerinde yayımlanan **veri setleri ve
+yazılı içerik** Creative Commons Atıf 4.0 Uluslararası (CC BY 4.0) lisansıyla
+dağıtılır.
+
+Kapsam:
+- `veri/` altında üretilen sentetik veri setleri (CSV, Parquet, DuckDB)
+- `docs/` altındaki dokümanlar
+- `site/` altındaki yazılı vaka içerikleri
+
+Serbestsiniz:
+- Paylaşmak — her ortamda kopyalamak ve yeniden dağıtmak
+- Uyarlamak — karıştırmak, dönüştürmek, üzerine inşa etmek; ticari amaçlar dâhil
+
+Tek koşul:
+- **Atıf** — Lumtify'a ve perakendeanalitigi.com'a uygun referans vermek.
+
+Lisansın tam metni: https://creativecommons.org/licenses/by/4.0/legalcode.tr
+
+Veri tamamen sentetiktir. Hiçbir gerçek şirkete, müşteriye veya kişiye ait
+veri içermez.
