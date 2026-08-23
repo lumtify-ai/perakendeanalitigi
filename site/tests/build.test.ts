@@ -72,3 +72,14 @@ describe('sözlük', () => {
   // Son iki test (tooltip HTML'de duruyor mu, script üretilmiyor mu) Task 9'da
   // yazı sayfaları (tr/transfer/blok-transfer/sonuclar/index.html) üretildiğinde eklenecek.
 })
+
+describe('kadro', () => {
+  it('kadro sayfası üç karakteri de tanıtır', () => {
+    const html = oku('tr/kadro/index.html')
+    expect(html).toContain('Ali')
+    expect(html).toContain('Veli')
+    expect(html).toContain('Pelin')
+    expect(html).toContain('Allocator')
+    expect(html).toContain('Planner')
+  })
+})

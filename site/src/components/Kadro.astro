@@ -1,0 +1,25 @@
+---
+// site/src/components/Kadro.astro
+import { getCollection } from 'astro:content'
+
+const kisiler = (await getCollection('kadro')).sort((a, b) =>
+  a.data.ad.localeCompare(b.data.ad, 'tr'),
+)
+---
+
+<aside class="kadro-kutusu">
+  <p class="kadro-baslik">Bu yazıdaki kişiler</p>
+  <ul>
+    {
+      kisiler.map((kisi) => (
+        <li>
+          <strong>{kisi.data.ad}</strong> — {kisi.data.rol}. {kisi.data.tanitim}
+        </li>
+      ))
+    }
+  </ul>
+  <p class="kadro-not">
+    Üçü de kurgusaldır ve <a href="/tr/veri-seti/">Lumoda</a> zincirinde çalışırlar.
+    Ayrıntı: <a href="/tr/kadro/">kadro sayfası</a>.
+  </p>
+</aside>

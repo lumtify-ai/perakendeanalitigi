@@ -1,0 +1,32 @@
+---
+// site/src/pages/tr/kadro.astro
+import { getCollection } from 'astro:content'
+import Temel from '../../layouts/Temel.astro'
+
+const kisiler = (await getCollection('kadro')).sort((a, b) =>
+  a.data.ad.localeCompare(b.data.ad, 'tr'),
+)
+---
+
+<Temel
+  baslik="Kadro — Ali, Veli, Pelin"
+  aciklama="Sitedeki hikâyelerde geçen kurgusal karakterler ve perakendedeki rolleri: allocator ve planner ne iş yapar."
+>
+  <h1>Kadro</h1>
+  <p>
+    Bu sitedeki hikâyeler üç kişinin etrafında dönüyor. Üçü de kurgusal, ama
+    yaptıkları işler gerçek: bir moda perakende zincirinde her gün bu kararlar
+    veriliyor.
+  </p>
+
+  {
+    kisiler.map((kisi) => (
+      <section>
+        <h2 id={kisi.id}>
+          {kisi.data.ad} · {kisi.data.rol}
+        </h2>
+        <Fragment set:html={kisi.rendered?.html ?? ''} />
+      </section>
+    ))
+  }
+</Temel>
