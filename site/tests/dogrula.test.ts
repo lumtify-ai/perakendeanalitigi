@@ -1,6 +1,11 @@
 // site/tests/dogrula.test.ts
 import { describe, expect, it } from 'vitest'
-import { hepsiniDogrula, type DiziGirdi, type YaziGirdi } from '../src/lib/dogrula'
+import {
+  hepsiniDogrula,
+  type AlanGirdi,
+  type DiziGirdi,
+  type YaziGirdi,
+} from '../src/lib/dogrula'
 
 function yazi(
   id: string,
@@ -12,7 +17,10 @@ function yazi(
 }
 
 const DIZILER: DiziGirdi[] = [{ id: 'transfer/blok-transfer', data: { alan: 'transfer' } }]
-const ALANLAR = ['transfer', 'temeller']
+const ALANLAR: AlanGirdi[] = [
+  { id: 'transfer', body: 'Transfer bir kavramdir.' },
+  { id: 'temeller', body: 'Temeller bir kavramdir.' },
+]
 const TERIMLER = ['cover', 'option']
 
 function tamDizi(): YaziGirdi[] {

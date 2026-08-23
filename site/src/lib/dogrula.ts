@@ -8,6 +8,8 @@ export type YaziGirdi = {
     baslik: string
     tip: 'hikaye' | 'anlatici' | 'teknik' | 'sonuc'
     sira: number
+    yazar?: string
+    durum?: string
   }
 }
 
@@ -16,15 +18,26 @@ export type DiziGirdi = {
   data: { alan: string }
 }
 
+/** Alan koleksiyonunun bir girdisi. Gövde, alan sayfası kuralları için okunur. */
+export type AlanGirdi = {
+  id: string
+  body: string
+}
+
 const TERIM_DESENI = /<T\s+k=["']([^"']+)["']/g
 const KOPRU_DESENI = /<Lumtify\b/
+// ``` ya da ~~~ ile açılan çitli kod bloğu; satır başında olmalı.
+const KOD_BLOGU_DESENI = /^[ \t]*(```|~~~)/m
+// Yazar kimliği hâlâ açık bir soru (tasarım dokümanı §14.1); yer tutucu bu.
+const YAZAR_YER_TUTUCU = 'TBD'
 
 /** Her yazının alanı ve dizisi tanımlı mı? */
 function yollariDogrula(
   yazilar: YaziGirdi[],
   diziler: DiziGirdi[],
-  alanlar: string[],
+  alanlar: AlanGirdi[],
 ): string[] {
+  const alanIdleri = new Set(alanlar.map((a) => a.id))
   const diziIdleri = new Set(diziler.map((d) => d.id))
   const hatalar: string[] = []
 
@@ -37,7 +50,7 @@ function yollariDogrula(
       continue
     }
 
-    if (!alanlar.includes(yol.alan)) {
+    if (!alanIdleri.has(yol.alan)) {
       hatalar.push(
         `"${yaziGirdi.id}" tanımsız bir alana ait: "${yol.alan}". ` +
           `src/content/alan/${yol.alan}.md dosyasını ekleyin.`,
@@ -157,11 +170,48 @@ function kopruleriDogrula(yazilar: YaziGirdi[]): string[] {
     )
 }
 
+/**
+ * Yayına çıkan bir yazının yazarı isimli midir?
+ *
+ * Tasarım dokümanı §11: "Yazar her yazıda isimlidir." Yer tutucu `TBD` hem
+ * görünür metne hem JSON-LD'ye giriyor; bugün hiçbir yazı `yayinda` değil,
+ * yani bu kural bugün geçer ve ilk yayın gününde tutar.
+ */
+function yazarlariDogrula(yazilar: YaziGirdi[]): string[] {
+  return yazilar
+    .filter((y) => y.data.durum === 'yayinda' && y.data.yazar?.trim() === YAZAR_YER_TUTUCU)
+    .map(
+      (y) =>
+        `"${y.id}" yayında ama yazarı hâlâ "${YAZAR_YER_TUTUCU}". ` +
+        'Yazar her yazıda isimlidir (tasarım dokümanı §11); yer tutucu hem sayfada ' +
+        "hem JSON-LD'nin author alanında görünür. Gerçek yazar adını yazın ya da " +
+        'yazıyı "hazirlaniyor" durumunda bırakın.',
+    )
+}
+
+/**
+ * Alan sayfası kod içermez (tasarım dokümanı §3).
+ *
+ * Alan sayfası bir perakende problemini kavram düzeyinde tanımlar; kod dizi
+ * ve yazı sayfalarına aittir. Şablon gövdeyi süzmez, süzemez de: süzülen kod
+ * sessizce kaybolur. Kural burada, build'i kırarak zorlanır.
+ */
+function alanGovdeleriDogrula(alanlar: AlanGirdi[]): string[] {
+  return alanlar
+    .filter((alan) => KOD_BLOGU_DESENI.test(alan.body))
+    .map(
+      (alan) =>
+        `"${alan.id}" alan sayfası kod bloğu içeriyor. ` +
+        'Alan sayfası problemi kavram düzeyinde tanımlar ve kod içermez ' +
+        '(tasarım dokümanı §3); kod dizinin teknik yazılarına aittir.',
+    )
+}
+
 /** Bütün değişmezleri koşar. Boş dizi dönerse içerik geçerlidir. */
 export function hepsiniDogrula(
   yazilar: YaziGirdi[],
   diziler: DiziGirdi[],
-  alanlar: string[],
+  alanlar: AlanGirdi[],
   terimler: string[],
 ): string[] {
   const yolHatalari = yollariDogrula(yazilar, diziler, alanlar)
@@ -176,5 +226,7 @@ export function hepsiniDogrula(
     ...diziIcerigiDogrula(yazilar, diziler),
     ...terimleriDogrula(yazilar, terimler),
     ...kopruleriDogrula(yazilar),
+    ...yazarlariDogrula(yazilar),
+    ...alanGovdeleriDogrula(alanlar),
   ]
 }
