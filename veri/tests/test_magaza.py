@@ -33,3 +33,22 @@ def test_tekrar_uretilebilir():
     a = magazalari_uret(np.random.default_rng(sabitler.TOHUM))
     b = magazalari_uret(np.random.default_rng(sabitler.TOHUM))
     assert a.equals(b)
+
+
+def test_magaza_adlari_benzersiz(magazalar):
+    # Bir zincirde aynı adlı iki mağaza olmaz; rapor okunamaz hale gelir
+    assert magazalar["ad"].is_unique
+
+
+def test_istanbul_agirlikli(magazalar):
+    # Türkiye moda perakendesinde mağaza dağılımı İstanbul ağırlıklıdır
+    istanbul = (magazalar["sehir"] == "İstanbul").sum()
+    assert istanbul >= 5
+
+
+def test_kapasite_metrekareyle_tutarli(magazalar):
+    # Kapasite (taşınabilir azami adet) transfer kısıtının girdisidir
+    assert (magazalar["kapasite"] > 0).all()
+    buyuk = magazalar.nlargest(3, "metrekare")["kapasite"].mean()
+    kucuk = magazalar.nsmallest(3, "metrekare")["kapasite"].mean()
+    assert buyuk > kucuk

@@ -20,6 +20,28 @@ SEHIRLER = [
     "Adana", "Konya", "Gaziantep", "Kayseri", "Trabzon",
 ]
 
+# Türkiye moda perakendesinde mağaza dağılımı İstanbul ağırlıklıdır.
+# Eşit dağıtmak transfer probleminin coğrafi gerçekliğini bozar.
+SEHIR_AGIRLIKLARI = [0.30, 0.13, 0.11, 0.08, 0.08, 0.07, 0.06, 0.06, 0.06, 0.05]
+
+# Mağaza adı zincirde konumu belirtir; şehir adı tek başına yetmez
+# çünkü aynı şehirde birden çok mağaza olur.
+SEMTLER = {
+    "İstanbul": [
+        "Kadıköy", "Nişantaşı", "Bağdat Caddesi", "Akmerkez", "Zorlu",
+        "Marmara Forum", "Beylikdüzü", "Ataşehir", "Bakırköy", "Kanyon",
+    ],
+    "Ankara": ["Kızılay", "Panora", "Armada", "Bilkent", "Çayyolu"],
+    "İzmir": ["Alsancak", "Bornova", "Karşıyaka", "Optimum"],
+    "Bursa": ["Nilüfer", "Korupark", "Osmangazi"],
+    "Antalya": ["Lara", "MarkAntalya", "Konyaaltı"],
+    "Adana": ["Optimum", "Seyhan"],
+    "Konya": ["Kule Site", "Selçuklu"],
+    "Gaziantep": ["Şehitkamil", "Sanko Park"],
+    "Kayseri": ["Kayseri Park", "Melikgazi"],
+    "Trabzon": ["Forum", "Meydan"],
+}
+
 KATEGORILER = {
     "Üst Giyim": ["Tişört", "Gömlek", "Kazak", "Sweatshirt"],
     "Alt Giyim": ["Pantolon", "Jean", "Etek", "Şort"],
