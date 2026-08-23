@@ -1,0 +1,21 @@
+{
+  "surum": "ornek",
+  "parametreler": [
+    { "ad": "cover_esigi", "etiket": "Gönderen mağazada cover eşiği (hafta)", "degerler": [4, 6, 8, 12] },
+    { "ad": "min_satis", "etiket": "Son 4 haftada asgari satış (adet)", "degerler": [0, 1, 2] }
+  ],
+  "sonuclar": {
+    "4|0":  { "ozet": { "option_sayisi": 61,  "tasinan_adet": 402,  "bosalan_magaza": 9 },  "satirlar": [] },
+    "4|1":  { "ozet": { "option_sayisi": 44,  "tasinan_adet": 301,  "bosalan_magaza": 7 },  "satirlar": [] },
+    "4|2":  { "ozet": { "option_sayisi": 31,  "tasinan_adet": 214,  "bosalan_magaza": 5 },  "satirlar": [] },
+    "6|0":  { "ozet": { "option_sayisi": 88,  "tasinan_adet": 597,  "bosalan_magaza": 12 }, "satirlar": [] },
+    "6|1":  { "ozet": { "option_sayisi": 67,  "tasinan_adet": 455,  "bosalan_magaza": 10 }, "satirlar": [] },
+    "6|2":  { "ozet": { "option_sayisi": 49,  "tasinan_adet": 333,  "bosalan_magaza": 8 },  "satirlar": [] },
+    "8|0":  { "ozet": { "option_sayisi": 114, "tasinan_adet": 781,  "bosalan_magaza": 15 }, "satirlar": [] },
+    "8|1":  { "ozet": { "option_sayisi": 90,  "tasinan_adet": 612,  "bosalan_magaza": 13 }, "satirlar": [] },
+    "8|2":  { "ozet": { "option_sayisi": 68,  "tasinan_adet": 470,  "bosalan_magaza": 11 }, "satirlar": [] },
+    "12|0": { "ozet": { "option_sayisi": 147, "tasinan_adet": 1012, "bosalan_magaza": 18 }, "satirlar": [] },
+    "12|1": { "ozet": { "option_sayisi": 119, "tasinan_adet": 818,  "bosalan_magaza": 16 }, "satirlar": [] },
+    "12|2": { "ozet": { "option_sayisi": 93,  "tasinan_adet": 641,  "bosalan_magaza": 14 }, "satirlar": [] }
+  }
+}

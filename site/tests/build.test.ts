@@ -211,3 +211,67 @@ describe('veri seti sayfası', () => {
     expect(html).toContain('DuckDB')
   })
 })
+
+describe('demo', () => {
+  it('demo sayfası üretilir', () => {
+    expect(existsSync(DIST + 'tr/transfer/blok-transfer/demo/index.html')).toBe(true)
+  })
+
+  it('bütün kombinasyonlar HTML içinde hazır durur', () => {
+    // Sunucu yok; sayfa her koşulda anında açılır
+    const html = oku('tr/transfer/blok-transfer/demo/index.html')
+    expect(html).toContain('data-anahtar="4|0"')
+    expect(html).toContain('data-anahtar="12|2"')
+  })
+
+  it('parametre seçimi radio ile yapılır, script ile değil', () => {
+    const html = oku('tr/transfer/blok-transfer/demo/index.html')
+    expect(html).toContain('type="radio"')
+  })
+
+  it('senaryo dosyası bütçeyi aşmıyor', async () => {
+    // Kombinasyon sayısı çarpımsal büyür; sınır dosya boyutudur
+    const { statSync } = await import('node:fs')
+    const yol = fileURLToPath(new URL('../src/data/senaryolar/blok-transfer.json', import.meta.url))
+    expect(statSync(yol).size).toBeLessThan(500 * 1024)
+  })
+
+  it('demo JSON sözleşmeye uyar', async () => {
+    const { default: veri } = await import('../src/data/senaryolar/blok-transfer.json')
+    expect(Array.isArray(veri.parametreler)).toBe(true)
+    const beklenenAnahtarSayisi = veri.parametreler.reduce(
+      (carpim: number, p: { degerler: unknown[] }) => carpim * p.degerler.length,
+      1,
+    )
+    expect(Object.keys(veri.sonuclar).length).toBe(beklenenAnahtarSayisi)
+  })
+
+  it('sonuç görünürlüğü saf css :has() ile üretilir, script değil', () => {
+    // hidden özniteliği yerine build-zamanında üretilen bir <style> bloğu
+    // seçili radyo birleşimine karşılık gelen [data-anahtar] bloğunu açar.
+    const html = oku('tr/transfer/blok-transfer/demo/index.html')
+    expect(html).toContain('<style')
+    expect(html).toContain(':has(')
+    expect(html).not.toContain('hidden')
+    expect(html).not.toMatch(/<script(?![^>]*type="application\/ld\+json")/)
+  })
+
+  it(':has() desteklenmeyen tarayıcı için @supports yedeği var', () => {
+    const html = oku('tr/transfer/blok-transfer/demo/index.html')
+    expect(html).toContain('@supports not selector(:has(*))')
+  })
+
+  it('üretilen kural sayısı kombinasyon sayısına eşit', async () => {
+    const { default: veri } = await import('../src/data/senaryolar/blok-transfer.json')
+    const beklenenAnahtarSayisi = veri.parametreler.reduce(
+      (carpim: number, p: { degerler: unknown[] }) => carpim * p.degerler.length,
+      1,
+    )
+    const html = oku('tr/transfer/blok-transfer/demo/index.html')
+    const stilEslesme = html.match(/<style[^>]*>([\s\S]*?)<\/style>/)
+    expect(stilEslesme).not.toBeNull()
+    const stilIcerigi = stilEslesme![1]
+    const kuralSayisi = (stilIcerigi.match(/\[data-anahtar="[^"]+"\]\s*\{\s*display:\s*block\s*\}/g) ?? []).length
+    expect(kuralSayisi).toBe(beklenenAnahtarSayisi)
+  })
+})

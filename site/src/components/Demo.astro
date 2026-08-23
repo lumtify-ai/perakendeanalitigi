@@ -1,0 +1,134 @@
+---
+// site/src/components/Demo.astro
+//
+// Hesaplama katmanı ile arayüz katmanı ayrıdır: senaryolar build öncesinde
+// üretilip depoya commit edilir (bkz. src/data/senaryolar/*.json), bu
+// bileşen hesap yapmaz, yalnızca anahtarı okur. Sayfa her koşulda anında
+// açılır, sunucuya hiç gidilmez, build Python'a bağımlı değildir.
+//
+// Radyo düğmesiyle sonuç değiştirme çalışma anında JavaScript içermez; saf
+// CSS ile :has() seçicisi üzerinden kurulur. Kombinasyon sayısı çarpımsal
+// büyüdüğü için (parametre başına değer sayılarının çarpımı) kurallar elle
+// yazılamaz — burada, aşağıda, sonuç anahtarlarından üretilir.
+
+interface Props {
+  dizi: string
+}
+
+const { dizi } = Astro.props
+
+type SenaryoDosyasi = {
+  surum: string
+  parametreler: { ad: string; etiket: string; degerler: (number | string)[] }[]
+  sonuclar: Record<string, { ozet: Record<string, number>; satirlar: object[] }>
+}
+
+const veriler = import.meta.glob<{ default: SenaryoDosyasi }>('../data/senaryolar/*.json', {
+  eager: true,
+})
+
+const dosyaAnahtari = `../data/senaryolar/${dizi}.json`
+const dosya = veriler[dosyaAnahtari]
+if (!dosya) {
+  throw new Error(`"${dizi}" dizisi için senaryo dosyası yok: src/data/senaryolar/${dizi}.json`)
+}
+
+const { parametreler, sonuclar } = dosya.default
+const kombinasyonlar = Object.keys(sonuclar)
+const ilkAnahtar = kombinasyonlar[0]
+const olcutler = Object.keys(sonuclar[ilkAnahtar].ozet)
+
+const ETIKETLER: Record<string, string> = {
+  option_sayisi: 'Taşınacak option',
+  tasinan_adet: 'Taşınan adet',
+  bosalan_magaza: 'Stoğu boşalan mağaza',
+}
+
+/**
+ * CSS öznitelik değeri içinde ters eğik çizgi ve çift tırnağı kaçırır.
+ *
+ * Şu an senaryo değerleri yalnızca sayı, ama sözleşme `string` değerlere de
+ * izin veriyor (bkz. SenaryoDosyasi.parametreler[].degerler); ileride bir
+ * senaryo dosyası metin değer taşırsa üretilen seçici hâlâ geçerli kalsın.
+ */
+function ozniteligeKac(deger: string): string {
+  return deger.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
+/**
+ * Bir sonuç anahtarını (`"4|0"` gibi) parametrelerin tanımlı sırasına göre
+ * bir dizi `:has()` koşuluna çevirir. Parametre sayısı ikiden farklı olsa
+ * da (üç, dört, ...) çalışır — anahtar kadar `:has()` zincirlenir.
+ */
+function haslarZinciri(anahtar: string): string {
+  return anahtar
+    .split('|')
+    .map((deger, sira) => {
+      const parametre = parametreler[sira]
+      const ad = `${dizi}-${parametre.ad}`
+      return `:has(input[name="${ozniteligeKac(ad)}"][value="${ozniteligeKac(deger)}"]:checked)`
+    })
+    .join('')
+}
+
+const demoStil = [
+  // hidden özniteliği kullanılmıyor: [hidden] { display: none } tarayıcı
+  // stilini ezmeyi gerektirir, kırılgandır. Gizleme tamamen CSS iledir;
+  // aşağıdaki üretilmiş kurallar seçili kombinasyonu görünür kılar.
+  '.demo-sonuc { display: none }',
+  ...kombinasyonlar.map(
+    (anahtar) => `.demo${haslarZinciri(anahtar)} [data-anahtar="${ozniteligeKac(anahtar)}"] { display: block }`,
+  ),
+  // :has() desteklenmeyen tarayıcıda hiçbir kural eşleşmez ve demo tamamen
+  // boş kalır; bu yedek ilk kombinasyonu görünür tutarak bozulmadan
+  // geriler.
+  '@supports not selector(:has(*)) {',
+  '  .demo-sonuclar > .demo-sonuc:first-of-type { display: block }',
+  '}',
+].join('\n')
+---
+
+<div class="demo" id={`demo-${dizi}`}>
+  <Fragment set:html={`<style>${demoStil}</style>`} />
+
+  <form>
+    {
+      parametreler.map((parametre, sutun) => (
+        <fieldset>
+          <legend>{parametre.etiket}</legend>
+          {parametre.degerler.map((deger, satir) => (
+            <label>
+              <input
+                type="radio"
+                name={`${dizi}-${parametre.ad}`}
+                value={String(deger)}
+                checked={satir === 0}
+                data-sutun={sutun}
+              />
+              <span>{deger}</span>
+            </label>
+          ))}
+        </fieldset>
+      ))
+    }
+  </form>
+
+  <div class="demo-sonuclar">
+    {
+      kombinasyonlar.map((anahtar) => (
+        <div class="demo-sonuc" data-anahtar={anahtar}>
+          <dl>
+            {olcutler.map((olcut) => (
+              <div>
+                <dt>{ETIKETLER[olcut] ?? olcut}</dt>
+                <dd>{sonuclar[anahtar].ozet[olcut].toLocaleString('tr-TR')}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ))
+    }
+  </div>
+
+  <p class="demo-not">Bütün kombinasyonlar sayfayla birlikte geldi; sunucuya hiç gidilmiyor.</p>
+</div>
