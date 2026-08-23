@@ -1,0 +1,22 @@
+---
+// site/src/components/T.astro
+import { getEntry } from 'astro:content'
+
+interface Props {
+  k: string
+}
+
+const { k } = Astro.props
+const madde = await getEntry('sozluk', k)
+
+if (!madde) {
+  throw new Error(
+    `Sözlükte olmayan terim: "${k}". src/content/sozluk/${k}.md dosyasını ekleyin.`,
+  )
+}
+---
+
+<span class="terim">
+  <a href={`/tr/sozluk/#${k}`}><slot /></a>
+  <span class="tanim" role="note">{madde.data.kisa}</span>
+</span>

@@ -56,3 +56,19 @@ describe('temel düzen', () => {
     expect(html).not.toMatch(/\d{1,2}\s+(Ocak|Şubat|Mart|Nisan|Mayıs|Haziran|Temmuz|Ağustos|Eylül|Ekim|Kasım|Aralık)/)
   })
 })
+
+describe('sözlük', () => {
+  it('sözlük sayfası her maddeyi çapayla basar', () => {
+    const html = oku('tr/sozluk/index.html')
+    expect(html).toContain('id="cover"')
+    expect(html).toContain('id="kiriklik"')
+    expect(html).toContain('Sell-Through Rate')
+  })
+
+  it('sözlük DefinedTermSet olarak işaretlenir', () => {
+    expect(oku('tr/sozluk/index.html')).toContain('DefinedTermSet')
+  })
+
+  // Son iki test (tooltip HTML'de duruyor mu, script üretilmiyor mu) Task 9'da
+  // yazı sayfaları (tr/transfer/blok-transfer/sonuclar/index.html) üretildiğinde eklenecek.
+})

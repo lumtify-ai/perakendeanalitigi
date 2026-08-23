@@ -1,0 +1,51 @@
+---
+// site/src/pages/tr/sozluk.astro
+import { getCollection } from 'astro:content'
+import Temel from '../../layouts/Temel.astro'
+
+const maddeler = (await getCollection('sozluk')).sort((a, b) =>
+  a.data.terim.localeCompare(b.data.terim, 'tr'),
+)
+
+const isaretleme = {
+  '@context': 'https://schema.org',
+  '@type': 'DefinedTermSet',
+  name: 'Perakende Analitiği Sözlüğü',
+  hasDefinedTerm: maddeler.map((m) => ({
+    '@type': 'DefinedTerm',
+    '@id': `https://perakendeanalitigi.com/tr/sozluk/#${m.id}`,
+    name: m.data.terim,
+    description: m.data.kisa,
+  })),
+}
+---
+
+<Temel
+  baslik="Perakende Sözlüğü"
+  aciklama="Moda perakendesi ve perakende analitiği terimlerinin Türkçe tanımları."
+>
+  <h1>Perakende Sözlüğü</h1>
+  <p>
+    Moda perakendesinde terim her şeydir. Aşağıdaki tanımlar sitedeki bütün
+    yazılarda geçerlidir; yazı içinde altı çizili bir terim gördüğünüzde
+    tanımı buradan gelir.
+  </p>
+
+  {
+    maddeler.map((madde) => (
+      <section>
+        <h2 id={madde.id}>
+          {madde.data.terim}
+          {madde.data.ingilizce && <span class="ingilizce"> · {madde.data.ingilizce}</span>}
+        </h2>
+        <p class="kisa-tanim">{madde.data.kisa}</p>
+        <Fragment set:html={madde.rendered?.html ?? ''} />
+        {madde.data.esanlam.length > 0 && (
+          <p class="esanlam">Ayrıca: {madde.data.esanlam.join(', ')}</p>
+        )}
+      </section>
+    ))
+  }
+
+  <script type="application/ld+json" set:html={JSON.stringify(isaretleme)} is:inline />
+</Temel>

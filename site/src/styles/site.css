@@ -1,2 +1,40 @@
 @import "tailwindcss";
 @import "katex/dist/katex.min.css";
+
+/* Terim tooltip'i — JavaScript yok, tanım DOM'da durur.
+   Yapay zekâ tarayıcıları JS çalıştırmaz ama HTML'i okur. */
+.terim {
+  position: relative;
+  display: inline-block;
+}
+
+.terim > a {
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+}
+
+.terim > .tanim {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  z-index: 20;
+  width: max-content;
+  max-width: min(22rem, 90vw);
+  margin-bottom: 0.4rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  background: #1f2937;
+  color: #f9fafb;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms ease;
+}
+
+/* :focus-within mobilde ve klavyeyle erişimde açar */
+.terim:hover > .tanim,
+.terim:focus-within > .tanim {
+  opacity: 1;
+  visibility: visible;
+}
