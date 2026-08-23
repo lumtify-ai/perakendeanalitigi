@@ -9,12 +9,25 @@ from perakende_veri.urun import urunleri_uret
 
 
 @pytest.fixture(scope="module")
-def sonuc():
+def veri():
+    """Simülasyonun girdisi ve çıktısı bir arada.
+
+    Ürünleri ayrıca üretmek hataya açıktır: tohum sırayla tüketildiği için
+    `urunleri_uret(default_rng(TOHUM))` simülasyonda kullanılandan farklı
+    ürünler verir ve birleştirmeler sessizce yanlış eşleşir.
+    """
     rng = np.random.default_rng(sabitler.TOHUM)
     magazalar = magazalari_uret(rng)
     urunler = urunleri_uret(rng)
-    takvim = takvim_uret()
-    return simule_et(rng, magazalar, urunler, takvim)
+    tablolar = simule_et(rng, magazalar, urunler, takvim_uret())
+    return {"magaza": magazalar, "urun": urunler, **tablolar}
+
+
+@pytest.fixture(scope="module")
+def sonuc(veri):
+    return {
+        ad: veri[ad] for ad in ("satis", "stok", "sevkiyat", "kayip_satis")
+    }
 
 
 # --- Çeşit ataması ------------------------------------------------------
@@ -36,7 +49,7 @@ def test_cesit_option_butunlugu_korur():
     urunler = urunleri_uret(rng)
     cesit = cesit_ata(rng, magazalar, urunler).merge(urunler, on="urun_id")
     beden_sayisi = cesit.groupby(["magaza_id", "option_id"])["beden"].nunique()
-    assert (beden_sayisi == len(sabitler.BEDENLER)).all()
+    assert (beden_sayisi == sabitler.BEDEN_KADEME_SAYISI).all()
 
 
 # --- Üretilen tablolar --------------------------------------------------
@@ -186,15 +199,15 @@ def test_tekrar_uretilebilir():
 
 # --- Dengesizlik: transfer probleminin varlık sebebi ---------------------
 
-def test_magazalar_arasi_beden_dengesizligi_var(sonuc):
+def test_magazalar_arasi_beden_dengesizligi_var(veri):
     """Aynı modelin aynı bedeni bir mağazada tükenirken diğerinde yığılmalı.
 
     İkmal her mağazayı kendi gerçek talebine göre doldurursa plan hep
     doğru çıkar ve dengesizlik oluşmaz. Gerçek hayatta plan zincir
     geneline göre kurulur, talep ise yereldir — fark buradan doğar.
     """
-    urunler = urunleri_uret(np.random.default_rng(sabitler.TOHUM))
-    stok = sonuc["stok"]
+    urunler = veri["urun"]
+    stok = veri["stok"]
     son = stok[stok["tarih"] == stok["tarih"].max()].merge(
         urunler[["urun_id", "model_kodu", "beden"]], on="urun_id"
     )

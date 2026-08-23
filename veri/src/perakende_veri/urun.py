@@ -2,14 +2,20 @@
 
 Moda perakendesinde ürün hiyerarşisi yalnızca bir sınıflandırma değil,
 kararın kendisidir: transfer, ikmal ve sevkiyat algoritmalarının hepsi
-kapsamını bu ağaç üzerinden tanımlar. Bu yüzden tablo bilinçli olarak
-geniş ve düz tutulur (klasik bir DimProduct gibi), normalize edilmez.
+kapsamını bu ağaç üzerinden tanımlar. Tablo bu yüzden bilinçli olarak
+geniş ve düz tutulur; normalize edilmez.
+
+    cinsiyet > üst kategori > alt kategori > line > model > option > SKU
 
 Üç kimlik düzeyi vardır ve karıştırılmamalıdır:
 
-    model   → tasarım (MDL001)              — fiyat bu düzeyde belirlenir
-    option  → model × renk (OPT0001)        — Blok Transfer'in karar birimi
-    SKU     → option × beden (U0001)        — en alt stok birimi
+    model   MDL001            ürün kodu + adı; fiyat bu düzeyde belirlenir
+    option  MDL001-SYH        model × renk; Blok Transfer'in karar birimi
+    SKU     MDL001-SYH-M      option × beden; en alt stok birimi
+
+Beden tek bir ölçek değildir: üst giyim harfle, alt giyim numarayla
+gider, kadın ve erkek numaraları ayrıdır. Bu yüzden her ürün bir **beden
+setine** aittir ve analiz beden etiketine değil setteki sıraya bakar.
 """
 
 import numpy as np
@@ -24,7 +30,10 @@ TABAN_FIYAT = {
     "Mont": 900, "Ceket": 720, "Trençkot": 850,
 }
 
-# Etek yalnızca kadın, diğerlerinde kısıt yok
+# Line ürünün ticari rolüdür ve fiyat konumlandırmasını da etkiler
+LINE_FIYAT_CARPANI = {"Basic": 0.85, "Collection": 1.15, "NOS": 0.90, "Outlet": 0.70}
+
+# Etek yalnızca kadın kategorisinde bulunur
 YALNIZ_KADIN = {"Etek"}
 
 
@@ -37,31 +46,36 @@ def _cinsiyet_sec(rng: np.random.Generator, alt_kategori: str) -> str:
 def _modelleri_uret(rng: np.random.Generator) -> list[dict]:
     """Model düzeyindeki tasarım kararlarını üretir."""
     alt_kategoriler = [
-        (ana, alt)
-        for ana, altlar in sabitler.KATEGORILER.items()
+        (ust, alt)
+        for ust, altlar in sabitler.KATEGORILER.items()
         for alt in altlar
     ]
-    sezon_kodlari = list(sabitler.SEZON_GRUPLARI)
 
     modeller = []
-    for i in range(1, sabitler.MODEL_SAYISI + 1):
-        ana_kategori, alt_kategori = alt_kategoriler[rng.integers(len(alt_kategoriler))]
-        line = str(rng.choice(sabitler.LINELER))
-        devamli = rng.random() < sabitler.LINE_DEVAMLI_OLASILIGI[line]
-        sezon_grup = sezon_kodlari[int(rng.integers(len(sezon_kodlari)))]
-        alis = TABAN_FIYAT[alt_kategori] * float(rng.uniform(0.85, 1.15))
+    for sira in range(1, sabitler.MODEL_SAYISI + 1):
+        ust_kategori, alt_kategori = alt_kategoriler[rng.integers(len(alt_kategoriler))]
+        cinsiyet = _cinsiyet_sec(rng, alt_kategori)
+        line = str(rng.choice(sabitler.LINELER, p=sabitler.LINE_PAYLARI))
+        kesim = str(rng.choice(sabitler.KESIMLER[alt_kategori]))
+
+        alis = (
+            TABAN_FIYAT[alt_kategori]
+            * LINE_FIYAT_CARPANI[line]
+            * float(rng.uniform(0.9, 1.1))
+        )
+        beden_seti, bedenler = sabitler.BEDEN_SETLERI[(cinsiyet, ust_kategori)]
 
         modeller.append(
             {
-                "model_kodu": f"MDL{i:03d}",
-                "cinsiyet": _cinsiyet_sec(rng, alt_kategori),
-                "ana_kategori": ana_kategori,
+                "model_kodu": f"MDL{sira:03d}",
+                "model_adi": f"{kesim} {alt_kategori}",
+                "cinsiyet": cinsiyet,
+                "ust_kategori": ust_kategori,
                 "alt_kategori": alt_kategori,
                 "line": line,
-                "mevsimsellik": "Devamlı" if devamli else "Sezonluk",
                 "uretici": str(rng.choice(sabitler.URETICILER)),
-                "sezon_grup": sezon_grup,
-                "koleksiyon": sabitler.SEZON_GRUPLARI[sezon_grup],
+                "beden_seti": beden_seti,
+                "bedenler": bedenler,
                 "alis_fiyati": round(alis, 2),
                 "liste_fiyati": round(alis * 2.6, 2),
             }
@@ -70,45 +84,34 @@ def _modelleri_uret(rng: np.random.Generator) -> list[dict]:
 
 
 def urunleri_uret(rng: np.random.Generator) -> pd.DataFrame:
-    """Model × renk × beden kırılımında SKU master'ı üretir.
-
-    Fiyat model düzeyinde belirlenir; beden ve renk fiyatı değiştirmez.
-    """
-    beden_sirasi = {beden: i for i, beden in enumerate(sabitler.BEDENLER, start=1)}
-
+    """Model × renk × beden kırılımında SKU master'ı üretir."""
     satirlar = []
-    sku_sayaci = 0
-    option_sayaci = 0
 
     for model in _modelleri_uret(rng):
-        for renk in sabitler.RENKLER:
-            option_sayaci += 1
-            option_id = f"OPT{option_sayaci:04d}"
-            for beden in sabitler.BEDENLER:
-                sku_sayaci += 1
+        for renk, renk_kodu in sabitler.RENKLER.items():
+            option_id = f"{model['model_kodu']}-{renk_kodu}"
+            for sira, beden in enumerate(model["bedenler"], start=1):
                 satirlar.append(
                     {
-                        "urun_id": f"U{sku_sayaci:04d}",
+                        "urun_id": f"{option_id}-{beden}",
                         "option_id": option_id,
                         "model_kodu": model["model_kodu"],
-                        # Perakendede ürün adı stil kodunu taşır; aynı ad iki farklı
-                        # modele düşerse rapor okunamaz hale gelir.
+                        "model_adi": model["model_adi"],
                         "ad": (
-                            f"{model['cinsiyet']} {model['alt_kategori']} "
-                            f"{model['line']} {renk} ({model['model_kodu']})"
+                            f"{model['cinsiyet']} {model['line']} "
+                            f"{model['model_adi']} {renk} {beden}"
                         ),
                         "marka": sabitler.MARKA,
                         "cinsiyet": model["cinsiyet"],
-                        "ana_kategori": model["ana_kategori"],
+                        "ust_kategori": model["ust_kategori"],
                         "alt_kategori": model["alt_kategori"],
                         "line": model["line"],
-                        "mevsimsellik": model["mevsimsellik"],
                         "uretici": model["uretici"],
-                        "sezon_grup": model["sezon_grup"],
-                        "koleksiyon": model["koleksiyon"],
                         "renk": renk,
+                        "renk_kodu": renk_kodu,
+                        "beden_seti": model["beden_seti"],
                         "beden": beden,
-                        "beden_sira": beden_sirasi[beden],
+                        "beden_sira": sira,
                         "alis_fiyati": model["alis_fiyati"],
                         "liste_fiyati": model["liste_fiyati"],
                     }

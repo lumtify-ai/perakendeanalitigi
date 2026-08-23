@@ -36,25 +36,29 @@ def test_mevsimsellik_gorunuyor(con):
         FROM satis s
         JOIN takvim t ON t.tarih = s.tarih
         JOIN urun u ON u.urun_id = s.urun_id
-        WHERE u.ana_kategori = 'Dış Giyim' AND s.adet > 0
+        WHERE u.ust_kategori = 'Dış Giyim' AND s.adet > 0
         GROUP BY 1
     """).df().set_index("sezon")["adet"]
     assert sonuc["Sonbahar/Kış"] > sonuc["İlkbahar/Yaz"] * 2
 
 
-def test_devamli_urun_yil_boyu_satar(con):
-    """Devamlı (NOS) ürünün sezon dalgalanması sezonluktan düşük olmalı."""
+def test_nos_urun_yil_boyu_satar(con):
+    """NOS ürünün sezon dalgalanması Collection'dan düşük olmalı.
+
+    NOS = Never Out of Stock. Stoğu asla bitmemesi gereken çekirdek ürün
+    yıl boyu satar; Collection sezonuyla gelir gider.
+    """
     oranlar = con.sql("""
-        SELECT u.mevsimsellik,
+        SELECT u.line,
                sum(s.adet) FILTER (WHERE t.sezon = 'Sonbahar/Kış')::DOUBLE
              / sum(s.adet) FILTER (WHERE t.sezon = 'İlkbahar/Yaz') AS oran
         FROM satis s
         JOIN takvim t ON t.tarih = s.tarih
         JOIN urun u ON u.urun_id = s.urun_id
-        WHERE u.ana_kategori = 'Dış Giyim' AND s.adet > 0
+        WHERE u.ust_kategori = 'Dış Giyim' AND s.adet > 0
         GROUP BY 1
-    """).df().set_index("mevsimsellik")["oran"]
-    assert oranlar["Sezonluk"] > oranlar["Devamlı"]
+    """).df().set_index("line")["oran"]
+    assert oranlar["Collection"] > oranlar["NOS"]
 
 
 def test_her_ayda_satis_var(con):

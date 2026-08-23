@@ -1,8 +1,8 @@
-# Vesta — Sentetik Moda Perakende Veri Seti (v1)
+# Lumoda — Sentetik Moda Perakende Veri Seti (v1)
 
 perakendeanalitigi.com'daki bütün vakalar bu veri setini kullanır.
 Veri **tamamen sentetiktir**; hiçbir gerçek şirket, müşteri veya kişi
-verisi içermez. Vesta kurgusal bir moda perakende zinciridir.
+verisi içermez. Lumoda kurgusal bir moda perakende zinciridir.
 
 ## Kapsam
 
@@ -10,9 +10,13 @@ verisi içermez. Vesta kurgusal bir moda perakende zinciridir.
 
 | Kimlik düzeyi | Örnek | Anlamı |
 |---|---|---|
-| model | `MDL001` | Tasarım. Fiyat bu düzeyde belirlenir. |
-| option | `OPT0001` | Model × renk. Planlamanın ve transfer kararının birimi. |
-| SKU | `U0001` | Option × beden. En alt stok birimi. |
+| model | `MDL003` | Ürün kodu + ürün adı. Tasarım; fiyat bu düzeyde belirlenir. |
+| option | `MDL003-SYH` | Model × renk. Planlamanın ve transfer kararının birimi. |
+| SKU | `MDL003-SYH-M` | Option × beden. En alt stok birimi. |
+
+Kimlik okunabilir kurulmuştur: **SKU = ürün kodu – renk kodu – beden**.
+Bir rapor satırına bakan kişi hangi model, hangi renk, hangi beden
+olduğunu id'nin kendisinden görür.
 
 ## Tablolar
 
@@ -33,35 +37,64 @@ transfer, ikmal ve sevkiyat algoritmalarının hepsi kapsamını bu ağaç üzer
 tanımlar.
 
 ```
-cinsiyet          Kadın · Erkek · Unisex
-  ana_kategori    Üst Giyim · Alt Giyim · Dış Giyim
-    alt_kategori  Tişört · Gömlek · Pantolon · Mont · …
-      line        Basic · Denim · Casual · Klasik · Spor
+cinsiyet             Kadın · Erkek · Unisex
+  ust_kategori       Üst Giyim · Alt Giyim · Dış Giyim
+    alt_kategori     Tişört · Gömlek · Pantolon · Mont · …
+      line           Basic · Collection · NOS · Outlet
+        model        MDL003 "Balıkçı Yaka Kazak"
+          option     MDL003-SYH
+            SKU      MDL003-SYH-M
 ```
 
-Bu ağaca dik iki eksen daha vardır:
+**Line** ürünün ticari rolünü ve yaşam döngüsünü söyler. Sezonluk/devamlı
+ayrımı ayrı bir eksen değildir; line onu zaten taşır:
 
-- `mevsimsellik` — **Sezonluk** ürün sezonuyla gelir gider; **Devamlı** (NOS)
-  ürün yıl boyu satar ve stoğu hiç bitmemelidir. Transfer kararı ikisinde
-  farklı işler.
-- `sezon_grup` — `S1` (İlkbahar/Yaz) veya `S2` (Sonbahar/Kış).
+| Line | Anlamı | Sezon etkisi | Moda riski |
+|---|---|---|---|
+| `Basic` | Yıl boyu satılan temel ürün | Düşük | Düşük |
+| `Collection` | Sezonluk koleksiyon | Tam | **Yüksek** |
+| `NOS` | Never Out of Stock — stoğu asla bitmemeli | Neredeyse yok | En düşük |
+| `Outlet` | Geçmiş sezondan devreden | Orta | Orta |
 
-`beden_sira` kolonu bedenleri XS=1 … XL=5 olarak sıralar. Kırıklık —
-ara bedenlerin tükenip uçların kalması — bu sıralama olmadan tespit edilemez.
+Outlet line'ı ağırlıklı olarak outlet mağazalarda bulunur (%15'e karşı %3).
+Blok Transfer'in doğal kısıtlarından biri budur: outlet ürününü vitrin
+mağazasına göndermek çözüm değildir.
+
+### Beden setleri
+
+Beden tek bir ölçek değildir. Üst giyim harfle, alt giyim numarayla gider;
+kadın ve erkek numaraları ayrıdır:
+
+| Beden seti | Kademeler |
+|---|---|
+| Kadın Harf | XS · S · M · L · XL |
+| Kadın Numara | 34 · 36 · 38 · 40 · 42 |
+| Erkek Harf | S · M · L · XL · XXL |
+| Erkek Numara | 30 · 32 · 34 · 36 · 38 |
+| Unisex Harf / Numara | Erkek setleriyle aynı |
+
+Bu yüzden analiz beden **etiketine** değil `beden_sira` kolonundaki
+**sıraya** bakar (1…5). Kırıklık — ara bedenlerin tükenip uçların kalması —
+etiket üzerinden tanımlanamaz: pantolonda "M" diye bir beden yoktur.
+Talep eğrisi de aynı sebeple konumla tanımlıdır; her sette orta kademeler
+satar, uçlar durur.
 
 ## Kullanım
 
 En hızlı yol DuckDB dosyasıdır; kurulum gerektirmez:
 
 ```sql
--- Aynı modelin aynı bedeni nerede tükenmiş, nerede yığılmış?
+-- Beden seti bozulmuş (mağaza, option) çiftleri:
+-- stok var ama ara bedenler tükenmiş
 WITH son AS (SELECT max(tarih) AS t FROM stok)
-SELECT u.model_kodu, u.beden,
-       min(s.adet) AS en_az, max(s.adet) AS en_cok
-FROM stok s JOIN urun u USING (urun_id), son
-WHERE s.tarih = son.t
+SELECT st.magaza_id, u.option_id, any_value(u.model_adi) AS urun,
+       sum(st.adet) AS kalan_stok
+FROM stok st JOIN urun u USING (urun_id), son
+WHERE st.tarih = son.t
 GROUP BY 1, 2
-HAVING min(s.adet) = 0 AND max(s.adet) > 10;
+HAVING sum(st.adet) > 0
+   AND count(*) FILTER (WHERE st.adet = 0 AND u.beden_sira IN (2, 3, 4)) > 0
+ORDER BY kalan_stok DESC;
 ```
 
 CSV ve Parquet sürümleri de aynı klasörde yayımlanır.
@@ -76,6 +109,7 @@ Sentetik verinin klasik tuzağı fazla temiz olmasıdır. Aşağıdakiler
 | Kayıp satış | Raf boşken gelen müşteri kaydedilmez; talep sansürlüdür |
 | Ölü stok | Bazı option'lar bazı mağazalarda hiç tutmaz |
 | Beden dengesizliği | Mağazanın beden eğrisi zincirin planından sapar |
+| Kırıklık | 431 (mağaza, option) çiftinde ara bedenler tükenmiş |
 | İade | Satışın ~%6'sı negatif satır olarak geri döner |
 | Mükerrer satır | Çift girilmiş satışlar |
 | Bedelsiz satır | `adet` dolu, `tutar` sıfır — manuel giriş hatası |
@@ -108,6 +142,12 @@ Dürüstlük için: aşağıdakiler bilinçli sadeleştirmelerdir.
 - **Fiyat sabit.** İndirim işlem bazında rastgeledir; sezon sonu indirim
   takvimi modellenmemiştir. Fiyatlama alanı geldiğinde `fiyat_gecmisi` ve
   `kampanya` tabloları eklenecektir.
+- **Sezon kodu yok.** Ürünler `S1`/`S2` gibi bir sezon koduna bağlı değildir;
+  sezon davranışı line üzerinden gelir. Koleksiyon devri gerektiren bir vaka
+  geldiğinde eklenecektir.
+- **Beden setleri beş kademe.** Gerçek zincirlerde ayakkabı 36–45, takım
+  elbise 46–58 gibi çok daha uzun setler vardır. Bu sürümde giyim dışına
+  çıkılmamıştır.
 - **Tedarik yok.** Açık sipariş, tedarik süresi ve depo stoğu bu sürümde yok.
 - **Transfer geçmişi yok.** Mağazalar arası geçmiş sevkler modellenmemiştir;
   tekrar-transfer soğuma kuralları bu veriyle sınanamaz.

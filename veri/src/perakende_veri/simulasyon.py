@@ -24,6 +24,11 @@ from . import sabitler, talep
 # taşımaz, transfer ihtiyacı büyük ölçüde buradan doğar
 CESIT_ORANI = {"AVM": 0.45, "Cadde": 0.30, "Outlet": 0.55}
 
+# Outlet line'ı geçmiş sezondan devreden üründür; ağırlıklı olarak outlet
+# mağazalarda bulunur. Blok Transfer'in doğal kısıtlarından biri budur:
+# outlet ürününü vitrin mağazasına göndermek çözüm değildir.
+OUTLET_LINE_AGIRLIGI = {"Outlet": 6.0, "AVM": 0.25, "Cadde": 0.35}
+
 # İki haftada bir ikmal, altı haftalık hedef. Bu ikili tarandı:
 # dört haftalık aralıkta kayıp satış %22'ye çıkıyor (kötü yönetilen
 # zincir), tek haftalıkta dengesizlik siliniyor.
@@ -68,13 +73,16 @@ def cesit_ata(
     perakendesinin temel kuralıdır ve transfer probleminin çerçevesini
     kurar — yarım beden setiyle mağaza açılmaz.
     """
-    modeller = urunler["model_kodu"].unique()
+    model_bilgi = urunler.drop_duplicates("model_kodu").set_index("model_kodu")
+    modeller = model_bilgi.index.to_numpy()
+    outlet_line = (model_bilgi["line"] == "Outlet").to_numpy()
     model_urunleri = urunler.groupby("model_kodu")["urun_id"].apply(list)
 
     satirlar = []
     for magaza_id, tip in zip(magazalar["magaza_id"], magazalar["tip"]):
         adet = int(len(modeller) * CESIT_ORANI[tip])
-        secilen = rng.choice(modeller, size=adet, replace=False)
+        agirlik = np.where(outlet_line, OUTLET_LINE_AGIRLIGI[tip], 1.0)
+        secilen = rng.choice(modeller, size=adet, replace=False, p=agirlik / agirlik.sum())
         urun_idleri = [u for model in secilen for u in model_urunleri[model]]
         satirlar.append(
             pd.DataFrame({"magaza_id": magaza_id, "urun_id": urun_idleri})
@@ -92,13 +100,13 @@ def _magaza_beden_egrileri(
     kalması — büyük ölçüde bu farktan doğar.
     """
     zincir_payi = talep.beden_dagilimi()
-    bedenler = list(zincir_payi)
-    taban = np.array([zincir_payi[beden] for beden in bedenler])
+    kademeler = list(zincir_payi)
+    taban = np.array([zincir_payi[kademe] for kademe in kademeler])
 
     egriler = {}
     for magaza_id in magazalar["magaza_id"]:
-        pay = taban * np.exp(rng.normal(0.0, BEDEN_EGRISI_SAPMASI, size=len(bedenler)))
-        egriler[str(magaza_id)] = dict(zip(bedenler, pay / pay.sum()))
+        pay = taban * np.exp(rng.normal(0.0, BEDEN_EGRISI_SAPMASI, size=len(kademeler)))
+        egriler[str(magaza_id)] = dict(zip(kademeler, pay / pay.sum()))
     return egriler
 
 
@@ -115,10 +123,18 @@ def _yerel_option_carpani(
         + "|"
         + cesit_urun["option_id"].to_numpy().astype(str)
     )
-    benzersiz, ters = np.unique(anahtar, return_inverse=True)
+    benzersiz, ilk_gorulen, ters = np.unique(
+        anahtar, return_index=True, return_inverse=True
+    )
 
-    carpan = rng.lognormal(0.0, YEREL_TALEP_SAPMASI, size=len(benzersiz))
-    olu = rng.random(len(benzersiz)) < OLU_OPTION_OLASILIGI
+    # Moda riski line'a bağlıdır: Collection bir mağazada tutar diğerinde
+    # tutmaz, NOS her yerde tutar. Sapma da ölü kalma olasılığı da bununla
+    # ölçeklenir.
+    riski = (
+        cesit_urun["line"].map(talep.LINE_MODA_RISKI).to_numpy()[ilk_gorulen]
+    )
+    carpan = rng.lognormal(0.0, YEREL_TALEP_SAPMASI * riski)
+    olu = rng.random(len(benzersiz)) < np.minimum(OLU_OPTION_OLASILIGI * riski, 0.25)
     carpan[olu] = OLU_OPTION_CARPANI
     return carpan[ters]
 
@@ -136,26 +152,29 @@ def _beklenen_talep(
     fark, veri setindeki dengesizliğin tek kaynağıdır.
     """
     ortak = (
-        cesit_urun["ana_kategori"].map(talep.TABAN_TALEP).to_numpy()
+        cesit_urun["ust_kategori"].map(talep.TABAN_TALEP).to_numpy()
         * cesit_urun["cinsiyet"].map(talep.CINSIYET_CARPANLARI).to_numpy()
+        * cesit_urun["line"].map(talep.LINE_HACIM_CARPANLARI).to_numpy()
         * cesit_magaza["tip"].map(talep.MAGAZA_TIPI_CARPANLARI).to_numpy()
     )
 
     zincir_payi = talep.beden_dagilimi()
-    beden_sayisi = len(zincir_payi)
-    plan_statik = ortak * cesit_urun["beden"].map(zincir_payi).to_numpy() * beden_sayisi
+    kademe_sayisi = len(zincir_payi)
+    plan_statik = (
+        ortak * cesit_urun["beden_sira"].map(zincir_payi).to_numpy() * kademe_sayisi
+    )
 
     egriler = _magaza_beden_egrileri(rng, magazalar)
     yerel_beden_payi = np.array(
         [
-            egriler[magaza][beden]
-            for magaza, beden in zip(cesit_magaza.index, cesit_urun["beden"])
+            egriler[magaza][kademe]
+            for magaza, kademe in zip(cesit_magaza.index, cesit_urun["beden_sira"])
         ]
     )
     gercek_statik = (
         ortak
         * yerel_beden_payi
-        * beden_sayisi
+        * kademe_sayisi
         * _yerel_option_carpani(rng, cesit_magaza, cesit_urun)
     )
 
@@ -163,9 +182,9 @@ def _beklenen_talep(
     for sezon in ("İlkbahar/Yaz", "Sonbahar/Kış"):
         carpan = np.array(
             [
-                talep.mevsimsellik_carpani(mevsim, kategori, sezon)
-                for mevsim, kategori in zip(
-                    cesit_urun["mevsimsellik"], cesit_urun["ana_kategori"]
+                talep.line_sezon_carpani(line, kategori, sezon)
+                for line, kategori in zip(
+                    cesit_urun["line"], cesit_urun["ust_kategori"]
                 )
             ]
         )
