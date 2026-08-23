@@ -1,0 +1,55 @@
+---
+// site/src/pages/tr/[alan]/[dizi]/[yazi].astro
+import { getCollection, getEntry, render } from 'astro:content'
+import Yazi from '../../../../layouts/Yazi.astro'
+import { diziYazilari } from '../../../../lib/agac'
+import { yaziYolunuAyristir } from '../../../../lib/yol'
+
+export async function getStaticPaths() {
+  const yazilar = await getCollection('yazi')
+
+  return yazilar
+    .filter((girdi) => yaziYolunuAyristir(girdi.id).dizi !== null)
+    .map((girdi) => {
+      const yol = yaziYolunuAyristir(girdi.id)
+      return {
+        params: { alan: yol.alan, dizi: yol.dizi, yazi: yol.slug },
+        props: { girdi },
+      }
+    })
+}
+
+const { girdi } = Astro.props
+const yol = yaziYolunuAyristir(girdi.id)
+const { Content } = await render(girdi)
+
+const [alanGirdi, diziGirdi, hepsi] = await Promise.all([
+  getEntry('alan', yol.alan),
+  getEntry('dizi', `${yol.alan}/${yol.dizi}`),
+  getCollection('yazi'),
+])
+
+const sirali = diziYazilari(hepsi, yol.alan, yol.dizi!)
+const diziAdresi = `/tr/${yol.alan}/${yol.dizi}/`
+---
+
+<Yazi
+  baslik={girdi.data.baslik}
+  ozet={girdi.data.ozet}
+  tip={girdi.data.tip}
+  yazar={girdi.data.yazar}
+  durum={girdi.data.durum}
+  basamaklar={[
+    { ad: alanGirdi!.data.baslik, adres: `/tr/${yol.alan}/` },
+    { ad: diziGirdi!.data.baslik, adres: diziAdresi },
+    { ad: girdi.data.baslik },
+  ]}
+  dizi={{
+    baslik: diziGirdi!.data.baslik,
+    adres: diziAdresi,
+    sirali,
+    suanki: yol.slug,
+  }}
+>
+  <Content />
+</Yazi>

@@ -1,0 +1,63 @@
+---
+// site/src/layouts/Yazi.astro
+import Temel from './Temel.astro'
+import KirintiYolu from '../components/KirintiYolu.astro'
+import Rozet from '../components/Rozet.astro'
+import DiziGezinme from '../components/DiziGezinme.astro'
+import type { YaziOzet } from '../lib/agac'
+
+interface Props {
+  baslik: string
+  ozet: string
+  tip: 'hikaye' | 'anlatici' | 'teknik' | 'sonuc'
+  yazar: string
+  durum: string
+  basamaklar: { ad: string; adres?: string }[]
+  dizi?: { baslik: string; adres: string; sirali: YaziOzet[]; suanki: string }
+}
+
+const { baslik, ozet, tip, yazar, durum, basamaklar, dizi } = Astro.props
+
+// Teknik içerik TechArticle, anlatı Article olarak işaretlenir
+const tur = tip === 'teknik' || tip === 'sonuc' ? 'TechArticle' : 'Article'
+
+const isaretleme = {
+  '@context': 'https://schema.org',
+  '@type': tur,
+  headline: baslik,
+  description: ozet,
+  author: { '@type': 'Person', name: yazar },
+  publisher: { '@type': 'Organization', name: 'Lumtify' },
+  inLanguage: 'tr',
+}
+---
+
+<Temel baslik={baslik} aciklama={ozet} isaretleme={isaretleme}>
+  <KirintiYolu basamaklar={basamaklar} />
+
+  <article>
+    <header>
+      <Rozet tip={tip} />
+      <h1>{baslik}</h1>
+      <p class="ozet">{ozet}</p>
+      {durum === 'hazirlaniyor' && <p class="uyari">Bu yazı hazırlanıyor.</p>}
+    </header>
+
+    <slot />
+
+    <footer>
+      <p class="yazar">Yazan: {yazar}</p>
+    </footer>
+  </article>
+
+  {
+    dizi && (
+      <DiziGezinme
+        sirali={dizi.sirali}
+        suanki={dizi.suanki}
+        diziBasligi={dizi.baslik}
+        diziAdresi={dizi.adres}
+      />
+    )
+  }
+</Temel>

@@ -1,0 +1,39 @@
+---
+// site/src/pages/tr/[alan]/[yazi].astro
+import { getCollection, getEntry, render } from 'astro:content'
+import Yazi from '../../../layouts/Yazi.astro'
+import { yaziYolunuAyristir } from '../../../lib/yol'
+
+export async function getStaticPaths() {
+  const yazilar = await getCollection('yazi')
+
+  return yazilar
+    .filter((girdi) => yaziYolunuAyristir(girdi.id).dizi === null)
+    .map((girdi) => {
+      const yol = yaziYolunuAyristir(girdi.id)
+      return {
+        params: { alan: yol.alan, yazi: yol.slug },
+        props: { girdi },
+      }
+    })
+}
+
+const { girdi } = Astro.props
+const yol = yaziYolunuAyristir(girdi.id)
+const { Content } = await render(girdi)
+const alanGirdi = await getEntry('alan', yol.alan)
+---
+
+<Yazi
+  baslik={girdi.data.baslik}
+  ozet={girdi.data.ozet}
+  tip={girdi.data.tip}
+  yazar={girdi.data.yazar}
+  durum={girdi.data.durum}
+  basamaklar={[
+    { ad: alanGirdi!.data.baslik, adres: `/tr/${yol.alan}/` },
+    { ad: girdi.data.baslik },
+  ]}
+>
+  <Content />
+</Yazi>

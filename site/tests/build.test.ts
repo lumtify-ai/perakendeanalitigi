@@ -69,8 +69,17 @@ describe('sözlük', () => {
     expect(oku('tr/sozluk/index.html')).toContain('DefinedTermSet')
   })
 
-  // Son iki test (tooltip HTML'de duruyor mu, script üretilmiyor mu) Task 9'da
-  // yazı sayfaları (tr/transfer/blok-transfer/sonuclar/index.html) üretildiğinde eklenecek.
+  it('tooltip tanımı HTML içinde durur', () => {
+    // Yapay zekâ tarayıcıları JS çalıştırmaz; tanım DOM'da olmalı
+    const html = oku('tr/transfer/blok-transfer/sonuclar/index.html')
+    expect(html).toContain('class="terim"')
+    expect(html).toContain('yeterlilik süresi')
+  })
+
+  it('tooltip için script üretilmez', () => {
+    const html = oku('tr/transfer/blok-transfer/sonuclar/index.html')
+    expect(html).not.toMatch(/<script(?![^>]*type="application\/ld\+json")/)
+  })
 })
 
 describe('kadro', () => {
@@ -81,5 +90,43 @@ describe('kadro', () => {
     expect(html).toContain('Pelin')
     expect(html).toContain('Allocator')
     expect(html).toContain('Planner')
+  })
+})
+
+describe('yazı sayfası', () => {
+  it('dizili yazı üretilir', () => {
+    expect(existsSync(DIST + 'tr/transfer/blok-transfer/sonuclar/index.html')).toBe(true)
+  })
+
+  it('tekil alanın yazısı üretilir', () => {
+    expect(existsSync(DIST + 'tr/temeller/urun-hiyerarsisi/index.html')).toBe(true)
+  })
+
+  it('rozet ve kırıntı yolu basılır', () => {
+    const html = oku('tr/transfer/blok-transfer/sonuclar/index.html')
+    expect(html).toContain('rozet-sonuc')
+    expect(html).toContain('BreadcrumbList')
+    expect(html).toContain('href="/tr/transfer/blok-transfer/"')
+  })
+
+  it('teknik ve sonuç yazıları TechArticle işaretlenir', () => {
+    expect(oku('tr/transfer/blok-transfer/sonuclar/index.html')).toContain('TechArticle')
+  })
+
+  it('hikâye yazısı Article işaretlenir', () => {
+    const html = oku('tr/transfer/blok-transfer/magazanin-sorunu/index.html')
+    expect(html).toContain('"@type":"Article"')
+  })
+
+  it('dizi gezinmesi önceki ve sonrakini verir', () => {
+    const html = oku('tr/transfer/blok-transfer/matematiksel-model/index.html')
+    expect(html).toContain('href="/tr/transfer/blok-transfer/karar-nasil-verilir/"')
+    expect(html).toContain('href="/tr/transfer/blok-transfer/sql-ve-python/"')
+  })
+
+  it('hikâye yazısı kadro kutusuyla açılır', () => {
+    const html = oku('tr/transfer/blok-transfer/magazanin-sorunu/index.html')
+    expect(html).toContain('kadro-kutusu')
+    expect(html).toContain('Allocator')
   })
 })
