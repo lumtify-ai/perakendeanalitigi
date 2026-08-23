@@ -1,0 +1,19 @@
+---
+// site/src/components/Rozet.astro
+interface Props {
+  tip: 'hikaye' | 'anlatici' | 'teknik' | 'sonuc'
+}
+
+const { tip } = Astro.props
+
+// Rozet okuyucunun diziyi atlayarak okumasını mümkün kılar:
+// bir CIO hikâye ve sonucu okur, analist tekniğe iner.
+const ETIKETLER: Record<Props['tip'], string> = {
+  hikaye: 'Hikâye',
+  anlatici: 'Anlatım',
+  teknik: 'Teknik',
+  sonuc: 'Sonuç',
+}
+---
+
+<span class={`rozet rozet-${tip}`}>{ETIKETLER[tip]}</span>

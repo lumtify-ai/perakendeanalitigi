@@ -1,0 +1,61 @@
+---
+// site/src/layouts/Temel.astro
+import '../styles/site.css'
+
+interface Props {
+  baslik: string
+  aciklama: string
+  isaretleme?: Record<string, unknown>
+}
+
+const { baslik, aciklama, isaretleme } = Astro.props
+const tamBaslik = baslik === 'perakendeanalitigi.com'
+  ? baslik
+  : `${baslik} · perakendeanalitigi.com`
+
+const kurum = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Lumtify',
+  url: 'https://lumtify.com',
+  subjectOf: 'https://perakendeanalitigi.com',
+}
+---
+
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{tamBaslik}</title>
+    <meta name="description" content={aciklama} />
+    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+    <script type="application/ld+json" set:html={JSON.stringify(kurum)} is:inline />
+    {
+      isaretleme && (
+        <script type="application/ld+json" set:html={JSON.stringify(isaretleme)} is:inline />
+      )
+    }
+  </head>
+  <body>
+    <header>
+      <a href="/tr/" class="logo">perakendeanalitigi.com</a>
+      <nav>
+        <a href="/tr/veri-seti/">Veri seti</a>
+        <a href="/tr/sozluk/">Sözlük</a>
+        <a href="/tr/kadro/">Kadro</a>
+      </nav>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer>
+      <p>
+        Bir <a href="https://lumtify.com">Lumtify</a> projesi. Bütün veriler
+        sentetiktir; Lumoda kurgusal bir zincirdir.
+      </p>
+    </footer>
+  </body>
+</html>

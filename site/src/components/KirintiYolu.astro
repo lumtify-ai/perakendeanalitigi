@@ -1,0 +1,30 @@
+---
+// site/src/components/KirintiYolu.astro
+interface Props {
+  basamaklar: { ad: string; adres?: string }[]
+}
+
+const { basamaklar } = Astro.props
+
+const isaretleme = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: basamaklar.map((basamak, sira) => ({
+    '@type': 'ListItem',
+    position: sira + 1,
+    name: basamak.ad,
+    ...(basamak.adres ? { item: `https://perakendeanalitigi.com${basamak.adres}` } : {}),
+  })),
+}
+---
+
+<nav aria-label="Konum" class="kirinti">
+  <ol>
+    {
+      basamaklar.map((basamak) => (
+        <li>{basamak.adres ? <a href={basamak.adres}>{basamak.ad}</a> : <span>{basamak.ad}</span>}</li>
+      ))
+    }
+  </ol>
+  <script type="application/ld+json" set:html={JSON.stringify(isaretleme)} is:inline />
+</nav>

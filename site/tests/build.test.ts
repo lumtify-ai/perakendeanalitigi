@@ -38,3 +38,21 @@ describe('içerik koleksiyonları', () => {
     }
   })
 })
+
+describe('temel düzen', () => {
+  it('üst menü her sayfada var', () => {
+    const html = oku('tr/index.html')
+    expect(html).toContain('href="/tr/veri-seti/"')
+    expect(html).toContain('href="/tr/sozluk/"')
+  })
+
+  it('sayfa açıklaması meta olarak basılır', () => {
+    expect(oku('tr/index.html')).toContain('name="description"')
+  })
+
+  it('hiçbir sayfada tarih görünmez', () => {
+    // Ana spec'in başarısızlık işareti: "son yazı: 4 ay önce"
+    const html = oku('tr/index.html')
+    expect(html).not.toMatch(/\d{1,2}\s+(Ocak|Şubat|Mart|Nisan|Mayıs|Haziran|Temmuz|Ağustos|Eylül|Ekim|Kasım|Aralık)/)
+  })
+})
