@@ -8,6 +8,9 @@ on:
   pull_request:
     paths:
       - 'site/**'
+      # Workflow'un kendisini değiştiren bir PR kendini test etmeli;
+      # aksi hâlde bozuk bir workflow yeşil görünerek main'e girer.
+      - '.github/workflows/site.yml'
 
 jobs:
   build:
