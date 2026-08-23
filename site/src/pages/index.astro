@@ -1,0 +1,10 @@
+---
+// site/src/pages/index.astro
+//
+// Astro'nun i18n yönlendirmesi (prefixDefaultLocale + redirectToDefaultLocale)
+// "/" için bir "/tr"'e yönlendiren statik sayfa üretebilmesi adına kök dizinde
+// gerçek bir index rotasının var olmasını şart koşuyor (aksi halde build
+// MissingIndexForInternationalizationError ile başarısız oluyor). Bu dosyanın
+// içeriği önemsizdir; Astro build sırasında onu otomatik yönlendirme
+// sayfasıyla değiştirir — asıl ana sayfa src/pages/tr/index.astro'dur.
+---
