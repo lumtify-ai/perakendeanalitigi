@@ -18,3 +18,8 @@ dist/
 .env
 .env.local
 .DS_Store
+
+# Tasarım dokümanları ayrı bir özel depoda yaşar:
+# github.com/lumtify-ai/perakendeanalitigi-docs
+# Buraya klonlanır ama bu depoya girmez.
+/docs/

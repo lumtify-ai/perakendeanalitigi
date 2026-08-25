@@ -13,7 +13,6 @@ Bir [Lumtify](https://lumtify.com) projesidir.
 | `site/` | Astro ile üretilen statik site |
 | `veri/` | Sentetik moda perakende veri setinin üreticisi (Python) |
 | `vakalar/` | Vaka başına tam çözüm kodu: model, SQL, notebook, senaryo önhesaplama |
-| `docs/` | Tasarım dokümanı ve uygulama planları |
 
 Sitedeki kod küratörlüdür: okunabilir tek bir SQL ve tek bir Python dosyası
 gösterilir. Ham katman — tam çözüm, testler, alternatifler — bu depodadır.
