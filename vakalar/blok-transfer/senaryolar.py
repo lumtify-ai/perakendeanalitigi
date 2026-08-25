@@ -52,4 +52,4 @@ def yaz(icerik: dict, yol: Path) -> None:
 if __name__ == "__main__":
     con = veri.baglan()
     yaz(uret(con, veri.karar_tarihi(con)), HEDEF)
-    print(f"yazıldı: {HEDEF}")
+    print(f"yazildi: {HEDEF}")

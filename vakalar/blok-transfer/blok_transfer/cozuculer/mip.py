@@ -15,7 +15,7 @@ def cozumle(adaylar: pd.DataFrame, kapasite: dict[str, int], p: Parametreler) ->
 
     model = pulp.LpProblem("blok_transfer", pulp.LpMaximize)
     x = {i: pulp.LpVariable(f"x_{i}", cat="Binary") for i in adaylar.index}
-    rotalar = set(zip(adaylar.verici, adaylar.alici))
+    rotalar = sorted(set(zip(adaylar.verici, adaylar.alici)))
     y = {r: pulp.LpVariable(f"y_{r[0]}_{r[1]}", cat="Binary") for r in rotalar}
 
     model += (
