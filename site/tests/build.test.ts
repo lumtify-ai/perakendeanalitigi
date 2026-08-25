@@ -408,6 +408,7 @@ describe('hazırlanıyor yazılar', () => {
       'tr/transfer/blok-transfer/karar-nasil-verilir/index.html',
       'tr/transfer/blok-transfer/matematiksel-model/index.html',
       'tr/transfer/blok-transfer/sql-ve-greedy/index.html',
+      'tr/transfer/blok-transfer/mip-ve-pulp/index.html',
     ]) {
       expect(oku(yol), yol).not.toContain('noindex')
     }
@@ -416,11 +417,9 @@ describe('hazırlanıyor yazılar', () => {
   it('site haritası hazırlanıyor adresleri ilan etmez', () => {
     // İlk taramada tek cümlelik yer tutucu sayfalar görmek, geri alması en
     // zor birinci izlenimdir.
+    // Dizide hazırlanıyor durumunda tek yazı kaldı: sonuç yazısı.
     const harita = oku('sitemap-0.xml')
-    for (const adres of [
-      '/tr/transfer/blok-transfer/sonuclar/',
-      '/tr/transfer/blok-transfer/mip-ve-pulp/',
-    ]) {
+    for (const adres of ['/tr/transfer/blok-transfer/sonuclar/']) {
       expect(harita, adres).not.toContain(adres)
     }
   })
@@ -435,6 +434,7 @@ describe('hazırlanıyor yazılar', () => {
     expect(harita).toContain('/tr/transfer/blok-transfer/karar-nasil-verilir/')
     expect(harita).toContain('/tr/transfer/blok-transfer/matematiksel-model/')
     expect(harita).toContain('/tr/transfer/blok-transfer/sql-ve-greedy/')
+    expect(harita).toContain('/tr/transfer/blok-transfer/mip-ve-pulp/')
   })
 
   it('hazırlanıyor yazının sayfası yine de üretilir', () => {
