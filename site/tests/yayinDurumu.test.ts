@@ -14,7 +14,8 @@ describe('hazirlaniyorAdresleri', () => {
   it('gerçek içerikteki hazırlanıyor yazıları bulur', () => {
     const adresler = hazirlaniyorAdresleri(YAZI_KOKU)
     expect(adresler).toContain('/tr/transfer/blok-transfer/sonuclar/')
-    expect(adresler).toContain('/tr/temeller/urun-hiyerarsisi/')
+    // İlk yayımlanan yazı: listede olmamalı
+    expect(adresler).not.toContain('/tr/temeller/urun-hiyerarsisi/')
   })
 
   it('her adres eğik çizgiyle biter ve /tr/ ile başlar', () => {

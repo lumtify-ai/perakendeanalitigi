@@ -399,19 +399,23 @@ describe('hazırlanıyor yazılar', () => {
   })
 
   it('yayına açık sayfalar noindex basmaz', () => {
-    for (const yol of ['tr/index.html', 'tr/sozluk/index.html', 'tr/transfer/index.html']) {
+    for (const yol of [
+      'tr/index.html',
+      'tr/sozluk/index.html',
+      'tr/transfer/index.html',
+      'tr/temeller/urun-hiyerarsisi/index.html',
+    ]) {
       expect(oku(yol), yol).not.toContain('noindex')
     }
   })
 
   it('site haritası hazırlanıyor adresleri ilan etmez', () => {
-    // İlk taramada tek cümlelik altı yer tutucu sayfa görmek, geri alması en
+    // İlk taramada tek cümlelik yer tutucu sayfalar görmek, geri alması en
     // zor birinci izlenimdir.
     const harita = oku('sitemap-0.xml')
     for (const adres of [
       '/tr/transfer/blok-transfer/sonuclar/',
       '/tr/transfer/blok-transfer/magazanin-sorunu/',
-      '/tr/temeller/urun-hiyerarsisi/',
     ]) {
       expect(harita, adres).not.toContain(adres)
     }
@@ -422,6 +426,7 @@ describe('hazırlanıyor yazılar', () => {
     expect(harita).toContain('/tr/transfer/blok-transfer/')
     expect(harita).toContain('/tr/sozluk/')
     expect(harita).toContain('/tr/veri-seti/')
+    expect(harita).toContain('/tr/temeller/urun-hiyerarsisi/')
   })
 
   it('hazırlanıyor yazının sayfası yine de üretilir', () => {

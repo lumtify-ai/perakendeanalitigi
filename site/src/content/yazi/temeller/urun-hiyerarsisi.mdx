@@ -6,8 +6,160 @@ ozet: >-
   Moda perakendesinde ürün hiyerarşisi bir sınıflandırma değil, kararın
   kendisidir. Model, option ve SKU'nun farkı ve neden beden tek bir ölçek
   değildir.
-yazar: TBD
-durum: hazirlaniyor
+yazar: Sabri Suyunu
+durum: yayinda
 ---
 
-Bu yazı hazırlanıyor.
+import T from '../../../components/T.astro'
+
+Bir siteye ürün hiyerarşisi gibi kuru bir konuyla başlamak, bir filme jenerikle
+başlamak gibi. Kimse jenerik için gelmiyor, biliyorum. Ama bu sitede anlatacağım
+her algoritma bir noktada şu tür cümleler kuracak: "karar option düzeyinde
+verilir", "beden eğrisi mağazadan mağazaya değişir", "bu option bu mağazada
+kırık". Bu cümlelerin her kelimesi bir şeye basıyor. Neye bastığını bir kez
+anlatayım ki bir daha hiç anlatmak zorunda kalmayayım — bu yazı bunun için var.
+
+Anlatırken de ders kitabı gibi "üç kimlik düzeyi vardır" diye başlamayacağım.
+Sahada bu iş nasıl öğreniliyorsa öyle anlatacağım: birinin raporuna yanlış
+bakmasıyla.
+
+## Bu üç şeyden hangisi ürün?
+
+Pelin planlama ekibine yeni girmiş, önünde ilk stok raporu. Satırlardan birinde
+şu yazıyor: `MDL003-SYH-M`. Yanında bir adet, bir tutar. Pelin bir süre bakıyor,
+sonra Ali'ye dönüyor:
+
+— Bu ürün mü şimdi?
+
+Ali gülüyor, çünkü bu soruyu herkes soruyor ve cevabı herkesi şaşırtıyor:
+
+— Kime sorduğuna bağlı. Müşteriye sorarsan ürün **model**dir: MDL003, yani
+"Balıkçı Yaka Kazak". Müşteri vitrinde onu görür, "şu kazak" der. Bana sorarsan
+ürün **option**'dır: MDL003-SYH, kazağın siyahı. Ben mağazaya renk gönderirim,
+kazak göndermem. Depoya sorarsan ürün **SKU**'dur: MDL003-SYH-M, siyah kazağın
+M bedeni. Rafta duran, sayılan, taşınan şey odur.
+
+Üç düzey, üç ayrı iş:
+
+```
+model    MDL003         tasarım — fiyat bu düzeyde belirlenir
+option   MDL003-SYH     model × renk — planlamanın ve transferin karar birimi
+SKU      MDL003-SYH-M   option × beden — en alt stok birimi
+```
+
+Kimliğin okunabilir olmasına dikkat: SKU = ürün kodu – renk kodu – beden. Bir
+rapor satırına bakan kişi hangi model, hangi renk, hangi beden olduğunu id'nin
+kendisinden görür. Bunu böyle kurmayan sistemlerde herkes elinin altında bir
+çeviri tablosuyla yaşar; kurananlarda rapor kendi kendini anlatır.
+
+Peki karar neden <T k="option">option</T> düzeyinde? Neden model değil, neden
+SKU değil? Model çok kaba: siyah kazak çok satarken bej duruyor olabilir;
+"kazak gönder" dersen neyi gönderdiğini bilmiyorsun demektir. SKU ise çok ince:
+tek başına bir M bedeni taşırsan gittiği yerde eksik bedenli bir set kurar,
+ayrıldığı yerde seti bozarsın. Renk, tek başına taşınabilen en küçük anlamlı
+birimdir. Bu yüzden planlama da transfer de option konuşur; beden, option'ın
+içinde bir **dağılım** olarak gelir.
+
+## Sayılar kulağa nasıl geliyor, aslında ne kadar?
+
+Bu sitedeki bütün vakalar Lumoda'yı kullanıyor — kurgusal, orta boy bir moda
+zinciri: 25 mağaza, 80 model. Seksen model kulağa az geliyor, değil mi? Bir
+Excel sayfasında rahat rahat yönetilir gibi.
+
+Gelin çarpalım. Her modelin ortalama üç rengi var: 240 option. Her option'ın
+beş bedeni: 1.200 SKU. Stok mağazada durduğuna göre asıl tablo mağaza çarpı
+ürün: 1.200 × 25 = **30.000 hücre**. Her hücrede ayrı bir soru: stok var mı,
+satıyor mu, duruyor mu? Transfer kararını option düzeyine çektiğinde bile
+240 × 25 = **6.000 hücreye** bakıyorsun — her hafta, yeniden.
+
+Seksen model böyle 30.000 hücre oluyor. Gerçek zincirlerde model sayısının
+seksen değil dört bin olduğunu, mağazanın 25 değil 400 olduğunu şimdilik bir
+dipnot olarak bırakıyorum; o çarpımı kendi yazısında yapacağız.
+
+## Ağacın yukarısı: hiyerarşi ve line
+
+Model en alttaki düzey değil ama en özel düzey de değil; onun da üstü var:
+
+```
+cinsiyet             Kadın · Erkek · Unisex
+  üst kategori       Üst Giyim · Alt Giyim · Dış Giyim
+    alt kategori     Tişört · Gömlek · Pantolon · Mont · …
+      line           Basic · Collection · NOS · Outlet
+        model        MDL003 "Balıkçı Yaka Kazak"
+          option     MDL003-SYH
+            SKU      MDL003-SYH-M
+```
+
+Cinsiyet ve kategori tanıdık; asıl açıklamaya değen katman **line**. Line,
+ürünün ticari rolünü söyler: **Basic** yıl boyu satılan temel üründür, riski
+düşüktür. **Collection** sezonluk koleksiyondur; moda riski asıl oradadır —
+tutarsa tutar, tutmazsa sezon sonunda elinde kalır. **NOS** "never out of
+stock"tur: beyaz gömlek gibi, stoğu asla bitmemesi gereken ürün. **Outlet**
+geçmiş sezondan devreden maldır.
+
+Dikkat ederseniz "sezonluk mu devamlı mı" diye ayrı bir alan yok; line onu
+zaten taşıyor. Ve line bir etiketten fazlası: algoritmaların kısıt cümleleri
+buradan çıkıyor. Outlet ürününü vitrin mağazasına göndermek matematikte mümkün,
+ticarette değil. NOS bitmişse bu bir transfer sorunu değil, ikmal alarmı.
+Hiyerarşi işte bu yüzden bir sınıflandırma değil: algoritmanın nerede
+çalışacağını, neyi yapmasının yasak olduğunu **ağacın kendisi** söylüyor.
+
+## Pantolonda M bedeni yoktur
+
+Birkaç gün sonra Pelin yine geliyor, bu sefer elinde kendi yazdığı sorgu:
+
+— Beden bazında stok raporu yazdım. Kazaklarda çalışıyor ama pantolonlara
+gelince M bedenini bulamıyorum. Veri mi eksik?
+
+— Veri tam, diyor Ali. Pantolonda M diye bir beden yok ki. Pantolon numarayla
+gider: 30, 32, 34, 36, 38.
+
+Beden tek bir ölçek değildir. Lumoda'da bile — sadece giyim satan, ayakkabıya
+takıma girmemiş bu küçük zincirde bile — altı ayrı beden seti var:
+
+| Beden seti | Kademeler |
+|---|---|
+| Kadın Harf | XS · S · M · L · XL |
+| Kadın Numara | 34 · 36 · 38 · 40 · 42 |
+| Erkek Harf | S · M · L · XL · XXL |
+| Erkek Numara | 30 · 32 · 34 · 36 · 38 |
+| Unisex Harf / Numara | Erkek setleriyle aynı |
+
+Tabloya bir kez de kötü niyetle bakın: **34** etiketi iki sette birden var.
+Kadın pantolonunda 34 en küçük beden, uçta duruyor. Erkek pantolonunda 34 tam
+ortada — setin en çok satan kademesi. Aynı etiket, iki zıt anlam. Beden
+**etiketine** göre analiz yapan herkes bir gün bu duvara çarpar.
+
+Çare, etiketi bırakıp **sıraya** bakmak: her sette kademeler 1'den 5'e
+numaralanır ve analiz o sırayı kullanır. Talebin şekli de etikete değil sıraya
+bağlıdır: hangi set olursa olsun ortadaki kademeler çok satar, uçlar az. Buna
+**beden eğrisi** deniyor ve zincirin geneli için çizdiğin eğri her mağazada
+aynı çıkmaz — semt değişir, müşteri değişir, eğri kayar.
+
+Eğri kayınca da şu olur: ara bedenler tükenir, uçlar rafta kalır. S, M, L
+satılmış; elde XS ile XL duruyor. Buna <T k="kiriklik">kırıklık</T> denir ve
+kalan stok, stok gibi görünen ölü ağırlıktır: müşteri kendi bedenini bulamaz,
+ürün rafı işgal eder. Rakam merak ediyorsanız: Lumoda'nın bugünkü stok
+fotoğrafında **431** (mağaza, option) çifti kırık. Yani raporda "stok var"
+görünen binlerce satırın dört yüz küsuru, aslında satamayacağınız stok.
+
+## Zurnanın deliklerini saymak
+
+Bütün bu ağacı — hangi SKU hangi option'ın, hangi option hangi modelin, model
+hangi line'da, hangi beden setiyle gider — tek yerde tutan tabloya **ürün
+master'ı** denir. Şirketin en sıkıcı görünen tablosudur. Kimse toplantıda ürün
+master'ı konuşmak istemez; herkes algoritma konuşmak ister.
+
+Ama şunu sahada öğrendim: allocation zurnanın zırt dediği yerse, ürün master'ı
+zurnanın kendisidir. Delikleri yanlış açılmış zurnayla hangi havayı çalarsanız
+çalın zırt diyecektir. Beden setini yanlış tanımlarsanız kırıklığı ölçemezsiniz;
+line'ı boş bırakırsanız outlet malını vitrine yollarsınız; option'ı SKU ile
+karıştırırsanız tek bedenlik transferlerle set bozarsınız. Ürün master'ı
+yanlışken doğru çalışan bir algoritma yoktur — sadece yanlışlığı henüz fark
+edilmemiş olanlar vardır.
+
+Bundan sonra bu sitede "karar option düzeyinde verilir" cümlesini gördüğünüzde
+arkasındaki üç düzeyi, "beden eğrisi" geçtiğinde etiketin değil sıranın
+konuştuğunu, "kırıklık" geçtiğinde ortası tükenmiş bir set kaldığını
+bileceksiniz. Jenerik bitti; filme geçebiliriz. Sıradaki yazıda bir mağaza
+müdürünün telefonu çalıyor 🙂
