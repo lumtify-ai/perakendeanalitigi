@@ -38,3 +38,235 @@
   opacity: 1;
   visibility: visible;
 }
+
+/* --- Okunabilirlik pası (geçici) ---------------------------------------
+   Tam görsel tasarım teknik yazılar yazıldıktan sonra yapılacak (DURUM.md,
+   katman tablosu). Buradaki tek amaç taslakların tarayıcıda rahat
+   okunması: ölçü, satır uzunluğu, boşluk, taşma. Renk ve kimlik kararı
+   burada verilmez; her şey nötr gri. */
+
+body {
+  max-width: 44rem;
+  margin-inline: auto;
+  padding: 0 1.25rem 4rem;
+  color: #1f2937;
+  font-size: 1.0625rem;
+  line-height: 1.7;
+}
+
+body > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+  padding-block: 1.25rem;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 2rem;
+}
+
+.logo {
+  font-weight: 700;
+  color: inherit;
+}
+
+body > header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.9375rem;
+}
+
+body > header a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+main a {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+h1 {
+  font-size: 1.75rem;
+  line-height: 1.25;
+  font-weight: 700;
+  margin: 0.5rem 0 0.75rem;
+}
+
+h2 {
+  font-size: 1.3125rem;
+  line-height: 1.35;
+  font-weight: 700;
+  margin: 2.25rem 0 0.75rem;
+}
+
+h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 1.75rem 0 0.5rem;
+}
+
+p {
+  margin-block: 1rem;
+}
+
+main ul,
+main ol {
+  margin-block: 1rem;
+  padding-left: 1.5rem;
+}
+
+main ul {
+  list-style: disc;
+}
+
+main ol {
+  list-style: decimal;
+}
+
+article > header .ozet {
+  color: #6b7280;
+}
+
+.uyari {
+  border: 1px solid #f59e0b;
+  background: #fffbeb;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9375rem;
+}
+
+.yazar {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+  color: #6b7280;
+  font-size: 0.9375rem;
+}
+
+pre {
+  overflow-x: auto;
+  background: #f3f4f6;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-block: 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+:not(pre) > code {
+  background: #f3f4f6;
+  border-radius: 0.25rem;
+  padding: 0.1em 0.35em;
+  font-size: 0.875em;
+}
+
+table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin-block: 1.25rem;
+  font-size: 0.9375rem;
+}
+
+th,
+td {
+  border: 1px solid #e5e7eb;
+  padding: 0.4rem 0.75rem;
+  text-align: left;
+}
+
+th {
+  background: #f9fafb;
+  font-weight: 600;
+}
+
+.kirinti ol {
+  display: flex;
+  flex-wrap: wrap;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.kirinti li + li::before {
+  content: "›";
+  margin: 0 0.4rem;
+  color: #9ca3af;
+}
+
+.kirinti a {
+  color: inherit;
+}
+
+.rozet {
+  display: inline-block;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #374151;
+}
+
+.kadro-kutusu {
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 0.5rem;
+  padding: 0.25rem 1.25rem;
+  margin-block: 1.5rem;
+  font-size: 0.9375rem;
+}
+
+.kadro-baslik {
+  font-weight: 600;
+}
+
+.kadro-not {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.dizi-gezinme {
+  margin-top: 3rem;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1.5rem;
+  font-size: 0.9375rem;
+}
+
+.dizi-adi {
+  font-weight: 600;
+}
+
+.dizi-gezinme ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+
+.dizi-gezinme .suanki {
+  font-weight: 600;
+}
+
+.dizi-gezinme .durum {
+  color: #9ca3af;
+}
+
+.komsular {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+body > footer {
+  margin-top: 4rem;
+  border-top: 1px solid #e5e7eb;
+  padding-block: 1.25rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+}

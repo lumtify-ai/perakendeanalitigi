@@ -4,11 +4,132 @@ tip: hikaye
 sira: 1
 ozet: Pazartesi sabahı bir mağaza müdürü arar ve problem doğar.
 yazar: Sabri Suyunu
-durum: hazirlaniyor
+durum: yayinda
 ---
 
 import Kadro from '../../../../components/Kadro.astro'
+import T from '../../../../components/T.astro'
 
 <Kadro />
 
-Bu yazı hazırlanıyor.
+Bir algoritmayı anlatmanın en kötü yolu, algoritmadan başlamaktır. Amaç
+fonksiyonunu yazarsınız, kısıtları sıralarsınız, dinleyen herkes başını sallar
+ve kimse hiçbir şey anlamaz — çünkü ortada henüz bir dert yok. Bu dizi Blok
+Transfer'i anlatacak: mağazalar arası stok transferini ağ düzeyinde çözen bir
+algoritma. Ama bu ilk yazıda tek satır matematik yok. Bu yazıda bir telefon
+var, bir Excel var ve bir türlü bitmeyen bir liste var. Algoritmanın çözdüğü
+derdi görmeden algoritmayı konuşmayacağız.
+
+Sahne Lumoda: 25 mağaza, 240 <T k="option">option</T>. Stok fotoğrafı her
+pazartesi sabahı çekilir — hangi mağazada hangi üründen kaç adet var, beden
+beden. Ali'nin haftası o fotoğrafla başlar.
+
+## Pazartesi, 09:20
+
+Ali servisten inmiş, çayını almış, pazartesi raporunu yeni açmış. Daha ilk
+sayfadayken masadaki telefon titriyor. Ekranda "Kadıköy" yazıyor ve Kadıköy
+pazartesi sabahı dokuz buçukta hatır sormak için aramaz.
+
+— Ali'cim günaydın, balıkçı yaka siyahtan bana beden lazım. S, M, L — üçü de
+bitti. Cumartesi üç müşteri denedi, bedenini bulamadı, üçü de boş çıktı.
+Elimde iki XS bir de üç XL duruyor, vitrin dolu görünüyor ama satacak bir şeyim
+yok.
+
+Ali ekrana yazıyor: MDL003-SYH. Balıkçı Yaka Kazak, siyah. Kadıköy satırı
+müdürün dediği gibi: ortalar sıfır, uçlar rafta. Geçen yazıdan hatırlayanlar
+için: bu bir <T k="kiriklik">kırık</T> set — eldeki stok, stok gibi görünen
+ölü ağırlık.
+
+Ali bir satır aşağı kaydırıyor ve asıl manzarayı görüyor: aynı option, Trabzon
+Forum, **tam set**. Beş beden de rafta ve altı haftadır neredeyse kımıldamamış.
+Kadıköy'ün sattığı kazak Trabzon'da duruyor; Trabzon'un satamadığı kazağı
+Kadıköy arıyor. Mal şirketin malı, stok şirketin stoğu — ama yanlış şehirde.
+
+## Bugünkü çözümün adı: telefon
+
+Peki Ali ne yapıyor? Bugünün gerçek cevabı şu: Excel açıyor. Pazartesi
+fotoğrafından kendi süzgeçleriyle bir aday listesi çıkarıyor, Trabzon'a mail
+atıyor, mail cevapsız kalınca telefon ediyor. Trabzon müdürü de haksız değil:
+
+— Benim sezonum daha bitmedi ki. Bize kar geç gelir, ben o kazağı şubatta da
+satarım. Beş bedenim tam, sen benden set bozmamı istiyorsun.
+
+Veli'nin bu iş için bir lafı var: "Transfer istemek borç istemek gibidir.
+Herkes verebilir, kimse severek vermez." Her müdür kendi vitrininden sorumlu,
+kendi primini kendi cirosundan alıyor ve ağın tamamını hiçbiri görmüyor.
+Gördüğü tek şey kendi deposu — orada da her şey lazım gibi duruyor.
+
+Pelin'e sorarsanız — planı yapan o, savunması da hazır:
+
+— Plan yanlış değildi. Plan zincirin ortalamasına göre kuruldu ve zincir
+toplamında tuttu da. Ama Kadıköy ortalama değil, Trabzon da değil. Ortalama
+diye bir müşteri yok; ben ortalamaya gönderdim, gerçek müşteri yerel çıktı.
+
+Bu üç cümle bu dizinin temelidir, altını çizin: **ikmal her mağazayı kendi
+gerçek talebine göre doldurabilseydi, transfer diye bir iş olmazdı.** Plan
+zincir geneline kurulur, talep yereldir; aradaki fark bir mağazada ölü stok,
+başka mağazada boş çıkan müşteri olarak birikir. Transfer o farkın
+temizliğidir.
+
+## Bir telefonun çarpımı
+
+Kadıköy'ün kazağı tek örnek ve tek örnekken sevimli: bir telefon, bir
+pazarlık, bir koli. Şimdi fotoğrafın tamamına bakalım.
+
+Bu pazartesi fotoğrafında **431** (mağaza, option) çifti kırık. Dört yüz otuz
+bir tane "Kadıköy'ün kazağı" var yani — ve her biri için soru aynı: nereden
+getirilir? Aday 24 mağaza. 431 × 24 = **10.344 olası hareket**, yalnızca
+kırıkları düzeltmek için; hiç satmayan renkleri, yığılmış stoku daha saymadık.
+Üstelik fotoğraf her pazartesi yenileniyor: bu on bin küsur sorunun ömrü tam
+bir hafta. Cevaplayamadıysan soru kaybolmuyor, haftaya biraz daha büyüyerek
+geri geliyor.
+
+Elle ne kadarı çözülür? Bir çifti kapatmak — rapora bak, adayı seç, müdürle
+konuş, sevk emrini yaz — Ali'nin iyi gününde on dakika. 431 çift, kabaca 72
+saat. Ali ile Veli'nin haftalık mesaisi toplam 90 saat ve işlerinin tamamı
+transfer değil. Matematik daha buradan çıkmaz; ama asıl sorun bu bile değil.
+Asıl sorunu birazdan Veli söyleyecek.
+
+## Çarşamba, 15:40
+
+Çarşamba öğleden sonra Pelin'in masasından bir mail düşüyor: yönetim sezon
+indirimini öne çekti. **Cuma sabahı** başlıyor. Transfer kamyonları perşembe
+akşamı yükleniyor — yani elde bir öğleden sonra ile bir gün var.
+
+İndirim, transferin zamanlayıcısıdır. Tam set indirime girerse ilk üç günde
+erir; kırık set indirime girerse yarı fiyata bile satılmaz — müşteri indirimde
+de kendi bedenini arar. Perşembe akşamına kadar taşınmayan her kırık set,
+sezonu olduğu yerde kapatacak: önce indirim eritemeyecek, sonra outlet'e
+gidecek, orada da üçüncü fiyatı görecek.
+
+Ali ile Veli listeyi alıp oturuyorlar. Telefonlar, pazarlıklar, sevk emirleri.
+Akşam dokuzda sayaç kırk civarında; 431'in kırkı. Veli ekrandan başını
+kaldırıyor ve bu yazının asıl cümlesini söylüyor:
+
+— Yetiştirememek neyse ne, ona alıştım. Beni asıl rahatsız eden şu: neden bu
+kırkı seçtik? Bilmiyorum. Sesi çok çıkan müdürün mağazasını seçtik. Yarın
+biri sorsa — "niye Kadıköy de Nişantaşı değil?" — verecek cevabım yok.
+
+İşte dert bu. Elle yapılan transferde sorun yavaşlık değil; yavaşlık sadece
+görüneni. Asıl sorun, yapılan seçimin bir **gerekçesinin olmaması**. Kimse
+ağın tamamına bakmadı; herkes önüne geleni, bağıranı, tanıdığını çözdü.
+Seçilen kırk çift savunulamıyorsa, seçilmeyen üç yüz doksan bir çift de
+savunulamıyor demektir.
+
+## Adını koyalım
+
+Satmayacağı yerde duran stoku satacağı yere, beden setini bozmadan taşıma
+işine **mağazalar arası transfer** denir. Bunu telefonla ve hatır gönülle
+değil — ağın tamamına bakarak, her mağaza çifti için aynı teraziyle, her hafta
+yeniden ve sorulduğunda gerekçesi gösterilebilir biçimde yapan algoritmaya bu
+dizide **Blok Transfer** diyeceğiz.
+
+İş sonucu tek cümle: **sıfır yeni ürünle daha çok satış.** Depodan tek koli
+çıkmadan, üretime tek kuruş vermeden — yalnızca yanlış yerde duranı doğru yere
+taşıyarak.
+
+Bu yazıda bilerek tek satır formül yazmadım; önce derdi görmek istedim.
+Sıradaki yazıda Ali'nin kafasının içine gireceğiz: bir transfer kararı
+verilirken aslında nelere bakılıyor, "doğru mağaza" ne demek, terazinin
+kefelerine ne konuyor? Formüller ondan sonra gelecek ve geldiklerinde
+tanıdık gelecekler — çünkü hepsi bu pazartesinin içinde saklı 🙂
