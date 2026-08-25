@@ -161,6 +161,51 @@ gerçek bir zincirde bu sayılar bir büyüklük mertebesi yukarıdadır ve o za
 çözücünün 250 milisaniyesi dakikalara çıkar. Zaman limiti, `limit` bayrağı ve
 "kanıtlanmamış ama iyi" çözümle çalışmak orada gerçek bir mesele hâline gelir.
 
+## Gerçek kurulumda eklenen kısıtlar
+
+Yukarıdaki modelde dört kısıt var. Gerçek bir zincirde bu liste hep uzar ve
+uzayan kısımlar genelde aynı yerlerden gelir. Sık istenenleri, bizim modelde
+karşılığı olup olmadığıyla birlikte topladım:
+
+| Kısıt | Ne işe yarar | Bizde |
+|---|---|---|
+| **Alıcı kapasitesi** | Mağazanın deposu ve rafı sonsuz değil | var |
+| **Minimum koli** | İki adet için kamyon kaldırılmaz | var |
+| **Gönderici alt sınırı** | Vericiyi soymamak: elinde en az şu kadar hafta kalsın | yok |
+| **Stok şişme tavanı** | Alıcıya taşıdıktan sonra cover'ı şu haftayı geçmesin | yok |
+| **Kargo/rota sayısı** | Bir mağaza en çok kaç mağazaya gönderir, kaç mağazadan alır | yok |
+| **Maksimum koli / araç hacmi** | Bir sevkiyata sığacak adet, ağırlık, hacim | yok |
+| **Sevkiyat takvimi** | Transfer yalnız belirli günlerde, belirli hatlar üzerinden | yok |
+| **Bölge ve grup kuralları** | "Şu iki mağaza arasında transfer olmaz", franchise sınırları | kısmen (line kuralı) |
+| **Tekrar transfer soğuması** | Aynı malı iki hafta üst üste oradan oraya taşımamak | kısmen (yalnız depo sevkiyatı) |
+
+Üçü özellikle sık atlanır ve atlandığında plan sahada uygulanamaz hâle gelir.
+
+**Gönderici alt sınırı.** Bizim modelde blok, vericinin stoğunun *tamamıdır*;
+verici o option'da sıfıra iner. Lumoda'da bu kabul edilebilir çünkü verici
+zaten cover eşiğini aşmış, yani satmayan bir raf. Gerçek zincirde mağaza
+müdürü "benim de müşterim var" der ve haklıdır: pratikte vericide belirli bir
+hafta karşılığı bırakılır. Bu, bloğu bölmek demektir ve modeli sürekli miktar
+kararına yaklaştırır.
+
+**Stok şişme tavanı.** Model alıcıya taşımayı sever, çünkü kazanç orada
+görünür. Ama alıcıda da bir doyma noktası vardır: sekiz haftalık talebi
+karşılayan mağazaya on altı haftalık mal göndermek bir sonraki haftanın ölü
+stoğunu üretir. Kapasite kısıtı bunu ancak kabaca engeller; asıl koruma
+alıcının transfer sonrası cover'ına konan üst sınırdır.
+
+**Kargo/rota sayısı.** Dördüncü ve beşinci yazının bütün hikâyesi buydu:
+çözücü 108, açgözlü 137 sevkiyat açıyordu. Gerçek lojistikte bu sayının bir
+tavanı vardır ("bir mağaza haftada en çok üç yere gönderir"). Tavanı modele
+yazdığınızda çözücü rotaları daha da birleştirmek zorunda kalır ve iki yöntem
+arasındaki fark büyür — çünkü açgözlü yöntem bu kısıtı ancak sonradan
+eleyerek uygulayabilir, çözücü ise plan kurarken hesaba katar.
+
+Son bir uyarı: her yeni kısıt çözüm uzayını daraltır, yani **beklenen kazancı
+düşürür.** Bu bir kayıp değil, dürüstlüktür — kısıtsız modelin vaat ettiği
+para zaten uygulanamayacak bir planın parasıdır. Asıl soru "kısıt eklersem ne
+kaybederim" değil, "bu kısıt gerçek mi, yoksa alışkanlık mı" sorusudur.
+
 ## Dizi burada bitiyor
 
 Altı yazı önce bir mağaza müdürünün telefonuyla başladık, bir Excel dosyası

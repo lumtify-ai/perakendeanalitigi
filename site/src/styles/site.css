@@ -142,3 +142,7 @@ th { background: var(--tablo-baslik); font-weight: 600; color: var(--koyu) }
 body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-block: 1.5rem;
   font-family: var(--arayuz); font-size: .8125rem; color: var(--soluk) }
 .katex-display { overflow-x: auto; overflow-y: hidden; padding-block: .35rem }
+/* Dar ekranda blok matematik sık taşar; bir tık küçültmek çoğu formülü
+   kurtarır. Kalanlar için yatay kaydırma yedek: formülü satır sonundan
+   sarmak matematiği bozacağı için kaydırma doğru davranıştır. */
+@media (max-width: 34rem) { .katex-display { font-size: .92em } }
