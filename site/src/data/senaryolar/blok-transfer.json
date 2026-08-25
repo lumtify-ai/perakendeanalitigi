@@ -1,5 +1,5 @@
 {
- "surum": "1bd897a 2026-08-25",
+ "surum": "bbce977 2026-08-26",
  "parametreler": [
   {
    "ad": "cover_esigi",
@@ -38,7 +38,7 @@
     "rota_sayisi": 137,
     "bosalan_magaza": 25,
     "net_kazanc_tl": 4633148.31,
-    "sure_sn": 0.008
+    "sure_sn": 0.006
    },
    "satirlar": []
   },
@@ -49,7 +49,7 @@
     "rota_sayisi": 108,
     "bosalan_magaza": 25,
     "net_kazanc_tl": 4647648.31,
-    "sure_sn": 0.247
+    "sure_sn": 0.88
    },
    "satirlar": []
   },
@@ -71,7 +71,7 @@
     "rota_sayisi": 108,
     "bosalan_magaza": 25,
     "net_kazanc_tl": 4647648.31,
-    "sure_sn": 0.215
+    "sure_sn": 0.173
    },
    "satirlar": []
   },
@@ -82,7 +82,7 @@
     "rota_sayisi": 119,
     "bosalan_magaza": 25,
     "net_kazanc_tl": 4082974.07,
-    "sure_sn": 0.006
+    "sure_sn": 0.003
    },
    "satirlar": []
   },
@@ -93,7 +93,7 @@
     "rota_sayisi": 100,
     "bosalan_magaza": 25,
     "net_kazanc_tl": 4092474.07,
-    "sure_sn": 0.174
+    "sure_sn": 0.131
    },
    "satirlar": []
   },
@@ -104,7 +104,7 @@
     "rota_sayisi": 75,
     "bosalan_magaza": 24,
     "net_kazanc_tl": 2550975.28,
-    "sure_sn": 0.004
+    "sure_sn": 0.003
    },
    "satirlar": []
   },
@@ -115,7 +115,7 @@
     "rota_sayisi": 72,
     "bosalan_magaza": 24,
     "net_kazanc_tl": 2552475.28,
-    "sure_sn": 0.141
+    "sure_sn": 0.08
    },
    "satirlar": []
   },
@@ -126,7 +126,7 @@
     "rota_sayisi": 136,
     "bosalan_magaza": 25,
     "net_kazanc_tl": 4623774.05,
-    "sure_sn": 0.005
+    "sure_sn": 0.004
    },
    "satirlar": []
   },
@@ -137,7 +137,7 @@
     "rota_sayisi": 107,
     "bosalan_magaza": 25,
     "net_kazanc_tl": 4638274.05,
-    "sure_sn": 0.241
+    "sure_sn": 0.229
    },
    "satirlar": []
   },
@@ -159,7 +159,7 @@
     "rota_sayisi": 107,
     "bosalan_magaza": 25,
     "net_kazanc_tl": 4638274.05,
-    "sure_sn": 0.312
+    "sure_sn": 0.339
    },
    "satirlar": []
   },
@@ -170,7 +170,7 @@
     "rota_sayisi": 119,
     "bosalan_magaza": 25,
     "net_kazanc_tl": 4080763.22,
-    "sure_sn": 0.005
+    "sure_sn": 0.006
    },
    "satirlar": []
   },
@@ -181,7 +181,7 @@
     "rota_sayisi": 99,
     "bosalan_magaza": 25,
     "net_kazanc_tl": 4090763.22,
-    "sure_sn": 0.164
+    "sure_sn": 0.173
    },
    "satirlar": []
   },
@@ -192,7 +192,7 @@
     "rota_sayisi": 75,
     "bosalan_magaza": 24,
     "net_kazanc_tl": 2550975.28,
-    "sure_sn": 0.004
+    "sure_sn": 0.005
    },
    "satirlar": []
   },
@@ -203,7 +203,7 @@
     "rota_sayisi": 72,
     "bosalan_magaza": 24,
     "net_kazanc_tl": 2552475.28,
-    "sure_sn": 0.124
+    "sure_sn": 0.119
    },
    "satirlar": []
   },
@@ -214,7 +214,7 @@
     "rota_sayisi": 125,
     "bosalan_magaza": 25,
     "net_kazanc_tl": 4304243.92,
-    "sure_sn": 0.008
+    "sure_sn": 0.007
    },
    "satirlar": []
   },
@@ -225,7 +225,7 @@
     "rota_sayisi": 100,
     "bosalan_magaza": 25,
     "net_kazanc_tl": 4316743.92,
-    "sure_sn": 0.248
+    "sure_sn": 0.212
    },
    "satirlar": []
   },
@@ -236,7 +236,7 @@
     "rota_sayisi": 125,
     "bosalan_magaza": 25,
     "net_kazanc_tl": 4304243.92,
-    "sure_sn": 0.006
+    "sure_sn": 0.005
    },
    "satirlar": []
   },
@@ -247,7 +247,7 @@
     "rota_sayisi": 100,
     "bosalan_magaza": 25,
     "net_kazanc_tl": 4316743.92,
-    "sure_sn": 0.291
+    "sure_sn": 0.207
    },
    "satirlar": []
   },
@@ -258,7 +258,7 @@
     "rota_sayisi": 109,
     "bosalan_magaza": 25,
     "net_kazanc_tl": 3800072.93,
-    "sure_sn": 0.008
+    "sure_sn": 0.005
    },
    "satirlar": []
   },
@@ -280,7 +280,7 @@
     "rota_sayisi": 68,
     "bosalan_magaza": 24,
     "net_kazanc_tl": 2346664.27,
-    "sure_sn": 0.004
+    "sure_sn": 0.006
    },
    "satirlar": []
   },
@@ -291,7 +291,7 @@
     "rota_sayisi": 64,
     "bosalan_magaza": 24,
     "net_kazanc_tl": 2348664.27,
-    "sure_sn": 0.125
+    "sure_sn": 0.17
    },
    "satirlar": []
   },
@@ -313,7 +313,7 @@
     "rota_sayisi": 83,
     "bosalan_magaza": 24,
     "net_kazanc_tl": 3348468.95,
-    "sure_sn": 0.17
+    "sure_sn": 0.209
    },
    "satirlar": []
   },
@@ -335,7 +335,7 @@
     "rota_sayisi": 83,
     "bosalan_magaza": 24,
     "net_kazanc_tl": 3348468.95,
-    "sure_sn": 0.18
+    "sure_sn": 0.199
    },
    "satirlar": []
   },
@@ -346,7 +346,7 @@
     "rota_sayisi": 87,
     "bosalan_magaza": 23,
     "net_kazanc_tl": 2901305.39,
-    "sure_sn": 0.004
+    "sure_sn": 0.006
    },
    "satirlar": []
   },
@@ -357,7 +357,7 @@
     "rota_sayisi": 77,
     "bosalan_magaza": 23,
     "net_kazanc_tl": 2906305.39,
-    "sure_sn": 0.136
+    "sure_sn": 0.145
    },
    "satirlar": []
   },
@@ -368,7 +368,7 @@
     "rota_sayisi": 54,
     "bosalan_magaza": 22,
     "net_kazanc_tl": 1798165.83,
-    "sure_sn": 0.004
+    "sure_sn": 0.005
    },
    "satirlar": []
   },
@@ -379,7 +379,7 @@
     "rota_sayisi": 51,
     "bosalan_magaza": 22,
     "net_kazanc_tl": 1799665.83,
-    "sure_sn": 0.112
+    "sure_sn": 0.099
    },
    "satirlar": []
   }
