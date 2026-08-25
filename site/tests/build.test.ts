@@ -151,7 +151,7 @@ describe('yazı sayfası', () => {
   it('dizi gezinmesi önceki ve sonrakini verir', () => {
     const html = oku('tr/transfer/blok-transfer/matematiksel-model/index.html')
     expect(html).toContain('href="/tr/transfer/blok-transfer/karar-nasil-verilir/"')
-    expect(html).toContain('href="/tr/transfer/blok-transfer/sql-ve-python/"')
+    expect(html).toContain('href="/tr/transfer/blok-transfer/sql-ve-greedy/"')
   })
 
   it('hikâye yazısı kadro kutusuyla açılır', () => {
@@ -162,9 +162,9 @@ describe('yazı sayfası', () => {
 })
 
 describe('dizi sayfası', () => {
-  it('beş yazıyı sırayla listeler', () => {
+  it('altı yazıyı sırayla listeler', () => {
     const html = oku('tr/transfer/blok-transfer/index.html')
-    const sira = ['magazanin-sorunu', 'karar-nasil-verilir', 'matematiksel-model', 'sql-ve-python', 'sonuclar']
+    const sira = ['magazanin-sorunu', 'karar-nasil-verilir', 'matematiksel-model', 'sql-ve-greedy', 'mip-ve-pulp', 'sonuclar']
     const yerler = sira.map((slug) => html.indexOf(slug))
     expect(yerler.every((y) => y > -1)).toBe(true)
     expect([...yerler].sort((a, b) => a - b)).toEqual(yerler)
@@ -257,8 +257,8 @@ describe('demo', () => {
   it('bütün kombinasyonlar HTML içinde hazır durur', () => {
     // Sunucu yok; sayfa her koşulda anında açılır
     const html = oku('tr/transfer/blok-transfer/demo/index.html')
-    expect(html).toContain('data-anahtar="4|0"')
-    expect(html).toContain('data-anahtar="12|2"')
+    expect(html).toContain('data-anahtar="4|0|greedy"')
+    expect(html).toContain('data-anahtar="12|2|mip"')
   })
 
   it('parametre seçimi radio ile yapılır, script ile değil', () => {
@@ -442,14 +442,14 @@ describe('hazırlanıyor yazılar', () => {
 describe('gömülü demo', () => {
   // Tasarım dokümanı §5: terim, kadro ve demo aynı deseni kullanır —
   // tek kaynak, ikinci gösterim. Demo bu deseni tamamlar.
-  it('demo sql-ve-python yazısına gömülüdür', () => {
-    const html = oku('tr/transfer/blok-transfer/sql-ve-python/index.html')
-    expect(html).toContain('data-anahtar="4|0"')
-    expect(html).toContain('data-anahtar="12|2"')
+  it('demo sonuclar yazısına gömülüdür', () => {
+    const html = oku('tr/transfer/blok-transfer/sonuclar/index.html')
+    expect(html).toContain('data-anahtar="4|0|greedy"')
+    expect(html).toContain('data-anahtar="12|2|mip"')
   })
 
   it('gömülü demonun style bloğu article bağlamında derlenir', () => {
-    const html = oku('tr/transfer/blok-transfer/sql-ve-python/index.html')
+    const html = oku('tr/transfer/blok-transfer/sonuclar/index.html')
     const baslangic = html.indexOf('<article')
     const bitis = html.indexOf('</article>')
     expect(baslangic).toBeGreaterThan(-1)
@@ -460,7 +460,7 @@ describe('gömülü demo', () => {
   })
 
   it('gömülü demo da JavaScript getirmez', () => {
-    const html = oku('tr/transfer/blok-transfer/sql-ve-python/index.html')
+    const html = oku('tr/transfer/blok-transfer/sonuclar/index.html')
     expect(html).not.toMatch(SCRIPT_DESENI)
   })
 })
