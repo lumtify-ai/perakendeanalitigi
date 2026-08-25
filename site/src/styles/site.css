@@ -1,9 +1,10 @@
 /* site/src/styles/site.css
  *
- * Yapı: (1) font yüzleri, (2) etkin temanın simgeleri, (3) ortak temel.
- * Etkin tema A — "Editorial sıcak". Aday temalar public/temalar/ altında
- * durur ve YALNIZCA geliştirme sunucusunda yüklenir (TemaSecici.astro);
- * üretim derlemesi yalnız bu dosyayı taşır.
+ * Yapı: (1) font yüzleri, (2) tema simgeleri, (3) ortak temel.
+ * Tema: "Editorial sıcak" — gövde ve başlık IBM Plex Serif, arayüz Plex
+ * Sans, kod Plex Mono; kağıt tonunda sıcak zemin, derin çivit vurgu.
+ * Karanlık sürüm prefers-color-scheme ile, saf CSS (site JavaScript
+ * içermez). Fontlar depoya gömülü — hiçbir harici istek yok.
  */
 @import "tailwindcss";
 @import "katex/dist/katex.min.css";

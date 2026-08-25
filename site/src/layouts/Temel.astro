@@ -1,7 +1,6 @@
 ---
 // site/src/layouts/Temel.astro
 import '../styles/site.css'
-import TemaSecici from '../components/TemaSecici.astro'
 
 interface Props {
   baslik: string
@@ -63,14 +62,6 @@ const kurum = {
     <main>
       <slot />
     </main>
-
-    {/* Aday tema değiştirici: YALNIZ `astro dev` sunucusunda basılır.
-        Koşul bilerek MODE === 'development'; `import.meta.env.DEV` denendi
-        ve yetmedi — vitest build'i NODE_ENV=test ile koşturduğu için DEV
-        orada da true kalıyor ve script üretim HTML'ine sızıyordu. Sitenin
-        "ld+json dışında <script> yok" vaadi bu koşula bağlı olamaz; ayrıca
-        tests/build.test.ts bunu zaten bağımsız olarak kilitliyor. */}
-    {import.meta.env.MODE === 'development' && <TemaSecici />}
 
     <footer>
       <p>
