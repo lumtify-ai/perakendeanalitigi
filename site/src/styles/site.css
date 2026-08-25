@@ -1,272 +1,143 @@
+/* site/src/styles/site.css
+ *
+ * Yapı: (1) font yüzleri, (2) etkin temanın simgeleri, (3) ortak temel.
+ * Etkin tema A — "Editorial sıcak". Aday temalar public/temalar/ altında
+ * durur ve YALNIZCA geliştirme sunucusunda yüklenir (TemaSecici.astro);
+ * üretim derlemesi yalnız bu dosyayı taşır.
+ */
 @import "tailwindcss";
 @import "katex/dist/katex.min.css";
+@import "@fontsource/ibm-plex-serif/latin-400.css";
+@import "@fontsource/ibm-plex-serif/latin-600.css";
+@import "@fontsource/ibm-plex-serif/latin-ext-400.css";
+@import "@fontsource/ibm-plex-serif/latin-ext-600.css";
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-sans/latin-ext-400.css";
+@import "@fontsource/ibm-plex-sans/latin-ext-600.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-600.css";
+@import "@fontsource/ibm-plex-mono/latin-ext-400.css";
+@import "@fontsource/ibm-plex-mono/latin-ext-600.css";
+/* ===== YÖN A — "Editorial sıcak" ======================================
+   Gövde serif (okuma), başlık serif, arayüz/veri sans, kod mono.
+   Kağıt tonunda sıcak zemin, mürekkep siyahı yerine sıcak koyu gri.
+   Vurgu: derin çivit — sakin ama ölü değil. */
 
-/* Terim tooltip'i — JavaScript yok, tanım DOM'da durur.
-   Yapay zekâ tarayıcıları JS çalıştırmaz ama HTML'i okur. */
-.terim {
-  position: relative;
-  display: inline-block;
+:root {
+  --govde: 'IBM Plex Serif', Georgia, serif;
+  --baslik: 'IBM Plex Serif', Georgia, serif;
+  --arayuz: 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --olcek: 1.1875rem; --satir: 1.78; --h1: 2.1rem; --h2: 1.45rem;
+  --bg: #fbf9f5; --ink: #2e2a25; --koyu: #16130f; --soluk: #78706a;
+  --cizgi: #e2dbd0; --kutu-zemin: #f5f1e9; --tablo-baslik: #f5f1e9;
+  --kod-zemin: #f5f1e9; --kod-cizgi: #e2dbd0;
+  --vurgu: #3a4f9b; --vurgu-zemin: #eef1f9; --vurgu-cizgi: #c9d2ea;
+  --rozet-zemin: #f5f1e9; --rozet-ink: #6b6259; --rozet-cizgi: #ded5c8;
+  --uyari-zemin: #fdf6e3; --uyari-cizgi: #e3d199;
+  --tooltip-zemin: #2e2a25; --tooltip-ink: #fbf9f5;
 }
-
-.terim > a {
-  text-decoration: underline dotted;
-  text-underline-offset: 0.2em;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1815; --ink: #ddd6cc; --koyu: #f3ede4; --soluk: #948b81;
+    --cizgi: #35302a; --kutu-zemin: #211e1a; --tablo-baslik: #211e1a;
+    --kod-zemin: #211e1a; --kod-cizgi: #35302a;
+    --vurgu: #9fb0e8; --vurgu-zemin: #1d2033; --vurgu-cizgi: #333b5c;
+    --rozet-zemin: #211e1a; --rozet-ink: #a89e93; --rozet-cizgi: #3d372f;
+    --uyari-zemin: #2a2318; --uyari-cizgi: #574a2a;
+    --tooltip-zemin: #f3ede4; --tooltip-ink: #1a1815;
+  }
 }
+body { max-width: 41rem }
+/* --- Ortak temel: iki yönün de paylaştığı yapı ------------------------- */
 
-.terim > .tanim {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  z-index: 20;
-  width: max-content;
-  max-width: min(22rem, 90vw);
-  margin-bottom: 0.4rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  line-height: 1.4;
-  background: #1f2937;
-  color: #f9fafb;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 120ms ease;
-}
-
-/* :focus-within mobilde ve klavyeyle erişimde açar */
-.terim:hover > .tanim,
-.terim:focus-within > .tanim {
-  opacity: 1;
-  visibility: visible;
-}
-
-/* --- Okunabilirlik pası (geçici) ---------------------------------------
-   Tam görsel tasarım teknik yazılar yazıldıktan sonra yapılacak (DURUM.md,
-   katman tablosu). Buradaki tek amaç taslakların tarayıcıda rahat
-   okunması: ölçü, satır uzunluğu, boşluk, taşma. Renk ve kimlik kararı
-   burada verilmez; her şey nötr gri. */
-
-body {
-  max-width: 44rem;
-  margin-inline: auto;
-  padding: 0 1.25rem 4rem;
-  color: #1f2937;
-  font-size: 1.0625rem;
-  line-height: 1.7;
-}
-
-body > header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem 1.5rem;
-  padding-block: 1.25rem;
-  border-bottom: 1px solid #e5e7eb;
-  margin-bottom: 2rem;
-}
-
-.logo {
-  font-weight: 700;
-  color: inherit;
-}
-
-body > header nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  font-size: 0.9375rem;
-}
-
-body > header a:hover {
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
-}
-
-main a {
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
-}
-
-h1 {
-  font-size: 1.75rem;
-  line-height: 1.25;
-  font-weight: 700;
-  margin: 0.5rem 0 0.75rem;
-}
-
-h2 {
-  font-size: 1.3125rem;
-  line-height: 1.35;
-  font-weight: 700;
-  margin: 2.25rem 0 0.75rem;
-}
-
-h3 {
-  font-size: 1.125rem;
-  font-weight: 700;
-  margin: 1.75rem 0 0.5rem;
-}
-
-p {
-  margin-block: 1rem;
-}
-
-main ul,
-main ol {
-  margin-block: 1rem;
-  padding-left: 1.5rem;
-}
-
-main ul {
-  list-style: disc;
-}
-
-main ol {
-  list-style: decimal;
-}
-
-article > header .ozet {
-  color: #6b7280;
-}
-
-.uyari {
-  border: 1px solid #f59e0b;
-  background: #fffbeb;
-  border-radius: 0.375rem;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.9375rem;
-}
-
-.yazar {
-  margin-top: 2.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e5e7eb;
-  color: #6b7280;
-  font-size: 0.9375rem;
-}
-
-pre {
-  overflow-x: auto;
-  background: #f3f4f6;
-  border-radius: 0.5rem;
-  padding: 1rem;
-  margin-block: 1.25rem;
-  font-size: 0.875rem;
-  line-height: 1.6;
-}
-
-:not(pre) > code {
-  background: #f3f4f6;
-  border-radius: 0.25rem;
-  padding: 0.1em 0.35em;
-  font-size: 0.875em;
-}
-
-table {
-  display: block;
-  overflow-x: auto;
-  border-collapse: collapse;
-  margin-block: 1.25rem;
-  font-size: 0.9375rem;
-}
-
-th,
-td {
-  border: 1px solid #e5e7eb;
-  padding: 0.4rem 0.75rem;
-  text-align: left;
-}
-
-th {
-  background: #f9fafb;
-  font-weight: 600;
-}
-
-.kirinti ol {
-  display: flex;
-  flex-wrap: wrap;
-  list-style: none;
-  padding: 0;
-  margin: 0 0 1rem;
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-
-.kirinti li + li::before {
-  content: "›";
-  margin: 0 0.4rem;
-  color: #9ca3af;
-}
-
-.kirinti a {
-  color: inherit;
-}
-
-.rozet {
-  display: inline-block;
-  border: 1px solid #d1d5db;
-  border-radius: 999px;
-  padding: 0.1rem 0.6rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #374151;
-}
-
-.kadro-kutusu {
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
-  border-radius: 0.5rem;
-  padding: 0.25rem 1.25rem;
-  margin-block: 1.5rem;
-  font-size: 0.9375rem;
-}
-
-.kadro-baslik {
-  font-weight: 600;
-}
-
-.kadro-not {
-  color: #6b7280;
-  font-size: 0.875rem;
-}
-
-.dizi-gezinme {
-  margin-top: 3rem;
-  border-top: 1px solid #e5e7eb;
-  padding-top: 1.5rem;
-  font-size: 0.9375rem;
-}
-
-.dizi-adi {
-  font-weight: 600;
-}
-
-.dizi-gezinme ol {
-  list-style: decimal;
-  padding-left: 1.5rem;
-}
-
-.dizi-gezinme .suanki {
-  font-weight: 600;
-}
-
-.dizi-gezinme .durum {
-  color: #9ca3af;
-}
-
-.komsular {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-body > footer {
-  margin-top: 4rem;
-  border-top: 1px solid #e5e7eb;
-  padding-block: 1.25rem;
-  font-size: 0.875rem;
-  color: #6b7280;
-}
+body { margin-inline: auto; padding: 0 1.25rem 5rem; color: var(--ink);
+  background: var(--bg); font-family: var(--govde); font-size: var(--olcek);
+  line-height: var(--satir); -webkit-font-smoothing: antialiased; }
+body > header { display: flex; flex-wrap: wrap; align-items: baseline;
+  justify-content: space-between; gap: .5rem 1.5rem; padding-block: 1.5rem;
+  border-bottom: 1px solid var(--cizgi); margin-bottom: 2.5rem; }
+.logo { font-family: var(--baslik); font-weight: 600; color: var(--ink); letter-spacing: -.01em; }
+body > header nav { display: flex; flex-wrap: wrap; gap: 1.25rem;
+  font-family: var(--arayuz); font-size: .875rem; color: var(--soluk); }
+body > header nav a:hover { color: var(--vurgu); }
+main a { color: var(--vurgu); text-decoration: underline;
+  text-underline-offset: .18em; text-decoration-thickness: .06em; }
+h1 { font-family: var(--baslik); font-size: var(--h1); line-height: 1.15;
+  font-weight: 600; letter-spacing: -.02em; margin: .4rem 0 .6rem; }
+h2 { font-family: var(--baslik); font-size: var(--h2); line-height: 1.25;
+  font-weight: 600; letter-spacing: -.01em; margin: 2.75rem 0 .85rem; }
+h3 { font-family: var(--baslik); font-size: 1.125rem; font-weight: 600; margin: 2rem 0 .5rem; }
+p { margin-block: 1.15rem; }
+main ul, main ol { margin-block: 1.15rem; padding-left: 1.5rem; }
+main ul { list-style: disc } main ol { list-style: decimal }
+main li { margin-block: .35rem }
+strong { font-weight: 600; color: var(--koyu) }
+blockquote { margin: 1.5rem 0; padding: .2rem 0 .2rem 1.25rem;
+  border-left: 3px solid var(--vurgu); color: var(--koyu); font-style: italic; }
+article > header .ozet { font-family: var(--arayuz); color: var(--soluk);
+  font-size: 1rem; line-height: 1.6; }
+.uyari { font-family: var(--arayuz); border: 1px solid var(--uyari-cizgi);
+  background: var(--uyari-zemin); border-radius: .4rem; padding: .55rem .8rem; font-size: .9rem; }
+.yazar { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--cizgi);
+  font-family: var(--arayuz); color: var(--soluk); font-size: .875rem; }
+pre { overflow-x: auto; background: var(--kod-zemin); border: 1px solid var(--kod-cizgi);
+  border-radius: .5rem; padding: 1rem 1.1rem; margin-block: 1.4rem;
+  font-family: var(--mono); font-size: .8125rem; line-height: 1.65; }
+:not(pre) > code { font-family: var(--mono); background: var(--kod-zemin);
+  border: 1px solid var(--kod-cizgi); border-radius: .3rem; padding: .08em .34em; font-size: .85em; }
+table { display: block; overflow-x: auto; border-collapse: collapse;
+  margin-block: 1.5rem; font-family: var(--arayuz); font-size: .875rem; }
+th, td { border: 1px solid var(--cizgi); padding: .45rem .8rem; text-align: left }
+td:not(:first-child) { font-variant-numeric: tabular-nums }
+th { background: var(--tablo-baslik); font-weight: 600; color: var(--koyu) }
+.terim { position: relative; display: inline-block }
+.terim > a { text-decoration: underline dotted; text-underline-offset: .2em; color: inherit }
+.terim > .tanim { position: absolute; bottom: 100%; left: 0; z-index: 20; width: max-content;
+  max-width: min(22rem, 90vw); margin-bottom: .4rem; padding: .6rem .75rem; border-radius: .4rem;
+  font-family: var(--arayuz); font-size: .8125rem; line-height: 1.45;
+  background: var(--tooltip-zemin); color: var(--tooltip-ink);
+  opacity: 0; visibility: hidden; transition: opacity 120ms ease; }
+.terim:hover > .tanim, .terim:focus-within > .tanim { opacity: 1; visibility: visible }
+.kirinti ol { display: flex; flex-wrap: wrap; list-style: none; padding: 0; margin: 0 0 1.25rem;
+  font-family: var(--arayuz); font-size: .8125rem; color: var(--soluk) }
+.kirinti li + li::before { content: "›"; margin: 0 .45rem; color: var(--cizgi) }
+.kirinti a { color: inherit }
+.rozet { display: inline-block; font-family: var(--arayuz); font-size: .6875rem;
+  font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+  padding: .18rem .6rem; border-radius: 999px;
+  background: var(--rozet-zemin); color: var(--rozet-ink); border: 1px solid var(--rozet-cizgi) }
+.kadro-kutusu { font-family: var(--arayuz); border: 1px solid var(--cizgi);
+  background: var(--kutu-zemin); border-radius: .5rem; padding: .3rem 1.25rem;
+  margin-block: 1.75rem; font-size: .875rem }
+.kadro-baslik { font-weight: 600; color: var(--koyu) }
+.kadro-not { color: var(--soluk); font-size: .8125rem }
+.demo { font-family: var(--arayuz); border: 1px solid var(--cizgi); border-radius: .6rem;
+  background: var(--kutu-zemin); padding: 1.1rem 1.25rem; margin-block: 2rem }
+.demo form { display: flex; flex-wrap: wrap; gap: 1.25rem 2rem; margin-bottom: 1.1rem }
+.demo fieldset { border: 0; padding: 0; margin: 0 }
+.demo legend { font-size: .75rem; font-weight: 600; color: var(--soluk);
+  letter-spacing: .04em; text-transform: uppercase; margin-bottom: .45rem }
+.demo label { display: inline-flex; align-items: center; gap: .3rem; margin-right: .7rem;
+  font-size: .875rem; cursor: pointer }
+.demo dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: .9rem 1.25rem; margin: 0; padding-top: 1rem; border-top: 1px solid var(--cizgi) }
+.demo dt { font-size: .75rem; color: var(--soluk); margin-bottom: .15rem }
+.demo dd { margin: 0; font-family: var(--mono); font-size: 1.0625rem;
+  font-weight: 600; color: var(--koyu); font-variant-numeric: tabular-nums }
+.demo-not { color: var(--soluk); font-size: .75rem; margin: 1rem 0 0 }
+.dizi-gezinme { margin-top: 3.5rem; border-top: 1px solid var(--cizgi); padding-top: 1.5rem;
+  font-family: var(--arayuz); font-size: .875rem }
+.dizi-adi { font-weight: 600; color: var(--koyu) }
+.dizi-gezinme ol { list-style: decimal; padding-left: 1.4rem; color: var(--soluk) }
+.dizi-gezinme .suanki { font-weight: 600; color: var(--koyu) }
+.dizi-gezinme .durum { color: var(--cizgi) }
+.komsular { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.25rem }
+.lumtify-koprusu { font-family: var(--arayuz); margin-top: 3.5rem; padding: 1.4rem 1.5rem;
+  border: 1px solid var(--vurgu-cizgi); border-radius: .6rem; background: var(--vurgu-zemin) }
+.lumtify-koprusu h2 { font-size: 1.0625rem; margin: 0 0 .6rem }
+.lumtify-koprusu p { font-size: .9375rem; margin-block: .6rem }
+body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-block: 1.5rem;
+  font-family: var(--arayuz); font-size: .8125rem; color: var(--soluk) }
+.katex-display { overflow-x: auto; overflow-y: hidden; padding-block: .35rem }

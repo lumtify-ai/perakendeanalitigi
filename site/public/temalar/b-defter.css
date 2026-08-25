@@ -1,0 +1,39 @@
+/* Aday tema B — "Nötr defter". Yalnız geliştirme sunucusunda yüklenir.
+ * Etkin tema (A) src/styles/site.css içindedir. */
+/* ===== YÖN B — "Nötr defter" =========================================
+   Gövde sans (berrak), başlık sans, kod ve bütün sayılar mono.
+   Soğuk nötr zemin, keskin çizgiler, veri yapısı öne çıkar.
+   Vurgu: teknik mavi. */
+
+[data-tema="b"] {
+  --govde: 'IBM Plex Sans', system-ui, sans-serif;
+  --baslik: 'IBM Plex Sans', system-ui, sans-serif;
+  --arayuz: 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --olcek: 1.0625rem; --satir: 1.68; --h1: 1.9rem; --h2: 1.3rem;
+  --bg: #ffffff; --ink: #2b3138; --koyu: #0f1418; --soluk: #6b7681;
+  --cizgi: #dfe4e9; --kutu-zemin: #f7f9fb; --tablo-baslik: #f2f5f8;
+  --kod-zemin: #f7f9fb; --kod-cizgi: #dfe4e9;
+  --vurgu: #0b6bcb; --vurgu-zemin: #f0f6fd; --vurgu-cizgi: #bcd8f5;
+  --rozet-zemin: #eef2f6; --rozet-ink: #55606b; --rozet-cizgi: #d6dde4;
+  --uyari-zemin: #fff8e6; --uyari-cizgi: #e8cf8a;
+  --tooltip-zemin: #14191e; --tooltip-ink: #f2f5f8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1418; --ink: #c3cbd3; --koyu: #eef2f6; --soluk: #7d8791;
+    --cizgi: #262d34; --kutu-zemin: #161c22; --tablo-baslik: #161c22;
+    --kod-zemin: #161c22; --kod-cizgi: #262d34;
+    --vurgu: #61a8f0; --vurgu-zemin: #111b26; --vurgu-cizgi: #24384d;
+    --rozet-zemin: #161c22; --rozet-ink: #929ca6; --rozet-cizgi: #2c343c;
+    --uyari-zemin: #241f12; --uyari-cizgi: #4d4327;
+    --tooltip-zemin: #eef2f6; --tooltip-ink: #0f1418;
+  }
+}
+[data-tema="b"] body { max-width: 44rem }
+/* Defter karakteri: başlıklar ince bir çizgiyle, sayılar hep mono */
+[data-tema="b"] h2 { padding-bottom: .35rem; border-bottom: 1px solid var(--cizgi) }
+[data-tema="b"] .demo dd,
+[data-tema="b"] td.sayi,
+[data-tema="b"] .kirinti { font-family: var(--mono) }
+[data-tema="b"] .rozet { border-radius: .25rem; font-family: var(--mono) }
