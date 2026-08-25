@@ -3,6 +3,9 @@
 // `hazirlaniyor` yazılar üretilir ama site haritasında ilan edilmez. Süzgeç
 // astro.config.mjs içinden çağrılır; burada gerçek içerik ağacı üzerinde
 // doğrulanır.
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { hazirlaniyorAdresleri, sitemapSuzgeci } from '../src/lib/yayinDurumu.mjs'
@@ -11,11 +14,30 @@ import { hazirlaniyorAdresleri, sitemapSuzgeci } from '../src/lib/yayinDurumu.mj
 const YAZI_KOKU = fileURLToPath(new URL('../src/content/yazi/', import.meta.url))
 
 describe('hazirlaniyorAdresleri', () => {
-  it('gerçek içerikteki hazırlanıyor yazıları bulur', () => {
-    const adresler = hazirlaniyorAdresleri(YAZI_KOKU)
-    expect(adresler).toContain('/tr/transfer/blok-transfer/sonuclar/')
-    // İlk yayımlanan yazı: listede olmamalı
-    expect(adresler).not.toContain('/tr/temeller/urun-hiyerarsisi/')
+  it('sentetik ağaçtaki hazırlanıyor yazıyı bulur, yayındakini bulmaz', () => {
+    // Gerçek içerik ağacında şu an taslak yok (aşağıdaki test). Mekanizmanın
+    // kendisi içeriğin durumuna bağlı kalmasın diye sentetik ağaçta sınanır.
+    const kok = mkdtempSync(join(tmpdir(), 'yayin-'))
+    mkdirSync(join(kok, 'alan', 'dizi'), { recursive: true })
+    const yaz = (yol: string, durum: string) =>
+      writeFileSync(join(kok, yol), `---
+baslik: X
+tip: teknik
+sira: 1
+durum: ${durum}
+---
+`)
+    yaz(join('alan', 'dizi', 'taslak.mdx'), 'hazirlaniyor')
+    yaz(join('alan', 'dizi', 'yayinda.mdx'), 'yayinda')
+
+    const adresler = hazirlaniyorAdresleri(kok)
+    expect(adresler).toEqual(['/tr/alan/dizi/taslak/'])
+  })
+
+  it('gerçek içerikte şu an hazırlanıyor yazı yok', () => {
+    // Yedi yazının tamamı yayında. Bu satır düşerse bir taslak eklenmiş
+    // demektir; o zaman site haritası ve noindex testleri de güncellenmeli.
+    expect(hazirlaniyorAdresleri(YAZI_KOKU)).toEqual([])
   })
 
   it('her adres eğik çizgiyle biter ve /tr/ ile başlar', () => {

@@ -384,18 +384,20 @@ describe('üst menü', () => {
   })
 })
 
-describe('hazırlanıyor yazılar', () => {
-  it('dizi kapağı hazırlanıyor işaretini basar', () => {
-    // Tasarım dokümanı §3: yayınlanmamış yazılar dizide görünür ama
-    // "hazırlanıyor" olarak işaretlenir — kapsamı gösterir, kronoloji hissi
-    // yaratmaz.
-    expect(oku('tr/transfer/blok-transfer/index.html')).toContain('hazırlanıyor')
-  })
-
-  it('hazırlanıyor yazı noindex basar', () => {
-    expect(oku('tr/transfer/blok-transfer/sonuclar/index.html')).toContain(
-      'name="robots" content="noindex"',
-    )
+describe('yayın durumu', () => {
+  // Tasarım dokümanı §3'ün taslak mekanizması (dizi kapağında "hazırlanıyor"
+  // işareti, sayfada noindex, site haritasında gizleme) yerinde duruyor ama
+  // şu an gösterecek taslak yok: yedi yazının hepsi yayında. Mekanizmanın
+  // kendisi tests/yayinDurumu.test.ts'te sentetik ağaç üzerinde sınanıyor;
+  // burada taslak yokluğunun getirdiği değişmezler doğrulanıyor.
+  it('taslak olmadığı için hiçbir içerik sayfası noindex basmaz', () => {
+    // Kök index.html hariç: o, Astro'nun "/" → "/tr/" yönlendirme kabuğu ve
+    // yönlendirme sayfasının indekslenmemesi zaten istenen davranış.
+    const suclular = tumSayfalar()
+      .filter(({ yol }) => yol !== 'index.html')
+      .filter(({ html }) => html.includes('noindex'))
+      .map(({ yol }) => yol)
+    expect(suclular).toEqual([])
   })
 
   it('yayına açık sayfalar noindex basmaz', () => {
@@ -414,14 +416,16 @@ describe('hazırlanıyor yazılar', () => {
     }
   })
 
-  it('site haritası hazırlanıyor adresleri ilan etmez', () => {
-    // İlk taramada tek cümlelik yer tutucu sayfalar görmek, geri alması en
-    // zor birinci izlenimdir.
-    // Dizide hazırlanıyor durumunda tek yazı kaldı: sonuç yazısı.
+  it('site haritası bütün yazıları ilan eder', () => {
+    // Taslak yokken süzgeç hiçbir adresi elememeli: yazı sayfalarının
+    // tamamı haritada olmalı.
     const harita = oku('sitemap-0.xml')
-    for (const adres of ['/tr/transfer/blok-transfer/sonuclar/']) {
-      expect(harita, adres).not.toContain(adres)
-    }
+    const yazilar = tumSayfalar()
+      .map(({ yol }) => yol)
+      .filter((yol) => /^tr\/(temeller|transfer)\/.+\/index\.html$/.test(yol))
+      .map((yol) => '/' + yol.replace(/index\.html$/, ''))
+    const eksik = yazilar.filter((adres) => !harita.includes(adres))
+    expect(eksik).toEqual([])
   })
 
   it('site haritası yayına açık adresleri ilan etmeye devam eder', () => {
@@ -437,8 +441,8 @@ describe('hazırlanıyor yazılar', () => {
     expect(harita).toContain('/tr/transfer/blok-transfer/mip-ve-pulp/')
   })
 
-  it('hazırlanıyor yazının sayfası yine de üretilir', () => {
-    // Dizi kapağı onlara bağlanıyor; kırık bağlantı bırakılmaz.
+  it('sonuç yazısının sayfası üretilir', () => {
+    // Dizi kapağı ona bağlanıyor; kırık bağlantı bırakılmaz.
     expect(existsSync(DIST + 'tr/transfer/blok-transfer/sonuclar/index.html')).toBe(true)
   })
 })
