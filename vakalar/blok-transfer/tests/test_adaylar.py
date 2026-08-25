@@ -52,3 +52,11 @@ def test_cok_siki_esikte_bos_ama_dogru_bicimli_cerceve(con):
     bos = adaylar.uret(con, KARAR, replace(P, min_satis=99.0))
     assert len(bos) == 0
     assert list(bos.columns) == adaylar.KOLONLAR
+
+
+def test_aday_sirasi_deterministik(con):
+    # DuckDB sorgularinda ORDER BY yok; sira oynarsa MIP degisken adlandirmasi
+    # oynar ve cozucu esit degerli optimumlar arasinda baska birini dondurur.
+    df = adaylar.uret(con, KARAR, P)
+    anahtar = list(zip(df.verici, df.alici, df.option_id))
+    assert anahtar == sorted(anahtar)

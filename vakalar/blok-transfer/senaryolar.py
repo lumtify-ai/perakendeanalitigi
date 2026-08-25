@@ -13,8 +13,8 @@ from blok_transfer.cekirdek import veri
 from blok_transfer.cekirdek.parametreler import Parametreler
 
 PARAMETRELER = [
-    {"ad": "cover_esigi", "etiket": "Gönderen mağazada cover eşiği (hafta)", "degerler": [4, 12, 40]},
-    {"ad": "min_satis", "etiket": "Alıcı mağazada asgari haftalık satış (adet)", "degerler": [0, 2, 5, 8]},
+    {"ad": "cover_esigi", "etiket": "Gönderen mağazada cover eşiği (hafta)", "degerler": [6, 12, 40, 120]},
+    {"ad": "min_satis", "etiket": "Alıcı mağazada asgari haftalık satış (adet)", "degerler": [0, 1, 5, 8]},
     {"ad": "yontem", "etiket": "Çözüm yöntemi", "degerler": ["greedy", "mip"]},
 ]
 HEDEF = Path(__file__).resolve().parents[2] / "site" / "src" / "data" / "senaryolar" / "blok-transfer.json"

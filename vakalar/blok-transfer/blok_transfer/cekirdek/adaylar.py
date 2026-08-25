@@ -85,4 +85,8 @@ def uret(con, karar: date, p: Parametreler) -> pd.DataFrame:
         columns={"magaza_id_verici": "verici", "magaza_id_alici": "alici"}
     )
     df["hiz_verici"] = df["hiz_verici"].fillna(0.0)
-    return df[KOLONLAR].reset_index(drop=True)
+    # Sıralama şart: DuckDB sorgularında ORDER BY yok, satır sırası koşudan
+    # koşuya değişebilir. Sıra değişince MIP'in değişken adlandırması değişir
+    # ve çözücü eşit değerli optimumlar arasında başka birini döndürür —
+    # amaç değeri aynı kalsa da plan oynar. Determinizm güven meselesidir.
+    return df[KOLONLAR].sort_values(["verici", "alici", "option_id"]).reset_index(drop=True)

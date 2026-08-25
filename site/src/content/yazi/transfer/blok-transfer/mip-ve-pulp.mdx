@@ -108,6 +108,17 @@ sıralamasına `verici, alici, option_id` kuyruğunu eklerken aynı derdi
 çözüyorduk. **Determinizm bir matematik meselesi değil, güven meselesidir**
 ve iki yöntemde de ayrı ayrı ele almak gerekiyor.
 
+Bu yazıyı yazdıktan sonra aynı dersin ikinci örneği çıktı, o yüzden buraya
+ekliyorum: `sorted` tek başına yetmemiş. Aday tablosunu üreten SQL
+sorgularında `order by` yoktu ve DuckDB satırları her koşuda aynı sırada
+döndürmek zorunda değil. Sıra değişince değişkenlerin adı değişiyor, adlar
+değişince çözücü yine eşit değerli başka bir optimuma düşüyordu: art arda üç
+koşuda amaç değeri kuruşu kuruşuna aynı (4.647.648,31 TL) çıkarken planların
+34 hareketi farklıydı. Aday tablosunu sıralamak sorunu kapattı. Ders şu:
+determinizm tek bir yerde sağlanmaz, **veriden çözüme kadar bütün zincirde**
+sağlanır — ve bir yerde kaçırdığınızda size hata olarak değil, "geçen hafta
+başka söylüyordu" olarak geri döner.
+
 ## Çözdürmek ve gelen cevabı okumak
 
 ```python
@@ -162,8 +173,8 @@ Somut bir örnek, çözücünün en dolu rotası:
 ```
 M003 → M023 · 4 option · 88 adet
 
-  MDL025-SYH   açgözlü planda:  M005 → M008
-  MDL040-BEJ   açgözlü planda:  M022 → M023
+  MDL025-SYH   açgözlü planda:  M003 → M008
+  MDL040-BEJ   açgözlü planda:  M025 → M023
   MDL041-BEJ   açgözlü planda:  M003 → M002
   MDL048-LCV   açgözlü planda:  M003 → M023
 ```
@@ -175,7 +186,7 @@ her biri kendi başına daha iyi eşleşmiş olabilir; ama dördü için dört k
 kamyon parası ödeniyor ve toplamda geride kalıyor.
 
 Bunun ikinci bir sonucu var, tabloda görünmüyor: iki planın ortak taşıdığı
-113 option'ın **63'ünde rota farklı**. Yani çözücü aynı planı ucuzlatmakla
+113 option'ın **56'sında rota farklı**. Yani çözücü aynı planı ucuzlatmakla
 kalmıyor, kimin kime göndereceğini de yeniden kuruyor.
 
 ## Neden 0,18 saniye?

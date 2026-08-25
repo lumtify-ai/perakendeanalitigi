@@ -257,8 +257,8 @@ describe('demo', () => {
   it('bütün kombinasyonlar HTML içinde hazır durur', () => {
     // Sunucu yok; sayfa her koşulda anında açılır
     const html = oku('tr/transfer/blok-transfer/demo/index.html')
-    expect(html).toContain('data-anahtar="4|0|greedy"')
-    expect(html).toContain('data-anahtar="12|2|mip"')
+    expect(html).toContain('data-anahtar="6|0|greedy"')
+    expect(html).toContain('data-anahtar="120|8|mip"')
   })
 
   it('parametre seçimi radio ile yapılır, script ile değil', () => {
@@ -448,8 +448,8 @@ describe('gömülü demo', () => {
   // tek kaynak, ikinci gösterim. Demo bu deseni tamamlar.
   it('demo sonuclar yazısına gömülüdür', () => {
     const html = oku('tr/transfer/blok-transfer/sonuclar/index.html')
-    expect(html).toContain('data-anahtar="4|0|greedy"')
-    expect(html).toContain('data-anahtar="12|2|mip"')
+    expect(html).toContain('data-anahtar="6|0|greedy"')
+    expect(html).toContain('data-anahtar="120|8|mip"')
   })
 
   it('gömülü demonun style bloğu article bağlamında derlenir', () => {
