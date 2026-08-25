@@ -27,6 +27,7 @@ def test_ozet_metikleri():
     ozet = degerlendirme.ozetle(ornek_plan(), P)
     assert ozet["option_sayisi"] == 2
     assert ozet["tasinan_adet"] == 20
+    assert ozet["rota_sayisi"] == 2                          # MA->MB ve MA->MC
     assert ozet["bosalan_magaza"] == 1                       # tek verici: MA
     assert ozet["net_kazanc_tl"] == pytest.approx(1100 - 2 * 500)  # 2 rota sabiti
     assert ozet["sure_sn"] == pytest.approx(0.01)

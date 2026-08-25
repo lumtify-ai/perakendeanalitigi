@@ -17,6 +17,7 @@ def ozetle(plan: Plan, p: Parametreler) -> dict:
     return {
         "option_sayisi": int(len(h)),
         "tasinan_adet": int(h.adet.sum()) if len(h) else 0,
+        "rota_sayisi": int(rota_sayisi),
         "bosalan_magaza": int(h.verici.nunique()) if len(h) else 0,
         "net_kazanc_tl": round(float(h.w.sum()) - rota_sayisi * p.rota_sabiti_tl, 2),
         "sure_sn": round(plan.sure_sn, 3),

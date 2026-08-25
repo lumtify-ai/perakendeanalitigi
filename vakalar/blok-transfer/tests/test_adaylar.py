@@ -44,3 +44,11 @@ def test_esikler_senaryo_parametresi(con):
 def test_kapasite_boslugu(con):
     b = adaylar.kapasite_boslugu(con, KARAR)
     assert b == {"MA": 980, "MB": 994, "MC": 5000, "MD": 990}
+
+
+def test_cok_siki_esikte_bos_ama_dogru_bicimli_cerceve(con):
+    # Eşikler her şeyi elediğinde çökmemeli; kolonlar korunmalı (çözücüler
+    # boş çerçeveyi bu kolonlarla bekliyor).
+    bos = adaylar.uret(con, KARAR, replace(P, min_satis=99.0))
+    assert len(bos) == 0
+    assert list(bos.columns) == adaylar.KOLONLAR

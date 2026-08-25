@@ -7,6 +7,9 @@ from . import metrikler
 from .parametreler import Parametreler
 
 
+KOLONLAR = ["verici", "alici", "option_id", "adet", "hiz_verici", "hiz_alici", "fiyat"]
+
+
 def kapasite_boslugu(con: duckdb.DuckDBPyConnection, karar: date) -> dict[str, int]:
     df = con.execute(
         """
@@ -48,20 +51,27 @@ def uret(con, karar: date, p: Parametreler) -> pd.DataFrame:
 
     soguma = _sogumada(con, karar, p.soguma_hafta)
     vericiler = coverlar[coverlar.cover >= p.cover_esigi].copy()
-    vericiler = vericiler[
-        ~vericiler.apply(lambda s: (s.magaza_id, s.option_id) in soguma, axis=1)
-    ]
+    if len(vericiler):
+        vericiler = vericiler[
+            ~vericiler.apply(lambda s: (s.magaza_id, s.option_id) in soguma, axis=1)
+        ]
 
     kirik_kume = set(zip(kiriklar.magaza_id, kiriklar.option_id))
     stoklu_kume = set(zip(stok.magaza_id, stok.option_id))
     alicilar = hizlar[hizlar.hiz >= p.min_satis].copy()
-    alicilar = alicilar[
-        alicilar.apply(
-            lambda s: (s.magaza_id, s.option_id) in kirik_kume
-            or (s.magaza_id, s.option_id) not in stoklu_kume,   # stoksuz
-            axis=1,
-        )
-    ]
+    if len(alicilar):
+        alicilar = alicilar[
+            alicilar.apply(
+                lambda s: (s.magaza_id, s.option_id) in kirik_kume
+                or (s.magaza_id, s.option_id) not in stoklu_kume,   # stoksuz
+                axis=1,
+            )
+        ]
+
+    # Sıkı eşiklerde taraflardan biri tamamen boşalabilir; merge o durumda
+    # kolon adlarını kaybettiği için burada erken dönülür.
+    if not len(vericiler) or not len(alicilar):
+        return pd.DataFrame(columns=KOLONLAR)
 
     df = vericiler.merge(
         alicilar, on="option_id", suffixes=("_verici", "_alici")
@@ -75,6 +85,4 @@ def uret(con, karar: date, p: Parametreler) -> pd.DataFrame:
         columns={"magaza_id_verici": "verici", "magaza_id_alici": "alici"}
     )
     df["hiz_verici"] = df["hiz_verici"].fillna(0.0)
-    return df[
-        ["verici", "alici", "option_id", "adet", "hiz_verici", "hiz_alici", "fiyat"]
-    ].reset_index(drop=True)
+    return df[KOLONLAR].reset_index(drop=True)

@@ -13,11 +13,12 @@ def test_sema_ve_anahtar_tamligi(con, tmp_path):
     icerik = senaryolar.uret(con, KARAR)
     assert [p["ad"] for p in icerik["parametreler"]] == ["cover_esigi", "min_satis", "yontem"]
     assert icerik["surum"]
-    assert len(icerik["sonuclar"]) == 4 * 3 * 2
-    assert "6|1|greedy" in icerik["sonuclar"]
-    ornek = icerik["sonuclar"]["6|1|mip"]
+    assert len(icerik["sonuclar"]) == 3 * 4 * 2
+    assert "12|2|greedy" in icerik["sonuclar"]
+    ornek = icerik["sonuclar"]["12|2|mip"]
     assert set(ornek["ozet"]) == {
-        "option_sayisi", "tasinan_adet", "bosalan_magaza", "net_kazanc_tl", "sure_sn"
+        "option_sayisi", "tasinan_adet", "rota_sayisi", "bosalan_magaza",
+        "net_kazanc_tl", "sure_sn",
     }
     assert ornek["satirlar"] == []
 
