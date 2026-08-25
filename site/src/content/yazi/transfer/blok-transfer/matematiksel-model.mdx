@@ -4,12 +4,269 @@ tip: teknik
 sira: 3
 ozet: Kümeler, parametreler, ikili karar değişkenleri, amaç fonksiyonu ve kısıtlar.
 yazar: Sabri Suyunu
-durum: hazirlaniyor
+durum: yayinda
 ---
 
-Bu yazı hazırlanıyor. Karar değişkeni ikilidir: $x_{ij}$ option $i$'nin $j$
-mağazasından alınıp alınmadığını gösterir.
+import T from '../../../../components/T.astro'
+
+Matematiksel model bölümü, çoğu yazıda okuyucunun kaydırıp geçtiği yerdir.
+Sembol görünce insanın içinden "bunu anlamak için matematikçi olmak lazım"
+demek gelir. Bu bölümü atlamayın, çünkü burada yeni bir şey yok. Bir önceki
+yazıda Ali beyaz tahtaya bir terazi çizmişti: bir kefede alıcıda kazanılacak
+satış, öbür kefede vericide kaybedilecek satış artı taşıma masrafı. Aşağıdaki
+her sembolün o tahtada bir karşılığı var. Yaptığımız tek şey teraziyi
+çözücünün okuyabileceği dilde yazmak.
+
+Bir sözüm var: her formülden sonra o formülün Türkçesini de yazacağım. İkisi
+uyuşmuyorsa formül yanlıştır, Türkçe değil.
+
+Buradaki model uydurma değil; `vakalar/blok-transfer/` altındaki çalışan
+kodun birebir kendisi. Aşağıdaki bütün sayılar da Lumoda'nın sezon
+kapanışındaki gerçek stok fotoğrafından çıktı.
+
+## Kümeler ve indisler
+
+Üç küme var. İlk ikisi tahmin edeceğiniz gibi:
 
 $$
-\max \sum_{i \in I} \sum_{j \in J} c_{ij} \, x_{ij}
+M = \{1, \dots, 25\} \quad \text{mağazalar}, \qquad
+O = \{1, \dots, 240\} \quad \text{option'lar}
 $$
+
+Üçüncüsü bu modelin en önemli parçası — ve çoğu anlatımda es geçilen yer:
+
+$$
+A \subseteq \{(i, j, o) : i, j \in M,\; i \neq j,\; o \in O\}
+$$
+
+$A$ **aday kümesidir**: "$i$ mağazasındaki $o$ option'ının bloğu $j$
+mağazasına gidebilir mi?" sorusunun sorulmaya değer olduğu üçlüler. Sorulmaya
+değer olmayanlar buraya hiç girmez.
+
+Neden önemli olduğunu sayılar söylüyor. Kısıtsız üçlü sayısı:
+
+$$
+25 \times 24 \times 240 = 144{,}000
+$$
+
+Gerçek aday sayısı — orta senaryoda, yani <T k="cover">cover</T> eşiği 6
+hafta ve alıcıda asgari haftalık satış 1 adet iken: **375**.
+
+Yüz kırk dört binden üç yüz yetmiş beşe. Bu düşüşü yapan şey modelin kısıtları
+değil; kümenin tanımı. Verici olabilmek için stok bulunması, cover'ın eşiği
+geçmesi ve o rafın soğumada olmaması gerekiyor. Alıcı olabilmek için setin
+<T k="kiriklik">kırık</T> ya da stoğun sıfır olması, üstüne satış hızının
+eşiği geçmesi gerekiyor. Outlet line'ındaki bir option'ın vitrin mağazasına
+gitmesi ise ticaretin yasağı.
+
+Bunların hepsini çözücüye kısıt olarak da yazabilirdik. Yazmadık, çünkü o
+zaman 144.000 değişkenli bir model kurup çözücüden bunların 143.625'ini
+"zaten imkânsız" diye elemesini beklerdik. Bu yazının en pratik cümlesi şu
+olabilir: **modelin en önemli kısmı çoğu zaman yazmadığınız kısıtlardır.**
+İş bilgisi modele kısıt olarak değil, kümenin tanımı olarak girdiğinde model
+küçülür ve okunur kalır.
+
+## Parametreler
+
+Hepsi veriden ya da `parametreler.py`'den geliyor; hiçbiri elle yazılmış
+sihirli sayı değil:
+
+| Sembol | Anlamı | Değer / kaynak |
+|---|---|---|
+| $s_{io}$ | $i$ mağazasındaki $o$ option'ının stoğu | Stok fotoğrafı |
+| $v_{io}$ | Haftalık satış hızı | Son 8 **stoklu** haftanın ortalaması |
+| $f_o$ | Option'ın liste fiyatı | Ürün master'ı |
+| $H$ | Planlama ufku | 8 hafta |
+| $c$ | Adet başına taşıma maliyeti | 25 TL |
+| $R$ | Rota başına sabit maliyet | 500 TL |
+| $K$ | Minimum koli | 6 adet |
+| $Q_j$ | $j$ mağazasının kapasite boşluğu | Kapasite − mevcut stok |
+
+$v_{io}$'nun tanımındaki "stoklu" kelimesi kalın yazılmayı hak ediyor. Bir
+önceki yazıda Pelin'in bulduğu tuzak buydu: raf boşken geçen haftaları da
+ortalamaya katarsanız, stoksuz kaldığı için satamamış bir ürünü "yavaş satan
+ürün" ilan edersiniz. Hız yalnız malın rafta olduğu haftalardan ölçülür.
+
+## Karar değişkenleri
+
+İki tane. Birincisi işin kendisi:
+
+$$
+x_{ijo} \in \{0, 1\}, \quad (i,j,o) \in A
+$$
+
+Türkçesi: *$i$'deki $o$ bloğu $j$'ye taşınsın mı, taşınmasın mı?* Kesir yok —
+bloğun yarısı diye bir şey yok. Blok bölünmez, çünkü bölünen şey beden
+setidir.
+
+İkincisi ilk bakışta gereksiz görünür:
+
+$$
+y_{ij} \in \{0, 1\}, \quad (i,j) \in \text{rotalar}(A)
+$$
+
+Türkçesi: *$i$'den $j$'ye bu hafta bir sevkiyat açılıyor mu?* Neden ayrı bir
+değişken? Çünkü taşımanın iki tür maliyeti var. Adet başına olan kısmı
+($c \cdot s_{io}$) zaten $x$ ile ölçeklenir. Ama koli kaldırmanın, aracı
+yollamanın, karşı tarafın mal kabulünü açmasının bedeli **adede değil, çifte**
+bağlıdır: aynı iki mağaza arasında bir option da taşısanız beş option da
+taşısanız o masraf bir kez ödenir. Bunu $x$ ile ifade edemezsiniz; rotanın
+kendisine ait bir değişken gerekir.
+
+Modelin gerçekten incelikli tek yeri burasıdır ve sonuçları da oradan çıkar:
+$y$ olmadan model her hareketi tek başına değerlendirir, $y$ ile birlikte
+**hareketleri birleştirmeyi** öğrenir.
+
+## Amaç fonksiyonu
+
+Önce tek bir adayın terazisi. Üç parça:
+
+$$
+\begin{aligned}
+\text{kazanç}_{ijo} &= \min(s_{io},\; v_{jo} \cdot H) \cdot f_o \\
+\text{kayıp}_{ijo} &= \min(s_{io},\; v_{io} \cdot H) \cdot f_o \\
+\text{taşıma}_{io} &= c \cdot s_{io}
+\end{aligned}
+$$
+
+Türkçesi sırayla: *alıcı bu bloğu ufuk içinde ne kadar satabilirse o kadar
+kazanırız — ama elindeki stoktan fazlasını satamaz, o yüzden minimum.*
+*Vericiden aldığımızda onun satacağı kadarını kaybederiz — aynı sebeple yine
+minimum.* *Taşıma adet başınadır.*
+
+Net ağırlık ikisinin farkı eksi masraf:
+
+$$
+w_{ijo} = \text{kazanç}_{ijo} - \text{kayıp}_{ijo} - \text{taşıma}_{io}
+$$
+
+Ve amaç:
+
+$$
+\max \sum_{(i,j,o) \in A} w_{ijo} \, x_{ijo} \;-\; R \sum_{(i,j)} y_{ij}
+$$
+
+Türkçesi: *seçtiğin hareketlerin net faydasını topla, açtığın her rota için
+sabit masrafı düş, kalanı büyüt.* Tahtadaki terazinin tamamı bu satırda.
+
+## Kısıtlar
+
+Dört tane, hepsi bir iş kuralının doğrudan çevirisi.
+
+**1. Blok tek hedefe gider.**
+
+$$
+\sum_{j} x_{ijo} \le 1 \qquad \forall i \in M,\; o \in O
+$$
+
+*Bir mağazadaki bir option'ın stoğu en çok bir yere gönderilebilir.* Aynı
+bloğu ikiye bölüp iki mağazaya dağıtmak bu sürümün kapsamı dışında; sebebini
+aşağıda yazıyorum.
+
+**2. Alıcı kapasitesi aşılmaz.**
+
+$$
+\sum_{(i,o)} s_{io} \, x_{ijo} \le Q_j \qquad \forall j \in M
+$$
+
+*Bir mağazaya boşluğundan fazla mal gönderemezsiniz.* Deponun ve rafın sonu
+vardır.
+
+**3. Rota açılmadan taşıma olmaz.**
+
+$$
+x_{ijo} \le y_{ij} \qquad \forall (i,j,o) \in A
+$$
+
+*Bir hareket varsa o çift arasında sevkiyat açılmış demektir.* Bu kısıt
+$y$'yi dürüst tutar: model bedava rota kullanamaz.
+
+**4. Açık rota koliyi doldurur.**
+
+$$
+\sum_{o} s_{io} \, x_{ijo} \ge K \, y_{ij} \qquad \forall (i,j)
+$$
+
+*Sevkiyat açtıysan en az minimum koli kadar mal taşı.* İki adet için kamyon
+kaldırılmaz. Dikkat: bu kısıt üçüncüsüyle birlikte çalışır — üçüncüsü "rota
+açılmadan hareket olmaz" der, dördüncüsü "rota açıldıysa boş gitmez" der.
+İkisi birden, modeli küçük hareketleri **aynı rotada toplamaya** zorlar.
+
+## Ölçek: 652 değişken, 841 kısıt
+
+Orta senaryoda modelin gerçek boyutları şöyle:
+
+| Parça | Sayı |
+|---|---:|
+| $x$ değişkeni (aday hareket) | 375 |
+| $y$ değişkeni (rota) | 277 |
+| **Toplam ikili değişken** | **652** |
+| Blok tekliği kısıtı | 164 |
+| Kapasite kısıtı | 25 |
+| Rota bağlama kısıtı | 375 |
+| Minimum koli kısıtı | 277 |
+| **Toplam kısıt** | **841** |
+
+Şimdi şu 652 sayısına bakalım. Her değişken 0 veya 1 olabildiğine göre olası
+atama sayısı $2^{652}$ — yaklaşık $10^{196}$. Gözlemlenebilir evrendeki atom
+sayısı kabaca $10^{80}$ olarak tahmin ediliyor. Yani bu küçük zincirin tek bir
+haftalık transfer kararı, kaba kuvvetle denenmek istense, evrendeki bütün
+atomlara birer bilgisayar verseniz bile bitmez.
+
+Çözücünün (CBC) bu modeli çözme süresi: **0,25 saniye.**
+
+Bu iki cümle yan yana durunca insanın aklına ilk gelen şey "bir yerde hata
+olmalı" oluyor. Yok. Çözücü kombinasyonları saymıyor. Önce problemi
+gevşetiyor — $x$'lerin 0 ile 1 arasında kesirli olmasına izin veriyor, ki bu
+hâli hızlı çözülen bir doğrusal program. Çıkan sayı gerçek en iyi çözümün
+üst sınırıdır. Sonra kesirli çıkan bir değişkeni seçip iki dal açıyor ("bu
+sıfır olsun" / "bu bir olsun"), her dalda üst sınırı yeniden hesaplıyor ve bir
+dalın üst sınırı eldeki en iyi çözümden kötüyse o dalın tamamını —
+milyarlarca kombinasyonu — tek hamlede çöpe atıyor. Adı dal-sınır. Bir önceki
+yazıda Ali'nin "altı bin kere teraziyi kuramam" dediği yerin cevabı budur:
+kimse kurmuyor, çözücü bakmadan eliyor.
+
+Bu modelin orta senaryodaki çıktısı 163 option'ın taşınması, toplam 3.765
+adet. Sonraki iki yazıda bu sayının nasıl elde edildiğini iki ayrı yoldan
+göreceğiz.
+
+## Varsayımlar ve bu model nerede yetmez
+
+Dürüst olmak lazım; yukarıdaki temizlik gerçek hayatın kendisi değil,
+sadeleştirilmiş hâli.
+
+**$w$ kâr değil, brüt ciro etkisidir.** Kazanç ve kayıp liste fiyatıyla
+hesaplanıyor, alış maliyeti düşülmüyor. Yani model "bu transfer ne kadar
+ciroyu yer değiştirir" sorusunu cevaplıyor, "ne kadar kâr eder" sorusunu
+değil. Sıralamayı çok bozmaz — aynı ürünün marjı iki mağazada da aynıdır —
+ama sonuç yazısındaki TL rakamlarını okurken bunu akılda tutun: onlar kâr
+değil, hareket eden ciro. Marja çevirmek veri setinde mümkün; bilinçli olarak
+sonraki sürüme bıraktık.
+
+**Blok bölünmez.** Bir mağazadan alınan stok tek hedefe gider. Bunu ikiye
+bölmek matematikte kolay görünür ama iki yeni sorun doğurur: hangi bedenler
+kime, ve iki yarım set bir tam setten daha mı iyi? O ayrı bir transfer türü
+ve kendi yazısını hak ediyor.
+
+**Ufuk sabit 8 hafta.** Veri setinde sezon kodu ve indirim takvimi yok. Yazı
+2'deki "raf ömrü kadranı" — sezon sonu yaklaştıkça terazinin taşımaya
+yatması — bu yüzden modelde yok. Gerçek bir kurulumda $H$ option başına
+değişir ve indirim tarihine bağlanır.
+
+**Soğuma yalnız depo sevkiyatından görülüyor.** Mağazalar arası geçmiş
+transferler veride tutulmuyor; dolayısıyla "geçen hafta zaten oradan almıştık"
+kuralı tam sınanamıyor.
+
+**Talep sansürlü ölçülüyor.** $v_{jo}$'yu gözlenen satıştan hesaplıyoruz ama
+kırık setli bir mağazanın gerçek talebi ölçtüğümüzden yüksektir. Yani en çok
+yardıma muhtaç mağaza, modelin gözünde olduğundan biraz daha sönük görünür.
+Bunu düzeltmeye çalışmadık; düzeltmek tahmin üstüne tahmin kurmak olurdu ve
+modelin nereye dayandığını bulanıklaştırırdı.
+
+**Kapasite adet bazlı.** Metrekare, reyon ve askı kapasitesi ayrı ayrı
+modellenmiyor.
+
+Bir sonraki yazıda bu modeli hiç kurmadan, yalnız SQL ve bir sıralama
+kuralıyla probleme saldıracağız — sektörde bu iş çoğunlukla öyle yapılıyor
+çünkü. Sonra ikisini yan yana koyacağız. Şunu şimdiden söyleyeyim, çünkü
+sonucun kendisi bu dizinin en ilginç bulgusu: aradaki fark yüzde 0,3 🙂
