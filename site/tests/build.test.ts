@@ -407,6 +407,7 @@ describe('hazırlanıyor yazılar', () => {
       'tr/transfer/blok-transfer/magazanin-sorunu/index.html',
       'tr/transfer/blok-transfer/karar-nasil-verilir/index.html',
       'tr/transfer/blok-transfer/matematiksel-model/index.html',
+      'tr/transfer/blok-transfer/sql-ve-greedy/index.html',
     ]) {
       expect(oku(yol), yol).not.toContain('noindex')
     }
@@ -418,7 +419,7 @@ describe('hazırlanıyor yazılar', () => {
     const harita = oku('sitemap-0.xml')
     for (const adres of [
       '/tr/transfer/blok-transfer/sonuclar/',
-      '/tr/transfer/blok-transfer/sql-ve-greedy/',
+      '/tr/transfer/blok-transfer/mip-ve-pulp/',
     ]) {
       expect(harita, adres).not.toContain(adres)
     }
@@ -433,6 +434,7 @@ describe('hazırlanıyor yazılar', () => {
     expect(harita).toContain('/tr/transfer/blok-transfer/magazanin-sorunu/')
     expect(harita).toContain('/tr/transfer/blok-transfer/karar-nasil-verilir/')
     expect(harita).toContain('/tr/transfer/blok-transfer/matematiksel-model/')
+    expect(harita).toContain('/tr/transfer/blok-transfer/sql-ve-greedy/')
   })
 
   it('hazırlanıyor yazının sayfası yine de üretilir', () => {
