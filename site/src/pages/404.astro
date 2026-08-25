@@ -1,0 +1,29 @@
+---
+// site/src/pages/404.astro
+//
+// Bilerek noindex YOK: 404 durumunu HTTP kodu söyler, meta etikete gerek
+// duymaz. Ayrıca "hiçbir içerik sayfası noindex basmaz" testi bu sayfayı
+// da kapsıyor (tests/build.test.ts).
+import Temel from '../layouts/Temel.astro'
+---
+
+<Temel
+  baslik="Sayfa bulunamadı"
+  aciklama="Aradığınız sayfa burada değil. Ağacın haritasından devam edebilirsiniz."
+>
+  <h1>Sayfa bulunamadı</h1>
+
+  <p>
+    Aradığınız adres burada değil. Bu site bir blog değil, bir konu ağacı:
+    yazılar alanlara, alanlar dizilere ayrılıyor. Aradığınız şey büyük
+    ihtimalle aşağıdaki kapılardan birinin arkasında.
+  </p>
+
+  <ul>
+    <li><a href="/tr/">Ana sayfa</a> — ağacın haritası</li>
+    <li><a href="/tr/transfer/">Mağazalar arası transfer</a> — ilk alan</li>
+    <li><a href="/tr/temeller/">Temeller</a> — ortak kavramlar</li>
+    <li><a href="/tr/sozluk/">Sözlük</a> — terimlerin tanımları</li>
+    <li><a href="/tr/veri-seti/">Veri seti</a> — bütün vakaların kullandığı veri</li>
+  </ul>
+</Temel>

@@ -1,0 +1,17 @@
+# Cloudflare Pages başlıkları. Yalnız dağıtımda geçerlidir; `astro dev`
+# ve `astro preview` bu dosyayı okumaz, bu yüzden doğrulaması yayına
+# alındıktan sonra tarayıcı konsolundan yapılır.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
+  # Sitenin "JavaScript yok" vaadini tarayıcıya da söyleyen satır budur:
+  # script-src 'none'. ld+json blokları çalıştırılmadığı için etkilenmez.
+  # style-src'te 'unsafe-inline' şart: demo adası ve tema kuralları build
+  # sırasında satır içi <style> olarak üretiliyor.
+  Content-Security-Policy: default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; form-action 'none'; frame-ancestors 'none'; base-uri 'self'
+
+# Astro varlıkları içerik özetiyle adlandırılır; sonsuza kadar önbelleklenebilir.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
