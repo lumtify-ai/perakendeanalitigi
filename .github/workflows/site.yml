@@ -22,7 +22,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          # Tek kaynak: site/.nvmrc. Cloudflare Pages de aynı dosyayı okur,
+          # böylece CI ile dağıtım aynı Node sürümünde çalışır.
+          node-version-file: site/.nvmrc
           cache: npm
           cache-dependency-path: site/package-lock.json
       - run: npm ci
