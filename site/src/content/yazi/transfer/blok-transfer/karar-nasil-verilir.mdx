@@ -4,7 +4,162 @@ tip: anlatici
 sira: 2
 ozet: Cover, STR ve raf ömrü; ve neden göz kararı 6.000 kararı taşımaz.
 yazar: Sabri Suyunu
-durum: hazirlaniyor
+durum: yayinda
 ---
 
-Bu yazı hazırlanıyor.
+import T from '../../../../components/T.astro'
+
+Otomasyonun ilk kuralını bana yıllar önce bir üstadım söylemişti: bir kararı
+makineye devretmeden önce, o kararın elle nasıl verildiğini yavaş çekimde
+izleyeceksin. İnsan neye bakıyor, hangi sırayla bakıyor, neyi görünce
+vazgeçiyor? Bunu yazamıyorsan otomatikleştirdiğin şey karar değil, acele.
+
+Önceki yazıda derdi gördük: kırık setler, telefon pazarlıkları ve akşam
+dokuzda gelen o itiraf — "neden bu kırkı seçtik, bilmiyorum." Bu yazı o
+pazartesinin yavaşlatılmış hali. Ali bir çifti çözerken kafasının içinde ne
+dönüyor, tek tek açacağız. Formül yok; formüller sonraki yazıda. Ama bu
+yazının sonunda formüllerin neyi yazacağını zaten biliyor olacaksınız.
+
+## Salı sabahı, beyaz tahta
+
+İndirim krizinin ertesi sabahı Pelin, elinde kahvesiyle Ali'nin masasına
+geliyor. Niyeti belli, soruyu da dolandırmıyor:
+
+— Dün kırk çift çözdünüz. Her birinde kafanda ne dönüyordu? Bana öğret —
+ben planı kurarken neyi ıskaladığımı anlamak istiyorum.
+
+Ali beyaz tahtaya iki kutu çiziyor. Birinin üstüne Kadıköy, diğerine Trabzon
+yazıyor. Araya bir ok.
+
+— Bütün iş bu okun üç sorusu, diyor. Kim alacak? Kim verecek? Ve bu ok
+çizilmeye değer mi? Sırayla gidelim.
+
+## Kim alacak? "Satmıyor" ile "satamıyor" aynı şey değil
+
+— İlk refleks satış raporuna bakmak, diyor Ali. Ama satış raporu sana yalan
+söyler. Kadıköy'ün o kazakta cumartesi satışı kaç? Sıfır. Rapora göre bu ürün
+Kadıköy'de "satmıyor". Gerçekte ne oldu? Üç müşteri denedi, bedenini bulamadı,
+boş çıktı. Ürün satmıyor değil, **satamıyor** — S, M, L yok çünkü.
+
+Bu ikisini ayıran iki sinyal var. Birincisi <T k="kiriklik">kırıklık</T>:
+set bozuksa düşen satış talebin değil, rafın suçudur. İkincisi kayıp satış:
+bedenini bulamayıp çıkan müşteri hiçbir kasada kayda geçmez. Talep dediğin
+şey sansürlüdür — gördüğün, stoğun izin verdiği kadarıdır. Alacak mağazayı
+ararken "az satan"a değil, "satmasına engel olan bir şey olan"a bakarsın:
+hızı yüksek, seti kırık, müşterisi boş çıkmış mağaza.
+
+## Kim verecek? Çok stok değil, uzun ömür
+
+— Peki verecek mağaza? diyor Pelin. En çok stoğu olan?
+
+— Herkesin yaptığı ilk hata bu, diyor Ali. Stok adedi tek başına hiçbir şey
+söylemez. Trabzon'da o kazaktan on iki adet var. Çok mu? Bağdat Caddesi'nde
+de on iki adet var ve haftada altı tane satıyor — iki haftalık malı kalmış,
+ondan alırsan onu açığa düşürürsün. Trabzon haftada bir tane satıyor. Aynı
+on iki adet orada **on iki haftalık ömür** demek.
+
+Bu bölmenin adı <T k="cover">cover</T>: eldeki stok, satış hızına bölünür;
+çıkan sayı stoğun kaç hafta yeteceğini söyler. Verecek mağazayı stok adedi
+değil cover seçer: adet aynıyken ömür bambaşkadır.
+
+— Bir de geriye bakan kardeşi var, diye ekliyor Ali: <T k="str">STR</T>.
+Cover bugünden ileriye bakar — "bu stok kaç hafta gider?" STR geçmişten
+bugüne bakar — "bu mağazaya gönderdiğimin ne kadarı satıldı?" Trabzon'a bu
+option'dan on beş adet sevk edilmiş, üçü satılmış: yüzde 20. İkisi aynı şeyi
+iki uçtan söylüyor: bu mal bu mağazada yaşamıyor.
+
+Pelin tahtaya bakıyor:
+
+— O zaman Kadıköy'ün cover'ı da hesaplanır… stok beş, satış sıfır. Sıfıra
+bölünce… sonsuz mu çıkıyor? Kadıköy stok fazlası mı görünüyor yani?
+
+— İşte, diyor Ali. Tahtadaki en tehlikeli sayıyı buldun. Kırık setin satışı
+durur, satış durunca cover sonsuza gider ve körü körüne bakarsan Kadıköy sana
+"buradan mal al" der. Sayıya bakmadan önce sayının **neden** o sayı olduğunu
+bileceksin: cover'ı kırıklıkla birlikte okumazsan terazi tersine çalışır.
+
+## Terazi
+
+— Alacağı bulduk, vereceği bulduk, diyor Pelin. Ok çizildi mi?
+
+— Daha değil. Her okun iki kefesi var. Bir kefede Kadıköy'de kazanılacak
+satış: set tamamlanırsa haftada kaç adet döner? Öbür kefede iki maliyet:
+Trabzon'da o stok kalsaydı satılacak olan — az ama sıfır değil — ve taşımanın
+kendisi: koli, kargo, mağazada kabul edip rafa çıkaracak emek. Kefe kefeyi
+geçmiyorsa o oku çizmiyorsun. Yüzde doksanı burada elenir zaten.
+
+Bir de terazinin üstünde kadran gibi duran bir şey var: **raf ömrü**. Sezon
+bitimine on iki hafta varken kefeleri sakin tartarsın. Dört hafta kalmışsa
+her şey değişir: taşınmayan kırık set artık indirimi bekleyemez, outlet
+fiyatını bekler. Sezon kapanışı yaklaştıkça terazinin ibresi "taşı" tarafına
+yatar — dünkü krizin matematiği buydu.
+
+Kefelerin kenarında bir de kurallar duruyor; Ali bunları tahtanın köşesine
+madde madde yazıyor:
+
+- **Soğuma:** geçen hafta sevkiyat almış rafa bu hafta dokunma; mal
+  yerleşmeden ölçtüğün hız, hız değildir.
+- **Minimum koli:** iki adet için kamyon kaldırılmaz; ya değecek kadar
+  toplarsın ya vazgeçersin.
+- **Kapasite:** alan mağazanın deposu da rafı da sonsuz değil.
+- **Line kuralı:** outlet malı vitrin mağazasına gitmez; geçen yazıdan
+  hatırlayın — matematikte mümkün, ticarette değil.
+
+## Neden "blok"?
+
+— Bir şeyi hâlâ sormadım, diyor Pelin. Kadıköy'e ne göndereceğiz? M mi lazım
+sadece?
+
+— Kadıköy'ün bugün eksikleri S, M, L. Yarın müşterisi XS de ister. Tek beden
+gönderirsen iki mağazada iki kırık set yaratırsın: Trabzon'dan M'yi çektin,
+Trabzon da kırıldı. Bu yüzden ok tek beden taşımaz; setin anlamlı bir
+parçasını, mümkünse tamamını taşır — **blok** olarak. Dizinin adındaki blok
+budur: transferin birimi beden değil, bloktur. Option düzeyinde karar
+vermenin sebebini ilk yazıda görmüştük; blok, o kararın sevkiyattaki
+karşılığı.
+
+## Sektörde bu iş nasıl yanlış yapılır
+
+Ali tahtanın boş köşesine üç çarpı atıyor:
+
+**Birinci hata: "en çok stok kimdeyse ondan al."** Stok adedi fazlalık
+değildir; fazlalık cover'dır. Adede bakan, iki haftalık malı kalmış hızlı
+mağazayı soyar, on iki haftalık ömrü olan yavaş mağazaya dokunmaz.
+
+**İkinci hata: çiftlere teker teker bakmak.** Kadıköy için en iyi verici
+Trabzon olabilir; ama aynı sabah Nişantaşı da kırık ve Nişantaşı'nın tek
+makul kaynağı da Trabzon. Kadıköy'ün okunu önce çizersen Nişantaşı'nı
+çözümsüz bırakabilirsin. Oklar tek tek doğru, toplamda yanlış olabilir —
+bu yüzden bu bir çift problemi değil, **ağ** problemidir. Ağa bakmadan
+çizilen her ok, başka bir okun ihtimalini yer.
+
+**Üçüncü hata: bağırana öncelik.** Dünkü kırk çift. Sesi çok çıkan müdür
+sinyal değildir; sinyal tahtadaki terazidir. Elle çalışınca terazi yorulur
+ve yerini telefona bırakır — bunu da dün gördük.
+
+## Aynı teraziyi 6.000 kere kurmak
+
+Pelin tahtaya uzun uzun bakıyor:
+
+— Bunların hiçbiri zor değil aslında. Cover bir bölme, STR bir oran, kefeler
+toplama çıkarma. Zor olan ne?
+
+— Sayı, diyor Ali. Bu terazi bir çift için beş dakikada kurulur. Fotoğrafta
+240 option, 25 mağaza var: 6.000 hücre. İçinden dört yüz küsuru kırık, ayrıca
+ölü stoklar, yığılmalar… Ve fotoğraf her pazartesi yenileniyor. Ben bu
+teraziyi günde kırk kere kurabiliyorum — dün denedik, sonucu biliyorsun.
+Altı bin kere kuramam. Ama teraziyi **tarif edebilirsem**, kuran ben olmak
+zorunda değilim.
+
+Cümlenin adını koyalım: bir transfer kararı üç sorunun cevabıdır — **kim
+alacak** (hızı yüksek, seti kırık, müşterisi boş çıkan), **kim verecek**
+(cover'ı uzun, STR'ı düşük, soğumada olmayan) ve **taşımaya değer mi**
+(kazanılan satış, kaybedilen satış ile taşıma maliyetini raf ömrünün
+gölgesinde geçiyor mu). Algoritma dediğimiz şey bu üç sorunun, kurallarıyla
+birlikte, 6.000 hücrenin tamamına aynı anda sorulmasıdır. Ne daha azı, ne
+daha fazlası.
+
+Sonraki yazıda beyaz tahtadakileri matematiğe çevireceğiz: kefeler bir amaç
+fonksiyonu, köşedeki kurallar kısıt olacak. Korkutucu görünecek ama
+olmayacak — çünkü her sembolün tahtadaki karşılığını artık biliyorsunuz.
+Terazi aynı terazi; sadece kuran değişiyor 🙂
