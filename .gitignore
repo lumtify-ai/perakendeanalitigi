@@ -5,6 +5,7 @@ veri/cikti/
 __pycache__/
 *.pyc
 .venv/
+vakalar/blok-transfer/.venv/
 *.egg-info/
 .pytest_cache/
 

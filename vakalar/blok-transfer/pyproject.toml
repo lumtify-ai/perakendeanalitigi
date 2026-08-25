@@ -1,0 +1,16 @@
+[project]
+name = "blok-transfer"
+version = "0.1.0"
+description = "Blok Transfer vakasi: ortak cekirdek + greedy ve MIP cozuculeri"
+requires-python = ">=3.11"
+dependencies = ["duckdb>=1.0", "pandas>=2.0", "pulp>=2.8"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+include = ["blok_transfer*"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
