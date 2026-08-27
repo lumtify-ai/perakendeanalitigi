@@ -13,8 +13,19 @@ from blok_transfer.cekirdek import veri
 from blok_transfer.cekirdek.parametreler import Parametreler
 
 PARAMETRELER = [
-    {"ad": "verici_cover_esigi", "etiket": "Gönderen mağazada asgari cover (hafta)", "degerler": [6, 12, 40, 120]},
-    {"ad": "min_satis", "etiket": "Alıcı mağazada asgari haftalık satış (adet)", "degerler": [0, 1, 5, 8]},
+    {
+        "ad": "verici_cover_esigi",
+        "etiket": "Gönderen mağazada asgari cover (hafta)",
+        "degerler": [6, 14, 18, 26],
+    },
+    {
+        "ad": "alici_cover_tavani",
+        "etiket": "Alıcı mağazada azami cover (hafta)",
+        "degerler": [0, 3, 6, 14],
+        # 0 = üçüncü kapı kapalı; alıcı yalnız kırık ya da stoksuz olabilir.
+        # Yayımlanmış referans senaryo budur.
+        "deger_etiketleri": {"0": "kapalı"},
+    },
     {"ad": "yontem", "etiket": "Çözüm yöntemi", "degerler": ["greedy", "mip"]},
 ]
 HEDEF = Path(__file__).resolve().parents[2] / "site" / "src" / "data" / "senaryolar" / "blok-transfer.json"
@@ -32,9 +43,16 @@ def _surum() -> str:
 
 def uret(con, karar) -> dict:
     sonuclar = {}
-    for cover in PARAMETRELER[0]["degerler"]:
-        for min_satis in PARAMETRELER[1]["degerler"]:
-            p = replace(Parametreler(), verici_cover_esigi=float(cover), min_satis=float(min_satis))
+    for verici in PARAMETRELER[0]["degerler"]:
+        for tavan in PARAMETRELER[1]["degerler"]:
+            # min_satis kadrandan çıktı: sabit 1'de kalıyor, demo artık
+            # verici eşiği (plan büyüklüğü) ile alıcı tavanı (plan isabeti)
+            # arasındaki ayrımı gösteriyor.
+            p = replace(
+                Parametreler(),
+                verici_cover_esigi=float(verici),
+                alici_cover_tavani=float(tavan),
+            )
             for yontem in PARAMETRELER[2]["degerler"]:
                 plan, ozet = degerlendirme.boru_hatti(con, karar, p, yontem)
                 # kayip_satis yalnız burada okunur: çözüm girdisi değil ölçüt.
@@ -43,7 +61,7 @@ def uret(con, karar) -> dict:
                 ozet["kayip_yakalama_yuzde"] = round(
                     degerlendirme.kayip_satis_yakalama(plan, con, karar) * 100, 1
                 )
-                sonuclar[f"{cover}|{min_satis}|{yontem}"] = {"ozet": ozet, "satirlar": []}
+                sonuclar[f"{verici}|{tavan}|{yontem}"] = {"ozet": ozet, "satirlar": []}
     return {"surum": _surum(), "parametreler": PARAMETRELER, "sonuclar": sonuclar}
 
 

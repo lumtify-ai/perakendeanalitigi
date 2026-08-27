@@ -11,11 +11,13 @@ KARAR = date(2025, 12, 29)
 
 def test_sema_ve_anahtar_tamligi(con_kayipli, tmp_path):
     icerik = senaryolar.uret(con_kayipli, KARAR)
-    assert [p["ad"] for p in icerik["parametreler"]] == ["verici_cover_esigi", "min_satis", "yontem"]
+    assert [p["ad"] for p in icerik["parametreler"]] == [
+        "verici_cover_esigi", "alici_cover_tavani", "yontem",
+    ]
     assert icerik["surum"]
     assert len(icerik["sonuclar"]) == 4 * 4 * 2
-    assert "6|1|greedy" in icerik["sonuclar"]   # yazilarin referans senaryosu
-    ornek = icerik["sonuclar"]["6|1|mip"]
+    assert "6|0|greedy" in icerik["sonuclar"]   # yazıların referans senaryosu
+    ornek = icerik["sonuclar"]["6|0|mip"]
     assert set(ornek["ozet"]) == {
         "option_sayisi", "tasinan_adet", "rota_sayisi", "bosalan_magaza",
         "net_kazanc_tl", "sure_sn", "kayip_yakalama_yuzde",
@@ -57,3 +59,16 @@ def test_kayip_yakalama_yuzde_olarak_yazilir(con_kayipli, tmp_path):
     # MD-OPT2 (2 adet) adreslenmiyor: 18/20. Oran olarak (0,9) saklansaydı ya da
     # yuvarlama kaçsaydı bu satır düşerdi.
     assert max(degerler) == pytest.approx(90.0)
+
+
+def test_referans_senaryo_ilk_tiktir(con_kayipli):
+    """Okuyucu yazıdaki sayıyı demoda çevirmeden bulabilmeli."""
+    icerik = senaryolar.uret(con_kayipli, KARAR)
+    ilk = "|".join(str(p["degerler"][0]) for p in icerik["parametreler"])
+    assert ilk == "6|0|greedy"
+
+
+def test_kapali_tavanin_ekran_etiketi_var(con_kayipli):
+    icerik = senaryolar.uret(con_kayipli, KARAR)
+    tavan = icerik["parametreler"][1]
+    assert tavan["deger_etiketleri"]["0"] == "kapalı"
