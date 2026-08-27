@@ -1,5 +1,7 @@
 # perakendeanalitigi.com
 
+**Canlı: https://perakendeanalitigi.com**
+
 Türkçe perakende analitiği vakaları: her vaka tek bir somut soruyu matematiksel
 model, SQL ve Python ile uçtan uca çözer. Kullanılan veri seti, çözüm kodu ve
 demo senaryoları burada açık olarak yayımlanır.
