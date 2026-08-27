@@ -151,6 +151,14 @@ Dürüstlük için: aşağıdakiler bilinçli sadeleştirmelerdir.
 - **Beden setleri beş kademe.** Gerçek zincirlerde ayakkabı 36–45, takım
   elbise 46–58 gibi çok daha uzun setler vardır. Bu sürümde giyim dışına
   çıkılmamıştır.
+- **Uzun stoksuzluk kendini besliyor.** İkmal kuralı hücrenin *gerçekleşen*
+  satışına bakar (yukarıdaki "Dengesizlik nereden geliyor?"): stoksuz kalan
+  hücre satamaz, satamayınca yavaş görünür, yavaş göründüğü için ikmal de
+  almaz ve stoksuz kalmayı sürdürür. Kuralın bedeli budur ve marjinal
+  değildir: son 26 haftanın tamamında hiç stok görmemiş 336 (mağaza, ürün)
+  hücresi var. Gerçek zincirde bu hücreleri bir planlamacı elle açar; bu veri
+  setinde açan kimse yok, o yüzden kayıp satış gerçekte olacağından daha
+  yoğun birikir.
 - **Tedarik yok.** Açık sipariş, tedarik süresi ve depo stoğu bu sürümde yok.
 - **Transfer geçmişi yok.** Mağazalar arası geçmiş sevkler modellenmemiştir;
   tekrar-transfer soğuma kuralları bu veriyle sınanamaz.
