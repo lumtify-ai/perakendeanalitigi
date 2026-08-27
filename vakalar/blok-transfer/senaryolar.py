@@ -13,7 +13,7 @@ from blok_transfer.cekirdek import veri
 from blok_transfer.cekirdek.parametreler import Parametreler
 
 PARAMETRELER = [
-    {"ad": "cover_esigi", "etiket": "Gönderen mağazada cover eşiği (hafta)", "degerler": [6, 12, 40, 120]},
+    {"ad": "verici_cover_esigi", "etiket": "Gönderen mağazada asgari cover (hafta)", "degerler": [6, 12, 40, 120]},
     {"ad": "min_satis", "etiket": "Alıcı mağazada asgari haftalık satış (adet)", "degerler": [0, 1, 5, 8]},
     {"ad": "yontem", "etiket": "Çözüm yöntemi", "degerler": ["greedy", "mip"]},
 ]
@@ -34,7 +34,7 @@ def uret(con, karar) -> dict:
     sonuclar = {}
     for cover in PARAMETRELER[0]["degerler"]:
         for min_satis in PARAMETRELER[1]["degerler"]:
-            p = replace(Parametreler(), cover_esigi=float(cover), min_satis=float(min_satis))
+            p = replace(Parametreler(), verici_cover_esigi=float(cover), min_satis=float(min_satis))
             for yontem in PARAMETRELER[2]["degerler"]:
                 _, ozet = degerlendirme.boru_hatti(con, karar, p, yontem)
                 sonuclar[f"{cover}|{min_satis}|{yontem}"] = {"ozet": ozet, "satirlar": []}

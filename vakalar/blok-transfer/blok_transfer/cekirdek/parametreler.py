@@ -12,5 +12,5 @@ class Parametreler:
     rota_sabiti_tl: float = 500.0
     buyuk_cover: float = 999.0
     mip_zaman_limiti_sn: int = 60
-    cover_esigi: float = 6.0     # senaryo parametresi; varsayılan orta değer
+    verici_cover_esigi: float = 6.0   # senaryo parametresi: gönderen mağazada asgari cover
     min_satis: float = 1.0       # senaryo parametresi

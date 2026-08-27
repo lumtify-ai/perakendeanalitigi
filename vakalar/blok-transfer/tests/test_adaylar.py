@@ -5,7 +5,7 @@ from blok_transfer.cekirdek import adaylar
 from blok_transfer.cekirdek.parametreler import Parametreler
 
 KARAR = date(2025, 12, 29)
-P = Parametreler()  # cover_esigi=6, min_satis=1
+P = Parametreler()  # verici_cover_esigi=6, min_satis=1
 
 
 def ciftler(df):
@@ -36,7 +36,7 @@ def test_line_kurali_outlet_urunu_vitrine_gitmez(con):
 def test_esikler_senaryo_parametresi(con):
     dar = adaylar.uret(con, KARAR, replace(P, min_satis=2.0))
     assert ("MA", "MC", "OPT1") not in ciftler(dar)          # MC-OPT1 hız 1 < 2
-    cok_dar = adaylar.uret(con, KARAR, replace(P, cover_esigi=30.0))
+    cok_dar = adaylar.uret(con, KARAR, replace(P, verici_cover_esigi=30.0))
     assert ciftler(cok_dar) == {("MA", "MC", "OPT2")}        # MA-OPT1 cover 24 < 30
     assert cok_dar.iloc[0].adet == 8                         # blok = vericinin tüm stoğu
 

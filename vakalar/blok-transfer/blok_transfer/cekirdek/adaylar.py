@@ -50,7 +50,7 @@ def uret(con, karar: date, p: Parametreler) -> pd.DataFrame:
     tipler = dict(con.execute("select magaza_id, tip from magaza").fetchall())
 
     soguma = _sogumada(con, karar, p.soguma_hafta)
-    vericiler = coverlar[coverlar.cover >= p.cover_esigi].copy()
+    vericiler = coverlar[coverlar.cover >= p.verici_cover_esigi].copy()
     if len(vericiler):
         vericiler = vericiler[
             ~vericiler.apply(lambda s: (s.magaza_id, s.option_id) in soguma, axis=1)
