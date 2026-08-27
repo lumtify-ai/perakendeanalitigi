@@ -16,12 +16,12 @@ tek koli çıkmadan, üretime tek kuruş verilmeden, yalnızca yanlış yerde du
 doğru yere taşıyarak. Şimdi hesabı verme vakti.
 
 Referans senaryoda — <T k="cover">cover</T> eşiği 6 hafta, alıcıda asgari
-haftalık satış 1 adet — çıkan plan şu: **252 option, 4.785 adet, 4,98 milyon
-TL** net etki. Aşağıdaki demoda kadranı çevirip bu sayıların eşiklerle nasıl
-değiştiğini kendiniz görebilirsiniz; yazıdaki referans senaryo kadranın ilk
-konumu. İkinci yazıda Ali'nin tahtaya yazdığı iki sayı burada iki ayrı
-kadrandır: vericide asgari cover, alıcıda azami cover. Aşağıda ikisini de
-çevireceğiz.
+haftalık satış 1 adet — açgözlünün çıkardığı plan şu: **252 option, 4.785
+adet, 4,98 milyon TL** net etki. Aşağıdaki demoda kadranı çevirip bu
+sayıların eşiklerle nasıl değiştiğini kendiniz görebilirsiniz; yazıdaki
+referans senaryo kadranın ilk konumu. İkinci yazıda Ali'nin tahtaya yazdığı
+iki sayı burada iki ayrı kadrandır: vericide asgari cover, alıcıda azami
+cover. Aşağıda ikisini de çevireceğiz.
 
 <Demo dizi="blok-transfer" />
 
@@ -60,7 +60,7 @@ Dizinin dört ve beşinci yazıları aynı problemi iki ayrı yoldan çözdü. B
 | Taşınan adet | 4.785 | 4.785 |
 | Açılan sevkiyat | 196 *(147'si tek option)* | **140** *(56'sı tek option)* |
 | Net kazanç | 4.978.979 TL | **5.006.979 TL** |
-| Çözüm süresi | **~7 ms** | ~0,3 sn |
+| Çözüm süresi | **~8 ms** | ~0,4 sn |
 | Kayıp satışın yakalanan kısmı | %26,0 | **%29,7** |
 | Adreslenen kırık çift | 137 | **170** |
 | Kurulum | yok | PuLP + CBC |
@@ -186,8 +186,9 @@ geçerlidir: **modelin en önemli kısmı çoğu zaman yazmadığınız kısıtl
 
 Bir de ölçek meselesi var. Lumoda 25 mağaza ve 240 option'lı küçük bir zincir;
 gerçek bir zincirde bu sayılar bir büyüklük mertebesi yukarıdadır ve o zaman
-çözücünün üçte bir saniyesi dakikalara çıkar. Zaman limiti, `limit` bayrağı ve
-"kanıtlanmamış ama iyi" çözümle çalışmak orada gerçek bir mesele hâline gelir.
+çözücünün saniyenin altındaki süresi dakikalara çıkar. Zaman limiti, `limit`
+bayrağı ve "kanıtlanmamış ama iyi" çözümle çalışmak orada gerçek bir mesele
+hâline gelir.
 
 ## Gerçek kurulumda eklenen kısıtlar
 

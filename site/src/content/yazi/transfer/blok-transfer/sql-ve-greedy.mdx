@@ -127,9 +127,11 @@ where v.magaza_id <> a.magaza_id
 
 Altmış küsur satır ve tamamı iş kuralı. Dördüncü bloktaki `cover >= 6`
 verici tanımı, beşincideki `f.kirik or stok = 0` alıcı tanımı, altıncıdaki
-`line <> 'Outlet' or m.tip = 'Outlet'` ise ticaretin yasağı. Depoda bu mantık
-üç ayrı fonksiyona bölünmüş durumda; burada okunabilirlik için tek sorguda
-topladım.
+`line <> 'Outlet' or m.tip = 'Outlet'` ise ticaretin yasağı. Ali'nin ikinci
+sayısı, alıcıdaki azami cover, bu sorguda hiç görünmüyor: üçüncü kapı referans
+senaryoda kapalı olduğu için `alici_aday` yalnız kırık ya da stoksuz rafları
+topluyor. Depoda bu mantık üç ayrı fonksiyona bölünmüş durumda; burada
+okunabilirlik için tek sorguda topladım.
 
 İkinci bloğa bir kez daha bakın: `having sum(st.adet) > 0`. Hızın yalnız
 stoklu haftalardan ölçülmesini sağlayan şey o tek satır. Onu silerseniz sorgu
@@ -207,7 +209,7 @@ Sayılar, Lumoda'nın gerçek fotoğrafında:
 | Minimum koli filtresinin kestiği | 0 |
 | **Kalan plan** | **252 hareket · 4.785 adet · 196 rota** |
 
-Süre: **~7 ms**. Net kazanç: **4.978.979 TL**.
+Süre: **~8 ms**. Net kazanç: **4.978.979 TL**.
 
 O 385 sayısına bir saniye bakalım, çünkü açgözlü yöntemin doğası orada. Aynı
 bloğu isteyen birden çok mağaza var; en yüksek puanlı olan alıyor, diğer 385

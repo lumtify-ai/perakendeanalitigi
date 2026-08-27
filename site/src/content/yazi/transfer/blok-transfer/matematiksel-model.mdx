@@ -51,15 +51,18 @@ $$
 25 \times 24 \times 240 = 144{,}000
 $$
 
-Gerçek aday sayısı — orta senaryoda, yani <T k="cover">cover</T> eşiği 6
-hafta ve alıcıda asgari haftalık satış 1 adet iken: **664**.
+Gerçek aday sayısı — orta senaryoda, yani vericide <T k="cover">cover</T>
+eşiği 6 hafta ve alıcıda asgari haftalık satış 1 adet iken: **664**.
 
 Yüz kırk dört binden altı yüz altmış dörde. Bu düşüşü yapan şey modelin
 kısıtları değil; kümenin tanımı. Verici olabilmek için stok bulunması,
 cover'ın eşiği geçmesi ve o rafın soğumada olmaması gerekiyor. Alıcı
 olabilmek için setin <T k="kiriklik">kırık</T> ya da stoğun sıfır olması,
 üstüne satış hızının eşiği geçmesi gerekiyor. Outlet line'ındaki bir option'ın vitrin mağazasına
-gitmesi ise ticaretin yasağı.
+gitmesi ise ticaretin yasağı. Ali'nin tahtaya yazdığı ikinci sayı, yani
+alıcıdaki azami cover, bu kümenin üçüncü kapısıdır (satıyor ama eldeki mal
+tavanın altında kalıyor); bu yazının bütün sayıları o kapı kapalıyken, alıcı
+yalnız kırık ya da stoksuz olabilirken çıktı.
 
 Bunların hepsini çözücüye kısıt olarak da yazabilirdik. Yazmadık, çünkü o
 zaman 144.000 değişkenli bir model kurup çözücüden bunların 143.336'sını
@@ -215,7 +218,7 @@ sayısı kabaca $10^{80}$ olarak tahmin ediliyor. Yani bu küçük zincirin tek 
 haftalık transfer kararı, kaba kuvvetle denenmek istense, evrendeki bütün
 atomlara birer bilgisayar verseniz bile bitmez.
 
-Çözücünün (CBC) bu modeli çözme süresi: **~0,3 saniye.**
+Çözücünün (CBC) bu modeli çözme süresi: **~0,4 saniye.**
 
 Bu iki cümle yan yana durunca insanın aklına ilk gelen şey "bir yerde hata
 olmalı" oluyor. Yok. Çözücü kombinasyonları saymıyor. Önce problemi
