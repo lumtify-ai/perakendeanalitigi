@@ -263,7 +263,7 @@ describe('demo', () => {
     // Sunucu yok; sayfa her koşulda anında açılır
     const html = oku('tr/transfer/blok-transfer/demo/index.html')
     expect(html).toContain('data-anahtar="6|0|greedy"')
-    expect(html).toContain('data-anahtar="120|8|mip"')
+    expect(html).toContain('data-anahtar="26|14|mip"')
   })
 
   it('parametre seçimi radio ile yapılır, script ile değil', () => {
@@ -315,6 +315,21 @@ describe('demo', () => {
     const stilIcerigi = stilEslesme![1]
     const kuralSayisi = (stilIcerigi.match(/\[data-anahtar="[^"]+"\]\s*\{\s*display:\s*block\s*\}/g) ?? []).length
     expect(kuralSayisi).toBe(beklenenAnahtarSayisi)
+  })
+
+  it('kapalı tavan ekranda etiketiyle görünür', () => {
+    // Ham "0" okuyucuya bir şey söylemez; kadranın ilk tıkı yayımlanmış
+    // referans senaryodur ve adı vardır.
+    const html = oku('tr/transfer/blok-transfer/demo/index.html')
+    expect(html).toContain('kapalı')
+  })
+
+  it('kayıp satış yakalama ölçütü ekranda', () => {
+    // 18 → 14 gibi kötü bir kombinasyonun neden kötü olduğu net kazançta
+    // görünmüyor; yalnız bu metrikte görünüyor.
+    const html = oku('tr/transfer/blok-transfer/demo/index.html')
+    expect(html).toContain('Kayıp satış yakalama')
+    expect(html).not.toContain('kayip_yakalama_yuzde')   // ham anahtar sızmasın
   })
 })
 
@@ -455,7 +470,7 @@ describe('gömülü demo', () => {
   it('demo sonuclar yazısına gömülüdür', () => {
     const html = oku('tr/transfer/blok-transfer/sonuclar/index.html')
     expect(html).toContain('data-anahtar="6|0|greedy"')
-    expect(html).toContain('data-anahtar="120|8|mip"')
+    expect(html).toContain('data-anahtar="26|14|mip"')
   })
 
   it('gömülü demonun style bloğu article bağlamında derlenir', () => {

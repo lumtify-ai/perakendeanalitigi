@@ -19,7 +19,12 @@ const { dizi } = Astro.props
 
 type SenaryoDosyasi = {
   surum: string
-  parametreler: { ad: string; etiket: string; degerler: (number | string)[] }[]
+  parametreler: {
+    ad: string
+    etiket: string
+    degerler: (number | string)[]
+    deger_etiketleri?: Record<string, string>
+  }[]
   sonuclar: Record<string, { ozet: Record<string, number>; satirlar: object[] }>
 }
 
@@ -44,6 +49,7 @@ const ETIKETLER: Record<string, string> = {
   rota_sayisi: 'Açılan sevkiyat',
   bosalan_magaza: 'Stoğu boşalan mağaza',
   net_kazanc_tl: 'Net kazanç (TL)',
+  kayip_yakalama_yuzde: 'Kayıp satış yakalama (%)',
   sure_sn: 'Çözüm süresi (sn)',
 }
 
@@ -108,7 +114,7 @@ const demoStil = [
                 checked={satir === 0}
                 data-sutun={sutun}
               />
-              <span>{deger}</span>
+              <span>{parametre.deger_etiketleri?.[String(deger)] ?? deger}</span>
             </label>
           ))}
         </fieldset>
