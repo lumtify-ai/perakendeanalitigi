@@ -65,3 +65,19 @@ def test_bos_aday_bos_plan():
     from blok_transfer.cozuculer.tip import bos_hareketler
     plan = mip.cozumle(bos_hareketler(), {}, P)
     assert plan.durum == "optimal" and len(plan.hareketler) == 0
+
+
+def test_kur_modeli_ve_degiskenleri_verir():
+    """Formülasyon tek yerde kalmalı: rapor da çözücü de aynı kurulumu görür."""
+    import pandas as pd
+    from blok_transfer.cozuculer import mip
+    from blok_transfer.cekirdek.parametreler import Parametreler
+
+    df = pd.DataFrame([
+        dict(verici="MA", alici="MB", option_id="OPT1", adet=10, w=500.0),
+        dict(verici="MA", alici="MC", option_id="OPT2", adet=8, w=400.0),
+    ])
+    model, x, y = mip.kur(df, {"MB": 100, "MC": 100}, Parametreler())
+    assert len(x) == 2                                   # aday başına bir x
+    assert set(y) == {("MA", "MB"), ("MA", "MC")}        # rota başına bir y
+    assert len(model.constraints) > 0

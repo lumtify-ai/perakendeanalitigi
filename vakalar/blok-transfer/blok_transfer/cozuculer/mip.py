@@ -7,12 +7,15 @@ from ..cekirdek.parametreler import Parametreler
 from .tip import HAREKET_KOLONLARI, Plan, bos_hareketler
 
 
-def cozumle(adaylar: pd.DataFrame, kapasite: dict[str, int], p: Parametreler) -> Plan:
-    """Spec §6 formülasyonu: x blok kararı, y rota açılışı."""
-    baslangic = time.perf_counter()
-    if len(adaylar) == 0:
-        return Plan(bos_hareketler(), "optimal", time.perf_counter() - baslangic)
+def kur(
+    adaylar: pd.DataFrame, kapasite: dict[str, int], p: Parametreler
+) -> tuple[pulp.LpProblem, dict, dict]:
+    """Spec §6 formülasyonunu kurar; çözmez.
 
+    Ayrı durmasının sebebi: `rapor.py` değişken/kısıt sayısını ve LP
+    boşluğunu bu modelden okur. Formülasyon iki yerde yazılırsa yazıdaki
+    sayı ile çözülen model sessizce ayrışır.
+    """
     model = pulp.LpProblem("blok_transfer", pulp.LpMaximize)
     x = {i: pulp.LpVariable(f"x_{i}", cat="Binary") for i in adaylar.index}
     rotalar = sorted(set(zip(adaylar.verici, adaylar.alici)))
@@ -39,6 +42,17 @@ def cozumle(adaylar: pd.DataFrame, kapasite: dict[str, int], p: Parametreler) ->
             pulp.lpSum(int(adaylar.loc[i, "adet"]) * x[i] for i in grup.index)
             >= p.min_koli * y[r]                                     # açık rota koliyi doldurur
         )
+
+    return model, x, y
+
+
+def cozumle(adaylar: pd.DataFrame, kapasite: dict[str, int], p: Parametreler) -> Plan:
+    """Spec §6 formülasyonu: x blok kararı, y rota açılışı."""
+    baslangic = time.perf_counter()
+    if len(adaylar) == 0:
+        return Plan(bos_hareketler(), "optimal", time.perf_counter() - baslangic)
+
+    model, x, y = kur(adaylar, kapasite, p)
 
     sonuc = model.solve(pulp.PULP_CBC_CMD(msg=0, timeLimit=p.mip_zaman_limiti_sn))
     if sonuc == pulp.LpStatusOptimal:
