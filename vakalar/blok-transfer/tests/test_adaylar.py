@@ -43,7 +43,7 @@ def test_esikler_senaryo_parametresi(con):
 
 def test_kapasite_boslugu(con):
     b = adaylar.kapasite_boslugu(con, KARAR)
-    assert b == {"MA": 980, "MB": 994, "MC": 5000, "MD": 990}
+    assert b == {"MA": 980, "MB": 994, "MC": 5000, "MD": 990, "ME": 995}
 
 
 def test_cok_siki_esikte_bos_ama_dogru_bicimli_cerceve(con):
@@ -60,3 +60,28 @@ def test_aday_sirasi_deterministik(con):
     df = adaylar.uret(con, KARAR, P)
     anahtar = list(zip(df.verici, df.alici, df.option_id))
     assert anahtar == sorted(anahtar)
+
+
+def test_tavan_kapaliyken_bugunku_model(con):
+    # Varsayılan tavan 0: ME-OPT1 ne kırık ne stoksuz, aday olamaz.
+    # Bu, tasarımın geriye dönük uyum kilidi.
+    df = adaylar.uret(con, KARAR, P)
+    assert ciftler(df) == {
+        ("MA", "MB", "OPT1"),
+        ("MA", "MC", "OPT1"),
+        ("MA", "MC", "OPT2"),
+    }
+
+
+def test_tavan_mali_bitmek_uzere_aliciyi_acar(con):
+    # ME-OPT1 cover 5/2.0 = 2.5; tavan 3 onu alıcı yapar, tavan 2 yapmaz.
+    genis = adaylar.uret(con, KARAR, replace(P, alici_cover_tavani=3.0))
+    assert ("MA", "ME", "OPT1") in ciftler(genis)
+    dar = adaylar.uret(con, KARAR, replace(P, alici_cover_tavani=2.0))
+    assert ("MA", "ME", "OPT1") not in ciftler(dar)
+
+
+def test_tavan_min_satisi_ezmez(con):
+    # MA-OPT1 cover 24 ama hızı 0.5 < min_satis 1 → tavan ne olursa olsun alıcı değil
+    df = adaylar.uret(con, KARAR, replace(P, alici_cover_tavani=999.0))
+    assert not (df.alici == "MA").any()

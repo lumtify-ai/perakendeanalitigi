@@ -58,12 +58,23 @@ def uret(con, karar: date, p: Parametreler) -> pd.DataFrame:
 
     kirik_kume = set(zip(kiriklar.magaza_id, kiriklar.option_id))
     stoklu_kume = set(zip(stok.magaza_id, stok.option_id))
+    # Alıcı cover'ı: stoklu hücrede hesaplanmış cover, stoksuz hücrede
+    # tanımı gereği 0. Sözlükte olmayan hücre stoksuzdur.
+    cover_haritasi = {
+        (m, o): c for m, o, c in zip(coverlar.magaza_id, coverlar.option_id, coverlar.cover)
+    }
     alicilar = hizlar[hizlar.hiz >= p.min_satis].copy()
     if len(alicilar):
+        # Üç kapılı birleşim: yapısal ihtiyaç (kırık ya da stoksuz) YA DA
+        # hız ihtiyacı (satıyor ama malı tavanın altında kalacak kadar az).
+        # Tavan 0 iken üçüncü kapı hiçbir yeni alıcı getirmez — stoklu
+        # hücrede cover her zaman > 0'dır — yani bugünkü model korunur.
         alicilar = alicilar[
             alicilar.apply(
                 lambda s: (s.magaza_id, s.option_id) in kirik_kume
-                or (s.magaza_id, s.option_id) not in stoklu_kume,   # stoksuz
+                or (s.magaza_id, s.option_id) not in stoklu_kume   # stoksuz
+                or cover_haritasi.get((s.magaza_id, s.option_id), 0.0)
+                <= p.alici_cover_tavani,
                 axis=1,
             )
         ]

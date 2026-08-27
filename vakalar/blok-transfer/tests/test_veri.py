@@ -18,6 +18,7 @@ def test_varsayilan_parametreler():
     assert p.buyuk_cover == 999.0
     assert p.mip_zaman_limiti_sn == 60
     assert p.verici_cover_esigi == 6.0
+    assert p.alici_cover_tavani == 0.0
     assert p.min_satis == 1.0
 
 

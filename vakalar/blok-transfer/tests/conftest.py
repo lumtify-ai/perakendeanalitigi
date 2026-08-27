@@ -9,6 +9,7 @@ Beklenen değerler (Task 2-7 testleri bu sayılara kilitli):
   kırıklar: (MB,OPT1) ve (MB,OPT2)
   STR:   MA-OPT1 0.25 · MB-OPT1 0.8 · MC-OPT1 1.0 · MA-OPT2 0.0 · MC-OPT2 1.0
   soğuma: (MD,OPT1) — 2025-12-22 sevkiyatı
+  ME-OPT1 hız 2.0 · karar günü stok 5 · cover 2.5 · tam set
 """
 import duckdb
 import pytest
@@ -30,7 +31,8 @@ def con():
 
     c.execute("""insert into magaza values
         ('MA', 'Cadde', 1000), ('MB', 'Cadde', 1000),
-        ('MC', 'Outlet', 5000), ('MD', 'Cadde', 1000)""")
+        ('MC', 'Outlet', 5000), ('MD', 'Cadde', 1000),
+        ('ME', 'Cadde', 1000)""")
 
     for opt, line in [("OPT1", "Basic"), ("OPT2", "Outlet")]:
         for sira in range(1, 6):
@@ -46,6 +48,7 @@ def con():
         ("MA", "OPT2"): [2, 1, 2, 1, 2],   # tam set, 8
         ("MB", "OPT2"): [1, 0, 0, 0, 0],   # kırık, 1
         ("MC", "OPT2"): [0, 0, 0, 0, 0],
+        ("ME", "OPT1"): [1, 1, 1, 1, 1],   # tam set, 5 — hızlı satan, cover 2.5
     }
     for (m, opt), adetler in karar_stok.items():
         for sira, adet in enumerate(adetler, start=1):
@@ -53,7 +56,8 @@ def con():
 
     # --- geçmiş 8 haftanın stok fotoğrafları (option toplamı tek SKU'da) ---
     gecmis_stok = {("MA", "OPT1"): 12, ("MB", "OPT1"): 5, ("MD", "OPT1"): 10,
-                   ("MA", "OPT2"): 8, ("MB", "OPT2"): 6, ("MC", "OPT2"): 5}
+                   ("MA", "OPT2"): 8, ("MB", "OPT2"): 6, ("MC", "OPT2"): 5,
+                   ("ME", "OPT1"): 5}
     for hafta in HAFTALAR:
         for (m, opt), adet in gecmis_stok.items():
             c.execute("insert into stok values (?, ?, ?, ?)", [hafta, m, f"{opt}-1", adet])
@@ -76,6 +80,7 @@ def con():
     for hafta in HAFTALAR:
         c.execute("insert into satis values (?, 'MB', 'OPT2-1', 3)", [hafta])    # hız 3
         c.execute("insert into satis values (?, 'MC', 'OPT2-1', 2)", [hafta])    # hız 2
+        c.execute("insert into satis values (?, 'ME', 'OPT1-2', 2)", [hafta])   # hız 2.0
 
     # --- sevkiyat (STR paydaları + soğuma) ---
     c.execute("insert into sevkiyat values ('2025-10-06', 'MA', 'OPT1-1', 16)")  # STR 4/16
@@ -84,4 +89,5 @@ def con():
     c.execute("insert into sevkiyat values ('2025-10-06', 'MA', 'OPT2-1', 8)")   # STR 0/8
     c.execute("insert into sevkiyat values ('2025-10-06', 'MC', 'OPT2-1', 16)")  # STR 16/16
     c.execute("insert into sevkiyat values ('2025-12-22', 'MD', 'OPT1-1', 5)")   # SOĞUMA
+    c.execute("insert into sevkiyat values ('2025-10-06', 'ME', 'OPT1-1', 20)")  # STR 16/20
     return c

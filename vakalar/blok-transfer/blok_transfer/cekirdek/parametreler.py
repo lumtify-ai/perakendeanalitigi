@@ -13,4 +13,5 @@ class Parametreler:
     buyuk_cover: float = 999.0
     mip_zaman_limiti_sn: int = 60
     verici_cover_esigi: float = 6.0   # senaryo parametresi: gönderen mağazada asgari cover
+    alici_cover_tavani: float = 0.0   # senaryo parametresi: alıcıda azami cover; 0 = kapalı
     min_satis: float = 1.0       # senaryo parametresi
