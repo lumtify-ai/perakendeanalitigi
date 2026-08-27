@@ -46,5 +46,15 @@ export default defineConfig({
   },
   vite: {
     plugins: [tailwindcss()],
+    build: {
+      // Vite küçük varlıkları base64 data: URI olarak CSS'e gömer. Tek bir
+      // KaTeX fontu bu sınırın altında kalıyordu ve yayında CSP'ye takıldı:
+      //   Loading the font 'data:font/woff2;base64,...' violates the
+      //   following Content Security Policy directive: "font-src 'self'"
+      // CSP'yi gevşetip data: eklemek yerine gömmeyi kapatıyoruz; font-src
+      // 'self' anlamlı bir güvence olarak kalsın. Bedeli tek bir küçük
+      // istek, o da bir yıllık immutable önbellekle geliyor.
+      assetsInlineLimit: 0,
+    },
   },
 })
