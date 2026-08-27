@@ -85,7 +85,7 @@ def main() -> None:
           f"boşluk {gevsek - tam:,.2f} TL ({(gevsek - tam) / tam:.4%})")
 
     print("\n=== DEMO KADRANI ===")
-    for vv, aa in [(6, 0), (6, 3), (14, 6), (18, 14), (26, 6)]:
+    for vv, aa in [(6, 0), (6, 3), (6, 6), (14, 6), (18, 14), (26, 6)]:
         p = replace(REFERANS, verici_cover_esigi=float(vv), alici_cover_tavani=float(aa))
         satir = []
         for yontem in ("greedy", "mip"):

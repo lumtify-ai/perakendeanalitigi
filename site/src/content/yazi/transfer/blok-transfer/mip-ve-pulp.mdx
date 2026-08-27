@@ -190,11 +190,11 @@ kaldırıyor — aynı mağazadan, aynı option — ama bunların **111'inde al�
 farklı**. Yani çözücü aynı planı ucuzlatmakla kalmıyor, kimin kime
 göndereceğini de yeniden kuruyor.
 
-## Neden 0,275 saniye?
+## Neden üçte bir saniye?
 
 Üçüncü yazıda bu modelin 1.058 ikili değişkeni olduğunu ve kaba kuvvetle
-$2^{1058}$ olasılık demek olduğunu yazmıştım. Çözücünün bunu 0,275 saniyede
-bitirmesinin sebebini de anlatmıştım: dal-sınır. Şimdi ölçelim.
+$2^{1058}$ olasılık demek olduğunu yazmıştım. Çözücünün bunu üçte bir
+saniyede bitirmesinin sebebini de anlatmıştım: dal-sınır. Şimdi ölçelim.
 
 Modeli iki kez çözelim. Önce değişkenlerin 0 ile 1 arasında kesirli olmasına
 izin vererek (LP gevşetmesi), sonra gerçek hâliyle:
@@ -212,9 +212,11 @@ olmayan bir tepe noktasında duruyor; buna rağmen o noktanın değeri tam sayı
 optimumla kuruşu kuruşuna aynı.
 
 Anlamı şu: çözücü daha ilk adımda "en iyi çözüm 5.006.978,84'ten fazla
-olamaz" diye bir tavan çiziyor ve tam o tavana oturan bir tam sayı çözüm
-buluyor. Dal-sınırın kapatacak boşluğu kalmıyor; ağaç açılmadan bitiyor. Ama
-bunu "işte dal-sınırın kanıtı" diye satmak yanlış olur. Bu sayı yöntemin
+olamaz" diye bir tavan çiziyor ve elinde tam o tavana oturan bir tam sayı
+çözüm oluyor. Tavanın aşağı inmesi hiç gerekmiyor. Kaç dal açıldığını
+ölçmedim, o yüzden "ağaç hiç açılmadı" demiyorum; bildiğim tek şey, çözücü
+işini bitirdiğinde kapatılacak boşluğun kalmadığı. Ama bunu "işte dal-sınırın
+kanıtı" diye satmak da yanlış olur. Bu sayı yöntemin
 gücünü değil, bu haftanın fotoğrafının uysallığını ölçüyor. Boşluğun sıfır
 çıkması bir garanti değil; başka bir hafta, başka bir eşik takımı aynı modelde
 o boşluğu pekâlâ açabilir. Dürüst cümle şu: bu örnekte çözücünün budayacak
@@ -235,7 +237,7 @@ raporda böyle söylenmelidir.
 
 ## Bedelin dürüst muhasebesi
 
-PuLP bedava, CBC bedava, çalıştırmak 0,275 saniye. O zaman bu tartışma neden
+PuLP bedava, CBC bedava, çalıştırmak ~0,3 saniye. O zaman bu tartışma neden
 var?
 
 Çünkü asıl maliyet lisansta değil. Modeli kuran kişi gittiğinde geriye kalan

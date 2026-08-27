@@ -60,7 +60,7 @@ Dizinin dört ve beşinci yazıları aynı problemi iki ayrı yoldan çözdü. B
 | Taşınan adet | 4.785 | 4.785 |
 | Açılan sevkiyat | 196 *(147'si tek option)* | **140** *(56'sı tek option)* |
 | Net kazanç | 4.978.979 TL | **5.006.979 TL** |
-| Çözüm süresi | **7 ms** | 275 ms |
+| Çözüm süresi | **~7 ms** | ~0,3 sn |
 | Kayıp satışın yakalanan kısmı | %26,0 | **%29,7** |
 | Adreslenen kırık çift | 137 | **170** |
 | Kurulum | yok | PuLP + CBC |
@@ -186,7 +186,7 @@ geçerlidir: **modelin en önemli kısmı çoğu zaman yazmadığınız kısıtl
 
 Bir de ölçek meselesi var. Lumoda 25 mağaza ve 240 option'lı küçük bir zincir;
 gerçek bir zincirde bu sayılar bir büyüklük mertebesi yukarıdadır ve o zaman
-çözücünün 275 milisaniyesi dakikalara çıkar. Zaman limiti, `limit` bayrağı ve
+çözücünün üçte bir saniyesi dakikalara çıkar. Zaman limiti, `limit` bayrağı ve
 "kanıtlanmamış ama iyi" çözümle çalışmak orada gerçek bir mesele hâline gelir.
 
 ## Gerçek kurulumda eklenen kısıtlar
