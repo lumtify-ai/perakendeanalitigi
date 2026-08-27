@@ -138,7 +138,7 @@ Dürüstlük için: aşağıdakiler bilinçli sadeleştirmelerdir.
 
 - **Sepet kimliği yok.** `satis` günlük toplam düzeyindedir; birlikte satın
   alma analizi yapılamaz. Sepet analizi gerektiren bir vaka geldiğinde
-  `v2` üretilecektir.
+  veri seti bu düzeyde yeniden üretilir.
 - **Sell-through yüksek.** İkmal hedefe göre çalıştığı için sezon sonunda
   gerçek hayattakinden az stok kalır; gerçek zincirlerde ilk dağıtım bir
   bahistir ve fazlası eritilir.
