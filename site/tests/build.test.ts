@@ -49,9 +49,14 @@ describe('build çıktısı', () => {
     expect(existsSync(DIST + 'tr/index.html')).toBe(true)
   })
 
-  it('kök adres türkçeye yönlenir', () => {
-    expect(existsSync(DIST + 'index.html')).toBe(true)
-    expect(oku('index.html')).toContain('/tr/')
+  it('kök adres türkçeye kenarda yönlenir, ara sayfa üretilmez', () => {
+    // Astro statik çıktıda HTTP yönlendirmesi üretemez; bıraksaydık kök
+    // adrese "Redirecting from / to /tr/" yazan, 2 saniye bekleyen bir
+    // meta-refresh sayfası konurdu ve ziyaretçi onu görürdü. Bunun yerine
+    // hiç dosya üretilmiyor, yönlendirmeyi Cloudflare _redirects ile
+    // kenarda yapıyor.
+    expect(existsSync(DIST + 'index.html')).toBe(false)
+    expect(oku('_redirects')).toMatch(/^\/\s+\/tr\/\s+30[12]$/m)
   })
 
   it('sayfa dili türkçe işaretlenir', () => {
@@ -391,10 +396,7 @@ describe('yayın durumu', () => {
   // kendisi tests/yayinDurumu.test.ts'te sentetik ağaç üzerinde sınanıyor;
   // burada taslak yokluğunun getirdiği değişmezler doğrulanıyor.
   it('taslak olmadığı için hiçbir içerik sayfası noindex basmaz', () => {
-    // Kök index.html hariç: o, Astro'nun "/" → "/tr/" yönlendirme kabuğu ve
-    // yönlendirme sayfasının indekslenmemesi zaten istenen davranış.
     const suclular = tumSayfalar()
-      .filter(({ yol }) => yol !== 'index.html')
       .filter(({ html }) => html.includes('noindex'))
       .map(({ yol }) => yol)
     expect(suclular).toEqual([])

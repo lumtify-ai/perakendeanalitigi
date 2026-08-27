@@ -1,0 +1,8 @@
+# Kök adres tek dilli sitede doğrudan /tr/'ye gider. Bu bir HTTP
+# yönlendirmesidir: ziyaretçi ara sayfa görmez. Astro statik çıktıda
+# bunu üretemediği için (bkz. astro.config.mjs, redirectToDefaultLocale)
+# Cloudflare kenarda yapar.
+#
+# 302 bilinçli: ileride /en/ eklenirse kök adres dil pazarlığına
+# çevrilebilsin, kalıcı yönlendirme önbelleklerde çakılı kalmasın.
+/    /tr/    302

@@ -18,7 +18,14 @@ export default defineConfig({
     defaultLocale: 'tr',
     routing: {
       prefixDefaultLocale: true,
-      redirectToDefaultLocale: true,
+      // Astro statik çıktıda gerçek bir HTTP yönlendirmesi üretemez; bunu
+      // açık bırakınca kök adrese "Redirecting from / to /tr/" yazan,
+      // meta-refresh'i 2 saniye gecikmeli bir HTML sayfası konuyordu ve
+      // ziyaretçi onu gözle görüyordu. Kapalı: kök adrese hiç dosya
+      // üretilmiyor ve yönlendirmeyi Cloudflare kenarda yapıyor
+      // (public/_redirects). Bedeli: `astro dev`/`preview` altında "/"
+      // 404 verir — yayında doğru davranış için kabul edilen takas.
+      redirectToDefaultLocale: false,
     },
   },
   integrations: [
