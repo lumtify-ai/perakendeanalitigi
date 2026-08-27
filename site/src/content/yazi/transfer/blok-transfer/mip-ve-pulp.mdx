@@ -11,11 +11,11 @@ durum: yayinda
 ---
 
 Geçen yazı bir SQL sorgusu ve on iki satırlık bir döngüyle çözücünün bulduğu
-değerin yüzde 99,7'sini buldu. Şimdi kalan yüzde 0,3 için ne gerektiğine
-bakacağız: elli üç satır Python ve bedava bir çözücü.
+değerin yüzde 99,4'ünü buldu. Şimdi kalan yüzde 0,6 için ne gerektiğine
+bakacağız: altmış yedi satır Python ve bedava bir çözücü.
 
-Yalnız baştan söyleyeyim, bu yazının asıl konusu o yüzde 0,3 değil. Geçen
-yazının son cümlesi şuydu: yüzde 99,7'yi *biz* biliyoruz, çünkü diğerini de
+Yalnız baştan söyleyeyim, bu yazının asıl konusu o yüzde 0,6 değil. Geçen
+yazının son cümlesi şuydu: yüzde 99,4'ü *biz* biliyoruz, çünkü diğerini de
 kurup ölçtük. Modeli kurmanın esas getirisi bu — kaybınızın büyüklüğünü
 öğreniyorsunuz. Kâr olarak geri dönen kısım cabası.
 
@@ -113,9 +113,9 @@ ekliyorum: `sorted` tek başına yetmemiş. Aday tablosunu üreten SQL
 sorgularında `order by` yoktu ve DuckDB satırları her koşuda aynı sırada
 döndürmek zorunda değil. Sıra değişince değişkenlerin adı değişiyor, adlar
 değişince çözücü yine eşit değerli başka bir optimuma düşüyordu: art arda üç
-koşuda amaç değeri kuruşu kuruşuna aynı (4.647.648,31 TL) çıkarken planların
-34 hareketi farklıydı. Aday tablosunu sıralamak sorunu kapattı. Ders şu:
-determinizm tek bir yerde sağlanmaz, **veriden çözüme kadar bütün zincirde**
+koşuda amaç değeri kuruşu kuruşuna aynı (5.006.978,84 TL) çıkarken her koşuda
+planın yirmi civarında hareketi farklıydı. Aday tablosunu sıralamak sorunu
+kapattı. Ders şu: determinizm tek bir yerde sağlanmaz, **veriden çözüme kadar bütün zincirde**
 sağlanır — ve bir yerde kaçırdığınızda size hata olarak değil, "geçen hafta
 başka söylüyordu" olarak geri döner.
 
@@ -146,23 +146,23 @@ yarım kalmış bir plan kalır.
 
 ## MIP tam olarak nerede kazanıyor
 
-Geçen yazıda iki planı yan yana koymuş ve şunu bulmuştuk: ikisi de aynı 163
-option'ı, aynı 3.765 adedi taşıyor; fark yalnız rota sayısında — 137'ye
-karşı 108, aradaki 29 rota × 500 TL = 14.500 TL. Şimdi o farkın kodda nereden
+Geçen yazıda iki planı yan yana koymuş ve şunu bulmuştuk: ikisi de aynı 252
+option'ı, aynı 4.785 adedi taşıyor; fark yalnız rota sayısında — 196'ya
+karşı 140, aradaki 56 rota × 500 TL = 28.000 TL. Şimdi o farkın kodda nereden
 çıktığına bakalım.
 
 Rotaların kaç option taşıdığına bakınca fark görünür hale geliyor:
 
 | Rotada taşınan option | Açgözlü | Çözücü |
 |---|---:|---:|
-| 1 | **113** | 63 |
-| 2 | 23 | 36 |
-| 3 | 0 | 8 |
-| 4 | 1 | 1 |
-| **Toplam rota** | **137** | **108** |
+| 1 | **147** | 56 |
+| 2 | 42 | 60 |
+| 3 | 7 | 20 |
+| 4 | 0 | 4 |
+| **Toplam rota** | **196** | **140** |
 
-Açgözlü planda 113 sevkiyat, tek bir option taşımak için açılıyor. Çözücüde
-bu sayı 63. Çözücü aynı işi daha az kamyonla yapıyor, çünkü amaç
+Açgözlü planda 147 sevkiyat, tek bir option taşımak için açılıyor. Çözücüde
+bu sayı 56. Çözücü aynı işi daha az kamyonla yapıyor, çünkü amaç
 fonksiyonundaki $-R\sum y_{ij}$ terimi ona her yeni rotanın 500 TL'ye mal
 olduğunu söylüyor; açgözlü döngüde böyle bir terim yok, olamaz da — döngü
 sıradaki hareketi görmediği için "bunu şuraya koysam kamyon zaten kalkacaktı"
@@ -171,12 +171,12 @@ diye düşünemez.
 Somut bir örnek, çözücünün en dolu rotası:
 
 ```
-M003 → M023 · 4 option · 88 adet
+M025 → M022 · 4 option · 89 adet
 
-  MDL025-SYH   açgözlü planda:  M003 → M008
-  MDL040-BEJ   açgözlü planda:  M025 → M023
-  MDL041-BEJ   açgözlü planda:  M003 → M002
-  MDL048-LCV   açgözlü planda:  M003 → M023
+  MDL005-LCV   açgözlü planda:  M025 → M004
+  MDL006-SYH   açgözlü planda:  M025 → M003
+  MDL007-BEJ   açgözlü planda:  M025 → M022
+  MDL071-BEJ   açgözlü planda:  M025 → M010
 ```
 
 Çözücü bu dört bloğu tek kamyona koyuyor; açgözlü yöntem aynı dört bloğu
@@ -185,36 +185,46 @@ yapmıyor — her bloğu tek tek en yüksek puanlı hedefine gönderiyor. Dört 
 her biri kendi başına daha iyi eşleşmiş olabilir; ama dördü için dört kez
 kamyon parası ödeniyor ve toplamda geride kalıyor.
 
-Bunun ikinci bir sonucu var, tabloda görünmüyor: iki planın ortak taşıdığı
-113 option'ın **56'sında rota farklı**. Yani çözücü aynı planı ucuzlatmakla
-kalmıyor, kimin kime göndereceğini de yeniden kuruyor.
+Bunun ikinci bir sonucu var, tabloda görünmüyor: iki plan aynı 252 bloğu
+kaldırıyor — aynı mağazadan, aynı option — ama bunların **111'inde alıcı
+farklı**. Yani çözücü aynı planı ucuzlatmakla kalmıyor, kimin kime
+göndereceğini de yeniden kuruyor.
 
-## Neden 0,18 saniye?
+## Neden 0,275 saniye?
 
-Üçüncü yazıda bu modelin 652 ikili değişkeni olduğunu ve kaba kuvvetle
-$2^{652}$ olasılık demek olduğunu yazmıştım. Çözücünün bunu 0,18 saniyede
-bitirmesinin sebebini de anlatmıştım: dal-sınır. Şimdi kanıtı ölçebiliriz.
+Üçüncü yazıda bu modelin 1.058 ikili değişkeni olduğunu ve kaba kuvvetle
+$2^{1058}$ olasılık demek olduğunu yazmıştım. Çözücünün bunu 0,275 saniyede
+bitirmesinin sebebini de anlatmıştım: dal-sınır. Şimdi ölçelim.
 
 Modeli iki kez çözelim. Önce değişkenlerin 0 ile 1 arasında kesirli olmasına
 izin vererek (LP gevşetmesi), sonra gerçek hâliyle:
 
-| | Değer | Süre |
-|---|---:|---:|
-| LP gevşetmesi (üst sınır) | 4.647.898,31 TL | 0,136 sn |
-| Tamsayı çözüm | 4.647.648,31 TL | 0,186 sn |
-| **Aradaki boşluk** | **250 TL** | |
+| | Değer |
+|---|---:|
+| LP gevşetmesi (üst sınır) | 5.006.978,84 TL |
+| Tamsayı çözüm | 5.006.978,84 TL |
+| **Aradaki boşluk** | **0,00 TL** |
 
-Gevşetilmiş problemin cevabı, gerçek cevaptan yalnızca 250 TL yukarıda —
-yüzde 0,005. Bu sayı çözücünün işinin neden kolay olduğunu söylüyor: daha ilk
-adımda "en iyi çözüm 4.647.898'den fazla olamaz" diye bir tavan çiziyor, ve o
-tavan gerçek cevaba o kadar yakın ki, bulduğu ilk iyi tamsayı çözümden sonra
-geriye araştırılacak neredeyse hiçbir dal kalmıyor. Ağaç açılmadan kapanıyor.
+Boşluk sıfır. İlk tepkim "ölçüm bozuk" oldu, o yüzden gevşetmenin gerçekten
+gevşediğine ayrıca baktım: gevşetilmiş çözümde 664 $x$ değişkeninin 12'si ve
+394 $y$ değişkeninin 6'sı gerçekten kesirli çıkıyor. Yani çözücü tam sayı
+olmayan bir tepe noktasında duruyor; buna rağmen o noktanın değeri tam sayı
+optimumla kuruşu kuruşuna aynı.
+
+Anlamı şu: çözücü daha ilk adımda "en iyi çözüm 5.006.978,84'ten fazla
+olamaz" diye bir tavan çiziyor ve tam o tavana oturan bir tam sayı çözüm
+buluyor. Dal-sınırın kapatacak boşluğu kalmıyor; ağaç açılmadan bitiyor. Ama
+bunu "işte dal-sınırın kanıtı" diye satmak yanlış olur. Bu sayı yöntemin
+gücünü değil, bu haftanın fotoğrafının uysallığını ölçüyor. Boşluğun sıfır
+çıkması bir garanti değil; başka bir hafta, başka bir eşik takımı aynı modelde
+o boşluğu pekâlâ açabilir. Dürüst cümle şu: bu örnekte çözücünün budayacak
+bir şeyi yoktu.
 
 ## Her MIP böyle uslu değildir
 
 Buradan "çözücüler her zaman hızlıdır" sonucunu çıkarmayın; bu problem kolay
-bir MIP. Kolaylığın sebepleri belli: LP boşluğu çok küçük, kısıtlar birbirini
-az kilitliyor, ve aday kümesi zaten 375 satıra indirilmiş durumda.
+bir MIP. Kolaylığın sebepleri belli: LP boşluğu kapanmış durumda, kısıtlar
+birbirini az kilitliyor, ve aday kümesi zaten 664 satıra indirilmiş durumda.
 
 Aynı model şu üç durumda çok daha zorlanır: aday kümesi elenmeden verilirse
 (144.000 satır), kapasiteler daralıp kısıtlar birbirini kilitlemeye başlarsa,
@@ -225,11 +235,11 @@ raporda böyle söylenmelidir.
 
 ## Bedelin dürüst muhasebesi
 
-PuLP bedava, CBC bedava, çalıştırmak 0,18 saniye. O zaman bu tartışma neden
+PuLP bedava, CBC bedava, çalıştırmak 0,275 saniye. O zaman bu tartışma neden
 var?
 
 Çünkü asıl maliyet lisansta değil. Modeli kuran kişi gittiğinde geriye kalan
-şey elli üç satır Python değil, o satırların **neden öyle** olduğunu bilen
+şey altmış yedi satır Python değil, o satırların **neden öyle** olduğunu bilen
 kimsenin kalmaması. Kapasite tanımı değiştiğinde kısıtı kimin güncelleyeceği,
 çözücü sürümü yükselince sonuçların neden bir tık kaydığı, ve hepsinden zoru:
 mağaza müdürü "benim malımı niye aldınız?" diye sorduğunda verilecek cevap.
@@ -242,5 +252,6 @@ birbirine bağlı bir bütün olarak seçiliyor. Bu, optimizasyon projelerinin
 teknik değil, **güven** sebebiyle raflarda kalmasının en yaygın sebebi.
 
 Sonraki yazıda iki yöntemi bütün ölçütlerle yan yana koyacağız: para, süre,
-kurulum, açıklanabilirlik. Orada beklemediğim bir sonuç çıktı — çözücü toplam
-TL'de kazanıyor ama bir ölçütte açgözlü yöntem önde, hem de az farkla değil 🙂
+kurulum, açıklanabilirlik. Orada beklemediğim bir sonuç çıktı — kadranı
+çevirip daha çok para kazandıran plana geçtiğinizde, boş çıkan müşterinin
+daha azını kurtarıyorsunuz 🙂

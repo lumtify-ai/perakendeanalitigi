@@ -52,17 +52,17 @@ $$
 $$
 
 Gerçek aday sayısı — orta senaryoda, yani <T k="cover">cover</T> eşiği 6
-hafta ve alıcıda asgari haftalık satış 1 adet iken: **375**.
+hafta ve alıcıda asgari haftalık satış 1 adet iken: **664**.
 
-Yüz kırk dört binden üç yüz yetmiş beşe. Bu düşüşü yapan şey modelin kısıtları
-değil; kümenin tanımı. Verici olabilmek için stok bulunması, cover'ın eşiği
-geçmesi ve o rafın soğumada olmaması gerekiyor. Alıcı olabilmek için setin
-<T k="kiriklik">kırık</T> ya da stoğun sıfır olması, üstüne satış hızının
-eşiği geçmesi gerekiyor. Outlet line'ındaki bir option'ın vitrin mağazasına
+Yüz kırk dört binden altı yüz altmış dörde. Bu düşüşü yapan şey modelin
+kısıtları değil; kümenin tanımı. Verici olabilmek için stok bulunması,
+cover'ın eşiği geçmesi ve o rafın soğumada olmaması gerekiyor. Alıcı
+olabilmek için setin <T k="kiriklik">kırık</T> ya da stoğun sıfır olması,
+üstüne satış hızının eşiği geçmesi gerekiyor. Outlet line'ındaki bir option'ın vitrin mağazasına
 gitmesi ise ticaretin yasağı.
 
 Bunların hepsini çözücüye kısıt olarak da yazabilirdik. Yazmadık, çünkü o
-zaman 144.000 değişkenli bir model kurup çözücüden bunların 143.625'ini
+zaman 144.000 değişkenli bir model kurup çözücüden bunların 143.336'sını
 "zaten imkânsız" diye elemesini beklerdik. Bu yazının en pratik cümlesi şu
 olabilir: **modelin en önemli kısmı çoğu zaman yazmadığınız kısıtlardır.**
 İş bilgisi modele kısıt olarak değil, kümenin tanımı olarak girdiğinde model
@@ -194,28 +194,28 @@ kaldırılmaz. Dikkat: bu kısıt üçüncüsüyle birlikte çalışır — üç
 açılmadan hareket olmaz" der, dördüncüsü "rota açıldıysa boş gitmez" der.
 İkisi birden, modeli küçük hareketleri **aynı rotada toplamaya** zorlar.
 
-## Ölçek: 652 değişken, 841 kısıt
+## Ölçek: 1.058 değişken, 1.347 kısıt
 
 Orta senaryoda modelin gerçek boyutları şöyle:
 
 | Parça | Sayı |
 |---|---:|
-| $x$ değişkeni (aday hareket) | 375 |
-| $y$ değişkeni (rota) | 277 |
-| **Toplam ikili değişken** | **652** |
-| Blok tekliği kısıtı | 164 |
+| $x$ değişkeni (aday hareket) | 664 |
+| $y$ değişkeni (rota) | 394 |
+| **Toplam ikili değişken** | **1.058** |
+| Blok tekliği kısıtı | 264 |
 | Kapasite kısıtı | 25 |
-| Rota bağlama kısıtı | 375 |
-| Minimum koli kısıtı | 277 |
-| **Toplam kısıt** | **841** |
+| Rota bağlama kısıtı | 664 |
+| Minimum koli kısıtı | 394 |
+| **Toplam kısıt** | **1.347** |
 
-Şimdi şu 652 sayısına bakalım. Her değişken 0 veya 1 olabildiğine göre olası
-atama sayısı $2^{652}$ — yaklaşık $10^{196}$. Gözlemlenebilir evrendeki atom
+Şimdi şu 1.058 sayısına bakalım. Her değişken 0 veya 1 olabildiğine göre olası
+atama sayısı $2^{1058}$ — yaklaşık $10^{318}$. Gözlemlenebilir evrendeki atom
 sayısı kabaca $10^{80}$ olarak tahmin ediliyor. Yani bu küçük zincirin tek bir
 haftalık transfer kararı, kaba kuvvetle denenmek istense, evrendeki bütün
 atomlara birer bilgisayar verseniz bile bitmez.
 
-Çözücünün (CBC) bu modeli çözme süresi: **0,25 saniye.**
+Çözücünün (CBC) bu modeli çözme süresi: **0,275 saniye.**
 
 Bu iki cümle yan yana durunca insanın aklına ilk gelen şey "bir yerde hata
 olmalı" oluyor. Yok. Çözücü kombinasyonları saymıyor. Önce problemi
@@ -228,7 +228,7 @@ milyarlarca kombinasyonu — tek hamlede çöpe atıyor. Adı dal-sınır. Bir �
 yazıda Ali'nin "altı bin kere teraziyi kuramam" dediği yerin cevabı budur:
 kimse kurmuyor, çözücü bakmadan eliyor.
 
-Bu modelin orta senaryodaki çıktısı 163 option'ın taşınması, toplam 3.765
+Bu modelin orta senaryodaki çıktısı 252 option'ın taşınması, toplam 4.785
 adet. Sonraki iki yazıda bu sayının nasıl elde edildiğini iki ayrı yoldan
 göreceğiz.
 
@@ -271,4 +271,4 @@ modellenmiyor.
 Bir sonraki yazıda bu modeli hiç kurmadan, yalnız SQL ve bir sıralama
 kuralıyla probleme saldıracağız — sektörde bu iş çoğunlukla öyle yapılıyor
 çünkü. Sonra ikisini yan yana koyacağız. Şunu şimdiden söyleyeyim, çünkü
-sonucun kendisi bu dizinin en ilginç bulgusu: aradaki fark yüzde 0,3 🙂
+sonucun kendisi bu dizinin en ilginç bulgusu: aradaki fark yüzde 0,6 🙂

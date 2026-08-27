@@ -12,7 +12,7 @@ durum: yayinda
 
 import T from '../../../../components/T.astro'
 
-Bir önceki yazıda 652 ikili değişkenli bir karma tamsayılı program kurduk.
+Bir önceki yazıda 1.058 ikili değişkenli bir karma tamsayılı program kurduk.
 Şimdi size bir şey itiraf edeyim: sahada gördüğüm zincirlerin çoğu bu işi
 öyle çözmüyor. SQL yazıyorlar. Bir sorgu, bir sıralama, bir döngü.
 
@@ -136,7 +136,7 @@ stoklu haftalardan ölçülmesini sağlayan şey o tek satır. Onu silerseniz so
 yine çalışır, hiçbir hata vermez, ve stoksuzluktan satamamış her ürünü "yavaş
 satıyor" diye damgalar. Bu yazıdaki en tehlikeli satır o.
 
-Sorgu Lumoda'nın gerçek fotoğrafında **375 aday** döndürüyor.
+Sorgu Lumoda'nın gerçek fotoğrafında **664 aday** döndürüyor.
 
 ## Adım 2: Terazi puanı
 
@@ -199,19 +199,19 @@ Sayılar, Lumoda'nın gerçek fotoğrafında:
 
 | Adım | Sonuç |
 |---|---:|
-| SQL'in bulduğu aday | 375 |
-| Puanı pozitif olan | 374 |
-| "Bu blok zaten verildi" diye atlanan | 210 |
+| SQL'in bulduğu aday | 664 |
+| Puanı pozitif olan | 637 |
+| "Bu blok zaten verildi" diye atlanan | 385 |
 | Kapasite yüzünden atlanan | 0 |
-| Seçilen hareket | 164 |
-| Minimum koli filtresinin kestiği | 1 |
-| **Kalan plan** | **163 hareket · 3.765 adet · 137 rota** |
+| Seçilen hareket | 252 |
+| Minimum koli filtresinin kestiği | 0 |
+| **Kalan plan** | **252 hareket · 4.785 adet · 196 rota** |
 
-Süre: **0,004 saniye**. Net kazanç: **4.633.148 TL**.
+Süre: **0,007 saniye**. Net kazanç: **4.978.979 TL**.
 
-O 210 sayısına bir saniye bakalım, çünkü açgözlü yöntemin doğası orada. Aynı
-bloğu isteyen birden çok mağaza var; en yüksek puanlı olan alıyor, diğer 210
-istek kapıdan dönüyor. Yöntem bu 210 isteği bir daha hiç düşünmüyor — oysa
+O 385 sayısına bir saniye bakalım, çünkü açgözlü yöntemin doğası orada. Aynı
+bloğu isteyen birden çok mağaza var; en yüksek puanlı olan alıyor, diğer 385
+istek kapıdan dönüyor. Yöntem bu 385 isteği bir daha hiç düşünmüyor — oysa
 belki de o bloğu ikinci sıradaki mağazaya verip, en yüksek puanlıya başka bir
 mağazadan mal bulmak toplamda daha iyiydi. Açgözlü yöntemin tanımı budur:
 her adımda o anın en iyisini seçer, seçiminin ileride ne kapattığına bakmaz.
@@ -223,17 +223,17 @@ koyalım:
 
 | | Hareket | Adet | Rota | Net kazanç |
 |---|---:|---:|---:|---:|
-| Açgözlü | 163 | 3.765 | **137** | 4.633.148 TL |
-| Çözücü (MIP) | 163 | 3.765 | **108** | 4.647.648 TL |
+| Açgözlü | 252 | 4.785 | **196** | 4.978.979 TL |
+| Çözücü (MIP) | 252 | 4.785 | **140** | 5.006.979 TL |
 
 Bu tabloyu ilk gördüğümde iki kez baktım. **İki yöntem birebir aynı malı
-taşıyor** — aynı 163 hareket, aynı 3.765 adet. Aradaki tek fark kaç sevkiyat
-açtıkları: 137'ye karşı 108.
+taşıyor** — aynı 252 hareket, aynı 4.785 adet. Aradaki tek fark kaç sevkiyat
+açtıkları: 196'ya karşı 140.
 
-Aritmetiği yapalım. Fark 29 rota. Rota başına sabit maliyet 500 TL.
+Aritmetiği yapalım. Fark 56 rota. Rota başına sabit maliyet 500 TL.
 
 $$
-29 \times 500 = 14.500 \text{ TL} = 4.647.648 - 4.633.148
+56 \times 500 = 28.000 \text{ TL} = 5.006.979 - 4.978.979
 $$
 
 Kuruşu kuruşuna. Açgözlü yöntemin kaybettiği paranın **tamamı** fazladan
@@ -262,15 +262,16 @@ hareketler iptal edildiğinde o bloklar boşa çıkıyor ama yöntem başa dön�
 "madem bu rota açılmayacak, bu bloğu başka nereye verebilirim?" diye
 sormuyor.
 
-Gerçek veride bu yamanın maliyeti küçük çıktı: tek bir hareket kesildi,
-1.493 TL. Ama bu bir şans; parametreler biraz değişse çok daha fazlasını
-keserdi. Çözücü tarafında böyle bir yama yok — orada minimum koli, modelin
+Gerçek veride bu yama bu hafta hiç devreye girmedi: seçilen 252 hareketin
+hepsi minimum koliyi zaten dolduran rotalardaydı, kesilen sıfır, maliyeti
+0 TL. Ama bu bir şans, tarifin sağlamlığı değil; parametreler biraz değişse
+aynı yama sessizce hareket kesecek ve yerine bir şey aramayacaktı. Çözücü tarafında böyle bir yama yok — orada minimum koli, modelin
 içinde bir kısıt satırı, ve çözücü onu ihlal etmeden hareketleri **birleştirme**
 seçeneğini de değerlendiriyor.
 
 ## Peki bu ne zaman yeter?
 
-Rakamlara bakalım: açgözlü yöntem çözücünün bulduğu değerin **yüzde 99,7'sini**
+Rakamlara bakalım: açgözlü yöntem çözücünün bulduğu değerin **yüzde 99,4'ünü**
 buluyor, hem de kırk kat kısa sürede ve sıfır kurulum maliyetiyle.
 
 Bunu küçümsemek kolay ama yanlış olur. Bu yöntem şu koşullarda gerçekten
@@ -279,12 +280,13 @@ doğru cevaptır: sabit maliyetler küçükse (rota masrafı toplamın yanında
 kimse yoksa, ve "iyi" ile "en iyi" arasındaki fark bir toplantıda konuşulmaya
 değmeyecek kadar küçükse. Lumoda'nın bu haftası tam olarak öyle görünüyor.
 
-Ama dikkat: yüzde 99,7'yi *biz* biliyoruz, çünkü diğerini de kurup ölçtük.
-Yalnızca açgözlü yöntemi çalıştıran bir zincir, sonucunun yüzde 99,7 mi yoksa
+Ama dikkat: yüzde 99,4'ü *biz* biliyoruz, çünkü diğerini de kurup ölçtük.
+Yalnızca açgözlü yöntemi çalıştıran bir zincir, sonucunun yüzde 99,4 mü yoksa
 yüzde 70 mi olduğunu bilemez. Sezgi burada işe yaramaz; kaybın büyüklüğü
 problemin şekline bağlıdır ve şekil her hafta değişir.
 
 Sonraki yazıda aynı problemi çözücüyle kuracağız — PuLP ile modeli yazmak,
 CBC'yi koşturmak ve zaman limitine takıldığında ne yapılacağı. Sonuncusunda
-ikisini bütün ölçütlerle yan yana koyacağız. Orada bir sürpriz var: çözücü
-toplam TL'de kazanıyor ama her ölçütte kazanmıyor 🙂
+ikisini bütün ölçütlerle yan yana koyacağız. Orada bir sürpriz var: eşiği
+gevşetip daha çok para kazandığınız yerde, aradığını bulamayan müşterinin
+daha azına dokunuyorsunuz 🙂
