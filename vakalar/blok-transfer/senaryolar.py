@@ -36,7 +36,13 @@ def uret(con, karar) -> dict:
         for min_satis in PARAMETRELER[1]["degerler"]:
             p = replace(Parametreler(), verici_cover_esigi=float(cover), min_satis=float(min_satis))
             for yontem in PARAMETRELER[2]["degerler"]:
-                _, ozet = degerlendirme.boru_hatti(con, karar, p, yontem)
+                plan, ozet = degerlendirme.boru_hatti(con, karar, p, yontem)
+                # kayip_satis yalnız burada okunur: çözüm girdisi değil ölçüt.
+                # Demo bu metrik olmadan gevşek bir alıcı tavanının planı
+                # büyütürken isabetini düşürdüğünü gösteremez.
+                ozet["kayip_yakalama_yuzde"] = round(
+                    degerlendirme.kayip_satis_yakalama(plan, con, karar) * 100, 1
+                )
                 sonuclar[f"{cover}|{min_satis}|{yontem}"] = {"ozet": ozet, "satirlar": []}
     return {"surum": _surum(), "parametreler": PARAMETRELER, "sonuclar": sonuclar}
 

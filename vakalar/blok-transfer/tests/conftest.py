@@ -1,4 +1,4 @@
-"""Mini Lumoda: 4 mağaza, 2 option, 8 haftalık geçmiş + karar günü fotoğrafı.
+"""Mini Lumoda: 5 mağaza, 2 option, 8 haftalık geçmiş + karar günü fotoğrafı.
 
 kayip_satis tablosu BİLEREK yok — çekirdek ona dokunamaz (spec §2).
 Beklenen değerler (Task 2-7 testleri bu sayılara kilitli):
@@ -91,3 +91,21 @@ def con():
     c.execute("insert into sevkiyat values ('2025-12-22', 'MD', 'OPT1-1', 5)")   # SOĞUMA
     c.execute("insert into sevkiyat values ('2025-10-06', 'ME', 'OPT1-1', 20)")  # STR 16/20
     return c
+
+
+@pytest.fixture
+def con_kayipli(con):
+    """`con` + kayip_satis tablosu.
+
+    Çekirdek fikstüründe (`con`) bu tablo BİLEREK yoktur: çekirdeğin ona
+    dokunmadığı böyle kilitlenir (spec §2). Değerlendirme katmanı ise onu
+    okumak zorunda; ölçüt oradan gelir. İki fikstür bu ayrımı korur.
+    """
+    con.execute(
+        "create table kayip_satis (tarih timestamp, magaza_id varchar, "
+        "urun_id varchar, kayip_adet bigint)"
+    )
+    con.execute("insert into kayip_satis values ('2025-12-01', 'MB', 'OPT1-3', 12)")
+    con.execute("insert into kayip_satis values ('2025-12-01', 'MC', 'OPT2-2', 6)")
+    con.execute("insert into kayip_satis values ('2025-12-01', 'MD', 'OPT2-1', 2)")
+    return con
