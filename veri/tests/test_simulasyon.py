@@ -232,3 +232,31 @@ def test_olu_stok_var(sonuc):
 def test_tarih_tiplerinin_hepsi_ayni(sonuc):
     tipler = {ad: str(df["tarih"].dtype) for ad, df in sonuc.items()}
     assert len(set(tipler.values())) == 1, tipler
+
+
+# --- Ölü stoğa ikmal gitmez ---------------------------------------------
+
+def test_olu_stoga_ikmal_gitmez(sonuc):
+    """Son 28 günde hiç satmamış bir hücreye ikmal yapılmaz.
+
+    Gerçek zincirin en temel ikmal emniyeti budur ve veri setinde verici
+    havuzunu var eden şeydir: bu kural olmadan her hücre her dalgada
+    sevkiyat alır, soğuma penceresi transfer için hiç verici bırakmaz.
+    """
+    satis, sevkiyat = sonuc["satis"], sonuc["sevkiyat"]
+    satilan = satis[satis["adet"] > 0]
+    dalgalar = sorted(sevkiyat["tarih"].unique())[1:]   # açılış dalgası muaf
+    ihlal = 0
+    for tarih in dalgalar:
+        pencere = satilan[
+            (satilan["tarih"] < tarih)
+            & (satilan["tarih"] >= tarih - pd.Timedelta(days=28))
+        ]
+        satan = set(zip(pencere["magaza_id"], pencere["urun_id"]))
+        gunun = sevkiyat[sevkiyat["tarih"] == tarih]
+        ihlal += sum(
+            1
+            for m, u in zip(gunun["magaza_id"], gunun["urun_id"])
+            if (m, u) not in satan
+        )
+    assert ihlal == 0, f"{ihlal} ölü hücreye ikmal gitmiş"

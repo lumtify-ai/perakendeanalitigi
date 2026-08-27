@@ -35,6 +35,18 @@ OUTLET_LINE_AGIRLIGI = {"Outlet": 6.0, "AVM": 0.25, "Cadde": 0.35}
 IKMAL_HAFTA_ARALIGI = 2   # kaç haftada bir ikmal yapılır
 IKMAL_HEDEF_HAFTA = 6     # kaç haftalık talebi karşılayacak stok
 
+# Ölü stoğa mal atma. İkmal hedefi PLAN talebinden kurulur (dengesizliğin
+# kaynağı odur, korunur); üstüne gerçek zincirin emniyeti konur: mağazada
+# o hücrenin KENDİ gerçekleşen satış hızına göre zaten IKMAL_HEDEF_HAFTA
+# haftadan fazla mal varsa ikmal gitmez.
+#
+# Bu kural olmadan her hücre her dalgada sevkiyat alır; Blok Transfer'in
+# soğuma filtresi 2.450 hücreden 195'ini bırakır ve verici tarafı yapay
+# olarak ölür. Kuralın bilinen yan etkisi kasıtlıdır: uzun süre stoksuz
+# kalmış bir hücre satamadığı için ikmal de alamaz ve stoksuz kalmayı
+# sürdürür — kayıp satışın ve "stoksuz alıcı" vakasının kaynağı budur.
+IKMAL_OLU_STOK_PENCERESI_GUN = 28
+
 INDIRIM_OLASILIGI = 0.18
 INDIRIM_ORANI = 0.30
 
@@ -258,6 +270,7 @@ def simule_et(
     }
 
     stok_durumu = np.zeros(len(cesit), dtype=np.int64)
+    son_satislar: list[np.ndarray] = []    # ölü stok kuralının penceresi
     gecmis_satislar: list[np.ndarray] = []
 
     satis_p: list[tuple] = []
@@ -278,10 +291,20 @@ def simule_et(
         # 2) İkmal
         if acilis or (pazartesi and (int(gun.hafta) - 1) % IKMAL_HAFTA_ARALIGI == 0):
             eksik = np.maximum(hedef_sezon[sezon] - stok_durumu, 0)
-            gonderilen = np.flatnonzero(eksik > 0)
+            if acilis:
+                uygun = np.ones(len(eksik), dtype=bool)      # açılışta geçmiş yok
+            else:
+                pencere = (
+                    np.sum(son_satislar, axis=0)
+                    if son_satislar
+                    else np.zeros(len(eksik))
+                )
+                haftalik = pencere / IKMAL_OLU_STOK_PENCERESI_GUN * 7.0
+                uygun = stok_durumu < haftalik * IKMAL_HEDEF_HAFTA
+            gonderilen = np.flatnonzero((eksik > 0) & uygun)
             if gonderilen.size:
                 sevkiyat_p.append((tarih, gonderilen, eksik[gonderilen]))
-                stok_durumu += eksik
+                stok_durumu[gonderilen] += eksik[gonderilen]
 
         # 3) İade — IADE_GECIKME_GUN önceki satışların bir kısmı geri döner
         if len(gecmis_satislar) >= IADE_GECIKME_GUN:
@@ -323,6 +346,10 @@ def simule_et(
         kayip_olan = np.flatnonzero(kayip > 0)
         if kayip_olan.size:
             kayip_p.append((tarih, kayip_olan, kayip[kayip_olan]))
+
+        son_satislar.append(satilan)
+        if len(son_satislar) > IKMAL_OLU_STOK_PENCERESI_GUN:
+            son_satislar.pop(0)
 
         gecmis_satislar.append(satilan)
         if len(gecmis_satislar) > IADE_GECIKME_GUN + 1:
