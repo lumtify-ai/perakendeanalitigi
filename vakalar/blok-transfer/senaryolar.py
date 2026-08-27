@@ -58,10 +58,23 @@ def uret(con, karar) -> dict:
                 # kayip_satis yalnız burada okunur: çözüm girdisi değil ölçüt.
                 # Demo bu metrik olmadan gevşek bir alıcı tavanının planı
                 # büyütürken isabetini düşürdüğünü gösteremez.
-                ozet["kayip_yakalama_yuzde"] = round(
-                    degerlendirme.kayip_satis_yakalama(plan, con, karar) * 100, 1
-                )
-                sonuclar[f"{verici}|{tavan}|{yontem}"] = {"ozet": ozet, "satirlar": []}
+                #
+                # Sıra önemli: Demo.astro ölçütleri sözlüğün ekleme sırasıyla
+                # basıyor. Kadranın dersini taşıyan manşet ölçüt budur, en
+                # sonda "Çözüm süresi"nin altında kalmamalı. Sıralamayı
+                # burada kuruyoruz, bileşene elle bir sıra dizisi vermiyoruz:
+                # ölçüt kümesi bu dosyada belirleniyor, Demo.astro dizi
+                # bilmeyen bir çizici olarak kalsın.
+                sonuclar[f"{verici}|{tavan}|{yontem}"] = {
+                    "ozet": {
+                        **{ad: d for ad, d in ozet.items() if ad != "sure_sn"},
+                        "kayip_yakalama_yuzde": round(
+                            degerlendirme.kayip_satis_yakalama(plan, con, karar) * 100, 1
+                        ),
+                        "sure_sn": ozet["sure_sn"],
+                    },
+                    "satirlar": [],
+                }
     return {"surum": _surum(), "parametreler": PARAMETRELER, "sonuclar": sonuclar}
 
 
