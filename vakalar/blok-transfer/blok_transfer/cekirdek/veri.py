@@ -4,7 +4,7 @@ from pathlib import Path
 import duckdb
 
 # vakalar/blok-transfer/blok_transfer/cekirdek/veri.py → depo kökü 4 üst
-VARSAYILAN_YOL = Path(__file__).resolve().parents[4] / "veri" / "cikti" / "v1" / "perakende.duckdb"
+VARSAYILAN_YOL = Path(__file__).resolve().parents[4] / "veri" / "cikti" / "v2" / "perakende.duckdb"
 
 
 def baglan(yol: Path | None = None) -> duckdb.DuckDBPyConnection:

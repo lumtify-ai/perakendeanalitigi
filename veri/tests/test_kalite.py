@@ -121,6 +121,50 @@ def test_olu_stok_var(con):
     assert adet > 50, f"yalnızca {adet} ölü stok çifti"
 
 
+def test_verici_esigi_ayirt_edici(con):
+    """Yüksek cover'lı, soğumada olmayan hücre havuzu eşikle daralmalı.
+
+    Blok Transfer demosunun verici kadranı buna dayanır. İkmal her hücreye
+    giderse soğuma filtresi geriye yalnız zaten çok yüksek cover'lı
+    hücreleri bırakır; eşiği 6'dan 14'e çekmek hiçbir şeyi değiştirmez ve
+    kadran ölür (v1'de olan buydu: 195 → 190).
+    """
+    def havuz(esik: int) -> int:
+        return _tek(con, f"""
+            WITH son AS (SELECT max(tarih) AS t FROM stok),
+            stok_son AS (
+                SELECT st.magaza_id, u.option_id, sum(st.adet) AS adet
+                FROM stok st JOIN urun u ON u.urun_id = st.urun_id, son
+                WHERE st.tarih = son.t
+                GROUP BY 1, 2 HAVING sum(st.adet) > 0
+            ),
+            hiz AS (
+                SELECT s.magaza_id, u.option_id, sum(s.adet)::DOUBLE / 8 AS haftalik
+                FROM satis s JOIN urun u ON u.urun_id = s.urun_id, son
+                WHERE s.tarih >= son.t - INTERVAL 8 WEEK AND s.tarih < son.t
+                GROUP BY 1, 2
+            ),
+            sicak AS (
+                SELECT DISTINCT sv.magaza_id, u.option_id
+                FROM sevkiyat sv JOIN urun u ON u.urun_id = sv.urun_id, son
+                WHERE sv.tarih > son.t - INTERVAL 2 WEEK
+            )
+            SELECT count(*) FROM stok_son k
+            LEFT JOIN hiz ON hiz.magaza_id = k.magaza_id
+                         AND hiz.option_id = k.option_id
+            WHERE (hiz.haftalik IS NULL OR hiz.haftalik <= 0
+                   OR k.adet / hiz.haftalik >= {esik})
+              AND NOT EXISTS (
+                  SELECT 1 FROM sicak
+                  WHERE sicak.magaza_id = k.magaza_id
+                    AND sicak.option_id = k.option_id)
+        """)
+
+    genis, dar = havuz(6), havuz(14)
+    assert genis > 250, f"verici havuzu yalnızca {genis} hücre"
+    assert dar < genis * 0.9, f"eşik ayırt etmiyor: {genis} → {dar}"
+
+
 # --- Kayıp satış ve STR -------------------------------------------------
 
 def test_kayip_satis_makul_aralikta(con):

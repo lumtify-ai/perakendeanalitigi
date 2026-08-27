@@ -3,7 +3,7 @@
 import Temel from '../../layouts/Temel.astro'
 import KirintiYolu from '../../components/KirintiYolu.astro'
 
-const SURUM = 'v1'
+const SURUM = 'v2'
 const DEPO = 'https://github.com/lumtify-ai/perakendeanalitigi'
 const INDIRME = `${DEPO}/releases/tag/veri-${SURUM}`
 
@@ -12,10 +12,10 @@ const TABLOLAR = [
   { ad: "magaza", satir: "25", aciklama: "Mağaza master'ı: şehir, tip, metrekare, kapasite" },
   { ad: "urun", satir: "1.200", aciklama: "SKU master'ı ve ürün hiyerarşisi" },
   { ad: "takvim", satir: "365", aciklama: "Tarih boyutu: hafta, ay, sezon, tatil" },
-  { ad: "satis", satir: "~535 bin", aciklama: "Günlük satış; negatif adet iadedir" },
+  { ad: "satis", satir: "~532 bin", aciklama: "Günlük satış; negatif adet iadedir" },
   { ad: "stok", satir: "~643 bin", aciklama: "Haftalık stok fotoğrafı" },
-  { ad: "sevkiyat", satir: "~213 bin", aciklama: "Depodan mağazaya giren mal" },
-  { ad: "kayip_satis", satir: "~41 bin", aciklama: "Stoksuzluk yüzünden karşılanamayan talep" },
+  { ad: "sevkiyat", satir: "~179 bin", aciklama: "Depodan mağazaya giren mal" },
+  { ad: "kayip_satis", satir: "~46 bin", aciklama: "Stoksuzluk yüzünden karşılanamayan talep" },
 ]
 
 const ACIKLAMA =

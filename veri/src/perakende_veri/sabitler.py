@@ -2,7 +2,7 @@ from datetime import date
 from pathlib import Path
 
 TOHUM = 42
-VERI_SURUMU = "v1"
+VERI_SURUMU = "v2"
 
 BASLANGIC = date(2025, 1, 1)
 BITIS = date(2025, 12, 31)

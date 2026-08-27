@@ -4,7 +4,7 @@ from perakende_veri import sabitler
 
 def test_sabitler_tutarli():
     assert sabitler.TOHUM == 42
-    assert sabitler.VERI_SURUMU == "v1"
+    assert sabitler.VERI_SURUMU == "v2"
     assert sabitler.BASLANGIC == date(2025, 1, 1)
     assert sabitler.BITIS == date(2025, 12, 31)
     assert sabitler.MODEL_SAYISI == 80

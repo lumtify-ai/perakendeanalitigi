@@ -1,4 +1,4 @@
-"""Gerçek veri setiyle tutarlılık: veri/README.md 431 kırık çift ilan ediyor."""
+"""Gerçek veri setiyle tutarlılık: veri/README.md 528 kırık çift ilan ediyor."""
 from dataclasses import replace
 
 import pytest
@@ -10,7 +10,7 @@ from blok_transfer.cekirdek.parametreler import Parametreler
 
 def test_kirik_cift_sayisi_readme_ile_tutarli():
     con = veri.baglan()
-    assert len(metrikler.kiriklar(con, veri.karar_tarihi(con))) == 431
+    assert len(metrikler.kiriklar(con, veri.karar_tarihi(con))) == 528
 
 
 def test_gercek_veride_mip_greedyden_kotu_olamaz():

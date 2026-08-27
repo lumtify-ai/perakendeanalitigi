@@ -1,4 +1,4 @@
-# Lumoda — Sentetik Moda Perakende Veri Seti (v1)
+# Lumoda — Sentetik Moda Perakende Veri Seti (v2)
 
 perakendeanalitigi.com'daki bütün vakalar bu veri setini kullanır.
 Veri **tamamen sentetiktir**; hiçbir gerçek şirket, müşteri veya kişi
@@ -25,10 +25,10 @@ olduğunu id'nin kendisinden görür.
 | `magaza` | 25 | Mağaza master'ı: şehir, tip, metrekare, kapasite |
 | `urun` | 1.200 | SKU master'ı ve ürün hiyerarşisi |
 | `takvim` | 365 | Tarih boyutu: hafta, ay, sezon, tatil |
-| `satis` | ~530 bin | Günlük satış. **Negatif adet = iade.** |
+| `satis` | ~532 bin | Günlük satış. **Negatif adet = iade.** |
 | `stok` | ~643 bin | Haftalık stok fotoğrafı (pazartesileri) |
-| `sevkiyat` | ~209 bin | Depodan mağazaya giren mal |
-| `kayip_satis` | ~34 bin | Stoksuzluk yüzünden karşılanamayan talep |
+| `sevkiyat` | ~179 bin | Depodan mağazaya giren mal |
+| `kayip_satis` | ~46 bin | Stoksuzluk yüzünden karşılanamayan talep |
 
 ### Ürün hiyerarşisi
 
@@ -109,7 +109,7 @@ Sentetik verinin klasik tuzağı fazla temiz olmasıdır. Aşağıdakiler
 | Kayıp satış | Raf boşken gelen müşteri kaydedilmez; talep sansürlüdür |
 | Ölü stok | Bazı option'lar bazı mağazalarda hiç tutmaz |
 | Beden dengesizliği | Mağazanın beden eğrisi zincirin planından sapar |
-| Kırıklık | 431 (mağaza, option) çiftinde ara bedenler tükenmiş |
+| Kırıklık | 528 (mağaza, option) çiftinde ara bedenler tükenmiş |
 | İade | Satışın ~%6'sı negatif satır olarak geri döner |
 | Mükerrer satır | Çift girilmiş satışlar |
 | Bedelsiz satır | `adet` dolu, `tutar` sıfır — manuel giriş hatası |
@@ -128,6 +128,9 @@ mağazada tutar, diğerinde hiç tutmaz; beden eğrisi semtten semte değişir.
 Plan ile gerçek arasındaki bu fark bir yerde ölü stok, bir yerde
 stoksuzluk üretir. İkmal her mağazayı kendi gerçek talebine göre
 doldursaydı plan hep doğru çıkar ve **transfer edilecek bir şey olmazdı.**
+Bu yüzden ikmal, bir hücrede kendi gerçekleşen satış hızına göre zaten
+6 haftadan fazla stok varsa oraya mal göndermez — ölü stoğun üstüne
+ölü stok yığmaz.
 
 ## Bu veri setinin yetmediği yerler
 
@@ -162,7 +165,7 @@ python -m perakende_veri.uret
 ```
 
 Tohum sabittir (`42`); aynı komut her zaman aynı veriyi üretir. Üretim
-birkaç saniye sürer ve `veri/cikti/v1/` altına yazar.
+birkaç saniye sürer ve `veri/cikti/v2/` altına yazar.
 
 Testler:
 
