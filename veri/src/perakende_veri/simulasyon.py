@@ -291,15 +291,13 @@ def simule_et(
         # 2) İkmal
         if acilis or (pazartesi and (int(gun.hafta) - 1) % IKMAL_HAFTA_ARALIGI == 0):
             eksik = np.maximum(hedef_sezon[sezon] - stok_durumu, 0)
-            if acilis:
+            if acilis or not son_satislar:
                 uygun = np.ones(len(eksik), dtype=bool)      # açılışta geçmiş yok
             else:
-                pencere = (
-                    np.sum(son_satislar, axis=0)
-                    if son_satislar
-                    else np.zeros(len(eksik))
-                )
-                haftalik = pencere / IKMAL_OLU_STOK_PENCERESI_GUN * 7.0
+                # Bölen pencerenin GERÇEK gün sayısı: yılın ilk dalgasında
+                # elde 28 değil 12 günlük geçmiş var ve sabit 28'e bölmek
+                # hızı düşük tahmin edip satan hücreyi ölü sayardı.
+                haftalik = np.sum(son_satislar, axis=0) / len(son_satislar) * 7.0
                 uygun = stok_durumu < haftalik * IKMAL_HEDEF_HAFTA
             gonderilen = np.flatnonzero((eksik > 0) & uygun)
             if gonderilen.size:
