@@ -42,6 +42,11 @@ def test_min_koli_rota_post_filtresi():
     ])
     plan = greedy.cozumle(df, {"MB": 100, "MC": 100}, P)
     assert set(plan.hareketler.alici) == {"MC"}
+    # Sayaç da burada sınanır: iki aday seçilip biri post-filtrede kesildi.
+    # `rapor.py` bu değeri yazıdaki adım tablosuna basıyor, yani sıfırdan
+    # farklı hâli sınanmazsa yayımlanan bir sayı testsiz kalır.
+    assert plan.sayaclar["secilen"] == 2
+    assert plan.sayaclar["min_koli_kesilen"] == 1
 
 
 def test_sayaclar_dogru_ve_toplam_tutuyor():
