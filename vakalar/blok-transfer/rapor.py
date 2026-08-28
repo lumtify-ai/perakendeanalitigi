@@ -40,38 +40,6 @@ def _lp_bosluk(df, kapasite, p) -> tuple[float, float, int, int]:
     return gevsek, ozet["net_kazanc_tl"], kesirli_x, kesirli_y
 
 
-def _acgozlu_sayaclar(df, kapasite, p) -> dict[str, int]:
-    """Açgözlü döngünün adım adım sayaçları.
-
-    Döngü `cozuculer/greedy.py`'den bilerek kopyalanmıştır: çözücü sayaç
-    tutmuyor ve yalnız rapor uğruna Plan'a sayaç alanı eklemek çözücüyü
-    kirletirdi. Kopyanın kaymadığını `main` çapraz kontrol ediyor: buradaki
-    "seçilen" ile gerçek greedy planının hareket sayısı arasındaki fark
-    minimum koli filtresinin kestiği sayıdır ve negatif çıkamaz.
-    """
-    kalan = dict(kapasite)
-    verilen: set[tuple[str, str]] = set()
-    sayac = {"pozitif": 0, "blok": 0, "kapasite": 0, "secilen": 0}
-    sirali = df.sort_values(
-        by=["w", "verici", "alici", "option_id"],
-        ascending=[False, True, True, True],
-    )
-    for satir in sirali.itertuples(index=False):
-        if satir.w <= 0:
-            break
-        sayac["pozitif"] += 1
-        if (satir.verici, satir.option_id) in verilen:
-            sayac["blok"] += 1
-            continue
-        if kalan.get(satir.alici, 0) < satir.adet:
-            sayac["kapasite"] += 1
-            continue
-        verilen.add((satir.verici, satir.option_id))
-        kalan[satir.alici] -= satir.adet
-        sayac["secilen"] += 1
-    return sayac
-
-
 def _rota_dagilimi(plan) -> dict[int, int]:
     """Rota başına taşınan option sayısının dağılımı: {1: 147, 2: 42, ...}."""
     h = plan.hareketler
@@ -141,18 +109,17 @@ def main() -> None:
             print(f"  {ad}: {deger:,}" if isinstance(deger, int) else f"  {ad}: {deger}")
         print(f"  kayip_yakalama: {yakalama:.1%}")
         print("  rota başına option dağılımı: "
-              + " · ".join(f"{k}→{dagilim.get(k, 0)}" for k in (1, 2, 3, 4)))
+              + " · ".join(f"{k}→{dagilim[k]}" for k in sorted(dagilim)))
         print(f"  adreslenen kırık çift: {adreslenen}")
 
-    sayac = _acgozlu_sayaclar(df, kapasite, REFERANS)
-    kesilen = sayac["secilen"] - len(planlar["greedy"].hareketler)
+    sayac = planlar["greedy"].sayaclar
     print("\n=== AÇGÖZLÜ ADIM TABLOSU ===")
     print(f"  SQL'in bulduğu aday: {len(df)}")
     print(f"  puanı pozitif olan: {sayac['pozitif']}")
     print(f"  'bu blok zaten verildi' diye atlanan: {sayac['blok']}")
     print(f"  kapasite yüzünden atlanan: {sayac['kapasite']}")
     print(f"  seçilen hareket: {sayac['secilen']}")
-    print(f"  minimum koli filtresinin kestiği: {kesilen}")
+    print(f"  minimum koli filtresinin kestiği: {sayac['min_koli_kesilen']}")
 
     ortak, farkli = _farkli_alici(planlar["greedy"], planlar["mip"])
     print(f"\nİki planın ortak (verici, option) bloğu: {ortak} · "

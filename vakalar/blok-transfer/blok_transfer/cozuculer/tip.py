@@ -10,6 +10,7 @@ class Plan:
     hareketler: pd.DataFrame       # HAREKET_KOLONLARI
     durum: str                     # 'optimal' | 'limit' | 'hata'
     sure_sn: float
+    sayaclar: dict[str, int] | None = None   # yalnız greedy doldurur; rapor.py okur
 
 
 def bos_hareketler() -> pd.DataFrame:
