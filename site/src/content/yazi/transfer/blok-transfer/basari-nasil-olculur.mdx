@@ -46,6 +46,14 @@ liste fiyatı ile alış fiyatı ürün tablosunda yazılı, ikisinin farkı da 
 planda **4.163.358,70 TL** tutuyor. Maliyet de birazdan kalem kalem
 açılacak. Uydurma olan tek şey baştaki parantez: iki ihtimal.
 
+Burada bir uyarı borçluyum. Bu sentetik veri setinde marj sabit: alış fiyatı
+liste fiyatının hep aynı oranı, 1.200 ürünün hepsinde brüt marj %61,5.
+Dolayısıyla kâra çevirmek bütün rakamların ölçeğini değiştiriyor ama
+sıralamasını değiştirmiyor; ciroda önde olan hareket kârda da önde. Gerçek
+bir zincirde marj ürüne, markaya ve sezona göre oynar, kâr katmanı da o zaman
+ciro katmanının bilmediği bir şey söyler. Burada söylemiyor. Söyletmek veri
+seti işidir, model işi değil.
+
 — Peki bu bahsi kim tutuyor? diyor Pelin.
 
 — Sen, diyor Ali. Parayı emri veren koyar: toplama emeği, kargo, yolda
@@ -79,11 +87,21 @@ bakalım:
 | Malın gittiği mağazada | **%92,4** |
 
 Aynı ürün. Aynı hafta. Bir rafta gönderilenin beşte ikisi satılmış, öbür
-rafta neredeyse tamamı. "Neden transfer?" sorusunun cevabı tek satırda bu
-tablodur: mağazalar arasındaki fark ürün farkı değil, yer farkıdır.
+rafta neredeyse tamamı.
 
-Bir uyarıyla birlikte okuyun. STR geriye bakan bir ölçüttür — ikinci yazıda
-Ali'nin cover'ın "geçmişe bakan kardeşi" dediği sayı. Yani bu tablo alıcının
+Ama bu tabloyu olduğundan büyük okumayın: aradaki farkın bir kısmı seçim
+kuralının kendisidir. Verici mağazaları yüksek <T k="cover">cover</T>'a göre
+seçiyoruz, yani stoğu kalmış, dolayısıyla tanımı gereği STR'ı düşük olanları;
+alıcıları ise rafı kırık ya da boş olduğu için, yani tanımı gereği STR'ı
+yüksek olanları. Tablonun bir kısmı bu yüzden yeni bir bilgi değil, seçim
+kuralının STR birimiyle tekrarıdır.
+
+O yüzden "mağazalar arasındaki fark ürün farkı değil, yer farkıdır" demeye
+hakkım yok; bu tablo o sonucu taşımıyor. Taşıdığı daha küçük bir cümle:
+kural, aradığı mağazaları gerçekten buluyor.
+
+İkinci bir uyarı daha var. STR geriye bakan bir ölçüttür — ikinci yazıda
+Ali'nin cover'ın "geriye bakan kardeşi" dediği sayı. Yani bu tablo alıcının
 gelecek sekiz haftada da aynı hızda satacağını kanıtlamaz; yalnızca bahsin
 körlemesine olmadığını gösterir. Bahis hâlâ bahistir, ama zarı biz atmıyoruz:
 zar geçmişte defalarca atılmış ve hep aynı yüzü göstermiş.
@@ -141,7 +159,7 @@ faturası gelmez.
 Yıpranma oranı sahadan gelen tek sayı: bir ürün her transferde maliyet
 değerinin yaklaşık **%5'i** kadar değer kaybediyor. Poşetten çıkıp kutuya
 giriyor, kutudan çıkıp askıya, etiketi kıvrılıyor, yaka kırışıyor, bir kısmı
-yolda hasar görüyor. Bu planda ortalaması adet başına **27 TL** ediyor. Yani
+yolda hasar görüyor. Bu planda ortalaması adet başına **27,19 TL** ediyor. Yani
 toplama emeğinin neredeyse üç katı; ve hiçbir muhasebe kaleminde görünmüyor.
 
 Pelin'in buna itirazı var:
@@ -185,8 +203,10 @@ Bu bir hata değil, tanımın sonucu: üçüncü yazıdaki kazanç terimi
 tuttuğu skor, sahanın tutacağı skordan yüksek.** Bunu ölçtüğünüz an bir şeye
 izniniz oluyor; o iyimserliği kadrandan geri kısmak.
 
-Aşağıdaki kadranın en iyimser köşesi %80. Yani model, kadranda hiç
-bulunmayan bir dünyada çalışıyor.
+Aşağıdaki kadranın en iyimser köşesi %80 — Ali'nin saha tavanı diye verdiği
+yüzde yetmişin de üstünde, bilerek. Kadranı sahanın tavanından bir adım
+yukarı taşıdım ki modelin %99,5'i nereye düşüyor, gözle görülsün. Görülüyor:
+model kadranda hiç bulunmayan bir dünyada çalışıyor.
 
 ## Kadranı siz çevirin
 
@@ -200,14 +220,21 @@ Kırk sekiz hücrenin hepsini çevirdim. Bulgu şu: **hepsi kârlı.** En kötü
 köşede bile — alıcıda yüzde 50, vericide yüzde 20, en yüksek maliyet paketi —
 geriye **768.740 TL** kalıyor. En iyimser köşede rakam 3.169.899 TL.
 
+Kadranda bir de **Ciro etkisi (TL)** satırı var: aynı ihtimal farkının brüt
+kâr yerine liste fiyatıyla çarpılmış hâli. Yani girişteki 4.978.979 TL ile
+aynı birimde, yer değiştiren ciro cinsinden. Aynı sayı değil, çünkü modelin
+bastığı o rakam modelin kendi %99,5'lik satma varsayımından çıkıyordu;
+buradaki ciro etkisini üreten ise sizin çevirdiğiniz kadran. Satırı, dizinin
+baştan beri bastığı büyüklüğü bu yazının varsayımlarıyla yeniden
+görebilesiniz diye koydum.
+
 Bunu "işte bu yüzden transfer harika" diye satmak yanlış olur. Doğrusu şu:
 **"değer mi" sorusu zor bir soru değil.** Ölçüm bunu söylüyor. Zor olan soru
 "hangi mal nereye" sorusudur ve dizinin altı yazısı zaten ona ayrılmış.
 
-Ayrımın yükünü kadrandaki dördüncü satır taşıyor: başabaş ihtimal. Maliyeti
-karşılamak için alıcının vericiden kaç puan iyi olması gerektiğini söylüyor
-ve alıcı kadranını çevirdiğinizde hiç kımıldamıyor — çünkü önemli olan
-ihtimallerin kendisi değil, aralarındaki fark:
+Ayrımın yükünü kadrandaki iki başabaş satırı taşıyor. Birincisi **Başabaş
+fark (puan)**: maliyetin kaç puanlık ihtimal farkına denk düştüğü. Yalnız
+maliyet paketine bağlı, iki kadranı da çevirseniz kımıldamıyor.
 
 | Maliyet paketi | Başabaş fark |
 |---|---:|
@@ -215,14 +242,25 @@ ihtimallerin kendisi değil, aralarındaki fark:
 | orta | 6,6 puan |
 | yüksek | **11,5 puan** |
 
-En kötümser maliyet varsayımında bile eşik 11,5 puan. Yönetsel cümleye
+İkincisi **Başabaş alıcı ihtimali (%)**: aynı eşiğin, seçtiğiniz vericinin
+üstüne binmiş hâli. Vericiye yüzde 20 dediyseniz yüksek pakette baraj yüzde
+31,5'e çıkıyor — alıcı kadranını oranın altına indirdiğiniz an hücre zarara
+geçer. Ali ikisini şöyle ayırıyor:
+
+— Fark, benim akılda tutacağım kural: alıcı vericiden şu kadar puan iyi
+olsun, gerisi kâr. İhtimal ise senin o gün masaya koyduğun tahminin barajı
+geçip geçmediği. Kuralı bir kere öğreniyorsun, barajı her toplantıda yeniden
+hesaplıyorsun.
+
+En kötümser maliyet varsayımında bile kural 11,5 puan. Yönetsel cümleye
 çevirelim: **alıcı, vericiden yaklaşık on puan daha iyi olsun; gerisi kâr.**
 
 On puan, bu işte yakın bir yarış değil. Yukarıdaki STR tablosunun iki satırı
 arasında 52,7 puan var — o ölçüt geriye bakar, bahsin ileriye bakan
-ihtimalleriyle birebir aynı şey değildir, o yüzden "eşiği şu kadar aştık"
-diye yazmıyorum. Ama iki sayının mertebesi bir şey söylüyor: eşik ince bir
-çizgi değil, geniş bir marj. Karar yakın bir karar değil.
+ihtimalleriyle birebir aynı şey değildir, üstelik yukarıda itiraf ettiğim
+gibi o farkın bir kısmı seçim kuralının kendisidir. Bu yüzden "eşiği şu kadar
+aştık" diye yazmıyorum. Yine de iki sayının mertebesi bir şey söylüyor: eşik
+ince bir çizgi değil, geniş bir marj. Karar yakın bir karar değil.
 
 ## Hesabın kendi dürüstlük maddesi
 
@@ -230,13 +268,14 @@ Bu hesabın da bir dip notu var ve saklamayacağım: **tek atışlık.**
 
 Yıpranmayı bir kere sayıyorum, çünkü planı bir kere değerlendiriyorum. Oysa
 gerçek bir zincirde aynı ürün sezon içinde bir mağazadan diğerine, oradan
-üçüncüsüne gidebiliyor. Beş kez taşınan bir üründe adet başına 27 TL, 135
-TL'ye çıkar; üstüne beş kez toplama emeği, beş kez kargo payı biner. O
+üçüncüsüne gidebiliyor. Beş kez taşınan bir üründe adet başına 27,19 TL, 136
+TL'ye yaklaşır; üstüne beş kez toplama emeği, beş kez kargo payı biner. O
 noktada yukarıdaki tablo dağılır ve fayda erir.
 
-Bunun modeldeki karşılığı, kapanış yazısında "yok" diye işaretlediğim
-kısıttır: tekrar transfer soğuması. Bir malın kaç kere taşınabileceğine bir
-tavan koymuyoruz, çünkü mağazalar arası geçmiş transferler veride tutulmuyor.
+Bunun modeldeki karşılığı, kapanış yazısında "yalnız yarım görülüyor" diye
+işaretlediğim kısıttır: tekrar transfer soğuması. Depo sevkiyatını
+izleyebiliyoruz ama mağazalar arası geçmiş transferler veride tutulmuyor; bir
+malın kaç kere taşındığına bu yüzden tavan koyamıyoruz.
 Yani bu hesabın en zayıf yeri, modelin de en zayıf yeriyle aynı yerde
 duruyor. Tesadüf değil: bir planın ölçülemeyen tarafı, genellikle
 modellenemeyen tarafıdır.
