@@ -1,0 +1,249 @@
+---
+baslik: Bir Transferin Başarısı Nasıl Ölçülür
+tip: teknik
+sira: 7
+ozet: >-
+  Transfer bir bahistir: aynı mal, iki raf, iki farklı satma ihtimali. Faydayı
+  ölçmek, modelin kendi faydasını abarttığını da gösterir.
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import T from '../../../../components/T.astro'
+import Demo from '../../../../components/Demo.astro'
+
+Kapanış yazısının dürüstlük listesinde bir madde diğerlerinden farklıydı:
+**kazanç kâr değil, ciro etkisidir.** Terazi liste fiyatıyla kuruldu, alış
+maliyeti hiç düşülmedi. Yani raporda duran 4.978.979 TL'nin dürüst adı "yer
+değiştiren ciro"; şirketin kasasına giren para değil.
+
+Altı yazı "hangi mal nereye gitmeli" sorusunu çözdü. Bu yazının tek bir sorusu
+var: **o hareket para olarak ne ediyor?** Model değişmiyor, tek satırına
+dokunmuyoruz; çıkardığı planın üstüne ayrı bir hesap katmanı geçiyoruz. Sebebi
+şu: "hangi mal nereye" ile "bu ne ediyor" iki ayrı sorudur ve ikisini aynı
+koda karıştırmak, ikisini de kirletir.
+
+## Aynı mal, iki raf
+
+Plan çıktığı gün Pelin raporun altındaki satıra takılıyor.
+
+— Şunu anlamıyorum. Yeni mal üretmedik, yeni müşteri bulmadık, depodan tek
+koli çıkmadı. Bu para nereden geliyor?
+
+— Yeni para gelmiyor zaten, diyor Ali. Transfer para üretmez; bir bahsi
+değiştirir. Elinde bir kazak var. Trabzon'un rafında durursa satma ihtimali
+şu kadar, Kadıköy'ün rafında durursa şu kadar. Kazandığın şey iki ihtimalin
+farkıdır, malın kendisi değil.
+
+Tahtaya yazıyor:
+
+$$
+\text{net} = (p_{\text{alıcı}} - p_{\text{verici}}) \times \text{brüt kâr} - \text{maliyet}
+$$
+
+Üç parçadan ikisi ölçülen sayı. Brüt kâr uydurma değil: taşınan her adedin
+liste fiyatı ile alış fiyatı ürün tablosunda yazılı, ikisinin farkı da bu
+planda **4.163.358,70 TL** tutuyor. Maliyet de birazdan kalem kalem
+açılacak. Uydurma olan tek şey baştaki parantez: iki ihtimal.
+
+— Peki bu bahsi kim tutuyor? diyor Pelin.
+
+— Sen, diyor Ali. Parayı emri veren koyar: toplama emeği, kargo, yolda
+yıpranan mal. Bahsi kazanırsan malın kârı; kaybedersen o maliyet cebinden
+çıkar ve mal yeni yerinde, aynı şekilde satmadan durur. Kimse "transfer
+tuttu mu" diye geri dönüp bakmadığı için de kaybettiğini hiç öğrenmezsin.
+
+Kodda karşılığı bu kadar; hesap katmanının tamamı planın hareket listesini
+okuyup üç satır yazmaktan ibaret:
+
+```python
+maliyet = (
+    paket.toplama_birim_tl * int(adet.sum())
+    + paket.kargo_rota_tl * rota_sayisi
+    + paket.yipranma_orani * maliyet_degeri
+)
+fark = (alici_ihtimal - verici_ihtimal) / 100.0
+net = fark * brut_kar - maliyet
+```
+
+## Bahsin ölçülen tarafı
+
+İhtimaller kadrandan geliyor, doğru. Ama bahsin *neden* mantıklı olduğunu
+söyleyen sayı ölçülüyor ve bu yazının merkezinde o duruyor. Planın taşıdığı
+252 bloğun her biri için, aynı option'ın iki mağazadaki <T k="str">STR</T>'ına
+bakalım:
+
+| | Ortalama STR |
+|---|---:|
+| Malın çıktığı mağazada | %39,7 |
+| Malın gittiği mağazada | **%92,4** |
+
+Aynı ürün. Aynı hafta. Bir rafta gönderilenin beşte ikisi satılmış, öbür
+rafta neredeyse tamamı. "Neden transfer?" sorusunun cevabı tek satırda bu
+tablodur: mağazalar arasındaki fark ürün farkı değil, yer farkıdır.
+
+Bir uyarıyla birlikte okuyun. STR geriye bakan bir ölçüttür — ikinci yazıda
+Ali'nin cover'ın "geçmişe bakan kardeşi" dediği sayı. Yani bu tablo alıcının
+gelecek sekiz haftada da aynı hızda satacağını kanıtlamaz; yalnızca bahsin
+körlemesine olmadığını gösterir. Bahis hâlâ bahistir, ama zarı biz atmıyoruz:
+zar geçmişte defalarca atılmış ve hep aynı yüzü göstermiş.
+
+## Ölçtüğüm, varsaydığım, bilmediğim
+
+Bir transferin faydası tek kalem değil. Beş yerde birden görünür ve bu beş
+kalem aynı sağlamlıkta değildir. Karıştırıldıklarında ortaya çıkan sayı
+"ölçüm" diye sunulur, oysa yarısı tahmindir. O yüzden ayırıyorum:
+
+| Fayda kalemi | Sınıf | Bu hesapta |
+|---|---|---|
+| Brüt kâr etkisi | **ölçülen** | fiyatlar ürün tablosundan |
+| Giderilen <T k="kiriklik">kırıklık</T> | **ölçülen** | 528 kırık çiftin 137'si |
+| Yakalanan kayıp satış | **ölçülen** | %26,0 |
+| Stok tutma maliyeti | **varsayılan** | formül var, oran şirkete özel |
+| Carry-over'dan kaçınma | **bilinmeyen** | veri karar anında bitiyor |
+
+İlk üçü veriden çıkıyor. Kırıklıkta ikinci bir satır daha var ve o satır
+tabloya sığmıyor: planın **hiçbir hareketi kırık bir seti verici yapmıyor**.
+Yani kırıklığı bir mağazadan alıp başka mağazaya taşımıyoruz; o 137 çift
+brüt değil, net kazanç.
+
+Dördüncü kalem dürüstçe varsayımdır. Satılmadan duran malın bir sermaye
+maliyeti vardır, bunun formülü de bellidir; ama içine konacak oran her
+zincirde farklıdır ve bizim veri setinde yoktur. Uydurulmuş bir oranla
+hesaba katsaydım, sonuç ölçüm gibi görünen bir tahmin olurdu. Katmadım.
+
+Beşincisi apaçık bilinmeyen. Taşınmayan kırık setin sezon sonunda ne olduğunu (indirimde
+eridi mi, outlet'e mi gitti, ertesi sezona mı kaldı) söyleyecek
+veri yok; veri setinin ömrü kararın verildiği stok fotoğrafında bitiyor. Bu
+kalem muhtemelen hepsinden büyüktür ve ben onu ölçemiyorum. Ölçemediğim şeyi
+"ihtiyatlı davrandım" diye lehime yazmıyorum; boş bırakıyorum.
+
+Bu üç sınıfı ayırmak, bu yazının en sağlam yeri. Bir fayda hesabının değeri
+kaç kalem topladığında değil, hangi kalemin hangi sınıfta olduğunu
+söyleyebilmesindedir.
+
+## Herkes kargoyu konuşur
+
+Maliyet tarafı için üç paket kurdum: düşük, orta, yüksek. Her paketin içinde
+adet başına toplama emeği, sevkiyat başına kargo ve bir de yıpranma oranı var.
+Orta paketle planın faturası şöyle çıkıyor:
+
+| Kalem | Hesap | Tutar |
+|---|---|---:|
+| Yıpranma | taşınan malın maliyet değerinin %5'i | **130.105 TL** |
+| Kargo | 196 sevkiyat × 500 TL | 98.000 TL |
+| Toplama | 4.785 adet × 10 TL | 47.850 TL |
+
+Beklemediğim sonuç burada: **en büyük kalem kargo değil, yıpranma.** Toplantı
+odasında konuşulan tek kalem kargodur, çünkü faturası gelir; yıpranmanın
+faturası gelmez.
+
+Yıpranma oranı sahadan gelen tek sayı: bir ürün her transferde maliyet
+değerinin yaklaşık **%5'i** kadar değer kaybediyor. Poşetten çıkıp kutuya
+giriyor, kutudan çıkıp askıya, etiketi kıvrılıyor, yaka kırışıyor, bir kısmı
+yolda hasar görüyor. Bu planda ortalaması adet başına **27 TL** ediyor. Yani
+toplama emeğinin neredeyse üç katı; ve hiçbir muhasebe kaleminde görünmüyor.
+
+Pelin'in buna itirazı var:
+
+— Kargo faturasını görüyorum, yıpranmayı görmüyorum. Görmediğim bir maliyeti
+nasıl savunacağım?
+
+— Görmediğin için yok saymak en pahalısı, diyor Ali. Rafta ikinci kez elden
+geçmiş malı müşteri ayırt ediyor; sen ayırt etmeyince fark indirim
+etiketinde çıkıyor. Kargo faturası tek kalemde toplandığı için görünür,
+yıpranma binlerce adede birer kuruş olarak dağıldığı için görünmez. İkisi de
+aynı kasadan ödeniyor.
+
+## Modelin kendi hakkındaki iyimserliği
+
+Şimdi ölçümün modele geri dönüp ona bir şey söylediği yere geldik.
+
+Model amaç fonksiyonunda her hareket için bir kazanç yazıyordu. O kazancın
+içinden, bloğun alıcıda kaç adedinin satacağı varsayımını geri çıkarabiliriz:
+taşınan adet, alıcının haftalık hızı ve sekiz haftalık ufuk elimizde. Çıkan
+tablo şu:
+
+| | Ortalama | Medyan |
+|---|---:|---:|
+| Modelin alıcı için varsaydığı satma oranı | **%99,5** | %100,0 |
+| Kalsaydı vericide satma oranı | %21,3 | %7,7 |
+
+252 hareketin **246'sında** model, bloğun alıcıda **tamamen** satacağını
+varsayıyor. Vericide ise 60 hareket için varsaydığı oran tam sıfır.
+
+Ali bu tabloya bakınca gülüyor:
+
+— Ben bu işi uzun zamandır yapıyorum; hiçbir mağazada, hiçbir sezonda,
+gönderdiğim malın tamamının sattığını görmedim. En iyi mağazada, en iyi
+üründe bile bu oran yüzde yetmişi zor geçer. Model bana her hareketi kusursuz
+satacakmış gibi anlatıyor.
+
+Bu bir hata değil, tanımın sonucu: üçüncü yazıdaki kazanç terimi
+`min(stok, hız × ufuk)` tavanıyla hesaplanıyor ve blokların çoğu tavana
+çarpıyor. Ama hata olmaması onu zararsız yapmıyor: **modelin kendi lehine
+tuttuğu skor, sahanın tutacağı skordan yüksek.** Bunu ölçtüğünüz an bir şeye
+izniniz oluyor; o iyimserliği kadrandan geri kısmak.
+
+Aşağıdaki kadranın en iyimser köşesi %80. Yani model, kadranda hiç
+bulunmayan bir dünyada çalışıyor.
+
+## Kadranı siz çevirin
+
+İhtimaller varsayım olduğuna göre, size tek bir sayı söylemem doğru olmaz.
+Kadran, yayımlanmış planın kendisini — o 252 hareketi, o 4.785 adedi — sizin
+seçtiğiniz ihtimallerle yeniden değerliyor:
+
+<Demo dizi="transfer-getirisi" />
+
+Kırk sekiz hücrenin hepsini çevirdim. Bulgu şu: **hepsi kârlı.** En kötü
+köşede bile — alıcıda yüzde 50, vericide yüzde 20, en yüksek maliyet paketi —
+geriye **768.740 TL** kalıyor. En iyimser köşede rakam 3.169.899 TL.
+
+Bunu "işte bu yüzden transfer harika" diye satmak yanlış olur. Doğrusu şu:
+**"değer mi" sorusu zor bir soru değil.** Ölçüm bunu söylüyor. Zor olan soru
+"hangi mal nereye" sorusudur ve dizinin altı yazısı zaten ona ayrılmış.
+
+Ayrımın yükünü kadrandaki dördüncü satır taşıyor: başabaş ihtimal. Maliyeti
+karşılamak için alıcının vericiden kaç puan iyi olması gerektiğini söylüyor
+ve alıcı kadranını çevirdiğinizde hiç kımıldamıyor — çünkü önemli olan
+ihtimallerin kendisi değil, aralarındaki fark:
+
+| Maliyet paketi | Başabaş fark |
+|---|---:|
+| düşük | 3,9 puan |
+| orta | 6,6 puan |
+| yüksek | **11,5 puan** |
+
+En kötümser maliyet varsayımında bile eşik 11,5 puan. Yönetsel cümleye
+çevirelim: **alıcı, vericiden yaklaşık on puan daha iyi olsun; gerisi kâr.**
+
+On puan, bu işte yakın bir yarış değil. Yukarıdaki STR tablosunun iki satırı
+arasında 52,7 puan var — o ölçüt geriye bakar, bahsin ileriye bakan
+ihtimalleriyle birebir aynı şey değildir, o yüzden "eşiği şu kadar aştık"
+diye yazmıyorum. Ama iki sayının mertebesi bir şey söylüyor: eşik ince bir
+çizgi değil, geniş bir marj. Karar yakın bir karar değil.
+
+## Hesabın kendi dürüstlük maddesi
+
+Bu hesabın da bir dip notu var ve saklamayacağım: **tek atışlık.**
+
+Yıpranmayı bir kere sayıyorum, çünkü planı bir kere değerlendiriyorum. Oysa
+gerçek bir zincirde aynı ürün sezon içinde bir mağazadan diğerine, oradan
+üçüncüsüne gidebiliyor. Beş kez taşınan bir üründe adet başına 27 TL, 135
+TL'ye çıkar; üstüne beş kez toplama emeği, beş kez kargo payı biner. O
+noktada yukarıdaki tablo dağılır ve fayda erir.
+
+Bunun modeldeki karşılığı, kapanış yazısında "yok" diye işaretlediğim
+kısıttır: tekrar transfer soğuması. Bir malın kaç kere taşınabileceğine bir
+tavan koymuyoruz, çünkü mağazalar arası geçmiş transferler veride tutulmuyor.
+Yani bu hesabın en zayıf yeri, modelin de en zayıf yeriyle aynı yerde
+duruyor. Tesadüf değil: bir planın ölçülemeyen tarafı, genellikle
+modellenemeyen tarafıdır.
+
+Kapanış cümlesi de o yüzden mütevazı olacak. Bu yazı transferin kârlı
+olduğunu kanıtlamadı; kârlılığın **hangi varsayıma ne kadar dayandığını**
+gösterdi. Aradaki fark, bir sonraki toplantıda "bence kârlı" ile "şu ihtimal
+farkının altında zarar, üstünde kâr; siz hangisindesiniz" arasındaki farktır.
+İkincisini söyleyebiliyorsanız, artık bahsi tutan siz değilsiniz — bahsi
+fiyatlayan sizsiniz 🙂

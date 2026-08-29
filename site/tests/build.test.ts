@@ -506,6 +506,13 @@ describe('gömülü demo', () => {
     expect(govde).toContain('demo-sonuclar')
   })
 
+  it('yedinci yazı üretiliyor ve getiri demosunu taşıyor', () => {
+    const html = oku('tr/transfer/blok-transfer/basari-nasil-olculur/index.html')
+    expect(html).toContain('Başabaş ihtimal')
+    expect(html).toContain('Alıcı mağazada satma ihtimali')
+    expect(html).not.toMatch(/<script(?![^>]*type="application\/ld\+json")/)
+  })
+
   it('gömülü demo da JavaScript getirmez', () => {
     const html = oku('tr/transfer/blok-transfer/sonuclar/index.html')
     expect(html).not.toMatch(SCRIPT_DESENI)
