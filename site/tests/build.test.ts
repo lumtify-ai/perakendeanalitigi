@@ -508,7 +508,11 @@ describe('gömülü demo', () => {
 
   it('yedinci yazı üretiliyor ve getiri demosunu taşıyor', () => {
     const html = oku('tr/transfer/blok-transfer/basari-nasil-olculur/index.html')
-    expect(html).toContain('Başabaş ihtimal')
+    // İki başabaş ölçütü ayrı ayrı görünmeli: fark yönetsel kural, ihtimal
+    // ise seçilen vericinin üstüne binen mutlak baraj. Etiketleri karışırsa
+    // yazının tablosu kadranla çelişir.
+    expect(html).toContain('Başabaş fark (puan)')
+    expect(html).toContain('Başabaş alıcı ihtimali (%)')
     expect(html).toContain('Alıcı mağazada satma ihtimali')
     expect(html).not.toMatch(/<script(?![^>]*type="application\/ld\+json")/)
   })

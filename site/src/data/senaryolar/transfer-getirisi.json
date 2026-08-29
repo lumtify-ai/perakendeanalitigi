@@ -1,5 +1,5 @@
 {
- "surum": "943a29c 2026-08-29",
+ "surum": "51c393f 2026-08-30",
  "parametreler": [
   {
    "ad": "alici_ihtimal",
@@ -42,6 +42,7 @@
     "net_kar_tl": 1920891.41,
     "ciro_etkisi_tl": 3382728.29,
     "hareket_basina_kar_tl": 7622.58,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 3.9
    },
    "satirlar": []
@@ -51,6 +52,7 @@
     "net_kar_tl": 1805724.46,
     "ciro_etkisi_tl": 3382728.29,
     "hareket_basina_kar_tl": 7165.57,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 6.6
    },
    "satirlar": []
@@ -60,6 +62,7 @@
     "net_kar_tl": 1601411.52,
     "ciro_etkisi_tl": 3382728.29,
     "hareket_basina_kar_tl": 6354.81,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 11.5
    },
    "satirlar": []
@@ -69,6 +72,7 @@
     "net_kar_tl": 1712723.48,
     "ciro_etkisi_tl": 3044455.46,
     "hareket_basina_kar_tl": 6796.52,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 8.9
    },
    "satirlar": []
@@ -78,6 +82,7 @@
     "net_kar_tl": 1597556.52,
     "ciro_etkisi_tl": 3044455.46,
     "hareket_basina_kar_tl": 6339.51,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 11.6
    },
    "satirlar": []
@@ -87,6 +92,7 @@
     "net_kar_tl": 1393243.58,
     "ciro_etkisi_tl": 3044455.46,
     "hareket_basina_kar_tl": 5528.74,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 16.5
    },
    "satirlar": []
@@ -96,6 +102,7 @@
     "net_kar_tl": 1504555.54,
     "ciro_etkisi_tl": 2706182.63,
     "hareket_basina_kar_tl": 5970.46,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 13.9
    },
    "satirlar": []
@@ -105,6 +112,7 @@
     "net_kar_tl": 1389388.59,
     "ciro_etkisi_tl": 2706182.63,
     "hareket_basina_kar_tl": 5513.45,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 16.6
    },
    "satirlar": []
@@ -114,6 +122,7 @@
     "net_kar_tl": 1185075.65,
     "ciro_etkisi_tl": 2706182.63,
     "hareket_basina_kar_tl": 4702.68,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 21.5
    },
    "satirlar": []
@@ -123,6 +132,7 @@
     "net_kar_tl": 1088219.67,
     "ciro_etkisi_tl": 2029636.97,
     "hareket_basina_kar_tl": 4318.33,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 23.9
    },
    "satirlar": []
@@ -132,6 +142,7 @@
     "net_kar_tl": 973052.72,
     "ciro_etkisi_tl": 2029636.97,
     "hareket_basina_kar_tl": 3861.32,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 26.6
    },
    "satirlar": []
@@ -141,6 +152,7 @@
     "net_kar_tl": 768739.78,
     "ciro_etkisi_tl": 2029636.97,
     "hareket_basina_kar_tl": 3050.55,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 31.5
    },
    "satirlar": []
@@ -150,6 +162,7 @@
     "net_kar_tl": 2337227.28,
     "ciro_etkisi_tl": 4059273.95,
     "hareket_basina_kar_tl": 9274.71,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 3.9
    },
    "satirlar": []
@@ -159,6 +172,7 @@
     "net_kar_tl": 2222060.33,
     "ciro_etkisi_tl": 4059273.95,
     "hareket_basina_kar_tl": 8817.7,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 6.6
    },
    "satirlar": []
@@ -168,6 +182,7 @@
     "net_kar_tl": 2017747.39,
     "ciro_etkisi_tl": 4059273.95,
     "hareket_basina_kar_tl": 8006.93,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 11.5
    },
    "satirlar": []
@@ -177,6 +192,7 @@
     "net_kar_tl": 2129059.35,
     "ciro_etkisi_tl": 3721001.12,
     "hareket_basina_kar_tl": 8448.65,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 8.9
    },
    "satirlar": []
@@ -186,6 +202,7 @@
     "net_kar_tl": 2013892.39,
     "ciro_etkisi_tl": 3721001.12,
     "hareket_basina_kar_tl": 7991.64,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 11.6
    },
    "satirlar": []
@@ -195,6 +212,7 @@
     "net_kar_tl": 1809579.45,
     "ciro_etkisi_tl": 3721001.12,
     "hareket_basina_kar_tl": 7180.87,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 16.5
    },
    "satirlar": []
@@ -204,6 +222,7 @@
     "net_kar_tl": 1920891.41,
     "ciro_etkisi_tl": 3382728.29,
     "hareket_basina_kar_tl": 7622.58,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 13.9
    },
    "satirlar": []
@@ -213,6 +232,7 @@
     "net_kar_tl": 1805724.46,
     "ciro_etkisi_tl": 3382728.29,
     "hareket_basina_kar_tl": 7165.57,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 16.6
    },
    "satirlar": []
@@ -222,6 +242,7 @@
     "net_kar_tl": 1601411.52,
     "ciro_etkisi_tl": 3382728.29,
     "hareket_basina_kar_tl": 6354.81,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 21.5
    },
    "satirlar": []
@@ -231,6 +252,7 @@
     "net_kar_tl": 1504555.54,
     "ciro_etkisi_tl": 2706182.63,
     "hareket_basina_kar_tl": 5970.46,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 23.9
    },
    "satirlar": []
@@ -240,6 +262,7 @@
     "net_kar_tl": 1389388.59,
     "ciro_etkisi_tl": 2706182.63,
     "hareket_basina_kar_tl": 5513.45,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 26.6
    },
    "satirlar": []
@@ -249,6 +272,7 @@
     "net_kar_tl": 1185075.65,
     "ciro_etkisi_tl": 2706182.63,
     "hareket_basina_kar_tl": 4702.68,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 31.5
    },
    "satirlar": []
@@ -258,6 +282,7 @@
     "net_kar_tl": 2753563.15,
     "ciro_etkisi_tl": 4735819.61,
     "hareket_basina_kar_tl": 10926.84,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 3.9
    },
    "satirlar": []
@@ -267,6 +292,7 @@
     "net_kar_tl": 2638396.2,
     "ciro_etkisi_tl": 4735819.61,
     "hareket_basina_kar_tl": 10469.83,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 6.6
    },
    "satirlar": []
@@ -276,6 +302,7 @@
     "net_kar_tl": 2434083.26,
     "ciro_etkisi_tl": 4735819.61,
     "hareket_basina_kar_tl": 9659.06,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 11.5
    },
    "satirlar": []
@@ -285,6 +312,7 @@
     "net_kar_tl": 2545395.22,
     "ciro_etkisi_tl": 4397546.78,
     "hareket_basina_kar_tl": 10100.77,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 8.9
    },
    "satirlar": []
@@ -294,6 +322,7 @@
     "net_kar_tl": 2430228.26,
     "ciro_etkisi_tl": 4397546.78,
     "hareket_basina_kar_tl": 9643.76,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 11.6
    },
    "satirlar": []
@@ -303,6 +332,7 @@
     "net_kar_tl": 2225915.32,
     "ciro_etkisi_tl": 4397546.78,
     "hareket_basina_kar_tl": 8833.0,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 16.5
    },
    "satirlar": []
@@ -312,6 +342,7 @@
     "net_kar_tl": 2337227.28,
     "ciro_etkisi_tl": 4059273.95,
     "hareket_basina_kar_tl": 9274.71,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 13.9
    },
    "satirlar": []
@@ -321,6 +352,7 @@
     "net_kar_tl": 2222060.33,
     "ciro_etkisi_tl": 4059273.95,
     "hareket_basina_kar_tl": 8817.7,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 16.6
    },
    "satirlar": []
@@ -330,6 +362,7 @@
     "net_kar_tl": 2017747.39,
     "ciro_etkisi_tl": 4059273.95,
     "hareket_basina_kar_tl": 8006.93,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 21.5
    },
    "satirlar": []
@@ -339,6 +372,7 @@
     "net_kar_tl": 1920891.41,
     "ciro_etkisi_tl": 3382728.29,
     "hareket_basina_kar_tl": 7622.58,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 23.9
    },
    "satirlar": []
@@ -348,6 +382,7 @@
     "net_kar_tl": 1805724.46,
     "ciro_etkisi_tl": 3382728.29,
     "hareket_basina_kar_tl": 7165.57,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 26.6
    },
    "satirlar": []
@@ -357,6 +392,7 @@
     "net_kar_tl": 1601411.52,
     "ciro_etkisi_tl": 3382728.29,
     "hareket_basina_kar_tl": 6354.81,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 31.5
    },
    "satirlar": []
@@ -366,6 +402,7 @@
     "net_kar_tl": 3169899.02,
     "ciro_etkisi_tl": 5412365.26,
     "hareket_basina_kar_tl": 12578.96,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 3.9
    },
    "satirlar": []
@@ -375,6 +412,7 @@
     "net_kar_tl": 3054732.07,
     "ciro_etkisi_tl": 5412365.26,
     "hareket_basina_kar_tl": 12121.95,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 6.6
    },
    "satirlar": []
@@ -384,6 +422,7 @@
     "net_kar_tl": 2850419.13,
     "ciro_etkisi_tl": 5412365.26,
     "hareket_basina_kar_tl": 11311.19,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 11.5
    },
    "satirlar": []
@@ -393,6 +432,7 @@
     "net_kar_tl": 2961731.09,
     "ciro_etkisi_tl": 5074092.44,
     "hareket_basina_kar_tl": 11752.9,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 8.9
    },
    "satirlar": []
@@ -402,6 +442,7 @@
     "net_kar_tl": 2846564.13,
     "ciro_etkisi_tl": 5074092.44,
     "hareket_basina_kar_tl": 11295.89,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 11.6
    },
    "satirlar": []
@@ -411,6 +452,7 @@
     "net_kar_tl": 2642251.19,
     "ciro_etkisi_tl": 5074092.44,
     "hareket_basina_kar_tl": 10485.12,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 16.5
    },
    "satirlar": []
@@ -420,6 +462,7 @@
     "net_kar_tl": 2753563.15,
     "ciro_etkisi_tl": 4735819.61,
     "hareket_basina_kar_tl": 10926.84,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 13.9
    },
    "satirlar": []
@@ -429,6 +472,7 @@
     "net_kar_tl": 2638396.2,
     "ciro_etkisi_tl": 4735819.61,
     "hareket_basina_kar_tl": 10469.83,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 16.6
    },
    "satirlar": []
@@ -438,6 +482,7 @@
     "net_kar_tl": 2434083.26,
     "ciro_etkisi_tl": 4735819.61,
     "hareket_basina_kar_tl": 9659.06,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 21.5
    },
    "satirlar": []
@@ -447,6 +492,7 @@
     "net_kar_tl": 2337227.28,
     "ciro_etkisi_tl": 4059273.95,
     "hareket_basina_kar_tl": 9274.71,
+    "basabas_fark_puan": 3.9,
     "basabas_ihtimal_yuzde": 23.9
    },
    "satirlar": []
@@ -456,6 +502,7 @@
     "net_kar_tl": 2222060.33,
     "ciro_etkisi_tl": 4059273.95,
     "hareket_basina_kar_tl": 8817.7,
+    "basabas_fark_puan": 6.6,
     "basabas_ihtimal_yuzde": 26.6
    },
    "satirlar": []
@@ -465,6 +512,7 @@
     "net_kar_tl": 2017747.39,
     "ciro_etkisi_tl": 4059273.95,
     "hareket_basina_kar_tl": 8006.93,
+    "basabas_fark_puan": 11.5,
     "basabas_ihtimal_yuzde": 31.5
    },
    "satirlar": []

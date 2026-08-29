@@ -89,8 +89,15 @@ def hesapla(
         "net_kar_tl": round(net, 2),
         "ciro_etkisi_tl": round(fark * ciro, 2),
         "hareket_basina_kar_tl": round(net / len(hareketler), 2),
-        # Başabaş, alıcı kadranından bağımsızdır: maliyeti karşılamak için
-        # alıcının vericiden kaç puan iyi olması gerektiğini söyler.
+        # İki ayrı başabaş sayısı, karıştırılmasınlar diye ayrı ayrı duruyor.
+        #
+        # Fark: maliyeti karşılamak için alıcının vericiden kaç puan iyi
+        # olması gerektiği. Yalnız maliyet paketine bağlıdır; iki olasılık
+        # kadranından da bağımsızdır. Yönetsel kural budur.
+        "basabas_fark_puan": round(maliyet / brut_kar * 100.0, 1),
+        # İhtimal: aynı eşiğin mutlak hâli, yani seçilen vericinin üstüne
+        # binmiş hâli. Okuyucunun seçtiği alıcı ihtimali bu barajı geçiyorsa
+        # hücre kârlıdır. Verici kadranı çevrildikçe bu sayı da kayar.
         "basabas_ihtimal_yuzde": round(verici_ihtimal + maliyet / brut_kar * 100.0, 1),
     }
 
@@ -106,9 +113,20 @@ def hareketleri_getir(con, karar) -> pd.DataFrame:
         "select option_id, any_value(liste_fiyati) as liste, "
         "any_value(alis_fiyati) as alis from urun group by 1"
     ).df()
-    return plan.hareketler[["verici", "alici", "option_id", "adet"]].merge(
+    zengin = plan.hareketler[["verici", "alici", "option_id", "adet"]].merge(
         fiyatlar, on="option_id", how="left"
     )
+    # `how="left"` fiyatı bulunamayan option'ı sessizce NaN'a çevirir; brüt kâr
+    # NaN olur, `net_kar_tl <= 0` gibi kontroller NaN'da sessizce geçer ve
+    # yayımlanan sayı fark edilmeden bozulur. Erken ve anlaşılır patlasın.
+    eksik = zengin[zengin.liste.isna() | zengin.alis.isna()]
+    if len(eksik):
+        ornek = sorted(set(eksik.option_id))[:5]
+        raise ValueError(
+            f"{len(eksik)} harekette fiyat bulunamadı (urun tablosunda karşılığı "
+            f"yok): option {ornek}"
+        )
+    return zengin
 
 
 def uret(con, karar) -> dict:

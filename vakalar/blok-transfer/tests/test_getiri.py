@@ -26,7 +26,25 @@ def test_hesap_elle_dogrulanabilir():
     assert sonuc["net_kar_tl"] == pytest.approx(1930.0)
     assert sonuc["ciro_etkisi_tl"] == pytest.approx(5500.0)     # 0,50 × 11.000
     assert sonuc["hareket_basina_kar_tl"] == pytest.approx(965.0)
-    assert sonuc["basabas_ihtimal_yuzde"] == pytest.approx(30.8)  # 10 + 1.370/6.600
+    # Fark, iki kadrandan da bağımsız: 1.370 / 6.600 × 100
+    assert sonuc["basabas_fark_puan"] == pytest.approx(20.8)
+    # İhtimal, aynı eşiğin vericinin üstüne binmiş hâli: 10 + 20,8
+    assert sonuc["basabas_ihtimal_yuzde"] == pytest.approx(30.8)
+    assert set(sonuc) == {
+        "net_kar_tl", "ciro_etkisi_tl", "hareket_basina_kar_tl",
+        "basabas_fark_puan", "basabas_ihtimal_yuzde",
+    }
+
+
+def test_basabas_fark_olasilik_kadranlarindan_bagimsiz():
+    """Yazının tablosunun dayandığı özellik: fark yalnız maliyet paketine bağlı."""
+    paket = getiri.MALIYET_PAKETLERI["yuksek"]
+    beklenen = getiri.hesapla(mini_plan(), paket, 50, 0)["basabas_fark_puan"]
+    for alici, verici in [(50, 20), (80, 0), (60, 10), (70, 5)]:
+        sonuc = getiri.hesapla(mini_plan(), paket, alici, verici)
+        assert sonuc["basabas_fark_puan"] == pytest.approx(beklenen)
+        # Mutlak eşik ise vericiyle birlikte kayar; ikisi ayrı sayılardır.
+        assert sonuc["basabas_ihtimal_yuzde"] == pytest.approx(beklenen + verici)
 
 
 def test_basabas_net_kari_sifirlar():
@@ -76,7 +94,7 @@ def test_parametreler_ve_anahtarlar(con, tmp_path):
     ornek = icerik["sonuclar"]["60|10|orta"]
     assert set(ornek["ozet"]) == {
         "net_kar_tl", "ciro_etkisi_tl", "hareket_basina_kar_tl",
-        "basabas_ihtimal_yuzde",
+        "basabas_fark_puan", "basabas_ihtimal_yuzde",
     }
     assert ornek["satirlar"] == []
 
