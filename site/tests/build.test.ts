@@ -331,6 +331,28 @@ describe('demo', () => {
     expect(html).toContain('Kayıp satış yakalama')
     expect(html).not.toContain('kayip_yakalama_yuzde')   // ham anahtar sızmasın
   })
+
+  it('getiri demosunun ölçüt etiketleri var', async () => {
+    // Etiket eksikse bileşen ham anahtarı basar; okuyucu 'net_kar_tl' görür.
+    const { default: veri } = await import('../src/data/senaryolar/transfer-getirisi.json')
+    const ilk = Object.keys(veri.sonuclar)[0]
+    const olcutler = Object.keys(veri.sonuclar[ilk as keyof typeof veri.sonuclar].ozet)
+    const kaynak = await import('node:fs').then((fs) =>
+      fs.readFileSync(fileURLToPath(new URL('../src/components/Demo.astro', import.meta.url)), 'utf8'),
+    )
+    for (const olcut of olcutler) {
+      expect(kaynak).toContain(`${olcut}:`)
+    }
+  })
+
+  it('getiri senaryosu sözleşmeye uyar', async () => {
+    const { default: veri } = await import('../src/data/senaryolar/transfer-getirisi.json')
+    const beklenen = veri.parametreler.reduce(
+      (carpim: number, p: { degerler: unknown[] }) => carpim * p.degerler.length,
+      1,
+    )
+    expect(Object.keys(veri.sonuclar).length).toBe(beklenen)
+  })
 })
 
 describe("dağıtım", () => {
