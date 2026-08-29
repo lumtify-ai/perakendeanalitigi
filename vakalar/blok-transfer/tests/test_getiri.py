@@ -56,3 +56,31 @@ def test_paketler_spec_degerleri():
     assert getiri.MALIYET_PAKETLERI["dusuk"] == getiri.Paket(5.0, 300.0, 0.03)
     assert getiri.MALIYET_PAKETLERI["orta"] == getiri.Paket(10.0, 500.0, 0.05)
     assert getiri.MALIYET_PAKETLERI["yuksek"] == getiri.Paket(20.0, 900.0, 0.08)
+
+
+def test_parametreler_ve_anahtarlar(con, tmp_path):
+    from datetime import date
+    import json
+    import senaryolar
+
+    icerik = getiri.uret(con, date(2025, 12, 29))
+    assert [p["ad"] for p in icerik["parametreler"]] == [
+        "alici_ihtimal", "verici_ihtimal", "maliyet_paketi",
+    ]
+    assert icerik["parametreler"][0]["degerler"] == [50, 60, 70, 80]
+    assert icerik["parametreler"][1]["degerler"] == [0, 5, 10, 20]
+    assert icerik["parametreler"][2]["deger_etiketleri"]["yuksek"] == "yüksek"
+    assert len(icerik["sonuclar"]) == 4 * 4 * 3
+    assert "50|0|dusuk" in icerik["sonuclar"]
+
+    ornek = icerik["sonuclar"]["60|10|orta"]
+    assert set(ornek["ozet"]) == {
+        "net_kar_tl", "ciro_etkisi_tl", "hareket_basina_kar_tl",
+        "basabas_ihtimal_yuzde",
+    }
+    assert ornek["satirlar"] == []
+
+    hedef = tmp_path / "transfer-getirisi.json"
+    senaryolar.yaz(icerik, hedef)
+    assert hedef.stat().st_size < 500 * 1024
+    json.loads(hedef.read_text(encoding="utf-8"))

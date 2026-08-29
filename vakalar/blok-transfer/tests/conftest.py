@@ -24,7 +24,7 @@ def con():
     c = duckdb.connect()
     c.execute("create table magaza (magaza_id varchar, tip varchar, kapasite bigint)")
     c.execute("""create table urun (urun_id varchar, option_id varchar, line varchar,
-                 beden_sira bigint, liste_fiyati double)""")
+                 beden_sira bigint, liste_fiyati double, alis_fiyati double)""")
     c.execute("create table satis (tarih timestamp, magaza_id varchar, urun_id varchar, adet bigint)")
     c.execute("create table stok (tarih timestamp, magaza_id varchar, urun_id varchar, adet bigint)")
     c.execute("create table sevkiyat (tarih timestamp, magaza_id varchar, urun_id varchar, adet bigint)")
@@ -36,7 +36,7 @@ def con():
 
     for opt, line in [("OPT1", "Basic"), ("OPT2", "Outlet")]:
         for sira in range(1, 6):
-            c.execute("insert into urun values (?, ?, ?, ?, 100.0)",
+            c.execute("insert into urun values (?, ?, ?, ?, 100.0, 40.0)",
                       [f"{opt}-{sira}", opt, line, sira])
 
     # --- karar günü stok fotoğrafı (SKU düzeyi; sıfır satırlar dahil) ---

@@ -6,8 +6,13 @@ yazısı "hangi mal nereye" sorusunu çözdü, bu hesap "o hareket para olarak n
 ediyor" sorusunu ayrı bir katmanda cevaplıyor.
 """
 from dataclasses import dataclass
+from pathlib import Path
 
 import pandas as pd
+
+import senaryolar
+from blok_transfer import degerlendirme
+from blok_transfer.cekirdek.parametreler import Parametreler
 
 
 @dataclass(frozen=True)
@@ -28,6 +33,30 @@ MALIYET_PAKETLERI = {
     "orta": Paket(10.0, 500.0, 0.05),
     "yuksek": Paket(20.0, 900.0, 0.08),
 }
+
+PARAMETRELER = [
+    {
+        "ad": "alici_ihtimal",
+        "etiket": "Alıcı mağazada satma ihtimali (%)",
+        "degerler": [50, 60, 70, 80],
+    },
+    {
+        "ad": "verici_ihtimal",
+        "etiket": "Kalsaydı satma ihtimali (%)",
+        "degerler": [0, 5, 10, 20],
+    },
+    {
+        "ad": "maliyet_paketi",
+        "etiket": "Toplama + kargo + yıpranma",
+        "degerler": ["dusuk", "orta", "yuksek"],
+        "deger_etiketleri": {"dusuk": "düşük", "orta": "orta", "yuksek": "yüksek"},
+    },
+]
+
+HEDEF = (
+    Path(__file__).resolve().parents[2]
+    / "site" / "src" / "data" / "senaryolar" / "transfer-getirisi.json"
+)
 
 
 def hesapla(
@@ -64,3 +93,47 @@ def hesapla(
         # alıcının vericiden kaç puan iyi olması gerektiğini söyler.
         "basabas_ihtimal_yuzde": round(verici_ihtimal + maliyet / brut_kar * 100.0, 1),
     }
+
+
+def hareketleri_getir(con, karar) -> pd.DataFrame:
+    """Referans planın hareketlerini fiyat bilgisiyle zenginleştirir.
+
+    Alış ve liste fiyatı `urun` tablosundan gelir; ikisi de ölçülen sayıdır,
+    yani brüt kâr uydurma değildir.
+    """
+    plan, _ = degerlendirme.boru_hatti(con, karar, Parametreler(), "greedy")
+    fiyatlar = con.execute(
+        "select option_id, any_value(liste_fiyati) as liste, "
+        "any_value(alis_fiyati) as alis from urun group by 1"
+    ).df()
+    return plan.hareketler[["verici", "alici", "option_id", "adet"]].merge(
+        fiyatlar, on="option_id", how="left"
+    )
+
+
+def uret(con, karar) -> dict:
+    hareketler = hareketleri_getir(con, karar)
+    sonuclar = {}
+    for alici in PARAMETRELER[0]["degerler"]:
+        for verici in PARAMETRELER[1]["degerler"]:
+            for paket_adi in PARAMETRELER[2]["degerler"]:
+                ozet = hesapla(
+                    hareketler, MALIYET_PAKETLERI[paket_adi], float(alici), float(verici)
+                )
+                sonuclar[f"{alici}|{verici}|{paket_adi}"] = {
+                    "ozet": ozet,
+                    "satirlar": [],
+                }
+    return {
+        "surum": senaryolar._surum(),
+        "parametreler": PARAMETRELER,
+        "sonuclar": sonuclar,
+    }
+
+
+if __name__ == "__main__":
+    from blok_transfer.cekirdek import veri
+
+    baglanti = veri.baglan()
+    senaryolar.yaz(uret(baglanti, veri.karar_tarihi(baglanti)), HEDEF)
+    print(f"yazildi: {HEDEF}")

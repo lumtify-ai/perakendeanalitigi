@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+import getiri
 from blok_transfer import degerlendirme
 from blok_transfer.cekirdek import adaylar as adaylar_mod
 from blok_transfer.cekirdek import metrikler, veri
@@ -82,3 +83,15 @@ def test_gercek_veride_mip_greedyden_kotu_olamaz():
     assert len(g_plan.hareketler) > 0, "orta senaryoda hic hareket cikmamasi supheli"
     if m_plan.durum == "optimal":
         assert m_ozet["net_kazanc_tl"] >= g_ozet["net_kazanc_tl"] - 1e-6
+
+
+def test_getiri_izgarasinin_tamami_karli():
+    """Sektör kalibrasyonunun sonucu; kadran değerleri oynarsa fark edilsin.
+
+    Transfer kararı yakın bir karar değil: en kötü köşede bile pay kalıyor.
+    """
+    con = veri.baglan()
+    icerik = getiri.uret(con, veri.karar_tarihi(con))
+    negatif = [a for a, s in icerik["sonuclar"].items()
+               if s["ozet"]["net_kar_tl"] <= 0]
+    assert negatif == []
