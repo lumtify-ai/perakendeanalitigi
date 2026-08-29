@@ -146,6 +146,16 @@ def main() -> None:
     print(f"  STR: verici ortalaması %{sum(str_verici) / len(str_verici) * 100:.1f} → "
           f"alıcı ortalaması %{sum(str_alici) / len(str_alici) * 100:.1f}")
 
+    # "Adreslenen kırık çift"in ayna görüntüsü: alıcı tarafında kaç kırığı
+    # kapattığımızı sayıyoruz, burada verici tarafında kaç kırık açtığımızı.
+    # Ayrıca yazılmış bir kısıt yok; aday üretimi kırık rafı verici saymıyor.
+    # Yayımlanan "hiçbir hareket kırık seti verici yapmıyor" cümlesinin kanıtı
+    # bu satır, ve sıfır kalmaya devam ettiği burada görülüyor.
+    kirik_verici = len(
+        {(v, o) for v, o in zip(g.verici, g.option_id) if (v, o) in kirik_kume}
+    )
+    print(f"  kırık seti verici yapan çift: {kirik_verici}")
+
     # Modelin örtük olasılığı: min(adet, hız × ufuk) / adet. Yazının çekirdek
     # karşıtlığı bu sayıdır — sahada alıcı tarafında %70 üstü istisnadır.
     olasilik = g.merge(
