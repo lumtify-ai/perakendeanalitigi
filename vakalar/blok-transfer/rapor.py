@@ -171,15 +171,48 @@ def main() -> None:
           f"medyan %{p_verici.median() * 100:.1f}")
     print(f"  alıcıda %100'e dayanan hareket: {int((p_alici >= 1).sum())}/{len(olasilik)} · "
           f"vericide %0: {int((p_verici <= 0).sum())}/{len(olasilik)}")
-    # Maliyet paketlerini p_a=100 / p_v=0 ile basıyoruz: o noktada olasılık
-    # farkı 1 olduğu için net kâr doğrudan "brüt kâr − maliyet"i gösterir ve
-    # paketler arasındaki fark çıplak okunur.
-    print("\n  maliyet paketleri (getiri.py):")
+    # Hesabın iki ölçülen tabanı: brüt kâr olasılık farkının çarpıldığı sayı,
+    # maliyet değeri de yıpranmanın oranlandığı sayı. İkisi de `urun`
+    # tablosundaki fiyatlardan çıkıyor, yani yazıdaki tutarların kaynağı bu.
     hareketler = getiri.hareketleri_getir(con, karar)
+    toplam_adet = int(hareketler.adet.sum())
+    rota = len(hareketler.groupby(["verici", "alici"]))
+    brut_kar = float((hareketler.adet * (hareketler.liste - hareketler.alis)).sum())
+    maliyet_degeri = float((hareketler.adet * hareketler.alis).sum())
+    ciro_listesi = float((hareketler.adet * hareketler.liste).sum())
+    print(f"\n  brüt kâr (liste − alış) {brut_kar:,.2f} TL · "
+          f"maliyet değeri (alış) {maliyet_degeri:,.2f} TL")
+    print(f"  taşınan adet {toplam_adet:,} · sevkiyat {rota} · "
+          f"liste değeri {ciro_listesi:,.2f} TL")
+
+    # Kâr katmanının ciro katmanına ne kattığı, veri setinin marjına bağlı.
+    # Bu sentetik sette alış/liste oranı sabit; yani kâra çevirmek ölçeği
+    # değiştirir, sıralamayı değiştirmez. Yazı bunu söylemek zorunda.
+    urun_sayisi, oran_min, oran_maks = con.execute(
+        "select count(*), min(alis_fiyati / liste_fiyati), "
+        "max(alis_fiyati / liste_fiyati) from urun"
+    ).fetchone()
+    print(f"  brüt marj (brüt kâr / liste değeri) %{brut_kar / ciro_listesi * 100:.1f}")
+    print(f"  alış/liste oranı: {urun_sayisi:,} ürünün hepsinde "
+          f"{oran_min:.4f} (min {oran_min:.6f} · maks {oran_maks:.6f}) → "
+          f"marj ürüne göre değişmiyor")
+
+    # Net kârı p_a=100 / p_v=0 ile basıyoruz: o noktada olasılık farkı 1
+    # olduğu için net kâr doğrudan "brüt kâr − maliyet"i gösterir ve paketler
+    # arasındaki fark çıplak okunur. Başabaş fark zaten kadranlardan bağımsız,
+    # bu yüzden hangi noktada bastığımızdan etkilenmiyor.
+    print("\n  maliyet paketleri (getiri.py):")
     for ad in getiri.PARAMETRELER[2]["degerler"]:
-        sonuc = getiri.hesapla(hareketler, getiri.MALIYET_PAKETLERI[ad], 100.0, 0.0)
-        print(f"    {ad:7} başabaş fark {sonuc['basabas_ihtimal_yuzde']:>5.1f} puan · "
+        paket = getiri.MALIYET_PAKETLERI[ad]
+        sonuc = getiri.hesapla(hareketler, paket, 100.0, 0.0)
+        toplama = paket.toplama_birim_tl * toplam_adet
+        kargo = paket.kargo_rota_tl * rota
+        yipranma = paket.yipranma_orani * maliyet_degeri
+        print(f"    {ad:7} başabaş fark {sonuc['basabas_fark_puan']:>5.1f} puan · "
               f"net kâr (100/0) {sonuc['net_kar_tl']:>12,.0f} TL")
+        print(f"            toplama {toplama:>10,.0f} · kargo {kargo:>10,.0f} · "
+              f"yıpranma {yipranma:>10,.0f} · toplam {toplama + kargo + yipranma:>11,.0f} TL")
+        print(f"            yıpranma adet başına {yipranma / toplam_adet:>6,.2f} TL")
 
     print("\n=== DEMO KADRANI ===")
     for vv, aa in [(6, 0), (6, 3), (6, 6), (14, 6), (18, 14), (26, 6)]:
