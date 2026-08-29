@@ -8,6 +8,7 @@ from dataclasses import replace
 
 import pulp
 
+import getiri
 from blok_transfer import degerlendirme
 from blok_transfer.cekirdek import adaylar as adaylar_mod
 from blok_transfer.cekirdek import metrikler, terazi, veri
@@ -130,6 +131,45 @@ def main() -> None:
           f"boşluk {gevsek - tam:,.2f} TL ({(gevsek - tam) / tam:.4%})")
     print(f"gevşetilmiş çözümde kesirli çıkan: {kesirli_x}/{len(df)} x · "
           f"{kesirli_y}/{len(rotalar)} y")
+
+    print("\n=== GETİRİ ===")
+    strler = metrikler.strler(con, karar)
+    str_haritasi = {
+        (m, o): s
+        for m, o, s in zip(strler.magaza_id, strler.option_id, strler.str_orani)
+    }
+    g = planlar["greedy"].hareketler
+    str_verici = [str_haritasi[(v, o)] for v, o in zip(g.verici, g.option_id)
+                  if (v, o) in str_haritasi]
+    str_alici = [str_haritasi[(a, o)] for a, o in zip(g.alici, g.option_id)
+                 if (a, o) in str_haritasi]
+    print(f"  STR: verici ortalaması %{sum(str_verici) / len(str_verici) * 100:.1f} → "
+          f"alıcı ortalaması %{sum(str_alici) / len(str_alici) * 100:.1f}")
+
+    # Modelin örtük olasılığı: min(adet, hız × ufuk) / adet. Yazının çekirdek
+    # karşıtlığı bu sayıdır — sahada alıcı tarafında %70 üstü istisnadır.
+    olasilik = g.merge(
+        df[["verici", "alici", "option_id", "hiz_verici", "hiz_alici"]],
+        on=["verici", "alici", "option_id"], how="left",
+    )
+    H = REFERANS.ufuk_hafta
+    p_alici = (olasilik.hiz_alici * H / olasilik.adet).clip(upper=1.0)
+    p_verici = (olasilik.hiz_verici * H / olasilik.adet).clip(upper=1.0)
+    print(f"  modelin varsaydığı satma oranı — alıcı: ort %{p_alici.mean() * 100:.1f}, "
+          f"medyan %{p_alici.median() * 100:.1f}")
+    print(f"  kalsaydı satma oranı          — verici: ort %{p_verici.mean() * 100:.1f}, "
+          f"medyan %{p_verici.median() * 100:.1f}")
+    print(f"  alıcıda %100'e dayanan hareket: {int((p_alici >= 1).sum())}/{len(olasilik)} · "
+          f"vericide %0: {int((p_verici <= 0).sum())}/{len(olasilik)}")
+    # Maliyet paketlerini p_a=100 / p_v=0 ile basıyoruz: o noktada olasılık
+    # farkı 1 olduğu için net kâr doğrudan "brüt kâr − maliyet"i gösterir ve
+    # paketler arasındaki fark çıplak okunur.
+    print("\n  maliyet paketleri (getiri.py):")
+    hareketler = getiri.hareketleri_getir(con, karar)
+    for ad in getiri.PARAMETRELER[2]["degerler"]:
+        sonuc = getiri.hesapla(hareketler, getiri.MALIYET_PAKETLERI[ad], 100.0, 0.0)
+        print(f"    {ad:7} başabaş fark {sonuc['basabas_ihtimal_yuzde']:>5.1f} puan · "
+              f"net kâr (100/0) {sonuc['net_kar_tl']:>12,.0f} TL")
 
     print("\n=== DEMO KADRANI ===")
     for vv, aa in [(6, 0), (6, 3), (6, 6), (14, 6), (18, 14), (26, 6)]:
