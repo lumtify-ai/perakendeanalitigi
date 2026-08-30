@@ -26,7 +26,7 @@ import matter from 'gray-matter'
  * @returns {string}
  */
 export function yaziAdresinden(id) {
-  return `/tr/${id}/`
+  return `/${id}/`
 }
 
 /**
@@ -65,7 +65,7 @@ export function hazirlaniyorAdresleri(yaziKoku) {
 /**
  * @astrojs/sitemap için süzgeç üretir. Adresler mutlak URL olarak gelir.
  *
- * @param {string[]} disaridaBirakilan Site köküne göre yollar (`/tr/…/`)
+ * @param {string[]} disaridaBirakilan Site köküne göre yollar (`/…/`)
  * @returns {(sayfa: string) => boolean}
  */
 export function sitemapSuzgeci(disaridaBirakilan) {

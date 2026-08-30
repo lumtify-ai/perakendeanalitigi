@@ -30,11 +30,11 @@ describe('yaziYolunuAyristir', () => {
 describe('yaziAdresi', () => {
   it('dizili yazının adresini kurar', () => {
     const yol = { alan: 'transfer', dizi: 'blok-transfer', slug: 'sonuclar' }
-    expect(yaziAdresi(yol)).toBe('/tr/transfer/blok-transfer/sonuclar/')
+    expect(yaziAdresi(yol)).toBe('/transfer/blok-transfer/sonuclar/')
   })
 
   it('tekil yazının adresinde dizi geçmez', () => {
     const yol = { alan: 'temeller', dizi: null, slug: 'urun-hiyerarsisi' }
-    expect(yaziAdresi(yol)).toBe('/tr/temeller/urun-hiyerarsisi/')
+    expect(yaziAdresi(yol)).toBe('/temeller/urun-hiyerarsisi/')
   })
 })

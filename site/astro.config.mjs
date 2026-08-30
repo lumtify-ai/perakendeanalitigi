@@ -13,21 +13,11 @@ const YAZI_KOKU = fileURLToPath(new URL('./src/content/yazi/', import.meta.url))
 
 export default defineConfig({
   site: 'https://perakendeanalitigi.com',
-  i18n: {
-    locales: ['tr'],
-    defaultLocale: 'tr',
-    routing: {
-      prefixDefaultLocale: true,
-      // Astro statik çıktıda gerçek bir HTTP yönlendirmesi üretemez; bunu
-      // açık bırakınca kök adrese "Redirecting from / to /tr/" yazan,
-      // meta-refresh'i 2 saniye gecikmeli bir HTML sayfası konuyordu ve
-      // ziyaretçi onu gözle görüyordu. Kapalı: kök adrese hiç dosya
-      // üretilmiyor ve yönlendirmeyi Cloudflare kenarda yapıyor
-      // (public/_redirects). Bedeli: `astro dev`/`preview` altında "/"
-      // 404 verir — yayında doğru davranış için kabul edilen takas.
-      redirectToDefaultLocale: false,
-    },
-  },
+  // Dil öneki yok: site tek dilli ve öyle kalacak. İngilizce bir gün
+  // gelirse ayrı bir alan adında, ayrı depoda ve ayrı terim sözlüğüyle
+  // gelecek — yani `/tr/` öneki hiçbir zaman bir `/en/` ile eşleşmeyecekti.
+  // Önek kaldırıldığında kök adres gerçek ana sayfa oldu; `_redirects`
+  // artık yalnızca eski `/tr/…` adreslerini 301 ile yeni yerine taşıyor.
   integrations: [
     mdx(),
     // Hazırlanıyor yazılar üretilir ve dizi kapağından bağlanır ama site

@@ -16,7 +16,7 @@ describe('diziYazilari', () => {
 
   it('adresleri kurar', () => {
     const sirali = diziYazilari(YAZILAR, 'transfer', 'blok-transfer')
-    expect(sirali[0].adres).toBe('/tr/transfer/blok-transfer/giris/')
+    expect(sirali[0].adres).toBe('/transfer/blok-transfer/giris/')
   })
 
   it('hazırlanan yazıyı listede tutar', () => {

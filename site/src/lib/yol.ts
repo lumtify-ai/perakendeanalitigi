@@ -32,5 +32,5 @@ export function yaziAdresi(yol: YaziYolu): string {
   const parcalar = yol.dizi
     ? [yol.alan, yol.dizi, yol.slug]
     : [yol.alan, yol.slug]
-  return `/tr/${parcalar.join('/')}/`
+  return `/${parcalar.join('/')}/`
 }

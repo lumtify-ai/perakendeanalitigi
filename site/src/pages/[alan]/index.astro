@@ -1,9 +1,9 @@
 ---
-// site/src/pages/tr/[alan]/index.astro
+// site/src/pages/[alan]/index.astro
 import { getCollection, render } from 'astro:content'
-import Temel from '../../../layouts/Temel.astro'
-import KirintiYolu from '../../../components/KirintiYolu.astro'
-import { alanYazilari } from '../../../lib/agac'
+import Temel from '../../layouts/Temel.astro'
+import KirintiYolu from '../../components/KirintiYolu.astro'
+import { alanYazilari } from '../../lib/agac'
 
 export async function getStaticPaths() {
   const alanlar = await getCollection('alan')
@@ -50,7 +50,7 @@ const isaretleme = {
             return (
               <li>
                 <h3>
-                  <a href={`/tr/${girdi.id}/${diziId}/`}>{dizi.data.baslik}</a>
+                  <a href={`/${girdi.id}/${diziId}/`}>{dizi.data.baslik}</a>
                 </h3>
                 <p>{dizi.data.ozet}</p>
               </li>

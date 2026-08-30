@@ -1,11 +1,11 @@
 ---
-// site/src/pages/tr/[alan]/[dizi]/index.astro
+// site/src/pages/[alan]/[dizi]/index.astro
 import { getCollection, getEntry, render } from 'astro:content'
-import Temel from '../../../../layouts/Temel.astro'
-import KirintiYolu from '../../../../components/KirintiYolu.astro'
-import Rozet from '../../../../components/Rozet.astro'
-import { diziYazilari } from '../../../../lib/agac'
-import { zorunlu } from '../../../../lib/zorunlu'
+import Temel from '../../../layouts/Temel.astro'
+import KirintiYolu from '../../../components/KirintiYolu.astro'
+import Rozet from '../../../components/Rozet.astro'
+import { diziYazilari } from '../../../lib/agac'
+import { zorunlu } from '../../../lib/zorunlu'
 
 export async function getStaticPaths() {
   const diziler = await getCollection('dizi')
@@ -44,7 +44,7 @@ const isaretleme = {
 <Temel baslik={girdi.data.baslik} aciklama={girdi.data.ozet} isaretleme={isaretleme}>
   <KirintiYolu
     basamaklar={[
-      { ad: alanGirdi.data.baslik, adres: `/tr/${alanId}/` },
+      { ad: alanGirdi.data.baslik, adres: `/${alanId}/` },
       { ad: girdi.data.baslik },
     ]}
   />
@@ -76,7 +76,7 @@ const isaretleme = {
   {
     girdi.data.demo && (
       <p class="demo-baglanti">
-        <a href={`/tr/${alanId}/${diziId}/demo/`}>Demoyu aç</a> — parametreleri
+        <a href={`/${alanId}/${diziId}/demo/`}>Demoyu aç</a> — parametreleri
         değiştirin, sonucun nasıl değiştiğini görün.
       </p>
     )

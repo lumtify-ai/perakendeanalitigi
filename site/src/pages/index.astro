@@ -1,8 +1,8 @@
 ---
-// site/src/pages/tr/index.astro
+// site/src/pages/index.astro
 import { getCollection } from 'astro:content'
-import Temel from '../../layouts/Temel.astro'
-import { alanYazilari, diziYazilari } from '../../lib/agac'
+import Temel from '../layouts/Temel.astro'
+import { alanYazilari, diziYazilari } from '../lib/agac'
 
 const [alanlar, diziler, yazilar] = await Promise.all([
   getCollection('alan'),
@@ -35,7 +35,7 @@ const TANIM =
   <p class="tanim">{TANIM}</p>
   <p>
     Bütün çözümler tek bir açık veri setinin üzerinde çalışır:
-    <a href="/tr/veri-seti/">Lumoda</a>, 25 mağazalık kurgusal bir moda
+    <a href="/veri-seti/">Lumoda</a>, 25 mağazalık kurgusal bir moda
     perakende zinciri. Veri, kod ve model açıktır; hiçbiri form arkasında
     değildir.
   </p>
@@ -48,7 +48,7 @@ const TANIM =
     agac.map(({ alan, diziler: altDiziler, tekilYazilar }) => (
       <section class="alan-bolumu">
         <h3>
-          <a href={`/tr/${alan.id}/`}>{alan.data.baslik}</a>
+          <a href={`/${alan.id}/`}>{alan.data.baslik}</a>
         </h3>
         <p>{alan.data.tanim}</p>
 
@@ -56,7 +56,7 @@ const TANIM =
           <ul class="dizi-listesi">
             {altDiziler.map(({ dizi, diziId, yazilar: uyeler }) => (
               <li>
-                <a href={`/tr/${alan.id}/${diziId}/`}>{dizi.data.baslik}</a>
+                <a href={`/${alan.id}/${diziId}/`}>{dizi.data.baslik}</a>
                 <span class="sayac"> · {uyeler.length} yazı</span>
               </li>
             ))}
@@ -82,7 +82,7 @@ const TANIM =
     <p>
       Bu site <a href="https://lumtify.com">Lumtify</a>'ın perakende analitiği
       çalışmalarının açık kısmıdır. Hikâyelerdeki
-      <a href="/tr/kadro/">Ali, Veli ve Pelin</a> kurgusaldır; problemler
+      <a href="/kadro/">Ali, Veli ve Pelin</a> kurgusaldır; problemler
       değildir.
     </p>
   </section>

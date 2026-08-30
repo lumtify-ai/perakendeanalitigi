@@ -1,8 +1,8 @@
 ---
-// site/src/pages/tr/sozluk.astro
+// site/src/pages/sozluk.astro
 import { getCollection } from 'astro:content'
-import Temel from '../../layouts/Temel.astro'
-import KirintiYolu from '../../components/KirintiYolu.astro'
+import Temel from '../layouts/Temel.astro'
+import KirintiYolu from '../components/KirintiYolu.astro'
 
 const maddeler = (await getCollection('sozluk')).sort((a, b) =>
   a.data.terim.localeCompare(b.data.terim, 'tr'),
@@ -14,7 +14,7 @@ const isaretleme = {
   name: 'Perakende Analitiği Sözlüğü',
   hasDefinedTerm: maddeler.map((m) => ({
     '@type': 'DefinedTerm',
-    '@id': new URL(`/tr/sozluk/#${m.id}`, Astro.site).href,
+    '@id': new URL(`/sozluk/#${m.id}`, Astro.site).href,
     name: m.data.terim,
     description: m.data.kisa,
   })),

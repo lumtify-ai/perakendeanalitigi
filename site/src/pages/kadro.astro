@@ -1,8 +1,8 @@
 ---
-// site/src/pages/tr/kadro.astro
+// site/src/pages/kadro.astro
 import { getCollection } from 'astro:content'
-import Temel from '../../layouts/Temel.astro'
-import KirintiYolu from '../../components/KirintiYolu.astro'
+import Temel from '../layouts/Temel.astro'
+import KirintiYolu from '../components/KirintiYolu.astro'
 
 const kisiler = (await getCollection('kadro')).sort((a, b) =>
   a.data.ad.localeCompare(b.data.ad, 'tr'),

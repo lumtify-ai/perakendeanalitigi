@@ -67,10 +67,10 @@ const DERINLIK_SEKLI: Record<Koleksiyon, string> = {
 
 /** Koleksiyonlardan türemeyen, kodda sabit duran rotalar. */
 const SABIT_ROTALAR: { adres: string; kaynak: string }[] = [
-  { adres: '/tr/', kaynak: 'src/pages/tr/index.astro' },
-  { adres: '/tr/sozluk/', kaynak: 'src/pages/tr/sozluk.astro' },
-  { adres: '/tr/kadro/', kaynak: 'src/pages/tr/kadro.astro' },
-  { adres: '/tr/veri-seti/', kaynak: 'src/pages/tr/veri-seti.astro' },
+  { adres: '/', kaynak: 'src/pages/index.astro' },
+  { adres: '/sozluk/', kaynak: 'src/pages/sozluk.astro' },
+  { adres: '/kadro/', kaynak: 'src/pages/kadro.astro' },
+  { adres: '/veri-seti/', kaynak: 'src/pages/veri-seti.astro' },
 ]
 
 function uzantisiniAl(yol: string): string {
@@ -153,10 +153,10 @@ function adresleriUret(dosya: AgacDosyasi): string[] {
   const parcalar = uzantisiniAt(dosya.goreliYol).split('/').filter(Boolean)
 
   if (dosya.koleksiyon === 'alan' || dosya.koleksiyon === 'yazi') {
-    return [`/tr/${parcalar.join('/')}/`]
+    return [`/${parcalar.join('/')}/`]
   }
   if (dosya.koleksiyon === 'dizi') {
-    const kapak = `/tr/${parcalar.join('/')}/`
+    const kapak = `/${parcalar.join('/')}/`
     return dosya.data?.demo === true ? [kapak, `${kapak}demo/`] : [kapak]
   }
   return []

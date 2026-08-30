@@ -31,7 +31,7 @@ durum: ${durum}
     yaz(join('alan', 'dizi', 'yayinda.mdx'), 'yayinda')
 
     const adresler = hazirlaniyorAdresleri(kok)
-    expect(adresler).toEqual(['/tr/alan/dizi/taslak/'])
+    expect(adresler).toEqual(['/alan/dizi/taslak/'])
   })
 
   it('gerçek içerikte şu an hazırlanıyor yazı yok', () => {
@@ -40,9 +40,9 @@ durum: ${durum}
     expect(hazirlaniyorAdresleri(YAZI_KOKU)).toEqual([])
   })
 
-  it('her adres eğik çizgiyle biter ve /tr/ ile başlar', () => {
+  it('her adres eğik çizgiyle başlar ve biter', () => {
     for (const adres of hazirlaniyorAdresleri(YAZI_KOKU)) {
-      expect(adres).toMatch(/^\/tr\/.+\/$/)
+      expect(adres).toMatch(/^\/.+\/$/)
     }
   })
 
@@ -52,14 +52,14 @@ durum: ${durum}
 })
 
 describe('sitemapSuzgeci', () => {
-  const suzgec = sitemapSuzgeci(['/tr/transfer/blok-transfer/sonuclar/'])
+  const suzgec = sitemapSuzgeci(['/transfer/blok-transfer/sonuclar/'])
 
   it('dışarıda bırakılan adresi eler', () => {
-    expect(suzgec('https://perakendeanalitigi.com/tr/transfer/blok-transfer/sonuclar/')).toBe(false)
+    expect(suzgec('https://perakendeanalitigi.com/transfer/blok-transfer/sonuclar/')).toBe(false)
   })
 
   it('diğer adresleri geçirir', () => {
-    expect(suzgec('https://perakendeanalitigi.com/tr/transfer/blok-transfer/')).toBe(true)
-    expect(suzgec('https://perakendeanalitigi.com/tr/')).toBe(true)
+    expect(suzgec('https://perakendeanalitigi.com/transfer/blok-transfer/')).toBe(true)
+    expect(suzgec('https://perakendeanalitigi.com/')).toBe(true)
   })
 })

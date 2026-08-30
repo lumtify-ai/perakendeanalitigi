@@ -45,22 +45,19 @@ beforeAll(() => {
 }, 300_000)
 
 describe('build çıktısı', () => {
-  it('türkçe ana sayfa üretilir', () => {
-    expect(existsSync(DIST + 'tr/index.html')).toBe(true)
+  it('ana sayfa kökte üretilir, dil öneki yok', () => {
+    expect(existsSync(DIST + 'index.html')).toBe(true)
+    expect(existsSync(DIST + 'tr')).toBe(false)
   })
 
-  it('kök adres türkçeye kenarda yönlenir, ara sayfa üretilmez', () => {
-    // Astro statik çıktıda HTTP yönlendirmesi üretemez; bıraksaydık kök
-    // adrese "Redirecting from / to /tr/" yazan, 2 saniye bekleyen bir
-    // meta-refresh sayfası konurdu ve ziyaretçi onu görürdü. Bunun yerine
-    // hiç dosya üretilmiyor, yönlendirmeyi Cloudflare _redirects ile
-    // kenarda yapıyor.
-    expect(existsSync(DIST + 'index.html')).toBe(false)
-    expect(oku('_redirects')).toMatch(/^\/\s+\/tr\/\s+30[12]$/m)
+  it('eski /tr/ adresleri kalıcı olarak yeni yerine taşınır', () => {
+    // Site 2026-08-30'a kadar /tr/ önekiyle yayımlandı. Dışarıda paylaşılmış
+    // her eski bağlantı bu satıra bağlı; düşerse hepsi 404 olur.
+    expect(oku('_redirects')).toMatch(/^\/tr\/\*\s+\/:splat\s+301$/m)
   })
 
   it('sayfa dili türkçe işaretlenir', () => {
-    expect(oku('tr/index.html')).toContain('lang="tr"')
+    expect(oku('index.html')).toContain('lang="tr"')
   })
 })
 
@@ -76,50 +73,50 @@ describe('içerik koleksiyonları', () => {
 
 describe('temel düzen', () => {
   it('üst menü her sayfada var', () => {
-    const html = oku('tr/index.html')
-    expect(html).toContain('href="/tr/veri-seti/"')
-    expect(html).toContain('href="/tr/sozluk/"')
+    const html = oku('index.html')
+    expect(html).toContain('href="/veri-seti/"')
+    expect(html).toContain('href="/sozluk/"')
   })
 
   it('sayfa açıklaması meta olarak basılır', () => {
-    expect(oku('tr/index.html')).toContain('name="description"')
+    expect(oku('index.html')).toContain('name="description"')
   })
 
   it('hiçbir sayfada tarih görünmez', () => {
     // Ana spec'in başarısızlık işareti: "son yazı: 4 ay önce"
-    const html = oku('tr/index.html')
+    const html = oku('index.html')
     expect(html).not.toMatch(/\d{1,2}\s+(Ocak|Şubat|Mart|Nisan|Mayıs|Haziran|Temmuz|Ağustos|Eylül|Ekim|Kasım|Aralık)/)
   })
 })
 
 describe('sözlük', () => {
   it('sözlük sayfası her maddeyi çapayla basar', () => {
-    const html = oku('tr/sozluk/index.html')
+    const html = oku('sozluk/index.html')
     expect(html).toContain('id="cover"')
     expect(html).toContain('id="kiriklik"')
     expect(html).toContain('Sell-Through Rate')
   })
 
   it('sözlük DefinedTermSet olarak işaretlenir', () => {
-    expect(oku('tr/sozluk/index.html')).toContain('DefinedTermSet')
+    expect(oku('sozluk/index.html')).toContain('DefinedTermSet')
   })
 
   it('tooltip tanımı HTML içinde durur', () => {
     // Yapay zekâ tarayıcıları JS çalıştırmaz; tanım DOM'da olmalı
-    const html = oku('tr/transfer/blok-transfer/sonuclar/index.html')
+    const html = oku('transfer/blok-transfer/sonuclar/index.html')
     expect(html).toContain('class="terim"')
     expect(html).toContain('yeterlilik süresi')
   })
 
   it('tooltip için script üretilmez', () => {
-    const html = oku('tr/transfer/blok-transfer/sonuclar/index.html')
+    const html = oku('transfer/blok-transfer/sonuclar/index.html')
     expect(html).not.toMatch(/<script(?![^>]*type="application\/ld\+json")/)
   })
 })
 
 describe('kadro', () => {
   it('kadro sayfası üç karakteri de tanıtır', () => {
-    const html = oku('tr/kadro/index.html')
+    const html = oku('kadro/index.html')
     expect(html).toContain('Ali')
     expect(html).toContain('Veli')
     expect(html).toContain('Pelin')
@@ -130,37 +127,37 @@ describe('kadro', () => {
 
 describe('yazı sayfası', () => {
   it('dizili yazı üretilir', () => {
-    expect(existsSync(DIST + 'tr/transfer/blok-transfer/sonuclar/index.html')).toBe(true)
+    expect(existsSync(DIST + 'transfer/blok-transfer/sonuclar/index.html')).toBe(true)
   })
 
   it('tekil alanın yazısı üretilir', () => {
-    expect(existsSync(DIST + 'tr/temeller/urun-hiyerarsisi/index.html')).toBe(true)
+    expect(existsSync(DIST + 'temeller/urun-hiyerarsisi/index.html')).toBe(true)
   })
 
   it('rozet ve kırıntı yolu basılır', () => {
-    const html = oku('tr/transfer/blok-transfer/sonuclar/index.html')
+    const html = oku('transfer/blok-transfer/sonuclar/index.html')
     expect(html).toContain('rozet-sonuc')
     expect(html).toContain('BreadcrumbList')
-    expect(html).toContain('href="/tr/transfer/blok-transfer/"')
+    expect(html).toContain('href="/transfer/blok-transfer/"')
   })
 
   it('teknik ve sonuç yazıları TechArticle işaretlenir', () => {
-    expect(oku('tr/transfer/blok-transfer/sonuclar/index.html')).toContain('TechArticle')
+    expect(oku('transfer/blok-transfer/sonuclar/index.html')).toContain('TechArticle')
   })
 
   it('hikâye yazısı Article işaretlenir', () => {
-    const html = oku('tr/transfer/blok-transfer/magazanin-sorunu/index.html')
+    const html = oku('transfer/blok-transfer/magazanin-sorunu/index.html')
     expect(html).toContain('"@type":"Article"')
   })
 
   it('dizi gezinmesi önceki ve sonrakini verir', () => {
-    const html = oku('tr/transfer/blok-transfer/matematiksel-model/index.html')
-    expect(html).toContain('href="/tr/transfer/blok-transfer/karar-nasil-verilir/"')
-    expect(html).toContain('href="/tr/transfer/blok-transfer/sql-ve-greedy/"')
+    const html = oku('transfer/blok-transfer/matematiksel-model/index.html')
+    expect(html).toContain('href="/transfer/blok-transfer/karar-nasil-verilir/"')
+    expect(html).toContain('href="/transfer/blok-transfer/sql-ve-greedy/"')
   })
 
   it('hikâye yazısı kadro kutusuyla açılır', () => {
-    const html = oku('tr/transfer/blok-transfer/magazanin-sorunu/index.html')
+    const html = oku('transfer/blok-transfer/magazanin-sorunu/index.html')
     expect(html).toContain('kadro-kutusu')
     expect(html).toContain('Allocator')
   })
@@ -168,7 +165,7 @@ describe('yazı sayfası', () => {
 
 describe('dizi sayfası', () => {
   it('altı yazıyı sırayla listeler', () => {
-    const html = oku('tr/transfer/blok-transfer/index.html')
+    const html = oku('transfer/blok-transfer/index.html')
     const sira = ['magazanin-sorunu', 'karar-nasil-verilir', 'matematiksel-model', 'sql-ve-greedy', 'mip-ve-pulp', 'sonuclar']
     const yerler = sira.map((slug) => html.indexOf(slug))
     expect(yerler.every((y) => y > -1)).toBe(true)
@@ -176,28 +173,28 @@ describe('dizi sayfası', () => {
   })
 
   it('kısayolu açıkça söyler', () => {
-    expect(oku('tr/transfer/blok-transfer/index.html')).toMatch(/hikâye|hikaye/i)
+    expect(oku('transfer/blok-transfer/index.html')).toMatch(/hikâye|hikaye/i)
   })
 
   it('CreativeWorkSeries olarak işaretlenir', () => {
-    expect(oku('tr/transfer/blok-transfer/index.html')).toContain('CreativeWorkSeries')
+    expect(oku('transfer/blok-transfer/index.html')).toContain('CreativeWorkSeries')
   })
 })
 
 describe('alan sayfası', () => {
   it('dizili alan dizileri listeler', () => {
-    const html = oku('tr/transfer/index.html')
-    expect(html).toContain('href="/tr/transfer/blok-transfer/"')
+    const html = oku('transfer/index.html')
+    expect(html).toContain('href="/transfer/blok-transfer/"')
   })
 
   it('tekil alan yazıları listeler', () => {
-    const html = oku('tr/temeller/index.html')
-    expect(html).toContain('href="/tr/temeller/urun-hiyerarsisi/"')
+    const html = oku('temeller/index.html')
+    expect(html).toContain('href="/temeller/urun-hiyerarsisi/"')
   })
 
   it('tanım paragrafıyla açılır', () => {
     // Hikâyeyle açılan sayfa alıntılanmaz (ana spec §9)
-    const html = oku('tr/transfer/index.html')
+    const html = oku('transfer/index.html')
     const govde = html.slice(html.indexOf('<main'))
     expect(govde).toMatch(/Transfer,\s*bir mağazada/)
   })
@@ -208,7 +205,7 @@ describe('alan sayfası', () => {
   // alanGovdeleriDogrula, tests/dogrula.test.ts); burada yalnizca sonucun
   // gercekten oyle oldugu, hem de her alan sayfasi icin dogrulaniyor.
   it('alan sayfası kod içermez', () => {
-    for (const alan of ['tr/transfer/index.html', 'tr/temeller/index.html']) {
+    for (const alan of ['transfer/index.html', 'temeller/index.html']) {
       expect(oku(alan), alan).not.toContain('<pre')
     }
   })
@@ -216,19 +213,19 @@ describe('alan sayfası', () => {
 
 describe('ana sayfa', () => {
   it('tanım paragrafıyla açılır', () => {
-    const govde = oku('tr/index.html')
+    const govde = oku('index.html')
     expect(govde).toMatch(/Perakende analitiği/)
   })
 
   it('ağacın tamamını gösterir', () => {
-    const html = oku('tr/index.html')
-    expect(html).toContain('href="/tr/transfer/"')
-    expect(html).toContain('href="/tr/temeller/"')
-    expect(html).toContain('href="/tr/transfer/blok-transfer/"')
+    const html = oku('index.html')
+    expect(html).toContain('href="/transfer/"')
+    expect(html).toContain('href="/temeller/"')
+    expect(html).toContain('href="/transfer/blok-transfer/"')
   })
 
   it('akış veya son yazılar bölümü içermez', () => {
-    const html = oku('tr/index.html')
+    const html = oku('index.html')
     expect(html).not.toMatch(/son yazılar|en yeni|güncel yazılar/i)
   })
 })
@@ -236,18 +233,18 @@ describe('ana sayfa', () => {
 describe('veri seti sayfası', () => {
   it('Dataset olarak işaretlenir', () => {
     // Rakipler veri yayınlamaz; bu işaretleme ayrıştırıcıdır
-    expect(oku('tr/veri-seti/index.html')).toContain('"@type":"Dataset"')
+    expect(oku('veri-seti/index.html')).toContain('"@type":"Dataset"')
   })
 
   it('yedi tabloyu da listeler', () => {
-    const html = oku('tr/veri-seti/index.html')
+    const html = oku('veri-seti/index.html')
     for (const tablo of ['magaza', 'urun', 'takvim', 'satis', 'stok', 'sevkiyat', 'kayip_satis']) {
       expect(html).toContain(tablo)
     }
   })
 
   it('üç formatı da duyurur', () => {
-    const html = oku('tr/veri-seti/index.html')
+    const html = oku('veri-seti/index.html')
     expect(html).toContain('CSV')
     expect(html).toContain('Parquet')
     expect(html).toContain('DuckDB')
@@ -256,18 +253,18 @@ describe('veri seti sayfası', () => {
 
 describe('demo', () => {
   it('demo sayfası üretilir', () => {
-    expect(existsSync(DIST + 'tr/transfer/blok-transfer/demo/index.html')).toBe(true)
+    expect(existsSync(DIST + 'transfer/blok-transfer/demo/index.html')).toBe(true)
   })
 
   it('bütün kombinasyonlar HTML içinde hazır durur', () => {
     // Sunucu yok; sayfa her koşulda anında açılır
-    const html = oku('tr/transfer/blok-transfer/demo/index.html')
+    const html = oku('transfer/blok-transfer/demo/index.html')
     expect(html).toContain('data-anahtar="6|0|greedy"')
     expect(html).toContain('data-anahtar="26|14|mip"')
   })
 
   it('parametre seçimi radio ile yapılır, script ile değil', () => {
-    const html = oku('tr/transfer/blok-transfer/demo/index.html')
+    const html = oku('transfer/blok-transfer/demo/index.html')
     expect(html).toContain('type="radio"')
   })
 
@@ -291,7 +288,7 @@ describe('demo', () => {
   it('sonuç görünürlüğü saf css :has() ile üretilir, script değil', () => {
     // hidden özniteliği yerine build-zamanında üretilen bir <style> bloğu
     // seçili radyo birleşimine karşılık gelen [data-anahtar] bloğunu açar.
-    const html = oku('tr/transfer/blok-transfer/demo/index.html')
+    const html = oku('transfer/blok-transfer/demo/index.html')
     expect(html).toContain('<style')
     expect(html).toContain(':has(')
     // `hidden` ÖZNİTELİĞİ aranıyor, alt dize değil: `aria-hidden` erişilebilirlik
@@ -301,7 +298,7 @@ describe('demo', () => {
   })
 
   it(':has() desteklenmeyen tarayıcı için @supports yedeği var', () => {
-    const html = oku('tr/transfer/blok-transfer/demo/index.html')
+    const html = oku('transfer/blok-transfer/demo/index.html')
     expect(html).toContain('@supports not selector(:has(*))')
   })
 
@@ -311,7 +308,7 @@ describe('demo', () => {
       (carpim: number, p: { degerler: unknown[] }) => carpim * p.degerler.length,
       1,
     )
-    const html = oku('tr/transfer/blok-transfer/demo/index.html')
+    const html = oku('transfer/blok-transfer/demo/index.html')
     const stilEslesme = html.match(/<style[^>]*>([\s\S]*?)<\/style>/)
     expect(stilEslesme).not.toBeNull()
     const stilIcerigi = stilEslesme![1]
@@ -322,14 +319,14 @@ describe('demo', () => {
   it('kapalı tavan ekranda etiketiyle görünür', () => {
     // Ham "0" okuyucuya bir şey söylemez; kadranın ilk tıkı yayımlanmış
     // referans senaryodur ve adı vardır.
-    const html = oku('tr/transfer/blok-transfer/demo/index.html')
+    const html = oku('transfer/blok-transfer/demo/index.html')
     expect(html).toContain('kapalı')
   })
 
   it('kayıp satış yakalama ölçütü ekranda', () => {
     // 18 → 14 gibi kötü bir kombinasyonun neden kötü olduğu net kazançta
     // görünmüyor; yalnız bu metrikte görünüyor.
-    const html = oku('tr/transfer/blok-transfer/demo/index.html')
+    const html = oku('transfer/blok-transfer/demo/index.html')
     expect(html).toContain('Kayıp satış yakalama')
     expect(html).not.toContain('kayip_yakalama_yuzde')   // ham anahtar sızmasın
   })
@@ -373,9 +370,9 @@ describe('site geneli vaatler', () => {
     // iddia onları vakumdan korur.
     const sayfalar = tumSayfalar()
     expect(sayfalar.length).toBeGreaterThanOrEqual(15)
-    expect(sayfalar.map(({ yol }) => yol)).toContain('tr/index.html')
+    expect(sayfalar.map(({ yol }) => yol)).toContain('index.html')
     expect(sayfalar.map(({ yol }) => yol)).toContain(
-      'tr/transfer/blok-transfer/sonuclar/index.html',
+      'transfer/blok-transfer/sonuclar/index.html',
     )
   })
 
@@ -405,7 +402,7 @@ describe('site geneli vaatler', () => {
     // dizinin SON yazısında durur; dizi büyüyünce yeri de kayar.
     const gecenler = tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))
     expect(gecenler.map(({ yol }) => yol)).toEqual([
-      'tr/transfer/blok-transfer/basari-nasil-olculur/index.html',
+      'transfer/blok-transfer/basari-nasil-olculur/index.html',
     ])
     expect(gecenler[0].html.split('lumtify-koprusu').length - 1).toBe(1)
   })
@@ -416,11 +413,10 @@ describe('üst menü', () => {
   // sayfasından alanların listesine giden üst düzey bir yol yoktu.
   it('beş bağlantıyı da her sayfada basar', () => {
     for (const { yol, html } of tumSayfalar()) {
-      if (yol === 'index.html') continue // kök yönlendirme sayfası
-      expect(html, yol).toContain('href="/tr/#alanlar"')
-      expect(html, yol).toContain('href="/tr/veri-seti/"')
-      expect(html, yol).toContain('href="/tr/sozluk/"')
-      expect(html, yol).toContain('href="/tr/kadro/"')
+      expect(html, yol).toContain('href="/#alanlar"')
+      expect(html, yol).toContain('href="/veri-seti/"')
+      expect(html, yol).toContain('href="/sozluk/"')
+      expect(html, yol).toContain('href="/kadro/"')
       expect(html, yol).toContain('href="https://github.com/lumtify-ai/perakendeanalitigi"')
     }
   })
@@ -430,7 +426,7 @@ describe('üst menü', () => {
     // rel="noopener" şart; ayrıca menüde başka dış bağlantı BİRİKMEMELİ —
     // huni kuralı: kanıt öne, çağrı sona (Lumtify yalnız altbilgide ve
     // dizinin son yazısındaki köprüde).
-    const html = oku('tr/sozluk/index.html')
+    const html = oku('sozluk/index.html')
     const menu = html.slice(html.indexOf('<nav'), html.indexOf('</nav>'))
     const disBaglantilar = menu.match(/href="https?:\/\/[^"]+"/g) ?? []
     expect(disBaglantilar).toEqual(['href="https://github.com/lumtify-ai/perakendeanalitigi"'])
@@ -438,7 +434,7 @@ describe('üst menü', () => {
   })
 
   it('Alanlar bağlantısının hedefi ana sayfada gerçekten var', () => {
-    expect(oku('tr/index.html')).toContain('id="alanlar"')
+    expect(oku('index.html')).toContain('id="alanlar"')
   })
 })
 
@@ -457,15 +453,15 @@ describe('yayın durumu', () => {
 
   it('yayına açık sayfalar noindex basmaz', () => {
     for (const yol of [
-      'tr/index.html',
-      'tr/sozluk/index.html',
-      'tr/transfer/index.html',
-      'tr/temeller/urun-hiyerarsisi/index.html',
-      'tr/transfer/blok-transfer/magazanin-sorunu/index.html',
-      'tr/transfer/blok-transfer/karar-nasil-verilir/index.html',
-      'tr/transfer/blok-transfer/matematiksel-model/index.html',
-      'tr/transfer/blok-transfer/sql-ve-greedy/index.html',
-      'tr/transfer/blok-transfer/mip-ve-pulp/index.html',
+      'index.html',
+      'sozluk/index.html',
+      'transfer/index.html',
+      'temeller/urun-hiyerarsisi/index.html',
+      'transfer/blok-transfer/magazanin-sorunu/index.html',
+      'transfer/blok-transfer/karar-nasil-verilir/index.html',
+      'transfer/blok-transfer/matematiksel-model/index.html',
+      'transfer/blok-transfer/sql-ve-greedy/index.html',
+      'transfer/blok-transfer/mip-ve-pulp/index.html',
     ]) {
       expect(oku(yol), yol).not.toContain('noindex')
     }
@@ -485,20 +481,20 @@ describe('yayın durumu', () => {
 
   it('site haritası yayına açık adresleri ilan etmeye devam eder', () => {
     const harita = oku('sitemap-0.xml')
-    expect(harita).toContain('/tr/transfer/blok-transfer/')
-    expect(harita).toContain('/tr/sozluk/')
-    expect(harita).toContain('/tr/veri-seti/')
-    expect(harita).toContain('/tr/temeller/urun-hiyerarsisi/')
-    expect(harita).toContain('/tr/transfer/blok-transfer/magazanin-sorunu/')
-    expect(harita).toContain('/tr/transfer/blok-transfer/karar-nasil-verilir/')
-    expect(harita).toContain('/tr/transfer/blok-transfer/matematiksel-model/')
-    expect(harita).toContain('/tr/transfer/blok-transfer/sql-ve-greedy/')
-    expect(harita).toContain('/tr/transfer/blok-transfer/mip-ve-pulp/')
+    expect(harita).toContain('/transfer/blok-transfer/')
+    expect(harita).toContain('/sozluk/')
+    expect(harita).toContain('/veri-seti/')
+    expect(harita).toContain('/temeller/urun-hiyerarsisi/')
+    expect(harita).toContain('/transfer/blok-transfer/magazanin-sorunu/')
+    expect(harita).toContain('/transfer/blok-transfer/karar-nasil-verilir/')
+    expect(harita).toContain('/transfer/blok-transfer/matematiksel-model/')
+    expect(harita).toContain('/transfer/blok-transfer/sql-ve-greedy/')
+    expect(harita).toContain('/transfer/blok-transfer/mip-ve-pulp/')
   })
 
   it('sonuç yazısının sayfası üretilir', () => {
     // Dizi kapağı ona bağlanıyor; kırık bağlantı bırakılmaz.
-    expect(existsSync(DIST + 'tr/transfer/blok-transfer/sonuclar/index.html')).toBe(true)
+    expect(existsSync(DIST + 'transfer/blok-transfer/sonuclar/index.html')).toBe(true)
   })
 })
 
@@ -506,13 +502,13 @@ describe('gömülü demo', () => {
   // Tasarım dokümanı §5: terim, kadro ve demo aynı deseni kullanır —
   // tek kaynak, ikinci gösterim. Demo bu deseni tamamlar.
   it('demo sonuclar yazısına gömülüdür', () => {
-    const html = oku('tr/transfer/blok-transfer/sonuclar/index.html')
+    const html = oku('transfer/blok-transfer/sonuclar/index.html')
     expect(html).toContain('data-anahtar="6|0|greedy"')
     expect(html).toContain('data-anahtar="26|14|mip"')
   })
 
   it('gömülü demonun style bloğu article bağlamında derlenir', () => {
-    const html = oku('tr/transfer/blok-transfer/sonuclar/index.html')
+    const html = oku('transfer/blok-transfer/sonuclar/index.html')
     const baslangic = html.indexOf('<article')
     const bitis = html.indexOf('</article>')
     expect(baslangic).toBeGreaterThan(-1)
@@ -523,7 +519,7 @@ describe('gömülü demo', () => {
   })
 
   it('yedinci yazı üretiliyor ve getiri demosunu taşıyor', () => {
-    const html = oku('tr/transfer/blok-transfer/basari-nasil-olculur/index.html')
+    const html = oku('transfer/blok-transfer/basari-nasil-olculur/index.html')
     // İki başabaş ölçütü ayrı ayrı görünmeli: fark yönetsel kural, ihtimal
     // ise seçilen vericinin üstüne binen mutlak baraj. Etiketleri karışırsa
     // yazının tablosu kadranla çelişir.
@@ -534,14 +530,14 @@ describe('gömülü demo', () => {
   })
 
   it('gömülü demo da JavaScript getirmez', () => {
-    const html = oku('tr/transfer/blok-transfer/sonuclar/index.html')
+    const html = oku('transfer/blok-transfer/sonuclar/index.html')
     expect(html).not.toMatch(SCRIPT_DESENI)
   })
 })
 
 describe('KaTeX', () => {
   it('satır içi ve blok matematik build sırasında derlenir', () => {
-    const html = oku('tr/transfer/blok-transfer/matematiksel-model/index.html')
+    const html = oku('transfer/blok-transfer/matematiksel-model/index.html')
     expect(html).toContain('class="katex"')
     expect(html).toContain('katex-display')
     // MathML gövdesi HTML'in içinde durur; tarayıcı JS'i gerekmez
@@ -553,19 +549,19 @@ describe('schema.org kapsamı', () => {
   it('teknik yazı da TechArticle işaretlenir', () => {
     // Daha önce yalnızca sonuc yazısı üzerinden test ediliyordu; eşlemenin
     // iki kolu da kilitlensin.
-    expect(oku('tr/transfer/blok-transfer/matematiksel-model/index.html')).toContain(
+    expect(oku('transfer/blok-transfer/matematiksel-model/index.html')).toContain(
       '"@type":"TechArticle"',
     )
   })
 
   it('anlatıcı yazı Article işaretlenir', () => {
-    expect(oku('tr/temeller/urun-hiyerarsisi/index.html')).toContain('"@type":"Article"')
+    expect(oku('temeller/urun-hiyerarsisi/index.html')).toContain('"@type":"Article"')
   })
 
   it('tekil sayfalarda da BreadcrumbList var', () => {
     // Tasarım dokümanı §11 "her sayfa" diyor. Ana sayfa hariç: orada kırıntı
     // yolu anlamsızdır.
-    for (const yol of ['tr/sozluk/index.html', 'tr/kadro/index.html', 'tr/veri-seti/index.html']) {
+    for (const yol of ['sozluk/index.html', 'kadro/index.html', 'veri-seti/index.html']) {
       expect(oku(yol), yol).toContain('BreadcrumbList')
     }
   })
@@ -573,24 +569,24 @@ describe('schema.org kapsamı', () => {
   it('JSON-LD adresleri yapılandırmadaki origin ile üretilir', () => {
     // Alan adı hâlâ açık bir soru; elle yazılan origin değişince üç JSON-LD
     // sessizce yanlış URL basardı.
-    const html = oku('tr/transfer/blok-transfer/index.html')
-    expect(html).toContain('"item":"https://perakendeanalitigi.com/tr/transfer/"')
-    expect(html).toContain('"url":"https://perakendeanalitigi.com/tr/transfer/blok-transfer/')
+    const html = oku('transfer/blok-transfer/index.html')
+    expect(html).toContain('"item":"https://perakendeanalitigi.com/transfer/"')
+    expect(html).toContain('"url":"https://perakendeanalitigi.com/transfer/blok-transfer/')
   })
 })
 
 describe('tekil alan yazısı', () => {
   it('dizi gezinmesi taşımaz', () => {
     // Tekil alan yazısı bir algoritmaya ait değildir; önceki/sonraki yoktur.
-    const html = oku('tr/temeller/urun-hiyerarsisi/index.html')
+    const html = oku('temeller/urun-hiyerarsisi/index.html')
     expect(html).not.toContain('dizi-gezinme')
     expect(html).not.toContain('rel="prev"')
     expect(html).not.toContain('rel="next"')
   })
 
   it('kırıntı yolu iki basamaklıdır', () => {
-    const html = oku('tr/temeller/urun-hiyerarsisi/index.html')
-    expect(html).toContain('href="/tr/temeller/"')
+    const html = oku('temeller/urun-hiyerarsisi/index.html')
+    expect(html).toContain('href="/temeller/"')
     expect(html).toContain('"position":2')
     expect(html).not.toContain('"position":3')
   })

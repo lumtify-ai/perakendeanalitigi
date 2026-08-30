@@ -95,7 +95,7 @@ describe('adres çakışması', () => {
     agac.push({ koleksiyon: 'yazi', goreliYol: 'transfer/blok-transfer.mdx' })
     const hatalar = agacSekliniDogrula(agac)
     expect(hatalar).toHaveLength(1)
-    expect(hatalar[0]).toContain('/tr/transfer/blok-transfer/')
+    expect(hatalar[0]).toContain('/transfer/blok-transfer/')
     expect(hatalar[0]).toContain('src/content/dizi/transfer/blok-transfer.md')
     expect(hatalar[0]).toContain('src/content/yazi/transfer/blok-transfer.mdx')
   })
@@ -103,7 +103,7 @@ describe('adres çakışması', () => {
   it("demo sayfasıyla çakışan yazı slug'ını yakalar", () => {
     const agac = saglamAgac()
     agac.push({ koleksiyon: 'yazi', goreliYol: 'transfer/blok-transfer/demo.mdx' })
-    expect(agacSekliniDogrula(agac).join('\n')).toContain('/tr/transfer/blok-transfer/demo/')
+    expect(agacSekliniDogrula(agac).join('\n')).toContain('/transfer/blok-transfer/demo/')
   })
 
   it("demo üretmeyen dizide demo slug'ına izin verir", () => {
@@ -118,8 +118,8 @@ describe('adres çakışması', () => {
     const agac = saglamAgac()
     agac.push({ koleksiyon: 'alan', goreliYol: 'sozluk.md', data: { tanim: TANIM } })
     const hatalar = agacSekliniDogrula(agac)
-    expect(hatalar.join('\n')).toContain('/tr/sozluk/')
-    expect(hatalar.join('\n')).toContain('src/pages/tr/sozluk.astro')
+    expect(hatalar.join('\n')).toContain('/sozluk/')
+    expect(hatalar.join('\n')).toContain('src/pages/sozluk.astro')
   })
 })
 
