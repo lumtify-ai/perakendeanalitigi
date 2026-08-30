@@ -159,14 +159,37 @@ function terimleriDogrula(yazilar: YaziGirdi[], terimler: string[]): string[] {
   return hatalar
 }
 
-/** Lumtify köprüsü yalnızca sonuc yazılarında geçebilir. */
+/**
+ * Lumtify köprüsü yalnızca bir dizinin SON yazısında geçebilir.
+ *
+ * Huni kuralı sitenin en pahalı vaadi: tek geçiş noktası. Köprüyü her yazının
+ * sonuna koymak onu beş reklama çevirir ve güveni bitirir.
+ *
+ * Kural önce "yalnız sonuc tipinde" diye yazılmıştı. Dizinin sonuna sonuç
+ * yazısından sonra bir yazı daha eklenince (getiri hesabı) o tanım
+ * yanlışlaştı: köprü, okuyucunun diziyi BİTİRDİĞİ yerde durmalı, yazının
+ * tipine göre değil.
+ */
 function kopruleriDogrula(yazilar: YaziGirdi[]): string[] {
+  const sonSiralar = new Map<string, number>()
+  for (const yaziGirdi of yazilar) {
+    const yol = yaziYolunuAyristir(yaziGirdi.id)
+    const anahtar = yol.dizi ? `${yol.alan}/${yol.dizi}` : yol.alan
+    sonSiralar.set(anahtar, Math.max(sonSiralar.get(anahtar) ?? 0, yaziGirdi.data.sira))
+  }
+
   return yazilar
-    .filter((y) => y.data.tip !== 'sonuc' && KOPRU_DESENI.test(y.body))
+    .filter((y) => KOPRU_DESENI.test(y.body))
+    .filter((y) => {
+      const yol = yaziYolunuAyristir(y.id)
+      const anahtar = yol.dizi ? `${yol.alan}/${yol.dizi}` : yol.alan
+      return y.data.sira !== sonSiralar.get(anahtar)
+    })
     .map(
       (y) =>
-        `"${y.id}" Lumtify köprüsü içeriyor ama tipi "${y.data.tip}". ` +
-        'Tek geçiş noktası kuralı: köprü yalnızca sonuc yazısının sonunda bulunur.',
+        `"${y.id}" Lumtify köprüsü içeriyor ama dizisinin son yazısı değil ` +
+        `(sıra ${y.data.sira}). Tek geçiş noktası kuralı: köprü dizinin son ` +
+        'yazısının sonunda bulunur.',
     )
 }
 

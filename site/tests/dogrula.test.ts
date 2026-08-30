@@ -93,16 +93,31 @@ describe('hepsiniDogrula', () => {
     expect(hepsiniDogrula(yazilar, DIZILER, ALANLAR, TERIMLER)).toEqual([])
   })
 
-  it('sonuc dışındaki yazıda Lumtify köprüsünü yakalar', () => {
+  it('dizinin son yazısı olmayan yazıda Lumtify köprüsünü yakalar', () => {
     const yazilar = tamDizi()
     yazilar[1].body = 'Bir şeyler.\n\n<Lumtify />'
     const hatalar = hepsiniDogrula(yazilar, DIZILER, ALANLAR, TERIMLER)
     expect(hatalar.join('\n')).toMatch(/Lumtify/)
   })
 
-  it('sonuc yazısında Lumtify köprüsüne izin verir', () => {
+  it('dizinin son yazısında Lumtify köprüsüne izin verir', () => {
     const yazilar = tamDizi()
     yazilar[2].body = 'Sonuçlar.\n\n<Lumtify />'
+    expect(hepsiniDogrula(yazilar, DIZILER, ALANLAR, TERIMLER)).toEqual([])
+  })
+
+  it('sonuç yazısı dizinin sonuncusu değilse köprüyü yakalar', () => {
+    // Kural yazının TİPİNE değil, okuyucunun diziyi nerede bitirdiğine bakar.
+    // Sonuç yazısından sonra bir yazı daha gelirse köprü orada duramaz.
+    const yazilar = [...tamDizi(), yazi('transfer/blok-transfer/d', 'teknik', 4)]
+    yazilar[2].body = 'Sonuçlar.\n\n<Lumtify />'
+    const hatalar = hepsiniDogrula(yazilar, DIZILER, ALANLAR, TERIMLER)
+    expect(hatalar.join('\n')).toMatch(/Lumtify/)
+  })
+
+  it('dizinin son yazısı teknik tipinde olsa da köprüye izin verir', () => {
+    const yazilar = [...tamDizi(), yazi('transfer/blok-transfer/d', 'teknik', 4)]
+    yazilar[3].body = 'Getiri.\n\n<Lumtify />'
     expect(hepsiniDogrula(yazilar, DIZILER, ALANLAR, TERIMLER)).toEqual([])
   })
 

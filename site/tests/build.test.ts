@@ -399,10 +399,11 @@ describe('site geneli vaatler', () => {
 
   it('Lumtify köprüsü site genelinde tam bir kez geçer', () => {
     // Huni kuralı sitenin en pahalı vaadi: tek geçiş noktası. Köprüyü her
-    // yazının sonuna koymak onu beş reklama çevirir ve güveni bitirir.
+    // yazının sonuna koymak onu beş reklama çevirir ve güveni bitirir. Köprü
+    // dizinin SON yazısında durur; dizi büyüyünce yeri de kayar.
     const gecenler = tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))
     expect(gecenler.map(({ yol }) => yol)).toEqual([
-      'tr/transfer/blok-transfer/sonuclar/index.html',
+      'tr/transfer/blok-transfer/basari-nasil-olculur/index.html',
     ])
     expect(gecenler[0].html.split('lumtify-koprusu').length - 1).toBe(1)
   })
