@@ -294,7 +294,9 @@ describe('demo', () => {
     const html = oku('tr/transfer/blok-transfer/demo/index.html')
     expect(html).toContain('<style')
     expect(html).toContain(':has(')
-    expect(html).not.toContain('hidden')
+    // `hidden` ÖZNİTELİĞİ aranıyor, alt dize değil: `aria-hidden` erişilebilirlik
+    // notudur ve görünürlük mekanizmasıyla ilgisi yoktur.
+    expect(html).not.toMatch(/\shidden(=|>|\s)/)
     expect(html).not.toMatch(/<script(?![^>]*type="application\/ld\+json")/)
   })
 
@@ -412,14 +414,27 @@ describe('site geneli vaatler', () => {
 describe('üst menü', () => {
   // Tasarım dokümanı §9. "Alanlar" bağlantısı olmadan derin bir yazı
   // sayfasından alanların listesine giden üst düzey bir yol yoktu.
-  it('dört bağlantıyı da her sayfada basar', () => {
+  it('beş bağlantıyı da her sayfada basar', () => {
     for (const { yol, html } of tumSayfalar()) {
       if (yol === 'index.html') continue // kök yönlendirme sayfası
       expect(html, yol).toContain('href="/tr/#alanlar"')
       expect(html, yol).toContain('href="/tr/veri-seti/"')
       expect(html, yol).toContain('href="/tr/sozluk/"')
       expect(html, yol).toContain('href="/tr/kadro/"')
+      expect(html, yol).toContain('href="https://github.com/lumtify-ai/perakendeanalitigi"')
     }
+  })
+
+  it('menüdeki tek dış bağlantı depo, ve güvenli açılıyor', () => {
+    // Menünün diğer dördü site içi. Dış bağlantı yeni sekmede açılıyorsa
+    // rel="noopener" şart; ayrıca menüde başka dış bağlantı BİRİKMEMELİ —
+    // huni kuralı: kanıt öne, çağrı sona (Lumtify yalnız altbilgide ve
+    // dizinin son yazısındaki köprüde).
+    const html = oku('tr/sozluk/index.html')
+    const menu = html.slice(html.indexOf('<nav'), html.indexOf('</nav>'))
+    const disBaglantilar = menu.match(/href="https?:\/\/[^"]+"/g) ?? []
+    expect(disBaglantilar).toEqual(['href="https://github.com/lumtify-ai/perakendeanalitigi"'])
+    expect(menu).toContain('rel="noopener"')
   })
 
   it('Alanlar bağlantısının hedefi ana sayfada gerçekten var', () => {
