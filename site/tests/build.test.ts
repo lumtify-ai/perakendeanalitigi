@@ -64,6 +64,18 @@ describe('build çıktısı', () => {
     expect(oku('_redirects')).toMatch(/^\/tr\s+\/\s+301$/m)
   })
 
+  it('robots.txt her tarayıcıya açık ve izni açıkça yazıyor', () => {
+    // Sitenin bütün stratejisi alıntılanmak üzerine kurulu; hiçbir tarayıcı
+    // engellenmez. Content-Signal yazılmazsa site sahibi "ne izin verir ne
+    // yasaklar" sayılır, o yüzden dört sinyal de açıkça yazılı (2026-09-03).
+    const robots = oku('robots.txt')
+    expect(robots).toMatch(/^User-agent: \*$/m)
+    expect(robots).toMatch(/^Allow: \/$/m)
+    expect(robots).toMatch(/^Content-Signal: search=yes,ai-input=yes,ai-train=yes,use=full$/m)
+    expect(robots).not.toMatch(/^Disallow:\s*\/\s*$/m)
+    expect(robots).toContain('Sitemap: https://perakendeanalitigi.com/sitemap-index.xml')
+  })
+
   it('sayfa dili türkçe işaretlenir', () => {
     expect(oku('index.html')).toContain('lang="tr"')
   })

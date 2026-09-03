@@ -1,4 +1,21 @@
+# Bu site alıntılanmak için var. Arama motorları, yapay zekâ eğitimi ve bir
+# kullanıcı soru sorduğunda yapılan anlık getirme — üçüne de açıkça izin
+# veriliyor. Engellenen tarayıcı yok.
+#
+# Content-Signal, izni sessizlikle değil açık sözle veriyor: bir sinyal
+# yazılmazsa site sahibi "ne izin verir ne yasaklar" sayılır. Buradaki
+# niyet belirsiz kalmasın diye dördü de yazıldı.
+#   search    arama dizini kurup sonuç göstermek
+#   ai-input  soru anında modele girdi vermek (RAG, grounding)
+#   ai-train  model eğitmek veya ince ayar yapmak
+#   use       içeriğin nasıl tüketilebileceği (immediate | reference | full)
+#
+# Cloudflare'in "Managed robots.txt" anahtarı KAPALI olmalı; açıkken bu
+# dosyanın başına kendi engelleme bloğunu enjekte ediyor ve buradaki izin
+# yazılı olduğu hâlde geçersiz kalıyor. Ayar panelden yönetiliyor,
+# depoda karşılığı yok.
 User-agent: *
+Content-Signal: search=yes,ai-input=yes,ai-train=yes,use=full
 Allow: /
 
 Sitemap: https://perakendeanalitigi.com/sitemap-index.xml
