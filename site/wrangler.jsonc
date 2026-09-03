@@ -1,0 +1,33 @@
+{
+  // Bu dosyanın VARLIĞI, içeriği kadar önemlidir.
+  //
+  // 2026-09-03'te iki dağıtım üst üste düştü. Sebep depoda değildi: derleme
+  // komutu sorunsuz bitiyor, sonra `npx wrangler deploy` yapılandırma dosyası
+  // bulamayınca kendi "auto-config" akışını çalıştırıyordu. Projeyi Astro diye
+  // tanıyıp `astro add cloudflare` ile @astrojs/cloudflare adaptörünü kuruyor,
+  // astro.config.mjs'i değiştiriyor ve build'i yeniden koşuyordu. O adaptör
+  // Astro 7.2.8 ile uyumsuz:
+  //   [MISSING_EXPORT] "renderForPrerender" is not exported by "astro/app"
+  //
+  // Site tamamen statik; SSR adaptörüne ihtiyacı yok ve olmamalı. Bu dosya
+  // duruyorken wrangler hiçbir şey tahmin etmez, yalnızca dist/'i yükler.
+  // SİLİNMEMELİ.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "perakendeanalitigi",
+  "compatibility_date": "2026-09-03",
+
+  // Sunucu kodu yok: `main` bilerek tanımsız. Worker yalnızca varlık sunar.
+  "assets": {
+    "directory": "./dist",
+
+    // Varsayilan `none`, olmayan adrese govdesiz bir 404 dondurur; canlida
+    // olculdu, 0 bayt geliyordu ve 404.html hic sunulmuyordu (2026-09-03).
+    // `404-page`, en yakin 404.html'i 404 durum koduyla sunar.
+    "not_found_handling": "404-page"
+  }
+
+  // `routes` bilerek yazılmadı: apex ve www, Worker'a panelden custom domain
+  // olarak bağlı ve wrangler yapılandırmada sayılmayan yolları silmez —
+  // 30 Ağustos'taki başarılı dağıtım da yapılandırmasız koştu, alan adları
+  // yerinde kaldı. Buraya yazmak ikinci bir doğruluk kaynağı yaratırdı.
+}

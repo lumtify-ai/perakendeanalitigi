@@ -69,6 +69,42 @@ describe('build çıktısı', () => {
   })
 })
 
+describe('dağıtım yapılandırması', () => {
+  const KOK = fileURLToPath(new URL('../', import.meta.url))
+
+  it('wrangler yapılandırması dist dizinini gösterir', () => {
+    // Dosyanın varlığı içeriği kadar önemli: wrangler yapılandırma
+    // bulamayınca kendi auto-config akışını koşuyor, @astrojs/cloudflare
+    // adaptörünü kuruyor ve build'i çakıyor. 2026-09-03'te iki dağıtım
+    // üst üste böyle düştü.
+    const yapilandirma = readFileSync(KOK + 'wrangler.jsonc', 'utf-8')
+    expect(yapilandirma).toMatch(/"directory":\s*"\.\/dist"/)
+  })
+
+  it('olmayan adres özel 404 sayfasını sunar', () => {
+    // Varsayılan `none` gövdesiz 404 döndürür; canlıda ölçüldü, 0 bayt
+    // geliyordu ve üretilen 404.html hiç sunulmuyordu (2026-09-03).
+    const yapilandirma = readFileSync(KOK + 'wrangler.jsonc', 'utf-8')
+    expect(yapilandirma).toMatch(/"not_found_handling":\s*"404-page"/)
+    expect(existsSync(DIST + '404.html')).toBe(true)
+  })
+
+  it('cloudflare adaptörü bağımlılıklara girmez', () => {
+    // Site tamamen statik; SSR adaptörüne ihtiyacı yok ve Astro 7 ile
+    // uyumsuz. Bir araç onu sessizce eklerse bu test düşer.
+    const pkg = JSON.parse(readFileSync(KOK + 'package.json', 'utf-8'))
+    const hepsi = { ...pkg.dependencies, ...pkg.devDependencies }
+    expect(Object.keys(hepsi)).not.toContain('@astrojs/cloudflare')
+  })
+
+  it('wrangler sürümü sabitlenmiş', () => {
+    // `npx wrangler deploy` yoksa en güncelini indirir; 4.128.0'daki
+    // auto-config davranışı tam da böyle, biz hiçbir şey değiştirmeden geldi.
+    const pkg = JSON.parse(readFileSync(KOK + 'package.json', 'utf-8'))
+    expect(pkg.devDependencies.wrangler).toMatch(/^\d+\.\d+\.\d+$/)
+  })
+})
+
 describe('içerik koleksiyonları', () => {
   it('beş koleksiyon da dolu', async () => {
     const { readdirSync } = await import('node:fs')
