@@ -56,6 +56,14 @@ describe('build çıktısı', () => {
     expect(oku('_redirects')).toMatch(/^\/tr\/\*\s+\/:splat\s+301$/m)
   })
 
+  it('eğik çizgisiz /tr de taşınır', () => {
+    // `/tr/*` deseni çıplak `/tr`'yi yakalamaz — Cloudflare orada 404 döner.
+    // Search Console 2026-09-03'te tam bu adresi "Bulunamadı (404)" olarak
+    // raporladı. Ayrı bir satır gerekiyor; bu kökteki eski 302 sıçraması
+    // değil, yalnızca eski bağlantıları izleyen ziyaretçinin ödediği bedel.
+    expect(oku('_redirects')).toMatch(/^\/tr\s+\/\s+301$/m)
+  })
+
   it('sayfa dili türkçe işaretlenir', () => {
     expect(oku('index.html')).toContain('lang="tr"')
   })

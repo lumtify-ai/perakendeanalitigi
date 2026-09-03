@@ -6,3 +6,10 @@
 # 301 bilinçli: adres değişikliği geri alınacak bir deneme değil, taşınmadır;
 # arama motorları eski adresin sıralamasını yenisine devretsin.
 /tr/*    /:splat    301
+
+# Desen eğik çizgiye bağlı: `/tr/*` çıplak `/tr`'yi yakalamaz ve Cloudflare
+# orada 404 döndürür. Search Console 2026-09-03'te bu adresi "Bulunamadı"
+# olarak raporladı. Kaldırılan maliyet kökteki 302 sıçramasıydı — her
+# ziyaretçi onu girişte ödüyordu; bu satır yalnızca eski bir bağlantıya
+# tıklayanı ilgilendirir, kökü hiç görmez.
+/tr      /          301
