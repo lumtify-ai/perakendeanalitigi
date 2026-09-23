@@ -245,6 +245,34 @@ def _kirlet(
     return satis, stok
 
 
+def talep_dunyasi(
+    rng: np.random.Generator, magazalar: pd.DataFrame, urunler: pd.DataFrame
+) -> dict:
+    """Çeşidi ve beklenen talebi kurar; simülasyonun ilk rastgele adımları.
+
+    Vakalar bu fonksiyonu tohumdan yeniden çağırıp simülasyonun gördüğü
+    dünyanın aynısını elde eder. Çağrı sırası değişirse v2 değişir.
+    """
+    cesit = cesit_ata(rng, magazalar, urunler)
+    cesit_urun = urunler.set_index("urun_id").loc[cesit["urun_id"]]
+    cesit_magaza = magazalar.set_index("magaza_id").loc[cesit["magaza_id"]]
+    plan, gercek = _beklenen_talep(rng, magazalar, cesit_urun, cesit_magaza)
+    return {"cesit": cesit, "cesit_urun": cesit_urun, "cesit_magaza": cesit_magaza,
+            "plan": plan, "gercek": gercek}
+
+
+def dunya_yeniden_kur():
+    """uret.tablolari_uret ile aynı tohum sırası; simülasyonu koşmadan."""
+    from .magaza import magazalari_uret
+    from .takvim import takvim_uret
+    from .urun import urunleri_uret
+
+    rng = np.random.default_rng(sabitler.TOHUM)
+    magazalar = magazalari_uret(rng)
+    urunler = urunleri_uret(rng)
+    return magazalar, urunler, takvim_uret(), talep_dunyasi(rng, magazalar, urunler)
+
+
 def simule_et(
     rng: np.random.Generator,
     magazalar: pd.DataFrame,
@@ -252,17 +280,14 @@ def simule_et(
     takvim: pd.DataFrame,
 ) -> dict[str, pd.DataFrame]:
     """Günlük döngüde talebi üretip stok kısıtı altında satışa çevirir."""
-    cesit = cesit_ata(rng, magazalar, urunler)
-    cesit_urun = urunler.set_index("urun_id").loc[cesit["urun_id"]]
-    cesit_magaza = magazalar.set_index("magaza_id").loc[cesit["magaza_id"]]
+    d = talep_dunyasi(rng, magazalar, urunler)
+    cesit, cesit_urun, cesit_magaza = d["cesit"], d["cesit_urun"], d["cesit_magaza"]
+    plan_sezon, talep_sezon = d["plan"], d["gercek"]
 
     magaza_id = cesit["magaza_id"].to_numpy()
     urun_id = cesit["urun_id"].to_numpy()
     liste_fiyati = cesit_urun["liste_fiyati"].to_numpy()
 
-    plan_sezon, talep_sezon = _beklenen_talep(
-        rng, magazalar, cesit_urun, cesit_magaza
-    )
     # İkmal hedefi PLAN talebinden kurulur, gerçek talepten değil
     hedef_sezon = {
         sezon: np.rint(plan * 7 * IKMAL_HEDEF_HAFTA).astype(np.int64)
