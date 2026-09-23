@@ -1,0 +1,20 @@
+[project]
+name = "replenishment"
+version = "0.1.0"
+description = "Depodan magazaya replenishment vakasi: kural tabanli ve LightGBM"
+requires-python = ">=3.11"
+dependencies = ["duckdb>=1.0", "pandas>=2.0", "numpy>=1.26", "lightgbm>=4.3"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+include = ["replenishment*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+markers = ["veri: gerçek v2 verisi gerektirir (yavaş)"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
