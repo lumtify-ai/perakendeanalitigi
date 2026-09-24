@@ -94,6 +94,42 @@ def test_ozel_gun_katsayisi_gelecekteki_tatili_yoksayar(mini_dunya):
     assert katsayilar == {}
 
 
+def test_ozel_gun_katsayisi_pencere_bit_gununu_asmaz(mini_dunya):
+    d = mini_dunya
+    tatil = np.zeros(365, dtype=bool)
+    h = 200
+    tatil[h] = True
+    d = dataclasses.replace(d, tatil=tatil)
+    satis = np.zeros((365, len(d.hucre_urun)), dtype=np.int32)
+    bit_gunu = 205  # h'nin +14 penceresi (214'e kadar) bit_gunu'nü aşar
+
+    haftanin_gunu = np.arange(365) % 7
+    pencere_tum = np.arange(max(h - 14, 0), min(h + 14, 364) + 1)
+    aday_tum = pencere_tum[(haftanin_gunu[pencere_tum] == haftanin_gunu[h]) & ~tatil[pencere_tum]]
+    aday_gecmis = aday_tum[aday_tum < bit_gunu]
+    aday_gelecek = aday_tum[aday_tum >= bit_gunu]
+    assert aday_gecmis.size > 0 and aday_gelecek.size > 0  # senaryo geçerli
+
+    satis[aday_gecmis, 0] = 10
+    satis[aday_gelecek, 0] = 1000     # sızarsa katsayıyı çarpıcı şekilde değiştirir
+    satis[h, 0] = 40
+
+    katsayilar = ihtiyac.ozel_gun_katsayilari(satis, d, bit_gunu=bit_gunu)
+    assert abs(katsayilar["Üst Giyim"] - 4.0) < 1e-9   # yalnız geçmiş günler paydada: 40/10
+
+
+def test_ozel_gun_katsayisi_pencere_bossa_kategori_yok(mini_dunya):
+    d = mini_dunya
+    tatil = np.zeros(365, dtype=bool)
+    h = 5
+    tatil[h] = True
+    d = dataclasses.replace(d, tatil=tatil)
+    satis = np.zeros((365, len(d.hucre_urun)), dtype=np.int32)
+    satis[h, 0] = 999
+    katsayilar = ihtiyac.ozel_gun_katsayilari(satis, d, bit_gunu=6)
+    assert katsayilar == {}       # bit_gunu'nde kırpılan pencerede karşılaştırma günü yok
+
+
 def test_sabit_ailesi_degeri_sabit_dondurur(mini_dunya):
     d = mini_dunya
     satis = np.zeros((365, len(d.hucre_urun)), dtype=np.int32)

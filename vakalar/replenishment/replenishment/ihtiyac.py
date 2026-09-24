@@ -55,14 +55,16 @@ def ozel_gun_katsayilari(satis: np.ndarray, dunya: Dunya, bit_gunu: int) -> dict
     """ust_kategori → katsayı. Geçmişteki (gün < bit_gunu) her tatil günü h için:
     kategori satışı(h) / aynı haftanın gününe denk gelen, h'nin ±14 günü
     içindeki tatil olmayan günlerin ortalama kategori satışı. Katsayı bu
-    oranların ortalaması."""
+    oranların ortalaması. Karşılaştırma penceresi de bit_gunu'nde kırpılır
+    (gün < bit_gunu) — h'ye yakın bir tatilin +14 penceresi bit_gunu'nü
+    aşarsa, henüz gerçekleşmemiş günler paydaya sızmaz."""
     kategoriler, kat_gunluk = _kategori_gunluk(satis, dunya)
     gun_sayisi = kat_gunluk.shape[0]
     haftanin_gunu = np.arange(gun_sayisi) % 7
 
     oranlar: dict[str, list] = {kat: [] for kat in kategoriler}
     for h in np.flatnonzero(dunya.tatil[:bit_gunu]):
-        pencere = np.arange(max(h - 14, 0), min(h + 14, gun_sayisi - 1) + 1)
+        pencere = np.arange(max(h - 14, 0), min(h + 14, bit_gunu - 1, gun_sayisi - 1) + 1)
         aday = pencere[(haftanin_gunu[pencere] == haftanin_gunu[h]) & ~dunya.tatil[pencere]]
         if aday.size == 0:
             continue
