@@ -3,7 +3,11 @@ name = "replenishment"
 version = "0.1.0"
 description = "Depodan magazaya replenishment vakasi: kural tabanli ve LightGBM"
 requires-python = ">=3.11"
-dependencies = ["duckdb>=1.0", "pandas>=2.0", "numpy>=1.26", "lightgbm>=4.3"]
+# lightgbm 4.7.0'in Windows tekerlegi Dataset.set_field icinde gecici bir
+# numpy dizisini erken serbest birakiyor (bkz. basic.py _c_float_array'in
+# donus degerinin `_` ile atilmasi) ve egitimde "access violation" ile
+# cokuyor; 4.6 bandi henuz dogrulanmadi, bu yuzden ust sinir < 4.6.
+dependencies = ["duckdb>=1.0", "pandas>=2.0", "numpy>=1.26", "lightgbm>=4.3,<4.6"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
