@@ -22,21 +22,27 @@ from . import sabitler
 
 @dataclass
 class Durum:
-    stok: np.ndarray                 # int64[H]
-    iade_kuyrugu: list                # son IADE_GECIKME günün satışları (en eski başta)
-    fifo: list                        # hücre başına deque[[gelis_gunu, adet]]; yalnız GÖNDERİLEN mal
-    gonderilen_satis_gunleri: list    # (hucre, gelis_gunu, satis_gunu, adet) kayıtları
+    stok: np.ndarray                       # int64[H]
+    iade_kuyrugu: list[np.ndarray]         # son IADE_GECIKME günün satışları (en eski başta)
+    fifo: list[deque]                      # hücre başına deque[[gelis_gunu, adet]]; yalnız GÖNDERİLEN mal
+    gonderilen_satis_gunleri: list          # (hucre, gelis_gunu, satis_gunu, adet) kayıtları
     stoklu_talepli_gun: int = 0
     talepli_gun: int = 0
 
 
 def baslangic_durumu(stok: np.ndarray, son_satislar: list) -> Durum:
-    """`son_satislar` (en eski başta) iade kuyruğunu önceden doldurur."""
+    """`son_satislar` (en eski başta) iade kuyruğunu önceden doldurur.
+
+    `son_satislar` IADE_GECIKME'den uzunsa yalnızca son IADE_GECIKME giriş
+    tutulur (en eskisi atılır) — kuyruk her zaman "son IADE_GECIKME günün
+    satışları" değişmezini korur.
+    """
     stok_kopya = np.array(stok, dtype=np.int64, copy=True)
     H = stok_kopya.shape[0]
+    kirpilmis = son_satislar[-sabitler.IADE_GECIKME:] if len(son_satislar) > sabitler.IADE_GECIKME else son_satislar
     return Durum(
         stok=stok_kopya,
-        iade_kuyrugu=[np.array(s, dtype=np.int64, copy=True) for s in son_satislar],
+        iade_kuyrugu=[np.array(s, dtype=np.int64, copy=True) for s in kirpilmis],
         fifo=[deque() for _ in range(H)],
         gonderilen_satis_gunleri=[],
     )
@@ -102,7 +108,7 @@ def gunu_isle(
 
     # 5) iade kuyruğu: son IADE_GECIKME günün satışı, en eski başta.
     durum.iade_kuyrugu.append(satis.astype(np.int64).copy())
-    if len(durum.iade_kuyrugu) > sabitler.IADE_GECIKME:
+    while len(durum.iade_kuyrugu) > sabitler.IADE_GECIKME:
         durum.iade_kuyrugu.pop(0)
 
     return satis, kayip
