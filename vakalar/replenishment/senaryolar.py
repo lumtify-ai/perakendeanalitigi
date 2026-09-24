@@ -23,11 +23,13 @@ from datetime import date
 from pathlib import Path
 
 from replenishment import sabitler
-from replenishment.kos import _dosya_adi, senaryo_anahtari
+from replenishment.kos import _TABAN_AILESI, _dosya_adi, senaryo_anahtari
 
 KOLI_SECENEKLERI = ("A", "B", "C")
 YONTEM_SECENEKLERI = ("kural", "tahmin_taban", "tahmin")
-_SS_AILESI = "ros"  # kural ve tahmin_taban sütunları için (tahmin_taban zaten yalnız ros'la koşuldu)
+# kos._TABAN_AILESI'den DOĞRUDAN import edilir (yeniden bildirilmez) —
+# tahmin_taban zaten yalnız bu aileyle koşuldu; kural sütunu adil kıyas
+# için aynı aileyle eşlenir, ikisi drift edemez.
 
 PARAMETRELER = [
     {"ad": "alim", "etiket": "Depo alımı (planın yüzdesi)", "degerler": [60, 80, 100]},
@@ -64,7 +66,7 @@ def _surum() -> str:
 
 
 def _senaryo_dict(alim: int, yontem: str, koli: str) -> dict:
-    ss = _SS_AILESI if yontem in ("kural", "tahmin_taban") else None
+    ss = _TABAN_AILESI if yontem in ("kural", "tahmin_taban") else None
     d = {"yontem": yontem, "alim": alim / 100, "koli": koli}
     if ss is not None:
         d["ss"] = ss

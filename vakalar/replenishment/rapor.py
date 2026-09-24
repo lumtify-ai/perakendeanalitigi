@@ -25,7 +25,7 @@ from pathlib import Path
 
 from replenishment import kaynak, sabitler
 from replenishment.dagitim import KoliKurali, dagit
-from replenishment.depo import Depo, depo_kur
+from replenishment.depo import Depo, depo_kur, tedarik_et
 from replenishment.dunya import dunya_kur
 from replenishment.gecmis import yol_baslangici
 from replenishment.ihtiyac import GuvenlikStoku, bedene_bol, magaza_beden_paylari
@@ -203,23 +203,40 @@ def _bolum_kalibrasyon(kal: dict) -> None:
     print()
 
 
-_YOL0_TABLO_METRIKLERI = (
-    "bulunabilirlik", "kayip_orani", "satisa_donme_gun", "magaza_stok_son",
-    "toplama_maliyeti_tl", "acik_doluluk", "beden_sapmasi", "str",
+# `olcutler.hesapla`'nın döndürdüğü BÜTÜN anahtarlar (bkz. o dosyanın
+# return sözlüğü) — hiçbiri atlanmaz (rapor.py tek kaynak: yazıda geçen
+# hiçbir sayı bu listenin dışında kalamaz). 45 satır × 20 sütun tek satırlık
+# tablo olarak okunmaz; bu yüzden senaryo başına uzun biçim (long-form)
+# kullanılır, kol (arm) başına gruplanır. Kırık-çift üçlüsü (ruling 3)
+# `kirik_cift`'in HEMEN yanında basılır — ham sayı hiçbir yerde yalnız
+# görünmez.
+_YOL0_GRUPLARI = (
+    ("talep/satış", ("talep_adet", "satis_adet", "kayip_adet", "kayip_orani")),
+    ("servis", ("bulunabilirlik", "satisa_donme_gun", "str")),
+    ("sevkiyat", ("gonderilen_adet", "satilmayan_gonderilen", "koli_sayisi",
+                  "acik_adet", "depo_kalan")),
+    ("maliyet/doluluk", ("toplama_maliyeti_tl", "acik_doluluk")),
+    ("stok/dağılım", ("magaza_stok_son", "beden_sapmasi")),
+    ("kırık çift (dürüst)", ("kirik_cift", "stoklu_cift_sayisi", "bos_cift_sayisi",
+                             "kirik_cift_pay_yuzde")),
 )
 
 
 def _bolum_yol0(veri_yol0: dict) -> None:
     print("=== YOL 0 ===")
-    print("(kirik_cift bu tabloda yok — tek başına yanıltıcı, bkz. modül "
-          "docstring'i; dürüst hali yalnız ANLATIM'daki 27 kadran satırında var)")
-    baslik = "senaryo".ljust(28) + "".join(m.rjust(16) for m in _YOL0_TABLO_METRIKLERI)
-    print(baslik)
+    print("(bütün ölçütler, senaryo başına uzun biçim; kırık çift hiçbir "
+          "zaman stoklu/boş çift sayısı ve payı olmadan tek başına basılmaz)")
+    onceki_yontem = None
     for senaryo in senaryolar():
+        if senaryo["yontem"] != onceki_yontem:
+            onceki_yontem = senaryo["yontem"]
+            print(f"-- kol: {onceki_yontem} --")
         anahtar = senaryo_anahtari(senaryo)
         o = veri_yol0[anahtar]
-        satir = anahtar.ljust(28) + "".join(f"{o[m]:16.1f}" for m in _YOL0_TABLO_METRIKLERI)
-        print(satir)
+        print(f"  {anahtar}")
+        for grup_adi, alanlar in _YOL0_GRUPLARI:
+            degerler = " · ".join(f"{a}={o[a]:,.1f}" for a in alanlar)
+            print(f"    {grup_adi}: {degerler}")
     print()
 
 
@@ -268,52 +285,136 @@ def _bolum_yirmi_yol(veri_yollari: dict, kal: dict) -> None:
     print()
 
 
-def _hafta1_asim_ornegi(dunya, con, kal: Kalibrasyon) -> None:
-    """3. yazı örneği: yol 0, alım %60, ilk karar haftasında depo
-    talebinin en çok aştığı option'ın mağaza başına ihtiyacı ve üç
-    öncelikle (cover/ihtiyac/esit) giden adetler. Yalnız BİR gün
-    (ilk karar günü) oynatılır — tam sezon koşulmaz."""
+def _haftalik_detaylar(dunya, con, kal: Kalibrasyon, alim: float, koli_kurali, oncelik: str = "cover") -> list[dict]:
+    """Referans senaryoyu (yol 0, kural/varsayılan ss) `oyun.oyna` ile BİREBİR
+    aynı adımlarla hafta hafta oynatır, ama her karar gününde o haftanın
+    kararını üreten anlık görüntüyü de (ihtiyaç `n`, öngörü, stok, depo —
+    dağıtımdan HEMEN önceki hâl) saklar; gerçek `sevk` ile devam eder (yani
+    17. haftaya kadar gerçek yörüngeden sapma yok). Bu, tek bir günü değil,
+    tam sezonu oynatıp hangi haftada açık kapasitenin gerçekten dolduğunu
+    bulabilmek için gerekli — `oyun.oyna` bu ara durumları dışarı vermiyor."""
     talep, gecmis_satis, baslangic = yol_baslangici(dunya, 0, con)
     paylar = magaza_beden_paylari(gecmis_satis, dunya, dunya.gun(sabitler.OYUN_BAS))
     politika = KuralPolitikasi(kal.ss[kal.varsayilan_ss], kal.katsayilar)
+    depo = depo_kur(dunya, alim, sabitler.OYUN_BAS, sabitler.OYUN_BIT)
 
     bas_gun = dunya.gun(sabitler.OYUN_BAS)
+    bit_gun = dunya.gun(sabitler.OYUN_BIT)
+    karar_gunleri = [bas_gun + 7 * k for k in range(sabitler.KARAR_SAYISI)]
+    karar_sirasi = {g: k for k, g in enumerate(karar_gunleri)}
+
     durum = copy.deepcopy(baslangic)
-    rng = np.random.default_rng(sabitler.IADE_TOHUM)
-    satis, _kayip = gunu_isle(durum, bas_gun, talep[bas_gun], None, None, rng)
     gozlenen = gecmis_satis.copy()
-    gozlenen[bas_gun] = satis
-    gorulen = gozlenen.copy()
-    gorulen[bas_gun + 1:] = 0
+    rng = np.random.default_rng(sabitler.IADE_TOHUM)
+    bekleyen_sevk = None
+    sonuc: list[dict] = []
 
-    hedef, ongoru = politika.hedef(gorulen, dunya, bas_gun, durum.stok, durum.stoklu_gunluk)
-    n = bedene_bol(hedef, paylar, durum.stok, dunya)
+    for g in range(bas_gun, bit_gun + 1):
+        gelen = bekleyen_sevk
+        bekleyen_sevk = None
+        satis, _kayip = gunu_isle(durum, g, talep[g], gelen, None, rng)
+        gozlenen[g] = satis
 
-    depo = depo_kur(dunya, 0.60, sabitler.OYUN_BAS, sabitler.OYUN_BIT)
+        k = karar_sirasi.get(g)
+        if k is None:
+            continue
+        if k % 2 == 0:
+            tedarik_et(depo, dunya, g)
+
+        gorulen = gozlenen.copy()
+        gorulen[g + 1:] = 0
+        hedef, ongoru = politika.hedef(gorulen, dunya, g, durum.stok, durum.stoklu_gunluk)
+        n = bedene_bol(hedef, paylar, durum.stok, dunya)
+
+        depo_once = Depo(koli=depo.koli.copy(), acik=depo.acik.copy())
+        stok_once = durum.stok.copy()
+
+        sevk = dagit(n, ongoru, durum.stok, depo, dunya, koli_kurali, kal.acik_kapasite, oncelik)
+        bekleyen_sevk = sevk.gelen
+
+        sonuc.append({
+            "hafta": k, "gun": g, "n": n, "ongoru": ongoru,
+            "stok": stok_once, "depo": depo_once,
+            "acik_adet": float(sevk.acik_adet),
+            "acik_kapasite_doldu": sevk.acik_adet >= kal.acik_kapasite,
+        })
+    return sonuc
+
+
+def _en_cok_talep_gören_option(dunya, n) -> tuple:
+    """(option_adi, oc_indeksleri) — o haftanın toplam mağaza ihtiyacı en
+    yüksek option'ı."""
     O = len(dunya.optionlar)
     ihtiyac_opt = np.zeros(O, dtype=np.int64)
     np.add.at(ihtiyac_opt, dunya.oc_opt, n.sum(axis=1))
-    # "depo talebinin en çok aştığı option": ilk karar gününde toplam mağaza
-    # ihtiyacı en yüksek option — depo bu option için en çok karar vermek
-    # zorunda kalıyor, birden çok mağaza aynı kısıtlı kaynağa talip oluyor.
     en_asan = int(np.argmax(ihtiyac_opt))
-    option_adi = dunya.optionlar[en_asan]
-    depo_opt_toplami = int(depo.koli[en_asan] * sabitler.KOLI_ADET + depo.acik[en_asan].sum())
+    return dunya.optionlar[en_asan], np.where(dunya.oc_opt == en_asan)[0]
 
-    oc_secili = np.where(dunya.oc_opt == en_asan)[0]
-    print(f"örnek: yol 0, alım %60, ilk karar günü, en çok talep gören option {option_adi}")
-    print(f"  toplam mağaza ihtiyacı {int(ihtiyac_opt[en_asan])} adet · depoda {depo_opt_toplami} adet")
-    for oc in oc_secili:
-        print(f"  mağaza {dunya.oc_magaza[oc]}: ihtiyaç {int(n[oc].sum())} adet")
 
+def _oncelik_karsilastir(dunya, kal: Kalibrasyon, koli_kurali, hafta: dict, oc_secili) -> None:
     for oncelik in ("cover", "ihtiyac", "esit"):
-        depo_kopya = Depo(koli=depo.koli.copy(), acik=depo.acik.copy())
-        sevk = dagit(n, ongoru, durum.stok, depo_kopya, dunya, kal.koli["C"],
-                     kal.acik_kapasite, oncelik)
+        depo_kopya = Depo(koli=hafta["depo"].koli.copy(), acik=hafta["depo"].acik.copy())
+        sevk = dagit(hafta["n"], hafta["ongoru"], hafta["stok"], depo_kopya, dunya,
+                     koli_kurali, kal.acik_kapasite, oncelik)
         print(f"  öncelik={oncelik}:")
         for oc in oc_secili:
             gonderilen = int(sevk.gelen[dunya.oc_hucre[oc]].sum())
             print(f"    mağaza {dunya.oc_magaza[oc]}: {gonderilen} adet gönderildi")
+
+
+def _capraz_oncelik_ornekleri(dunya, con, kal: Kalibrasyon) -> None:
+    """3. yazı için iki örnek (yol 0, alım %60, kural/varsayılan ss, koli C).
+
+    Örnek 1 (ilk karar günü): brief'in "depo talebinin en çok aştığı
+    option"u KELİMESİ KELİMESİNE gerçekleşmiyor — bir sezonluk depo alımı
+    tek günün ihtiyacını hiçbir zaman aşmaz (depo daima günlük ihtiyaçtan
+    kat kat büyük). Bunun yerine o gün en çok mağaza talebi toplayan
+    option gösterilir; bu haftada üç öncelik kuralı ÖZDEŞ sonuç verir
+    çünkü açık kapasite ilk haftada henüz bağlayıcı değildir.
+
+    Örnek 2: açık kapasitenin GERÇEKTEN dolduğu ilk haftayı arar (cover
+    önceliğiyle referans yörünge boyunca) ve orada üç önceliğin farklı
+    mağazalara farklı adet gönderdiğini gösterir — 3. yazının ihtiyaç
+    duyduğu asıl örnek budur. Hiçbir hafta dolmazsa uydurma bir örnek
+    ÜRETİLMEZ; en yakın hafta adıyla bildirilir."""
+    koli_kurali = kal.koli["C"]
+    haftalar = _haftalik_detaylar(dunya, con, kal, 0.60, koli_kurali, oncelik="cover")
+
+    ilk = haftalar[0]
+    option_adi, oc_secili = _en_cok_talep_gören_option(dunya, ilk["n"])
+    print("örnek 1: yol 0, alım %60, İLK karar günü. NOT: bu, brief'in tarif "
+          "ettiği 'depo talebini en çok aşan option' DEĞİLDİR — bir sezonluk "
+          "depo alımı hiçbir zaman tek günün ihtiyacını aşmaz; burada gösterilen "
+          f"o gün en çok mağaza talebi toplayan option: {option_adi}.")
+    print(f"  toplam mağaza ihtiyacı {int(ilk['n'][oc_secili].sum())} adet")
+    for oc in oc_secili:
+        print(f"  mağaza {dunya.oc_magaza[oc]}: ihtiyaç {int(ilk['n'][oc].sum())} adet")
+    _oncelik_karsilastir(dunya, kal, koli_kurali, ilk, oc_secili)
+    print("  not: üç öncelik burada özdeş sonuç verir — ilk haftada açık "
+          "kapasite henüz bağlayıcı değil (bkz. örnek 2).")
+
+    baglayan = next((h for h in haftalar if h["acik_kapasite_doldu"]), None)
+    if baglayan is None:
+        en_yakin = max(haftalar, key=lambda h: h["acik_adet"])
+        oran = en_yakin["acik_adet"] / kal.acik_kapasite * 100
+        print(f"\nörnek 2: referans senaryoda (yol 0, kural, alım %60, koli C, "
+              f"öncelik=cover) 17 karar haftasının HİÇBİRİNDE açık kapasite "
+              f"dolmadı — üç öncelik kuralı bu senaryoda sezon boyunca aynı "
+              f"sonucu üretir. En yakın hafta: {en_yakin['hafta'] + 1}. karar, "
+              f"{en_yakin['acik_adet']:.0f}/{kal.acik_kapasite} adet "
+              f"(kapasitenin %{oran:.1f}'i) — bu, uydurulmuş bir örnek DEĞİL, "
+              f"en yakın gerçek haftadır.")
+        return
+
+    option_adi2, oc_secili2 = _en_cok_talep_gören_option(dunya, baglayan["n"])
+    print(f"\nörnek 2: açık kapasitenin GERÇEKTEN dolduğu ilk hafta — "
+          f"{baglayan['hafta'] + 1}. karar (yol 0, kural, alım %60, koli C): "
+          f"cover önceliğiyle {baglayan['acik_adet']:.0f}/{kal.acik_kapasite} "
+          f"adet (kapasite doldu). O haftada en çok mağaza talebi toplayan "
+          f"option: {option_adi2}.")
+    for oc in oc_secili2:
+        print(f"  mağaza {dunya.oc_magaza[oc]}: ihtiyaç {int(baglayan['n'][oc].sum())} adet")
+    _oncelik_karsilastir(dunya, kal, koli_kurali, baglayan, oc_secili2)
 
 
 def _bolum_anlatim(dunya, con, kal_json: dict) -> None:
@@ -343,7 +444,7 @@ def _bolum_anlatim(dunya, con, kal_json: dict) -> None:
         print(f"  ×{oran}: bulunabilirlik %{olcut['bulunabilirlik']:.1f} · "
               f"kayıp %{olcut['kayip_orani']:.1f}")
 
-    _hafta1_asim_ornegi(dunya, con, kal)
+    _capraz_oncelik_ornekleri(dunya, con, kal)
     print()
 
 
