@@ -138,18 +138,22 @@ class Tahminci:
     ilk_karar_gunu: int  # eğitimde kullanılan ilk pazartesi (2025-02-03 → gün 33)
 
     def tahmin_et(self, satis: np.ndarray, dunya: Dunya, karar_gunu: int) -> np.ndarray:
+        """Eğitim örneği yoksa veya hedefin tamamı sıfırsa (LightGBM'in
+        'poisson' objective'i bunu `LightGBMError("sum of labels is
+        zero")` ile reddeder) sabit 0 döner — bu iki durum açıkça
+        kontrol edilir, genel bir `except` ile *herhangi* bir eğitim
+        hatası (özellik/dtype uyuşmazlığı, bellek hatası, LightGBM API
+        değişikliği) yutulmaz; öyle bir hata gerçek bir istisna olarak
+        yükselir."""
         OC = dunya.oc_hucre.shape[0]
         X_egit, y_egit = egitim_seti(satis, dunya, karar_gunu, self.ilk_karar_gunu)
 
-        if len(y_egit) == 0:
+        if len(y_egit) == 0 or y_egit.sum() == 0:
             return np.zeros(OC, dtype=float)
 
         X_tahmin = ozellik_tablosu(satis, dunya, karar_gunu)
-        try:
-            model = _model_egit(self.parametreler, X_egit, y_egit)
-            tahmin = model.predict(X_tahmin)
-        except Exception:
-            return np.zeros(OC, dtype=float)
+        model = _model_egit(self.parametreler, X_egit, y_egit)
+        tahmin = model.predict(X_tahmin)
 
         tahmin = np.asarray(tahmin, dtype=float)
         tahmin = np.nan_to_num(tahmin, nan=0.0, posinf=0.0, neginf=0.0)
