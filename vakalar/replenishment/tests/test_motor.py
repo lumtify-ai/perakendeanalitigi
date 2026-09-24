@@ -55,3 +55,22 @@ def test_uzun_gecmisle_kurulunca_kuyruk_yediye_kirpilir_ve_tam_yedi_gun_once_don
 
     assert int(d.stok[0]) == stok_once + beklenen_iade
     assert len(d.iade_kuyrugu) == sabitler.IADE_GECIKME
+
+
+def test_stoklu_gunluk_satistan_once_yazilir():
+    d = baslangic_durumu(np.array([2, 0]), [], gun_sayisi=5)
+    gunu_isle(d, 1, np.array([5, 0]), None, np.zeros(2, int), None)
+    # 0. hücre gün başında stokluydu (satış onu boşaltsa da), 1. değildi
+    assert d.stoklu_gunluk[1].tolist() == [True, False]
+    assert d.stok.tolist() == [0, 0]
+
+
+def test_gelen_mal_ayni_gun_stoklu_sayilir():
+    d = baslangic_durumu(np.array([0]), [], gun_sayisi=5)
+    gunu_isle(d, 2, np.array([1]), np.array([3]), np.zeros(1, int), None)
+    assert bool(d.stoklu_gunluk[2, 0]) is True
+
+
+def test_oyun_oncesi_gunler_stoklu_varsayilir():
+    d = baslangic_durumu(np.array([0]), [], gun_sayisi=5)
+    assert d.stoklu_gunluk.all()

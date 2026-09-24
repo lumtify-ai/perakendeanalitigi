@@ -24,6 +24,15 @@ def _oc_gunluk_satis(satis: np.ndarray, dunya: Dunya) -> np.ndarray:
     return satis[:, dunya.oc_hucre].sum(axis=2).astype(float)
 
 
+def stoklu_gun(stoklu_gunluk: np.ndarray, dunya: Dunya, karar_gunu: int, gun: int) -> np.ndarray:
+    """float[OC]: karar_gunu dahil geriye `gun` gün içinde, option-mağaza'nın
+    BEŞ bedeninden en az biri stoklu olan gün sayısı. Veri başından önceye
+    taşan kısım sayılmaz."""
+    oc_stoklu_gunluk = stoklu_gunluk[:, dunya.oc_hucre].any(axis=2)  # bool[365, OC]
+    bas = max(karar_gunu - gun + 1, 0)
+    return oc_stoklu_gunluk[bas : karar_gunu + 1].sum(axis=0).astype(float)
+
+
 def haftalik(satis: np.ndarray, dunya: Dunya, karar_gunu: int, hafta: int) -> np.ndarray:
     """float[hafta, OC] — karar_gunu dahil geriye doğru `hafta` tane 7 günlük
     (salı..pazartesi) blokta option-mağaza satış toplamı; en yeni son satırda.
@@ -96,9 +105,18 @@ class GuvenlikStoku:
     deger: float = 0.0   # sabit: adet; ros: gün; istatistik: kullanılmaz (Z=1.65)
 
 
-def guvenlik_stoku(ss: GuvenlikStoku, satis: np.ndarray, dunya: Dunya, karar_gunu: int) -> np.ndarray:
+def guvenlik_stoku(
+    ss: GuvenlikStoku,
+    satis: np.ndarray,
+    dunya: Dunya,
+    karar_gunu: int,
+    stoklu_gunluk: np.ndarray | None = None,
+) -> np.ndarray:
     """sabit: deger. ros: son 28 gün satışı/28 × deger. istatistik:
-    1.65 × std(son 8 haftalık toplam, ddof=1) × sqrt(1)."""
+    1.65 × std(son 8 haftalık toplam, ddof=1) × sqrt(1).
+
+    `stoklu_gunluk` verilirse ros ailesinde 28 yerine son 28 günün stoklu
+    gün sayısına bölünür (sansürlü talep düzeltmesi); stoklu gün 0 ise 0."""
     OC = dunya.oc_hucre.shape[0]
 
     if ss.aile == "sabit":
@@ -110,6 +128,11 @@ def guvenlik_stoku(ss: GuvenlikStoku, satis: np.ndarray, dunya: Dunya, karar_gun
             return np.zeros(OC, dtype=float)
         oc_gunluk = _oc_gunluk_satis(satis, dunya)
         toplam = oc_gunluk[bas : karar_gunu + 1].sum(axis=0)
+        if stoklu_gunluk is not None:
+            gunler = stoklu_gun(stoklu_gunluk, dunya, karar_gunu, 28)
+            hiz = np.zeros_like(toplam)
+            np.divide(toplam, gunler, out=hiz, where=gunler > 0)
+            return hiz * ss.deger
         return toplam / 28.0 * ss.deger
 
     if ss.aile == "istatistik":
@@ -121,15 +144,29 @@ def guvenlik_stoku(ss: GuvenlikStoku, satis: np.ndarray, dunya: Dunya, karar_gun
 
 
 def kural_ongorusu(
-    satis: np.ndarray, dunya: Dunya, karar_gunu: int, katsayilar: dict[str, float]
+    satis: np.ndarray,
+    dunya: Dunya,
+    karar_gunu: int,
+    katsayilar: dict[str, float],
+    stoklu_gunluk: np.ndarray | None = None,
 ) -> np.ndarray:
-    """son 7 gün satışı × hafta_katsayisi(kategori katsayısıyla)."""
+    """son 7 gün satışı × hafta_katsayisi(kategori katsayısıyla).
+
+    `stoklu_gunluk` verilirse: (son 7 gün satışı / son 7 günün stoklu gün
+    sayısı) × 7 × hafta_katsayisi — sansürlü talep düzeltmesi. Stoklu gün 0
+    ise 0 döner (satış da 0'dır). Verilmezse takvim gününe bölme korunur."""
     oc_gunluk = _oc_gunluk_satis(satis, dunya)
     bas = karar_gunu - 6
     if bas < 0:
         son7 = np.zeros(oc_gunluk.shape[1], dtype=float)
     else:
         son7 = oc_gunluk[bas : karar_gunu + 1].sum(axis=0)
+
+    if stoklu_gunluk is not None:
+        gunler = stoklu_gun(stoklu_gunluk, dunya, karar_gunu, 7)
+        hiz = np.zeros_like(son7)
+        np.divide(son7, gunler, out=hiz, where=gunler > 0)
+        son7 = hiz * 7.0
 
     kat_katsayi = {
         kat: hafta_katsayisi(dunya, karar_gunu, katsayilar.get(kat, 1.0))

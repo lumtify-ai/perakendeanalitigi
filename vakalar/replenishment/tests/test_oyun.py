@@ -165,3 +165,24 @@ def test_kural_hedefi_safety_stock_ile_ongorunun_buyugu(mini_dunya):
     assert (hedef >= ongoru).all()
     assert hedef.sum() < (ongoru + 2.0).sum()
     assert len(hedef) == OC
+
+
+def test_oyna_stoklu_gunlugu_politikaya_gecirir(mini_dunya):
+    """Politika stoklu_gunluk argümanını gerçekten alır ve oyunun kendi
+    ürettiği bayrakları görür (hepsi True olan başlangıç değil)."""
+    gorulen = []
+
+    class _Casus:
+        def hedef(self, gozlenen, dunya, karar_gunu, stok, stoklu_gunluk):
+            gorulen.append(stoklu_gunluk.copy())
+            OC = len(dunya.oc_hucre)
+            return np.zeros(OC), np.zeros(OC)
+
+    talep, gecmis, _, ayar, paylar = _kur(mini_dunya)
+    H = len(mini_dunya.hucre_urun)
+    oyna(mini_dunya, talep, gecmis, baslangic_durumu(np.zeros(H, np.int64), []),
+         _Casus(), ayar, paylar)
+    assert len(gorulen) == 17
+    bas = mini_dunya.gun("2025-09-01")
+    # başlangıçta stok yok -> oyunun ilk günleri stoksuz işaretlenmiş olmalı
+    assert not gorulen[-1][bas:bas + 3].all()

@@ -1,6 +1,7 @@
 import dataclasses
 
 import numpy as np
+import pytest
 
 from replenishment import ihtiyac
 from replenishment.ihtiyac import GuvenlikStoku
@@ -184,3 +185,47 @@ def test_magaza_beden_paylari_satis_yoksa_zincir_payi(mini_dunya):
     satis = np.zeros((365, len(d.hucre_urun)), dtype=np.int32)
     paylar = ihtiyac.magaza_beden_paylari(satis, d, bit_gunu=200)
     assert np.allclose(paylar[0], d.zincir_beden_payi)
+
+
+def test_stoklu_gune_bolme_hizi_yukseltir(mini_dunya):
+    H = len(mini_dunya.hucre_urun)
+    k = mini_dunya.gun("2025-09-01")
+    satis = np.zeros((365, H), np.int32)
+    # ilk OC: son 7 günün yalnız 2 gününde stoklu, o iki günde 3'er adet sattı
+    for hucre in mini_dunya.oc_hucre[0]:
+        satis[k - 1, hucre] = 0
+    satis[k - 1, mini_dunya.oc_hucre[0][2]] = 3
+    satis[k, mini_dunya.oc_hucre[0][2]] = 3
+    stoklu = np.zeros((365, H), bool)
+    stoklu[k - 1] = True
+    stoklu[k] = True
+    kat = {"Üst Giyim": 1.0, "Alt Giyim": 1.0, "Dış Giyim": 1.0}
+    duz = ihtiyac.kural_ongorusu(satis, mini_dunya, k, kat)
+    duzeltilmis = ihtiyac.kural_ongorusu(satis, mini_dunya, k, kat, stoklu)
+    assert duz[0] == pytest.approx(6.0)          # 6 adet, takvim haftası
+    assert duzeltilmis[0] == pytest.approx(21.0)  # 6/2 gün x 7 gün
+    assert duzeltilmis[1] == pytest.approx(0.0)   # satmayan OC yine 0
+
+
+def test_stoklu_gun_sifirken_sifir_doner(mini_dunya):
+    H = len(mini_dunya.hucre_urun)
+    k = mini_dunya.gun("2025-09-01")
+    satis = np.zeros((365, H), np.int32)
+    stoklu = np.zeros((365, H), bool)
+    kat = {"Üst Giyim": 1.0, "Alt Giyim": 1.0, "Dış Giyim": 1.0}
+    o = ihtiyac.kural_ongorusu(satis, mini_dunya, k, kat, stoklu)
+    assert (o == 0).all() and not np.isnan(o).any()
+
+
+def test_ros_ailesi_stoklu_gune_bolunur(mini_dunya):
+    H = len(mini_dunya.hucre_urun)
+    k = mini_dunya.gun("2025-09-01")
+    satis = np.zeros((365, H), np.int32)
+    satis[k, mini_dunya.oc_hucre[0][2]] = 14
+    stoklu = np.zeros((365, H), bool)
+    stoklu[k - 6 : k + 1] = True          # 28 günün 7'si stoklu
+    ss = GuvenlikStoku("ros", 2)
+    duz = ihtiyac.guvenlik_stoku(ss, satis, mini_dunya, k)
+    duzeltilmis = ihtiyac.guvenlik_stoku(ss, satis, mini_dunya, k, stoklu)
+    assert duz[0] == pytest.approx(14 / 28 * 2)
+    assert duzeltilmis[0] == pytest.approx(14 / 7 * 2)

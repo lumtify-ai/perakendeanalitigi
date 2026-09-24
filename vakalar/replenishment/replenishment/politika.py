@@ -26,7 +26,12 @@ if TYPE_CHECKING:
 
 class Politika(Protocol):
     def hedef(
-        self, gozlenen: np.ndarray, dunya: Dunya, karar_gunu: int, stok: np.ndarray
+        self,
+        gozlenen: np.ndarray,
+        dunya: Dunya,
+        karar_gunu: int,
+        stok: np.ndarray,
+        stoklu_gunluk: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """(hedef_oc float[OC], ongoru_oc float[OC]). `gozlenen` yalnız
         karar_gunu dahil öncesini içerir (sonrası sıfırlanmış kopya)."""
@@ -39,10 +44,15 @@ class KuralPolitikasi:
     katsayilar: dict[str, float]  # ust_kategori → gün katsayısı
 
     def hedef(
-        self, gozlenen: np.ndarray, dunya: Dunya, karar_gunu: int, stok: np.ndarray
+        self,
+        gozlenen: np.ndarray,
+        dunya: Dunya,
+        karar_gunu: int,
+        stok: np.ndarray,
+        stoklu_gunluk: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
-        ongoru = kural_ongorusu(gozlenen, dunya, karar_gunu, self.katsayilar)
-        ss = guvenlik_stoku(self.ss, gozlenen, dunya, karar_gunu)
+        ongoru = kural_ongorusu(gozlenen, dunya, karar_gunu, self.katsayilar, stoklu_gunluk)
+        ss = guvenlik_stoku(self.ss, gozlenen, dunya, karar_gunu, stoklu_gunluk)
         # Safety stock TABANDIR, öngörünün üstüne eklenen tampon değil:
         # sahadaki karşılığı "minimum sergileme"dir — raf hiç boşalmasın
         # diye konan alt sınır. Toplarsak hedef gerçek talebin belirgin
@@ -55,7 +65,13 @@ class TahminPolitikasi:
     tahminci: "Tahminci"  # Task 8
 
     def hedef(
-        self, gozlenen: np.ndarray, dunya: Dunya, karar_gunu: int, stok: np.ndarray
+        self,
+        gozlenen: np.ndarray,
+        dunya: Dunya,
+        karar_gunu: int,
+        stok: np.ndarray,
+        stoklu_gunluk: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
+        # stoklu_gunluk yok sayılır: saf tahmin tanımı (LightGBM) değişmiyor.
         tahmin = self.tahminci.tahmin_et(gozlenen, dunya, karar_gunu)
         return tahmin, tahmin

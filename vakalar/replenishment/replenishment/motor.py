@@ -26,17 +26,22 @@ class Durum:
     iade_kuyrugu: list[np.ndarray]         # son IADE_GECIKME günün satışları (en eski başta)
     fifo: list[deque]                      # hücre başına deque[[gelis_gunu, adet]]; yalnız GÖNDERİLEN mal
     gonderilen_satis_gunleri: list          # (hucre, gelis_gunu, satis_gunu, adet) kayıtları
+    stoklu_gunluk: np.ndarray              # bool[gun_sayisi, H]; oyun öncesi günler True
     stoklu_talepli_gun: int = 0
     talepli_gun: int = 0
     toplam_gonderilen: int = 0             # bugüne kadar stoka giren gelen mal toplamı
 
 
-def baslangic_durumu(stok: np.ndarray, son_satislar: list) -> Durum:
+def baslangic_durumu(stok: np.ndarray, son_satislar: list, gun_sayisi: int = 365) -> Durum:
     """`son_satislar` (en eski başta) iade kuyruğunu önceden doldurur.
 
     `son_satislar` IADE_GECIKME'den uzunsa yalnızca son IADE_GECIKME giriş
     tutulur (en eskisi atılır) — kuyruk her zaman "son IADE_GECIKME günün
     satışları" değişmezini korur.
+
+    `stoklu_gunluk` True ile doldurulur: oyun öncesi günlerde günlük stok
+    kaydımız yok (v2 yalnız haftalık fotoğraf tutuyor), o günleri stoklu
+    saymak muhafazakâr varsayımdır — hızı olduğundan yüksek göstermez.
     """
     stok_kopya = np.array(stok, dtype=np.int64, copy=True)
     H = stok_kopya.shape[0]
@@ -46,6 +51,7 @@ def baslangic_durumu(stok: np.ndarray, son_satislar: list) -> Durum:
         iade_kuyrugu=[np.array(s, dtype=np.int64, copy=True) for s in kirpilmis],
         fifo=[deque() for _ in range(H)],
         gonderilen_satis_gunleri=[],
+        stoklu_gunluk=np.ones((gun_sayisi, H), dtype=bool),
     )
 
 
@@ -76,6 +82,11 @@ def gunu_isle(
     else:
         iade_miktari = np.zeros(H, dtype=np.int64)
     durum.stok += iade_miktari
+
+    # Sansürlü talep düzeltmesi: bulunabilirlik sayaçlarıyla aynı anda,
+    # satıştan ÖNCE (gelen ve iade eklendikten sonra) günün stoklu olup
+    # olmadığı kaydedilir.
+    durum.stoklu_gunluk[gun] = durum.stok > 0
 
     # Bulunabilirlik sayaçları: satıştan ÖNCEki stokla ölçülür.
     talepli = talep > 0

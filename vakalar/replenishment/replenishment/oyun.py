@@ -83,7 +83,7 @@ def oyna(
             gorulen = gozlenen.copy()
             gorulen[g + 1 :] = 0
 
-            hedef, ongoru = politika.hedef(gorulen, dunya, g, durum.stok)
+            hedef, ongoru = politika.hedef(gorulen, dunya, g, durum.stok, durum.stoklu_gunluk)
             n = bedene_bol(hedef, paylar, durum.stok, dunya)
             sevk = dagit(
                 n, ongoru, durum.stok, depo, dunya, ayar.kural, ayar.acik_kapasite, ayar.oncelik
