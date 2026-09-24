@@ -1,3 +1,5 @@
+import dataclasses
+
 import numpy as np
 
 from replenishment.dagitim import KoliKurali, dagit, koli_uygun
@@ -109,18 +111,61 @@ def test_koli_fazi_kisitli_koliyle_en_dusuk_covera_gider(mini_dunya_10):
     assert giden[:3] == [8, 8, 8] and sum(giden[3:]) == 0
 
 
-def test_koli_fazi_paylasilan_kapasite_bayat_girdi(mini_dunya_10):
-    # Aynı mağazanın kalan kapasitesi tam 8: bir koli gidince ikinci koli
-    # adayı artık uygun değil (kalan_kap < 8) — heap'te bayat kalmamalı.
-    d = mini_dunya_10
+def test_koli_fazi_paylasilan_kapasite_bayat_girdi(mini_dunya):
+    # mini_dunya: M1'de iki option (A, B) var (OC 0 ve 1), ikisi de tam koli
+    # ihtiyacında ve depoda bol koli var. M1'in kalan kapasitesi tam 8 (tek
+    # koliye yeter): (M1,A) sevk edilince kalan_kap sıfırlanır, (M1,B) heap'te
+    # HÂLÂ n=KOLI (tek başına A kuralını geçer) ve depo.koli[B]>0 iken salt
+    # kapasite yüzünden atlanmalı — bayat girdi paylaşılan kısıttan doğar,
+    # ihtiyacın 0'a inmesinden değil (önceki, hatalı test buradaydı: tek
+    # OC'li mini_dunya_10 kullanıyordu ve kalan_kap kontrolü kaldırılsa bile
+    # test yine geçerdi, çünkü ikinci "aday" zaten yoktu).
+    d = mini_dunya
+    d_kapasiteli = dataclasses.replace(d, kapasite=np.array([8, 1000, 1000], np.int64))
     stok = np.zeros(len(d.hucre_urun), np.int64)
+    ihtiyac = np.zeros((6, 5), int)
+    ihtiyac[0] = KOLI  # (M1, A)
+    ihtiyac[1] = KOLI  # (M1, B)
+    depo = Depo(koli=np.array([5, 5]), acik=np.zeros((2, 5), np.int64))
+    sevk = dagit(ihtiyac, np.ones(6), stok, depo, d_kapasiteli, KoliKurali("A"), acik_kapasite=0)
+    assert sevk.koli_sayisi == 1
+    assert int(sevk.gelen[d.oc_hucre[0]].sum()) == 8   # (M1, A): sevk edildi
+    assert int(sevk.gelen[d.oc_hucre[1]].sum()) == 0   # (M1, B): kapasite yüzünden atlandı
+    assert depo.koli[0] == 4 and depo.koli[1] == 5     # A'nın kolisi düştü, B'ninki durdu
+
+
+def test_acik_fazi_paylasilan_kapasite_bayat_girdi(mini_dunya):
+    # Aynı senaryo açık fazda: M1'in kalan kapasitesi tam 1. (M1,A) ve (M1,B)
+    # ikisi de beden 1'den 1 adet istiyor, depoda ikisi için de bol açık
+    # stok var — yalnızca paylaşılan mağaza kapasitesi (M1,B)'nin heap'teki
+    # adaylığını bayatlatmalı, ihtiyaç ya da depo stoku değil.
+    d = mini_dunya
+    d_kapasiteli = dataclasses.replace(d, kapasite=np.array([1, 1000, 1000], np.int64))
+    stok = np.zeros(len(d.hucre_urun), np.int64)
+    ihtiyac = np.zeros((6, 5), int)
+    ihtiyac[0, 0] = 1  # (M1, A) beden 1
+    ihtiyac[1, 0] = 1  # (M1, B) beden 1
+    depo = Depo(koli=np.array([0, 0]), acik=np.zeros((2, 5), np.int64))
+    depo.acik[:, 0] = 5
+    sevk = dagit(ihtiyac, np.ones(6), stok, depo, d_kapasiteli, KoliKurali("yok"), acik_kapasite=100)
+    assert sevk.acik_adet == 1
+    assert int(sevk.gelen[d.oc_hucre[0]].sum()) == 1   # (M1, A): sevk edildi
+    assert int(sevk.gelen[d.oc_hucre[1]].sum()) == 0   # (M1, B): kapasite yüzünden atlandı
+    assert depo.acik[0, 0] == 4 and depo.acik[1, 0] == 5
+
+
+def test_ihtiyac_oncelik_buyuk_ihtiyac_once(mini_dunya_10):
+    # oncelik="ihtiyac": kısıtlı açık stok, en büyük Σn'e sahip mağaza tam
+    # karşılanana kadar önce gider (cover/öngörüden bağımsız).
+    d = mini_dunya_10
     ihtiyac = np.zeros((10, 5), int)
-    ihtiyac[0] = KOLI
-    depo = Depo(koli=np.array([5]), acik=np.zeros((1, 5), np.int64))
-    d_kapasiteli = d.__class__(**{**d.__dict__, "kapasite": np.array([8] + [1000] * 9, np.int64)})
-    sevk = dagit(ihtiyac, np.ones(10), stok, depo, d_kapasiteli, KoliKurali("A"), acik_kapasite=0)
-    assert sevk.koli_sayisi == 1 and depo.koli[0] == 4
-    assert int(sevk.gelen[d.oc_hucre[0]].sum()) == 8
+    ihtiyac[0, 2] = 5
+    ihtiyac[1:, 2] = 1
+    depo = Depo(koli=np.array([0]), acik=np.array([[0, 0, 5, 0, 0]]))
+    sevk = dagit(ihtiyac, np.ones(10), np.zeros(len(d.hucre_urun), np.int64), depo, d,
+                 KoliKurali("yok"), 100, oncelik="ihtiyac")
+    giden = [int(sevk.gelen[d.oc_hucre[oc]].sum()) for oc in range(10)]
+    assert giden[0] == 5 and sum(giden[1:]) == 0
 
 
 def test_stok_degismez(mini_dunya_10):
