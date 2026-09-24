@@ -30,7 +30,7 @@ from .gecmis import yol_baslangici
 from .ihtiyac import magaza_beden_paylari
 from .kalibrasyon import Kalibrasyon, kalibre_et
 from .oyun import OyunAyari, oyna
-from .politika import KuralPolitikasi, TahminPolitikasi
+from .politika import KuralPolitikasi, TahminPolitikasi, TahminTabanPolitikasi
 from .tahmin import Tahminci
 
 # LightGBM tahmincisinin eğitimde kullandığı ilk pazartesi (bkz.
@@ -41,11 +41,18 @@ TAHMIN_ILK_KARAR_GUNU = "2025-02-03"
 
 _KOLI_SECENEKLERI = ("A", "B", "C")
 _SS_SECENEKLERI = ("sabit", "ros", "istatistik")
+_TABAN_AILESI = "ros"   # tahmin_taban kolunun safety stock ailesi
 
 
 def senaryolar() -> list[dict]:
-    """36 senaryo: {"yontem": "kural", "alim": a, "koli": k, "ss": aile} (27)
-    + {"yontem": "tahmin", "alim": a, "koli": k} (9)."""
+    """45 senaryo: {"yontem": "kural", ..., "ss": aile} (27)
+    + {"yontem": "tahmin", ...} (9) + {"yontem": "tahmin_taban", ..., "ss": "ros"} (9).
+
+    `tahmin` ongoruyu ciplak hedef yapar; `tahmin_taban` ayni ongoruye kural
+    kolunun taban kuralini uygular. Ikisi birlikte "politikayi mi degistirmek
+    fark eder, ongoruyu mu" sorusunu ayirmayi saglar. `tahmin_taban` yalniz
+    ROS ailesiyle kosulur: amac safety stock ailelerini yeniden taramak degil,
+    iki ongoruyu esit kosulda karsilastirmak."""
     liste: list[dict] = []
     for alim in sabitler.ALIM_ORANLARI:
         for koli in _KOLI_SECENEKLERI:
@@ -54,6 +61,11 @@ def senaryolar() -> list[dict]:
     for alim in sabitler.ALIM_ORANLARI:
         for koli in _KOLI_SECENEKLERI:
             liste.append({"yontem": "tahmin", "alim": alim, "koli": koli})
+    for alim in sabitler.ALIM_ORANLARI:
+        for koli in _KOLI_SECENEKLERI:
+            liste.append(
+                {"yontem": "tahmin_taban", "alim": alim, "koli": koli, "ss": _TABAN_AILESI}
+            )
     return liste
 
 
@@ -73,7 +85,10 @@ def _politika(senaryo: dict, kal: Kalibrasyon, dunya: Dunya):
     if senaryo["yontem"] == "kural":
         return KuralPolitikasi(kal.ss[senaryo["ss"]], kal.katsayilar)
     ilk_karar_gunu = dunya.gun(TAHMIN_ILK_KARAR_GUNU)
-    return TahminPolitikasi(Tahminci(kal.tahmin_parametreleri, ilk_karar_gunu))
+    tahminci = Tahminci(kal.tahmin_parametreleri, ilk_karar_gunu)
+    if senaryo["yontem"] == "tahmin_taban":
+        return TahminTabanPolitikasi(tahminci, kal.ss[senaryo["ss"]])
+    return TahminPolitikasi(tahminci)
 
 
 def _yol_calistir(yol: int, kal: Kalibrasyon) -> None:

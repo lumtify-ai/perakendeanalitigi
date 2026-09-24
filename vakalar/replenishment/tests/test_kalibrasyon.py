@@ -25,11 +25,17 @@ def test_maliyet_secimi_bulunabilirlik_esigini_korur():
 
 def test_senaryolar_36_senaryo_kural_ve_tahmin():
     liste = senaryolar()
-    assert len(liste) == 36
+    assert len(liste) == 45
     kural = [s for s in liste if s["yontem"] == "kural"]
     tahmin = [s for s in liste if s["yontem"] == "tahmin"]
+    # Tahmin + taban: ongoru LightGBM'den, hedef kurali kural koluyla ayni.
+    # Yalniz ROS ailesiyle kosulur -- amaci ongoruleri esit kosulda
+    # karsilastirmak, safety stock ailelerini yeniden taramak degil.
+    taban = [s for s in liste if s["yontem"] == "tahmin_taban"]
     assert len(kural) == 27
     assert len(tahmin) == 9
+    assert len(taban) == 9
+    assert all(s["ss"] == "ros" for s in taban)
     assert all(set(s) == {"yontem", "alim", "koli", "ss"} for s in kural)
     assert all(set(s) == {"yontem", "alim", "koli"} for s in tahmin)
     assert {s["koli"] for s in liste} == {"A", "B", "C"}

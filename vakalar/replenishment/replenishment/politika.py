@@ -75,3 +75,30 @@ class TahminPolitikasi:
         # stoklu_gunluk yok sayılır: saf tahmin tanımı (LightGBM) değişmiyor.
         tahmin = self.tahminci.tahmin_et(gozlenen, dunya, karar_gunu)
         return tahmin, tahmin
+
+
+@dataclass
+class TahminTabanPolitikasi:
+    """LightGBM öngörüsü + `KuralPolitikasi`'nin aynı taban kuralı.
+
+    Var oluş sebebi karşılaştırmanın adil olması: `TahminPolitikasi`
+    öngörüyü çıplak hedef yapar, `KuralPolitikasi` ise öngörünün altına
+    bir taban koyar. İkisini kıyaslarsak politika farkını ölçeriz, öngörü
+    farkını değil. Bu politika tabanı tahmin koluna da verir; geriye tek
+    değişken kalır — öngörüyü kim üretiyor.
+    """
+
+    tahminci: "Tahminci"
+    ss: GuvenlikStoku
+
+    def hedef(
+        self,
+        gozlenen: np.ndarray,
+        dunya: Dunya,
+        karar_gunu: int,
+        stok: np.ndarray,
+        stoklu_gunluk: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        ongoru = self.tahminci.tahmin_et(gozlenen, dunya, karar_gunu)
+        ss = guvenlik_stoku(self.ss, gozlenen, dunya, karar_gunu, stoklu_gunluk)
+        return np.maximum(ongoru, ss), ongoru

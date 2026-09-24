@@ -7,7 +7,11 @@ from replenishment.ihtiyac import GuvenlikStoku
 from replenishment.motor import baslangic_durumu
 from replenishment.olcutler import hesapla
 from replenishment.oyun import OyunAyari, oyna
-from replenishment.politika import KuralPolitikasi, TahminPolitikasi
+from replenishment.politika import (
+    KuralPolitikasi,
+    TahminPolitikasi,
+    TahminTabanPolitikasi,
+)
 
 
 def _kur(mini_dunya, talep_carpani=1):
@@ -186,3 +190,29 @@ def test_oyna_stoklu_gunlugu_politikaya_gecirir(mini_dunya):
     bas = mini_dunya.gun("2025-09-01")
     # başlangıçta stok yok -> oyunun ilk günleri stoksuz işaretlenmiş olmalı
     assert not gorulen[-1][bas:bas + 3].all()
+
+
+# --- Tahmin + taban: politika ayni, ongoru kaynagi farkli ----------------
+
+def test_tahmin_taban_politikasi_ongoruyu_tabanla_birlestirir(mini_dunya):
+    """Kural politikasiyla AYNI hedef kurali, yalniz ongoru LightGBM'den.
+
+    Boylece iki kol arasindaki fark politikadan degil, ongorunun
+    isabetinden gelir -- karsilastirmanin anlamli olmasi buna bagli.
+    """
+    H = len(mini_dunya.hucre_urun)
+    OC = len(mini_dunya.oc_hucre)
+    gozlenen = np.zeros((365, H), np.int32)
+    karar = mini_dunya.gun("2025-09-01")
+
+    # Sahte tahminci her OC icin 3.0 doner; sabit taban 5 -> hedef 5
+    pol = TahminTabanPolitikasi(_SahteTahminci(), GuvenlikStoku("sabit", 5))
+    hedef, ongoru = pol.hedef(gozlenen, mini_dunya, karar, np.zeros(H, np.int64), None)
+    assert (ongoru == 3.0).all()
+    assert (hedef == 5.0).all()
+    assert len(hedef) == OC
+
+    # Taban 1 olunca ongoru buyuk kalir -> hedef 3
+    pol2 = TahminTabanPolitikasi(_SahteTahminci(), GuvenlikStoku("sabit", 1))
+    hedef2, _ = pol2.hedef(gozlenen, mini_dunya, karar, np.zeros(H, np.int64), None)
+    assert (hedef2 == 3.0).all()
