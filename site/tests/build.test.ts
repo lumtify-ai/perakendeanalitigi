@@ -452,15 +452,16 @@ describe('site geneli vaatler', () => {
     expect(suclular).toEqual([])
   })
 
-  it('Lumtify köprüsü site genelinde tam bir kez geçer', () => {
-    // Huni kuralı sitenin en pahalı vaadi: tek geçiş noktası. Köprüyü her
-    // yazının sonuna koymak onu beş reklama çevirir ve güveni bitirir. Köprü
-    // dizinin SON yazısında durur; dizi büyüyünce yeri de kayar.
+  it('Lumtify köprüsü her dizinin son yazısında tam bir kez geçer', () => {
+    // Huni kuralı: köprü her dizinin SON yazısında durur, başka hiçbir yerde
+    // değil. Dizi büyüyünce yeri de kayar; yeni dizi kendi köprüsünü getirir.
     const gecenler = tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))
-    expect(gecenler.map(({ yol }) => yol)).toEqual([
+    for (const { html } of gecenler) {
+      expect(html.split('lumtify-koprusu').length - 1).toBe(1)
+    }
+    expect(gecenler.map(({ yol }) => yol)).toContain(
       'transfer/blok-transfer/basari-nasil-olculur/index.html',
-    ])
-    expect(gecenler[0].html.split('lumtify-koprusu').length - 1).toBe(1)
+    )
   })
 })
 
