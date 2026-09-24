@@ -452,16 +452,23 @@ describe('site geneli vaatler', () => {
     expect(suclular).toEqual([])
   })
 
-  it('Lumtify köprüsü her dizinin son yazısında tam bir kez geçer', () => {
+  it('Lumtify köprüsü her dizinin son yazısında tam bir kez geçer, başka hiçbir sayfada değil', () => {
     // Huni kuralı: köprü her dizinin SON yazısında durur, başka hiçbir yerde
     // değil. Dizi büyüyünce yeri de kayar; yeni dizi kendi köprüsünü getirir.
+    //
+    // BEKLENEN_KOPRU_SAYFALARI kasıtlı olarak tüketicidir (exhaustive): bu
+    // listede olmayan bir sayfada köprü belirmesi tam da bu testin yakalamak
+    // için var olduğu hatadır — bir kadro biyografisine, bir sözlük
+    // maddesine, bir dizi özetine ya da paylaşılan bir layout parçasına
+    // sızan bir <Lumtify /> ya da düz "lumtify-koprusu" metni. Yeni bir dizi
+    // tamamlanıp kendi köprüsünü kazandığında bu listeye tek satır eklenir.
+    const BEKLENEN_KOPRU_SAYFALARI = ['transfer/blok-transfer/basari-nasil-olculur/index.html']
+
     const gecenler = tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))
     for (const { html } of gecenler) {
       expect(html.split('lumtify-koprusu').length - 1).toBe(1)
     }
-    expect(gecenler.map(({ yol }) => yol)).toContain(
-      'transfer/blok-transfer/basari-nasil-olculur/index.html',
-    )
+    expect(gecenler.map(({ yol }) => yol).sort()).toEqual([...BEKLENEN_KOPRU_SAYFALARI].sort())
   })
 })
 
