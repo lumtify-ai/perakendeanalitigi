@@ -82,6 +82,9 @@ def hesapla(
     stoklu = oc_toplam > 0
 
     kirik_cift = int(np.count_nonzero(stoklu & (stok_oc[:, [1, 2, 3]] == 0).any(axis=1)))
+    stoklu_cift_sayisi = int(np.count_nonzero(stoklu))
+    bos_cift_sayisi = int(stoklu.size - stoklu_cift_sayisi)
+    kirik_cift_pay_yuzde = _oran_yuzde(kirik_cift, stoklu_cift_sayisi)
 
     if stoklu.any():
         paylar = magaza_beden_paylari(gozlenen, dunya, bas_gunu)
@@ -110,6 +113,9 @@ def hesapla(
         "magaza_stok_son": magaza_stok_son,
         "depo_kalan": depo_kalan,
         "kirik_cift": float(kirik_cift),
+        "stoklu_cift_sayisi": float(stoklu_cift_sayisi),
+        "bos_cift_sayisi": float(bos_cift_sayisi),
+        "kirik_cift_pay_yuzde": kirik_cift_pay_yuzde,
         "beden_sapmasi": beden_sapmasi,
         "str": str_orani,
     }

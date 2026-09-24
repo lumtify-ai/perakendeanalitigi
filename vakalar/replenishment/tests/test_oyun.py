@@ -88,6 +88,12 @@ def test_kirik_cift_ve_beden_sapmasi_dogrudan(mini_dunya):
     o = hesapla(durum, mini_dunya, depo, [], talep, gozlenen, baslangic_stok=0.0, ayar=ayar)
 
     assert o["kirik_cift"] == 1.0
+    # 6 (mağaza, option) çifti: OC0 ve OC3 stoklu, kalan 4 boş. kirik_cift
+    # yalnız stoklu çiftler içinde anlamlı; boş rafı "kırık değil" saymak
+    # yanıltıcı olduğundan stoklu/boş sayıları ve pay ayrıca raporlanır.
+    assert o["stoklu_cift_sayisi"] == 2.0
+    assert o["bos_cift_sayisi"] == 4.0
+    assert o["kirik_cift_pay_yuzde"] == pytest.approx(50.0)
     assert o["bulunabilirlik"] == pytest.approx(70.0)
     assert o["magaza_stok_son"] == 5 * 4 + 2 * 5
 

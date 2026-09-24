@@ -1,0 +1,341 @@
+{
+ "surum": "4df18a5 2026-09-25",
+ "parametreler": [
+  {
+   "ad": "alim",
+   "etiket": "Depo alımı (planın yüzdesi)",
+   "degerler": [
+    60,
+    80,
+    100
+   ]
+  },
+  {
+   "ad": "yontem",
+   "etiket": "İhtiyaç hesabı",
+   "degerler": [
+    "kural",
+    "tahmin_taban",
+    "tahmin"
+   ],
+   "deger_etiketleri": {
+    "kural": "kural tabanlı",
+    "tahmin_taban": "LightGBM + taban kural",
+    "tahmin": "yalnız LightGBM"
+   }
+  },
+  {
+   "ad": "koli",
+   "etiket": "Koli kuralı",
+   "degerler": [
+    "A",
+    "B",
+    "C"
+   ],
+   "deger_etiketleri": {
+    "A": "eşik + şişme",
+    "B": "karşılama oranı",
+    "C": "ikisi birlikte"
+   }
+  }
+ ],
+ "sonuclar": {
+  "60|kural|A": {
+   "ozet": {
+    "bulunabilirlik": 64.7,
+    "kayip_orani": 38.1,
+    "satisa_donme_gun": 9.4,
+    "magaza_stok_son": 9645.0,
+    "toplama_maliyeti_tl": 457170.0,
+    "kirik_cift_pay_yuzde": 81.5
+   },
+   "satirlar": []
+  },
+  "60|kural|B": {
+   "ozet": {
+    "bulunabilirlik": 64.1,
+    "kayip_orani": 38.9,
+    "satisa_donme_gun": 8.6,
+    "magaza_stok_son": 9174.0,
+    "toplama_maliyeti_tl": 456640.0,
+    "kirik_cift_pay_yuzde": 81.4
+   },
+   "satirlar": []
+  },
+  "60|kural|C": {
+   "ozet": {
+    "bulunabilirlik": 64.1,
+    "kayip_orani": 38.9,
+    "satisa_donme_gun": 8.6,
+    "magaza_stok_son": 9174.0,
+    "toplama_maliyeti_tl": 456640.0,
+    "kirik_cift_pay_yuzde": 81.4
+   },
+   "satirlar": []
+  },
+  "60|tahmin_taban|A": {
+   "ozet": {
+    "bulunabilirlik": 58.3,
+    "kayip_orani": 44.3,
+    "satisa_donme_gun": 8.3,
+    "magaza_stok_son": 8057.0,
+    "toplama_maliyeti_tl": 415010.0,
+    "kirik_cift_pay_yuzde": 81.7
+   },
+   "satirlar": []
+  },
+  "60|tahmin_taban|B": {
+   "ozet": {
+    "bulunabilirlik": 57.9,
+    "kayip_orani": 44.9,
+    "satisa_donme_gun": 7.7,
+    "magaza_stok_son": 7547.0,
+    "toplama_maliyeti_tl": 413270.0,
+    "kirik_cift_pay_yuzde": 81.0
+   },
+   "satirlar": []
+  },
+  "60|tahmin_taban|C": {
+   "ozet": {
+    "bulunabilirlik": 57.9,
+    "kayip_orani": 44.9,
+    "satisa_donme_gun": 7.7,
+    "magaza_stok_son": 7547.0,
+    "toplama_maliyeti_tl": 413270.0,
+    "kirik_cift_pay_yuzde": 81.0
+   },
+   "satirlar": []
+  },
+  "60|tahmin|A": {
+   "ozet": {
+    "bulunabilirlik": 43.1,
+    "kayip_orani": 58.8,
+    "satisa_donme_gun": 7.9,
+    "magaza_stok_son": 5567.0,
+    "toplama_maliyeti_tl": 249310.0,
+    "kirik_cift_pay_yuzde": 69.5
+   },
+   "satirlar": []
+  },
+  "60|tahmin|B": {
+   "ozet": {
+    "bulunabilirlik": 42.5,
+    "kayip_orani": 59.5,
+    "satisa_donme_gun": 7.2,
+    "magaza_stok_son": 5401.0,
+    "toplama_maliyeti_tl": 246170.0,
+    "kirik_cift_pay_yuzde": 68.9
+   },
+   "satirlar": []
+  },
+  "60|tahmin|C": {
+   "ozet": {
+    "bulunabilirlik": 42.5,
+    "kayip_orani": 59.5,
+    "satisa_donme_gun": 7.2,
+    "magaza_stok_son": 5401.0,
+    "toplama_maliyeti_tl": 246170.0,
+    "kirik_cift_pay_yuzde": 68.9
+   },
+   "satirlar": []
+  },
+  "80|kural|A": {
+   "ozet": {
+    "bulunabilirlik": 68.6,
+    "kayip_orani": 34.1,
+    "satisa_donme_gun": 9.3,
+    "magaza_stok_son": 10697.0,
+    "toplama_maliyeti_tl": 501060.0,
+    "kirik_cift_pay_yuzde": 82.6
+   },
+   "satirlar": []
+  },
+  "80|kural|B": {
+   "ozet": {
+    "bulunabilirlik": 67.8,
+    "kayip_orani": 35.2,
+    "satisa_donme_gun": 8.5,
+    "magaza_stok_son": 9966.0,
+    "toplama_maliyeti_tl": 498260.0,
+    "kirik_cift_pay_yuzde": 83.1
+   },
+   "satirlar": []
+  },
+  "80|kural|C": {
+   "ozet": {
+    "bulunabilirlik": 67.8,
+    "kayip_orani": 35.2,
+    "satisa_donme_gun": 8.5,
+    "magaza_stok_son": 9966.0,
+    "toplama_maliyeti_tl": 498260.0,
+    "kirik_cift_pay_yuzde": 83.1
+   },
+   "satirlar": []
+  },
+  "80|tahmin_taban|A": {
+   "ozet": {
+    "bulunabilirlik": 61.3,
+    "kayip_orani": 41.2,
+    "satisa_donme_gun": 8.2,
+    "magaza_stok_son": 8692.0,
+    "toplama_maliyeti_tl": 450290.0,
+    "kirik_cift_pay_yuzde": 82.2
+   },
+   "satirlar": []
+  },
+  "80|tahmin_taban|B": {
+   "ozet": {
+    "bulunabilirlik": 60.6,
+    "kayip_orani": 42.1,
+    "satisa_donme_gun": 7.6,
+    "magaza_stok_son": 8062.0,
+    "toplama_maliyeti_tl": 448670.0,
+    "kirik_cift_pay_yuzde": 81.2
+   },
+   "satirlar": []
+  },
+  "80|tahmin_taban|C": {
+   "ozet": {
+    "bulunabilirlik": 60.6,
+    "kayip_orani": 42.1,
+    "satisa_donme_gun": 7.6,
+    "magaza_stok_son": 8062.0,
+    "toplama_maliyeti_tl": 448670.0,
+    "kirik_cift_pay_yuzde": 81.2
+   },
+   "satirlar": []
+  },
+  "80|tahmin|A": {
+   "ozet": {
+    "bulunabilirlik": 45.2,
+    "kayip_orani": 56.6,
+    "satisa_donme_gun": 7.7,
+    "magaza_stok_son": 6090.0,
+    "toplama_maliyeti_tl": 274150.0,
+    "kirik_cift_pay_yuzde": 70.6
+   },
+   "satirlar": []
+  },
+  "80|tahmin|B": {
+   "ozet": {
+    "bulunabilirlik": 44.6,
+    "kayip_orani": 57.4,
+    "satisa_donme_gun": 7.1,
+    "magaza_stok_son": 5743.0,
+    "toplama_maliyeti_tl": 269230.0,
+    "kirik_cift_pay_yuzde": 71.0
+   },
+   "satirlar": []
+  },
+  "80|tahmin|C": {
+   "ozet": {
+    "bulunabilirlik": 44.6,
+    "kayip_orani": 57.4,
+    "satisa_donme_gun": 7.1,
+    "magaza_stok_son": 5743.0,
+    "toplama_maliyeti_tl": 269230.0,
+    "kirik_cift_pay_yuzde": 71.0
+   },
+   "satirlar": []
+  },
+  "100|kural|A": {
+   "ozet": {
+    "bulunabilirlik": 71.0,
+    "kayip_orani": 31.6,
+    "satisa_donme_gun": 9.2,
+    "magaza_stok_son": 11687.0,
+    "toplama_maliyeti_tl": 531990.0,
+    "kirik_cift_pay_yuzde": 82.3
+   },
+   "satirlar": []
+  },
+  "100|kural|B": {
+   "ozet": {
+    "bulunabilirlik": 70.2,
+    "kayip_orani": 32.7,
+    "satisa_donme_gun": 8.4,
+    "magaza_stok_son": 10693.0,
+    "toplama_maliyeti_tl": 530280.0,
+    "kirik_cift_pay_yuzde": 82.3
+   },
+   "satirlar": []
+  },
+  "100|kural|C": {
+   "ozet": {
+    "bulunabilirlik": 70.2,
+    "kayip_orani": 32.7,
+    "satisa_donme_gun": 8.4,
+    "magaza_stok_son": 10693.0,
+    "toplama_maliyeti_tl": 530280.0,
+    "kirik_cift_pay_yuzde": 82.3
+   },
+   "satirlar": []
+  },
+  "100|tahmin_taban|A": {
+   "ozet": {
+    "bulunabilirlik": 63.1,
+    "kayip_orani": 39.4,
+    "satisa_donme_gun": 8.1,
+    "magaza_stok_son": 9228.0,
+    "toplama_maliyeti_tl": 474410.0,
+    "kirik_cift_pay_yuzde": 83.2
+   },
+   "satirlar": []
+  },
+  "100|tahmin_taban|B": {
+   "ozet": {
+    "bulunabilirlik": 62.5,
+    "kayip_orani": 40.1,
+    "satisa_donme_gun": 7.5,
+    "magaza_stok_son": 8464.0,
+    "toplama_maliyeti_tl": 474080.0,
+    "kirik_cift_pay_yuzde": 82.9
+   },
+   "satirlar": []
+  },
+  "100|tahmin_taban|C": {
+   "ozet": {
+    "bulunabilirlik": 62.5,
+    "kayip_orani": 40.1,
+    "satisa_donme_gun": 7.5,
+    "magaza_stok_son": 8464.0,
+    "toplama_maliyeti_tl": 474080.0,
+    "kirik_cift_pay_yuzde": 82.9
+   },
+   "satirlar": []
+  },
+  "100|tahmin|A": {
+   "ozet": {
+    "bulunabilirlik": 46.4,
+    "kayip_orani": 55.4,
+    "satisa_donme_gun": 7.7,
+    "magaza_stok_son": 6439.0,
+    "toplama_maliyeti_tl": 289240.0,
+    "kirik_cift_pay_yuzde": 71.2
+   },
+   "satirlar": []
+  },
+  "100|tahmin|B": {
+   "ozet": {
+    "bulunabilirlik": 45.8,
+    "kayip_orani": 56.1,
+    "satisa_donme_gun": 7.0,
+    "magaza_stok_son": 5952.0,
+    "toplama_maliyeti_tl": 284570.0,
+    "kirik_cift_pay_yuzde": 72.0
+   },
+   "satirlar": []
+  },
+  "100|tahmin|C": {
+   "ozet": {
+    "bulunabilirlik": 45.8,
+    "kayip_orani": 56.1,
+    "satisa_donme_gun": 7.0,
+    "magaza_stok_son": 5952.0,
+    "toplama_maliyeti_tl": 284570.0,
+    "kirik_cift_pay_yuzde": 72.0
+   },
+   "satirlar": []
+  }
+ }
+}

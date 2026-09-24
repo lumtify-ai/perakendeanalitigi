@@ -4,7 +4,7 @@ alan: replenishment
 ozet: >-
   Depodaki kısıtlı stok hangi mağazaya, koli mi açık adet mi olarak gider?
   Kural tabanlı yöntem ile LightGBM aynı talep üzerinde yarışır.
-demo: false
+demo: true
 ---
 
 Bu dizi, depodan mağazaya haftalık replenishment kararını baştan kurar:
