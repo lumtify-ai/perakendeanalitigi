@@ -131,3 +131,37 @@ def test_olcutler_anahtarlari_tam(mini_dunya):
     assert beklenen_anahtarlar <= set(s.olcutler.keys())
     for k, v in s.olcutler.items():
         assert isinstance(v, float), f"{k} float değil: {type(v)}"
+
+
+# --- Kural hedefi: safety stock taban, eklenen tampon degil ---------------
+
+def test_kural_hedefi_safety_stock_ile_ongorunun_buyugu(mini_dunya):
+    """Hedef = max(ongoru, safety stock); ikisinin toplami DEGIL.
+
+    Safety stock sahada "minimum sergileme"dir: raf hic bosalmasin diye
+    konan taban. Ongorunun ustune eklenince hedef gercek talebin belirgin
+    ustune cikiyor ve zincir surekli fazla mal tasiyor.
+    """
+    H = len(mini_dunya.hucre_urun)
+    OC = len(mini_dunya.oc_hucre)
+    katsayilar = {"Üst Giyim": 1.0, "Alt Giyim": 1.0, "Dış Giyim": 1.0}
+    gozlenen = np.zeros((365, H), np.int32)
+    karar = mini_dunya.gun("2025-09-01")
+
+    # Ilk OC'nin son 7 gununde 10 adet satis var, safety stock sabit 2:
+    # ongoru (10) buyuk, hedef 10 olmali -- 12 degil.
+    for hucre in mini_dunya.oc_hucre[0]:
+        gozlenen[karar - 3, hucre] = 2
+    pol = KuralPolitikasi(GuvenlikStoku("sabit", 2), katsayilar)
+    hedef, ongoru = pol.hedef(gozlenen, mini_dunya, karar, np.zeros(H, np.int64))
+    assert ongoru[0] == pytest.approx(10.0)
+    assert hedef[0] == pytest.approx(10.0)
+
+    # Hic satmayan OC'lerde ongoru 0; taban devreye girer, hedef 2.
+    assert ongoru[1] == pytest.approx(0.0)
+    assert hedef[1] == pytest.approx(2.0)
+
+    # Ongoru hicbir zaman hedefi asmaz, hedef hicbir zaman toplama esit degil
+    assert (hedef >= ongoru).all()
+    assert hedef.sum() < (ongoru + 2.0).sum()
+    assert len(hedef) == OC

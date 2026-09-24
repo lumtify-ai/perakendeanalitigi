@@ -4,7 +4,8 @@
 arayüzdür: geçmişe sızmayan (`gozlenen`, karar günü dahil sonrası
 sıfırlanmış) satış matrisinden hedef adet ile öngörüyü üretir.
 
-`KuralPolitikasi` `ihtiyac.kural_ongorusu`'nu güvenlik stoku ile toplar.
+`KuralPolitikasi` `ihtiyac.kural_ongorusu` ile güvenlik stokunun büyüğünü
+alır (güvenlik stoku taban, eklenen tampon değil).
 `TahminPolitikasi` Task 8'in `Tahminci`'sini kullanır; `tahmin` modülü
 burada erken (eager) import edilmez — Task 8 henüz yokken bu modülün
 testleri çalışabilsin diye tip yalnız `typing.TYPE_CHECKING` altında
@@ -42,7 +43,11 @@ class KuralPolitikasi:
     ) -> tuple[np.ndarray, np.ndarray]:
         ongoru = kural_ongorusu(gozlenen, dunya, karar_gunu, self.katsayilar)
         ss = guvenlik_stoku(self.ss, gozlenen, dunya, karar_gunu)
-        return ongoru + ss, ongoru
+        # Safety stock TABANDIR, öngörünün üstüne eklenen tampon değil:
+        # sahadaki karşılığı "minimum sergileme"dir — raf hiç boşalmasın
+        # diye konan alt sınır. Toplarsak hedef gerçek talebin belirgin
+        # üstüne çıkar ve zincir her hafta fazla mal taşır.
+        return np.maximum(ongoru, ss), ongoru
 
 
 @dataclass
