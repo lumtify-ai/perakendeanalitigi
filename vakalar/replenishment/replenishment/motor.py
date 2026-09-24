@@ -28,6 +28,7 @@ class Durum:
     gonderilen_satis_gunleri: list          # (hucre, gelis_gunu, satis_gunu, adet) kayıtları
     stoklu_talepli_gun: int = 0
     talepli_gun: int = 0
+    toplam_gonderilen: int = 0             # bugüne kadar stoka giren gelen mal toplamı
 
 
 def baslangic_durumu(stok: np.ndarray, son_satislar: list) -> Durum:
@@ -63,6 +64,7 @@ def gunu_isle(
     if gelen is not None:
         gelen = np.asarray(gelen, dtype=np.int64)
         durum.stok += gelen
+        durum.toplam_gonderilen += int(gelen.sum())
         for h in np.flatnonzero(gelen > 0):
             durum.fifo[h].append([gun, int(gelen[h])])
 
