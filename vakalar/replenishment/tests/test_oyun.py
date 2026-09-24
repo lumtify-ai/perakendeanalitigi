@@ -7,7 +7,7 @@ from replenishment.ihtiyac import GuvenlikStoku
 from replenishment.motor import baslangic_durumu
 from replenishment.olcutler import hesapla
 from replenishment.oyun import OyunAyari, oyna
-from replenishment.politika import KuralPolitikasi
+from replenishment.politika import KuralPolitikasi, TahminPolitikasi
 
 
 def _kur(mini_dunya, talep_carpani=1):
@@ -96,6 +96,26 @@ def test_kirik_cift_ve_beden_sapmasi_dogrudan(mini_dunya):
     tvd3 = 0.5 * np.abs(p3 - paylar[3]).sum()
     beklenen = round(float((tvd0 + tvd3) / 2 * 100), 1)
     assert o["beden_sapmasi"] == pytest.approx(beklenen)
+
+
+class _SahteTahminci:
+    """Task 8'in gerçek `Tahminci.tahmin_et(self, satis, dunya, karar_gunu)`
+    imzasını taklit eder (bkz. task-8-brief.md) — `stok` argümanı yok.
+    `TahminPolitikasi.hedef` bu imzadan sapıp `stok` geçirirse bu test
+    TypeError ile başarısız olur."""
+
+    def tahmin_et(self, satis, dunya, karar_gunu):
+        OC = dunya.oc_hucre.shape[0]
+        return np.full(OC, 3.0)
+
+
+def test_tahmin_politikasi_ucuncu_taraf_imzayla_cagirir(mini_dunya):
+    H = len(mini_dunya.hucre_urun)
+    gozlenen = np.zeros((365, H), np.int32)
+    pol = TahminPolitikasi(_SahteTahminci())
+    hedef, ongoru = pol.hedef(gozlenen, mini_dunya, 300, np.zeros(H, np.int64))
+    assert (hedef == 3.0).all()
+    assert (ongoru == 3.0).all()
 
 
 def test_olcutler_anahtarlari_tam(mini_dunya):

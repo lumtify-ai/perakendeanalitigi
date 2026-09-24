@@ -99,5 +99,11 @@ def oyna(
                 }
             )
 
+    # `hesapla` beden_sapmasi için mağaza beden payını `gozlenen[:bas_gunu]`'nden
+    # kendisi yeniden hesaplar (bkz. olcutler.py docstring'i); bu yalnız
+    # `gozlenen[:bas_gunu]` yukarıdaki `gecmis_satis.copy()` satırından beri
+    # değişmediği için `paylar`'la (bu fonksiyona ayrı geçirilen, oyun başında
+    # sabitlenen mağaza beden payı) aynı sonucu verir — `gecmis_satis` bu
+    # çağrıdan sonra çağıran tarafından değiştirilirse artık aynı olmaz.
     olcutler = hesapla(durum, dunya, depo, haftalik, talep, gozlenen, baslangic_stok, ayar)
     return Sonuc(olcutler=olcutler, haftalik=haftalik)

@@ -52,5 +52,5 @@ class TahminPolitikasi:
     def hedef(
         self, gozlenen: np.ndarray, dunya: Dunya, karar_gunu: int, stok: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
-        tahmin = self.tahminci.tahmin_et(gozlenen, dunya, karar_gunu, stok)
+        tahmin = self.tahminci.tahmin_et(gozlenen, dunya, karar_gunu)
         return tahmin, tahmin
