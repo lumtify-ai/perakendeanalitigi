@@ -59,7 +59,7 @@ def senaryolar() -> list[dict]:
 
 def senaryo_anahtari(senaryo: dict) -> str:
     ss = senaryo.get("ss")
-    return f"{senaryo['yontem']}|{int(senaryo['alim'] * 100)}|{senaryo['koli']}|{ss or '-'}"
+    return f"{senaryo['yontem']}|{round(senaryo['alim'] * 100)}|{senaryo['koli']}|{ss or '-'}"
 
 
 def _dosya_adi(anahtar: str) -> str:

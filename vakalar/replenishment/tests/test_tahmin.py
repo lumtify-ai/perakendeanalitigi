@@ -73,3 +73,35 @@ def test_hiperparametre_sec_izgara_noktasi_doner(mini_dunya):
     p = hiperparametre_sec(s, mini_dunya, bit)
     assert (p["num_leaves"], p["n_estimators"]) in {(15, 200), (15, 400), (31, 200), (31, 400)}
     assert p["learning_rate"] == 0.05 and p["min_child_samples"] == 50
+
+
+def test_hiperparametre_sec_bit_gunune_sizmaz(mini_dunya, monkeypatch):
+    """`hiperparametre_sec`'in kullandığı hiçbir eğitim/doğrulama hedef
+    penceresi `bit_gunu`'ye veya sonrasına dokunmamalı (spec: kalibrasyon
+    yalnız `bit_gunu`'den KESİNLİKLE önceki veriyi kullanmalı). `ihtiyac.
+    haftalik`'in 3. pozisyonel argümanı (`karar_gunu`), o pencerenin son
+    dahil edilen günüdür (`haftalik`'in kendi belgesi: "karar_gunu dahil
+    geriye doğru"); `tahmin.py`'nin her `haftalik` çağrısını (özellik
+    penceresi VE hedef penceresi) casus (spy) ile yakalayıp hiçbirinin
+    `bit_gunu`'ye ulaşmadığını doğrudan kanıtlıyoruz — istatistiksel bir
+    karşılaştırma değil, birebir sınır kanıtı."""
+    rng = np.random.default_rng(3)
+    s = rng.poisson(0.5, (365, len(mini_dunya.hucre_urun))).astype(np.int32)
+    bit = mini_dunya.gun("2025-09-01")
+
+    cagrilan_gunler = []
+    gercek_haftalik = tahmin_mod.haftalik
+
+    def casus(satis, dunya, karar_gunu, hafta):
+        cagrilan_gunler.append(karar_gunu)
+        return gercek_haftalik(satis, dunya, karar_gunu, hafta)
+
+    monkeypatch.setattr(tahmin_mod, "haftalik", casus)
+
+    hiperparametre_sec(s, mini_dunya, bit)
+
+    assert cagrilan_gunler, "hiç haftalik cagrisi yakalanmadi"
+    assert max(cagrilan_gunler) < bit, (
+        f"bit_gunu={bit} icin en buyuk cagrilan gun {max(cagrilan_gunler)} - "
+        "oyun doneminin ilk gunune (veya sonrasina) sizinti var"
+    )

@@ -164,10 +164,19 @@ def hiperparametre_sec(satis: np.ndarray, dunya: Dunya, bit_gunu: int) -> dict:
     """Izgara: num_leaves {15, 31} × n_estimators {200, 400}, lr 0.05,
     min_child_samples 50, objective 'poisson'. Zaman sıralı doğrulama:
     bit_gunu'nden önceki son 8 pazartesi doğrulama, öncesi eğitim.
-    Ölçüt: ortalama Poisson sapması. En küçüğü döner."""
+    Ölçüt: ortalama Poisson sapması. En küçüğü döner.
+
+    Doğrulama hedefi `haftalik(satis, dunya, t + 7, 1)` — yani her pazartesi
+    `t`'nin hedef penceresi `t+7` gününü DAHİL eder (`haftalik`'in son gün
+    dahil semantiği). Son pazartesi `bit_gunu`'ne kadar (`bit_gunu` HARİÇ)
+    seçilir ki en son hedef penceresi `bit_gunu - 1`'i aşmasın — aksi hâlde
+    `bit_gunu` (oyun döneminin ilk günü) doğrulama etiketine sızar."""
     adim = 7
     ilk_pazartesi = bit_gunu % adim
-    pazartesiler = list(range(ilk_pazartesi, bit_gunu, adim))
+    # Son pazartesi `t` için hedef `t+7 <= bit_gunu-1` şartını sağlamalı,
+    # yani `t <= bit_gunu-8`; bu yüzden üst sınır `bit_gunu` değil
+    # `bit_gunu - adim`'dir (bir pazartesi daha geriye).
+    pazartesiler = list(range(ilk_pazartesi, bit_gunu - adim, adim))
     if len(pazartesiler) < 9:
         raise ValueError("hiperparametre_sec icin yeterli pazartesi yok (en az 9 gerekir)")
 
