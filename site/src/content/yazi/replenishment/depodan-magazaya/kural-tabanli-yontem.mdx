@@ -4,13 +4,18 @@ tip: teknik
 sira: 4
 ozet: Hedef stok nasıl kurulur, safety stock'un üç ailesi, ve stoksuz kalan mağazanın hızını ölçmenin yolu.
 yazar: Sabri Suyunu
-durum: hazirlaniyor
+durum: yayinda
 ---
 
 import T from '../../../../components/T.astro'
 
-Üç yazı boyunca kavramları kurduk. Şimdi hesabı yazacağız. Kural tabanlı
-yöntemin tamamı tek satıra sığar:
+Üç yazı boyunca kavramları kurduk. Şimdi hesabı yazacağız.
+
+Aşağıdaki SQL ve Python parçaları uydurma değil; `vakalar/replenishment/`
+altındaki çalışan koddan geliyor. Yazıdaki her sayı da o kodun `rapor.py`
+çıktısından alındı.
+
+Kural tabanlı yöntemin tamamı tek satıra sığar:
 
 ```
 hedef stok = max(öngörü, güvenlik stoku)

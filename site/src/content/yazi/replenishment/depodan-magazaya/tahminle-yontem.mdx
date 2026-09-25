@@ -4,7 +4,7 @@ tip: teknik
 sira: 5
 ozet: LightGBM ile option-mağaza tahmini kurduk ve basit bir yedi günlük ortalamayla yarıştırdık. Asıl bulgu hangisinin kazandığı değil.
 yazar: Sabri Suyunu
-durum: hazirlaniyor
+durum: yayinda
 ---
 
 import T from '../../../../components/T.astro'
@@ -33,7 +33,11 @@ kategori, mağaza tipi, hedef haftadaki tatil günü sayısı.
 
 **Eğitim:** her karar pazartesisinde, o güne kadarki bütün veriyle yeniden.
 Genişleyen pencere. Hiçbir eğitim ya da doğrulama penceresi karar gününü
-aşmıyor.
+aşmıyor; bunu bir test kilitliyor.
+
+Modelin kurulumu, hiperparametre seçimi ve sızıntı kalkanı
+`vakalar/replenishment/replenishment/tahmin.py` içinde. Üç kolun tanımı
+`politika.py`'de, senaryo ızgarası `kos.py`'de.
 
 Hiperparametreleri sezon öncesi veriyle, zaman sıralı doğrulamayla seçtik.
 Model 31 yaprak, 400 ağaçta karar kıldı.
