@@ -44,7 +44,7 @@ durum: ${durum}
         '/planlama/rpt/ne-kadar-ne-zaman/',
         '/planlama/rpt/rpt-geldi/',
         '/planlama/rpt/rpt-karari-nasil-verilir/',
-        '/planlama/rpt/ucuncu-haftada-biten-urun/',
+        '/planlama/rpt/ucuncu-pazartesi/',
       ].sort(),
     )
   })

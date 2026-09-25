@@ -16,7 +16,7 @@ açıyoruz. Sıra önemli, çünkü her soru bir öncekinin cevabına yaslanıyo
 
 Banu'nun ilk itirazı şu oldu:
 
-— Her hafta ⟦C⟧ ürüne tek tek mi bakacağız?
+— Her pazartesi 109 ürüne tek tek mi bakacağız?
 
 Bakmayacağız. RPT sorusu yalnız bir ürün grubunda anlamlıdır.
 
@@ -46,17 +46,23 @@ dördüncü yazısının konusu. Burada yalnız şunu söyleyelim: aday modeli
 
 Pelin'in sorusu. Cevabın iki katmanı var.
 
-**Birinci katman: stoksuz günler.** Bir ürün iki haftada 40 adet sattıysa
-hızı haftada 20 görünür. Ama ürün o iki haftanın yalnız altı gününde
-raftaysa gerçek hızı günde ⟦…⟧, yani haftada ⟦…⟧'dır. Satışı takvim gününe
-değil, stoklu güne bölmek gerekir. Replenishment dizisinde aynı düzeltmeyi
-yapmıştık; burada etkisi çok daha büyük, çünkü tuttuğu için biten ürün
-tanım gereği uzun süre stoksuz kalmıştır.
+**Birinci katman: stoksuz günler.** Satışı takvim gününe değil, stoklu
+güne bölmek gerekir. Replenishment dizisinde aynı düzeltmeyi yapmıştık.
+Şorta uygulayalım. Üç haftada 1.364 adet satmış; takvim gününe bölünce
+haftada 454,7 adet. Mağaza ve beden düzeyinde stoksuz günler ayıklanınca
+haftalık talep 502,3 çıkıyor, %10,5 daha fazla.
+
+Gerçek haftalık talep ise 563,3. Düzeltme farkın yarısından azını
+kapatıyor. Sebebi bir sonraki yazının konusu, ama kısaca şöyle: bir beden
+sabah üç adetle açılıp öğlen bitiyorsa o gün "stoklu" sayılır. Öğleden
+sonra gelen müşteri yine kaybolur. Stoklu gün düzeltmesi günü kurtarır,
+saati kurtaramaz.
 
 **İkinci katman: yaşam eğrisi.** İlk üç haftanın satışını bilmek sezonun
-satışını bilmek değildir. Ama geçmiş sezonlardan şunu biliriz: bir Collection
-ürünü sezon boyu sattığının ⟦k_3⟧'ini ilk üç haftada satar. Bu oranın
-kendisi ürüne göre değişmez, eğrinin şekline bağlıdır. O zaman
+satışını bilmek değildir. Ama geçmiş sezonlardan şunu biliriz: ilk dalgayla gelen
+bir Collection ürünü, indirime kadarki talebinin %23,1'ini ilk üç haftada
+görür. Üçüncü dalgayla gelen, sezonu daha kısa olduğu için, %30,8'ini. Bu
+oran ürüne göre değişmez, eğrinin şekline bağlıdır. O zaman
 
 $$
 \text{sezon talebi} \approx \frac{\text{ilk üç haftanın talebi}}{\text{eğrinin ilk üç haftadaki payı}}
@@ -82,17 +88,26 @@ Banu'nun sorusu, ama yanlış sorulursa yanlış cevap verir.
 "Yetişir mi" genelde "indirimden önce depoya girer mi" diye sorulur. Bu
 yetmez. Asıl soru **"gelişinden sonra eğrinin ne kadarı kalıyor"**dur.
 
-İki tedarikçiyi yan yana koyalım. Yerli tedarikçi ⟦R_yerli⟧ haftada,
-Uzak Doğu'daki ⟦R_ud⟧ haftada basıyor. Lansmandan üç hafta sonra sipariş
-verilirse:
+İki tedarikçiyi yan yana koyalım. Lumoda'nın yerli tedarikçileri tekrar
+siparişi tipik olarak 5 haftada, Uzak Doğu'dakiler 14 haftada basıyor.
+Lansmandan üç hafta sonra sipariş verilirse:
 
-| | Geliş haftası | Gelişten sonra kalan eğri |
-|---|---:|---:|
-| Yerli | ⟦…⟧ | ⟦…⟧ |
-| Uzak Doğu | ⟦…⟧ | ⟦…⟧ |
+| Dalga | Menşe | Geliş (lansmandan hafta) | İndirime kadarki talepten kalan | Çıkışa kadarki talepten kalan |
+|---|---|---:|---:|---:|
+| 1 | Yerli | 8 | %37,8 | %42,3 |
+| 1 | Uzak Doğu | 17 | %3,8 | %10,7 |
+| 3 | Yerli | 8 | %13,7 | %44,3 |
+| 3 | Uzak Doğu | 17 | %0,0 | %2,5 |
 
-İkisi de indirimden önce geliyor. Birinde sezonun ⟦…⟧'i kalmış, ötekinde
-⟦…⟧'i. Aynı ürün, aynı sinyal, çok farklı iki karar.
+İlk dalgada ikisi de indirimden önce geliyor. Yerli siparişin önünde
+indirime kadarki talebin üçte birinden fazlası duruyor, Uzak Doğu'dakinin önünde
+yirmide biri bile yok. Aynı ürün, aynı sinyal, çok farklı iki karar.
+
+Son sütuna da bakın. Üçüncü dalgada yerli RPT indirime kadarki talebin
+yalnız %13,7'sini yakalıyor ama çıkışa kadarki talebin %44,3'ünü. Farkı
+indirim dönemi yapıyor. O dönemde de satılır, ama daha ucuza. RPT'nin
+kârlı olup olmadığı bu yüzden bir sonraki sorunun, miktar sorusunun
+içinde cevaplanır.
 
 ## Dördüncü soru: ne kadar?
 
@@ -139,7 +154,7 @@ Hangisinin daha iyi olduğunu altıncı yazıda aynı talep üzerinde ölçeceğ
 
 ## Banu'nun kuralı nerede yanılıyor
 
-Kuralı bir daha yazalım: ilk haftalarda gönderilenin yarısından fazlası
+Kuralı bir daha yazalım: ilk haftalarda gönderilenin %55'inden fazlası
 satıldıysa, ilk alımın yarısı kadar sipariş ver.
 
 1. **Oran talebe değil ilk alıma bakar.** Az alınmış bir ürün sıradan bir

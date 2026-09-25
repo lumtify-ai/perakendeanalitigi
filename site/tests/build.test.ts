@@ -11,7 +11,7 @@ const DIST = fileURLToPath(new URL('../dist/', import.meta.url))
 // buradan silinir; liste boşaldığında taslak mekanizmasının değişmezleri
 // eski hâline döner.
 const RPT_TASLAKLARI = [
-  'planlama/rpt/ucuncu-haftada-biten-urun/',
+  'planlama/rpt/ucuncu-pazartesi/',
   'planlama/rpt/rpt-karari-nasil-verilir/',
   'planlama/rpt/ne-kadar-daha-satardi/',
   'planlama/rpt/hangi-urun-rpt-adayi/',

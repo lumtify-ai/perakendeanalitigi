@@ -1,0 +1,193 @@
+---
+baslik: Üçüncü Pazartesi
+tip: hikaye
+sira: 1
+ozet: Beklenenden hızlı satan ürün iyi haberdir, ama bir soruyu da beraberinde getirir. Daha olsaydı ne kadar satardı ve yeniden ürettirirsem yetişir mi?
+yazar: Sabri Suyunu
+durum: hazirlaniyor
+---
+
+import Kadro from '../../../../components/Kadro.astro'
+import T from '../../../../components/T.astro'
+
+<Kadro />
+
+Replenishment dizisinin ilk yazısında bir parantez açmıştım: RPT depodan
+mağazaya giden mal değildir, tedarikçiye verilen tekrar siparişidir. O
+parantezi kapatmanın zamanı geldi. Bu dizi RPT'yi anlatıyor.
+
+Önce terimi netleştireyim, çünkü sahada iki anlamda kullanıldığını
+duyacaksınız. Kimi mağazaya giden tekrar sevkiyata da RPT der. Bu sitede
+RPT tek bir şeyi anlatır: **beklenenden hızlı satan bir ürünü tedarikçiye
+yeniden ürettirmek.**
+
+## Her şey aylar önce başlıyor
+
+Bir moda zincirinde sattığınız ürünün siparişi, o ürün rafa çıkmadan çok
+önce verilmiştir. Yerli bir tedarikçiyle çalışıyorsanız üç ay önce, Uzak
+Doğu'dan getiriyorsanız altı, yedi ay önce. Bazı ürünlerde bir yıl.
+
+O gün masada şu bilgiler vardır: geçen sezon benzer ürünlerin ne sattığı,
+ürünün kaç mağazaya gideceği, rafta kaç hafta kalacağı, fiyatı, aynı
+sezonda yanına konacak benzer ürünler, tedarikçinin asgari adedi ve
+bütçenin ne kadarının bu ürüne ayrılabileceği. Bunların hiçbiri bu ürünün
+kendi satışı değildir. Olamaz da, çünkü ürün henüz yoktur.
+
+Lumoda'da bu kararı iki kişi verir. **Banu** buyer: modeli seçer, kumaşı
+bilir, tedarikçiyle pazarlığı o yapar. **Pelin** planner: kaç mağaza, kaç
+hafta, ne kadar satış. Siparişin imzası Banu'nundur, rakamı Pelin'in.
+
+Sipariş verilir, mal depoya gelir, ilk sevkiyat yapılır ve ürün mağazada
+satışa başlar. Buraya kadar her şey plana göredir. Sonra müşteri gelir ve
+planı okumamıştır.
+
+## Pazartesi, 09:15
+
+Haftalık satış toplantısı. Banu çayını almış, ekranda bir şort var: Kadın
+Paperbag Şort, haki. İlkbahar-yaz koleksiyonunun üçüncü dalgasıyla gelmiş,
+rafa çıkalı üç hafta olmuş. Tedarikçisi Ege Tekstil, yerli.
+
+Pelin bu ürün için sezon boyunca 1.663 adet satış planlamıştı. Banu
+2.080 adet almıştı; planın biraz üstü, çünkü her şeyin satacağını kimse
+beklemez. Üç haftada satılan **1.364**. Depoda 396 adet kalmış ve o da
+bu sabahki replenishment'la mağazalara çıkıyor. Öğleden sonra depoda bu
+üründen tek koli kalmayacak.
+
+— Tuttu! diyor Banu. Üç haftada ilk alımın üçte ikisi gitti.
+
+Lumoda'nın RPT kuralı da aynı şeyi söylüyor. Kuralı yıllar önce Banu
+koymuş: ürün ilk haftalarda mağazalara gönderilenin %55'inden fazlasını
+sattıysa, ilk alımın yarısı kadar tekrar sipariş ver. Ekranda öneri
+hazır: **1.040 adet.** Ege Tekstil bu kumaşı dört haftada basıyor.
+
+Banu onaylamak üzere. Pelin sevinmiyor.
+
+— 1.040 neye göre? diyor. İlk alımın yarısı. Ürünün ne kadar sattığıyla
+bir ilgisi yok. Planın biraz üstünde satsaydı da 1.040 diyecekti, üç katı
+satsaydı da.
+
+## Bir hafta sonra
+
+Ertesi pazartesi aynı ekran. Dört haftada satış **1.844**, ilk alımın
+%88,7'si. Depoda 2 adet. On mağazanın dokuzunda hâlâ bir şeyler var, ama
+bu "bir şeyler" çoğu yerde tek beden.
+
+| Mağaza | Dört haftada satış | Stoklu gün (beden ortalaması) | Bugünkü stok | Stoklu beden |
+|---|---:|---:|---:|---:|
+| İzmir Karşıyaka | 360 | 27,4 | 3 | 1/5 |
+| İstanbul Akmerkez | 342 | 20,0 | 0 | 0/5 |
+| İzmir Bornova | 243 | 21,6 | 3 | 1/5 |
+| İstanbul Bağdat Caddesi | 204 | 28,0 | 18 | 4/5 |
+| Antalya MarkAntalya | 167 | 28,0 | 28 | 5/5 |
+
+Akmerkez'e bakın. 28 günün ortalama 20'sinde rafta ürün var, 342 satmış.
+Bağdat Caddesi 28 günün tamamında stoklu, 204 satmış. Rapor Akmerkez'i
+Bağdat Caddesi'nin 1,7 katı gösteriyor. Gerçekte fark daha büyük,
+çünkü Akmerkez'in satışı stoksuz günlerde durmuş.
+
+Ne kadar büyük? Sahada bunu bilemezsiniz. Lumoda sentetik bir zincir
+olduğu için biz biliyoruz: Akmerkez'e bu dört haftada bu şortu almak için
+gelen müşterinin istediği adet **678**. Satılan 342. Geri kalanı rafı boş
+bulup çıktı. Zincirin tamamında dört haftada kaybolan satış **558** adet.
+
+Pelin'in sorusu tam olarak bu:
+
+— Satış raporu talebi göstermiyor. Talep ile stoğun küçüğünü gösteriyor.
+Bu ürün daha olsaydı ne kadar satardı?
+
+## Banu'nun takvimi
+
+Banu başka bir hesap yapıyor. Geçen pazartesi verilen 1.040 adet,
+lansmandan yedi hafta sonra depoda olacak. O zaman indirime üç hafta
+kalmış olacak.
+
+— Yetişiyor, diyor Banu. İndirimden önce geliyor.
+
+Pars ilk kez konuşuyor:
+
+— Gelmek yetmez. Geldiğinde ürün yedi haftalık olacak.
+
+Sezonluk bir ürün mağazaya girdiği ilk haftalarda en çok satar, sonra
+söner. Bu, ürünün <T k="yasam-egrisi">yaşam eğrisi</T>dir. RPT'nin sorusu
+"ürün tuttu mu" değildir. "Ürün geldiğinde eğrinin neresinde olacak"tır.
+Lumoda'nın geçmiş sezonlarından öğrenilen eğriye göre bu şortun indirime
+kadarki talebinin yalnız **%23,3**'ü RPT'nin gelişinden sonraya kalıyor.
+Geri kalanı, RPT yoldayken ya satılmış ya da kaybolmuş olacak.
+
+Aynı hesabı Uzak Doğu'dan gelen bir ürün için yapınca tablo sertleşiyor.
+Oradaki tedarikçiler tekrar siparişi on dört haftada basıyor. Üçüncü
+haftada verilen sipariş on yedinci haftada geliyor, ve ilk dalgayla gelmiş
+bir ürün için bile eğrinin indirime kadarki kısmından geriye **%3,8**
+kalıyor.
+
+## Veli'nin hatırası
+
+Toplantının sonunda Veli söz istiyor.
+
+— Geçen sezonu hatırlıyor musunuz? RPT verdik, geldi. Sonra ne oldu?
+Depoda kaldı.
+
+Sebebi basit ve can sıkıcı. Replenishment sistemi bir mağazaya mal
+gönderirken o mağazanın son dört haftadaki satışına bakar. Ürün bittiği
+günden beri o mağazanın satışı sıfırdır. Sistem sıfır satan mağazaya mal
+göndermez; ölü stoğun üstüne ölü stok yığmamak için kurulmuş, doğru bir
+kuraldır. Ama burada yanlış soruya cevap veriyor. Mağaza satmadığı için
+değil, **satacak malı olmadığı için** sıfır satmıştır.
+
+Veli abartmıyor. Önceki sonbahar-kış sezonunda Lumoda 35 ürüne RPT verdi,
+toplam **23.950** adet. Bunun 8.352'si mağazaya gidebildi. **15.598** adet,
+yani gelen malın %65,1'i, sezon kapandığında hâlâ depodaydı.
+
+— Yani ya ilk sevkiyat gibi göndereceğiz ya da hiç gitmeyecek, diyor Veli.
+Ama ilk sevkiyat değil bu, ürün zaten mağazada satmış.
+
+## Masadaki beş soru
+
+Pars tahtaya beş satır yazıyor:
+
+1. Bu ürün RPT'ye aday mı?
+2. Daha olsaydı ne kadar satardı?
+3. Tekrar ürettirirsem kaç haftada gelir, yetişir mi?
+4. Geldiğinde yeniden satar mı, ne kadar?
+5. Geldiğinde mağazalara nasıl gidecek?
+
+— Bunların hiçbiri kehanet sorusu değil, diyor. Hepsinin cevabı
+elimizdeki veride. Sadece doğru yerden bakmak lazım.
+
+## Bir sezonda kaç soru
+
+Rakamlara bakalım. Bu ilkbahar-yaz sezonunda Lumoda 36 modelden **109**
+Collection option'ı satışa çıkardı. Kural her ürüne lansmandan sonraki
+üçüncü, dördüncü, beşinci ve altıncı pazartesi bakıyor. 109 × 4 = **436**
+karar. Her kararın içinde beş soru var.
+
+Kural bu sezon 38 ürüne RPT verdi, toplam 26.100 adet. Sezon bittiğinde
+bakınca planın bir buçuk katından fazla satan, yani gerçekten tutan 16
+ürün vardı. Kural bunların 14'ünü yakalamış; fena değil. Ama RPT verdiği
+38 ürünün **24**'ü tutan ürünler değildi. Ve 38 siparişin 11'i indirim
+başladıktan sonra geldi.
+
+Kural hızlı ve anlaşılır. Neyi kaçırdığını bu dizide ölçeceğiz.
+
+## Şortun sonu
+
+Merak edenler için: 1.040 adet, lansmandan yedi hafta sonra geldi. Arada
+geçen iki haftada şort zincirde neredeyse hiç satmadı, raflar boştu; o
+iki haftada gelip bulamayan müşterinin istediği 1.284 adet. RPT gelince
+satış yeniden başladı, ama mal yetmedi. Bu şortun lansmandan indirime
+kadarki gerçek talebi **6.018** adetti; Pelin'in planının 3,62 katı. İlk
+alım ile RPT toplamı 3.120.
+
+Banu haklıydı, ürün tutmuştu. Pelin de haklıydı; ne kadar tuttuğunu
+kimse bilmiyordu. Kural ise ikisini de dinlemeden "yarısı" demişti.
+
+## Tanım
+
+Sezon içinde, ilk siparişin yetmeyeceği anlaşılan bir ürünü tedarikçiye
+yeniden ürettirme kararına **RPT** denir. RPT'nin zorluğu kararın
+kendisinde değil, zamanlamasındadır: ürünün gerçekten tuttuğunu ne kadar
+geç anlarsanız o kadar emin olursunuz, ama o kadar az sezon kalır.
+
+Bir sonraki yazıda beş soruyu sırayla kuracağız ve birbirine nasıl
+bağlandıklarını göreceğiz. Bu dizi boyunca şortu ve arkadaşlarını
+unutmayın; hepsine geri döneceğiz. 🙂
