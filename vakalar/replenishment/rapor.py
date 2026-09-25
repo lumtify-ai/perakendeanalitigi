@@ -486,6 +486,35 @@ def _bolum_line(dunya, con, kal_json: dict) -> None:
             )
 
 
+def _bolum_koli(dunya, con, kal_json: dict) -> None:
+    """Koli kısıtının bedeli ne? Koliyi tamamen kapatıp ölçeriz.
+
+    Sezgi "koli bir kısıttır, açık adet daha isabetlidir" der. Ölçüm tersini
+    söylüyor: açık toplama haftalık kapasiteyle sınırlı olduğu için, koli
+    olmadan zincir istediği hacmi hiç taşıyamıyor.
+    """
+    print()
+    print("=== KOLİ KISITI ===")
+    kal = _kalibrasyon_nesnesi(kal_json)
+    talep, gecmis_satis, baslangic = yol_baslangici(dunya, 0, con)
+    paylar = magaza_beden_paylari(gecmis_satis, dunya, dunya.gun(sabitler.OYUN_BAS))
+    politika = KuralPolitikasi(kal.ss["ros"], kal.katsayilar)
+
+    print("referans: yol 0 · kural · ros · alım %80 · öncelik cover")
+    print(f"  {'kural':16s}{'bulun.%':>9s}{'kayıp%':>8s}{'koli':>9s}{'açık':>9s}"
+          f"{'gönderilen':>12s}{'maliyet TL':>13s}{'TL/adet':>9s}{'beden sapma%':>14s}")
+    for ad, kural in (("koli C + açık", kal.koli["C"]), ("yalnız açık", KoliKurali("yok"))):
+        ayar = OyunAyari(0.80, kural, kal.acik_kapasite)
+        sonuc = oyna(dunya, talep, gecmis_satis, copy.deepcopy(baslangic), politika, ayar, paylar)
+        o = sonuc.olcutler
+        birim = o["toplama_maliyeti_tl"] / o["gonderilen_adet"] if o["gonderilen_adet"] else 0.0
+        print(f"  {ad:16s}{o['bulunabilirlik']:9.1f}{o['kayip_orani']:8.1f}{o['koli_sayisi']:9,.0f}"
+              f"{o['acik_adet']:9,.0f}{o['gonderilen_adet']:12,.0f}{o['toplama_maliyeti_tl']:13,.0f}"
+              f"{birim:9.2f}{o['beden_sapmasi']:14.1f}")
+    print(f"  açık toplama tavanı: {kal.acik_kapasite:,}/hafta × {sabitler.KARAR_SAYISI} hafta "
+          f"= {kal.acik_kapasite * sabitler.KARAR_SAYISI:,} adet")
+
+
 def main() -> None:
     dunya = dunya_kur()
     con = kaynak.baglan()
@@ -502,6 +531,7 @@ def main() -> None:
     _bolum_yirmi_yol(veri_yollari, kal_json)
 
     _bolum_line(dunya, con, kal_json)
+    _bolum_koli(dunya, con, kal_json)
     _bolum_anlatim(dunya, con, kal_json)
 
 
