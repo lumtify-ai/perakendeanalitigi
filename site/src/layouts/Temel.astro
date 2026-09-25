@@ -11,9 +11,10 @@ interface Props {
 }
 
 const { baslik, aciklama, isaretleme, dizinlenmesin = false } = Astro.props
-const tamBaslik = baslik === 'perakendeanalitigi.com'
-  ? baslik
-  : `${baslik} · perakendeanalitigi.com`
+// Her sayfa aynı kalıpta: "Başlık · perakendeanalitigi.com". Ana sayfa da
+// dahil — başlığa yalnız alan adını koymak sekmede sitenin ne anlattığını
+// söylemiyordu.
+const tamBaslik = `${baslik} · perakendeanalitigi.com`
 
 const kurum = {
   '@context': 'https://schema.org',
