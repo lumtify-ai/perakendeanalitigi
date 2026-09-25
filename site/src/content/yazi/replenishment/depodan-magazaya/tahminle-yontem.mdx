@@ -1,0 +1,171 @@
+---
+baslik: Tahminle Yöntem ve Dürüst Karşılaştırma
+tip: teknik
+sira: 5
+ozet: LightGBM ile option-mağaza tahmini kurduk ve basit bir yedi günlük ortalamayla yarıştırdık. Asıl bulgu hangisinin kazandığı değil.
+yazar: Sabri Suyunu
+durum: hazirlaniyor
+---
+
+import T from '../../../../components/T.astro'
+
+Geçen yazıda kural tabanlı yöntemi kurduk: son yedi günün satışı, özel gün
+katsayısı, bir taban. Toplam yirmi satır kod. Şimdi aynı işi makine
+öğrenmesiyle yapacağız ve aynı sezonu, aynı talep üzerinde tekrar
+oynayacağız.
+
+Baştan söyleyeyim: bu yazının bulgusu "hangisi kazandı" değil. Bulgu, bu
+sorunun kendisinin yanlış kurulmuş olduğu.
+
+## Model
+
+LightGBM, tek global model. Yani her option-mağaza çifti için ayrı model
+değil; bütün çiftler tek bir modelde, kimlik bilgileri özellik olarak
+veriliyor.
+
+**Hedef değişken:** önümüzdeki yedi günün option-mağaza satışı.
+
+**Özellikler:** son dört haftanın haftalık satışı, dört ve sekiz haftalık
+ortalamalar, option'ın zincir genelindeki son hafta satışı, line, üst
+kategori, mağaza tipi, hedef haftadaki tatil günü sayısı.
+
+**Amaç fonksiyonu:** Poisson. Sayım verisi ve çok sayıda sıfır olduğu için.
+
+**Eğitim:** her karar pazartesisinde, o güne kadarki bütün veriyle yeniden.
+Genişleyen pencere. Hiçbir eğitim ya da doğrulama penceresi karar gününü
+aşmıyor.
+
+Hiperparametreleri sezon öncesi veriyle, zaman sıralı doğrulamayla seçtik.
+Model 31 yaprak, 400 ağaçta karar kıldı.
+
+Bu, "ML ile tahmin" denince kurulan standart modeldir. Kasten güçlü bir
+rakip seçtik; zayıf bir modeli yenmenin kimseye faydası yok.
+
+## İlk kurulum ve ilk hata
+
+Modeli kurduk, çıktısını doğrudan hedef stok yaptık ve sezonu oynattık.
+Sonuç felaketti:
+
+| | Kural tabanlı | LightGBM (çıplak) |
+|---|---:|---:|
+| Bulunabilirlik | %67,8 | %44,6 |
+| Kayıp satış | %35,2 | %57,4 |
+| Gönderilen | 102.488 | 51.697 |
+| Dönem sonu stok | 9.966 | 5.743 |
+
+Model müşterinin yarısından fazlasını boş rafla karşılamıştı.
+
+İlk tepki "demek ki ML tutmadı" demek olurdu. Yanlış tepki. Çünkü iki kolu
+karşılaştırırken aynı anda **iki şeyi** değiştirmiştik:
+
+1. Öngörüyü kim üretiyor — yedi günlük ortalama mı, LightGBM mi?
+2. Öngörünün altında bir taban var mı?
+
+Kural tabanlı kolda taban vardı, tahmin kolunda yoktu. Yani ölçtüğümüz şey
+"kural mı iyi, ML mi" değil, "taban koymak mı iyi, koymamak mı"ydı. Cevabı
+da zaten belliydi.
+
+Bunu nereden anladık? İki öngörüyü doğrudan karşılaştırdık. İlk karar
+gününde kural tabanlı öngörü 10.551 adet, LightGBM 9.658 adet diyordu.
+Gerçek talep 12.837'di. **İki öngörü birbirine yüzde sekiz uzaklıktaydı** —
+ama hedefler 1,8 kat farklıydı. Fark öngörüden gelmiyordu.
+
+## Üçüncü kol
+
+Bunun üzerine üçüncü bir kol kurduk: LightGBM öngörüsü, kural kolunun
+**birebir aynı** taban kuralı, aynı dağıtım motoru, aynı koli kuralı, aynı
+paylaştırma önceliği. Geriye tek değişken kaldı — öngörüyü kim üretiyor.
+
+Üç kolun aynı sezondaki sonuçları:
+
+| | Kural (7 gün ort.) | Tahmin + taban | Çıplak tahmin |
+|---|---:|---:|---:|
+| Bulunabilirlik | %67,8 | %60,6 | %44,6 |
+| Kayıp satış | %35,2 | %42,1 | %57,4 |
+| Satışa dönme | 8,5 gün | 7,6 gün | 7,1 gün |
+| Gönderilen | 102.488 | 86.087 | 51.697 |
+| Dönem sonu stok | 9.966 | 8.062 | 5.743 |
+| Toplama maliyeti | 498.260 TL | 448.670 TL | 269.230 TL |
+
+## Farkı ikiye ayırmak
+
+Şimdi asıl hesap. Aynı talep üzerinde tek bir zar atışına bakmak yeterli
+değil; fark gerçek mi, şans mı bilemeyiz. O yüzden aynı beklenen talepten
+yirmi alternatif talep yolu ürettik ve her karşılaştırmayı yirmi yolda
+tekrarladık.
+
+**Öngörü etkisi** (tahmin + taban eksi kural — aynı politika, farklı öngörü):
+
+| Ölçüt | Medyan fark | Aynı yön |
+|---|---:|---:|
+| Kayıp satış | +6,53 puan | 20/20 |
+| Bulunabilirlik | −2,40 puan | 20/20 |
+| Dönem sonu stok | −1.757 adet | 20/20 |
+
+**Politika etkisi** (çıplak tahmin eksi tahmin + taban — aynı öngörü, farklı
+politika):
+
+| Ölçüt | Medyan fark | Aynı yön |
+|---|---:|---:|
+| Kayıp satış | +13,86 puan | 20/20 |
+| Bulunabilirlik | −5,18 puan | 20/20 |
+| Dönem sonu stok | −2.160 adet | 20/20 |
+
+Yirmi yolun yirmisinde de aynı yön; bunlar şans değil.
+
+**Politikanın etkisi öngörünün iki katı.** Kayıp satışta 13,86'ya karşı 6,53
+puan. Yani modeli değiştirmek değil, modelin çıktısıyla ne yaptığınız fark
+ediyor.
+
+Bu dizinin cümlesi şu: *tahmin motorunu değiştirmek az şey değiştirir,
+politikayı değiştirmek çok şey değiştirir.*
+
+## LightGBM neden kaybetti
+
+Eşit koşulda bile LightGBM basit yedi günlük ortalamayı geçemedi. Yirmi
+yolun yirmisinde de geride kaldı, bulunabilirlikte 2,4 puan.
+
+Sebebi modelin kötülüğü değil. Sebep, problemin yapısı.
+
+**Veri seyrek.** 2.472 option-mağaza çiftinin çoğu haftada bir iki adet
+satıyor, birçoğu sıfır. Poisson amaç fonksiyonu bunu bilerek seçildi ama
+seyrekliği yok edemez. Haftada 1,3 adet satan bir hücrede öğrenilecek örüntü
+azdır; ortalama almakla model kurmak arasındaki fark küçülür.
+
+**Talep sansürlü.** Model de kural gibi kayıp satışı görmüyor. Üstelik model
+bu yanlılığı daha iyi öğreniyor: stoksuz kalmış hücrelerin düşük satışını
+"bu hücre yavaştır" diye içselleştiriyor ve o hücreye az mal gönderiyor.
+Basit ortalamanın üstüne konan taban ise bu yanlılığı kısmen kırıyor, çünkü
+taban satıştan değil hızdan geliyor.
+
+**Model muhafazakâr.** Poisson kaybı ortalamaya çekiyor. Yedi günlük
+ortalama ise geçen haftanın sıçramasını doğrudan yansıtıyor. Replenishment'ta
+biraz fazla göndermenin bedeli, az göndermenin bedelinden düşük olduğu için
+bu muhafazakârlık maliyete dönüşüyor.
+
+Bir dürüstlük notu daha. Lumoda sentetik bir veri seti ve talebi bilinen bir
+formülle üretiliyor. Bu, teoride modelin işine yarayabilirdi: formülü
+keşfedip gerçek hayatta olabileceğinden iyi görünebilirdi. Öyle olmadı.
+Ama tersi de geçerli — gerçek bir zincirin verisinde sonuç değişebilir, ve
+biz onu ölçmedik.
+
+## Peki ML hiç mi işe yaramaz
+
+Tablodaki bir sütun modelin lehine: çıplak tahmin en ucuz kol, 269.230 TL.
+Tahmin + taban da kuraldan 50 bin TL ucuz. Model daha az mal taşıyarak aynı
+işi görmeye çalışıyor ve kısmen başarıyor — satışa dönme günü de en kısa
+onda.
+
+Yani model "yanlış" değil, farklı bir noktada duruyor: daha az stok, daha
+az maliyet, daha çok kayıp satış. Hangisinin doğru olduğu sizin brüt
+kârınıza ve stok maliyetinize bağlı. Transfer dizisindeki
+[getiri hesabının](/transfer/blok-transfer/basari-nasil-olculur/) buraya da
+uygulanması gerekir.
+
+Benim çıkarımım şu: option-mağaza düzeyinde tahmin kurmak zor, pahalı ve bu
+problemde karşılığı zayıf. Kural tabanlı gidip yaklaşık bir değer bulmak
+hem daha anlaşılır hem de bu veride daha isabetli. Modeli kurmak isterseniz
+kurun — ama önce politikanızı düzeltin, çünkü oradaki kazanç iki katı.
+
+Son yazıda başarının nasıl ölçüleceğine bakacağız. Orada bu yazıdaki
+tablolara bir kez daha döneceğiz, çünkü içlerinden biri yalan söylüyor.

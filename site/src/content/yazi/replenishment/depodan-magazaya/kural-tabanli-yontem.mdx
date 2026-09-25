@@ -1,0 +1,190 @@
+---
+baslik: Kural Tabanlı Yöntem
+tip: teknik
+sira: 4
+ozet: Hedef stok nasıl kurulur, safety stock'un üç ailesi, ve stoksuz kalan mağazanın hızını ölçmenin yolu.
+yazar: Sabri Suyunu
+durum: hazirlaniyor
+---
+
+import T from '../../../../components/T.astro'
+
+Üç yazı boyunca kavramları kurduk. Şimdi hesabı yazacağız. Kural tabanlı
+yöntemin tamamı tek satıra sığar:
+
+```
+hedef stok = max(öngörü, güvenlik stoku)
+ihtiyaç    = max(hedef − mevcut stok, 0)
+```
+
+Geri kalan her şey bu iki satırın içini doldurmaktır.
+
+## Öngörü
+
+Öngörü, önümüzdeki haftanın satışı. En basit hâliyle geçen haftanın
+satışıdır:
+
+```sql
+-- Kural tabanlı öngörünün ham girdisi: son 7 günün satışı,
+-- option-mağaza düzeyinde. Karar günü pazartesi; blok salı-pazartesi.
+with son_hafta as (
+    select s.magaza_id,
+           u.option_id,
+           sum(s.adet) as satis_7g
+    from satis s
+    join urun u using (urun_id)
+    where s.tarih between date '2025-08-26' and date '2025-09-01'
+      and s.adet > 0          -- negatif satırlar iade, talep değil
+    group by 1, 2
+)
+select count(*) as oc_sayisi, sum(satis_7g) as toplam_adet
+from son_hafta;
+```
+
+İlk karar gününden önceki hafta bu sorgu **2.027** option-mağaza çifti ve
+**11.114** adet döndürüyor. Zincirin o hafta sattığı mal bu.
+
+Üstüne özel gün katsayısı geliyor. Önümüzdeki yedi günde tatil varsa hedef
+yükselir, geçen yedi günde tatil vardıysa taban düşer; katsayı bu iki
+pencerenin oranıdır. Lumoda'da ölçtüğümüz değerler Alt Giyim 1,35, Dış Giyim
+ve Üst Giyim 1,40.
+
+## Güvenlik stoku: üç aile
+
+Sahada safety stock üç ayrı şekilde hesaplanır ve üçü de doğrudur.
+
+**Sabit adet.** Her option-mağaza için bir taban: "bu üründen rafta en az şu
+kadar dursun". Sahadaki adı minimum sergilemedir. En basit ve en anlaşılır
+olanı.
+
+**Satış hızına göre (ROS).** Günlük satış hızı × emniyet günü. Hızlı satan
+üründe taban yükselir, ölü stokta yükselmez. Sektörün "rate of sale" derken
+kastettiği hesap bu.
+
+**İstatistiksel.** Talebin oynaklığından türetilir:
+
+<div class="matematik">
+  güvenlik stoku = Z × σ × √(tedarik süresi)
+</div>
+
+Z istenen hizmet seviyesine karşılık gelir; %95 için 1,65. σ haftalık satışın
+standart sapmasıdır. Ders kitabının cevabı budur.
+
+Değerleri biz seçmedik. Sezon öncesi bir pencerede, oyun dönemine hiç
+bakmadan kalibre ettik: sabit 2 adet, ROS 7 gün, istatistikte Z = 1,65.
+Bu ayrım önemli — parametreyi sonucu gördükten sonra seçmek, kendi sınavının
+sorularını kendin yazmaktır.
+
+## Neden toplamıyoruz
+
+İlk kurduğumuzda hedefi şöyle yazmıştık:
+
+```
+hedef = öngörü + güvenlik stoku
+```
+
+Mantıklı görünüyor. Sonuç mantıklı değildi. Sezon boyunca zincir gerçek
+talebin belirgin üstünde mal taşıdı, dönem sonunda mağazalarda 16.566 adet
+kaldı ve toplama maliyeti 622.570 TL'ye çıktı.
+
+Hatayı görmek zor değil aslında. Güvenlik stoku bir **taban**dır, öngörünün
+üstüne eklenen bir tampon değil. "Rafta en az iki adet dursun" demek,
+"tahminimin üstüne iki adet daha koy" demek değildir. Sahadaki karşılığı
+minimum sergilemedir ve minimum bir alt sınırdır.
+
+Düzeltince hedef `max(öngörü, güvenlik stoku)` oldu. Dönem sonu stok 9.966'ya,
+maliyet 498.260 TL'ye indi.
+
+Ne kadar sık devreye giriyor? ROS ailesinde, her karar gününde ortalama
+**1.275** option-mağaza çiftinde güvenlik stoku öngörüden büyük çıkıyor ve
+hedefi o belirliyor. Toplam 2.472 çift var; yani kararların yarısında taban
+konuşuyor, öngörü değil. Bunlar çoğunlukla yavaş satan ya da o hafta hiç
+satmamış hücreler.
+
+## Asıl sorun: göremediğimiz talep
+
+Şimdi bu dizinin en önemli teknik konusuna geliyoruz.
+
+Öngörü geçmiş satışa bakıyor. Peki raf boşken ne olur? Müşteri gelir,
+ürünü bulamaz, çıkar. Kasada hiçbir kayıt oluşmaz. O gün için satış sıfır
+yazılır ve sistem bunu "talep yoktu" diye okur.
+
+Sonuç bir kısır döngüdür. Stoksuz kalan mağaza yavaş görünür. Yavaş göründüğü
+için az mal alır. Az mal aldığı için yine stoksuz kalır. Raporda her şey
+yolundadır; kayıp hiçbir tabloda görünmez.
+
+İlk yazıdaki Alsancak'ı hatırlayın: geçen hafta 18 satmış, rafı sıfır. O 18
+rakamı Alsancak'ın talebi değil, Alsancak'ın **stoğuydu**.
+
+### Düzeltme: takvim gününe değil, stoklu güne böl
+
+Çözüm sandığınızdan basit. Hızı hesaplarken rafın boş olduğu günleri paydadan
+çıkarın:
+
+```python
+def hiz(satis_penceresi, stoklu_gun_penceresi):
+    """Satış hızı = satış / rafta mal olan gün sayısı.
+
+    Takvim gününe bölmek, rafın boş olduğu günleri 'satmadı' diye sayar
+    ve stoksuz kalan hücreyi yavaş gösterir.
+    """
+    satis = satis_penceresi.sum(axis=0)
+    stoklu = stoklu_gun_penceresi.sum(axis=0)
+    return np.divide(satis, stoklu, out=np.zeros_like(satis, dtype=float),
+                     where=stoklu > 0)
+```
+
+Bir hücre son 28 günün yalnız 7'sinde stokluysa ve o 7 günde 14 adet
+sattıysa, hızı günde 0,5 değil **2**'dir. Dört kat fark.
+
+Bunun hile olmadığını vurgulamak isterim. Kayıp satış tablosuna dokunmuyoruz;
+o tabloyu yalnız hakem görüyor, karar veren yöntem görmüyor. Kullandığımız
+tek şey mağazanın kendi stok kaydı — gerçek zincirlerin zaten elinde olan
+bir veri.
+
+Etkisi de küçük değil. Aynı senaryoda bulunabilirlik %61,5'ten **%67,8**'e
+çıktı.
+
+Bir sınırı var, onu da söyleyelim: oyun öncesi dönem için günlük stok
+geçmişimiz yok, Lumoda yalnız haftalık fotoğraf tutuyor. O günleri stoklu
+saydık. Muhafazakâr bir varsayım, yani hızı olduğundan yüksek göstermiyor;
+ama ilk haftaların kararları kısmen düzeltilmemiş kalıyor.
+
+## Üç aile yarıştı
+
+Aynı sezonu, aynı talep üzerinde, yalnız güvenlik stoku ailesini
+değiştirerek oynattık. Yirmi alternatif talep yolunda farkların medyanı:
+
+| Karşılaştırma | Bulunabilirlik | Dönem sonu stok |
+|---|---:|---:|
+| ROS − sabit | +1,04 puan | +997 adet |
+| İstatistik − sabit | +0,41 puan | +197 adet |
+| İstatistik − ROS | −0,63 puan | −800 adet |
+
+Yirmi yolun yirmisinde de aynı yön. ROS en yüksek bulunabilirliği veriyor,
+karşılığında en çok stoğu taşıyor. Sıralama beklendiği gibi: taban ne kadar
+yüksekse raf o kadar dolu, depo o kadar meşgul.
+
+Ama farkların büyüklüğüne bakın. Üç aile arasındaki en büyük fark **bir
+puan**. Oysa geçen yazıda koliyi kapatmak 26 puan oynatmıştı, sansür
+düzeltmesi 6 puan. Ders kitabının üç yöntemi arasında seçim yapmak, bu
+problemde en az önemli kararlardan biri.
+
+## Ve hâlâ yetmiyor
+
+Sezonun tamamına bakalım. Kural tabanlı yöntem, on yedi karar boyunca toplam
+**176.387** adetlik hedef kurdu. Aynı dönemdeki gerçek talep **216.669**
+adetti.
+
+Yani düzeltmeden sonra bile sistem gerçek talebin **%81,4'ü** kadarını
+istedi. Aradaki %18,6 hiçbir zaman istenmedi, dolayısıyla hiçbir zaman
+gönderilmedi ve müşteri onu rafta bulamadı.
+
+Sebebi yine sansür. Stoklu güne bölmek yardımcı oluyor ama tam çözmüyor,
+çünkü bir hücre uzun süre stoksuz kaldıysa geriye ölçülecek stoklu gün bile
+kalmıyor. Kayıp satışı göremeyen hiçbir yöntem bu açığı tamamen kapatamaz —
+ne bu yöntem, ne de bir sonraki yazıda kuracağımız makine öğrenmesi modeli.
+
+Bir sonraki yazıda tahmine geçiyoruz. LightGBM ile option-mağaza düzeyinde
+tahmin kuracağız ve aynı sezonu onunla oynayacağız. Beklentim şuydu: model
+daha iyisini yapar. Sonuç beklediğim gibi çıkmadı.

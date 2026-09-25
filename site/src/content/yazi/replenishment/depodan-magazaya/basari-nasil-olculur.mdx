@@ -1,0 +1,159 @@
+---
+baslik: Başarılı Bir Replenishment Nasıl Ölçülür
+tip: sonuc
+sira: 6
+ozet: Satışa dönme günü, bulunabilirlik, kayıp satış, kırıklık. Dördü de doğru ölçüt ve biri tek başına bakıldığında yalan söylüyor.
+yazar: Sabri Suyunu
+durum: hazirlaniyor
+---
+
+import Demo from '../../../../components/Demo.astro'
+import Lumtify from '../../../../components/Lumtify.astro'
+import T from '../../../../components/T.astro'
+
+Beş yazı boyunca bir replenishment sistemi kurduk. Şimdi verdiğimiz sözün
+hesabını yapacağız: bu sistem iyi mi çalıştı?
+
+Soru masum görünüyor. Değil. Çünkü cevabı hangi ölçüte baktığınıza göre
+tamamen değişiyor ve ölçütlerden biri, tek başına bakıldığında, sizi
+sistematik olarak yanıltıyor.
+
+## Dört ölçüt
+
+**Satışa dönme günü.** Depodan çıkan bir adet, mağazada kaç gün sonra
+satıldı? Dizinin çekirdek cümlesinin doğrudan karşılığı bu. Kısa olması iyi.
+
+**Bulunabilirlik.** Talebin olduğu gün ve hücrelerin yüzde kaçında rafta mal
+vardı? Müşterinin gördüğü şey bu.
+
+**Kayıp satış oranı.** Karşılanamayan talebin toplam talebe oranı. Bunu
+yalnız hakem görüyor; hiçbir yöntem karar verirken kullanmıyor, çünkü gerçek
+hayatta da kimse göremez.
+
+**Kırıklık.** Stoğu olan ama ara bedenleri tükenmiş option-mağaza çiftleri.
+Transfer dizisinin bütün konusu buydu.
+
+Üç kolun sonuçları:
+
+| Ölçüt | Kural | Tahmin + taban | Çıplak tahmin |
+|---|---:|---:|---:|
+| Bulunabilirlik | %67,8 | %60,6 | %44,6 |
+| Kayıp satış | %35,2 | %42,1 | %57,4 |
+| **Satışa dönme** | 8,5 gün | 7,6 gün | **7,1 gün** |
+| **Kırık çift** | 1.421 | 1.073 | **505** |
+| Toplama maliyeti | 498.260 TL | 448.670 TL | 269.230 TL |
+
+Tablonun kalın yazılmış iki satırına bakın. Satışa dönme günü ve kırık çift
+sayısı, en kötü kolu en iyi gösteriyor.
+
+## Yalan söyleyen ölçüt
+
+Kırık çift sayısının tanımını hatırlayın: **stoğu olan** ama ara bedenleri
+tükenmiş çiftler. Tamamen boş bir raf kırık sayılmaz — sayılacak stok yoktur.
+
+Şimdi aynı tabloyu paydasıyla birlikte verelim:
+
+| | Kural | Tahmin + taban | Çıplak tahmin |
+|---|---:|---:|---:|
+| Dönem sonu stoklu çift | 1.711 | 1.322 | 711 |
+| Dönem sonu **boş** çift | 761 | 1.150 | **1.761** |
+| Kırık çift | 1.421 | 1.073 | 505 |
+| Kırık / stoklu | %83,1 | %81,2 | %71,0 |
+
+Toplam 2.472 çift var. Çıplak tahmin kolunda bunların **1.761'i** dönem
+sonunda tamamen boş. Yani o kolun "az kırığı" beden bütünlüğünü koruduğu
+için değil, ölçülecek raf bırakmadığı için.
+
+Oranla bakınca fark 12 puana iniyor. Kalan fark da büyük ölçüde aynı
+mekanizmanın kalıntısı: ayakta kalan 711 çift, zaten en çok satan ve en çok
+beslenen çiftler.
+
+Satışa dönme günü de aynı tuzağa düşüyor. Çıplak tahmin en kısa süreyi
+veriyor (7,1 gün) çünkü yalnız en hızlı satan hücrelere mal gönderiyor. Az
+mal gönderip iyi görünmek kolaydır.
+
+**Bir metriğe bakmadan önce paydasını kimin belirlediğini sorun.**
+
+Bu uyarının bir kardeşi transfer dizisinde de var. Orada STR farkının kısmen
+seçim kuralının kendisini tekrarladığını yazmıştık: vericiler yüksek cover'a
+göre seçiliyordu, yani tanım gereği düşük STR'li; alıcılar stoksuzluğa göre,
+yani tanım gereği yüksek. Aynı hata, farklı kılıkta.
+
+## Peki hangisi doğru
+
+Tek bir ölçüt yok ve olmaması normal. Ama bir hiyerarşi var.
+
+**Önce bulunabilirlik ve kayıp satış.** Bunlar müşterinin yaşadığı şeyi
+ölçer ve paydası sabittir: gerçekleşen talep. Manipüle edilmeleri zordur.
+
+**Sonra maliyet.** Toplama, sevkiyat, taşınan stok. Bulunabilirliği her zaman
+para harcayarak yükseltebilirsiniz; soru ne kadara.
+
+**En sonra verimlilik ölçütleri.** Satışa dönme günü, kırıklık, STR. Bunlar
+teşhis için kıymetlidir, karne olarak tehlikelidir. Her biri paydası
+oynatılarak güzelleştirilebilir.
+
+Bizim üç kolumuza bu sırayla bakarsanız tablo netleşiyor: kural tabanlı
+yöntem en çok müşteriyi karşıladı, karşılığında en çok parayı harcadı.
+Çıplak tahmin en ucuzdu ve müşterinin yarısından fazlasını boş rafla
+karşıladı. Arada bir yerde durmak isteyenler için tahmin + taban var.
+
+## Kadranı kendiniz çevirin
+
+Aşağıdaki kadran üç kolu, üç alım oranını ve üç koli kuralını birleştiriyor.
+Bütün sayılar gerçek koşulardan; sayfa açıldığında hepsi hazır duruyor,
+hiçbir hesap tarayıcıda yapılmıyor.
+
+<Demo dizi="depodan-magazaya" />
+
+Kadranla oynarken şuna dikkat edin: alım oranını değiştirmek NOS ve Basic'i
+kımıldatmaz, Collection'ı 20 puandan fazla oynatır. Koli kuralını
+değiştirmek az şey değiştirir. Yöntemi değiştirmek çok şey değiştirir.
+
+## Bu model nerede yetmez
+
+Dürüstlük listesi, toplu hâlde.
+
+**Kayıp satışı hiçbir yöntem göremiyor.** Stoklu güne bölme düzeltmesi
+açığın bir kısmını kapatıyor ama sezon boyunca hedef, gerçek talebin
+%81,4'ünde kaldı. Uzun süre stoksuz kalan hücrede ölçülecek stoklu gün bile
+kalmıyor.
+
+**Maliyetler varsayım.** Açık toplama 10 TL/adet, koli 20 TL/koli, haftalık
+açık kapasite v2 sevkiyat ortalamasının çeyreği. Bunların veride karşılığı
+yok; kadranda duyarlılıkları var, gövdede sayı olarak iddia edilmiyorlar.
+
+**Özel gün katsayısı fazla temiz.** Lumoda'da tatil çarpanı gömülü olduğu
+için ölçüm onu geri buldu. Sahada her özel gün ayrı bir karakterdir.
+
+**Kıtlık hiç ısırmadı.** Depo en sıkı senaryoda bile dolu kapandı, açık
+kapasite hiçbir hafta dolmadı. Paylaştırma önceliği bu yüzden hiç fark
+etmedi. Başka bir zincirde eder.
+
+**Oyun öncesi günlük stok geçmişimiz yok.** O günleri stoklu saydık;
+muhafazakâr ama ilk haftaların kararları kısmen düzeltilmemiş.
+
+**Tek bir zincir, tek bir sezon.** Yirmi alternatif talep yolu farkların
+şans olmadığını gösteriyor, ama hepsi aynı zincirin aynı sezonu. Başka bir
+ürün karması, başka bir mağaza ağı, başka sonuçlar verebilir.
+
+## Baştaki soru
+
+Ali ile Veli aynı depo satırı için kavga ediyordu ve ikisi de haklıydı.
+Pars'ın söylediği şey şuydu: yanlış soruyu tartışıyorsunuz.
+
+Altı yazı sonra o cümlenin ne kadar geniş olduğunu görüyoruz. Biz de bu
+dizide birkaç kez yanlış soruyu tartıştık. Paylaştırma kuralını ölçtük, hiç
+fark etmediğini gördük. Koliyi kısıt sandık, kapasitenin kendisi çıktı.
+Makine öğrenmesini kural tabanlı yöntemle yarıştırdık, asıl farkın
+politikadan geldiğini bulduk.
+
+Replenishment zor bir problem değildir. Onu ne kadar karmaşık yapacağınızı
+tecrübeniz belirler. Ama tecrübe, karmaşıklığı seçmek kadar **nereye
+bakmayacağınızı** bilmek demek de.
+
+Bir sonraki problem RPT: bu dizide kapsam dışı bıraktığımız, tedarikçiye
+verilen tekrar siparişi. Orada soru "malı nereye göndereyim" değil, "bu
+maldan bir daha yaptırayım mı" olacak.
+
+<Lumtify />

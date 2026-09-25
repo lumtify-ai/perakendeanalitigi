@@ -1,0 +1,140 @@
+---
+baslik: Sabahki Toplama Emri
+tip: hikaye
+sira: 1
+ozet: Satan ürünün yerine aynısını koymak. Aynı depo satırından iki kişi mal isteyince kavga çıkar; kavgayı bitiren şey hakemlik değildir.
+yazar: Sabri Suyunu
+durum: hazirlaniyor
+---
+
+import Kadro from '../../../../components/Kadro.astro'
+import T from '../../../../components/T.astro'
+
+<Kadro />
+
+Perakendede bir işin adı ne kadar çok söyleniyorsa, o iş o kadar az
+anlatılıyordur. Replenishment böyle bir iş. Kimi AR der, kimi ARES, kimi
+kısaca Repl. Bir kısmı da RPT der ki o yanlıştır: RPT tedarikçiye verilen
+tekrar siparişidir, yani malın kendisini yeniden ürettirmek. Bizim konumuz
+depodan mağazaya giden mal. Türkçesi ikmaldir ama sahada kimsenin
+kullandığını duymadım.
+
+İşin tanımı tek cümle: **satan ürünün aynısını yerine koymak.**
+
+Bu cümlenin iki kelimesi kritik. Birincisi "satan". Boş rafı doldurmuyoruz,
+satışı destekliyoruz. İkincisi "aynısını". Yeni bir ürün göndermiyoruz,
+mağazanın zaten sattığı üründen bir daha gönderiyoruz. Sezon başında
+mağazaya ilk malı koymak ayrı bir iştir ve bu dizinin konusu değil. Biz
+sezon ortasındayız: mal rafta, müşteri alıyor, raf boşalıyor.
+
+Sahne yine Lumoda: 25 mağaza, 240 <T k="option">option</T>. Her mağaza ile
+her option'ın birleşimi ayrı bir karar demek, yani her hafta **2.472** ayrı
+soru. Sezonun kalanı 122 gün, 17 karar günü.
+
+## Salı, 08:40
+
+Ekranda MDL037-LCV var. Oversize Sweatshirt, lacivert. Sezonun en iyi giden
+modellerinden biri ve dört mağazanın tablosu şöyle:
+
+| Mağaza | Geçen hafta satış | Raftaki stok |
+|---|---:|---:|
+| Ankara Armada | 31 | 9 |
+| İstanbul Bağdat Caddesi | 19 | 12 |
+| İzmir Alsancak | 18 | 0 |
+| İstanbul Ataşehir | 9 | 30 |
+
+Armada haftada 31 satıyor ve elinde 9 adet kalmış. Bu hızla salı akşamını
+zor görür. Alsancak zaten sıfırlamış. Bağdat Caddesi'nin üç günlük malı var.
+
+Ataşehir'e dikkat edin. Onun rafında 30 adet duruyor ve geçen hafta 9
+satmış. Ataşehir'in mala ihtiyacı yok. Depoya "bende bitti" diye yazan
+mağaza değil, malı satan mağaza kazanacak.
+
+İş ikiye bölünmüş: AVM mağazaları Ali'de, cadde ile outlet Veli'de. İki
+isim, tek depo.
+
+Ali Bağdat Caddesi için 11 adet yazıyor. Kaydet diyor. Ekran uyarı veriyor:
+istenen bedenlerde açık stok kalmamış.
+
+— Veli, sweatshirt lacivertte bir şey mi yaptın?
+
+— Yaptım. Alsancak'a 19, Armada'ya 22 çıkardım. Sabah sekizde girmiştim.
+
+Depoda mal bitmiş değil. Ali'nin istediği bedenler bitmiş, çünkü Veli sekizde
+girmiş, Ali sekiz kırkta. Aynı depo satırına iki kişi elle uzanınca sonucu
+saat belirliyor.
+
+## İkisi de haklı
+
+Bu tartışmanın nasıl gittiğini bilirsiniz. Ali'nin gerekçesi sağlam: Bağdat
+Caddesi o modeli sezonun içinde satar, geciktirirse indirime kalır. Veli'nin
+gerekçesi de sağlam: Armada haftada 31 satıyor ve Alsancak'ın rafı bomboş.
+
+Kimse yalan söylemiyor. Kimse kendi mağazasını kayırmıyor. İkisi de aynı
+tabloya bakıyor ve ikisi de doğru bir cümle kuruyor. Sorun tam burada.
+
+— Sen erken girdin diye mi senin oldu bu mal?
+
+— Ben girdiğimde stok duruyordu. Ne yapsaydım, sana mı sorsaydım?
+
+Ali'nin sorusunun cevabı gerçekten "evet"ti. Haftaya aynı sahne başka bir
+option'da tekrarlanacak, bu sefer roller değişmiş olarak. Elle çalışan her
+zincirde bu kavga vardır. Kavganın konusu stok değildir, **sıradır**.
+
+## Pars araya giriyor
+
+Pars yan masada, ön izleme raporlarına bakıyor.
+
+— Siz kardeşsiniz, kavga edemezsiniz. Hem kavga ettiğiniz şey de bu değil.
+
+İkisi dönüp bakıyor.
+
+— Siz "bu mal kimin" diye soruyorsunuz. Bu sorunun doğru cevabı yok, o
+yüzden de bitmiyor. Doğru soru şu: bu mal nerede daha çabuk satışa döner?
+Bunu ikiniz de bilemezsiniz, çünkü ikiniz de kendi mağazalarınıza bakıyorsunuz.
+Zincirin tamamına bakan biri lazım. O birinin insan olması şart değil.
+
+## Gece çalışan sistem
+
+Pars'ın anlattığı şey şu. Mağazalar günü kapatınca satış ve stok verisi
+merkeze akar. Sistem gece çalışır. Her mağaza ve her option için üç şeye
+bakar: bu hafta ne kadar sattı, şu an rafta ne var, önümüzdeki hafta ne
+satması beklenir. Aradaki farkı kapatacak kadar mal ister. Sabah depoya tek
+bir toplama emri düşer.
+
+Ali ile Veli'nin sırayla girip birbirinin malını kaptığı yerde artık tek bir
+liste var. Liste kişiye göre değil kurala göre kurulmuş. İtirazı olan kurala
+itiraz ediyor, arkadaşına değil.
+
+Büyük zincirler bu hesabı günde bir, kimi zaman sabah ve akşam iki kez
+çalıştırır. Lumoda'nın ölçeğinde haftada bir yetiyor: 122 günde 17 karar.
+Sıklığı mağaza sayısı değil, malın dönüş hızı ve deponun bir günde kaç
+sevkiyat toplayabildiği belirler.
+
+## Kuralın kendisi
+
+Pars kuralı tek cümleye indiriyor:
+
+— Kısıtlı stoku en hızlı satışa dönecek mağazaya gönder.
+
+Cümle basit görünüyor ve basit olduğu için kıymetli. Ama içinde sinsi bir
+soru saklı. En hızlı satacak mağazayı nereden bileceğiz?
+
+Tabloya bir daha bakın. Alsancak geçen hafta 18 satmış görünüyor. Peki rafı
+ne zaman sıfırladı? Çarşamba sıfırladıysa Alsancak'ın gerçek talebi 18 değil,
+belki 30'du. O on iki adet hiçbir yere yazılmadı. Müşteri geldi, bakındı,
+çıktı.
+
+Sistem geçen haftanın satışına bakarak karar veriyor. Stoksuz kalan mağaza
+satışı düşük göründüğü için yavaş sanılıyor, yavaş sanıldığı için az mal
+alıyor, az mal aldığı için yine stoksuz kalıyor. Zincir kendi kuyruğunu
+ısırıyor ve bunu fark etmiyor, çünkü raporda her şey yolunda görünüyor.
+
+Bu dizinin geri kalanı bu sorunun etrafında dönüyor. Sonraki yazıda kararın
+kendisini kuracağız: satmadan önce mi göndermeli yoksa sattıktan sonra mı,
+ürün tipine göre strateji değişir mi, özel gün öncesinde ne kadar derinlik
+yapılır ve satmazsa ne olur.
+
+Şunu baştan söyleyeyim: replenishment zor bir problem değildir. Onu ne kadar
+karmaşık yapacağınızı tecrübeniz belirler. Bu diziyi yazarken bir kez de
+gereğinden karmaşık yapmayı deneyeceğiz. Sonucu da dürüstçe yazacağız. 🙂

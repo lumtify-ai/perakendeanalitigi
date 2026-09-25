@@ -1,0 +1,147 @@
+---
+baslik: Bu Karar Nasıl Verilir
+tip: anlatici
+sira: 2
+ozet: Satmadan önce mi göndermeli, sattıktan sonra mı? Ürün tipine göre strateji değişir mi? Özel gün öncesinde ne kadar derinlik yapılır?
+yazar: Sabri Suyunu
+durum: hazirlaniyor
+---
+
+import T from '../../../../components/T.astro'
+
+Geçen yazıda kuralı tek cümleye indirmiştik: kısıtlı stoku en hızlı satışa
+dönecek mağazaya gönder. Cümle kolay, uygulaması dört ayrı sorunun cevabına
+bağlı. Bu yazıda o dört soruyu sırayla açıyoruz. Hâlâ matematik yok; matematik
+dördüncü yazıda.
+
+## Bir: sattıktan sonra mı, satmadan önce mi?
+
+İki yaklaşım var ve ikisi de savunulabilir.
+
+**Sattıktan sonra koymak.** Mağaza 10 adet sattı, siz 10 adet gönderirsiniz.
+Güvenlidir, çünkü gönderdiğiniz her adedin karşılığında gerçekleşmiş bir satış
+vardır. Sakıncası şu: her zaman bir tur geriden gelirsiniz. Mal yola çıktığında
+raf zaten boştur ve boş kaldığı günlerin müşterisi çoktan gitmiştir.
+
+**Satmadan önce göndermek.** Önümüzdeki haftanın tahminine göre mal
+yığarsınız. Raf dolu kalır. Sakıncası da açık: yanıldığınızda mal yanlış
+mağazada kalır ve onu oradan çıkarmanın maliyeti, göndermenin maliyetinden
+yüksektir.
+
+Pars'ın cevabı ikisi de değil:
+
+— İkisi de aynı şeyin iki ucu. Birinde geçmişe, diğerinde geleceğe
+bakıyorsunuz. Doğrusu hıza bakmak. Bu mağaza bu üründen günde kaç adet
+satıyor, elinde kaç günlük mal var, bir sonraki sevkiyat ne zaman? Üçünü
+bilirseniz ne kadar göndereceğinizi de bilirsiniz.
+
+Bizim modelimiz bunu yapıyor. Her karar gününde her mağaza ve her option için
+bir **hedef stok** kuruyor, mevcut stoğu düşüyor, aradaki farkı istiyor. Hedef
+önümüzdeki haftanın satışına göre kuruluyor; o satışı da geçmiş hızdan
+tahmin ediyoruz.
+
+## İki: bulunabilirliğe göre mi, tahmine göre mi?
+
+Bu ayrım ilk bakışta birinciyle aynı görünür ama değildir.
+
+Bulunabilirlik hedefi şunu der: *bu üründen bu mağazada hiçbir zaman sıfır
+olmasın.* Tahmin hedefi şunu der: *bu mağaza önümüzdeki hafta 14 adet satacak,
+14 adet olsun.*
+
+Fark, emniyet payının nereden geldiğidir. Bulunabilirlik hedefiyle çalışırsanız
+rafta her zaman bir taban stok tutarsınız ve o tabanı satış hızı değil, "boş
+kalmasın" kaygısı belirler. Tahmin hedefiyle çalışırsanız taban yoktur;
+tahmininiz ne derse o kadar mal gider.
+
+Hangisi doğru? İkisinin arasında bir yerde. Ama bu yazıda karar vermeyeceğiz,
+çünkü cevabı ölçmeden vermek fikir beyan etmek olur. Dördüncü ve beşinci
+yazıda ikisini de kurup aynı veri üzerinde yarıştıracağız. Şimdilik şunu
+aklınızda tutun: **emniyet payını nasıl tanımladığınız, bu dizinin en
+şaşırtıcı bulgusunun kaynağı olacak.**
+
+## Üç: ürün tipine göre strateji değişir mi?
+
+Bu sorunun cevabı net ve ölçülebilir: evet, hem de çok.
+
+Lumoda'daki 240 option dört <T k="option">line</T>'a bölünüyor: Collection
+120, Basic 60, NOS 39, Outlet 21. Line ürünün ticari rolünü söyler.
+
+NOS'un açılımı zaten cevabı içeriyor: *never out of stock.* Bu ürünün stoğu
+tanımı gereği bitmemeli. Tedarikçiden düzenli olarak gelir; bizim kurgumuzda
+iki haftada bir depo hedef seviyeye tamamlanıyor ve depoda sürekli 28.123
+adetlik bir havuz duruyor. Basic de benzer: yıl boyu satılan temel ürün,
+moda riski düşük.
+
+Collection ise sezonla gelir gider. Sezon başında bir kez alınır, biten biter.
+Outlet zaten geçmiş sezondan devreden maldır.
+
+Şimdi aynı replenishment kuralını dördüne birden uygulayalım ve alım kararını
+değiştirelim. Depoya sezonluk plan talebinin %30'unu alırsak ve %80'ini
+alırsak ne oluyor:
+
+| Line | Bulunabilirlik (alım %30) | Bulunabilirlik (alım %80) |
+|---|---:|---:|
+| NOS | %74,1 | %73,7 |
+| Basic | %75,1 | %75,1 |
+| Collection | %39,7 | %62,4 |
+| Outlet | %41,0 | %61,8 |
+
+Tabloyu bir daha okuyun. Alımı iki buçuk katına çıkarmak NOS ile Basic'te
+**hiçbir şeyi değiştirmiyor.** Collection ile Outlet'te 21 ila 23 puan
+değiştiriyor.
+
+Sebebi basit ve tam da bu yüzden öğretici: NOS ve Basic'in deposu zaten
+sürekli besleniyor, sezon başındaki alım kararı onları ilgilendirmiyor.
+Collection'ın ise tek şansı var.
+
+Buradan çıkan kural şu: **bir ürünün replenishment stratejisini belirleyen
+şey, o ürünün stoğunun nereden geldiğidir.** Sürekli beslenen üründe sıkı
+çalışmanın getirisi yok; tek atışlık üründe ise sezon başındaki alım kararı
+sezon içindeki bütün zekânızdan daha belirleyici.
+
+Sektörde sık yapılan hata da burada: tek bir replenishment kuralı yazılır,
+bütün ürünlere uygulanır, sonra NOS'ta gereksiz iş yapılırken Collection'da
+raf boş kalır.
+
+## Dört: özel gün öncesi ne kadar derinlik?
+
+Bayram, Black Friday, yılbaşı. Bu günlerde satış artar ve rafın o artışı
+karşılayacak kadar derin olması gerekir. Peki ne kadar derin?
+
+Cevabı geçmişten ölçüyoruz. Bir tatil gününün satışını, aynı haftanın gününe
+denk gelen normal günlerle karşılaştırıyoruz. Lumoda'da ölçtüğümüz katsayılar
+şöyle: Alt Giyim 1,35 · Dış Giyim 1,40 · Üst Giyim 1,40. Yani tatil gününde
+kabaca yüzde kırk fazla satılıyor ve hedef stok o oranda yükseltiliyor.
+
+Burada dürüst olmam gereken bir yer var. Lumoda sentetik bir veri seti ve
+içinde tatil çarpanı 1,35 olarak **gömülü**. Bizim ölçümümüz o gömülü
+gerçeği geri buldu. Bu, hesabın doğru çalıştığının kanıtı; ama sahada hiçbir
+katsayı bu kadar temiz çıkmaz. Gerçek hayatta her özel gün ayrı bir
+karakterdir. Black Friday ile Cumhuriyet Bayramı aynı şey değildir, bir bayramın
+arifesiyle ikinci günü aynı şey değildir, üstelik bu yılın Black Friday'i
+geçen yılınkine benzemek zorunda değildir.
+
+Pratikte ne yapılır? Katsayı geçmişten ölçülür, sonra o kategoriyi bilen
+biri ona bakar ve gerekirse eliyle düzeltir. Bu, modele güvensizlik değil;
+tek bir sayının taşıyamayacağı kadar çok şeyin o sayıya yüklendiğini bilmektir.
+
+**Peki satmazsa ne olur?** Derinlik yaptınız, mal gitti, özel gün geçti ve
+ürün beklediğiniz gibi satmadı. Artık elinizde yanlış mağazada duran bir stok
+var. Onu indirime sokmak paranızı, orada bırakmak rafınızı yakar. Üçüncü yol
+malı satabilecek mağazaya kaydırmaktır ve o başka bir problemdir:
+[mağazalar arası transfer](/transfer/).
+
+Replenishment ile transfer aynı derdin iki ucudur. Biri malı doğru yere
+göndermeye çalışır, diğeri yanlış yere gitmiş malı kurtarır.
+
+## Karmaşıklık bir tercihtir
+
+Dört soruyu da okudunuz ve muhtemelen fark ettiniz: hiçbirinin cevabı
+matematik gerektirmiyor. Hız, kapsama süresi, line ayrımı, özel gün
+katsayısı. Hepsi bir tabloda hesaplanabilir.
+
+Replenishment zor bir problem değildir. Onu ne kadar karmaşık yapacağınızı
+sizin tecrübeniz ve yaklaşımınız belirler. Bir sonraki yazıda sektörün en
+çok tartıştığı soruyu ele alacağız: elinizde 10 adet var ve 10 mağaza
+istiyor, ne yaparsınız? Cevabı tartışmaya değer. Ama önce o sorunun gerçekten
+sizin sorunuz olup olmadığına bakacağız.

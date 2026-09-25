@@ -462,7 +462,10 @@ describe('site geneli vaatler', () => {
     // maddesine, bir dizi özetine ya da paylaşılan bir layout parçasına
     // sızan bir <Lumtify /> ya da düz "lumtify-koprusu" metni. Yeni bir dizi
     // tamamlanıp kendi köprüsünü kazandığında bu listeye tek satır eklenir.
-    const BEKLENEN_KOPRU_SAYFALARI = ['transfer/blok-transfer/basari-nasil-olculur/index.html']
+    const BEKLENEN_KOPRU_SAYFALARI = [
+      'transfer/blok-transfer/basari-nasil-olculur/index.html',
+      'replenishment/depodan-magazaya/basari-nasil-olculur/index.html',
+    ]
 
     const gecenler = tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))
     for (const { html } of gecenler) {

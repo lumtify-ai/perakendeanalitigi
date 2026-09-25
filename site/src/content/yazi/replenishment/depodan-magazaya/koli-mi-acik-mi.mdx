@@ -1,0 +1,168 @@
+---
+baslik: On Adet, On Mağaza
+tip: anlatici
+sira: 3
+ozet: >-
+  Sektörün en çok tartıştığı soru kısıtlı stoğun nasıl paylaştırılacağı.
+  Ölçtük ve bizim zincirimizde hiç fark etmedi. Asıl fark koliden çıktı.
+yazar: Sabri Suyunu
+durum: hazirlaniyor
+---
+
+import T from '../../../../components/T.astro'
+
+Replenishment toplantılarında en çok tartışılan soru şudur:
+
+*Depoda 10 adet var. On mağaza istiyor. Üçünün ihtiyacı üçer adet, kalan
+yedisinin birer. Ne yaparsınız?*
+
+Herkesin bir cevabı vardır ve cevaplar genelde üçe ayrılır.
+
+**İhtiyacı büyük olana önce ver.** Üç mağazaya üçer adet gider, kalan bir
+adet dördüncüye. Yedi mağaza eli boş döner. Savunması şu: yarım iş yapmanın
+anlamı yok, ihtiyacı olanı doyur.
+
+**Herkese birer tane ver.** On mağazanın hepsi bir adet alır. Kimse eli boş
+kalmaz. Savunması şu: her mağazada en az bir tane bulunsun, hiçbiri o ürünü
+vitrinden kaldırmasın.
+
+**Adil bir ölçüt bul.** İhtiyaca orantılı dağıt, ya da satış hızına göre
+sırala, ya da geçen sefer alamayanı öne al.
+
+Üçü de savunulabilir. Ben de yıllarca bu tartışmanın içinde bulundum. Şimdi
+size bu tartışmayı ölçtüğümüzde ne çıktığını anlatacağım.
+
+## Üçünü de kodladık
+
+Modelimizde paylaştırma önceliği bir ayar. Üç kuralı da yazdık:
+
+- **cover** — mal gittikten sonra en az cover'da kalacak mağaza önce alır.
+  Yani en hızlı satacak yere. Dizinin çekirdek cümlesi bu.
+- **ihtiyac** — ihtiyacı en büyük olan önce alır.
+- **esit** — o hafta en az mal almış olan önce alır; sırayla herkese.
+
+Sonra aynı sezonu, aynı talep üzerinde, yalnız bu ayarı değiştirerek
+oynattık. Sonuç:
+
+| Öncelik | Bulunabilirlik | Kayıp satış | Beden sapması |
+|---|---:|---:|---:|
+| cover | %54,0 | %49,1 | %59,2 |
+| ihtiyac | %54,0 | %49,1 | %59,2 |
+| esit | %54,0 | %49,1 | %59,4 |
+
+Fark yok.
+
+İlk tepkim bir hata aradığım oldu. Kodu kontrol ettim, kural gerçekten
+uygulanıyordu. Sonra alım oranını kıstım: deponun eline sezonluk planın
+%30'unu verdim. Yine fark yok. %10'a indirdim. Yine yok. %5'e indirdim,
+yani deponun aldığı malı yirmide bire düşürdüm. Üç kural yine aynı sonucu
+verdi.
+
+## Neden
+
+Cevap ortaya çıkınca basitti: **o kavga hiç çıkmıyordu.**
+
+Paylaştırma kuralı ancak bir çekişme anında devreye girer. Depoda o üründen
+duran mal, o hafta istenen malı karşılamaya yetiyorsa, kimin önce alacağının
+bir önemi kalmaz; herkes istediğini alır. Bizim zincirimizde her hafta,
+neredeyse her üründe durum buydu.
+
+Şunu da ölçtük: açık toplama kapasitesi 17 karar haftasının hiçbirinde
+dolmadı. En dolu hafta tavanın %82,1'inde kaldı. Depo da hiç boşalmadı; en
+sıkı senaryoda bile dönem sonunda 26.797 adet artmıştı.
+
+Depoda mal vardı. Raflar boştu. Bulunabilirlik %54.
+
+Bu cümleyi bir daha okuyun, çünkü bu dizinin en önemli cümlesi olabilir.
+Zincirin derdi malı paylaştıramamak değildi. Derdi, **yeterince mal
+istememekti.** Sistem her hafta geçen haftanın satışına bakıp mütevazı bir
+rakam istiyor, deponun dolu olması hiçbir işe yaramıyordu.
+
+Pars'ın bu konuda bir lafı var:
+
+— Bir kuralı iyileştirmeden önce o kuralın çalıştığı anı bulun. O an hiç
+gelmiyorsa, iyileştirdiğiniz şey sizin hayalinizdir.
+
+## Asıl fark nereden çıktı
+
+Paylaştırma önceliği fark etmedi. Peki ne fark etti?
+
+Koli.
+
+Depodan mağazaya mal iki şekilde çıkar. **Açık adet**, bedeni tek tek
+toplanmış maldır: mağazanın M bedeni bitmişse yalnız M gönderirsiniz.
+İsabetlidir. **Koli** ise kapalı pakettir; bizim kurgumuzda 1-2-2-2-1
+asortili, sekiz adetlik. İçinde ne varsa o gider.
+
+Sezgi şunu söyler: açık adet daha isabetli, koli bir kısıt. Madem öyle,
+koliyi tamamen kapatıp yalnız açık adetle çalışalım ve ne olduğuna bakalım.
+
+| | Koli + açık | Yalnız açık |
+|---|---:|---:|
+| Gönderilen | 102.488 | 44.817 |
+| Koli | 8.777 | 0 |
+| Açık adet | 32.272 | 44.817 |
+| Bulunabilirlik | %67,8 | %42,1 |
+| Kayıp satış | %35,2 | %60,7 |
+| Toplama maliyeti | 498.260 TL | 448.170 TL |
+| Adet başına maliyet | 4,86 TL | 10,00 TL |
+
+Koliyi kapatınca zincir taşıdığı malın yarısından fazlasını kaybetti ve
+bulunabilirlik 26 puan düştü.
+
+Sebebi tabloda görünüyor. Depo haftada 2.860 adetten fazla açık toplayamıyor.
+17 haftada tavan 48.620 adet. Zincir 102 bin adet taşımak istiyor, açık
+adetle en fazla 44.817'sini taşıyabiliyor. Gerisi ya koliyle gidecek ya hiç
+gitmeyecek.
+
+**Koli bir kısıt değil, kapasitenin kendisidir.** Üstelik adet başına
+toplama maliyetini yarıdan fazla düşürüyor: 10,00 TL'ye karşı 4,86 TL.
+
+## Koli ne zaman gönderilir
+
+Koli hacmi taşıyor ama bir bedeli var: içinde ne varsa onu gönderiyor.
+Mağazanın yalnız M bedenine ihtiyacı varsa, koli ona XS ve XL de getiriyor.
+O fazlalık rafta kalıyor, sayıma giriyor, sezon sonunda indirime gidiyor.
+
+Karar burada doğuyor ve replenishment'ın en çok ihmal edilen kısmı bu: *bu
+mağazaya bir koli gidiyor mu, gitmiyor mu?* Tek bedende ihtiyaç var diye
+sekiz adetlik koli gönderilmez. Ama sekiz adedin altısı gerçekten lazımsa
+gönderilir.
+
+Biz üç kural yazdık:
+
+- **A — eşik ve şişme.** Toplam ihtiyaç kolinin belli bir oranını geçiyorsa
+  ve hiçbir bedende fazlalık belirlenen sınırı aşmıyorsa koli gider.
+- **B — karşılama oranı.** Kolinin sekiz adedinin en az şu kadarı gerçek bir
+  ihtiyacı karşılıyorsa gider.
+- **C — ikisi birden.**
+
+Eşikleri de biz seçmedik; sezon öncesi bir pencerede, oyun dönemine hiç
+bakmadan kalibre ettik. A için toplam ihtiyaç kolinin %40'ını geçmeli ve
+hiçbir bedende fazlalık 3 adede ulaşmamalı; B için kolinin en az yarısı
+ihtiyaca denk gelmeli.
+
+Üç kuralın sonuçları birbirine çok yakın çıktı: bulunabilirlikte aralarındaki
+fark 0,2 puanın altında. Yani kolinin **gidip gitmemesi** büyük fark
+yaratıyor, hangi eşikle karar verdiğiniz küçük.
+
+Bu da sektörde sık rastlanan bir dengesizliğe işaret ediyor. Koli eşiklerini
+ayarlamak için günler harcayan ekipler görürsünüz; oysa o eşiklerin
+toplamının getirisi, deponun bir günde kaç adet açık toplayabildiği sorusunun
+yanında küçük kalır.
+
+## Bu yazıdan çıkan üç cümle
+
+**Bir.** Paylaştırma kuralını tartışmadan önce kıtlığın gerçekten sizde olup
+olmadığına bakın. Depoda mal varken raf boşsa, sorununuz paylaştırma değildir.
+
+**İki.** Koli bir kısıt değil, kapasitedir. Açık toplama isabetlidir ama
+pahalıdır ve tavanı vardır.
+
+**Üç.** Kolinin gidip gitmemesi önemlidir, hangi eşikle karar verdiğiniz
+daha az önemlidir.
+
+Bir sonraki yazıda kural tabanlı yöntemi baştan sona kuracağız: safety
+stock'un üç ayrı ailesi, son yedi günün satışı, özel gün katsayısı. Ve o
+yazıda bu dizinin asıl sorusuyla yüzleşeceğiz — stoksuz kalan mağazanın
+talebini hiç göremiyorsak, hızını nasıl ölçeceğiz?
