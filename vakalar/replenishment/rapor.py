@@ -515,6 +515,52 @@ def _bolum_koli(dunya, con, kal_json: dict) -> None:
           f"= {kal.acik_kapasite * sabitler.KARAR_SAYISI:,} adet")
 
 
+def _bolum_kural_hedefi(dunya, con, kal_json: dict) -> None:
+    """Kural tabanlı yöntem sezon boyunca ne kadar istedi, gerçek talep neydi?
+
+    Hedef = max(öngörü, güvenlik stoku). Öngörü son 7 günün satışını stoklu
+    güne bölüp haftaya ölçekler. Kayıp satış hiçbir yere yazılmadığı için
+    öngörü yapısal olarak düşük kalır; güvenlik stoku tabanı bu açığın bir
+    kısmını kapatır. Ne kadarını kapattığı burada görünür.
+    """
+    print()
+    print("=== KURAL HEDEFİ ===")
+    kal = _kalibrasyon_nesnesi(kal_json)
+    talep, gecmis_satis, baslangic = yol_baslangici(dunya, 0, con)
+    paylar = magaza_beden_paylari(gecmis_satis, dunya, dunya.gun(sabitler.OYUN_BAS))
+    bas_gun = dunya.gun(sabitler.OYUN_BAS)
+    karar_gunleri = [bas_gun + 7 * k for k in range(sabitler.KARAR_SAYISI)]
+
+    print("referans: yol 0 · kural · koli C · alım %80 · öncelik cover")
+    print(f"  {'aile':12s}{'öngörü':>10s}{'hedef':>10s}{'gerçek talep':>14s}"
+          f"{'hedef/gerçek':>14s}{'tabanın bağladığı':>19s}")
+    for aile in ("sabit", "ros", "istatistik"):
+        politika = KuralPolitikasi(kal.ss[aile], kal.katsayilar)
+        ayar = OyunAyari(0.80, kal.koli["C"], kal.acik_kapasite)
+        durum = copy.deepcopy(baslangic)
+        # Oyunu oynat; her karar gününde politikanın gördüğü hâli kaydet.
+        izleme: list[tuple[float, float, int]] = []
+
+        class _Izleyen:
+            def hedef(self, gozlenen, d2, karar_gunu, stok, stoklu_gunluk=None):
+                h, o = politika.hedef(gozlenen, d2, karar_gunu, stok, stoklu_gunluk)
+                izleme.append((float(o.sum()), float(h.sum()), int((h > o + 1e-9).sum())))
+                return h, o
+
+        oyna(dunya, talep, gecmis_satis, durum, _Izleyen(), ayar, paylar)
+        ongoru_t = sum(x[0] for x in izleme)
+        hedef_t = sum(x[1] for x in izleme)
+        baglayan = sum(x[2] for x in izleme) / len(izleme)
+        gercek = sum(
+            float(talep[g + 1 : g + 8].sum()) for g in karar_gunleri
+        )
+        print(f"  {aile:12s}{ongoru_t:10,.0f}{hedef_t:10,.0f}{gercek:14,.0f}"
+              f"{hedef_t / gercek * 100:13.1f}%{baglayan:19,.0f}")
+    print(f"  not: 'tabanın bağladığı', güvenlik stokunun öngörüyü aştığı ve hedefi")
+    print(f"  belirlediği option-mağaza sayısının karar başına ortalamasıdır "
+          f"(toplam {len(dunya.oc_hucre):,} çift).")
+
+
 def main() -> None:
     dunya = dunya_kur()
     con = kaynak.baglan()
@@ -532,6 +578,7 @@ def main() -> None:
 
     _bolum_line(dunya, con, kal_json)
     _bolum_koli(dunya, con, kal_json)
+    _bolum_kural_hedefi(dunya, con, kal_json)
     _bolum_anlatim(dunya, con, kal_json)
 
 
