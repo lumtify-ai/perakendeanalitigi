@@ -7,6 +7,18 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url))
 
+// RPT dizisi taslak hâlinde (durum: hazirlaniyor). Yazılar yayına alındıkça
+// buradan silinir; liste boşaldığında taslak mekanizmasının değişmezleri
+// eski hâline döner.
+const RPT_TASLAKLARI = [
+  'planlama/rpt/ucuncu-haftada-biten-urun/',
+  'planlama/rpt/rpt-karari-nasil-verilir/',
+  'planlama/rpt/ne-kadar-daha-satardi/',
+  'planlama/rpt/hangi-urun-rpt-adayi/',
+  'planlama/rpt/ne-kadar-ne-zaman/',
+  'planlama/rpt/rpt-geldi/',
+]
+
 function oku(yol: string): string {
   return readFileSync(DIST + yol, 'utf-8')
 }
@@ -465,6 +477,7 @@ describe('site geneli vaatler', () => {
     const BEKLENEN_KOPRU_SAYFALARI = [
       'transfer/blok-transfer/basari-nasil-olculur/index.html',
       'replenishment/depodan-magazaya/basari-nasil-olculur/index.html',
+      'planlama/rpt/rpt-geldi/index.html',
     ]
 
     const gecenler = tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))
@@ -511,11 +524,14 @@ describe('yayın durumu', () => {
   // şu an gösterecek taslak yok: yedi yazının hepsi yayında. Mekanizmanın
   // kendisi tests/yayinDurumu.test.ts'te sentetik ağaç üzerinde sınanıyor;
   // burada taslak yokluğunun getirdiği değişmezler doğrulanıyor.
-  it('taslak olmadığı için hiçbir içerik sayfası noindex basmaz', () => {
+  it('noindex yalnız hazırlanan RPT yazılarında basılır', () => {
+    // RPT dizisinin altı yazısı taslak (durum: hazirlaniyor). Yayına
+    // alındıklarında bu liste boşalır ve test eski hâline döner: taslak
+    // yoksa hiçbir içerik sayfası noindex basmaz.
     const suclular = tumSayfalar()
       .filter(({ html }) => html.includes('noindex'))
       .map(({ yol }) => yol)
-    expect(suclular).toEqual([])
+    expect(suclular.sort()).toEqual([...RPT_TASLAKLARI].map((a) => `${a}index.html`).sort())
   })
 
   it('yayına açık sayfalar noindex basmaz', () => {

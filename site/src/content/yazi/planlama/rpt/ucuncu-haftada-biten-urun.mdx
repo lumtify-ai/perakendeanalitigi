@@ -1,0 +1,144 @@
+---
+baslik: Üçüncü Haftada Biten Ürün
+tip: hikaye
+sira: 1
+ozet: Beklenenden hızlı satan ürün iyi haberdir, ama bir soruyu da beraberinde getirir. Daha olsaydı ne kadar satardı ve yeniden ürettirirsem yetişir mi?
+yazar: Sabri Suyunu
+durum: hazirlaniyor
+---
+
+import Kadro from '../../../../components/Kadro.astro'
+import T from '../../../../components/T.astro'
+
+<Kadro />
+
+Replenishment dizisinin ilk yazısında bir parantez açmıştım: RPT depodan
+mağazaya giden mal değildir, tedarikçiye verilen tekrar siparişidir. O
+parantezi kapatmanın zamanı geldi. Bu dizi RPT'yi anlatıyor.
+
+Önce terimi netleştireyim, çünkü sahada iki anlamda kullanıldığını
+duyacaksınız. Kimi mağazaya giden tekrar sevkiyata da RPT der. Bu sitede
+RPT tek bir şeyi anlatır: **beklenenden hızlı satan bir ürünü tedarikçiye
+yeniden ürettirmek.**
+
+## Her şey aylar önce başlıyor
+
+Bir moda zincirinde sattığınız ürünün siparişi, o ürün rafa çıkmadan çok
+önce verilmiştir. Yerli bir tedarikçiyle çalışıyorsanız üç ay önce, Uzak
+Doğu'dan getiriyorsanız altı, yedi ay önce. Bazı ürünlerde bir yıl.
+
+O gün masada şu bilgiler vardır: geçen sezon benzer ürünlerin ne sattığı,
+ürünün kaç mağazaya gideceği, rafta kaç hafta kalacağı, fiyatı, aynı
+sezonda yanına konacak benzer ürünler, tedarikçinin asgari adedi ve
+bütçenin ne kadarının bu ürüne ayrılabileceği. Bunların hiçbiri bu ürünün
+kendi satışı değildir. Olamaz da, çünkü ürün henüz yoktur.
+
+Lumoda'da bu kararı iki kişi verir. **Banu** buyer: modeli seçer, kumaşı
+bilir, tedarikçiyle pazarlığı o yapar. **Pelin** planner: kaç mağaza, kaç
+hafta, ne kadar satış. Siparişin imzası Banu'nundur, rakamı Pelin'in.
+
+Sipariş verilir, mal depoya gelir, ilk sevkiyat yapılır ve ürün mağazada
+satışa başlar. Buraya kadar her şey plana göredir. Sonra müşteri gelir ve
+planı okumamıştır.
+
+## Pazartesi, 09:15
+
+Haftalık satış toplantısı. Banu çayını almış, ekranda
+⟦ürün adı, option⟧ var. ⟦sezon⟧ koleksiyonunun ⟦dalga⟧. dalgasıyla gelmiş,
+rafa çıkalı üç hafta olmuş.
+
+| Mağaza | Lansmandan beri satış | Stoklu gün | Bugünkü stok |
+|---|---:|---:|---:|
+| ⟦…⟧ | ⟦…⟧ | ⟦…⟧ | ⟦…⟧ |
+
+Ürün ⟦N⟧ mağazanın ⟦M⟧'inde bitmiş. Depoda ⟦D⟧ adet kalmış, o da gelecek
+haftaki replenishment'la gidecek. İlk alım ⟦Q1⟧ adetti, satılan ⟦S⟧.
+
+— Tuttu! diyor Banu. Planın iki katı gidiyor.
+
+Pelin sevinmiyor. Ekrandaki stoklu gün sütununa bakıyor.
+
+— İki katı mı gidiyor, yoksa iki katı mı giderdi? ⟦Mağaza⟧ ürünü ikinci
+haftanın ortasında bitirmiş. O günden beri satışı sıfır. Müşteri gelmiyor
+mu, yoksa gelip bulamıyor mu, buradan bilemeyiz.
+
+Bu iki cümle arasındaki fark, dizinin ilk sorusu. Satış raporu talebi
+göstermez; talep ile stoğun küçüğünü gösterir. Raf boşken gelen müşteri
+hiçbir yere yazılmaz.
+
+## Banu'nun takvimi
+
+Banu başka bir hesap yapıyor.
+
+— Diyelim tekrar ürettik. ⟦Tedarikçi⟧ bu kumaşı ⟦R⟧ haftada basar. Bugün
+sipariş versem mal ⟦tarih yok: "sezonun ⟦h⟧. haftasında"⟧ depoda olur.
+İndirime ⟦K⟧ hafta kalmış olur.
+
+Pelin sözünü tamamlıyor:
+
+— Ve o zaman ürün rafta ⟦h⟧ haftalık olur. Yeni bir ürün değil artık.
+
+Sezonluk bir ürün mağazaya girdiği ilk haftalarda en çok satar, sonra
+söner. Bu, ürünün <T k="yasam-egrisi">yaşam eğrisi</T>dir. RPT'nin sorusu
+"ürün tuttu mu" değildir. "Ürün geldiğinde eğrinin neresinde olacak"tır.
+⟦Uzak Doğu örneği: aynı hesap ⟦R_ud⟧ haftayla, gelişte eğrinin kalan
+kütlesi⟧.
+
+## Veli'nin hatırası
+
+Toplantının sonunda Veli söz istiyor.
+
+— Geçen sezon da böyle bir ürün vardı. RPT verdik, geldi. Sonra ne oldu
+biliyor musunuz? Depoda kaldı.
+
+Sebebi basit ve can sıkıcı. Replenishment sistemi bir mağazaya mal
+gönderirken o mağazanın son dört haftadaki satışına bakar. Ürün bittiği
+günden beri o mağazanın satışı sıfırdır. Sistem sıfır satan mağazaya mal
+göndermez; ölü stoğun üstüne ölü stok yığmamak için kurulmuş, doğru bir
+kuraldır. Ama burada yanlış soruya cevap veriyor. Mağaza satmadığı için
+değil, **satacak malı olmadığı için** sıfır satmıştır.
+
+⟦Veriden: mevcut pratikte gelen RPT adedinin ne kadarı depoda kaldı, kaç
+option⟧
+
+— Yani mal ya ilk sevkiyat gibi gidecek ya da hiç gitmeyecek, diyor Veli.
+Ama ilk sevkiyat değil bu, ürün zaten mağazada satmış.
+
+## Masadaki beş soru
+
+Pars o ana kadar sessizdi. Tahtaya beş satır yazıyor:
+
+1. Bu ürün RPT'ye aday mı?
+2. Daha olsaydı ne kadar satardı?
+3. Tekrar ürettirirsem kaç haftada gelir, yetişir mi?
+4. Geldiğinde yeniden satar mı, ne kadar?
+5. Geldiğinde mağazalara nasıl gidecek?
+
+— Bunların hiçbiri tahmin sorusu değil, diyor. Hepsinin cevabı elimizdeki
+veride. Sadece doğru yerden bakmak lazım.
+
+## Bir sezonda kaç soru
+
+Rakamlara bakalım. ⟦sezon⟧ sezonunda Lumoda ⟦C⟧ Collection option'ı
+satışa çıkardı. Bir ürün için RPT kararı lansmandan sonraki birkaç hafta
+içinde verilebilir; sonrası için tedarik süresi yetmez. Haftada bir
+bakıldığında bu ⟦C × W⟧ karar demek. Her kararın içinde beş soru var.
+
+⟦Lumoda'nın bugünkü kuralı kaç RPT verdi, kaçı geç geldi, kaçı depoda
+kaldı⟧
+
+Bu yüzden Lumoda'da bugün kararı Banu'nun yıllardır kullandığı bir kural
+veriyor: ürün ilk haftalarda gönderilenin yarısından fazlasını sattıysa,
+ilk alımın yarısı kadar tekrar sipariş. Kural hızlı ve anlaşılır. Bu
+dizide ne kaçırdığını ölçeceğiz.
+
+## Tanım
+
+Sezon içinde, ilk siparişin yetmeyeceği anlaşılan bir ürünü tedarikçiye
+yeniden ürettirme kararına **RPT** denir. RPT'nin zorluğu kararın
+kendisinde değil, zamanlamasındadır: ürünün gerçekten tuttuğunu ne kadar
+geç anlarsanız o kadar emin olursunuz, ama o kadar az sezon kalır.
+
+Bir sonraki yazıda beş soruyu sırayla kuracağız ve birbirine nasıl
+bağlandıklarını göreceğiz. Şimdilik şunu söyleyeyim: Banu haklıydı, ürün
+tutmuştu. Pelin de haklıydı; ne kadar tuttuğunu henüz kimse bilmiyordu. 🙂

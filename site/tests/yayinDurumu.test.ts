@@ -34,10 +34,19 @@ durum: ${durum}
     expect(adresler).toEqual(['/alan/dizi/taslak/'])
   })
 
-  it('gerçek içerikte şu an hazırlanıyor yazı yok', () => {
-    // Yedi yazının tamamı yayında. Bu satır düşerse bir taslak eklenmiş
-    // demektir; o zaman site haritası ve noindex testleri de güncellenmeli.
-    expect(hazirlaniyorAdresleri(YAZI_KOKU)).toEqual([])
+  it('gerçek içerikte hazırlanan yazılar yalnız RPT dizisinde', () => {
+    // RPT dizisinin altı yazısı taslak. Bu liste değişirse site haritası ve
+    // noindex testleri (build.test.ts, RPT_TASLAKLARI) de güncellenmeli.
+    expect(hazirlaniyorAdresleri(YAZI_KOKU).sort()).toEqual(
+      [
+        '/planlama/rpt/hangi-urun-rpt-adayi/',
+        '/planlama/rpt/ne-kadar-daha-satardi/',
+        '/planlama/rpt/ne-kadar-ne-zaman/',
+        '/planlama/rpt/rpt-geldi/',
+        '/planlama/rpt/rpt-karari-nasil-verilir/',
+        '/planlama/rpt/ucuncu-haftada-biten-urun/',
+      ].sort(),
+    )
   })
 
   it('her adres eğik çizgiyle başlar ve biter', () => {

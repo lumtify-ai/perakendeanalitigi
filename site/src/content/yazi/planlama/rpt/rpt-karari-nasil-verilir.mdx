@@ -1,0 +1,167 @@
+---
+baslik: RPT Kararı Nasıl Verilir
+tip: anlatici
+sira: 2
+ozet: Beş soru, bir takvim ve bir eğri. RPT kararının "ürün tuttu mu" sorusundan neden çok daha fazlası olduğu ve sahadaki kuralın nerede yanıldığı.
+yazar: Sabri Suyunu
+durum: hazirlaniyor
+---
+
+import T from '../../../../components/T.astro'
+
+Önceki yazıda Pars tahtaya beş soru yazmıştı. Bu yazıda o soruları sırayla
+açıyoruz. Sıra önemli, çünkü her soru bir öncekinin cevabına yaslanıyor.
+
+## Önce kapsam: her ürün aday değildir
+
+Banu'nun ilk itirazı şu oldu:
+
+— Her hafta ⟦C⟧ ürüne tek tek mi bakacağız?
+
+Bakmayacağız. RPT sorusu yalnız bir ürün grubunda anlamlıdır.
+
+**NOS ve Basic ürünler** zaten sürekli tedarik edilir. Bitmemeleri gereken
+çekirdek ürünlerdir; depo stoğu düştükçe tedarikçiye periyodik sipariş
+gider. Onlar için "tekrar sipariş" ayrı bir karar değil, rutinin kendisidir.
+
+**Collection ürünler** bir sezonluktur. Tek seferde alınırlar ve çoğu
+zaman öyle kalırlar. RPT sorusu burada doğar: ilk alım bir bahisti ve
+bahsin tuttuğu anlaşılmıştır.
+
+Ama Collection'ın içinde de her ürün aday değildir. Aday olmak için üç şart
+gerekir:
+
+1. **Sinyal gerçek olmalı.** Tek bir mağazada patlayan satış bir tesadüf
+   olabilir. Zincirin genelinde görülen hız bir sinyaldir.
+2. **Zaman olmalı.** Tedarik süresi, ürünün kalan ömründen kısa olmalı.
+3. **MOQ satılabilmeli.** Tedarikçi en az <T k="moq">MOQ</T> kadar üretir.
+   Sezonun kalanında o kadar satılamayacaksa sipariş, fazladan stok almak
+   demektir.
+
+Bu üç şartı her hafta her ürün için tartan bir **aday modeli** dizinin
+dördüncü yazısının konusu. Burada yalnız şunu söyleyelim: aday modeli
+"satıyor mu" diye sormaz, "tekrar üretmeye değer mi" diye sorar.
+
+## İkinci soru: daha olsaydı ne kadar satardı?
+
+Pelin'in sorusu. Cevabın iki katmanı var.
+
+**Birinci katman: stoksuz günler.** Bir ürün iki haftada 40 adet sattıysa
+hızı haftada 20 görünür. Ama ürün o iki haftanın yalnız altı gününde
+raftaysa gerçek hızı günde ⟦…⟧, yani haftada ⟦…⟧'dır. Satışı takvim gününe
+değil, stoklu güne bölmek gerekir. Replenishment dizisinde aynı düzeltmeyi
+yapmıştık; burada etkisi çok daha büyük, çünkü tuttuğu için biten ürün
+tanım gereği uzun süre stoksuz kalmıştır.
+
+**İkinci katman: yaşam eğrisi.** İlk üç haftanın satışını bilmek sezonun
+satışını bilmek değildir. Ama geçmiş sezonlardan şunu biliriz: bir Collection
+ürünü sezon boyu sattığının ⟦k_3⟧'ini ilk üç haftada satar. Bu oranın
+kendisi ürüne göre değişmez, eğrinin şekline bağlıdır. O zaman
+
+$$
+\text{sezon talebi} \approx \frac{\text{ilk üç haftanın talebi}}{\text{eğrinin ilk üç haftadaki payı}}
+$$
+
+Bu hesabı ilk kez akademik literatüre sokanlar Fisher, Rajaram ve Raman'dır.
+Çalıştıkları perakendecide ilk iki haftanın satışından yapılan sezon
+tahmininin hatası %8 çıkmış, alım komitesinin sezon öncesi tahmininin
+hatası %55. Bunu okuyunca ilk tepki "o zaman neden sezon öncesi tahmin
+yapıyoruz" olur. Cevap basit: ilk siparişi o bilgi gelmeden vermek
+zorundayız. RPT, o bilginin geldiği andır.
+
+Dikkat edilmesi gereken ince nokta şu: eğrinin **şekli** geçmiş
+sezonlardan gelir, **seviyesi** bu sezondan. RPT kararı geçen sezonun
+satışına bakmaz. Ürün zaten satışta; ne kadar sattığı bu sezonun verisinde
+yazıyor. Geçmiş yalnızca "üç haftada eğrinin ne kadarı biter" sorusuna
+cevap verir.
+
+## Üçüncü soru: yetişir mi?
+
+Banu'nun sorusu, ama yanlış sorulursa yanlış cevap verir.
+
+"Yetişir mi" genelde "indirimden önce depoya girer mi" diye sorulur. Bu
+yetmez. Asıl soru **"gelişinden sonra eğrinin ne kadarı kalıyor"**dur.
+
+İki tedarikçiyi yan yana koyalım. Yerli tedarikçi ⟦R_yerli⟧ haftada,
+Uzak Doğu'daki ⟦R_ud⟧ haftada basıyor. Lansmandan üç hafta sonra sipariş
+verilirse:
+
+| | Geliş haftası | Gelişten sonra kalan eğri |
+|---|---:|---:|
+| Yerli | ⟦…⟧ | ⟦…⟧ |
+| Uzak Doğu | ⟦…⟧ | ⟦…⟧ |
+
+İkisi de indirimden önce geliyor. Birinde sezonun ⟦…⟧'i kalmış, ötekinde
+⟦…⟧'i. Aynı ürün, aynı sinyal, çok farklı iki karar.
+
+## Dördüncü soru: ne kadar?
+
+Burada iki hata var ve ikisinin bedeli farklı.
+
+**Az alırsanız** kalan talebin bir kısmını karşılayamazsınız. Kaybettiğiniz
+şey tam fiyatlı satışın kârıdır.
+
+**Çok alırsanız** fazlası sezon sonu indirimine kalır. Kaybettiğiniz şey
+alış fiyatı ile indirimli satış fiyatı arasındaki farktır; hiç satmazsa
+alış fiyatının tamamı.
+
+Bu iki bedelin oranı, siparişin ne kadar cesur olacağını söyler. Tam fiyat
+kârı yüksek, indirimli satış kaybı düşükse cesur olursunuz; tersi ise
+temkinli. Bu, gazete satan çocuğun problemidir: sabah kaç gazete alacağına
+akşamki satışı bilmeden karar verir. Dizinin beşinci yazısında hesabını
+yapacağız.
+
+Banu'nun kuralında bu terazi yoktur. Kural "ilk alımın yarısı" der.
+Ürün planın üç katı satıyor da olsa yarısı, planın biraz üstünde de olsa
+yarısı.
+
+## Beşinci soru: geldiğinde nasıl gidecek?
+
+Veli'nin hatırası. RPT depoya girdi. Şimdi ne olacak?
+
+Mal ilk sevkiyat gibi mi gönderilmeli, replenishment gibi mi? Aslında bu
+bir replenishment'tır: ürün zaten mağazada satmış, satan ürünün yerine
+aynısını koyuyoruz. Ama replenishment'ın ölçüsü bozulmuştur. Sistem son
+dört haftanın satışına bakar ve ürün dört haftadır stoksuz olduğu için o
+satış sıfırdır.
+
+Üç yol var:
+
+1. **Bugünkü kural.** Son 28 günün satışına bak. Sonucu biliyoruz.
+2. **Stoklu gün hızı.** Hızı mağazanın ürünü en son raftayken sattığı
+   günlerden hesapla, sonra yaşam eğrisiyle bugüne taşı. Üç hafta önceki
+   hız bugünün hızı değildir; ürün yaşlanmıştır.
+3. **Yeniden lansman.** Malı bir ilk sevkiyat gibi, mağazaların ürünün ilk
+   haftalarındaki satış paylarına göre böl. İstersen bir kısmını depoda
+   tut, ilk haftanın satışıyla dağıt.
+
+Hangisinin daha iyi olduğunu altıncı yazıda aynı talep üzerinde ölçeceğiz.
+
+## Banu'nun kuralı nerede yanılıyor
+
+Kuralı bir daha yazalım: ilk haftalarda gönderilenin yarısından fazlası
+satıldıysa, ilk alımın yarısı kadar sipariş ver.
+
+1. **Oran talebe değil ilk alıma bakar.** Az alınmış bir ürün sıradan bir
+   talepte de yüksek oran gösterir. Çok alınmış bir hit ise düşük.
+2. **Stoksuz günleri görmez.** Biten ürünün oranı yüzde yüzde takılır;
+   ne kadar daha satacağını söylemez.
+3. **Miktar sabittir.** Kalan eğriye, tedarik süresine, iki hatanın
+   bedeline bakmaz.
+4. **"Gelir mi"ye bakar, "gelince satar mı"ya bakmaz.**
+5. **Gelen mal, satışı sıfır görünen mağazaya gitmez.**
+
+Beşi de düzeltilebilir. Hepsinin düzeltmesi veride.
+
+## Bir karşı örnek
+
+Hızlı modanın en bilinen örneğinde, Zara'da, bir ürün için genellikle tek
+bir üretim siparişi verildiği yazılır. Çeviklik aynı ürünü yeniden
+ürettirmekten çok, tutan bir fikri **yeni bir ürünle** tekrarlamaktan
+gelir. Bu, RPT'nin tek cevap olmadığını hatırlatır. Ama bunun için
+tasarımdan üretime birkaç haftada inen bir zincir gerekir. Lumoda'nın
+elinde bu yok; elinde, satışı sezon ortasında belli olan bir ürün ve o
+ürünü üreten bir tedarikçi var.
+
+Sonraki yazıda Pelin'in sorusuna dönüyoruz ve sayılarla cevaplıyoruz:
+daha olsaydı ne kadar satardı?
