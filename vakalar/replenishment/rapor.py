@@ -32,6 +32,7 @@ from replenishment.ihtiyac import GuvenlikStoku, bedene_bol, magaza_beden_paylar
 from replenishment.kalibrasyon import Kalibrasyon
 from replenishment.kos import anlatim_kosulari, senaryo_anahtari, senaryolar
 from replenishment.motor import gunu_isle
+from replenishment.oyun import OyunAyari, oyna
 from replenishment.politika import KuralPolitikasi
 
 import numpy as np
@@ -417,9 +418,9 @@ def _capraz_oncelik_ornekleri(dunya, con, kal: Kalibrasyon) -> None:
     _oncelik_karsilastir(dunya, kal, koli_kurali, baglayan, oc_secili2)
 
 
-def _bolum_anlatim(dunya, con, kal_json: dict) -> None:
-    print("=== ANLATIM ===")
-    kal = Kalibrasyon(
+def _kalibrasyon_nesnesi(kal_json: dict) -> Kalibrasyon:
+    """JSON'dan Kalibrasyon nesnesi; iki bölüm de aynı kurulumu kullanır."""
+    return Kalibrasyon(
         katsayilar=kal_json["katsayilar"],
         ss={ad: GuvenlikStoku(**d) for ad, d in kal_json["ss"].items()},
         varsayilan_ss=kal_json["varsayilan_ss"],
@@ -429,6 +430,11 @@ def _bolum_anlatim(dunya, con, kal_json: dict) -> None:
         tahmin_parametreleri=kal_json["tahmin_parametreleri"],
         tablo=kal_json["tablo"],
     )
+
+
+def _bolum_anlatim(dunya, con, kal_json: dict) -> None:
+    print("=== ANLATIM ===")
+    kal = _kalibrasyon_nesnesi(kal_json)
     kosullar = anlatim_kosulari(kal)
     print("öncelik kuralları (yol 0, kural/varsayılan ss, alım %60, koli C):")
     for oncelik, olcut in kosullar["oncelik"].items():
@@ -448,6 +454,38 @@ def _bolum_anlatim(dunya, con, kal_json: dict) -> None:
     print()
 
 
+def _bolum_line(dunya, con, kal_json: dict) -> None:
+    """Referans senaryoyu line kırılımıyla raporlar.
+
+    Toplam rakam NOS ile Collection'ı birbirine karıştırıyor: NOS'un stoğu
+    tanımı gereği bitmemeli (tedarikçiden iki haftada bir tamamlanıyor),
+    Collection ise sezon başında bir kez alınıyor ve biten bitiyor. Aynı
+    kuralın ikisine ne yaptığı ancak burada görünür.
+    """
+    from replenishment.olcutler import line_kirilimi
+
+    print()
+    print("=== LINE KIRILIMI ===")
+    kal = _kalibrasyon_nesnesi(kal_json)
+    talep, gecmis_satis, baslangic = yol_baslangici(dunya, 0, con)
+    paylar = magaza_beden_paylari(gecmis_satis, dunya, dunya.gun(sabitler.OYUN_BAS))
+    politika = KuralPolitikasi(kal.ss["ros"], kal.katsayilar)
+    bas_gun, bit_gun = dunya.gun(sabitler.OYUN_BAS), dunya.gun(sabitler.OYUN_BIT)
+
+    for alim in (sabitler.EN_SIKI_ALIM, 0.80):
+        ayar = OyunAyari(alim, kal.koli["C"], kal.acik_kapasite)
+        durum = copy.deepcopy(baslangic)
+        sonuc = oyna(dunya, talep, gecmis_satis, durum, politika, ayar, paylar)
+        kirilim = line_kirilimi(durum, dunya, talep, sonuc.gozlenen, bas_gun, bit_gun)
+        print(f"referans: yol 0 · kural · ros · koli C · alım %{alim * 100:.0f}")
+        print(f"  {'line':12s}{'talep':>10s}{'satış':>10s}{'kayıp%':>9s}{'bulun.%':>9s}{'son stok':>10s}")
+        for line, d in kirilim.items():
+            print(
+                f"  {line:12s}{d['talep_adet']:10,.0f}{d['satis_adet']:10,.0f}"
+                f"{d['kayip_orani']:9.1f}{d['bulunabilirlik']:9.1f}{d['magaza_stok_son']:10,.0f}"
+            )
+
+
 def main() -> None:
     dunya = dunya_kur()
     con = kaynak.baglan()
@@ -463,6 +501,7 @@ def main() -> None:
     veri_yollari = {yol: _yol_yukle(CIKTI, yol) for yol in range(1, sabitler.YOL_SAYISI + 1)}
     _bolum_yirmi_yol(veri_yollari, kal_json)
 
+    _bolum_line(dunya, con, kal_json)
     _bolum_anlatim(dunya, con, kal_json)
 
 

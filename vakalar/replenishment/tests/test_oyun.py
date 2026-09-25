@@ -222,3 +222,46 @@ def test_tahmin_taban_politikasi_ongoruyu_tabanla_birlestirir(mini_dunya):
     pol2 = TahminTabanPolitikasi(_SahteTahminci(), GuvenlikStoku("sabit", 1))
     hedef2, _ = pol2.hedef(gozlenen, mini_dunya, karar, np.zeros(H, np.int64), None)
     assert (hedef2 == 3.0).all()
+
+
+# --- Line kirilimi: NOS ile Collection ayni sekilde davranmaz --------------
+
+def test_line_kirilimi_bulunabilirligi_line_basina_ayirir(mini_dunya):
+    """Her line icin talep, satis, bulunabilirlik ve donem sonu stok.
+
+    Iddia ("NOS neredeyse hic stoksuz kalmaz, Collection kalir") ancak bu
+    kirilimla olculebilir; toplam rakam iki line'i birbirine karistirir.
+    """
+    from replenishment.olcutler import line_kirilimi
+
+    H = len(mini_dunya.hucre_urun)
+    bas = mini_dunya.gun("2025-09-01")
+    durum = baslangic_durumu(np.zeros(H, np.int64), [])
+    talep = np.zeros((365, H), np.int32)
+
+    # A = Collection, B = NOS (mini_dunya fikstürü boyle kuruyor)
+    a_hucre = mini_dunya.oc_hucre[0]          # M1-A
+    b_hucre = mini_dunya.oc_hucre[1]          # M1-B
+    talep[bas, a_hucre[2]] = 4                 # Collection: talep var, stok yok
+    talep[bas, b_hucre[2]] = 4                 # NOS: talep var, stok var
+    durum.stoklu_gunluk[bas, a_hucre[2]] = False
+    durum.stoklu_gunluk[bas, b_hucre[2]] = True
+    durum.stok[b_hucre[2]] = 10
+
+    gozlenen = np.zeros((365, H), np.int32)
+    gozlenen[bas, b_hucre[2]] = 4              # NOS stoklu: talebin tamami satildi
+    gozlenen[bas, a_hucre[2]] = 0              # Collection stoksuz: hic satis yok
+    k = line_kirilimi(durum, mini_dunya, talep, gozlenen, bas, mini_dunya.gun("2025-12-31"))
+    assert k["Collection"]["talep_adet"] == 4.0
+    assert k["NOS"]["talep_adet"] == 4.0
+    assert k["Collection"]["bulunabilirlik"] == 0.0
+    assert k["NOS"]["bulunabilirlik"] == 100.0
+    assert k["NOS"]["satis_adet"] == 4.0
+    assert k["Collection"]["satis_adet"] == 0.0
+    assert k["Collection"]["kayip_orani"] == 100.0
+    assert k["NOS"]["kayip_orani"] == 0.0
+    assert k["NOS"]["magaza_stok_son"] == 10.0
+    assert k["Collection"]["magaza_stok_son"] == 0.0
+    # Talebin hic olmadigi line'lar NaN degil sifir doner
+    for line, deger in k.items():
+        assert not any(np.isnan(v) for v in deger.values()), line

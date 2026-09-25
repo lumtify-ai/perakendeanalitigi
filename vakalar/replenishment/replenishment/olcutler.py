@@ -119,3 +119,56 @@ def hesapla(
         "beden_sapmasi": beden_sapmasi,
         "str": str_orani,
     }
+
+
+def _hucre_line(dunya: Dunya) -> np.ndarray:
+    """str[H]: her hücrenin line'ı, option-mağaza eşlemesinden türetilir."""
+    hucre_line = np.empty(len(dunya.hucre_urun), dtype=object)
+    for oc in range(len(dunya.oc_hucre)):
+        hucre_line[dunya.oc_hucre[oc]] = dunya.oc_line[oc]
+    return hucre_line
+
+
+def line_kirilimi(
+    durum: Durum,
+    dunya: Dunya,
+    talep: np.ndarray,
+    gozlenen: np.ndarray,
+    bas_gunu: int,
+    bit_gunu: int,
+) -> dict[str, dict[str, float]]:
+    """line → {talep_adet, satis_adet, kayip_orani, bulunabilirlik, magaza_stok_son}.
+
+    Toplam rakam NOS ile Collection'ı birbirine karıştırır: NOS'un stoğu
+    tanımı gereği bitmemeli, Collection ise sezonla gelip gider. Aynı
+    replenishment kuralının ikisine ne yaptığı ancak burada görülür.
+
+    Bulunabilirlik, talebin olduğu (hücre, gün) çiftlerinin kaçında rafta
+    mal bulunduğudur; `durum.stoklu_gunluk` satıştan ÖNCE yazıldığı için
+    ölçüm anı motorun kendi sayaçlarıyla aynıdır.
+    """
+    hucre_line = _hucre_line(dunya)
+    pencere = slice(bas_gunu, bit_gunu + 1)
+    talep_p = talep[pencere]
+    satis_p = gozlenen[pencere]
+    stoklu_p = durum.stoklu_gunluk[pencere]
+    talepli = talep_p > 0
+
+    sonuc: dict[str, dict[str, float]] = {}
+    for line in sorted({str(x) for x in hucre_line}):
+        sutun = hucre_line == line
+        t_adet = float(talep_p[:, sutun].sum())
+        # Satış gerçekleşen satış matrisinden gelir. "Stoklu gündeki talep"
+        # diye yaklaşık hesaplamak kısmi karşılamayı yanlış sayardı: stok 3
+        # iken talep 5 ise o gün 3 satılır, 5 değil.
+        karsilanan = float(satis_p[:, sutun].sum())
+        talepli_gun = int(talepli[:, sutun].sum())
+        stoklu_talepli = int((talepli[:, sutun] & stoklu_p[:, sutun]).sum())
+        sonuc[line] = {
+            "talep_adet": t_adet,
+            "satis_adet": karsilanan,
+            "kayip_orani": _oran_yuzde(t_adet - karsilanan, t_adet),
+            "bulunabilirlik": _oran_yuzde(stoklu_talepli, talepli_gun),
+            "magaza_stok_son": float(durum.stok[sutun].sum()),
+        }
+    return sonuc

@@ -40,6 +40,10 @@ class OyunAyari:
 class Sonuc:
     olcutler: dict[str, float]
     haftalik: list[dict]  # karar başına koli, açık, depo kalan
+    # Oyunun ürettiği satış matrisi (365, H). Raporun line kırılımı satışı
+    # buradan okur; "stoklu gündeki talep" diye yaklaştırmak kısmi
+    # karşılamayı yanlış sayardı.
+    gozlenen: np.ndarray | None = None
 
 
 def oyna(
@@ -106,4 +110,4 @@ def oyna(
     # sabitlenen mağaza beden payı) aynı sonucu verir — `gecmis_satis` bu
     # çağrıdan sonra çağıran tarafından değiştirilirse artık aynı olmaz.
     olcutler = hesapla(durum, dunya, depo, haftalik, talep, gozlenen, baslangic_stok, ayar)
-    return Sonuc(olcutler=olcutler, haftalik=haftalik)
+    return Sonuc(olcutler=olcutler, haftalik=haftalik, gozlenen=gozlenen)
