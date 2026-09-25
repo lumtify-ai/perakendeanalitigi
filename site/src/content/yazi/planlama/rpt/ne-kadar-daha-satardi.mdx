@@ -7,11 +7,241 @@ yazar: Sabri Suyunu
 durum: hazirlaniyor
 ---
 
-{/* TASLAK — vakalar/rpt/rapor.py çıktısı gelince yazılacak. Omurga:
-  1. Gerçek talep = satış + kayıp satış; sentetik veride ikisini de biliyoruz, sahada yalnız ilkini.
-  2. Dört katman: (a) çıplak satış, (b) stoklu gün düzeltmesi, (c) yaşam eğrisi ölçeklemesi (FRR), (d) b+c.
-  3. Lansmandan 2, 3, 4 ve 6 hafta sonra sezon talebi kestirimi; gerçek talebe karşı hata tablosu.
-  4. SQL: stoklu gün hızı; Python: eğri payı k_h geçmiş sezonlardan.
-  5. Kapanış: kestirimin kendisi değil, belirsizliği de lazım (miktar yazısına köprü). */}
+import T from '../../../../components/T.astro'
 
-Bu yazı hazırlanıyor.
+Pelin'in sorusu kısa: bu ürün daha olsaydı ne kadar satardı? Sahada bu
+sorunun cevabını kimse doğrulayamaz, çünkü rafı boş bulan müşteri hiçbir
+yere yazılmaz. <T k="sansurlu-talep">Sansürlü talep</T> dediğimiz şey bu.
+
+Lumoda'da durum farklı. Veri sentetik olduğu için kaybolan müşteriyi de
+biliyoruz: her mağaza, her beden, her gün için **gerçek talep = satış +
+kayıp satış.** Kayıp satışı hiçbir yöntem görmüyor; yalnız sınav kâğıdını
+okumak için kullanıyoruz. Bu yazı dört yöntemi aynı sınava sokuyor.
+
+## Soru tam olarak ne?
+
+Lansmandan h hafta sonraki pazartesi sabahı, elimizdeki bilgiyle, ürünün
+**lansmandan indirim başına kadarki** toplam talebini kestirmek. Bu sayı
+RPT'nin miktar hesabının girdisi; sonraki yazılar ona yaslanıyor.
+
+Sınav Lumoda'nın iki sezonunda yapılıyor: sonbahar-kış ve onu izleyen
+ilkbahar-yaz. Her birinde 109 Collection option'ı var. Her yöntemin
+eğrisi ya da parametresi, yalnız sınav sezonundan **önce kapanmış**
+sezonlardan öğreniliyor. İlkbahar-yazın eğrisi bir önceki ilkbahar-yazdan
+ve sonbahar-kıştan geliyor, sınavdan değil.
+
+## Dört katman
+
+Şortla başlayalım. Önceki yazılardaki Paperbag Şort'un lansmandan
+indirime kadarki gerçek talebi **6.018** adet. Pelin'in planı 1.663'tü.
+Dört yöntemin üçüncü pazartesi sabahı söyledikleri:
+
+| Katman | Ne yapıyor | Kestirim |
+|---|---|---:|
+| a | Çıplak satış: raporda görünen | 1.364 |
+| b | Stoklu gün hızı × kalan haftalar | 5.023 |
+| c | Çıplak satış ÷ eğrinin payı (FRR kuralı) | 3.763 |
+| d | Stoklu gün düzeltmeli talep ÷ düzeltilmiş eğrinin payı | 4.891 |
+
+**a** kestirim değil; başlangıç noktası. Üçüncü haftada sezonun ancak
+küçük bir kısmı yaşanmış.
+
+**b** hızı stoklu güne böler ve sezonun geri kalanına aynı hızla yayar.
+Hız doğru olsa bile yanılır, çünkü ürün yaşlandıkça yavaşlar; b bunu
+görmez ve **yukarı** yanılır.
+
+**c** literatürdeki kuralın kendisi. Fisher, Rajaram ve Raman'ın
+çalıştığı perakendecinin kullandığı hesap: ilk haftaların satışını,
+benzer ürünlerin ilk haftalarda sezon satışının ne kadarını gördüğüne
+böl. Şekli doğru, ama iki yerden sansür yiyor. Payda da pay da sansürlü.
+
+**d** c'nin iki kusurunu da düzeltiyor: pay stoklu gün düzeltmeli talep,
+payda stoklu gün düzeltmeli eğri.
+
+Şort için d bile gerçeğin altında kalıyor: 4.891'e karşı 6.018. Buna
+aşağıda döneceğiz. Önce bütün option'lara bakalım.
+
+## Sınav sonucu
+
+İlkbahar-yaz sezonunun 109 Collection option'ı. Hata WAPE ile ölçülüyor:
+bütün option'ların mutlak hataları toplamı, gerçek talepler toplamına
+bölünüyor. Yanlılık aynı oranın işaretli hâli; eksi, eksik tahmin demek.
+
+| Katman | h=2 | h=3 | h=4 | h=6 | Yanlılık (h=3) |
+|---|---:|---:|---:|---:|---:|
+| a çıplak satış | %85 | %75 | %65 | %49 | %−75 |
+| b stoklu gün hızı × hafta | %29 | %31 | %33 | %33 | %24 |
+| c eğri ölçeği, çıplak (FRR) | %24 | %21 | %21 | %20 | %−19 |
+| d stoklu gün + eğri | **%16** | **%14** | **%13** | **%11** | %−2 |
+| Buyer planı | %52 | %52 | %52 | %52 | %5 |
+
+Tablodan üç şey okunuyor.
+
+**Birincisi, plan ile ilk haftalar arasındaki uçurum.** Sezon öncesi plan
+%52 yanılıyor. İkinci haftanın sonunda d katmanı %16 yanılıyor. Fisher,
+Rajaram ve Raman aynı karşılaştırmayı kendi perakendecilerinde %55'e
+karşı %8 bulmuştu. Bizim farkımız daha küçük, ama yön aynı ve büyüklük
+aynı ailede. RPT'nin var olma sebebi bu uçurum: ilk sipariş en kötü
+bilgiyle verilir, iki hafta sonra hata üçte birine iner.
+
+**İkincisi, b ve c ters yönlerde yanılıyor.** b düz hız varsaydığı için
+%24 fazla, c sansürlü veriyle ölçeklediği için %19 eksik. İkisi de makul
+görünen, sahada kullanılan hesaplar. İkisinin de hatası sistematik.
+
+**Üçüncüsü, zaman geçtikçe d iyileşiyor ama yavaş.** İkinci haftadan
+altıncı haftaya hata %16'dan %11'e iniyor. Dört hafta beklemek beş puan
+kazandırıyor. Önceki yazıdaki tabloyu hatırlayın: Uzak Doğu'dan gelen bir
+üründe dört hafta beklemek, RPT'nin gelişinde eğriden geriye kalanı
+sıfırlamak demek. Tahminin iyileşmesi ile zamanın tükenmesi arasındaki
+yarış RPT'nin ta kendisi.
+
+Sonbahar-kış sezonunda aynı tablo biraz daha zayıf: d katmanı ikinci
+haftada %20, plan %55. Sebebi eğri. Sonbahar-kışın eğrisi tek bir
+ilkbahar-yaz sezonundan öğreniliyor; ikinci sezona elimizde yalnız bir
+geçmiş sezon var.
+
+## Stoklu gün: SQL
+
+Stoklu gün düzeltmesinin kendisi basit. Lumoda'nın haftalık stok
+fotoğrafında her mağaza ve beden için önceki yedi günün kaçında rafta mal
+olduğu yazıyor (`stoklu_gun`). Şortun üçüncü pazartesi sabahındaki hâli:
+
+```sql
+WITH karar AS (          -- lansmandan üç hafta sonraki pazartesi
+  SELECT DISTINCT option_id, lansman_tarihi,
+         lansman_tarihi + INTERVAL 21 DAY AS karar_gunu
+  FROM urun WHERE option_id = 'MDL190-HAK'
+),
+hucre AS (               -- mağaza × beden: kaç gün rafta mal vardı
+  SELECT st.magaza_id, st.urun_id, sum(st.stoklu_gun) AS stoklu_gun
+  FROM stok st JOIN urun u USING (urun_id) JOIN karar k USING (option_id)
+  WHERE st.tarih > k.lansman_tarihi AND st.tarih <= k.karar_gunu
+  GROUP BY 1, 2
+),
+satis AS (               -- aynı üç haftanın satışı (iade hariç)
+  SELECT s.magaza_id, s.urun_id, sum(s.adet) FILTER (WHERE s.adet > 0) AS adet
+  FROM satis s JOIN urun u USING (urun_id) JOIN karar k USING (option_id)
+  WHERE s.tarih >= k.lansman_tarihi AND s.tarih < k.karar_gunu
+  GROUP BY 1, 2
+)
+SELECT sum(coalesce(adet, 0))       AS satis,
+       sum(stoklu_gun)              AS stoklu_gun,
+       sum(coalesce(adet, 0)) / 3.0 AS ciplak_haftalik,
+       sum(coalesce(adet, 0) * 7.0 / stoklu_gun)
+         FILTER (WHERE stoklu_gun > 0) AS duzeltilmis_haftalik
+FROM hucre LEFT JOIN satis USING (magaza_id, urun_id);
+```
+
+Sonuç: 1.364 adet satış, 1.006 stoklu hücre-gün, çıplak haftalık hız
+454,7, düzeltilmiş 502,3.
+
+Toplama dikkat: hız zincir düzeyinde değil, **mağaza × beden** düzeyinde
+düzeltilip sonra toplanıyor. Zincir toplamını stoklu gün toplamına
+bölerseniz Akmerkez'in boş rafı Bağdat Caddesi'nin dolu rafıyla
+ortalanır ve düzeltme küçülür.
+
+Hiç stoklu günü olmayan bir hücre de olabilir: mal hiç gelmemiş ya da ilk
+gün bitmiş. O hücrenin kendi hızı yok. Vakada böyle hücrelere aynı
+bedenin stoklu mağazalardaki hızı, mağazanın ilk dağıtımdaki payıyla
+ölçeklenerek veriliyor.
+
+## Eğri: Python
+
+d katmanının paydası, geçmiş sezonlardan öğrenilen birikimli eğri payı
+$k_h$: bir ürünün indirime kadarki talebinin ilk h haftada görülen payı.
+Dört katman aynı fonksiyonda:
+
+```python
+def kestir(hh: pd.DataFrame, opt: pd.DataFrame, h: int, egri_ham: Egri, egri_duz: Egri) -> pd.DataFrame:
+    k = duzeltilmis_talep(hh, h).merge(
+        opt[["option_id", "dalga", "ust_kategori", "satis_hafta", "plan_sezon"]], on="option_id"
+    )
+
+    def _k(e: Egri, satir):
+        anahtar = tuple(satir[g] for g in e.grup)
+        return e.k(anahtar, h)
+
+    k["k_ham"] = [_k(egri_ham, r) for _, r in k.iterrows()]
+    k["k_duz"] = [_k(egri_duz, r) for _, r in k.iterrows()]
+    W = k["satis_hafta"]
+    k["a"] = k["x"].astype(float)
+    k["b"] = k["D"] / h * W
+    k["c"] = k["x"] / k["k_ham"]
+    k["d"] = k["D"] / k["k_duz"]
+    k["a_hiz"] = k["x"] / h * W
+    k["c_duz_egri"] = k["x"] / k["k_duz"]
+    k["plan"] = k["plan_sezon"]
+    k["h"] = h
+    return k
+```
+
+`x` o güne kadarki satış, `D` stoklu gün düzeltmeli talep, `satis_hafta`
+lansmandan indirime hafta sayısı. `a_hiz` ve `c_duz_egri` iki ara katman:
+çıplak hız × hafta, ve çıplak satış ÷ düzeltilmiş eğri. Eğri dalgaya
+göre ayrı öğreniliyor, çünkü üçüncü dalgayla gelen ürünün indirime kadar
+daha az haftası var ve eğrisini daha çabuk tüketiyor. Kategori ×
+dalga kırılımı da denendi; grup başına veri azaldığı için daha kötü
+çıktı.
+
+## Eğriyi de sansür bozar
+
+Burada kolay gözden kaçan bir tuzak var. Eğri geçmiş sezonların
+**satışından** öğrenilirse o da sansürlüdür. Tutan ürünler erken biter,
+son haftalarında satışları durur. Bu, eğriyi olduğundan erken bitiyormuş
+gibi, yani önü yüklü gösterir.
+
+İlkbahar-yaz eğrisinde üçüncü dalga için, ilk üç haftanın payı:
+
+| Eğri | $k_3$ |
+|---|---:|
+| Çıplak satıştan öğrenilen | %36,2 |
+| Stoklu gün düzeltmeli | %30,8 |
+| Sınav sezonunun gerçek eğrisi | %29,7 |
+
+Çıplak eğriyle bölmek, bir ürünün üç haftada sezonunun üçte birinden
+fazlasını gördüğünü varsayar ve sezon talebini düşük kestirir. c
+katmanının %19'luk eksik yanlılığının bir kısmı buradan geliyor. Öğrenme
+sezonlarının kendi gerçek eğrisine ortalama uzaklık, ilk altı haftada,
+çıplakta 5,16 puan, düzeltilmişte 0,43 puan.
+
+Eğriyi düzeltmek için mağaza × beden düzeyinde bir Poisson modeli
+kullanıldı: her hücrenin satışı, hücrenin kendi seviyesi × haftanın
+eğri çarpanı × o haftaki stoklu gün. Hücre seviyeleri ile hafta çarpanları
+sırayla güncellenerek bulunuyor. Bu, "o hafta mal olsaydı ne satardı"
+sorusunu her hücre için aynı eğri altında cevaplıyor.
+
+## Şort neden hâlâ eksik?
+
+d katmanı ortalamada neredeyse yansız (%−2), ama şortta 4.891'e karşı
+6.018. İki sebep var.
+
+Birincisi, stoklu gün **günü** kurtarır, **saati** kurtaramaz. Üçüncü
+pazartesiye kadar şortun hücre-günlerinin %95,8'i stoklu görünüyor. Bir
+beden sabah üç adetle açılıp öğlen bitiyorsa o gün stoklu sayılır;
+öğleden sonra gelen müşteri yine kaybolur. Tutan ürünlerde bu tam da
+olan şey: rafa az mal kalmış, her gün erkenden bitiyor. Önceki yazıda
+şortun haftalık talebi için düzeltmenin farkın yarısından azını
+kapattığını görmüştük; sebep bu.
+
+İkincisi, şort istisnai bir ürün: planının 3,62 katı. Kestirimler
+ortalamaya doğru çekilir; en uçtaki ürün en çok eksik kalan üründür.
+
+Bu ikisi de RPT için aynı sonuca çıkıyor: kestirimin kendisi yetmez,
+**belirsizliği** de lazım. "Sezon talebi 4.891" demek yetmez; bu sayının
+ne kadar oynayabileceğini de söyleyebilmek gerekir. Miktar kararının iki hatası farklı bedeller taşıdığı için, bu aralığın
+genişliği siparişin büyüklüğünü doğrudan değiştirir. Beşinci yazının
+konusu bu.
+
+## Özet
+
+- Satış raporu talebi göstermez. Stoklu gün ile düzeltin, ama mağaza ×
+  beden düzeyinde.
+- Sezon talebini ilk haftalardan kestirmek için eğrinin **şeklini**
+  geçmişten, **seviyesini** bu sezondan alın. Eğriyi de sansürden
+  arındırın.
+- Böyle yapılınca ikinci haftanın sonunda hata planın üçte birinin
+  altına iniyor. Sonraki haftalarda iyileşme yavaş; zaman ise hızlı
+  akıyor.
+
+Sonraki yazıda bu kestirimi kullanarak ilk soruya dönüyoruz: bu ürün
+RPT'ye aday mı?
