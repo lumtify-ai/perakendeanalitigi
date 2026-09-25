@@ -378,7 +378,7 @@ def _capraz_oncelik_ornekleri(dunya, con, kal: Kalibrasyon) -> None:
     duyduğu asıl örnek budur. Hiçbir hafta dolmazsa uydurma bir örnek
     ÜRETİLMEZ; en yakın hafta adıyla bildirilir."""
     koli_kurali = kal.koli["C"]
-    haftalar = _haftalik_detaylar(dunya, con, kal, 0.60, koli_kurali, oncelik="cover")
+    haftalar = _haftalik_detaylar(dunya, con, kal, sabitler.EN_SIKI_ALIM, koli_kurali, oncelik="cover")
 
     ilk = haftalar[0]
     option_adi, oc_secili = _en_cok_talep_gören_option(dunya, ilk["n"])

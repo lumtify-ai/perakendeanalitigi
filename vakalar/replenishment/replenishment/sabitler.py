@@ -12,7 +12,11 @@ KOLI = (1, 2, 2, 2, 1)
 KOLI_ADET = 8
 ACIK_PAYI = {"Collection": 0.20, "Outlet": 0.20, "NOS": 0.40, "Basic": 0.40}
 TEK_ALIM_LINE = ("Collection", "Outlet")
-ALIM_ORANLARI = (0.60, 0.80, 1.00)
+# En sikisi (%30) kitligi gercekten isirtmak icin var: %60'ta bile depo
+# donem sonunda 36 bin adetle kapaniyor ve uc paylastirma onceligi ayni
+# sonucu veriyor. Kitlik yokken paylastirma kuralini tartismak bos.
+ALIM_ORANLARI = (0.30, 0.60, 0.80, 1.00)
+EN_SIKI_ALIM = 0.30
 TEDARIK_HEDEF_HAFTA = 6
 
 ACIK_TL_ADET = 10.0

@@ -149,7 +149,7 @@ def anlatim_kosulari(kal: Kalibrasyon) -> dict:
 
     def _kos(oncelik: str, acik_kapasite: int) -> dict:
         ayar = OyunAyari(
-            alim_orani=0.60, kural=kal.koli["C"], acik_kapasite=acik_kapasite, oncelik=oncelik
+            alim_orani=sabitler.EN_SIKI_ALIM, kural=kal.koli["C"], acik_kapasite=acik_kapasite, oncelik=oncelik
         )
         durum = copy.deepcopy(baslangic)
         return oyna(dunya, talep, gecmis_satis, durum, politika, ayar, paylar).olcutler
