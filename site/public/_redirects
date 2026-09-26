@@ -17,18 +17,21 @@
 # İçerik ağacı 2026-09-26'da Lumtify'ın planlama haritasına göre yeniden
 # kuruldu (bkz. src/data/harita.ts). "Planlama" alanı kalktı; tek dizisi RPT,
 # haritadaki kendi aşamasına, /rpt/ altına taşındı ve dizi slug'ı
-# `tekrar-siparis` oldu (aksi hâlde adres /rpt/rpt/ olurdu). Bu dört satır
+# `tekrar-siparis` oldu (aksi hâlde adres /rpt/rpt/ olurdu). Aşağıdaki satırlar
 # dışarıda paylaşılmış her /planlama/… bağlantısını ayakta tutar; silinirse
 # hepsi 404 olur.
 #
 # 301 bilinçli: taşınma kesin, geri dönüş yok; arama motorları eski adresin
 # sıralamasını yenisine devretsin.
 #
-# Sıra da bilinçli: Cloudflare ilk eşleşen satırı uygular. Özel desen
-# (/planlama/rpt/*) genelden (/planlama/*) önce gelmezse bütün RPT yazıları
-# kendi sayfası yerine /rpt/ aşama sayfasına düşer. Eğik çizgisiz satırlar
-# /tr ile aynı sebepten ayrı: `/x/*` çıplak `/x`'i yakalamaz.
+# /planlama altında genel bir joker (/planlama/*) YOK, bilerek. İlk yayında
+# vardı ve sıra doğru olduğu hâlde (özel satır önce) canlıda o kazandı:
+# bütün RPT yazıları, çıplak /planlama/rpt bile, kendi sayfası yerine /rpt/
+# aşama sayfasına düştü. Planlama alanının RPT dışında hiç sayfası olmadı;
+# kapak ve alan sayfası tam adres satırlarıyla taşınır, tek joker RPT
+# dizisininkidir. Eğik çizgisiz satırlar /tr ile aynı sebepten ayrı: `/x/*`
+# çıplak `/x`'i yakalamaz.
 /planlama/rpt/*   /rpt/tekrar-siparis/:splat   301
 /planlama/rpt     /rpt/tekrar-siparis/         301
-/planlama/*       /rpt/                        301
+/planlama/        /rpt/                        301
 /planlama         /rpt/                        301

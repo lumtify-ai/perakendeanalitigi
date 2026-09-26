@@ -752,19 +752,24 @@ describe('adresler', () => {
   })
 
   it('eski RPT adresleri kalıcı olarak taşınır', () => {
-    // Cloudflare ilk eşleşen satırı uygular: özel desen (/planlama/rpt/*)
-    // genel desenden (/planlama/*) önce gelmezse bütün RPT yazıları dizi
-    // yerine aşama sayfasına düşer.
+    // Canlıda (2026-09-26) sıra doğru olduğu hâlde `/planlama/*` joker satırı
+    // özel satırlardan önce uygulandı: bütün RPT yazıları ve çıplak
+    // /planlama/rpt bile /rpt/ aşama sayfasına düştü. Bu yüzden genel joker
+    // kaldırıldı; /planlama ve /planlama/ tam adres satırlarıyla taşınır ve
+    // /planlama altında tek joker RPT dizisininkidir.
     const yonlendirmeler = oku('_redirects')
     const desenler = [
       /^\/planlama\/rpt\/\*\s+\/rpt\/tekrar-siparis\/:splat\s+301$/m,
       /^\/planlama\/rpt\s+\/rpt\/tekrar-siparis\/\s+301$/m,
-      /^\/planlama\/\*\s+\/rpt\/\s+301$/m,
+      /^\/planlama\/\s+\/rpt\/\s+301$/m,
       /^\/planlama\s+\/rpt\/\s+301$/m,
     ]
     for (const desen of desenler) expect(yonlendirmeler).toMatch(desen)
-    const yerler = desenler.map((desen) => yonlendirmeler.search(desen))
-    expect(yerler[0]).toBeLessThan(yerler[2])
+    const planlamaJokerleri = yonlendirmeler
+      .split('\n')
+      .filter((satir) => /^\/planlama\/[^\s]*\*/.test(satir))
+    expect(planlamaJokerleri).toHaveLength(1)
+    expect(planlamaJokerleri[0]).toMatch(/^\/planlama\/rpt\/\*/)
   })
 })
 
