@@ -36,6 +36,17 @@ describe('diziBaglari', () => {
   it('yazısı olmayan dizi yayında değildir', () => {
     expect(diziBaglari(DIZILER, []).every((b) => !b.yayinda)).toBe(true)
   })
+
+  it('yaziSayisi yalnızca yayındaki yazıları sayar', () => {
+    const [rpt, markdown] = diziBaglari(DIZILER, [
+      yazi('rpt/tekrar-siparis/a', 'hazirlaniyor'),
+      yazi('rpt/tekrar-siparis/b', 'yayinda'),
+      yazi('rpt/tekrar-siparis/c', 'yayinda'),
+      yazi('indirim/markdown/a', 'hazirlaniyor'),
+    ])
+    expect(rpt.yaziSayisi).toBe(2)
+    expect(markdown.yaziSayisi).toBe(0)
+  })
 })
 
 describe('fazBasamagi', () => {

@@ -1,0 +1,16 @@
+---
+// site/src/components/DiziEtiketi.astro
+//
+// Haritada tıklanan tek öğe dizi etiketidir, algoritma adı değil (spec §0.1
+// madde 5): "Blok Transfer · 7 yazı", dizi kapağına bağlantı. Süreç hattı,
+// faz sayfası ve aşama sayfası aynı etiketi basar.
+interface Props {
+  baslik: string
+  adres: string
+  yaziSayisi: number
+}
+
+const { baslik, adres, yaziSayisi } = Astro.props
+---
+
+<a class="dizi-etiketi" href={adres}>{baslik} · {yaziSayisi} yazı</a>

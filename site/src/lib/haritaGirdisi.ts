@@ -21,12 +21,14 @@ export function diziBaglari(
   return diziler.map((dizi) => {
     const [alan, diziSlug] = dizi.id.split('/')
     const uyeler = diziYazilari(yazilar, alan, diziSlug)
+    const yayindakiler = uyeler.filter((yazi) => yazi.durum === 'yayinda')
     return {
       id: dizi.id,
       baslik: dizi.data.baslik,
       adres: `/${alan}/${diziSlug}/`,
       algoritmalar: dizi.data.algoritmalar,
-      yayinda: uyeler.some((yazi) => yazi.durum === 'yayinda'),
+      yayinda: yayindakiler.length > 0,
+      yaziSayisi: yayindakiler.length,
     }
   })
 }

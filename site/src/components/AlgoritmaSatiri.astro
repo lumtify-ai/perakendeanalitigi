@@ -8,6 +8,8 @@
 // bağlanacak.
 import type { Algoritma } from '../data/harita'
 import { algoritmaDurumu, type DiziBagi } from '../lib/haritaDurumu'
+import DiziEtiketi from './DiziEtiketi.astro'
+import DurumNoktasi from './DurumNoktasi.astro'
 
 interface Props {
   algoritma: Algoritma
@@ -19,12 +21,13 @@ const durum = algoritmaDurumu(algoritma.id, diziler)
 ---
 
 <li class={`algoritma algoritma--${durum.tur}`}>
+  <DurumNoktasi aktif={durum.tur === 'aktif'} />
   <span class="algoritma-adi">{algoritma.ad}</span>
   {
     durum.tur === 'aktif' && (
       <span class="algoritma-dizileri">
         {durum.diziler.map((dizi) => (
-          <a href={dizi.adres}>{dizi.baslik}</a>
+          <DiziEtiketi baslik={dizi.baslik} adres={dizi.adres} yaziSayisi={dizi.yaziSayisi} />
         ))}
       </span>
     )

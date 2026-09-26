@@ -857,6 +857,28 @@ describe('harita', () => {
     }
   })
 
+  it('dizi etiketi yazı sayısını taşır, algoritma adı bağlantısız kalır', () => {
+    // Haritada tıklanan tek öğe dizi etiketidir, algoritma adı değil
+    // (spec §0.1 madde 5). blok-transfer dizisinin 7 yayındaki yazısı var
+    // ("adresler" describe'undaki YAYINDAKILER listesiyle aynı sayı).
+    const html = oku('sezon-ici/index.html')
+    expect(html).toContain('class="dizi-etiketi"')
+    expect(html).toMatch(/class="dizi-etiketi" href="\/transfer\/blok-transfer\/">Blok Transfer · 7 yazı</)
+
+    // Her aktif algoritma satırının içinde yalnızca dizi-etiketi sınıflı <a>
+    // olabilir; algoritma adının kendisi bir bağlantı değildir.
+    const satirlar = [...html.matchAll(/<li class="algoritma algoritma--aktif">([\s\S]*?)<\/li>/g)]
+    expect(satirlar.length).toBeGreaterThan(0)
+    for (const [, govde] of satirlar) {
+      const baglantilar = [...govde.matchAll(/<a[^>]*>/g)]
+      expect(baglantilar.length).toBeGreaterThan(0)
+      for (const [baglanti] of baglantilar) {
+        expect(baglanti).toContain('class="dizi-etiketi"')
+      }
+      expect(govde).not.toMatch(/<span class="algoritma-adi"><a/)
+    }
+  })
+
   it('hiçbir sayfada değinme izi yok', () => {
     // Değinme kavramı kalktı (spec §0.1 madde 7): okur "X dizisinde
     // değinildi" notlarıyla karşılaşmamalı. Algoritma ya aktif ya soluktur.
