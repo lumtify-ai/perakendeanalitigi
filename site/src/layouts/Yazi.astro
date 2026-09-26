@@ -25,8 +25,9 @@ const { baslik, ozet, tip, yazar, durum, basamaklar, dizi, basliklar } = Astro.p
 // Sağ menü ("Bu yazıda") hikâyede basılmaz (spec §0.4, §6): hikâye baştan
 // sona okunur, bölüm atlamaya davet etmez. h2'siz yazıda da basılmaz.
 const sagMenu = tip === 'hikaye' ? [] : basliklar
-// Sağ sütun boşsa geniş öğeler (pre, KaTeX, demo, tablo) oraya taşabilir;
-// doluysa taşmaz, çünkü sticky menü ile çakışır (site.css · yazı düzeni).
+// Geniş öğeler (pre, KaTeX, demo, tablo) her yazıda sağ sütuna taşar; sağ
+// menü varken onu örterek geçer (spec §0.6). Sağ sütun boşken taşma 52rem
+// ile sınırlı (site.css · yazı düzeni).
 const duzenSinifi = sagMenu.length > 0 ? 'yazi-duzeni' : 'yazi-duzeni yazi-duzeni--sag-bos'
 
 // Teknik içerik TechArticle, anlatı Article olarak işaretlenir

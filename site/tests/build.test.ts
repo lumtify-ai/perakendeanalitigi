@@ -1525,32 +1525,58 @@ describe('yazı sayfası yan gezinmesi', () => {
     expect(son).not.toContain('<ol')
   })
 
-  it('geniş öğeler sağ menüye taşmaz', () => {
-    // Karar: sağ menü sticky olduğu için geniş öğe (pre, KaTeX, demo,
-    // tablo) onun altından geçemez; menüyü örter ya da menü onu örter.
-    // Taşma yalnızca sağ sütun boşken (hikâye ya da h2'siz yazı) açılır:
-    // okuma sütununun işaretlemesi o zaman `yazi-duzeni--sag-bos` taşır.
+  it('geniş öğeler sağ menünün üstünden taşar', () => {
+    // Spec §0.6 (seçenek b): sağ menülü yazıda da pre, KaTeX, demo, tablo ve
+    // .genis okuma sütunundan sağ sütuna taşar; opak zemin ve menüden yüksek
+    // bir katmanla sticky menüyü örterek geçer. Sağ sütun boşken yalnız
+    // üst sınır (52rem) farklı: işaretleme o zaman `yazi-duzeni--sag-bos`.
     for (const { yol, html } of yaziSayfalari()) {
       const sagMenu = sinifSay(html, (b) => b === 'bu-yazida') > 0
       const sagBos = sinifSay(html, (b) => b === 'yazi-duzeni--sag-bos') > 0
       expect(sagBos, yol).toBe(!sagMenu)
     }
     const css = baglıCss(oku('rpt/tekrar-siparis/ne-kadar-daha-satardi/index.html'))
-    // Yazı düzeninde genişleyen her kural sağ-boş değiştiricisine bağlı.
-    const genisleyen = [...css.matchAll(/([^{}]*)\{[^}]*--genis-olcu[^}]*\}/g)]
-      .map(([, secici]) => secici)
-      .filter((secici) => /duzen-yazi|yazi-duzeni/.test(secici))
-    expect(genisleyen.length).toBeGreaterThan(0)
-    for (const secici of genisleyen) {
-      for (const parca of secici.split(',')) expect(parca, parca).toContain('yazi-duzeni--sag-bos')
+    const kurallar = [...css.matchAll(/([^{}]*)\{([^{}]*)\}/g)].map(([, secici, govde]) => ({
+      parcalar: secici.split(',').map((p) => p.trim()),
+      govde,
+    }))
+    const zIndex = (govde: string) => Number(/z-index:\s*(\d+)/.exec(govde)?.[1] ?? NaN)
+
+    const menu = kurallar.find(
+      (k) => k.parcalar.includes('.bu-yazida') && /position:\s*sticky/.test(k.govde),
+    )
+    expect(menu).toBeDefined()
+    const menuKatmani = zIndex(menu!.govde)
+    expect(Number.isFinite(menuKatmani)).toBe(true)
+
+    // Genişleyen kurallar sağ-boş değiştiricisine bağlı değil: sağ menülü
+    // sayfada da geçerli.
+    const genisleyen = kurallar.filter((k) =>
+      /(?:^|[;\s])(?:width|max-width):\s*var\(--genis-olcu\)/.test(k.govde),
+    )
+    for (const oge of ['pre', '.katex-display', '.demo', '.genis', 'table']) {
+      const secici = `.yazi-govdesi ${oge}`
+      const kural = genisleyen.find((k) => k.parcalar.includes(secici))
+      expect(kural, secici).toBeDefined()
+      expect(kural!.govde, secici).toMatch(/box-sizing:\s*border-box/)
+      expect(kural!.govde, secici).toMatch(/position:\s*relative/)
+      expect(zIndex(kural!.govde), secici).toBeGreaterThan(menuKatmani)
+      // Opak zemin: ya yazı düzeni kuralında ya öğenin kendi temel kuralında.
+      const zeminli = kurallar.some(
+        (k) =>
+          (k.parcalar.includes(secici) || k.parcalar.includes(oge)) &&
+          /background:\s*var\(--/.test(k.govde),
+      )
+      expect(zeminli, secici).toBe(true)
     }
-    // Genişleyen öğe ölçüyü dolgu ve çerçeve dahil alır; yoksa pre ve demo
-    // dolgularıyla çerçeveden taşar (1024–1145px'te yatay sayfa kayması).
-    const olcuKurallari = [...css.matchAll(/([^{}]*)\{([^}]*(?:width|max-width):\s*var\(--genis-olcu\)[^}]*)\}/g)]
-    expect(olcuKurallari.length).toBeGreaterThanOrEqual(2)
-    for (const [, secici, govde] of olcuKurallari) {
-      expect(govde, secici).toMatch(/box-sizing:\s*border-box/)
-    }
+    // Tablo gerektiği kadar genişler, daha genişse içinde kayar.
+    const tablo = genisleyen.find((k) => k.parcalar.includes('.yazi-govdesi table'))!
+    expect(tablo.govde).toMatch(/width:\s*max-content/)
+    expect(tablo.govde).toMatch(/min-width:\s*100%/)
+    expect(css).toMatch(/(?:^|[}\s])table\s*\{[^}]*overflow-x:\s*auto/)
+    // Ölçü: sağ sütunun sağ kenarı; sağ sütun boşken 52rem sınırı.
+    expect(css).toMatch(/\.yazi-duzeni\s*\{\s*--genis-olcu:\s*calc\(20rem \+ 50cqi\)/)
+    expect(css).toMatch(/\.yazi-duzeni--sag-bos\s*\{\s*--genis-olcu:\s*min\(52rem,\s*20rem \+ 50cqi\)/)
   })
 
   it('yan menüler sticky, CSS saf', () => {
