@@ -8,14 +8,204 @@ durum: hazirlaniyor
 ---
 
 import Lumtify from '../../../../components/Lumtify.astro'
+import T from '../../../../components/T.astro'
 
-{/* TASLAK — Omurga:
-  1. Veli'nin sahnesi: 28 günlük hız kapısı RPT'yi depoda bırakıyor.
-  2. Dört dağıtım kuralı: bugünkü · stoklu gün hızı + eğri · yeniden lansman · yeniden lansman + depoda tutma.
-  3. Kollar tablosu: rpt_yok · mevcut · mevcut + düzeltilmiş dağıtım · frr · öneri · kâhin.
-  4. Dürüstlük listesi: ikame yok, yeniden lansman etkisi yok, iade orantılı.
-  5. Lumtify köprüsü. */}
+İlk yazıda Veli bir şey hatırlatmıştı: geçen sezon RPT verdik, geldi,
+depoda kaldı. Bu yazı o cümleyle başlıyor ve dizinin bütün parçalarını
+aynı talep üzerinde bir araya getiriyor.
 
-Bu yazı hazırlanıyor.
+## 750 tişört
+
+İlkbahar-yaz sezonunun ilk dalgasında bir Polo Yaka Tişört var, ekru.
+Tedarikçisi Bangladeş'te; tekrar siparişi on dört haftada basıyor. Ürün
+planının 2,89 katı talep gördü. Banu'nun kuralı üçüncü pazartesi 750 adet
+RPT verdi.
+
+Mal indirime iki hafta kala depoya girdi. O gün tişört zincirin on iki
+mağazasının onunda haftalardır yoktu. Replenishment sistemi her mağazanın
+son dört haftadaki satışına baktı, sıfır gördü ve mal göndermedi. Sonraki
+haftalarda da aynı şey oldu. Çıkış günü 750 adetin **750**'si depodaydı.
+
+Veli haklıydı. Ama hikâyenin ikinci yarısı daha öğretici.
+
+## Dört dağıtım kuralı
+
+İkinci yazıda üç yol saymıştık. Vakada dört kural var:
+
+- **a. Bugünkü kural.** Son 28 günün satışına bak; satış sıfırsa gönderme.
+- **b. Stoklu gün hızı.** Hücrenin son 28 **stoklu** gününün hızını al,
+  yaşam eğrisiyle bugüne taşı.
+- **c. Yeniden lansman.** RPT depoya girdiğinde onu bir ilk sevkiyat gibi
+  dağıt: her mağazayı ve bedeni, ürünün ilk üç haftasındaki stoklu gün
+  düzeltmeli talep payına göre doldur.
+- **d. Yeniden lansman + depoda tutma.** c'nin aynısı, ama malın %30'u
+  depoda bekler ve bir sonraki pazartesi b kuralıyla dağıtılır.
+
+b, c ve d yalnız RPT'si gelmiş ürünlere dokunuyor. RPT'nin olmadığı bir
+dünyada dördü de birebir aynı sevkiyatı üretiyor; farklar yalnız RPT'nin
+nasıl dağıtıldığından geliyor.
+
+Kuralı seçmek için oyun sezonlarına bakmadık. Önceki ilkbahar-yaz
+sezonunda, Banu'nun gerçekte verdiği RPT'lerle, dört kuralı koşturduk:
+
+| Kural | Collection kârı | RPT'den mağazaya | Çıkışta depoda |
+|---|---:|---:|---:|
+| a. bugünkü | 23.928.382 TL | 6.859 | 13.281 |
+| b. stoklu gün hızı | 25.482.864 TL | 9.774 | 10.366 |
+| c. yeniden lansman | 25.316.146 TL | 18.863 | 1.277 |
+| d. c + depoda tutma | 25.490.146 TL | 16.448 | 3.692 |
+
+c depoyu neredeyse boşaltıyor ama kâr bakımından b ve d'nin biraz
+gerisinde kalıyor: malın bir kısmını satmayacağı mağazaya gönderiyor.
+d, yeniden lansmanın hızını depoda tutmanın isabetiyle birleştiriyor.
+Oyunlarda d kullanıldı.
+
+## Tişörte dönelim
+
+Aynı 750 adet, dört kuralla:
+
+| Kural | Mağazaya | Çıkışta depoda | Kâr |
+|---|---:|---:|---:|
+| a. bugünkü | 0 | 750 | 171.973 TL |
+| b. stoklu gün hızı | 218 | 532 | 203.850 TL |
+| c. yeniden lansman | 750 | 0 | 202.385 TL |
+| d. c + depoda tutma | 669 | 81 | 198.531 TL |
+| RPT hiç verilmeseydi | — | — | 287.324 TL |
+
+Yeniden lansman malın tamamını mağazaya taşıyor. Ama mal indirimden iki
+hafta önce geldiği için satış neredeyse hiç artmıyor ve kâr, RPT hiç
+verilmeseydi kazanılacak olanın altında kalıyor.
+
+Depoda kalan mal bir dağıtım hatasıydı. Ama asıl hata o gün değil, on
+dört hafta önce yapılmıştı. Beşinci yazının hesabı bu ürün için üçüncü
+pazartesi sıfır diyordu. **Dağıtım, kararın hatasını düzeltemez;** yalnız
+görünür olmasını geciktirir.
+
+## Bütün zincir
+
+Şimdi kolların tamamı. Her kol aynı talebi yaşıyor; fark yalnız RPT
+kararında ve RPT'nin dağıtımında. Karşılaştırma tabanı hiç RPT
+verilmeyen sezon. Sonbahar-kış:
+
+| Kol | RPT adedi | Çıkışta depoda | Kurtarılan kayıp satış | Δ brüt kâr |
+|---|---:|---:|---:|---:|
+| Banu, bugünkü dağıtım | 23.950 | 15.598 | 8.514 | −6.307.149 TL |
+| Banu, d dağıtımı | 23.950 | 4.168 | 11.770 | −2.659.788 TL |
+| FRR üçüncü pazartesi, d | 9.220 | 1.060 | 6.486 | 1.980.894 TL |
+| Öneri, d | 15.220 | 1.510 | 12.334 | 4.793.673 TL |
+| Kâhin, d | 23.960 | 1.263 | 21.205 | 6.778.012 TL |
+
+İlkbahar-yaz:
+
+| Kol | RPT adedi | Çıkışta depoda | Kurtarılan kayıp satış | Δ brüt kâr |
+|---|---:|---:|---:|---:|
+| Banu, bugünkü dağıtım | 26.100 | 18.054 | 8.285 | −4.750.480 TL |
+| Banu, d dağıtımı | 26.100 | 5.009 | 10.376 | −3.325.200 TL |
+| FRR üçüncü pazartesi, d | 3.840 | 238 | 2.831 | 581.898 TL |
+| Öneri, d | 15.700 | 1.592 | 11.922 | 1.723.933 TL |
+| Kâhin, d | 16.640 | 1.174 | 13.826 | 2.386.662 TL |
+
+Bu iki tablodan dizinin üç sonucu çıkıyor.
+
+**Birincisi: bugünkü RPT pratiği para kaybettiriyor.** Hiç RPT
+vermemek, Banu'nun kuralından iki sezonda da daha kârlı. Kuralın kaybı
+satışsızlıktan değil: kural sonbahar-kışta 8.514 adet kayıp satışı
+kurtarıyor. Kaybı yanlış ürüne, yanlış zamanda, yanlış miktarda verilen
+siparişler ve depoda kalan mal yaratıyor.
+
+**İkincisi: dağıtım ile karar ayrı ayrı ölçülebilir, ikisi de önemli ama
+eşit değil.** Banu'nun aynı siparişlerini yalnız d kuralıyla dağıtmak,
+sonbahar-kışta 3,6 milyon TL, ilkbahar-yazda 1,4 milyon TL kazandırıyor.
+Aynı dağıtımda kararı değiştirmek, yani Banu'nun kuralından öneriye
+geçmek, bunun üstüne sırasıyla 7,5 ve 5,0 milyon TL ekliyor. Kararın payı
+dağıtımınkinin iki katından fazla.
+
+Replenishment dizisinin sonucuna ne kadar benzediğine dikkat edin: orada
+da politikanın etkisi öngörünün iki katıydı. İki dizide de en büyük
+kazanç daha iyi bir tahminden değil, **tahmini neyle yaptığınızdan**
+geliyor.
+
+**Üçüncüsü: öneri kâhinin yaklaşık dörtte üçüne ulaşıyor.** Sonbahar-kışta
+kâhinin kâr artışının %70,7'sine, ilkbahar-yazda %72,2'sine. Kâhin
+gerçek talebi ve tedarikçinin gerçek gecikmesini biliyor; öneri yalnız o
+pazartesi sabahına kadar olanı.
+
+## Şans mı?
+
+Aynı beklenen talepten, farklı tohumlarla on alternatif sezon ürettik ve
+kolları hepsinde yeniden koşturduk. Öneri ile d dağıtımı, Banu'nun
+kuralı ile bugünkü dağıtıma göre sonbahar-kışta medyan **11.560.400 TL**,
+ilkbahar-yazda medyan **6.057.818 TL** daha kârlı; on yolun onunda aynı
+yönde. Yalnız dağıtımı değiştirmenin kazancı da on yolun onunda pozitif.
+
+Banu'nun kuralı on yolun hiçbirinde RPT vermemekten daha kârlı olmadı.
+Öneri on yolun onunda kârlı.
+
+## Şort
+
+İlk yazının şortu, bütün kollarda:
+
+| Kol | Sipariş | Kâr |
+|---|---|---:|
+| RPT yok | — | 668.594 TL |
+| Banu, bugünkü dağıtım | üçüncü pazartesi, 1.040 | 940.988 TL |
+| Banu, d | üçüncü pazartesi, 1.040 | 1.003.072 TL |
+| FRR, d | üçüncü pazartesi, 1.470 | 1.085.416 TL |
+| Öneri, d | ikinci pazartesi, 3.960 | 1.302.316 TL |
+| Kâhin, d | ikinci pazartesi, 4.170 | 1.249.016 TL |
+
+Şortta öneri kâhini geçiyor. Bu bir hata değil, kâhinin tanımı:
+kâhin zincirin toplam talebini biliyor ama malın hangi mağazada
+kalacağını hesaba katmıyor. 4.170 adetin 337'si depoda kalıyor. Kâhin bu
+dizide bir üst sınır değil, bir yön işareti.
+
+Banu'nun kuralı bu üründe bile para kazandırıyor: tutan bir ürüne verilen
+RPT, miktarı yanlış olsa da iyidir. Kuralın kaybı başka yerde, tutmayan
+ürünlere ve Uzak Doğu'ya verilen siparişlerde.
+
+## Bu modelin yetmediği yerler
+
+**Kalan stok sıfır sayıldı.** Çıkışta depoda kalan mal gerçekte bir
+outlet'e ya da bir sonraki sezona devreder. Buradaki kârlar alt sınır;
+en çok da depoda en çok mal bırakan Banu'nun kuralını cezalandırıyor.
+
+**İkame yok.** Lumoda'da bir ürünün talebi diğerinden bağımsız. Gerçekte
+rafı boş bulan müşterinin bir kısmı başka bir ürün alır; kaybolan satışın
+tamamı kayıp değildir.
+
+**Yeniden lansman etkisi yok.** Ürün haftalarca raftan kalktıktan sonra
+geri geldiğinde müşterinin onu yeniden keşfetmesi zaman alabilir. Veri
+setinde talep rafın geçmişinden bağımsız. Araştırırken bu etkiyi ölçen
+hakemli bir çalışma bulamadım.
+
+**Tek bir zincir, iki sezon.** On alternatif talep yolu farkların şans
+olmadığını gösteriyor, ama hepsi aynı zincirin aynı iki sezonu.
+Sonbahar-kış modeli yalnız bir geçmiş sezonla eğitildi.
+
+**Belirsizliğin bir kısmı içeriden öğrenildi.** İlk geçmiş sezonun
+kendisinden önce bir sezon olmadığı için, onun hata dağılımı kendi
+eğrisiyle hesaplandı.
+
+**Mağazalar arası transfer yok.** Yanlış mağazaya giden RPT'yi bir
+transferle düzeltmek mümkündü; bu vakada bilerek kapalı tuttuk.
+
+**Tedarik koşulları sabit.** MOQ, fiyat ve tedarik süresi değişmiyor.
+Gerçekte hızlı satan bir ürünün tekrar siparişi pazarlıkla kısalabilir,
+kumaş önceden rezerve edilebilir. Bu dizinin en güçlü sonucu, Uzak
+Doğu'dan gelen Collection ürününde RPT'nin neredeyse hiç işe yaramadığı;
+o sonuç en çok bu varsayıma yaslanıyor.
+
+## Baştaki soru
+
+Pelin sormuştu: daha olsaydı ne kadar satardı? Banu da: yetişir mi?
+
+Altı yazı sonra ikisinin de cevabı verideydi. Satış talebi göstermez ama
+stoklu gün ve yaşam eğrisiyle talebin büyük kısmı geri kurulabilir.
+Yetişmek yetmez; asıl soru, geldiğinde eğriden ne kaldığıdır. Ve gelen
+malı mağazaya göndermek, "satışı sıfır" diyen bir kuralın sorusu değil,
+"mal olsaydı ne satardı" diyen bir kuralın sorusudur.
+
+Ama belki en önemli sonuç şu: RPT vermemek de bir karardır ve çoğu zaman
+doğru karardır. İyi bir RPT sistemi az RPT verir.
 
 <Lumtify />
