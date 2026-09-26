@@ -7,14 +7,20 @@
 // noktalı, adı aşama sayfasına bağlanır ve altında o aşamayı kapsayan
 // yayındaki dizilerin etiketleri durur. Soluk istasyon boş halkalı ve
 // bağlantısız. Durum şekil ve metinle iletilir; renk yalnızca destekleyici
-// (spec §8). Segment başlığı faz sayfasına bağlanır.
+// (spec §8). Segmentin başlığı faz kartıdır (FazKarti.astro): faz adı faz
+// sayfasına bağlanır, altında "a / t algoritma yazıldı".
 //
 // Geniş ekranda yatay, 64rem altında dikey hat — ikisi de saf CSS
-// (src/styles/site.css, "Süreç hattı" bölümü). Yatay düzen segmentin
-// sütun sayısını `--adet` değişkeninden okur.
+// (src/styles/site.css, "Süreç hattı" bölümü). Yatay düzenin ölçüleri
+// haritanın kendisinden build sırasında satır içi değişken olarak basılır,
+// CSS'te hiçbir aşama sayısı yazmaz: `--oranlar` segment genişlikleri
+// (her faz için aşama sayısı kadar fr), `--adet` segmentin sütun sayısı,
+// `--sutun` istasyonun fazı içindeki sırası. Haritaya aşama eklenince hat
+// kendiliğinden yeniden dizilir.
 import { HARITA, type Asama } from '../data/harita'
 import { algoritmaDurumu, asamaAktifMi, type DiziAtfi, type DiziBagi } from '../lib/haritaDurumu'
 import DiziEtiketi from './DiziEtiketi.astro'
+import FazKarti from './FazKarti.astro'
 
 interface Props {
   diziler: DiziBagi[]
@@ -32,21 +38,21 @@ function asamaDizileri(asama: Asama): DiziAtfi[] {
   }
   return [...bulunan.values()]
 }
+
+const oranlar = HARITA.map((faz) => `${faz.asamalar.length}fr`).join(' ')
 ---
 
-<ol class="surec-hatti">
+<ol class="surec-hatti" style={`--oranlar: ${oranlar}`}>
   {
     HARITA.map((faz) => (
       <li class="hat-segmenti">
-        <h3 class="hat-fazi">
-          <a href={`/${faz.slug}/`}>{faz.ad}</a>
-        </h3>
+        <FazKarti faz={faz} diziler={diziler} />
         <ol class="hat-duraklari" style={`--adet: ${faz.asamalar.length}`}>
-          {faz.asamalar.map((asama) => {
+          {faz.asamalar.map((asama, i) => {
             const aktif = asamaAktifMi(asama, diziler)
             const no = String(asama.no).padStart(2, '0')
             return (
-              <li class={`istasyon istasyon--${aktif ? 'aktif' : 'soluk'}`} data-faz={faz.slug}>
+              <li class={`istasyon istasyon--${aktif ? 'aktif' : 'soluk'}`} data-faz={faz.slug} style={`--sutun: ${i + 1}`}>
                 <span class="asama-no">{no}</span>{' '}
                 {aktif ? (
                   <a class="asama-adi" href={`/${asama.slug}/`}>{asama.ad}</a>

@@ -2,14 +2,14 @@
 // site/src/pages/index.astro
 //
 // Ana sayfa haritanın kendisidir (spec §3): tanım, on beş aşamalık süreç
-// hattı, altında üç kompakt faz kartı, en altta harita dışı Temeller rafı.
+// hattı (her faz segmentinin başlığı o fazın kartı), en altta harita dışı
+// Temeller rafı.
 // Algoritmalar tek tek burada listelenmez; onlar faz sayfalarındadır.
 // Aşamaların sırası src/data/harita.ts'den gelir; bu dosya sıra tutmaz.
 import { getCollection, getEntry } from 'astro:content'
 import Temel from '../layouts/Temel.astro'
 import SurecHatti from '../components/SurecHatti.astro'
-import FazKarti from '../components/FazKarti.astro'
-import { HARITA, TEMELLER } from '../data/harita'
+import { TEMELLER } from '../data/harita'
 import { alanYazilari } from '../lib/agac'
 import { alanBasligi } from '../lib/alanBasligi'
 import { diziBaglari } from '../lib/haritaGirdisi'
@@ -45,10 +45,6 @@ const TANIM =
   <section id="harita" class="harita">
     <h2 class="sr-only">Süreç hattı</h2>
     <SurecHatti diziler={baglar} />
-
-    <ul class="faz-kartlari">
-      {HARITA.map((faz) => <FazKarti faz={faz} diziler={baglar} />)}
-    </ul>
 
     <section class="temeller-rafi">
       <h2>

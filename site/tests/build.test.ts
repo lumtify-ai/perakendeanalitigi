@@ -1054,15 +1054,15 @@ describe('harita', () => {
     expect(html).toContain('id="harita"')
   })
 
-  it('ana sayfada süreç hattı, faz kartları ve Temeller rafı sırayla', () => {
-    // Spec §3: tanım, süreç hattı, faz kartları, Temeller rafı. Menünün
-    // "Harita" çapası (id="harita") hattın bölümünde durur.
+  it('ana sayfada süreç hattı ve Temeller rafı sırayla', () => {
+    // Spec §3: tanım, süreç hattı (faz kartları segment başlığı olarak
+    // içinde), Temeller rafı. Menünün "Harita" çapası (id="harita") hattın
+    // bölümünde durur.
     const html = oku('index.html')
     const bolum = html.indexOf('id="harita"')
-    const hat = html.indexOf('<ol class="surec-hatti">')
-    const kartlar = html.indexOf('class="faz-kartlari"')
+    const hat = html.indexOf('<ol class="surec-hatti"')
     const raf = html.indexOf('class="temeller-rafi"')
-    const sira = [bolum, hat, kartlar, raf]
+    const sira = [bolum, hat, raf]
     expect(sira.every((y) => y > -1), sira.join(',')).toBe(true)
     expect([...sira].sort((a, b) => a - b)).toEqual(sira)
     // Bölüm etiketi hattın hemen öncesinde açılır; arada başka bölüm yok.
@@ -1140,17 +1140,30 @@ describe('ana sayfa süreç hattı', () => {
   it('istasyonlar faz sırasıyla', () => {
     const html = oku('index.html')
     const sira = istasyonlar(html).map(({ acilis }) => acilis.match(/data-faz="([^"]+)"/)?.[1])
-    expect(sira).toEqual([
-      ...Array(6).fill('sezon-oncesi'),
-      ...Array(5).fill('sezon-ici'),
-      ...Array(4).fill('diger-surecler'),
-    ])
+    expect(sira).toEqual(HARITA.flatMap((faz) => faz.asamalar.map(() => faz.slug)))
     // Numara haritanın kendi numarası, iki haneli.
     const numaralar = istasyonlar(html).map(({ govde }) => govde.match(/<span class="asama-no">(\d+)<\/span>/)?.[1])
-    expect(numaralar).toEqual(Array.from({ length: 15 }, (_, i) => String(i + 1).padStart(2, '0')))
+    expect(numaralar).toEqual(
+      HARITA.flatMap((faz) => faz.asamalar.map((a) => String(a.no).padStart(2, '0'))),
+    )
     // Segment başlıkları faz sayfasına bağlanır, hattın içinde.
-    const hat = html.slice(html.indexOf('<ol class="surec-hatti">'))
+    const hat = html.slice(html.indexOf('<ol class="surec-hatti"'))
     for (const faz of HARITA) expect(hat, faz.slug).toContain(`href="/${faz.slug}/"`)
+  })
+
+  it('yatay düzenin ölçüleri haritadan basılır', () => {
+    // Aşama eklenince hat kendiliğinden yeniden dizilsin diye CSS hiçbir
+    // aşama sayısı yazmaz; SurecHatti.astro haritadan satır içi değişken
+    // basar. Beklenen değerler burada da HARITA'dan türer.
+    const html = oku('index.html')
+    const oranlar = HARITA.map((faz) => `${faz.asamalar.length}fr`).join(' ')
+    expect(html).toContain(`<ol class="surec-hatti" style="--oranlar: ${oranlar}">`)
+    const adetler = [...html.matchAll(/<ol class="hat-duraklari" style="--adet: (\d+)">/g)].map(([, n]) => Number(n))
+    expect(adetler).toEqual(HARITA.map((faz) => faz.asamalar.length))
+    // Her istasyon fazı içindeki 1 tabanlı sırasını taşır; yedinci bir aşama
+    // eklense de yerleşim bu değerden okunur.
+    const sutunlar = istasyonlar(html).map(({ acilis }) => Number(acilis.match(/style="--sutun: (\d+)"/)?.[1]))
+    expect(sutunlar).toEqual(HARITA.flatMap((faz) => faz.asamalar.map((_, i) => i + 1)))
   })
 
   it('aktif istasyon aşamaya ve dizisine bağlanır', () => {
@@ -1159,7 +1172,7 @@ describe('ana sayfa süreç hattı', () => {
     const yayindakiler = diziler().filter((d) => d.yayinda)
     for (const { acilis, govde } of istasyonlar(html)) {
       if (!acilis.includes('istasyon--aktif')) continue
-      const slug = [...aktifler].find((s) => govde.includes(`href="/${s}/"`))
+      const slug = [...aktifler].find((s) => govde.includes(`<a class="asama-adi" href="/${s}/">`))
       expect(slug, acilis).toBeDefined()
       for (const dizi of yayindakiler.filter((d) => asamaBul(d.alan)?.asama.slug === slug)) {
         expect(govde, dizi.adres).toMatch(new RegExp(`class="dizi-etiketi" href="${dizi.adres}">[^<]+ · \\d+ yazı<`))
@@ -1179,11 +1192,23 @@ describe('ana sayfa süreç hattı', () => {
 
   it('üç faz kartı', () => {
     // Spec §3: faz adı (bağlantı), "a / t algoritma yazıldı". Aktif sayı
-    // içerikten türer; aktif aşaması olmayan faz "0 / N" gösterir.
+    // içerikten türer; aktif aşaması olmayan faz "0 / N" gösterir. Kart
+    // segmentin başlığıdır: hattın içinde, segmentin durak listesinden önce;
+    // faz adı ayrı bir kart satırında tekrarlanmaz.
     const html = oku('index.html')
     expect(sinifSay(html, (b) => b === 'faz-karti')).toBe(3)
-    const kartlar = [...html.matchAll(/<li class="faz-karti">([\s\S]*?)<\/li>/g)].map(([, g]) => g)
+    expect(html).not.toContain('faz-kartlari')
+    const kartlar = [...html.matchAll(/<header class="faz-karti">([\s\S]*?)<\/header>/g)].map(([, g]) => g)
     expect(kartlar.length).toBe(3)
+    const segmentler = html
+      .slice(html.indexOf('<ol class="surec-hatti"'))
+      .split('<li class="hat-segmenti">')
+      .slice(1)
+    expect(segmentler.length).toBe(HARITA.length)
+    for (const segment of segmentler) {
+      expect(segment.indexOf('<header class="faz-karti">')).toBe(0)
+      expect(segment.indexOf('</header>')).toBeLessThan(segment.indexOf('<ol class="hat-duraklari"'))
+    }
     const aktifler = aktifAlgoritmalar()
     HARITA.forEach((faz, i) => {
       const algoritmalar = faz.asamalar.flatMap((a) => a.algoritmalar)
@@ -1203,12 +1228,18 @@ describe('ana sayfa süreç hattı', () => {
   })
 
   it('süreç hattı geniş ekranda yatay, dar ekranda dikey', () => {
-    // 64rem ve üstünde segment genişlikleri aşama sayısıyla orantılı (6/5/4).
+    // 64rem ve üstünde segment genişlikleri aşama sayısıyla orantılı; oran,
+    // sütun sayısı ve istasyon sütunu CSS'e değişkenle gelir, sayı yazılmaz.
     const css = baglıCss(oku('index.html'))
     expect(css).toMatch(/\.surec-hatti\{[^}]*list-style(-type)?:none/)
     // Derlenmiş CSS medya sorgusunu aralık sözdizimine çevirir: (width>=64rem).
-    expect(css).toMatch(
-      /@media \((?:min-width:\s*|width>=)64rem\)\{[^@]*\.surec-hatti[,{][^}]*grid-template-columns:6fr 5fr 4fr/,
-    )
+    const genis = css.match(/@media \((?:min-width:\s*|width>=)64rem\)\{[^@]*\.surec-hatti[,{][^@]*/)?.[0] ?? ''
+    expect(genis).toMatch(/\.surec-hatti\{[^}]*grid-template-columns:var\(--oranlar\)/)
+    expect(genis).toMatch(/\.hat-duraklari\{[^}]*grid-template-columns:repeat\(var\(--adet\),\s*minmax\(0,\s*1fr\)\)/)
+    expect(genis).toMatch(/\.istasyon\{[^}]*grid-column:var\(--sutun\)\s*\/\s*span 2/)
+    expect(genis).not.toMatch(/nth-child\(\d+\)/)
+    expect(genis).not.toMatch(/\dfr \dfr/)
+    // Subgrid'i tanımayan tarayıcı için önce düz satır tanımı.
+    expect(genis).toMatch(/grid-template-rows:auto var\(--nokta\) auto;grid-template-rows:subgrid/)
   })
 })
