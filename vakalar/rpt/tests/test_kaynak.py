@@ -76,7 +76,9 @@ def test_gercek_panel_akli_basinda(veri):
     col = o[o["line"] == "Collection"]["option_id"]
     assert set(col) <= set(p["option_id"])
     # İlk alım siparişten, plan dünyadan: plan / 0,80 ≤ ilk alım (MOQ yuvarlaması)
-    c = opt[opt["line"] == "Collection"]
+    # (Tam sezonlar: v3 `siparis`i yalnız pencerede satışı olan option'lar için
+    # yazar; AW23'ün pencerede hiç satmayan bir option'ı ilk alımsız görünür.)
+    c = opt[(opt["line"] == "Collection") & opt["sezon_kodu"].isin(kaynak.TAM_SEZONLAR)]
     assert (c["ilk_alim"] >= c["plan_sezon"] / 0.80 - 1e-6).all()
 
 

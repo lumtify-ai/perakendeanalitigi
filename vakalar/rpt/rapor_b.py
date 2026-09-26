@@ -83,15 +83,15 @@ def aday_bolumu(v: VeriB) -> None:
                   f"(i) ile (ii) aynı {y((d['etiket_duz'] == d['etiket_gercek']).mean())}; "
                   f"(ii) pozitif, (i) negatif {int((d['etiket_duz'] & ~d['etiket_gercek']).sum())}, "
                   f"tersi {int((~d['etiket_duz'] & d['etiket_gercek']).sum())}")
-        # Sınama satırları rpt_yok kolundan: gerçekleşen tarihten küçük farklar (açıklama aşağıda)
-        oid_ = v.w.optionlar["option_id"].to_numpy()
+        # Sınama satırları rpt_yok kolundan; gerçekleşen tarihle kıyas
         km = v.H["kayit_mevcut"]
-        m = t[["option", "h", "x"]].merge(km[["option", "h", "x"]], on=["option", "h"], suffixes=("", "_g"))
-        fark = (m["x"] - m["x_g"]).abs()
-        print(f"  NOT: sınama satırlarının {int((fark > 0).sum())}/{len(m)}'inde bugüne kadarki satış gerçekleşen "
-              f"tarihten farklı (en çok {s(fark.max())} adet). Neden: motorun operasyon rastgele akışı (iade ve "
-              f"işlem indirimi) bütün hücrelerce paylaşılır; bir kolda herhangi bir hücrenin satışı değişince "
-              f"(ör. önceki sezonun RPT'si) sonraki bütün çekilişler kayar.")
+        m = t[["option", "h", "x", "D", "acik"]].merge(km[["option", "h", "x", "D", "acik"]],
+                                                     on=["option", "h"], suffixes=("", "_g"))
+        print(f"  sınama satırlarının bugüne kadarki satışı (x) ve düzeltilmiş talebi (D) gerçekleşen tarihle "
+              f"aynı: x farklı {int((m['x'] != m['x_g']).sum())}/{len(m)}, D farklı "
+              f"{int(((m['D'] - m['D_g']).abs() > 1e-9).sum())}/{len(m)}. Yalnız envanter pozisyonu ayrılabilir: "
+              f"gerçekleşen tarihte Banu'nun verdiği RPT açık sipariş olarak görünür "
+              f"({int((m['acik'] != m['acik_g']).sum())} satır).")
         if len(e) < 600:
             print(f"  NOT: {G} eğitimi küçük ({len(e)} satır, {int(e['etiket_duz'].sum())} pozitif) — "
                   f"sonuçlar kırılgan.")
@@ -147,7 +147,8 @@ def miktar_bolumu(v: VeriB) -> None:
     print(f"  kritik oran (yalnız tam fiyat vs hiç satılmaz): Cu/(Cu+c) = {y(((p - c) / p).mean())}")
 
     alt("Hikâye option'ları, h=3 pazartesisi: dört miktar")
-    print("  (gerçekleşen tarihin h=3 sabahı — HİKÂYE/SANSÜR bölümleriyle aynı x, D, d)")
+    print("  (gerçekleşen tarihin h=3 sabahı — HİKÂYE/SANSÜR bölümleriyle aynı x, D, d; rpt_yok kolunun "
+          "sabahıyla da aynı, h=3'e kadar RPT gelmediği için)")
     kahin = v.K["rp"][("kahin", v.K["en_iyi"])]
     for etiket, oid in HIKAYE.items():
         o = _oid(v, oid)
@@ -261,9 +262,10 @@ def sonuc_bolumu(v: VeriB) -> None:
         kk = olcutler.option_olcutleri(w, v.K["ham"][("oneri", en)], ops).set_index("option")
         rptsiz = kk["rpt"] == 0
         gurultu = (kk["kar"] - tb["kar"])[rptsiz]
-        print(f"  gürültü payı: oneri/{en} kolunda RPT'siz {int(rptsiz.sum())} option'ın Δkârı toplam "
-              f"{s(gurultu.sum())} TL (en büyük mutlak {s(gurultu.abs().max())} TL) — ortak operasyon "
-              f"akışının (iade, işlem indirimi) kaymasından; kol farklarının içindeki rastgele kısım")
+        print(f"  gürültü sınaması: oneri/{en} kolunda RPT'siz {int(rptsiz.sum())} option'ın rpt_yok'a göre "
+              f"Δkârı toplam {s(gurultu.sum())} TL (en büyük mutlak {s(gurultu.abs().max())} TL). v3'te iade ve "
+              f"işlem indirimi (gün, hücre) başına tohumlanır, politikadan bağımsızdır: kol farkları yalnız "
+              f"RPT kararından ve dağıtımdan gelir")
         print(f"  dağıtımın payı (Banu'nun RPT'leri): mevcut→{en} Δkâr "
               f"{s(k.loc[('mevcut', en), 'delta_kar'] - k.loc[('mevcut', 'mevcut'), 'delta_kar'])} TL; "
               f"kararın payı: mevcut/{en} → oneri/{en} "

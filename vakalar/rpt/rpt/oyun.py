@@ -68,11 +68,16 @@ def aday_tablolari(b, t, opt_t, kayit_mevcut, kayit_yok, ham_yok) -> dict:
     return sonuc
 
 
-def hazirlik(dunya, talep, oyun_sezonlari=OYUN, modeller: bool = True) -> dict:
-    """Bir talep yolunun bütün öğrenmesi. Sözlük: baglam, tablolar, kayıtlar."""
+def hazirlik(dunya, talep, oyun_sezonlari=OYUN, modeller: bool = True, operasyon_tohumu: int = 42) -> dict:
+    """Bir talep yolunun bütün öğrenmesi. Sözlük: baglam, tablolar, kayıtlar.
+
+    `operasyon_tohumu`: v3'ün iade ve işlem indirimi rastgeleliği (gün, hücre)
+    başına bu tohumdan türetilir ve politikadan bağımsızdır; bütün kollar aynı
+    tohumu kullanır, böylece kol farkları yalnız kararlardan gelir.
+    """
     idx = anlik.Indeks.kur(dunya)
     kaydedici = anlik.Kaydedici(LumodaRPT(), dunya, idx)
-    ham_mevcut = simule_et(dunya, talep, rpt_politikasi=kaydedici)
+    ham_mevcut = simule_et(dunya, talep, rpt_politikasi=kaydedici, operasyon_tohumu=operasyon_tohumu)
     t = kaynak.tablolar_ham(dunya, ham_mevcut)
     opt_t = _plan_ekle(kaynak.optionlar(t), dunya)
 
@@ -81,11 +86,12 @@ def hazirlik(dunya, talep, oyun_sezonlari=OYUN, modeller: bool = True) -> dict:
         egriler[G] = egri.oyun_egrileri(t, opt_t, G)
         belirsizlik[G] = miktar.kalibrasyon(t, opt_t, G)
     b = politika.Baglam(dunya=dunya, talep=talep, idx=idx, oyun_sezonlari=tuple(oyun_sezonlari),
-                        egriler=egriler, belirsizlik=belirsizlik, p_ind=miktar.indirim_fiyatlari(dunya))
+                        egriler=egriler, belirsizlik=belirsizlik, p_ind=miktar.indirim_fiyatlari(dunya),
+                        operasyon_tohumu=operasyon_tohumu)
 
     # rpt_yok kolu, aday sınama satırları için kaydederek
     kayit_yok = anlik.Kaydedici(politika.RPTYok(b), dunya, idx)
-    ham_yok = simule_et(dunya, talep, rpt_politikasi=kayit_yok)
+    ham_yok = simule_et(dunya, talep, rpt_politikasi=kayit_yok, operasyon_tohumu=operasyon_tohumu)
     sonuc = {"baglam": b, "t": t, "opt_t": opt_t, "ham": {("mevcut", "mevcut"): ham_mevcut,
                                                           ("rpt_yok", "mevcut"): ham_yok}}
     if modeller:
@@ -105,11 +111,12 @@ def kos(b, kol: str, kural: str = "mevcut", kayit: bool = False):
     """Kolu verilen dağıtım kuralıyla koşar. (ham, rpt politikası, dağıtım)."""
     rp = KOLLAR[kol](b)
     dp = dagitim.RPTDagitim(b.dunya, egriler_cx(b), kural, b.oyun_sezonlari, idx=b.idx)
-    ham = simule_et(b.dunya, b.talep, rpt_politikasi=rp, dagitim_politikasi=dp)
+    ham = simule_et(b.dunya, b.talep, rpt_politikasi=rp, dagitim_politikasi=dp,
+                    operasyon_tohumu=b.operasyon_tohumu)
     return ham, rp, dp
 
 
-def dagitim_secimi(dunya, talep, t, opt_t, idx=None) -> pd.DataFrame:
+def dagitim_secimi(dunya, talep, t, opt_t, idx=None, operasyon_tohumu: int = 42) -> pd.DataFrame:
     """Dağıtım kuralını oyundan ÖNCE seçmek için: Banu'nun RPT'leri, kural
     yalnız SS24'e uygulanır, SS24 Collection kârı ve kayıp satışı. SS24'ün
     kendi çıkış eğrisi kullanılır (sezon kapandıktan sonra öğrenilebilir;
@@ -121,7 +128,7 @@ def dagitim_secimi(dunya, talep, t, opt_t, idx=None) -> pd.DataFrame:
     satir = []
     for kural in dagitim.KURALLAR:
         dp = dagitim.RPTDagitim(dunya, cx, kural, ("SS24",), idx=idx)
-        ham = simule_et(dunya, talep, dagitim_politikasi=dp)
+        ham = simule_et(dunya, talep, dagitim_politikasi=dp, operasyon_tohumu=operasyon_tohumu)
         o = olcutler.option_olcutleri(dunya, ham, ss24)
         satir.append({"kural": kural, "kar": o["kar"].sum(), "kayip": o["kayip_tf"].sum() + o["kayip_ind"].sum(),
                       "rpt_magazaya": o["rpt_magazaya"].sum(), "rpt_depoda_kalan": o["rpt_depoda_kalan"].sum(),
@@ -158,7 +165,7 @@ def tum_kollar(H: dict, kollar=None) -> dict:
     Döner: {"secim", "en_iyi", "ham": {(kol, kural): ham}, "rp": {...}, "dp": {...}}.
     """
     b = H["baglam"]
-    secim = dagitim_secimi(b.dunya, b.talep, H["t"], H["opt_t"], b.idx)
+    secim = dagitim_secimi(b.dunya, b.talep, H["t"], H["opt_t"], b.idx, b.operasyon_tohumu)
     en_iyi = en_iyi_kural(secim)
     ham, rp, dp = dict(H["ham"]), {}, {}
     if callable(kollar):

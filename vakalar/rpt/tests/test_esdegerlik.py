@@ -39,3 +39,19 @@ def test_kural_rptsiz_kolda_etkisiz(yol0, kural):
     ref = yol0["ham"][("rpt_yok", "mevcut")]
     pd.testing.assert_frame_equal(ham["sevkiyat"], ref["sevkiyat"])
     pd.testing.assert_frame_equal(ham["kayip_satis"], ref["kayip_satis"])
+
+
+@pytest.mark.veri
+def test_rptsiz_optionlar_kollar_arasi_ayni(yol0):
+    """v3 operasyon rastgeleliği politikadan bağımsız: RPT'siz option kolda aynen kalır."""
+    from rpt import olcutler
+
+    b = yol0["baglam"]
+    ham, _, _ = oyun.kos(b, "oneri", "d")
+    for G in b.oyun_sezonlari:
+        ops = oyun.oyun_optionlari(b.dunya, G)
+        a = olcutler.option_olcutleri(b.dunya, ham, ops).set_index("option")
+        t = olcutler.option_olcutleri(b.dunya, yol0["ham"][("rpt_yok", "mevcut")], ops).set_index("option")
+        r = a["rpt"] == 0
+        assert r.sum() > 50
+        pd.testing.assert_frame_equal(a[r], t[r])

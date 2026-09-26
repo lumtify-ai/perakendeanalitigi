@@ -84,6 +84,10 @@ dagitim_politikasi=...)`'i ile farklı politikalarla yeniden oynatılır
   işler. Dağıtım kuralları yalnız RPT'si GELMİŞ option'lara uygulanır: RPT'siz
   kolda b/c/d bugünkü kuralla birebir aynıdır (testli). Fark RPT'nin kendisinden
   gelir.
+- **Kollar arası gürültü yok.** v3'ün iade ve işlem indirimi rastgeleliği (gün,
+  hücre) başına tohumlanır ve politikadan bağımsızdır (`simule_et(...,
+  operasyon_tohumu=42)`): RPT'si olmayan bir option her kolda birebir aynı
+  sonuçlanır (testli). Alternatif yollar kendi operasyon tohumunu kullanır.
 - **`mevcut` kolu v3'ün kendisidir**: dışa aktarılan tablolar birebir
   (`test_esdegerlik.py`).
 - **Öğrenme** (eğri, belirsizlik, aday modeli) her yolun "gerçekleşen tarihi"nden

@@ -42,6 +42,7 @@ class Baglam:
     modeller: dict = field(default_factory=dict)   # sezon → aday.Modeller
     p_ind: np.ndarray | None = None
     esik: float = 0.5
+    operasyon_tohumu: int = 42    # v3: iade / işlem indirimi (gün, hücre) başına, politikadan bağımsız
 
     def oyun_maskesi(self) -> np.ndarray:
         opt = self.dunya.optionlar

@@ -5,6 +5,8 @@
 Her yol kendi "gerçekleşen tarihini" (Banu'nun kuralı + bugünkü dağıtım)
 üretir ve bütün öğrenmeyi (eğri, belirsizlik, aday modeli, dağıtım kuralı
 seçimi) o tarihten, yol 0'daki kurallarla yapar; sonra kolları koşar.
+Yol p'nin operasyon rastgeleliği (iade, işlem indirimi) de kendi tohumundan
+(yol 0: v3'ün 42'si); yol içinde bütün kollar aynı tohumu paylaşır.
 Raporun aralıkları buradan (min / medyan / max ve kaç yolda aynı yön).
 """
 
@@ -31,6 +33,10 @@ def yol_talebi(dunya, yol: int):
     return talep_matrisi(dunya, np.random.default_rng([TOHUM_TABANI, yol]))
 
 
+def operasyon_tohumu(yol: int) -> int:
+    return 42 if yol == 0 else TOHUM_TABANI + yol
+
+
 def yol_kos(yol: int) -> dict:
     import warnings
 
@@ -41,7 +47,7 @@ def yol_kos(yol: int) -> dict:
 
     t0 = time.time()
     w = dunya_kur()
-    H = oyun.hazirlik(w, yol_talebi(w, yol))
+    H = oyun.hazirlik(w, yol_talebi(w, yol), operasyon_tohumu=operasyon_tohumu(yol))
     K = oyun.tum_kollar(H, lambda e: [("mevcut", e), ("frr3", "mevcut"), ("frr3", e), ("oneri", e),
                                       ("kahin", e)])
     en_iyi = K["en_iyi"]
