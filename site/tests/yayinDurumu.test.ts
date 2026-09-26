@@ -12,7 +12,14 @@ import {
   hazirlaniyorAdresleri,
   pasifAsamaAdresleri,
   sitemapSuzgeci,
+  taslakDiziAdresleri,
 } from '../src/lib/yayinDurumu.mjs'
+import {
+  DIZI_KOKU,
+  hazirlaniyorYaziAdresleri,
+  pasifAsamaAdresleriBeklenen,
+  taslakDiziAdresleriBeklenen,
+} from './yardimci/icerikDurumu'
 
 // Windows'ta new URL().pathname sürücü harfini bozar; fileURLToPath şart
 const YAZI_KOKU = fileURLToPath(new URL('../src/content/yazi/', import.meta.url))
@@ -39,10 +46,10 @@ durum: ${durum}
     expect(adresler).toEqual(['/alan/dizi/taslak/'])
   })
 
-  it('gerçek içerikte şu an hazırlanıyor yazı yok', () => {
-    // Bütün yazılar yayında. Bu satır düşerse bir taslak eklenmiş demektir;
-    // o zaman site haritası ve noindex testleri de güncellenmeli.
-    expect(hazirlaniyorAdresleri(YAZI_KOKU)).toEqual([])
+  it('gerçek içerikte taslak yazıları bulur', () => {
+    // Beklenen küme içerikten bağımsız bir yoldan türetilir
+    // (tests/yardimci/icerikDurumu.ts); taslak eklenince test kırılmaz.
+    expect(hazirlaniyorAdresleri(YAZI_KOKU).sort()).toEqual(hazirlaniyorYaziAdresleri().sort())
   })
 
   it('her adres eğik çizgiyle başlar ve biter', () => {
@@ -108,11 +115,75 @@ describe('pasifAsamaAdresleri', () => {
     expect(pasifler).not.toContain('/temeller/')
   })
 
-  it('gerçek içerikte bütün aşamalar aktif', () => {
-    expect(pasifAsamaAdresleri(ALAN_KOKU, YAZI_KOKU)).toEqual([])
+  it('gerçek içerikte dizi frontmatter’ından türeyen pasif kümeyle aynı', () => {
+    // pasifAsamaAdresleri yazı klasörüne bakar; beklenen küme dizilerin
+    // "algoritmalar" listesinden gider (asamaAktifMi ile aynı yol). İkisinin
+    // denkliği build öncesi doğrulamaya dayanıyor; burada sınanıyor.
+    expect(pasifAsamaAdresleri(ALAN_KOKU, YAZI_KOKU).sort()).toEqual(
+      pasifAsamaAdresleriBeklenen().sort(),
+    )
   })
 
   it('var olmayan kökte boş dizi döner', () => {
     expect(pasifAsamaAdresleri(ALAN_KOKU + 'yok', YAZI_KOKU)).toEqual([])
+  })
+})
+
+describe('taslakDiziAdresleri', () => {
+  // Bütün yazıları hazırlanıyor olan dizi, taslak yazıları gibi davranır:
+  // kapağı (ve varsa demosu) üretilir ama noindex basar ve site haritasına
+  // girmez. Sentetik ağaç: yalnız taslağı olan demolu dizi, karma dizi,
+  // yazısı hiç olmayan dizi, varsayılan durumlu dizi.
+  function agacKur() {
+    const kok = mkdtempSync(join(tmpdir(), 'dizi-'))
+    const diziKoku = join(kok, 'dizi')
+    const yaziKoku = join(kok, 'yazi')
+    const dizi = (yol: string, demo: boolean) => {
+      const tam = join(diziKoku, yol)
+      mkdirSync(join(tam, '..'), { recursive: true })
+      writeFileSync(tam, `---\nbaslik: X\n${demo ? 'demo: true\n' : ''}---\n`)
+    }
+    const yaz = (yol: string, durum?: string) => {
+      const tam = join(yaziKoku, yol)
+      mkdirSync(join(tam, '..'), { recursive: true })
+      writeFileSync(tam, `---\nbaslik: X\n${durum ? `durum: ${durum}\n` : ''}---\n`)
+    }
+    dizi('indirim/markdown.md', true)
+    dizi('rpt/tekrar-siparis.md', true)
+    dizi('crm/segment.md', false)
+    dizi('transfer/blok-transfer.md', false)
+    yaz('indirim/markdown/a.mdx', 'hazirlaniyor')
+    yaz('indirim/markdown/b.mdx', 'hazirlaniyor')
+    yaz('rpt/tekrar-siparis/a.mdx', 'hazirlaniyor')
+    yaz('rpt/tekrar-siparis/b.mdx', 'yayinda')
+    yaz('transfer/blok-transfer/a.mdx')
+    return { diziKoku, yaziKoku }
+  }
+
+  it('yalnız taslağı olan dizinin kapağını ve demosunu, yazısız dizinin kapağını verir', () => {
+    const { diziKoku, yaziKoku } = agacKur()
+    expect(taslakDiziAdresleri(diziKoku, yaziKoku).sort()).toEqual([
+      '/crm/segment/',
+      '/indirim/markdown/',
+      '/indirim/markdown/demo/',
+    ])
+  })
+
+  it('karma ve varsayılan durumlu diziler dahil kalır', () => {
+    const { diziKoku, yaziKoku } = agacKur()
+    const taslaklar = taslakDiziAdresleri(diziKoku, yaziKoku)
+    expect(taslaklar).not.toContain('/rpt/tekrar-siparis/')
+    expect(taslaklar).not.toContain('/rpt/tekrar-siparis/demo/')
+    expect(taslaklar).not.toContain('/transfer/blok-transfer/')
+  })
+
+  it('gerçek içerikte türetilen taslak dizi kümesiyle aynı', () => {
+    expect(taslakDiziAdresleri(DIZI_KOKU, YAZI_KOKU).sort()).toEqual(
+      taslakDiziAdresleriBeklenen().sort(),
+    )
+  })
+
+  it('var olmayan kökte boş dizi döner', () => {
+    expect(taslakDiziAdresleri(DIZI_KOKU + 'yok', YAZI_KOKU)).toEqual([])
   })
 })

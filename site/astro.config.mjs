@@ -10,11 +10,13 @@ import {
   hazirlaniyorAdresleri,
   pasifAsamaAdresleri,
   sitemapSuzgeci,
+  taslakDiziAdresleri,
 } from './src/lib/yayinDurumu.mjs'
 
 // Windows'ta new URL().pathname baştaki eğik çizgiyle sürücü harfini bozar
 const YAZI_KOKU = fileURLToPath(new URL('./src/content/yazi/', import.meta.url))
 const ALAN_KOKU = fileURLToPath(new URL('./src/content/alan/', import.meta.url))
+const DIZI_KOKU = fileURLToPath(new URL('./src/content/dizi/', import.meta.url))
 
 export default defineConfig({
   site: 'https://perakendeanalitigi.com',
@@ -28,11 +30,14 @@ export default defineConfig({
     // Hazırlanıyor yazılar üretilir ve dizi kapağından bağlanır ama site
     // haritasında ilan edilmez; aynı sayfalar <meta name="robots" content=
     // "noindex"> de basar (src/layouts/Temel.astro). Aktif olmayan aşamanın
-    // sayfası da aynı muameleyi görür (src/pages/[alan]/index.astro).
+    // sayfası (src/pages/[alan]/index.astro) ve bütün yazıları hazırlanıyor
+    // olan dizinin kapağı ile demosu (src/pages/[alan]/[dizi]/) da aynı
+    // muameleyi görür.
     sitemap({
       filter: sitemapSuzgeci([
         ...hazirlaniyorAdresleri(YAZI_KOKU),
         ...pasifAsamaAdresleri(ALAN_KOKU, YAZI_KOKU),
+        ...taslakDiziAdresleri(DIZI_KOKU, YAZI_KOKU),
       ]),
     }),
   ],

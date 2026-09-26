@@ -28,6 +28,11 @@ const [hamAlan, hepsi] = await Promise.all([
 const alanGirdi = zorunlu(hamAlan, 'alan', alanId)
 const sirali = diziYazilari(hepsi, alanId, diziId)
 
+// Bütün yazıları hazırlanıyor olan dizi, yazıları gibi davranır: kapak
+// üretilir (aşama sayfası ona bağlanır) ama noindex basar ve site haritasına
+// girmez (src/lib/yayinDurumu.mjs · taslakDiziAdresleri).
+const dizinlenmesin = !sirali.some((yazi) => yazi.durum === 'yayinda')
+
 const isaretleme = {
   '@context': 'https://schema.org',
   '@type': 'CreativeWorkSeries',
@@ -43,7 +48,12 @@ const isaretleme = {
 }
 ---
 
-<Temel baslik={girdi.data.baslik} aciklama={girdi.data.ozet} isaretleme={isaretleme}>
+<Temel
+  baslik={girdi.data.baslik}
+  aciklama={girdi.data.ozet}
+  isaretleme={isaretleme}
+  dizinlenmesin={dizinlenmesin}
+>
   <KirintiYolu
     basamaklar={[
       ...fazBasamagi(alanId),

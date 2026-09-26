@@ -91,13 +91,19 @@ describe('beklenmeyen uzantı', () => {
 // sayfalardan biri hiç üretilmez.
 describe('adres çakışması', () => {
   it('tekil yazı ile dizi aynı adrese çıkınca yakalar', () => {
+    // Tekil yazı yalnızca Temeller'de durabildiği için çakışma da orada
+    // mümkün (aşama altındaki tekil yazı ayrı bir kuralla reddedilir).
     const agac = saglamAgac()
-    agac.push({ koleksiyon: 'yazi', goreliYol: 'transfer/blok-transfer.mdx' })
+    agac.push({
+      koleksiyon: 'dizi',
+      goreliYol: 'temeller/urun-hiyerarsisi.md',
+      data: { alan: 'temeller' },
+    })
     const hatalar = agacSekliniDogrula(agac)
     expect(hatalar).toHaveLength(1)
-    expect(hatalar[0]).toContain('/transfer/blok-transfer/')
-    expect(hatalar[0]).toContain('src/content/dizi/transfer/blok-transfer.md')
-    expect(hatalar[0]).toContain('src/content/yazi/transfer/blok-transfer.mdx')
+    expect(hatalar[0]).toContain('/temeller/urun-hiyerarsisi/')
+    expect(hatalar[0]).toContain('src/content/dizi/temeller/urun-hiyerarsisi.md')
+    expect(hatalar[0]).toContain('src/content/yazi/temeller/urun-hiyerarsisi.mdx')
   })
 
   it("demo sayfasıyla çakışan yazı slug'ını yakalar", () => {
@@ -236,6 +242,26 @@ describe('harita tutarlılığı', () => {
       { koleksiyon: 'alan', goreliYol: 'temeller.md', data: { tanim: TANIM } },
     ]
     expect(agacSekliniDogrula(agac)).not.toEqual([])
+  })
+
+  // Site haritası kuralı (yayinDurumu.mjs · pasifAsamaAdresleri) aşamayı
+  // `yazi/<aşama>/` altındaki yayında yazıya bakarak aktif sayar; noindex
+  // kuralı (haritaDurumu.ts · asamaAktifMi) algoritmayı kapsayan yayında
+  // diziye bakar. Aşamanın doğrudan altındaki tekil yazı ikisini ayırırdı:
+  // sayfa site haritasında ilan edilir ama noindex basar. Tekil yazı
+  // yalnızca Temeller rafında durur.
+  it('harita aşamasının doğrudan altındaki tekil yazı reddedilir', () => {
+    const agac = saglamAgac()
+    agac.push({ koleksiyon: 'yazi', goreliYol: 'transfer/tek-basina.mdx' })
+    const hatalar = agacSekliniDogrula(agac)
+    expect(hatalar).toHaveLength(1)
+    expect(hatalar[0]).toContain('src/content/yazi/transfer/tek-basina.mdx')
+    expect(hatalar[0]).toContain('temeller')
+  })
+
+  it('Temeller rafındaki tekil yazıya izin verilir', () => {
+    // saglamAgac temeller/urun-hiyerarsisi.mdx taşıyor.
+    expect(agacSekliniDogrula(saglamAgac())).toEqual([])
   })
 
   it('dizisi olmayan aşamanın alan dosyası reddedilir', () => {

@@ -4,8 +4,10 @@ import { getCollection, getEntry } from 'astro:content'
 import Temel from '../../../layouts/Temel.astro'
 import KirintiYolu from '../../../components/KirintiYolu.astro'
 import Demo from '../../../components/Demo.astro'
+import { diziYazilari } from '../../../lib/agac'
 import { zorunlu } from '../../../lib/zorunlu'
 import { alanBasligi } from '../../../lib/alanBasligi'
+import { fazBasamagi } from '../../../lib/haritaGirdisi'
 
 export async function getStaticPaths() {
   const diziler = await getCollection('dizi')
@@ -19,14 +21,20 @@ export async function getStaticPaths() {
 
 const { girdi } = Astro.props
 const [alanId, diziId] = girdi.id.split('/')
-const alanGirdi = zorunlu(await getEntry('alan', alanId), 'alan', alanId)
+const [hamAlan, hepsi] = await Promise.all([getEntry('alan', alanId), getCollection('yazi')])
+const alanGirdi = zorunlu(hamAlan, 'alan', alanId)
+
+// Dizinin hiçbir yazısı yayında değilse demo da kapak gibi taslaktır:
+// noindex, site haritasında yok (src/lib/yayinDurumu.mjs · taslakDiziAdresleri).
+const dizinlenmesin = !diziYazilari(hepsi, alanId, diziId).some((yazi) => yazi.durum === 'yayinda')
 
 const aciklama = `${girdi.data.baslik} demosu: parametreleri değiştirin, önerinin nasıl değiştiğini görün.`
 ---
 
-<Temel baslik={`${girdi.data.baslik} · Demo`} aciklama={aciklama}>
+<Temel baslik={`${girdi.data.baslik} · Demo`} aciklama={aciklama} dizinlenmesin={dizinlenmesin}>
   <KirintiYolu
     basamaklar={[
+      ...fazBasamagi(alanId),
       { ad: alanBasligi(alanId, alanGirdi.data), adres: `/${alanId}/` },
       { ad: girdi.data.baslik, adres: `/${alanId}/${diziId}/` },
       { ad: 'Demo' },

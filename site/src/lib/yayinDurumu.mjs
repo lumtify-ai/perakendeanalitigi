@@ -99,8 +99,14 @@ function yayindaYaziVarMi(dizin) {
  * noindex basar (src/pages/[alan]/index.astro) ve site haritasına girmez.
  * Kural src/lib/haritaDurumu.ts'deki `asamaAktifMi`'nin dosya düzeyindeki
  * karşılığıdır: `yazi/<alan>/` altında `hazirlaniyor` olmayan en az bir yazı
- * varsa aşama aktiftir. İkisi denktir, çünkü build öncesi doğrulama her
- * dizinin en az bir algoritmayı kendi aşamasında kapsamasını zorunlu kılar.
+ * varsa aşama aktiftir. İkisi denktir, çünkü build öncesi doğrulama üç
+ * şeyi zorunlu kılar: her dizi en az bir algoritmayı kendi aşamasında
+ * kapsar (src/lib/dogrula.ts), her yazı tanımlı bir dizinin içindedir, ve
+ * harita aşamasının doğrudan altında tekil yazı durmaz (src/lib/agacSekli.ts
+ * · alanHaritaDogrula; tekil yazı yalnızca Temeller'de). Üçüncüsü olmasaydı
+ * aşamanın altındaki tekil bir yazı sayfayı site haritasına sokardı ama
+ * sayfa noindex basmaya devam ederdi. Denklik tests/yayinDurumu.test.ts'te
+ * gerçek içerik üzerinde de sınanır.
  *
  * @param {string} alanKoku `src/content/alan` dizininin mutlak yolu
  * @param {string} yaziKoku `src/content/yazi` dizininin mutlak yolu
@@ -113,6 +119,40 @@ export function pasifAsamaAdresleri(alanKoku, yaziKoku) {
     .map((ad) => ad.slice(0, -'.md'.length))
     .filter((alan) => alan !== TEMELLER && !yayindaYaziVarMi(join(yaziKoku, alan)))
     .map((alan) => `/${alan}/`)
+}
+
+/**
+ * Yayında yazısı olmayan dizilerin kapak adresleri (`/<aşama>/<dizi>/`) ve
+ * `demo: true` ise demo adresleri (`/<aşama>/<dizi>/demo/`).
+ *
+ * Bütün yazıları `hazirlaniyor` olan (ya da henüz hiç yazısı olmayan) dizi,
+ * yazıları gibi davranır: kapağı ve demosu üretilir ama noindex basar
+ * (src/pages/[alan]/[dizi]/index.astro ve demo.astro) ve site haritasına
+ * girmez. Kural src/lib/haritaGirdisi.ts'deki `diziBaglari`'nın `yayinda`
+ * alanının dosya düzeyindeki karşılığıdır.
+ *
+ * @param {string} diziKoku `src/content/dizi` dizininin mutlak yolu
+ * @param {string} yaziKoku `src/content/yazi` dizininin mutlak yolu
+ * @returns {string[]}
+ */
+export function taslakDiziAdresleri(diziKoku, yaziKoku) {
+  if (!existsSync(diziKoku)) return []
+  const adresler = []
+  for (const alan of readdirSync(diziKoku)) {
+    if (alan.startsWith('.')) continue
+    const alanDizini = join(diziKoku, alan)
+    if (!statSync(alanDizini).isDirectory()) continue
+    for (const ad of readdirSync(alanDizini)) {
+      if (ad.startsWith('.') || extname(ad) !== '.md') continue
+      const dizi = ad.slice(0, -'.md'.length)
+      if (yayindaYaziVarMi(join(yaziKoku, alan, dizi))) continue
+      const kapak = `/${alan}/${dizi}/`
+      const { data } = matter(readFileSync(join(alanDizini, ad), 'utf-8'))
+      adresler.push(kapak)
+      if (data.demo === true) adresler.push(`${kapak}demo/`)
+    }
+  }
+  return adresler
 }
 
 /**

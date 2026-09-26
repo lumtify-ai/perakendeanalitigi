@@ -28,6 +28,8 @@
 //      göründüğü kod okunmadan anlaşılmaz.
 //   8. Harita aşaması olan ama altında hiç dizisi olmayan alan dosyası —
 //      aşama sayfası boş kalır, build bunu hata saymaz.
+//   9. Harita aşamasının doğrudan altında tekil yazı — site haritası ile
+//      noindex kuralı ayrışır (bkz. alanHaritaDogrula).
 
 import { asamaBul, TEMELLER } from '../data/harita'
 
@@ -232,6 +234,7 @@ function tanimlariDogrula(dosyalar: AgacDosyasi[]): string[] {
  * aşama sayfası dizi kartlarını listeler; dizisi olmayan aşama boş kalır).
  * `temeller` ise haritanın dışındaki tek raf olduğu için tersine `baslik`
  * yazmak ZORUNDADIR ve dizi zorunluluğundan muaftır (tekil yazıları tutar).
+ * Tekil yazı tutabilen tek alan da odur; aşamanın yazıları dizidedir.
  */
 function alanHaritaDogrula(dosyalar: AgacDosyasi[]): string[] {
   const diziAlanlari = new Set(
@@ -241,6 +244,27 @@ function alanHaritaDogrula(dosyalar: AgacDosyasi[]): string[] {
   )
 
   const hatalar: string[] = []
+
+  // Tekil yazı (`yazi/<alan>/<slug>.mdx`) yalnızca Temeller rafında durur.
+  // Bir aşamanın doğrudan altındaki tekil yazı iki kuralı ayırırdı: site
+  // haritası aşamayı `yazi/<aşama>/` altındaki yayında yazıya bakarak aktif
+  // sayar (yayinDurumu.mjs · pasifAsamaAdresleri), noindex ise algoritmayı
+  // kapsayan yayında diziye bakar (haritaDurumu.ts · asamaAktifMi).
+  for (const dosya of dosyalar) {
+    if (dosya.koleksiyon !== 'yazi') continue
+    const parcalar = uzantisiniAt(dosya.goreliYol).split('/').filter(Boolean)
+    if (parcalar.length !== 2) continue
+    const bulunan = asamaBul(parcalar[0])
+    if (!bulunan) continue
+    hatalar.push(
+      `${kaynakYolu(dosya)} bir harita aşamasının ("${bulunan.asama.ad}") doğrudan ` +
+        `altında duran tekil bir yazı. Tekil yazı yalnızca "${TEMELLER}" rafında ` +
+        'durabilir; aşamanın yazıları bir dizinin içindedir. Bu kural olmadan ' +
+        'aşama sayfası site haritasında ilan edilir ama noindex basar, build bunu ' +
+        `fark etmez. Yazıyı bir diziye taşıyın (src/content/yazi/${parcalar[0]}/` +
+        `<dizi>/${parcalar[1]}.mdx) ya da "${TEMELLER}" rafına alın.`,
+    )
+  }
 
   for (const dosya of dosyalar) {
     if (dosya.koleksiyon !== 'alan') continue

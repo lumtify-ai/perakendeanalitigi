@@ -4,9 +4,19 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { HARITA } from '../src/data/harita'
+import { algoritmaBul, asamaBul, HARITA } from '../src/data/harita'
+import {
+  aktifAlgoritmalar,
+  asamalar,
+  diziler,
+  noindexBeklenen,
+} from './yardimci/icerikDurumu'
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url))
+/** astro.config.mjs'deki `site`; site haritası mutlak adres basar. */
+const SITE = 'https://perakendeanalitigi.com'
+/** src/layouts/Temel.astro'nun `dizinlenmesin` ile bastığı etiket. */
+const NOINDEX = '<meta name="robots" content="noindex">'
 
 
 function oku(yol: string): string {
@@ -525,16 +535,40 @@ describe('üst menü', () => {
 })
 
 describe('yayın durumu', () => {
-  // Tasarım dokümanı §3'ün taslak mekanizması (dizi kapağında "hazırlanıyor"
-  // işareti, sayfada noindex, site haritasında gizleme) yerinde duruyor ama
-  // şu an gösterecek taslak yok: yedi yazının hepsi yayında. Mekanizmanın
-  // kendisi tests/yayinDurumu.test.ts'te sentetik ağaç üzerinde sınanıyor;
-  // burada taslak yokluğunun getirdiği değişmezler doğrulanıyor.
-  it('taslak olmadığı için hiçbir içerik sayfası noindex basmaz', () => {
-    const suclular = tumSayfalar()
-      .filter(({ html }) => html.includes('noindex'))
+  // Tasarım dokümanı §3'ün taslak mekanizması: hazırlanıyor yazı, aktif
+  // olmayan aşamanın sayfası ve bütün yazıları hazırlanıyor olan dizinin
+  // kapağı ile demosu üretilir ama noindex basar ve site haritasına girmez.
+  // Mekanizmanın kendisi tests/yayinDurumu.test.ts'te sentetik ağaç üzerinde
+  // sınanıyor; burada beklenen küme içerikten türetilip build çıktısıyla
+  // karşılaştırılıyor (tests/yardimci/icerikDurumu.ts).
+  it('noindex tam olarak içerikten türeyen taslak sayfalarda basılır', () => {
+    const basanlar = tumSayfalar()
+      .filter(({ html }) => html.includes(NOINDEX))
+      .map(({ yol }) => '/' + yol.replace(/index\.html$/, ''))
+      .sort()
+    expect(basanlar).toEqual(noindexBeklenen())
+    // Meta etiketin dışında "noindex" geçen sayfa da olmamalı (ör. yanlış
+    // biçimde basılmış bir etiket); desen ayrışırsa yukarısı boşa geçerdi.
+    const ciplak = tumSayfalar()
+      .filter(({ html }) => html.includes('noindex') && !html.includes(NOINDEX))
       .map(({ yol }) => yol)
-    expect(suclular).toEqual([])
+    expect(ciplak).toEqual([])
+  })
+
+  it('site haritası noindex olmayan her sayfayı ilan eder, noindex olanı etmez', () => {
+    // Önceki hâli /^tr\/…/ desenine bakıyordu; önek kalktığından beri hiçbir
+    // sayfayla eşleşmiyor ve boşa geçiyordu.
+    const haritaXml = oku('sitemap-0.xml')
+    const dislanan = new Set(noindexBeklenen())
+    const adresler = tumSayfalar()
+      .map(({ yol }) => yol)
+      .filter((yol) => yol.endsWith('index.html'))
+      .map((yol) => '/' + yol.replace(/index\.html$/, ''))
+    expect(adresler.length).toBeGreaterThanOrEqual(15)
+    const eksik = adresler.filter((a) => !dislanan.has(a) && !haritaXml.includes(`<loc>${SITE}${a}</loc>`))
+    const fazla = adresler.filter((a) => dislanan.has(a) && haritaXml.includes(`<loc>${SITE}${a}</loc>`))
+    expect(eksik).toEqual([])
+    expect(fazla).toEqual([])
   })
 
   it('yayına açık sayfalar noindex basmaz', () => {
@@ -551,18 +585,6 @@ describe('yayın durumu', () => {
     ]) {
       expect(oku(yol), yol).not.toContain('noindex')
     }
-  })
-
-  it('site haritası bütün yazıları ilan eder', () => {
-    // Taslak yokken süzgeç hiçbir adresi elememeli: yazı sayfalarının
-    // tamamı haritada olmalı.
-    const harita = oku('sitemap-0.xml')
-    const yazilar = tumSayfalar()
-      .map(({ yol }) => yol)
-      .filter((yol) => /^tr\/(temeller|transfer)\/.+\/index\.html$/.test(yol))
-      .map((yol) => '/' + yol.replace(/index\.html$/, ''))
-    const eksik = yazilar.filter((adres) => !harita.includes(adres))
-    expect(eksik).toEqual([])
   })
 
   it('site haritası yayına açık adresleri ilan etmeye devam eder', () => {
@@ -780,11 +802,20 @@ describe('harita', () => {
   })
 
   it('aktif algoritmalar diziye bağlanır', () => {
-    const html = oku('sezon-ici/index.html')
-    expect(html).toContain('href="/replenishment/depodan-magazaya/"')
-    expect(html).toContain('href="/rpt/tekrar-siparis/"')
-    expect(html).toContain('href="/transfer/blok-transfer/"')
-    expect(sinifSay(html, (b) => b === 'algoritma--aktif')).toBe(3)
+    // Beklenen küme içerikten türer (tests/yardimci/icerikDurumu.ts): yeni
+    // bir dizi yayına girince test kendiliğinden yeni sayıyı bekler.
+    const aktifler = aktifAlgoritmalar()
+    expect(aktifler.size).toBeGreaterThan(0)
+    const aktifMi = (b: string) => b === 'algoritma--aktif'
+    for (const faz of HARITA) {
+      const beklenen = [...aktifler].filter((id) => algoritmaBul(id)?.faz.slug === faz.slug)
+      expect(sinifSay(oku(`${faz.slug}/index.html`), aktifMi), faz.slug).toBe(beklenen.length)
+    }
+    expect(sinifSay(oku('index.html'), aktifMi)).toBe(aktifler.size)
+    for (const dizi of diziler().filter((d) => d.yayinda)) {
+      const faz = asamaBul(dizi.alan)!.faz.slug
+      expect(oku(`${faz}/index.html`), dizi.adres).toContain(`href="${dizi.adres}"`)
+    }
   })
 
   it('hiçbir sayfada değinme izi yok', () => {
@@ -797,21 +828,33 @@ describe('harita', () => {
   })
 
   it('soluk aşamaya bağlantı yok ve sayfası üretilmez', () => {
-    for (const asama of ['indirim', 'crm', 'mfp']) {
-      expect(existsSync(DIST + asama), asama).toBe(false)
+    // Onaylanmış sapma: alan dosyası olan ama aktif olmayan aşamanın sayfası
+    // yine üretilir (taslak dizinin kırıntı yolu ona bağlanır), yalnızca
+    // noindex basar ve site haritasına girmez. Her aşamanın durumu içerikten
+    // türer; slug listesi elle tutulmaz.
+    const haritaXml = oku('sitemap-0.xml')
+    const haritaSayfalari = [...FAZ_SAYFALARI, 'index.html']
+    const asamaAktifMi = (b: string) => b === 'asama--aktif'
+    for (const asama of asamalar()) {
+      const adres = `/${asama.slug}/`
+      if (!asama.alanVar) {
+        expect(existsSync(DIST + asama.slug), `${asama.slug}: alan dosyası yok`).toBe(false)
+      } else if (!asama.aktif) {
+        expect(existsSync(DIST + asama.slug + '/index.html'), asama.slug).toBe(true)
+        expect(oku(asama.slug + '/index.html'), asama.slug).toContain(NOINDEX)
+        expect(haritaXml, asama.slug).not.toContain(`<loc>${SITE}${adres}</loc>`)
+      }
+      if (asama.aktif) {
+        expect(oku(`${asama.faz}/index.html`), asama.slug).toContain(`href="${adres}"`)
+      } else {
+        for (const yol of haritaSayfalari) {
+          expect(oku(yol), `${yol} → ${asama.slug}`).not.toContain(`href="${adres}"`)
+        }
+      }
     }
-    // Aktif aşamalar içerikten türer; liste elle tutulur ama işaretlemeyle
-    // çapraz sınanır ki bir dizi yayına girdiğinde sessizce eskimesin.
-    const AKTIF_ASAMALAR = ['replenishment', 'rpt', 'transfer']
-    expect(sinifSay(oku('sezon-ici/index.html'), (b) => b === 'asama--aktif')).toBe(3)
-    expect(sinifSay(oku('sezon-oncesi/index.html'), (b) => b === 'asama--aktif')).toBe(0)
-    const pasifler = HARITA.flatMap((faz) => faz.asamalar)
-      .map((asama) => asama.slug)
-      .filter((slug) => !AKTIF_ASAMALAR.includes(slug))
-    expect(pasifler).toHaveLength(12)
-    for (const yol of [...FAZ_SAYFALARI, 'index.html']) {
-      const html = oku(yol)
-      for (const slug of pasifler) expect(html, `${yol} → ${slug}`).not.toContain(`href="/${slug}/"`)
+    for (const faz of HARITA) {
+      const beklenen = asamalar().filter((a) => a.faz === faz.slug && a.aktif).length
+      expect(sinifSay(oku(`${faz.slug}/index.html`), asamaAktifMi), faz.slug).toBe(beklenen)
     }
   })
 
@@ -879,6 +922,19 @@ describe('harita', () => {
     expect([...yerler].sort((a, b) => a - b)).toEqual(yerler)
 
     expect(kirinti('temeller/urun-hiyerarsisi/index.html')).not.toContain('Sezon')
+
+    // Demo sayfası da fazla başlar; önceden faz basamağı eksikti.
+    const demo = kirinti('transfer/blok-transfer/demo/index.html')
+    const demoSirasi = [
+      'href="/sezon-ici/"',
+      'Sezon İçi',
+      'href="/transfer/"',
+      'href="/transfer/blok-transfer/"',
+      'Demo',
+    ]
+    const demoYerleri = demoSirasi.map((parca) => demo.indexOf(parca))
+    expect(demoYerleri.every((y) => y > -1), demoYerleri.join(',')).toBe(true)
+    expect([...demoYerleri].sort((a, b) => a - b)).toEqual(demoYerleri)
   })
 
   it('Temeller rafı sözlüğe ve veri setine bağlanır', () => {
