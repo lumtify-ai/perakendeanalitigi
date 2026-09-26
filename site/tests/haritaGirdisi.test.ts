@@ -8,7 +8,7 @@ function yazi(id: string, durum: string) {
 }
 
 const DIZILER = [
-  { id: 'rpt/tekrar-siparis', data: { baslik: 'Tekrar Sipariş', algoritmalar: ['rpt-adet'] } },
+  { id: 'rpt/tekrar-siparis', data: { baslik: 'Tekrar Sipariş', algoritmalar: ['rpt-gereksinim-adet'] } },
   { id: 'indirim/markdown', data: { baslik: 'Markdown', algoritmalar: ['markdown'] } },
 ]
 
@@ -19,7 +19,7 @@ describe('diziBaglari', () => {
       id: 'rpt/tekrar-siparis',
       baslik: 'Tekrar Sipariş',
       adres: '/rpt/tekrar-siparis/',
-      algoritmalar: ['rpt-adet'],
+      algoritmalar: ['rpt-gereksinim-adet'],
     })
     expect(rpt).not.toHaveProperty('deginir')
   })
@@ -44,6 +44,11 @@ describe('fazBasamagi', () => {
     expect(fazBasamagi('range-plan')).toEqual([{ ad: 'Sezon Öncesi', adres: '/sezon-oncesi/' }])
   })
 
+  it('üçüncü fazın aşamaları için Diğer Süreçler’i verir', () => {
+    expect(fazBasamagi('is-zekasi')).toEqual([{ ad: 'Diğer Süreçler', adres: '/diger-surecler/' }])
+    expect(fazBasamagi('tedarik')).toEqual([{ ad: 'Diğer Süreçler', adres: '/diger-surecler/' }])
+  })
+
   it('Temeller için boştur', () => {
     expect(fazBasamagi('temeller')).toEqual([])
   })
@@ -51,6 +56,7 @@ describe('fazBasamagi', () => {
 
 describe('fazAl', () => {
   it('slug’a göre fazı döndürür', () => {
-    expect(fazAl('sezon-ici').asamalar).toHaveLength(8)
+    expect(fazAl('sezon-ici').asamalar).toHaveLength(5)
+    expect(fazAl('diger-surecler').asamalar).toHaveLength(4)
   })
 })

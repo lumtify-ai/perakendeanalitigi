@@ -1,0 +1,17 @@
+---
+// site/src/pages/diger-surecler.astro — gövde src/components/FazSayfasi.astro'da.
+//
+// Giriş paragrafı taslaktır; kullanıcı yeniden yazacak (spec §0.1 madde 9).
+import FazSayfasi from '../components/FazSayfasi.astro'
+
+const GIRIS =
+  'Bazı süreçler sezonun bir yanında durmaz. Tedarikçiyi seçmek, kararların ' +
+  'sonucunu ölçmek, depoyu ve sevkiyatı yönetmek, müşteriyi tanımak ' +
+  'bunlardandır. Sezon öncesinde de sezon içinde de sürerler. Ürettikleri ' +
+  'bilgi ise sezondaki her kararın girdisidir. Tedarikçinin teslim süresi ' +
+  'tekrar siparişin ne zaman verileceğini belirler. Kayıp satış ölçülmeden ' +
+  "replenishment'ın başarısı bilinmez. Müşteriyi tanımayan bir indirim de " +
+  'herkese aynı fiyatı verir.'
+---
+
+<FazSayfasi slug="diger-surecler" giris={GIRIS} />

@@ -147,8 +147,9 @@ body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-bl
    sarmak matematiği bozacağı için kaydırma doğru davranıştır. */
 @media (max-width: 34rem) { .katex-display { font-size: .92em } }
 /* --- Harita (src/components/FazHaritasi.astro) ------------------------
-   En sade hâli: yalnızca soluk öğeler ikincil metin rengini alır ve iki
-   faz geniş ekranda yan yana durur. Görünüş tasarım turunda bu sınıflara
+   En sade hâli: yalnızca soluk öğeler ikincil metin rengini alır ve sezon
+   ekseninin iki fazı geniş ekranda yan yana durur; Diğer Süreçler grid'in
+   dışında, altlarında tam genişlikte (src/pages/index.astro). Görünüş tasarım turunda bu sınıflara
    bağlanacak. */
 /* Aşamanın sırası haritanın kendi numarasıdır (01–15); listenin tarayıcı
    numarası kapatılmazsa "1. 08 Allocation" gibi çift numara çıkar.

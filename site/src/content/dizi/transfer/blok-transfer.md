@@ -1,7 +1,7 @@
 ---
 baslik: Blok Transfer
 alan: transfer
-algoritmalar: [blok-tekleme-kiriklik]
+algoritmalar: [blok-transfer]
 ozet: >-
   Bir option'ın bir mağazadaki stoğunun tamamı alınsın mı, alınmasın mı?
   Transfer ailesinin en temel algoritması; karar ikilidir, girdi satış

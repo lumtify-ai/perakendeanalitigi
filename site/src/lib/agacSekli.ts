@@ -83,6 +83,7 @@ const SABIT_ROTALAR: { adres: string; kaynak: string }[] = [
   { adres: '/veri-seti/', kaynak: 'src/pages/veri-seti.astro' },
   { adres: '/sezon-oncesi/', kaynak: 'src/pages/sezon-oncesi.astro' },
   { adres: '/sezon-ici/', kaynak: 'src/pages/sezon-ici.astro' },
+  { adres: '/diger-surecler/', kaynak: 'src/pages/diger-surecler.astro' },
 ]
 
 function uzantisiniAl(yol: string): string {

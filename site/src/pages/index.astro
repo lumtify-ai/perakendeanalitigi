@@ -1,13 +1,14 @@
 ---
 // site/src/pages/index.astro
 //
-// Ana sayfa haritanın kendisidir: Lumtify planlama haritasının iki fazı yan
-// yana, altında harita dışı Temeller rafı. Aşama ve algoritmaların sırası
-// src/data/harita.ts'den gelir; bu dosya sıra tutmaz.
+// Ana sayfa haritanın kendisidir: sezon ekseninin iki fazı (Sezon Öncesi,
+// Sezon İçi) yan yana, altlarında tam genişlikte Diğer Süreçler, en altta
+// harita dışı Temeller rafı (spec §0.1 madde 8). Aşama ve algoritmaların
+// sırası src/data/harita.ts'den gelir; bu dosya sıra tutmaz.
 import { getCollection, getEntry } from 'astro:content'
 import Temel from '../layouts/Temel.astro'
 import FazHaritasi from '../components/FazHaritasi.astro'
-import { HARITA, TEMELLER } from '../data/harita'
+import { HARITA, TEMELLER, type FazSlug } from '../data/harita'
 import { alanYazilari } from '../lib/agac'
 import { alanBasligi } from '../lib/alanBasligi'
 import { diziBaglari } from '../lib/haritaGirdisi'
@@ -19,6 +20,10 @@ const [diziler, yazilar, hamTemeller] = await Promise.all([
   getEntry('alan', TEMELLER),
 ])
 const baglar = diziBaglari(diziler, yazilar)
+// Sezon ekseninin dışındaki faz ayrı satırda durur; geri kalanı yan yana.
+const EKSEN_DISI: FazSlug = 'diger-surecler'
+const eksendekiler = HARITA.filter((faz) => faz.slug !== EKSEN_DISI)
+const eksenDisi = HARITA.filter((faz) => faz.slug === EKSEN_DISI)
 const temeller = zorunlu(hamTemeller, 'alan', TEMELLER)
 const temelYazilari = alanYazilari(yazilar, TEMELLER)
 
@@ -43,7 +48,7 @@ const TANIM =
   <section id="harita" class="harita">
     <div class="harita-fazlari">
       {
-        HARITA.map((faz) => (
+        eksendekiler.map((faz) => (
           <section class="faz">
             <h2>
               <a href={`/${faz.slug}/`}>{faz.ad}</a>
@@ -53,6 +58,17 @@ const TANIM =
         ))
       }
     </div>
+
+    {
+      eksenDisi.map((faz) => (
+        <section class="faz faz--eksen-disi">
+          <h2>
+            <a href={`/${faz.slug}/`}>{faz.ad}</a>
+          </h2>
+          <FazHaritasi faz={faz} diziler={baglar} baslikSeviyesi={3} />
+        </section>
+      ))
+    }
 
     <section class="temeller-rafi">
       <h2>

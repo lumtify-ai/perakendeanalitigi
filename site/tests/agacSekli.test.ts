@@ -214,6 +214,15 @@ describe('harita tutarlılığı', () => {
     expect(hatalar.join('\n')).toContain('/sezon-ici/')
   })
 
+  it('üçüncü fazın adresi de sabit rotadır', () => {
+    const agac: AgacDosyasi[] = [
+      { koleksiyon: 'alan', goreliYol: 'diger-surecler.md', data: { tanim: TANIM } },
+    ]
+    const hatalar = agacSekliniDogrula(agac).join('\n')
+    expect(hatalar).toContain('/diger-surecler/')
+    expect(hatalar).toContain('src/pages/diger-surecler.astro')
+  })
+
   it('harita aşamasında baslik yazılamaz', () => {
     const agac: AgacDosyasi[] = [
       { koleksiyon: 'alan', goreliYol: 'rpt.md', data: { tanim: TANIM, baslik: 'X' } },

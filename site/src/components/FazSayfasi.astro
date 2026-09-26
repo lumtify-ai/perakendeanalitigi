@@ -1,0 +1,43 @@
+---
+// site/src/components/FazSayfasi.astro
+//
+// Üç faz sayfasının ortak gövdesi. Faz adreste görünmez (aşama adresi
+// /<aşama>/ kalır); faz sayfası yalnızca gezinmenin ve kırıntı yolunun
+// başıdır. Sayfa dosyaları (src/pages/sezon-oncesi.astro, sezon-ici.astro,
+// diger-surecler.astro) yalnızca fazın slug'ını ve giriş paragrafını verir;
+// kök adların ayrılmış olduğu src/data/harita.ts'deki AYRILMIS_KOK_ADLAR'da
+// yazılı.
+import { getCollection } from 'astro:content'
+import Temel from '../layouts/Temel.astro'
+import KirintiYolu from './KirintiYolu.astro'
+import FazHaritasi from './FazHaritasi.astro'
+import type { FazSlug } from '../data/harita'
+import { diziBaglari, fazAl } from '../lib/haritaGirdisi'
+
+interface Props {
+  slug: FazSlug
+  giris: string
+}
+
+const { slug, giris } = Astro.props
+const faz = fazAl(slug)
+const [diziler, yazilar] = await Promise.all([getCollection('dizi'), getCollection('yazi')])
+const baglar = diziBaglari(diziler, yazilar)
+
+const isaretleme = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: faz.ad,
+  description: giris,
+  inLanguage: 'tr',
+}
+---
+
+<Temel baslik={faz.ad} aciklama={giris} isaretleme={isaretleme}>
+  <KirintiYolu basamaklar={[{ ad: faz.ad }]} />
+
+  <h1>{faz.ad}</h1>
+  <p class="tanim">{giris}</p>
+
+  <FazHaritasi faz={faz} diziler={baglar} />
+</Temel>

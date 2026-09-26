@@ -17,7 +17,7 @@ function yazi(
 }
 
 const DIZILER: DiziGirdi[] = [
-  { id: 'transfer/blok-transfer', data: { alan: 'transfer', algoritmalar: ['blok-tekleme-kiriklik'] } },
+  { id: 'transfer/blok-transfer', data: { alan: 'transfer', algoritmalar: ['blok-transfer'] } },
 ]
 const ALANLAR: AlanGirdi[] = [
   { id: 'transfer', body: 'Transfer bir kavramdir.' },

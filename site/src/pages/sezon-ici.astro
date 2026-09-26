@@ -1,18 +1,6 @@
 ---
-// site/src/pages/sezon-ici.astro
-//
-// Faz sayfası. Faz adreste görünmez (aşama adresi /<aşama>/ kalır); bu
-// sayfa yalnızca gezinmenin ve kırıntı yolunun başıdır. Kök adın ayrılmış
-// olduğu src/data/harita.ts'deki AYRILMIS_KOK_ADLAR'da yazılı.
-import { getCollection } from 'astro:content'
-import Temel from '../layouts/Temel.astro'
-import KirintiYolu from '../components/KirintiYolu.astro'
-import FazHaritasi from '../components/FazHaritasi.astro'
-import { diziBaglari, fazAl } from '../lib/haritaGirdisi'
-
-const faz = fazAl('sezon-ici')
-const [diziler, yazilar] = await Promise.all([getCollection('dizi'), getCollection('yazi')])
-const baglar = diziBaglari(diziler, yazilar)
+// site/src/pages/sezon-ici.astro — gövde src/components/FazSayfasi.astro'da.
+import FazSayfasi from '../components/FazSayfasi.astro'
 
 const GIRIS =
   'Sezon içi, ürün mağazaya girdikten sonra verilen kararların dönemidir. ' +
@@ -21,21 +9,6 @@ const GIRIS =
   'transfer ve indirim bu dönemin işleridir. Kararların çoğu küçüktür ve her ' +
   'hafta tekrarlanır. Tek bir ürün için kolaydır; bütün ürünler ve bütün ' +
   'mağazalar için aynı anda verilince zorlaşır.'
-
-const isaretleme = {
-  '@context': 'https://schema.org',
-  '@type': 'CollectionPage',
-  name: faz.ad,
-  description: GIRIS,
-  inLanguage: 'tr',
-}
 ---
 
-<Temel baslik={faz.ad} aciklama={GIRIS} isaretleme={isaretleme}>
-  <KirintiYolu basamaklar={[{ ad: faz.ad }]} />
-
-  <h1>{faz.ad}</h1>
-  <p class="tanim">{GIRIS}</p>
-
-  <FazHaritasi faz={faz} diziler={baglar} />
-</Temel>
+<FazSayfasi slug="sezon-ici" giris={GIRIS} />

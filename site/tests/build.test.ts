@@ -756,20 +756,27 @@ function sinifSay(html: string, uyar: (belirtec: string) => boolean): number {
   return sayi
 }
 
-const FAZ_SAYFALARI = ['sezon-oncesi/index.html', 'sezon-ici/index.html']
+const FAZ_SAYFALARI = [
+  'sezon-oncesi/index.html',
+  'sezon-ici/index.html',
+  'diger-surecler/index.html',
+]
 
 describe('harita', () => {
   it('faz sayfaları üretilir', () => {
     for (const yol of FAZ_SAYFALARI) expect(existsSync(DIST + yol), yol).toBe(true)
-    expect(sinifSay(oku('sezon-ici/index.html'), (b) => b === 'asama')).toBe(8)
-    expect(sinifSay(oku('sezon-oncesi/index.html'), (b) => b === 'asama')).toBe(7)
+    // Spec §0.1 madde 8: 6 / 5 / 4 aşama.
+    expect(sinifSay(oku('sezon-oncesi/index.html'), (b) => b === 'asama')).toBe(6)
+    expect(sinifSay(oku('sezon-ici/index.html'), (b) => b === 'asama')).toBe(5)
+    expect(sinifSay(oku('diger-surecler/index.html'), (b) => b === 'asama')).toBe(4)
   })
 
-  it('otuz sekiz algoritmanın hepsi görünür', () => {
+  it('otuz dört algoritmanın hepsi görünür', () => {
+    // Spec §0.1 madde 10: 10 / 9 / 15 algoritma.
     const algoritmaMi = (b: string) => b.startsWith('algoritma--')
     const toplam = FAZ_SAYFALARI.reduce((t, yol) => t + sinifSay(oku(yol), algoritmaMi), 0)
-    expect(toplam).toBe(38)
-    expect(sinifSay(oku('index.html'), algoritmaMi)).toBe(38)
+    expect(toplam).toBe(34)
+    expect(sinifSay(oku('index.html'), algoritmaMi)).toBe(34)
   })
 
   it('aktif algoritmalar diziye bağlanır', () => {
@@ -777,7 +784,7 @@ describe('harita', () => {
     expect(html).toContain('href="/replenishment/depodan-magazaya/"')
     expect(html).toContain('href="/rpt/tekrar-siparis/"')
     expect(html).toContain('href="/transfer/blok-transfer/"')
-    expect(sinifSay(html, (b) => b === 'algoritma--aktif')).toBe(4)
+    expect(sinifSay(html, (b) => b === 'algoritma--aktif')).toBe(3)
   })
 
   it('hiçbir sayfada değinme izi yok', () => {
@@ -809,7 +816,7 @@ describe('harita', () => {
   })
 
   it('aşama listesi tarayıcı numarası basmaz, yalnızca haritanın numarası görünür', () => {
-    // "1. 08 Allocation" hatası: <ol> kendi numarasını, bileşen haritanın
+    // "1. 07 Allocation" hatası: <ol> kendi numarasını, bileşen haritanın
     // numarasını basıyordu. Numarayı kapatan kural paylaşılan stil
     // dosyasında; sayfanın bağladığı CSS'te gerçekten var mı diye bakılır.
     for (const yol of [...FAZ_SAYFALARI, 'index.html']) {
@@ -820,15 +827,42 @@ describe('harita', () => {
         .join('')
       expect(stiller, yol).toMatch(/\.faz-haritasi\{[^}]*list-style(-type)?:none/)
     }
-    expect(oku('sezon-ici/index.html')).toContain('<span class="asama-no">08</span>')
+    expect(oku('sezon-ici/index.html')).toContain('<span class="asama-no">07</span>')
+    expect(oku('diger-surecler/index.html')).toContain('<span class="asama-no">12</span>')
   })
 
-  it('ana sayfa iki fazı ve Temeller rafını gösterir', () => {
+  it('ana sayfa üç fazı ve Temeller rafını gösterir', () => {
     const html = oku('index.html')
     expect(html).toContain('href="/sezon-oncesi/"')
     expect(html).toContain('href="/sezon-ici/"')
+    expect(html).toContain('href="/diger-surecler/"')
     expect(html).toContain('href="/temeller/"')
     expect(html).toContain('id="harita"')
+  })
+
+  it('ana sayfada sezon ekseni yan yana, Diğer Süreçler altında, Temeller en altta', () => {
+    // Spec §0.1 madde 8. Yan yana duran iki faz .harita-fazlari grid'inin
+    // içinde; Diğer Süreçler grid'in dışında, Temeller rafından önce.
+    const html = oku('index.html')
+    const grid = html.indexOf('class="harita-fazlari"')
+    const oncesi = html.indexOf('href="/sezon-oncesi/"', grid)
+    const ici = html.indexOf('href="/sezon-ici/"', grid)
+    const eksenDisi = html.indexOf('class="faz faz--eksen-disi"')
+    const diger = html.indexOf('href="/diger-surecler/"', grid)
+    const raf = html.indexOf('class="temeller-rafi"')
+    const sira = [grid, oncesi, ici, eksenDisi, diger, raf]
+    expect(sira.every((y) => y > -1), sira.join(',')).toBe(true)
+    expect([...sira].sort((a, b) => a - b)).toEqual(sira)
+    // Diğer Süreçler grid'in içinde değil: grid'in kapanışı ondan önce.
+    const gridIci = html.slice(grid, eksenDisi)
+    expect(gridIci).not.toContain('href="/diger-surecler/"')
+  })
+
+  it('Diğer Süreçler sayfası kendi fazıyla başlar ve 404 sayfası ona bağlanır', () => {
+    const html = oku('diger-surecler/index.html')
+    expect(html).toContain('<h1>Diğer Süreçler</h1>')
+    expect(html).toContain('"@type":"CollectionPage"')
+    expect(oku('404.html')).toContain('href="/diger-surecler/"')
   })
 
   it('kırıntı yolu fazla başlar', () => {
