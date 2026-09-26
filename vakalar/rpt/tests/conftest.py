@@ -88,3 +88,15 @@ def oyuncak():
     opt = kaynak.optionlar(t)
     opt["plan_sezon"] = 50.0
     return t, opt
+
+
+@pytest.fixture(scope="session")
+def yol0():
+    """Yol 0 (gerçek v3 talebi) için hazırlık: eğri, belirsizlik, aday modeli."""
+    import numpy as np  # noqa: F401
+    from perakende_veri.v3.dunya import dunya_kur, talep_matrisi
+
+    from rpt import oyun
+
+    w = dunya_kur()
+    return oyun.hazirlik(w, talep_matrisi(w))

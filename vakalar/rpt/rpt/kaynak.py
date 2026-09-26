@@ -266,3 +266,18 @@ def tarihten_once(t: dict[str, pd.DataFrame], sinir) -> dict[str, pd.DataFrame]:
 def sezon_baslangici(t: dict[str, pd.DataFrame], sezon_kodu: str) -> pd.Timestamp:
     s = t["sezon"]
     return pd.Timestamp(s.loc[s["sezon_kodu"] == sezon_kodu, "lansman_tarihi"].min())
+
+
+def tablolar_ham(dunya, ham: dict) -> dict[str, pd.DataFrame]:
+    """Motorun ham çıktısından (herhangi bir kol) kaynak tablo sözlüğü.
+
+    Hareket tabloları v3'ün kendi `hareket_tablolari`'ndan gelir (kirli
+    kayıt yok); ana veri tabloları dünyadan. Varsayılan politikalarla
+    koşulan motorun tabloları, temizlenmiş DuckDB tablolarıyla aynıdır
+    (test_esdegerlik.py).
+    """
+    from perakende_veri.v3.uret import hareket_tablolari
+
+    h = hareket_tablolari(dunya, ham)
+    return {**h, "urun": dunya.urunler, "sezon": dunya.sezon, "tedarikci": dunya.tedarikciler,
+            "magaza": dunya.magazalar, "takvim": pd.DataFrame()}

@@ -193,3 +193,12 @@ def oyun_egrisi(t: dict, opt: pd.DataFrame, oyun_sezonu: str, yontem: str = "duz
     kirpik = kaynak.tarihten_once(t, bas)
     hh = kaynak.hucre_hafta(kirpik, opt, gecmis)
     return egri_ogren(hh, opt, gecmis, yontem, grup, hedef)
+
+
+def oyun_egrileri(t: dict, opt: pd.DataFrame, oyun_sezonu: str) -> dict:
+    """Oyun sezonunun dört eğrisi {(yöntem, hedef): Egri}, tek kırpma ile."""
+    bas = kaynak.sezon_baslangici(t, oyun_sezonu)
+    gecmis = gecmis_sezonlar(t, oyun_sezonu)
+    hh = kaynak.hucre_hafta(kaynak.tarihten_once(t, bas), opt, gecmis)
+    return {(y, h): egri_ogren(hh, opt, gecmis, y, ("dalga",), h)
+            for y in ("ham", "duzeltilmis") for h in ("indirim", "cikis")}
