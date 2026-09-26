@@ -10,42 +10,43 @@ durum: yayinda
 import T from '../../../../components/T.astro'
 
 Geçen yazıda kural tabanlı yöntemi kurduk: son yedi günün satışı, özel gün
-katsayısı, bir taban. Toplam yirmi satır kod. Şimdi aynı işi makine
-öğrenmesiyle yapacağız ve aynı sezonu, aynı talep üzerinde tekrar
-oynayacağız.
+katsayısı ve bir taban. Hepsi yirmi satır kod. Şimdi aynı işi makine
+öğrenmesiyle yapacağız ve aynı sezonu, aynı talep üzerinde yeniden
+oynatacağız.
 
-Baştan söyleyeyim: bu yazının bulgusu "hangisi kazandı" değil. Bulgu, bu
-sorunun kendisinin yanlış kurulmuş olduğu.
+Baştan söyleyeyim: bu yazının bulgusu hangi yöntemin kazandığı değil. Asıl
+bulgu, sorunun kendisinin yanlış kurulmuş olması.
 
 ## Model
 
-LightGBM, tek global model. Yani her option-mağaza çifti için ayrı model
-değil; bütün çiftler tek bir modelde, kimlik bilgileri özellik olarak
-veriliyor.
+Tek bir global LightGBM modeli kullanıyoruz. Yani her option-mağaza çifti
+için ayrı bir model yok. Bütün çiftler aynı modelde, kimlik bilgileri de
+özellik olarak veriliyor.
 
-**Hedef değişken:** önümüzdeki yedi günün option-mağaza satışı.
+**Hedef değişken:** önümüzdeki yedi günde option-mağaza satışı.
 
 **Özellikler:** son dört haftanın haftalık satışı, dört ve sekiz haftalık
-ortalamalar, option'ın zincir genelindeki son hafta satışı, line, üst
-kategori, mağaza tipi, hedef haftadaki tatil günü sayısı.
+ortalamalar, option'ın bütün zincirdeki son hafta satışı, line, üst
+kategori, mağaza tipi ve hedef haftadaki tatil günü sayısı.
 
-**Amaç fonksiyonu:** Poisson. Sayım verisi ve çok sayıda sıfır olduğu için.
+**Amaç fonksiyonu:** Poisson. Veri sayım verisi ve içinde çok sayıda sıfır
+var.
 
-**Eğitim:** her karar pazartesisinde, o güne kadarki bütün veriyle yeniden.
-Genişleyen pencere. Hiçbir eğitim ya da doğrulama penceresi karar gününü
-aşmıyor; bunu bir test kilitliyor.
+**Eğitim:** her karar pazartesisinde, o güne kadarki bütün veriyle yeniden
+eğitiliyor. Pencere her hafta genişliyor. Hiçbir eğitim ya da doğrulama
+penceresi karar gününü geçmiyor. Bunu bir test güvence altına alıyor.
 
-Modelin kurulumu, hiperparametre seçimi ve sızıntı kalkanı
+Modelin kurulumu, hiperparametre seçimi ve sızıntıya karşı önlemler
 `vakalar/replenishment/replenishment/tahmin.py` içinde. Üç kolun tanımı
 `politika.py`'de, senaryo ızgarası `kos.py`'de.
 
-Hiperparametreleri sezon öncesi veriyle, zaman sıralı doğrulamayla seçtik.
-Model 31 yaprak, 400 ağaçta karar kıldı.
+Hiperparametreleri sezon öncesi veriyle ve zaman sırasına uyan bir
+doğrulamayla seçtik. Model 31 yaprak ve 400 ağaçta karar kıldı.
 
-Bu, "ML ile tahmin" denince kurulan standart modeldir. Kasten güçlü bir
-rakip seçtik; zayıf bir modeli yenmenin kimseye faydası yok.
+"ML ile tahmin" denince kurulan standart model budur. Rakibi bilerek güçlü
+seçtik. Zayıf bir modeli yenmek kimseye bir şey kazandırmaz.
 
-## İlk kurulum ve ilk hata
+## İlk kurulum, ilk hata
 
 Modeli kurduk, çıktısını doğrudan hedef stok yaptık ve sezonu oynattık.
 Sonuç felaketti:
@@ -57,28 +58,29 @@ Sonuç felaketti:
 | Gönderilen | 102.488 | 51.697 |
 | Dönem sonu stok | 9.966 | 5.743 |
 
-Model müşterinin yarısından fazlasını boş rafla karşılamıştı.
+Model, müşterilerin yarısından fazlasını boş rafla karşılamıştı.
 
-İlk tepki "demek ki ML tutmadı" demek olurdu. Yanlış tepki. Çünkü iki kolu
-karşılaştırırken aynı anda **iki şeyi** değiştirmiştik:
+İlk akla gelen "demek ki ML işe yaramıyor" demek olurdu. Ama bu yanlış bir
+sonuç olurdu. Çünkü iki kolu karşılaştırırken aynı anda **iki şeyi**
+değiştirmiştik:
 
-1. Öngörüyü kim üretiyor — yedi günlük ortalama mı, LightGBM mi?
+1. Öngörüyü kim üretiyor: yedi günlük ortalama mı, LightGBM mi?
 2. Öngörünün altında bir taban var mı?
 
-Kural tabanlı kolda taban vardı, tahmin kolunda yoktu. Yani ölçtüğümüz şey
-"kural mı iyi, ML mi" değil, "taban koymak mı iyi, koymamak mı"ydı. Cevabı
-da zaten belliydi.
+Kural tabanlı kolda taban vardı, tahmin kolunda yoktu. Yani aslında "kural
+mı iyi, ML mi" sorusunu değil, "taban koymak mı iyi, koymamak mı" sorusunu
+ölçmüştük. Onun cevabı da zaten belliydi.
 
-Bunu nereden anladık? İki öngörüyü doğrudan karşılaştırdık. İlk karar
-gününde kural tabanlı öngörü 10.551 adet, LightGBM 9.658 adet diyordu.
-Gerçek talep 12.837'di. **İki öngörü birbirine yüzde sekiz uzaklıktaydı** —
-ama hedefler 1,8 kat farklıydı. Fark öngörüden gelmiyordu.
+Bunu nereden anladık? İki öngörüyü yan yana koyduk. İlk karar gününde kural
+tabanlı öngörü 10.551 adet diyordu, LightGBM 9.658 adet. Gerçek talep
+12.837'ydi. **İki öngörü arasında yüzde sekiz fark vardı, ama hedefler
+arasında 1,8 kat.** Fark öngörüden gelmiyordu.
 
 ## Üçüncü kol
 
-Bunun üzerine üçüncü bir kol kurduk: LightGBM öngörüsü, kural kolunun
-**birebir aynı** taban kuralı, aynı dağıtım motoru, aynı koli kuralı, aynı
-paylaştırma önceliği. Geriye tek değişken kaldı — öngörüyü kim üretiyor.
+Bunun üzerine üçüncü bir kol kurduk. Öngörüyü LightGBM üretiyor. Geri
+kalan her şey kural koluyla **birebir aynı**: taban kuralı, dağıtım motoru,
+koli kuralı, paylaştırma önceliği. Değişen tek şey öngörüyü kimin ürettiği.
 
 Üç kolun aynı sezondaki sonuçları:
 
@@ -93,12 +95,13 @@ paylaştırma önceliği. Geriye tek değişken kaldı — öngörüyü kim üre
 
 ## Farkı ikiye ayırmak
 
-Şimdi asıl hesap. Aynı talep üzerinde tek bir zar atışına bakmak yeterli
-değil; fark gerçek mi, şans mı bilemeyiz. O yüzden aynı beklenen talepten
-yirmi alternatif talep yolu ürettik ve her karşılaştırmayı yirmi yolda
-tekrarladık.
+Şimdi asıl hesaba geldik. Aynı talep üzerinde tek bir zar atışına bakmak
+yetmez. Farkın gerçek mi yoksa şans mı olduğunu bilemeyiz. Bu yüzden aynı
+beklenen talepten yirmi farklı talep senaryosu ürettik ve her
+karşılaştırmayı yirmisinde de tekrarladık.
 
-**Öngörü etkisi** (tahmin + taban eksi kural — aynı politika, farklı öngörü):
+**Öngörünün etkisi** (tahmin + taban eksi kural; politika aynı, öngörü
+farklı):
 
 | Ölçüt | Medyan fark | Aynı yön |
 |---|---:|---:|
@@ -106,8 +109,8 @@ tekrarladık.
 | Bulunabilirlik | −2,40 puan | 20/20 |
 | Dönem sonu stok | −1.757 adet | 20/20 |
 
-**Politika etkisi** (çıplak tahmin eksi tahmin + taban — aynı öngörü, farklı
-politika):
+**Politikanın etkisi** (çıplak tahmin eksi tahmin + taban; öngörü aynı,
+politika farklı):
 
 | Ölçüt | Medyan fark | Aynı yön |
 |---|---:|---:|
@@ -115,61 +118,63 @@ politika):
 | Bulunabilirlik | −5,18 puan | 20/20 |
 | Dönem sonu stok | −2.160 adet | 20/20 |
 
-Yirmi yolun yirmisinde de aynı yön; bunlar şans değil.
+Yirmi senaryonun yirmisinde de yön aynı. Bu sonuçlar şans değil.
 
-**Politikanın etkisi öngörünün iki katı.** Kayıp satışta 13,86'ya karşı 6,53
-puan. Yani modeli değiştirmek değil, modelin çıktısıyla ne yaptığınız fark
-ediyor.
+**Politikanın etkisi öngörünün etkisinin iki katı.** Kayıp satışta 6,53
+puana karşı 13,86 puan. Yani fark yaratan şey modeli değiştirmek değil,
+modelin çıktısıyla ne yaptığınız.
 
-Bu dizinin cümlesi şu: *tahmin motorunu değiştirmek az şey değiştirir,
+Bu dizinin ana fikri de bu: *tahmin motorunu değiştirmek az şey değiştirir,
 politikayı değiştirmek çok şey değiştirir.*
 
-## LightGBM neden kaybetti
+## LightGBM neden kaybetti?
 
-Eşit koşulda bile LightGBM basit yedi günlük ortalamayı geçemedi. Yirmi
-yolun yirmisinde de geride kaldı, bulunabilirlikte 2,4 puan.
+Eşit koşullarda bile LightGBM basit yedi günlük ortalamayı geçemedi. Yirmi
+senaryonun yirmisinde de geride kaldı, bulunabilirlikte 2,4 puan.
 
-Sebebi modelin kötülüğü değil. Sebep, problemin yapısı.
+Bunun sebebi modelin kötü olması değil, problemin yapısı.
 
 **Veri seyrek.** 2.472 option-mağaza çiftinin çoğu haftada bir iki adet
-satıyor, birçoğu sıfır. Poisson amaç fonksiyonu bunu bilerek seçildi ama
-seyrekliği yok edemez. Haftada 1,3 adet satan bir hücrede öğrenilecek örüntü
-azdır; ortalama almakla model kurmak arasındaki fark küçülür.
+satıyor, birçoğu hiç satmıyor. Poisson amaç fonksiyonunu bu yüzden seçtik
+ama o da seyrekliği ortadan kaldıramaz. Haftada 1,3 adet satan bir hücrede
+öğrenilecek fazla bir örüntü yoktur. Ortalama almakla model kurmak
+arasındaki fark küçülür.
 
-**Talep sansürlü.** Model de kural gibi kayıp satışı görmüyor. Üstelik model
-bu yanlılığı daha iyi öğreniyor: stoksuz kalmış hücrelerin düşük satışını
-"bu hücre yavaştır" diye içselleştiriyor ve o hücreye az mal gönderiyor.
-Basit ortalamanın üstüne konan taban ise bu yanlılığı kısmen kırıyor, çünkü
-taban satıştan değil hızdan geliyor.
+**Talep sansürlü.** Model de tıpkı kural gibi kayıp satışı görmüyor. Üstelik
+bu yanlılığı kuraldan daha iyi öğreniyor. Stoksuz kalmış hücrelerin düşük
+satışını "bu hücre yavaş" diye ezberliyor ve oraya az mal gönderiyor.
+Basit ortalamanın altına konan taban ise bu yanlılığı kısmen kırıyor,
+çünkü taban satıştan değil hızdan geliyor.
 
-**Model muhafazakâr.** Poisson kaybı ortalamaya çekiyor. Yedi günlük
-ortalama ise geçen haftanın sıçramasını doğrudan yansıtıyor. Replenishment'ta
-biraz fazla göndermenin bedeli, az göndermenin bedelinden düşük olduğu için
-bu muhafazakârlık maliyete dönüşüyor.
+**Model temkinli.** Poisson kaybı tahmini ortalamaya doğru çekiyor. Yedi
+günlük ortalama ise geçen haftaki sıçramayı olduğu gibi yansıtıyor.
+Replenishment'ta biraz fazla göndermenin bedeli, az göndermenin bedelinden
+düşüktür. Bu yüzden modelin temkinli olması maliyete dönüşüyor.
 
-Bir dürüstlük notu daha. Lumoda sentetik bir veri seti ve talebi bilinen bir
-formülle üretiliyor. Bu, teoride modelin işine yarayabilirdi: formülü
-keşfedip gerçek hayatta olabileceğinden iyi görünebilirdi. Öyle olmadı.
-Ama tersi de geçerli — gerçek bir zincirin verisinde sonuç değişebilir, ve
-biz onu ölçmedik.
+Bir dürüstlük notu daha. Lumoda sentetik bir veri seti ve talebi bilinen
+bir formülle üretiliyor. Teoride bu, modelin işine yarayabilirdi. Formülü
+keşfedip gerçek hayatta olacağından daha iyi görünebilirdi. Öyle olmadı.
+Ama tersi de mümkün: gerçek bir zincirin verisinde sonuç değişebilir. Biz
+bunu ölçmedik.
 
-## Peki ML hiç mi işe yaramaz
+## Peki ML hiç mi işe yaramıyor?
 
-Tablodaki bir sütun modelin lehine: çıplak tahmin en ucuz kol, 269.230 TL.
+Tablodaki bir sütun modelin lehine. Çıplak tahmin en ucuz kol, 269.230 TL.
 Tahmin + taban da kuraldan 50 bin TL ucuz. Model daha az mal taşıyarak aynı
-işi görmeye çalışıyor ve kısmen başarıyor — satışa dönme günü de en kısa
+işi görmeye çalışıyor ve kısmen başarıyor. Satışa dönme süresi de en kısa
 onda.
 
-Yani model "yanlış" değil, farklı bir noktada duruyor: daha az stok, daha
-az maliyet, daha çok kayıp satış. Hangisinin doğru olduğu sizin brüt
+Yani model "yanlış" değil, sadece başka bir noktada duruyor: daha az stok,
+daha az maliyet, daha çok kayıp satış. Hangisinin doğru olduğu brüt
 kârınıza ve stok maliyetinize bağlı. Transfer dizisindeki
-[getiri hesabının](/transfer/blok-transfer/basari-nasil-olculur/) buraya da
-uygulanması gerekir.
+[getiri hesabının](/transfer/blok-transfer/basari-nasil-olculur/) burada da
+yapılması gerekir.
 
-Benim çıkarımım şu: option-mağaza düzeyinde tahmin kurmak zor, pahalı ve bu
-problemde karşılığı zayıf. Kural tabanlı gidip yaklaşık bir değer bulmak
-hem daha anlaşılır hem de bu veride daha isabetli. Modeli kurmak isterseniz
-kurun — ama önce politikanızı düzeltin, çünkü oradaki kazanç iki katı.
+Benim çıkarımım şu: option-mağaza düzeyinde tahmin kurmak zor ve pahalı,
+bu problemdeki getirisi de zayıf. Kural tabanlı gidip yaklaşık bir değer
+bulmak hem daha anlaşılır hem de bu veride daha isabetli. Model kurmak
+isterseniz kurun. Ama önce politikanızı düzeltin, çünkü oradaki kazanç iki
+kat büyük.
 
-Son yazıda başarının nasıl ölçüleceğine bakacağız. Orada bu yazıdaki
-tablolara bir kez daha döneceğiz, çünkü içlerinden biri yalan söylüyor.
+Son yazıda başarının nasıl ölçüleceğine bakacağız. Bu yazıdaki tablolara
+orada bir kez daha döneceğiz, çünkü içlerinden biri yalan söylüyor.

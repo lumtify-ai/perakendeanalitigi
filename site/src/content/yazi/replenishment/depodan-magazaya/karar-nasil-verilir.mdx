@@ -9,75 +9,76 @@ durum: yayinda
 
 import T from '../../../../components/T.astro'
 
-Geçen yazıda kuralı tek cümleye indirmiştik: kısıtlı stoku en hızlı satışa
-dönecek mağazaya gönder. Cümle kolay, uygulaması dört ayrı sorunun cevabına
-bağlı. Bu yazıda o dört soruyu sırayla açıyoruz. Hâlâ matematik yok; matematik
+Geçen yazıda Pars kuralı tek cümleye indirmişti: kısıtlı stoğu, onu en hızlı
+satacak mağazaya gönder. Cümle kolay. Uygulaması dört sorunun cevabına bağlı.
+Bu yazıda o dört soruyu sırayla açıyoruz. Matematiğe hâlâ girmiyoruz, o
 dördüncü yazıda.
 
 ## Bir: sattıktan sonra mı, satmadan önce mi?
 
-İki yaklaşım var ve ikisi de savunulabilir.
+İki yol var ve ikisinin de savunucusu çok.
 
-**Sattıktan sonra koymak.** Mağaza 10 adet sattı, siz 10 adet gönderirsiniz.
-Güvenlidir, çünkü gönderdiğiniz her adedin karşılığında gerçekleşmiş bir satış
-vardır. Sakıncası şu: her zaman bir tur geriden gelirsiniz. Mal yola çıktığında
-raf zaten boştur ve boş kaldığı günlerin müşterisi çoktan gitmiştir.
+**Sattıktan sonra göndermek.** Mağaza 10 adet sattı, siz de 10 adet
+gönderirsiniz. Güvenlidir, çünkü gönderdiğiniz her adedin arkasında
+gerçekleşmiş bir satış vardır. Sorunu şu: hep bir tur geriden gelirsiniz.
+Mal yola çıktığında raf zaten boştur. Boş kaldığı günlerde gelen müşteri de
+çoktan gitmiştir.
 
-**Satmadan önce göndermek.** Önümüzdeki haftanın tahminine göre mal
-yığarsınız. Raf dolu kalır. Sakıncası da açık: yanıldığınızda mal yanlış
-mağazada kalır ve onu oradan çıkarmanın maliyeti, göndermenin maliyetinden
-yüksektir.
+**Satmadan önce göndermek.** Önümüzdeki haftanın tahminine bakıp mal
+gönderirsiniz. Raf dolu kalır. Sorunu da ortada: yanılırsanız mal yanlış
+mağazada kalır. Onu oradan çıkarmak, oraya göndermekten pahalıya gelir.
 
-Pars'ın cevabı ikisi de değil:
+Ali ile Veli bu konuda da anlaşamıyor. Ali sattıktan sonra göndermekten
+yana, Veli önden gitmekten. Pars ikisine de katılmıyor:
 
-— İkisi de aynı şeyin iki ucu. Birinde geçmişe, diğerinde geleceğe
-bakıyorsunuz. Doğrusu hıza bakmak. Bu mağaza bu üründen günde kaç adet
-satıyor, elinde kaç günlük mal var, bir sonraki sevkiyat ne zaman? Üçünü
-bilirseniz ne kadar göndereceğinizi de bilirsiniz.
+— İkiniz aynı çubuğun iki ucundan tutuyorsunuz. Biriniz geçmişe bakıyor,
+biriniz geleceğe. Bakmanız gereken şey hız. Bu mağaza bu üründen günde kaç
+tane satıyor? Elinde kaç günlük mal var? Bir sonraki sevkiyat ne zaman?
+Üçünü bilirseniz ne kadar göndereceğinizi de bilirsiniz.
 
-Bizim modelimiz bunu yapıyor. Her karar gününde her mağaza ve her option için
-bir **hedef stok** kuruyor, mevcut stoğu düşüyor, aradaki farkı istiyor. Hedef
-önümüzdeki haftanın satışına göre kuruluyor; o satışı da geçmiş hızdan
-tahmin ediyoruz.
+Bizim model de böyle çalışıyor. Her karar gününde, her mağaza ve her option
+için bir **hedef stok** belirliyor. Mevcut stoğu bu hedeften çıkarıyor,
+aradaki farkı istiyor. Hedef, önümüzdeki haftanın satışına göre kuruluyor.
+O satışı da geçmişteki satış hızından tahmin ediyoruz.
 
 ## İki: bulunabilirliğe göre mi, tahmine göre mi?
 
-Bu ayrım ilk bakışta birinciyle aynı görünür ama değildir.
+İlk bakışta birinci soruyla aynı görünür. Değildir.
 
-Bulunabilirlik hedefi şunu der: *bu üründen bu mağazada hiçbir zaman sıfır
-olmasın.* Tahmin hedefi şunu der: *bu mağaza önümüzdeki hafta 14 adet satacak,
-14 adet olsun.*
+Bulunabilirlik hedefi der ki: *bu ürün bu mağazada hiçbir zaman sıfıra
+düşmesin.* Tahmin hedefi der ki: *bu mağaza önümüzdeki hafta 14 adet
+satacak, rafta 14 adet olsun.*
 
-Fark, emniyet payının nereden geldiğidir. Bulunabilirlik hedefiyle çalışırsanız
-rafta her zaman bir taban stok tutarsınız ve o tabanı satış hızı değil, "boş
-kalmasın" kaygısı belirler. Tahmin hedefiyle çalışırsanız taban yoktur;
-tahmininiz ne derse o kadar mal gider.
+Aradaki fark emniyet payının nereden geldiği. Bulunabilirlik hedefiyle
+çalışırsanız rafta hep bir taban stok tutarsınız. O tabanı satış hızı
+belirlemez, "raf boş kalmasın" kaygısı belirler. Tahmin hedefinde taban
+yoktur. Tahmin ne diyorsa o kadar mal gider.
 
-Hangisi doğru? İkisinin arasında bir yerde. Ama bu yazıda karar vermeyeceğiz,
-çünkü cevabı ölçmeden vermek fikir beyan etmek olur. Dördüncü ve beşinci
-yazıda ikisini de kurup aynı veri üzerinde yarıştıracağız. Şimdilik şunu
-aklınızda tutun: **emniyet payını nasıl tanımladığınız, bu dizinin en
-şaşırtıcı bulgusunun kaynağı olacak.**
+Hangisi doğru? Muhtemelen ikisinin arasında bir yer. Ama burada karar
+vermeyeceğim, çünkü ölçmeden verilen cevap fikirden öteye geçmez. Dördüncü
+ve beşinci yazıda ikisini de kurup aynı veri üzerinde yarıştıracağız.
+Şimdilik şunu aklınızın bir köşesine yazın: **bu dizinin en şaşırtıcı
+bulgusu, emniyet payını nasıl tanımladığımızdan çıkacak.**
 
 ## Üç: ürün tipine göre strateji değişir mi?
 
-Bu sorunun cevabı net ve ölçülebilir: evet, hem de çok.
+Bu sorunun cevabı net ve ölçülebilir: değişir, hem de çok.
 
-Lumoda'daki 240 option dört <T k="option">line</T>'a bölünüyor: Collection
-120, Basic 60, NOS 39, Outlet 21. Line ürünün ticari rolünü söyler.
+Lumoda'daki 240 option dört <T k="option">line</T>'a ayrılıyor: Collection
+120, Basic 60, NOS 39, Outlet 21. Line, ürünün ticari rolünü anlatır.
 
-NOS'un açılımı zaten cevabı içeriyor: *never out of stock.* Bu ürünün stoğu
-tanımı gereği bitmemeli. Tedarikçiden düzenli olarak gelir; bizim kurgumuzda
-iki haftada bir depo hedef seviyeye tamamlanıyor ve depoda sürekli 28.123
-adetlik bir havuz duruyor. Basic de benzer: yıl boyu satılan temel ürün,
-moda riski düşük.
+NOS'un açılımı cevabı zaten veriyor: *never out of stock*. Bu ürünün stoğu
+tanım gereği bitmemeli. Tedarikçiden düzenli gelir. Bizim kurgumuzda depo
+iki haftada bir hedef seviyeye tamamlanıyor ve depoda sürekli 28.123
+adetlik bir havuz duruyor. Basic de benzer: yıl boyu satılan, moda riski
+düşük temel ürün.
 
-Collection ise sezonla gelir gider. Sezon başında bir kez alınır, biten biter.
-Outlet zaten geçmiş sezondan devreden maldır.
+Collection ise sezonla gelip gider. Sezon başında bir kez alınır, biten
+biter. Outlet de zaten geçmiş sezondan kalan maldır.
 
-Şimdi aynı replenishment kuralını dördüne birden uygulayalım ve alım kararını
-değiştirelim. Depoya sezonluk plan talebinin %30'unu alırsak ve %80'ini
-alırsak ne oluyor:
+Şimdi aynı replenishment kuralını dördüne birden uygulayalım ve yalnız alım
+kararını değiştirelim. Depo sezonluk plan talebinin %30'unu alırsa ne olur,
+%80'ini alırsa ne olur:
 
 | Line | Bulunabilirlik (alım %30) | Bulunabilirlik (alım %80) |
 |---|---:|---:|
@@ -86,62 +87,64 @@ alırsak ne oluyor:
 | Collection | %39,7 | %62,4 |
 | Outlet | %41,0 | %61,8 |
 
-Tabloyu bir daha okuyun. Alımı iki buçuk katına çıkarmak NOS ile Basic'te
-**hiçbir şeyi değiştirmiyor.** Collection ile Outlet'te 21 ila 23 puan
-değiştiriyor.
+Alımı %30'dan %80'e çıkarmak NOS ile Basic'te **hiçbir şeyi
+değiştirmiyor.** Collection ile Outlet'te ise bulunabilirlik 21 ila 23 puan
+artıyor.
 
-Sebebi basit ve tam da bu yüzden öğretici: NOS ve Basic'in deposu zaten
-sürekli besleniyor, sezon başındaki alım kararı onları ilgilendirmiyor.
-Collection'ın ise tek şansı var.
+Sebebi basit. NOS ile Basic'in deposu zaten sürekli besleniyor, sezon
+başındaki alım kararı onları ilgilendirmiyor. Collection'ın ise tek şansı
+var.
 
-Buradan çıkan kural şu: **bir ürünün replenishment stratejisini belirleyen
-şey, o ürünün stoğunun nereden geldiğidir.** Sürekli beslenen üründe sıkı
-çalışmanın getirisi yok; tek atışlık üründe ise sezon başındaki alım kararı
-sezon içindeki bütün zekânızdan daha belirleyici.
+Buradan çıkan kural: **bir ürünün replenishment stratejisini, o ürünün
+stoğunun nereden geldiği belirler.** Sürekli beslenen üründe sıkı çalışmak
+pek bir şey kazandırmaz. Tek seferlik üründe ise sezon başındaki alım
+kararı, sezon içinde yapacağınız her şeyden daha belirleyicidir.
 
-Sektörde sık yapılan hata da burada: tek bir replenishment kuralı yazılır,
-bütün ürünlere uygulanır, sonra NOS'ta gereksiz iş yapılırken Collection'da
-raf boş kalır.
+Sektörde en sık yapılan hata da burada. Tek bir replenishment kuralı
+yazılır ve bütün ürünlere uygulanır. Sonuçta NOS'ta boşuna uğraşılırken
+Collection'ın rafı boş kalır.
 
-## Dört: özel gün öncesi ne kadar derinlik?
+## Dört: özel gün öncesinde ne kadar derinlik?
 
-Bayram, Black Friday, yılbaşı. Bu günlerde satış artar ve rafın o artışı
-karşılayacak kadar derin olması gerekir. Peki ne kadar derin?
+Bayram, Black Friday, yılbaşı. Bu günlerde satış artar ve rafın bu artışı
+karşılayacak kadar dolu olması gerekir. Peki ne kadar?
 
-Cevabı geçmişten ölçüyoruz. Bir tatil gününün satışını, aynı haftanın gününe
-denk gelen normal günlerle karşılaştırıyoruz. Lumoda'da ölçtüğümüz katsayılar
-şöyle: Alt Giyim 1,35 · Dış Giyim 1,40 · Üst Giyim 1,40. Yani tatil gününde
-kabaca yüzde kırk fazla satılıyor ve hedef stok o oranda yükseltiliyor.
+Cevabı geçmişe bakarak ölçüyoruz. Bir tatil gününün satışını, haftanın aynı
+gününe denk gelen normal günlerle karşılaştırıyoruz. Lumoda'da bulduğumuz
+katsayılar şöyle: Alt Giyim 1,35 · Dış Giyim 1,40 · Üst Giyim 1,40. Yani
+tatil gününde kabaca yüzde kırk fazla satılıyor ve hedef stok da o kadar
+yükseltiliyor.
 
-Burada dürüst olmam gereken bir yer var. Lumoda sentetik bir veri seti ve
-içinde tatil çarpanı 1,35 olarak **gömülü**. Bizim ölçümümüz o gömülü
-gerçeği geri buldu. Bu, hesabın doğru çalıştığının kanıtı; ama sahada hiçbir
-katsayı bu kadar temiz çıkmaz. Gerçek hayatta her özel gün ayrı bir
-karakterdir. Black Friday ile Cumhuriyet Bayramı aynı şey değildir, bir bayramın
-arifesiyle ikinci günü aynı şey değildir, üstelik bu yılın Black Friday'i
+Burada dürüst olmam gerekiyor. Lumoda sentetik bir veri seti ve tatil
+çarpanı veriye 1,35 olarak **gömülü**. Bizim ölçümümüz bu gömülü değeri
+geri buldu. Bu, hesabın doğru çalıştığını gösterir. Ama sahada hiçbir
+katsayı bu kadar temiz çıkmaz. Gerçek hayatta her özel günün kendi
+karakteri vardır. Black Friday ile Cumhuriyet Bayramı aynı değildir. Bir
+bayramın arifesi ile ikinci günü aynı değildir. Bu yılın Black Friday'i de
 geçen yılınkine benzemek zorunda değildir.
 
-Pratikte ne yapılır? Katsayı geçmişten ölçülür, sonra o kategoriyi bilen
-biri ona bakar ve gerekirse eliyle düzeltir. Bu, modele güvensizlik değil;
-tek bir sayının taşıyamayacağı kadar çok şeyin o sayıya yüklendiğini bilmektir.
+Pratikte ne yapılır? Katsayı geçmişten ölçülür. Sonra o kategoriyi bilen
+biri bakar ve gerekirse elle düzeltir. Bu, modele güvenmemek anlamına
+gelmez. Tek bir sayının taşıyamayacağı kadar çok şeyi o sayıya yüklediğinizi
+bilmek anlamına gelir.
 
-**Peki satmazsa ne olur?** Derinlik yaptınız, mal gitti, özel gün geçti ve
-ürün beklediğiniz gibi satmadı. Artık elinizde yanlış mağazada duran bir stok
-var. Onu indirime sokmak paranızı, orada bırakmak rafınızı yakar. Üçüncü yol
-malı satabilecek mağazaya kaydırmaktır ve o başka bir problemdir:
-[mağazalar arası transfer](/transfer/).
+**Peki mal satmazsa ne olur?** Derinlik yaptınız, mal gitti, özel gün geçti
+ve ürün beklediğiniz kadar satmadı. Artık yanlış mağazada duran bir stoğunuz
+var. İndirime sokarsanız paranızı kaybedersiniz. Orada bırakırsanız rafınızı
+işgal eder. Üçüncü yol, malı satabilecek bir mağazaya kaydırmaktır. Bu da
+başka bir problem: [mağazalar arası transfer](/transfer/).
 
 Replenishment ile transfer aynı derdin iki ucudur. Biri malı doğru yere
-göndermeye çalışır, diğeri yanlış yere gitmiş malı kurtarır.
+göndermeye çalışır, öteki yanlış yere gitmiş malı kurtarır.
 
-## Karmaşıklık bir tercihtir
+## Karmaşıklık bir tercih
 
-Dört soruyu da okudunuz ve muhtemelen fark ettiniz: hiçbirinin cevabı
-matematik gerektirmiyor. Hız, kapsama süresi, line ayrımı, özel gün
+Dört soruyu da okudunuz. Muhtemelen fark ettiniz: hiçbirinin cevabı ileri
+matematik gerektirmiyor. Hız, kaç günlük mal olduğu, line ayrımı, özel gün
 katsayısı. Hepsi bir tabloda hesaplanabilir.
 
-Replenishment zor bir problem değildir. Onu ne kadar karmaşık yapacağınızı
-sizin tecrübeniz ve yaklaşımınız belirler. Bir sonraki yazıda sektörün en
-çok tartıştığı soruyu ele alacağız: elinizde 10 adet var ve 10 mağaza
-istiyor, ne yaparsınız? Cevabı tartışmaya değer. Ama önce o sorunun gerçekten
-sizin sorunuz olup olmadığına bakacağız.
+Replenishment zor bir problem değil. Ne kadar karmaşık olacağını sizin
+tecrübeniz ve yaklaşımınız belirler. Sonraki yazıda sektörün en çok
+tartıştığı soruya geçiyoruz: elinizde 10 adet var, 10 mağaza istiyor, ne
+yaparsınız? Bu soru tartışmaya değer. Ama önce gerçekten sizin sorununuz
+olup olmadığına bakacağız.

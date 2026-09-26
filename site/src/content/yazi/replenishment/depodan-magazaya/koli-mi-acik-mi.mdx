@@ -13,35 +13,36 @@ import T from '../../../../components/T.astro'
 
 Replenishment toplantılarında en çok tartışılan soru şudur:
 
-*Depoda 10 adet var. On mağaza istiyor. Üçünün ihtiyacı üçer adet, kalan
-yedisinin birer. Ne yaparsınız?*
+*Depoda 10 adet var, on mağaza istiyor. Üç mağazanın üçer adede, kalan
+yedisinin birer adede ihtiyacı var. Ne yaparsınız?*
 
-Herkesin bir cevabı vardır ve cevaplar genelde üçe ayrılır.
+Herkesin bir cevabı vardır. Cevaplar da genelde üç gruba ayrılır.
 
 **İhtiyacı büyük olana önce ver.** Üç mağazaya üçer adet gider, kalan bir
-adet dördüncüye. Yedi mağaza eli boş döner. Savunması şu: yarım iş yapmanın
-anlamı yok, ihtiyacı olanı doyur.
+adet dördüncüye. Yedi mağaza eli boş kalır. Gerekçesi: yarım iş yapmanın
+anlamı yok, ihtiyacı olanı tam karşıla.
 
-**Herkese birer tane ver.** On mağazanın hepsi bir adet alır. Kimse eli boş
-kalmaz. Savunması şu: her mağazada en az bir tane bulunsun, hiçbiri o ürünü
-vitrinden kaldırmasın.
+**Herkese birer tane ver.** On mağazanın hepsi bir adet alır, kimse eli boş
+kalmaz. Gerekçesi: ürün her mağazada en az bir tane bulunsun, hiçbiri onu
+vitrinden kaldırmak zorunda kalmasın.
 
-**Adil bir ölçüt bul.** İhtiyaca orantılı dağıt, ya da satış hızına göre
-sırala, ya da geçen sefer alamayanı öne al.
+**Adil bir ölçüt bul.** İhtiyaca oranla dağıt, satış hızına göre sırala ya
+da geçen sefer alamayanı öne al.
 
-Üçü de savunulabilir. Ben de yıllarca bu tartışmanın içinde bulundum. Şimdi
-size bu tartışmayı ölçtüğümüzde ne çıktığını anlatacağım.
+Üçü de savunulabilir. Ben de yıllarca bu tartışmanın içindeydim. Şimdi bu
+tartışmayı ölçtüğümüzde ne çıktığını anlatacağım.
 
 ## Üçünü de kodladık
 
 Modelimizde paylaştırma önceliği bir ayar. Üç kuralı da yazdık:
 
-- **cover** — mal gittikten sonra en az cover'da kalacak mağaza önce alır.
-  Yani en hızlı satacak yere. Dizinin çekirdek cümlesi bu.
-- **ihtiyac** — ihtiyacı en büyük olan önce alır.
-- **esit** — o hafta en az mal almış olan önce alır; sırayla herkese.
+- **cover**: mal gittikten sonra bile elindeki malın en kısa süre yeteceği
+  mağaza önce alır. Yani en hızlı satacak mağaza. Dizinin çekirdek cümlesi
+  bu.
+- **ihtiyac**: ihtiyacı en büyük olan önce alır.
+- **esit**: o hafta en az mal almış olan önce alır. Sırayla herkese.
 
-Sonra aynı sezonu, aynı talep üzerinde, yalnız bu ayarı değiştirerek
+Sonra aynı sezonu, aynı talep üzerinde, sadece bu ayarı değiştirerek
 oynattık. Sonuç:
 
 | Öncelik | Bulunabilirlik | Kayıp satış | Beden sapması |
@@ -52,50 +53,51 @@ oynattık. Sonuç:
 
 Fark yok.
 
-İlk tepkim bir hata aradığım oldu. Kodu kontrol ettim, kural gerçekten
-uygulanıyordu. Sonra alım oranını kıstım: deponun eline sezonluk planın
-%30'unu verdim. Yine fark yok. %10'a indirdim. Yine yok. %5'e indirdim,
-yani deponun aldığı malı yirmide bire düşürdüm. Üç kural yine aynı sonucu
+İlk işim hata aramak oldu. Kodu kontrol ettim, kural gerçekten
+uygulanıyordu. Sonra alımı kıstım ve depoya sezonluk planın %30'unu
+verdim. Yine fark yok. %10'a indirdim, yine yok. %5'e indirdim, yani
+deponun aldığı malı yirmide bire düşürdüm. Üç kural yine aynı sonucu
 verdi.
 
-## Neden
+## Neden?
 
-Cevap ortaya çıkınca basitti: **o kavga hiç çıkmıyordu.**
+Cevap ortaya çıkınca çok basitti: **o kavga hiç çıkmıyordu.**
 
-Paylaştırma kuralı ancak bir çekişme anında devreye girer. Depoda o üründen
-duran mal, o hafta istenen malı karşılamaya yetiyorsa, kimin önce alacağının
-bir önemi kalmaz; herkes istediğini alır. Bizim zincirimizde her hafta,
-neredeyse her üründe durum buydu.
+Paylaştırma kuralı ancak mal yetmediğinde devreye girer. O hafta istenen
+malı depodaki stok karşılıyorsa kimin önce aldığı önemsizdir, herkes
+istediğini alır. Bizim zincirimizde neredeyse her hafta, neredeyse her
+üründe durum buydu.
 
 Şunu da ölçtük: açık toplama kapasitesi 17 karar haftasının hiçbirinde
-dolmadı. En dolu hafta tavanın %82,1'inde kaldı. Depo da hiç boşalmadı; en
-sıkı senaryoda bile dönem sonunda 26.797 adet artmıştı.
+dolmadı. En yoğun hafta bile tavanın %82,1'inde kaldı. Depo da hiç
+boşalmadı. En sıkı senaryoda bile dönem sonunda depoda 26.797 adet kalmıştı.
 
 Depoda mal vardı. Raflar boştu. Bulunabilirlik %54.
 
-Bu cümleyi bir daha okuyun, çünkü bu dizinin en önemli cümlesi olabilir.
-Zincirin derdi malı paylaştıramamak değildi. Derdi, **yeterince mal
+Bu üç cümleyi bir kez daha okuyun, çünkü bu dizinin en önemli cümleleri
+olabilir. Zincirin derdi malı paylaştıramamak değildi. Derdi **yeterince mal
 istememekti.** Sistem her hafta geçen haftanın satışına bakıp mütevazı bir
-rakam istiyor, deponun dolu olması hiçbir işe yaramıyordu.
+miktar istiyordu. Deponun dolu olması bu yüzden hiçbir işe yaramıyordu.
 
-Pars'ın bu konuda bir lafı var:
+Pars'ın bu konuda sık tekrarladığı bir söz var:
 
-— Bir kuralı iyileştirmeden önce o kuralın çalıştığı anı bulun. O an hiç
-gelmiyorsa, iyileştirdiğiniz şey sizin hayalinizdir.
+— Bir kuralı iyileştirmeden önce o kuralın devreye girdiği anı bulun. O an
+hiç gelmiyorsa, iyileştirdiğiniz şey kafanızdaki bir senaryodur.
 
-## Asıl fark nereden çıktı
+## Asıl fark nereden çıktı?
 
-Paylaştırma önceliği fark etmedi. Peki ne fark etti?
+Paylaştırma önceliği bir şey değiştirmedi. Peki ne değiştirdi?
 
 Koli.
 
-Depodan mağazaya mal iki şekilde çıkar. **Açık adet**, bedeni tek tek
-toplanmış maldır: mağazanın M bedeni bitmişse yalnız M gönderirsiniz.
-İsabetlidir. **Koli** ise kapalı pakettir; bizim kurgumuzda 1-2-2-2-1
-asortili, sekiz adetlik. İçinde ne varsa o gider.
+Depodan mağazaya mal iki şekilde çıkar. **Açık adet**, bedenleri tek tek
+toplanmış maldır. Mağazanın M bedeni bitmişse sadece M gönderirsiniz.
+İsabetlidir. **Koli** ise kapalı pakettir. Bizim kurgumuzda 1-2-2-2-1
+asortili, sekiz adetlik bir koli. İçinde ne varsa o gider.
 
-Sezgi şunu söyler: açık adet daha isabetli, koli bir kısıt. Madem öyle,
-koliyi tamamen kapatıp yalnız açık adetle çalışalım ve ne olduğuna bakalım.
+Sezgimiz şunu söyler: açık adet daha isabetli, koli ise bir kısıt. Madem
+öyle, koliyi tamamen kapatıp sadece açık adetle çalışalım. Bakalım ne
+oluyor:
 
 | | Koli + açık | Yalnız açık |
 |---|---:|---:|
@@ -107,62 +109,62 @@ koliyi tamamen kapatıp yalnız açık adetle çalışalım ve ne olduğuna baka
 | Toplama maliyeti | 498.260 TL | 448.170 TL |
 | Adet başına maliyet | 4,86 TL | 10,00 TL |
 
-Koliyi kapatınca zincir taşıdığı malın yarısından fazlasını kaybetti ve
-bulunabilirlik 26 puan düştü.
+Koliyi kapatınca zincir taşıdığı malın yarısından fazlasını kaybetti.
+Bulunabilirlik 26 puan düştü.
 
-Sebebi tabloda görünüyor. Depo haftada 2.860 adetten fazla açık toplayamıyor.
-17 haftada tavan 48.620 adet. Zincir 102 bin adet taşımak istiyor, açık
-adetle en fazla 44.817'sini taşıyabiliyor. Gerisi ya koliyle gidecek ya hiç
-gitmeyecek.
+Sebebi tabloda. Depo haftada 2.860 adetten fazla açık toplayamıyor. 17
+haftada bu tavan 48.620 adet ediyor. Zincir 102 bin adet taşımak istiyor
+ama açık adetle en fazla 44.817'sini taşıyabiliyor. Kalanı ya koliyle
+gidecek ya da hiç gitmeyecek.
 
-**Koli bir kısıt değil, kapasitenin kendisidir.** Üstelik adet başına
-toplama maliyetini yarıdan fazla düşürüyor: 10,00 TL'ye karşı 4,86 TL.
+**Koli bir kısıt değil, kapasitenin kendisi.** Üstelik adet başına toplama
+maliyetini yarıdan fazla düşürüyor: 10,00 TL yerine 4,86 TL.
 
-## Koli ne zaman gönderilir
+## Koli ne zaman gönderilir?
 
 Koli hacmi taşıyor ama bir bedeli var: içinde ne varsa onu gönderiyor.
-Mağazanın yalnız M bedenine ihtiyacı varsa, koli ona XS ve XL de getiriyor.
-O fazlalık rafta kalıyor, sayıma giriyor, sezon sonunda indirime gidiyor.
+Mağazanın sadece M bedenine ihtiyacı varsa koli ona XS ile XL'i de getirir.
+O fazlalık rafta kalır, sayıma girer, sezon sonunda indirime gider.
 
-Karar burada doğuyor ve replenishment'ın en çok ihmal edilen kısmı bu: *bu
-mağazaya bir koli gidiyor mu, gitmiyor mu?* Tek bedende ihtiyaç var diye
-sekiz adetlik koli gönderilmez. Ama sekiz adedin altısı gerçekten lazımsa
-gönderilir.
+Replenishment'ın en çok ihmal edilen kararı burada: *bu mağazaya koli
+gidecek mi, gitmeyecek mi?* Tek bedende ihtiyaç var diye sekiz adetlik koli
+gönderilmez. Ama sekiz adedin altısı gerçekten lazımsa gönderilir.
 
 Biz üç kural yazdık:
 
-- **A — eşik ve şişme.** Toplam ihtiyaç kolinin belli bir oranını geçiyorsa
-  ve hiçbir bedende fazlalık belirlenen sınırı aşmıyorsa koli gider.
-- **B — karşılama oranı.** Kolinin sekiz adedinin en az şu kadarı gerçek bir
-  ihtiyacı karşılıyorsa gider.
-- **C — ikisi birden.**
+- **A: eşik ve fazlalık.** Toplam ihtiyaç kolinin belli bir oranını
+  geçiyorsa ve hiçbir bedendeki fazlalık belirlenen sınırı aşmıyorsa koli
+  gider.
+- **B: karşılama oranı.** Kolideki sekiz adedin en az belli bir kısmı
+  gerçek bir ihtiyacı karşılıyorsa koli gider.
+- **C: ikisi birden.**
 
-Eşikleri de biz seçmedik; sezon öncesi bir pencerede, oyun dönemine hiç
-bakmadan kalibre ettik. A için toplam ihtiyaç kolinin %40'ını geçmeli ve
-hiçbir bedende fazlalık 3 adede ulaşmamalı; B için kolinin en az yarısı
-ihtiyaca denk gelmeli.
+Eşikleri de gözümüze göre seçmedik. Sezon öncesindeki bir dönemde, oyun
+dönemine hiç bakmadan ayarladık. A'da toplam ihtiyacın kolinin %40'ını
+geçmesi ve hiçbir bedendeki fazlalığın 3 adede ulaşmaması gerekiyor. B'de
+kolinin en az yarısının ihtiyaca denk gelmesi gerekiyor.
 
-Üç kuralın sonuçları birbirine çok yakın çıktı: bulunabilirlikte aralarındaki
+Üç kuralın sonucu birbirine çok yakın çıktı. Bulunabilirlikte aralarındaki
 fark 0,2 puanın altında. Yani kolinin **gidip gitmemesi** büyük fark
-yaratıyor, hangi eşikle karar verdiğiniz küçük.
+yaratıyor, hangi eşikle karar verdiğiniz ise küçük.
 
-Bu da sektörde sık rastlanan bir dengesizliğe işaret ediyor. Koli eşiklerini
-ayarlamak için günler harcayan ekipler görürsünüz; oysa o eşiklerin
-toplamının getirisi, deponun bir günde kaç adet açık toplayabildiği sorusunun
-yanında küçük kalır.
+Bu da sektörde sık görülen bir dengesizliğe işaret ediyor. Koli eşiklerini
+ayarlamak için günlerini harcayan ekipler vardır. Oysa o eşiklerle
+kazanılacak her şey, deponun bir günde kaç adet açık toplayabildiği
+sorusunun yanında küçük kalır.
 
-## Bu yazıdan çıkan üç cümle
+## Bu yazıdan akılda kalması gereken üç şey
 
-**Bir.** Paylaştırma kuralını tartışmadan önce kıtlığın gerçekten sizde olup
-olmadığına bakın. Depoda mal varken raf boşsa, sorununuz paylaştırma değildir.
+**Bir.** Paylaştırma kuralını tartışmadan önce mal gerçekten yetmiyor mu,
+ona bakın. Depoda mal varken raf boşsa sorununuz paylaştırma değildir.
 
 **İki.** Koli bir kısıt değil, kapasitedir. Açık toplama isabetlidir ama
-pahalıdır ve tavanı vardır.
+pahalıdır ve bir tavanı vardır.
 
-**Üç.** Kolinin gidip gitmemesi önemlidir, hangi eşikle karar verdiğiniz
-daha az önemlidir.
+**Üç.** Kolinin gidip gitmemesi önemlidir. Hangi eşikle karar verdiğiniz o
+kadar önemli değildir.
 
-Bir sonraki yazıda kural tabanlı yöntemi baştan sona kuracağız: safety
-stock'un üç ayrı ailesi, son yedi günün satışı, özel gün katsayısı. Ve o
-yazıda bu dizinin asıl sorusuyla yüzleşeceğiz — stoksuz kalan mağazanın
-talebini hiç göremiyorsak, hızını nasıl ölçeceğiz?
+Sonraki yazıda kural tabanlı yöntemi baştan sona kuracağız: safety stock'un
+üç ayrı ailesi, son yedi günün satışı, özel gün katsayısı. O yazıda dizinin
+asıl sorusuyla da yüzleşeceğiz. Stoksuz kalan mağazanın talebini hiç
+göremiyorsak, o mağazanın satış hızını nasıl ölçeceğiz?
