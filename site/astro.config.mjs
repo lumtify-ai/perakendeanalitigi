@@ -6,10 +6,15 @@ import { unified } from '@astrojs/markdown-remark'
 import tailwindcss from '@tailwindcss/vite'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
-import { hazirlaniyorAdresleri, sitemapSuzgeci } from './src/lib/yayinDurumu.mjs'
+import {
+  hazirlaniyorAdresleri,
+  pasifAsamaAdresleri,
+  sitemapSuzgeci,
+} from './src/lib/yayinDurumu.mjs'
 
 // Windows'ta new URL().pathname baştaki eğik çizgiyle sürücü harfini bozar
 const YAZI_KOKU = fileURLToPath(new URL('./src/content/yazi/', import.meta.url))
+const ALAN_KOKU = fileURLToPath(new URL('./src/content/alan/', import.meta.url))
 
 export default defineConfig({
   site: 'https://perakendeanalitigi.com',
@@ -22,8 +27,14 @@ export default defineConfig({
     mdx(),
     // Hazırlanıyor yazılar üretilir ve dizi kapağından bağlanır ama site
     // haritasında ilan edilmez; aynı sayfalar <meta name="robots" content=
-    // "noindex"> de basar (src/layouts/Temel.astro).
-    sitemap({ filter: sitemapSuzgeci(hazirlaniyorAdresleri(YAZI_KOKU)) }),
+    // "noindex"> de basar (src/layouts/Temel.astro). Aktif olmayan aşamanın
+    // sayfası da aynı muameleyi görür (src/pages/[alan]/index.astro).
+    sitemap({
+      filter: sitemapSuzgeci([
+        ...hazirlaniyorAdresleri(YAZI_KOKU),
+        ...pasifAsamaAdresleri(ALAN_KOKU, YAZI_KOKU),
+      ]),
+    }),
   ],
   markdown: {
     // markdown.remarkPlugins / rehypePlugins Astro 7'de kullanımdan kalktı;

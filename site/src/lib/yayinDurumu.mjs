@@ -63,6 +63,59 @@ export function hazirlaniyorAdresleri(yaziKoku) {
 }
 
 /**
+ * Harita dışı raf; hiçbir zaman dışarıda bırakılmaz. src/data/harita.ts'deki
+ * `TEMELLER` ile aynı değer — bu modül TypeScript içe aktaramadığı için
+ * burada tekrarlanıyor.
+ */
+export const TEMELLER = 'temeller'
+
+/**
+ * Bir dizindeki `.mdx` yazıların en az birinin yayında olup olmadığı.
+ *
+ * @param {string} dizin
+ * @returns {boolean}
+ */
+function yayindaYaziVarMi(dizin) {
+  if (!existsSync(dizin)) return false
+  for (const ad of readdirSync(dizin)) {
+    if (ad.startsWith('.')) continue
+    const tamYol = join(dizin, ad)
+    if (statSync(tamYol).isDirectory()) {
+      if (yayindaYaziVarMi(tamYol)) return true
+      continue
+    }
+    if (extname(ad) !== '.mdx') continue
+    const { data } = matter(readFileSync(tamYol, 'utf-8'))
+    if (data.durum !== 'hazirlaniyor') return true
+  }
+  return false
+}
+
+/**
+ * Sayfası üretilen ama aktif olmayan aşamaların adresleri (`/<aşama>/`).
+ *
+ * Aşama sayfası her alan dosyası için üretilir, çünkü taslak dizinin kırıntı
+ * yolu ona bağlanır. Aşama aktif değilse sayfası taslak yazı gibi davranır:
+ * noindex basar (src/pages/[alan]/index.astro) ve site haritasına girmez.
+ * Kural src/lib/haritaDurumu.ts'deki `asamaAktifMi`'nin dosya düzeyindeki
+ * karşılığıdır: `yazi/<alan>/` altında `hazirlaniyor` olmayan en az bir yazı
+ * varsa aşama aktiftir. İkisi denktir, çünkü build öncesi doğrulama her
+ * dizinin en az bir algoritmayı kendi aşamasında kapsamasını zorunlu kılar.
+ *
+ * @param {string} alanKoku `src/content/alan` dizininin mutlak yolu
+ * @param {string} yaziKoku `src/content/yazi` dizininin mutlak yolu
+ * @returns {string[]}
+ */
+export function pasifAsamaAdresleri(alanKoku, yaziKoku) {
+  if (!existsSync(alanKoku)) return []
+  return readdirSync(alanKoku)
+    .filter((ad) => extname(ad) === '.md' && !ad.startsWith('.'))
+    .map((ad) => ad.slice(0, -'.md'.length))
+    .filter((alan) => alan !== TEMELLER && !yayindaYaziVarMi(join(yaziKoku, alan)))
+    .map((alan) => `/${alan}/`)
+}
+
+/**
  * @astrojs/sitemap için süzgeç üretir. Adresler mutlak URL olarak gelir.
  *
  * @param {string[]} disaridaBirakilan Site köküne göre yollar (`/…/`)

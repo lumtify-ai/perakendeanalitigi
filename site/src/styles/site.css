@@ -150,6 +150,10 @@ body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-bl
    En sade hâli: yalnızca soluk öğeler ikincil metin rengini alır ve iki
    faz geniş ekranda yan yana durur. Görünüş tasarım turunda bu sınıflara
    bağlanacak. */
+/* Aşamanın sırası haritanın kendi numarasıdır (01–15); listenin tarayıcı
+   numarası kapatılmazsa "1. 08 Allocation" gibi çift numara çıkar.
+   `main ol`'u (decimal) sınıf özgüllüğüyle yener. */
+.faz-haritasi { list-style: none; padding-left: 0 }
 .harita-fazlari { display: grid; gap: 0 2rem;
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
 .asama--soluk .asama-basligi, .algoritma--soluk,

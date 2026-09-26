@@ -4,6 +4,7 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { beforeAll, describe, expect, it } from 'vitest'
+import { HARITA } from '../src/data/harita'
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url))
 
@@ -783,6 +784,9 @@ describe('harita', () => {
     for (const yol of FAZ_SAYFALARI) {
       const html = oku(yol)
       const notlar = [...html.matchAll(/<span class="deginme-notu">([\s\S]*?)<\/span>/g)]
+      // Desen işaretlemeyle ayrışırsa (öznitelik sırası, ek sınıf) döngü
+      // boş listede sessizce geçerdi; eşleşme sayısı sınıf sayısına eşit olmalı.
+      expect(notlar.length, yol).toBe(sinifSay(html, (b) => b === 'deginme-notu'))
       for (const [, not] of notlar) {
         for (const [, adres] of not.matchAll(/href="([^"]+)"/g)) {
           expect(existsSync(DIST + adres.replace(/^\//, '') + 'index.html'), `${yol} → ${adres}`).toBe(
@@ -801,7 +805,34 @@ describe('harita', () => {
     for (const asama of ['indirim', 'crm', 'mfp']) {
       expect(existsSync(DIST + asama), asama).toBe(false)
     }
-    for (const yol of FAZ_SAYFALARI) expect(oku(yol), yol).not.toContain('href="/indirim/"')
+    // Aktif aşamalar içerikten türer; liste elle tutulur ama işaretlemeyle
+    // çapraz sınanır ki bir dizi yayına girdiğinde sessizce eskimesin.
+    const AKTIF_ASAMALAR = ['replenishment', 'rpt', 'transfer']
+    expect(sinifSay(oku('sezon-ici/index.html'), (b) => b === 'asama--aktif')).toBe(3)
+    expect(sinifSay(oku('sezon-oncesi/index.html'), (b) => b === 'asama--aktif')).toBe(0)
+    const pasifler = HARITA.flatMap((faz) => faz.asamalar)
+      .map((asama) => asama.slug)
+      .filter((slug) => !AKTIF_ASAMALAR.includes(slug))
+    expect(pasifler).toHaveLength(12)
+    for (const yol of [...FAZ_SAYFALARI, 'index.html']) {
+      const html = oku(yol)
+      for (const slug of pasifler) expect(html, `${yol} → ${slug}`).not.toContain(`href="/${slug}/"`)
+    }
+  })
+
+  it('aşama listesi tarayıcı numarası basmaz, yalnızca haritanın numarası görünür', () => {
+    // "1. 08 Allocation" hatası: <ol> kendi numarasını, bileşen haritanın
+    // numarasını basıyordu. Numarayı kapatan kural paylaşılan stil
+    // dosyasında; sayfanın bağladığı CSS'te gerçekten var mı diye bakılır.
+    for (const yol of [...FAZ_SAYFALARI, 'index.html']) {
+      const html = oku(yol)
+      expect(html, yol).toContain('<ol class="faz-haritasi">')
+      const stiller = [...html.matchAll(/<link rel="stylesheet" href="\/([^"]+)"/g)]
+        .map(([, dosya]) => oku(dosya))
+        .join('')
+      expect(stiller, yol).toMatch(/\.faz-haritasi\{[^}]*list-style(-type)?:none/)
+    }
+    expect(oku('sezon-ici/index.html')).toContain('<span class="asama-no">08</span>')
   })
 
   it('ana sayfa iki fazı ve Temeller rafını gösterir', () => {
