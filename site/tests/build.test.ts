@@ -817,6 +817,21 @@ function sinifSay(html: string, uyar: (belirtec: string) => boolean): number {
   return sayi
 }
 
+/**
+ * Faz haritasındaki her aşamanın işaretlemesi, sırayla. Aşama <li>'leri iç
+ * içe değil; bir aşama bir sonrakinin başladığı yerde (ya da listenin
+ * kapanışında) biter. Liste içinde başka <ol> yok, ilk </ol> haritanın sonu.
+ */
+function asamaBloklari(html: string): string[] {
+  const bas = html.indexOf('<ol class="faz-haritasi">')
+  if (bas === -1) return []
+  const govde = html.slice(bas, html.indexOf('</ol>', bas))
+  return govde
+    .split('<li class="asama ')
+    .slice(1)
+    .map((parca) => '<li class="asama ' + parca)
+}
+
 const FAZ_SAYFALARI = [
   'sezon-oncesi/index.html',
   'sezon-ici/index.html',
@@ -873,8 +888,13 @@ describe('harita', () => {
       const aktifSatirlar = [
         ...html.matchAll(/<li class="algoritma algoritma--aktif">([\s\S]*?)<\/li>/g),
       ]
+      // Soluk algoritma iki biçimde basılır: aktif aşamanın listesinde bir
+      // <li>, soluk aşamanın tek satırında bir <span> (spec §4).
       const solukSatirlar = [
         ...html.matchAll(/<li class="algoritma algoritma--soluk">([\s\S]*?)<\/li>/g),
+        ...html.matchAll(
+          /<span class="algoritma algoritma--soluk">([^<]*<span class="sr-only">[^<]*<\/span>)<\/span>/g,
+        ),
       ]
       expect(aktifSatirlar.length, yol).toBe(aktifBeklenen)
       expect(solukSatirlar.length, yol).toBe(solukBeklenen)
@@ -886,6 +906,67 @@ describe('harita', () => {
         expect(govde, yol).toContain('<span class="sr-only">yazılmadı</span>')
       }
     }
+  })
+
+  it('faz sayfası ilerlemeyi söyler', () => {
+    // Spec §4: "3 / 9 algoritma yazıldı". Aktif sayı içerikten türer.
+    const aktifler = aktifAlgoritmalar()
+    for (const faz of HARITA) {
+      const algoritmalar = faz.asamalar.flatMap((a) => a.algoritmalar)
+      const aktif = algoritmalar.filter((a) => aktifler.has(a.id)).length
+      expect(oku(`${faz.slug}/index.html`), faz.slug).toContain(
+        `${aktif} / ${algoritmalar.length} algoritma yazıldı`,
+      )
+    }
+  })
+
+  it('her aşama satırı aktif/toplam taşır', () => {
+    const aktifler = aktifAlgoritmalar()
+    for (const faz of HARITA) {
+      const bloklar = asamaBloklari(oku(`${faz.slug}/index.html`))
+      expect(bloklar.length, faz.slug).toBe(faz.asamalar.length)
+      faz.asamalar.forEach((asama, i) => {
+        const aktif = asama.algoritmalar.filter((a) => aktifler.has(a.id)).length
+        expect(bloklar[i], asama.slug).toContain(
+          `<span class="asama-ilerleme">${aktif}/${asama.algoritmalar.length}</span>`,
+        )
+      })
+    }
+  })
+
+  it('soluk aşama tek blok, algoritmaları bağlantısız ve tek satırda', () => {
+    let solukSayisi = 0
+    for (const yol of FAZ_SAYFALARI) {
+      for (const blok of asamaBloklari(oku(yol))) {
+        if (!blok.startsWith('<li class="asama asama--soluk"')) continue
+        solukSayisi++
+        expect(blok, yol).not.toContain('<a')
+        expect(blok, yol).not.toContain('<ul')
+        const satirlar = [...blok.matchAll(/<p class="soluk-algoritmalar">([\s\S]*?)<\/p>/g)]
+        expect(satirlar.length, yol).toBe(1)
+        const [, satir] = satirlar[0]
+        const adet = sinifSay(satir, (b) => b === 'algoritma--soluk')
+        expect(adet, yol).toBeGreaterThan(0)
+        // n algoritma arasında n-1 ayraç.
+        expect((satir.match(/·/g) ?? []).length, yol).toBe(adet - 1)
+      }
+    }
+    expect(solukSayisi).toBeGreaterThan(0)
+  })
+
+  it('aktif aşama algoritmaları liste halinde', () => {
+    let aktifSayisi = 0
+    for (const yol of FAZ_SAYFALARI) {
+      for (const blok of asamaBloklari(oku(yol))) {
+        if (!blok.startsWith('<li class="asama asama--aktif"')) continue
+        aktifSayisi++
+        expect(blok, yol).toContain('<ul')
+        const maddeler = [...blok.matchAll(/<li class="algoritma[^"]*">([\s\S]*?)<\/li>/g)]
+        expect(maddeler.length, yol).toBeGreaterThan(0)
+        for (const [, govde] of maddeler) expect(govde, yol).toContain('durum-noktasi')
+      }
+    }
+    expect(aktifSayisi).toBeGreaterThan(0)
   })
 
   it('dizi etiketi yazı sayısını taşır, algoritma adı bağlantısız kalır', () => {

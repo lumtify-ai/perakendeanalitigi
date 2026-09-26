@@ -13,6 +13,7 @@ import KirintiYolu from './KirintiYolu.astro'
 import FazHaritasi from './FazHaritasi.astro'
 import type { FazSlug } from '../data/harita'
 import { diziBaglari, fazAl } from '../lib/haritaGirdisi'
+import { fazIlerlemesi } from '../lib/haritaDurumu'
 
 interface Props {
   slug: FazSlug
@@ -23,6 +24,7 @@ const { slug, giris } = Astro.props
 const faz = fazAl(slug)
 const [diziler, yazilar] = await Promise.all([getCollection('dizi'), getCollection('yazi')])
 const baglar = diziBaglari(diziler, yazilar)
+const ilerleme = fazIlerlemesi(faz, baglar)
 
 const isaretleme = {
   '@context': 'https://schema.org',
@@ -36,8 +38,11 @@ const isaretleme = {
 <Temel baslik={faz.ad} aciklama={giris} isaretleme={isaretleme} duzen="harita">
   <KirintiYolu basamaklar={[{ ad: faz.ad }]} />
 
-  <h1>{faz.ad}</h1>
-  <p class="tanim">{giris}</p>
+  <div class="faz-sayfasi">
+    <h1>{faz.ad}</h1>
+    <p class="tanim">{giris}</p>
+    <p class="faz-ilerlemesi">{ilerleme.aktif} / {ilerleme.toplam} algoritma yazıldı</p>
 
-  <FazHaritasi faz={faz} diziler={baglar} />
+    <FazHaritasi faz={faz} diziler={baglar} />
+  </div>
 </Temel>
