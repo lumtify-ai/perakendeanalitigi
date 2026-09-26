@@ -359,10 +359,14 @@ body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-bl
    20rem + 50cqi (yan sütun = (100cqi − 40rem − 2·ara) / 2), en fazla
    52rem — Task 1'deki okuma sayfası taşmasıyla aynı üst sınır. */
 main.duzen-yazi { max-width: 72rem; margin-inline: auto; }
-.yazi-duzeni { --ara: 2.5rem }
+/* Sütun arası 72rem çerçevede 2.5rem; çerçeve daralınca (64–72rem) 1.5rem'e
+   iner ki yan sütunlar olabildiğince geniş kalsın. Taşma ölçüsü
+   (--genis-olcu) aradan bağımsız. */
+.yazi-duzeni { --ara: clamp(1.5rem, 100vw - 69.5rem, 2.5rem) }
 .dizi-yan-menu, .bu-yazida { display: none }
 .yan-menu-basligi { margin: 0 0 .7rem; font-family: var(--arayuz); font-size: .6875rem;
-  font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--soluk) }
+  font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--soluk);
+  overflow-wrap: anywhere; hyphens: auto }
 .yan-menu-basligi a { color: inherit; text-decoration: none }
 .yan-menu-basligi a:hover { color: var(--vurgu) }
 /* `main ol`/`main li`/`main a`'yı sınıf özgüllüğüyle yener. Sol kenarda
@@ -371,7 +375,9 @@ main.duzen-yazi { max-width: 72rem; margin-inline: auto; }
 .yan-liste { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--cizgi);
   font-family: var(--arayuz); font-size: .8125rem; line-height: 1.2rem }
 .yan-liste > li { position: relative; margin: 0; padding: .3rem 0 .3rem .9rem }
-.yan-liste a { color: var(--soluk); text-decoration: none }
+/* 64rem'de yan sütun ~8rem; uzun Türkçe kelime ("Mağazadaki") sütunu
+   aşıp menüde yatay kaydırma açmasın diye kırılabilir. */
+.yan-liste a { color: var(--soluk); text-decoration: none; overflow-wrap: anywhere; hyphens: auto }
 .yan-liste a:hover { color: var(--vurgu) }
 .yan-liste a[aria-current="page"] { color: var(--koyu); font-weight: 600 }
 .yan-liste a[aria-current="page"]::before { content: ""; position: absolute; left: -1px;
@@ -384,7 +390,9 @@ main.duzen-yazi { max-width: 72rem; margin-inline: auto; }
   content: counter(yazi, decimal-leading-zero); position: absolute; left: .9rem; top: .3rem;
   font-family: var(--mono); font-size: .6875rem; line-height: 1.2rem; color: var(--soluk);
   font-variant-numeric: tabular-nums }
-/* Odak görünür: klavyeyle gezen okur menüde nerede olduğunu görür. */
+/* Odak görünür: klavyeyle gezen okur menüde nerede olduğunu görür. Halka
+   (2px + 2px ara = .25rem) kayan menünün kenarında kesilmesin diye
+   menülerin her yanda .3rem dolgusu var (aşağıda, 64rem kuralı). */
 .yan-liste a:focus-visible, .yan-menu-basligi a:focus-visible,
 .dizi-kutusu summary:focus-visible, .dizi-kutusu a:focus-visible {
   outline: 2px solid var(--vurgu); outline-offset: 2px; border-radius: .2rem }
@@ -406,14 +414,21 @@ main.duzen-yazi { max-width: 72rem; margin-inline: auto; }
     grid-template-columns: minmax(0, 1fr) 40rem minmax(0, 1fr); column-gap: var(--ara) }
   .yazi-govdesi { grid-column: 2; grid-row: 1; min-width: 0 }
   .dizi-yan-menu, .bu-yazida { display: block; grid-row: 1; position: sticky; top: 2rem;
-    max-height: calc(100vh - 4rem); overflow-y: auto; padding: .15rem 0 .15rem 2px }
+    max-height: calc(100vh - 4rem); overflow-y: auto; padding: .3rem }
   .dizi-yan-menu { grid-column: 1 }
   .bu-yazida { grid-column: 3 }
   .dizi-kutusu { display: none }
   .yazi-duzeni--sag-bos { --genis-olcu: min(52rem, 20rem + 50cqi) }
   .yazi-duzeni--sag-bos .yazi-govdesi pre, .yazi-duzeni--sag-bos .yazi-govdesi .katex-display,
   .yazi-duzeni--sag-bos .yazi-govdesi .demo, .yazi-duzeni--sag-bos .yazi-govdesi .genis {
-    width: var(--genis-olcu) }
-  /* Tablo yalnızca gerektiği kadar genişler; küçük tablo uzamaz. */
-  .yazi-duzeni--sag-bos .yazi-govdesi table { max-width: var(--genis-olcu) }
+    width: var(--genis-olcu); box-sizing: border-box }
+  /* Tablo yalnızca gerektiği kadar genişler (`display: block` bir tablo
+     kendiliğinden sütun genişliğinde kalırdı; max-content onu içeriğine
+     göre büyütür, min-width sütundan dar düşmesin diye). Ölçü
+     dolgu ve çerçeve dahil (border-box): içerik kutusuna uygulansa pre ve
+     demo dolgularıyla çerçevenin dışına taşardı. Tailwind'in preflight'ı
+     bunu zaten her öğeye veriyor; kural preflight'a yaslanmasın diye burada
+     da açık yazılı. */
+  .yazi-duzeni--sag-bos .yazi-govdesi table { width: max-content; min-width: 100%;
+    max-width: var(--genis-olcu); box-sizing: border-box }
 }

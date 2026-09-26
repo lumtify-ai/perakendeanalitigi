@@ -1,0 +1,27 @@
+---
+// site/src/components/DiziYanListesi.astro
+//
+// Dizinin yazıları, numaralı liste. DiziYanMenu.astro'nun iki biçimi
+// (sol menü ve mobil kutu) aynı listeyi basar; işaretleme tek yerde.
+import type { YaziOzet } from '../lib/agac'
+
+interface Props {
+  sirali: YaziOzet[]
+  suanki: string
+}
+
+const { sirali, suanki } = Astro.props
+---
+
+<ol class="yan-liste yan-liste--sirali">
+  {
+    sirali.map((yazi) => (
+      <li>
+        <a href={yazi.adres} aria-current={yazi.slug === suanki ? 'page' : undefined}>
+          {yazi.baslik}
+        </a>
+        {yazi.durum === 'hazirlaniyor' && <span class="durum"> · hazırlanıyor</span>}
+      </li>
+    ))
+  }
+</ol>

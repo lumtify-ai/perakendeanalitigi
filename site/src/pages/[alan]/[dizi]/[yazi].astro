@@ -3,6 +3,7 @@
 import { getCollection, getEntry, render } from 'astro:content'
 import Yazi from '../../../layouts/Yazi.astro'
 import { diziYazilari } from '../../../lib/agac'
+import { yaziBasliklari } from '../../../lib/basliklar'
 import { yaziYolunuAyristir } from '../../../lib/yol'
 import { zorunlu } from '../../../lib/zorunlu'
 import { alanBasligi } from '../../../lib/alanBasligi'
@@ -25,10 +26,7 @@ export async function getStaticPaths() {
 const { girdi } = Astro.props
 const yol = yaziYolunuAyristir(girdi.id)
 const { Content, headings } = await render(girdi)
-// "Bu yazıda" yalnızca h2'leri listeler; alt başlıklar menüyü kalabalıklaştırır.
-const basliklar = headings
-  .filter((baslik) => baslik.depth === 2)
-  .map(({ slug, text }) => ({ slug, text }))
+const basliklar = yaziBasliklari(headings)
 
 const diziId = `${yol.alan}/${yol.dizi}`
 const [hamAlan, hamDizi, hepsi] = await Promise.all([

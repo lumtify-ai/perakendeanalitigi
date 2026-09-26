@@ -1419,6 +1419,13 @@ describe('yazı sayfası yan gezinmesi', () => {
     for (const secici of genisleyen) {
       for (const parca of secici.split(',')) expect(parca, parca).toContain('yazi-duzeni--sag-bos')
     }
+    // Genişleyen öğe ölçüyü dolgu ve çerçeve dahil alır; yoksa pre ve demo
+    // dolgularıyla çerçeveden taşar (1024–1145px'te yatay sayfa kayması).
+    const olcuKurallari = [...css.matchAll(/([^{}]*)\{([^}]*(?:width|max-width):\s*var\(--genis-olcu\)[^}]*)\}/g)]
+    expect(olcuKurallari.length).toBeGreaterThanOrEqual(2)
+    for (const [, secici, govde] of olcuKurallari) {
+      expect(govde, secici).toMatch(/box-sizing:\s*border-box/)
+    }
   })
 
   it('yan menüler sticky, CSS saf', () => {
