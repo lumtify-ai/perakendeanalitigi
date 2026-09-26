@@ -968,11 +968,17 @@ describe('harita', () => {
       expect(aktifSatirlar.length, yol).toBe(aktifBeklenen)
       expect(solukSatirlar.length, yol).toBe(solukBeklenen)
 
+      // Okuma sırası "ad, durum": sr-only metin algoritmanın adından sonra
+      // gelir — soluk aşamanın tek satırıyla aynı sıra ("RPT … yazıldı").
       for (const [, govde] of aktifSatirlar) {
         expect(govde, yol).toContain('<span class="sr-only">yazıldı</span>')
+        expect(govde.indexOf('class="algoritma-adi"'), yol).toBeGreaterThan(-1)
+        expect(govde.indexOf('class="sr-only"'), yol).toBeGreaterThan(govde.indexOf('class="algoritma-adi"'))
       }
       for (const [, govde] of solukSatirlar) {
         expect(govde, yol).toContain('<span class="sr-only">yazılmadı</span>')
+        const ad = govde.indexOf('class="algoritma-adi"')
+        if (ad > -1) expect(govde.indexOf('class="sr-only"'), yol).toBeGreaterThan(ad)
       }
     }
   })
@@ -1011,7 +1017,7 @@ describe('harita', () => {
       faz.asamalar.forEach((asama, i) => {
         const aktif = asama.algoritmalar.filter((a) => aktifler.has(a.id)).length
         expect(bloklar[i], asama.slug).toContain(
-          `<span class="asama-ilerleme">${aktif}/${asama.algoritmalar.length}</span>`,
+          `<span class="asama-ilerleme">${aktif} / ${asama.algoritmalar.length}</span>`,
         )
       })
     }
@@ -1450,6 +1456,20 @@ describe('yazı sayfası yan gezinmesi', () => {
       const beklenen = sira.length - yayindakiYaziSayisi(alan, dizi)
       expect(isaretli, `${alan}/${dizi}`).toBe(beklenen)
     }
+  })
+
+  it('sol menü DOM sırasında başlıktan ve gövdeden sonra', () => {
+    // Görsel yeri grid yerleşimiyle solda; işaretlemede yazının arkasında
+    // durur ki ekran okuyucu ve klavye önce kırıntı yolu, başlık ve yazıya
+    // gelsin (atlama bağlantısı gerekmez).
+    const html = oku(`rpt/tekrar-siparis/${RPT[2]}/index.html`)
+    const menu = html.indexOf('class="dizi-yan-menu"')
+    expect(menu).toBeGreaterThan(-1)
+    expect(html.indexOf('class="kirinti"')).toBeLessThan(menu)
+    expect(html.indexOf('<h1')).toBeLessThan(menu)
+    expect(html.indexOf('</article>')).toBeLessThan(menu)
+    const css = baglıCss(html)
+    expect(css).toMatch(/\.dizi-yan-menu\{[^}]*grid-column:1/)
   })
 
   it('mobil dizi kutusu', () => {

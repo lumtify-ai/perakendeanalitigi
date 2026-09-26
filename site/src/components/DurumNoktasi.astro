@@ -6,6 +6,9 @@
 // yanındaki `algoritma-adi` yalnızca algoritmanın adını taşır, durumu değil.
 // Bu yüzden ekran okuyucu için görünmez ama okunur bir "yazıldı"/"yazılmadı"
 // metni eklenir (`.sr-only`); durum hem şekille hem metinle iletilir.
+// Algoritmanın adı yuvaya (slot) gelir ve metin adın ARKASINDA durur:
+// okuma sırası "RPT gereksinim hesabı, yazıldı" — soluk aşamanın tek
+// satırındaki sırayla aynı (FazHaritasi.astro).
 interface Props {
   aktif: boolean
 }
@@ -13,4 +16,4 @@ interface Props {
 const { aktif } = Astro.props
 ---
 
-<span class={`durum-noktasi durum-noktasi--${aktif ? 'aktif' : 'soluk'}`} aria-hidden="true">{aktif ? '●' : '○'}</span><span class="sr-only">{aktif ? 'yazıldı' : 'yazılmadı'}</span>
+<span class={`durum-noktasi durum-noktasi--${aktif ? 'aktif' : 'soluk'}`} aria-hidden="true">{aktif ? '●' : '○'}</span><slot /> <span class="sr-only">{aktif ? 'yazıldı' : 'yazılmadı'}</span>

@@ -6,8 +6,7 @@
 // adı kendi sayfasına bağlanır, algoritmaları altında durum noktalı bir
 // liste. Soluk aşamanın sayfası yoktur; adı düz metin, algoritmaları tek
 // satırda "·" ile ayrılmış, hiçbiri bağlantı değil.
-// Başlık seviyesi dışarıdan gelir: faz sayfasında aşamalar h2, ana sayfada
-// faz adı h2 olduğu için h3.
+// Yalnızca faz sayfası basar (FazSayfasi.astro); aşama adları h2.
 import type { Faz } from '../data/harita'
 import { asamaAktifMi, asamaIlerlemesi, type DiziBagi } from '../lib/haritaDurumu'
 import AlgoritmaSatiri from './AlgoritmaSatiri.astro'
@@ -15,11 +14,9 @@ import AlgoritmaSatiri from './AlgoritmaSatiri.astro'
 interface Props {
   faz: Faz
   diziler: DiziBagi[]
-  baslikSeviyesi?: 2 | 3
 }
 
-const { faz, diziler, baslikSeviyesi = 2 } = Astro.props
-const Baslik = `h${baslikSeviyesi}` as 'h2' | 'h3'
+const { faz, diziler } = Astro.props
 ---
 
 <ol class="faz-haritasi">
@@ -30,11 +27,11 @@ const Baslik = `h${baslikSeviyesi}` as 'h2' | 'h3'
       return (
         <li class={`asama asama--${aktif ? 'aktif' : 'soluk'}`}>
           <div class="asama-satiri">
-            <Baslik class="asama-basligi">
+            <h2 class="asama-basligi">
               <span class="asama-no">{String(asama.no).padStart(2, '0')}</span>{' '}
               {aktif ? <a href={`/${asama.slug}/`}>{asama.ad}</a> : <span>{asama.ad}</span>}
-            </Baslik>
-            <span class="asama-ilerleme">{ilerleme.aktif}/{ilerleme.toplam}</span>
+            </h2>
+            <span class="asama-ilerleme">{ilerleme.aktif} / {ilerleme.toplam}</span>
             <span class="sr-only"> algoritma yazıldı</span>
           </div>
           {aktif ? (

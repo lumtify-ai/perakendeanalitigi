@@ -21,8 +21,7 @@ const durum = algoritmaDurumu(algoritma.id, diziler)
 ---
 
 <li class={`algoritma algoritma--${durum.tur}`}>
-  <DurumNoktasi aktif={durum.tur === 'aktif'} />
-  <span class="algoritma-adi">{algoritma.ad}</span>
+  <DurumNoktasi aktif={durum.tur === 'aktif'}><span class="algoritma-adi">{algoritma.ad}</span></DurumNoktasi>
   {
     durum.tur === 'aktif' && (
       <span class="algoritma-dizileri">

@@ -51,17 +51,6 @@ const isaretleme = {
   duzen="yazi"
 >
   <div class={duzenSinifi}>
-    {
-      dizi && (
-        <DiziYanMenu
-          diziBasligi={dizi.baslik}
-          diziAdresi={dizi.adres}
-          sirali={dizi.sirali}
-          suanki={dizi.suanki}
-        />
-      )
-    }
-
     <div class="yazi-govdesi">
       <KirintiYolu basamaklar={basamaklar} />
 
@@ -102,6 +91,20 @@ const isaretleme = {
         )
       }
     </div>
+
+    {
+      /* Sol menü görselde solda (grid-column: 1, site.css · yazı düzeni) ama
+         işaretlemede yazının arkasında: ekran okuyucu ve klavye önce kırıntı
+         yoluna, başlığa ve yazıya gelir; atlama bağlantısı gerekmez. */
+      dizi && (
+        <DiziYanMenu
+          diziBasligi={dizi.baslik}
+          diziAdresi={dizi.adres}
+          sirali={dizi.sirali}
+          suanki={dizi.suanki}
+        />
+      )
+    }
 
     <BuYazida basliklar={sagMenu} />
   </div>

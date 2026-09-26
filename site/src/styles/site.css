@@ -221,7 +221,9 @@ body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-bl
 .soluk-algoritmalar { margin: .3rem 0 0; padding-left: var(--no-sutunu);
   font-family: var(--arayuz); font-size: .8125rem; line-height: 1.55; color: var(--soluk) }
 .algoritma-dizileri a + a::before { content: " · " }
-.algoritma-dizileri { font-family: var(--arayuz); font-size: .875rem; margin-left: .35rem }
+/* Ad ile etiket arasında zaten bir boşluk karakteri var (DurumNoktasi'nin
+   sr-only metninden önceki boşluk); pay onunla birlikte ~.35rem. */
+.algoritma-dizileri { font-family: var(--arayuz); font-size: .875rem; margin-left: .1rem }
 /* Durum ● / ○ şekille ayrışır (spec §8); renk yalnızca destekleyici. */
 .durum-noktasi { margin-right: .3rem }
 .durum-noktasi--aktif { color: var(--vurgu) }
