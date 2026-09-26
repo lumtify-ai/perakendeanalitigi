@@ -7,6 +7,14 @@
       "runtimeArgs": ["run", "dev"],
       "cwd": "site",
       "port": 4321
+    },
+    {
+      "name": "site-4322",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "4322"],
+      "cwd": "site",
+      "port": 4322,
+      "autoPort": false
     }
   ]
 }
