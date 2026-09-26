@@ -8,6 +8,7 @@ import {
   algoritmaBul,
   asamaBul,
   AYRILMIS_KOK_ADLAR,
+  eksenDevamEderMi,
   HARITA,
   TEMELLER,
 } from '../src/data/harita'
@@ -125,6 +126,15 @@ describe('HARITA', () => {
     expect(asamaBul('mfp')!.asama.ad).toBe('Merchandise Financial Planning (MFP)')
     expect(asamaBul('magaza-kumeleme')!.asama.ad).toBe('Mağaza kümeleme (Clustering)')
     expect(asamaBul('tedarik')!.asama.ad).toBe('Tedarik ve Üretim')
+  })
+
+  it('sezon ekseni yalnızca Sezon Öncesi → Sezon İçi geçişinde devam eder', () => {
+    const [oncesi, ici, diger] = HARITA
+    expect(eksenDevamEderMi(oncesi, ici)).toBe(true)
+    expect(eksenDevamEderMi(ici, diger)).toBe(false)
+    expect(eksenDevamEderMi(diger, undefined)).toBe(false)
+    expect(eksenDevamEderMi(ici, oncesi)).toBe(false)
+    expect(eksenDevamEderMi(oncesi, diger)).toBe(false)
   })
 
   it('TEMELLER harita dışı sabit bir alan adıdır', () => {
