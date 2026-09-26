@@ -131,3 +131,52 @@ def dagitim_secimi(dunya, talep, t, opt_t, idx=None) -> pd.DataFrame:
 def oyun_optionlari(dunya, sezon: str) -> np.ndarray:
     opt = dunya.optionlar
     return np.flatnonzero(((opt["sezon_kodu"] == sezon) & (opt["line"] == "Collection")).to_numpy())
+
+
+def en_iyi_kural(secim: pd.DataFrame) -> str:
+    """SS24 seçim koşusunda kârı en yüksek RPT dağıtım kuralı (b, c, d arasından)."""
+    s = secim[secim["kural"] != "mevcut"]
+    return str(s.loc[s["kar"].idxmax(), "kural"])
+
+
+def kol_listesi(en_iyi: str) -> list:
+    """Raporun koştuğu (kol, dağıtım) çiftleri."""
+    return [
+        ("rpt_yok", "mevcut"), ("mevcut", "mevcut"),
+        ("mevcut", "b"), ("mevcut", "c"), ("mevcut", "d"),
+        ("frr2", "mevcut"), ("frr3", "mevcut"), ("frr2", en_iyi), ("frr3", en_iyi),
+        ("oneri", "mevcut"), ("oneri", en_iyi), ("oneri_lojistik", en_iyi),
+        ("kahin", "mevcut"), ("kahin", en_iyi),
+    ]
+
+
+def tum_kollar(H: dict, kollar=None) -> dict:
+    """Hazırlığın üstüne seçim koşusu ve bütün kolları koşar.
+
+    kollar: liste, ya da en iyi kuralı alıp liste döndüren fonksiyon.
+    Döner: {"secim", "en_iyi", "ham": {(kol, kural): ham}, "rp": {...}, "dp": {...}}.
+    """
+    b = H["baglam"]
+    secim = dagitim_secimi(b.dunya, b.talep, H["t"], H["opt_t"], b.idx)
+    en_iyi = en_iyi_kural(secim)
+    ham, rp, dp = dict(H["ham"]), {}, {}
+    if callable(kollar):
+        kollar = kollar(en_iyi)
+    for kol, kural in (kollar or kol_listesi(en_iyi)):
+        if (kol, kural) in ham and kol in ("rpt_yok", "mevcut") and kural == "mevcut":
+            continue
+        ham[(kol, kural)], rp[(kol, kural)], dp[(kol, kural)] = kos(b, kol, kural)
+    return {"secim": secim, "en_iyi": en_iyi, "ham": ham, "rp": rp, "dp": dp}
+
+
+def ozet_tablosu(dunya, ham: dict, sezon: str, kahin_anahtari) -> pd.DataFrame:
+    """Kol × ölçüt tablosu (sezon), rpt_yok tabanına göre."""
+    ops = oyun_optionlari(dunya, sezon)
+    taban = olcutler.option_olcutleri(dunya, ham[("rpt_yok", "mevcut")], ops)
+    kh = olcutler.option_olcutleri(dunya, ham[kahin_anahtari], ops) if kahin_anahtari in ham else None
+    satir = []
+    for anahtar, h in ham.items():
+        oz = olcutler.sezon_ozeti(olcutler.option_olcutleri(dunya, h, ops), taban, kh)
+        oz["kol"], oz["kural"] = anahtar
+        satir.append(oz)
+    return pd.DataFrame(satir)

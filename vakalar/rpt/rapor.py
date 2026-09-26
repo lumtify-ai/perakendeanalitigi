@@ -10,6 +10,11 @@ Faz A bölümleri:
     HİKÂYE  (1. yazı)  seçilen option, pazartesi durumu, Lumoda'nın RPT'leri
     KARAR   (2. yazı)  eğri payları, yerli / Uzak Doğu kalan eğri, stoklu gün örneği
     SANSÜR  (3. yazı)  dört katmanlı kestirim hatası, plan hatası, eğri şekli
+
+Faz B bölümleri (yol 0 = gerçek v3 talebi; aralıklar cikti/yollar.json'dan):
+    ADAY    (4. yazı)  aday modeli: etiket, kural / lojistik / LightGBM, TL maliyet
+    MİKTAR  (5. yazı)  belirsizlik, Banu / FRR / newsvendor miktarları, kollar
+    SONUÇ   (6. yazı)  dağıtım kuralları, kollar tablosu, hikâye option'ları, yollar
 """
 
 import sys
@@ -417,6 +422,9 @@ def main() -> None:
     hikaye_bolumu(v)
     karar_bolumu(v)
     sansur_bolumu(v)
+    from rapor_b import faz_b
+
+    faz_b(v)
 
 
 if __name__ == "__main__":

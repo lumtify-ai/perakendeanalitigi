@@ -17,7 +17,11 @@ dağıtım veriden aynen alınır, bu vakanın konusu değildir.
 
 Veri yoksa önce üret: `cd veri && .venv/Scripts/python -m perakende_veri.v3.uret`
 
-Yazıların alıntıladığı bütün sayıları basmak (~30 sn):
+Alternatif talep yollarını koşmak (10 yol, 4 süreç paralel, ~6 dk; önce bu):
+
+    .venv/Scripts/python -m rpt.yollar          # cikti/yollar.json
+
+Yazıların alıntıladığı bütün sayıları basmak (~2 dk; yol 0'ı baştan koşar):
 
     .venv/Scripts/python rapor.py > cikti/rapor.txt
 
@@ -25,13 +29,12 @@ Windows konsolunda Türkçe karakter için `PYTHONIOENCODING=utf-8`.
 
 ## Durum
 
-**Faz A (bu sürüm):** veri paneli, yaşam eğrisi, sansürlü talep kestirimi ve
-ilk üç yazının sayıları. **Faz B (sırada):** aday modeli, newsvendor miktarı,
-dağıtım kuralları, kollar (`rpt_yok`, `mevcut`, `frr`, `oneri`, `kahin`…) ve
-alternatif talep yolları. Faz B motor yazmaz: aynı talebi v3'ün
-`simule_et(dunya, talep, rpt_politikasi=..., dagitim_politikasi=...)`'i ile
-farklı politikalarla yeniden oynatır; kaynak panelleri kolların çıktısına
-(`hareket_tablolari`) aynen uygulanır.
+**Faz A:** veri paneli, yaşam eğrisi, sansürlü talep kestirimi ve ilk üç
+yazının sayıları. **Faz B:** aday modeli, newsvendor miktarı, dağıtım
+kuralları, kollar ve alternatif talep yolları (4.–6. yazılar). Motor
+yazılmaz: aynı talep v3'ün `simule_et(dunya, talep, rpt_politikasi=...,
+dagitim_politikasi=...)`'i ile farklı politikalarla yeniden oynatılır
+(bir koşu ~3 sn).
 
 ## Modüller
 
@@ -41,7 +44,15 @@ farklı politikalarla yeniden oynatır; kaynak panelleri kolların çıktısına
 | `egri.py` | Yaşam eğrisinin **şekli** (birikimli pay k_h), geçmiş sezonlardan: çıplak (sansürlü satış), stoklu gün düzeltmeli (Poisson IPF), gerçek (yalnız kıyas) |
 | `sansur.py` | Sezon talebi kestirimi, dört katman (a çıplak · b stoklu gün hızı · c FRR eğri ölçeği · d b+c), gerçek talebe karşı hata |
 | `hikaye.py` | "Bitti" haftası, hikâye adayları, mağaza tablosu, Lumoda'nın RPT'lerinin akıbeti |
-| `rapor.py` | Yayımlanacak her sayı (HİKÂYE · KARAR · SANSÜR bölümleri) |
+| `anlik.py` | Karar anı hesapları `Gorunum` üstünde (düzeltilmiş talep, option özeti); `Kaydedici` her pazartesi aday satırı kaydeder — eğitim ve karar aynı kodu görür |
+| `dagitim.py` | RPT dağıtım kuralları: mevcut · b stoklu gün hızı · c yeniden lansman · d c + %30 depoda tutma |
+| `miktar.py` | Banu %50 · FRR · newsvendor (belirsizlik geçmiş sezon hatasından, MOQ kapısı) |
+| `aday.py` | Özellikler, sonradan-bakış etiketi (gerçek ve düzeltilmiş), kural / lojistik / LightGBM, TL değerlendirme |
+| `politika.py` | Kollar: `rpt_yok`, `mevcut`, `frr` (h=2/3), `oneri`, `kahin` |
+| `oyun.py` | Hazırlık (yolun gerçekleşen tarihi + öğrenme), dağıtım kuralı seçimi (SS24), kol koşuları |
+| `olcutler.py` | Spec 3.4 ölçütleri, option düzeyinde, rpt_yok tabanına göre |
+| `yollar.py` | 10 alternatif talep yolu, paralel, JSON |
+| `rapor.py`, `rapor_b.py` | Yayımlanacak her sayı (HİKÂYE · KARAR · SANSÜR · ADAY · MİKTAR · SONUÇ) |
 
 ## İlkeler
 
@@ -65,6 +76,30 @@ farklı politikalarla yeniden oynatır; kaynak panelleri kolların çıktısına
 - **Plan gizli değildir.** Buyer planı (`plan_sezon`) tablolarda yok, dünyadan
   okunur; ama ilk alım ondan hesaplandı, zincir bu sayıyı bilir. Sürpriz ve
   gerçek beklenen talep okunmaz.
+
+## Faz B'nin kurulumu
+
+- **Kollar yalnız oyun sezonlarının (AW24, SS25) Collection option'larına
+  dokunur**; öteki bütün option'larda Banu'nun kuralı ve bugünkü dağıtım
+  işler. Dağıtım kuralları yalnız RPT'si GELMİŞ option'lara uygulanır: RPT'siz
+  kolda b/c/d bugünkü kuralla birebir aynıdır (testli). Fark RPT'nin kendisinden
+  gelir.
+- **`mevcut` kolu v3'ün kendisidir**: dışa aktarılan tablolar birebir
+  (`test_esdegerlik.py`).
+- **Öğrenme** (eğri, belirsizlik, aday modeli) her yolun "gerçekleşen tarihi"nden
+  (Banu'nun kuralı + bugünkü dağıtım), oyun sezonunun ilk lansman sabahına
+  kırpılarak, yalnız önceki sezonlardan. **Dağıtım kuralı** oyundan önce SS24'te
+  seçilir (Banu'nun RPT'leriyle, en yüksek SS24 kârı).
+- **Değerleme:** gelir − (ilk alım + RPT) × alış; sezon sonunda kalan stok 0 TL
+  (alt sınır). Taban `rpt_yok`.
+- **Kâhin üst sınır değildir:** gerçek talebi ve teslim gecikmesini bilir ama
+  zincir düzeyinde düşünür; mağazalar arası sıkışmayı ve dağıtımı bilmez. Kâr
+  ölçütü indirimde satışı da içerdiği için tam fiyattan MOQ/2 satamayan ama
+  kârlı siparişler verebilir (ölçütte "yanlış alarm" sayılır).
+- **Sızıntı kalkanları (testli):** kâhin dışındaki kollar sonraki talebi
+  bozunca aynı RPT'leri verir (kâhin vermez); kalibrasyon ve eğri oyun
+  başlangıcından sonraki veri bozulunca değişmez; aday eğitimi yalnız önceki
+  sezonlardan.
 
 ## Tanımlar
 
@@ -95,3 +130,15 @@ farklı politikalarla yeniden oynatır; kaynak panelleri kolların çıktısına
   son haftası, SS25 için AW24'ün son iki haftası).
 - İkame (stoksuz ürünün talebinin başka ürüne kayması) ve sergi etkisi v3'te
   modellenmez.
+- **SS25'in öğrenmesi AW24'ün gerçekleşen (Banu'lu) tarihinden**; bir kol
+  AW24'te başka RPT verseydi SS25'e giden geçmiş biraz farklı olurdu.
+- **Belirsizlik (σ) kısmen örneklem içi**: SS24'ün öncesi olmadığı için SS24
+  kestirimleri oyun sezonunun eğrisiyle yapılır.
+- **AW24 aday modeli yalnız SS24'ün 483 satırından (22 pozitif) eğitilir** —
+  kırılgan; rapor bunu yazar.
+- **Uzak Doğu RPT'si pratikte hiç aday değil**: eğitim sezonlarında 14–15
+  haftalık tedarikle etiketi pozitif tek satır yok; model Uzak Doğu'ya hiç RPT
+  önermez.
+- Aday etiketi ve newsvendor zincir düzeyinde stok akışı varsayar (mağazalar
+  arası sıkışma yok): RPT lehine iyimser.
+- İade oranı newsvendor'da yok sayılır; motor iadeyi satışla orantılı üretir.
