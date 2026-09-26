@@ -10,14 +10,17 @@
 // (spec §8). Segmentin başlığı faz kartıdır (FazKarti.astro): faz adı faz
 // sayfasına bağlanır, altında "a / t algoritma yazıldı".
 //
-// Geniş ekranda yatay, 64rem altında dikey hat — ikisi de saf CSS
-// (src/styles/site.css, "Süreç hattı" bölümü). Yatay düzenin ölçüleri
-// haritanın kendisinden build sırasında satır içi değişken olarak basılır,
-// CSS'te hiçbir aşama sayısı yazmaz: `--oranlar` segment genişlikleri
-// (her faz için aşama sayısı kadar fr), `--adet` segmentin sütun sayısı,
-// `--sutun` istasyonun fazı içindeki sırası. Haritaya aşama eklenince hat
-// kendiliğinden yeniden dizilir.
-import { HARITA, type Asama } from '../data/harita'
+// Geniş ekranda (64rem ve üstü) her faz bir satır: solda faz kartı, sağda
+// o fazın yatay hattı; 64rem altında dikey hat — ikisi de saf CSS
+// (src/styles/site.css, "Süreç hattı" bölümü). Ölçüler haritanın
+// kendisinden build sırasında satır içi değişken olarak basılır, CSS'te
+// hiçbir aşama sayısı yazmaz: `--sutun-sayisi` üç satırın paylaştığı sütun
+// sayısı (en kalabalık fazın aşama sayısı; istasyonlar satırlar arasında
+// alt alta hizalanır), `--sutun` istasyonun fazı içindeki sırası. Sezon
+// eksenini sürdüren faz satırı (`hat-segmenti--devam`, eksenDevamEderMi)
+// bir sonrakine süsleme amaçlı bir çizgiyle bağlanır. Haritaya aşama
+// eklenince hat kendiliğinden yeniden dizilir.
+import { eksenDevamEderMi, HARITA, type Asama } from '../data/harita'
 import { algoritmaDurumu, asamaAktifMi, type DiziAtfi, type DiziBagi } from '../lib/haritaDurumu'
 import DiziEtiketi from './DiziEtiketi.astro'
 import FazKarti from './FazKarti.astro'
@@ -39,15 +42,15 @@ function asamaDizileri(asama: Asama): DiziAtfi[] {
   return [...bulunan.values()]
 }
 
-const oranlar = HARITA.map((faz) => `${faz.asamalar.length}fr`).join(' ')
+const sutunSayisi = Math.max(...HARITA.map((faz) => faz.asamalar.length))
 ---
 
-<ol class="surec-hatti" style={`--oranlar: ${oranlar}`}>
+<ol class="surec-hatti" style={`--sutun-sayisi: ${sutunSayisi}`}>
   {
-    HARITA.map((faz) => (
-      <li class="hat-segmenti">
+    HARITA.map((faz, fazSirasi) => (
+      <li class={eksenDevamEderMi(faz, HARITA[fazSirasi + 1]) ? 'hat-segmenti hat-segmenti--devam' : 'hat-segmenti'}>
         <FazKarti faz={faz} diziler={diziler} />
-        <ol class="hat-duraklari" style={`--adet: ${faz.asamalar.length}`}>
+        <ol class="hat-duraklari">
           {faz.asamalar.map((asama, i) => {
             const aktif = asamaAktifMi(asama, diziler)
             const no = String(asama.no).padStart(2, '0')

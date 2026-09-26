@@ -241,24 +241,26 @@ body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-bl
    kartıdır: ad (faz sayfasına bağlantı) ve "a / t algoritma yazıldı".
    Dar ekranda dikey hat: istasyonlar alt alta, nokta solda, ad sağında; her
    segmentin kendi çizgisi var.
-   64rem ve üstünde yatay hat: segmentler yan yana, genişlikleri aşama
-   sayısıyla orantılı. Ölçüler CSS'te yazmaz; SurecHatti.astro haritadan
-   satır içi değişken basar: --oranlar ("6fr 5fr 4fr" gibi), --adet
-   (segmentin sütun sayısı), --sutun (istasyonun fazı içindeki sırası).
-   Segment içi sütunlar eşit olduğu için bütün istasyonlar aynı genişlikte.
-   Çizgi segmentin ilk noktasından son noktasına uzanır, fazlar arasındaki
-   boşlukta kesilir.
-   Yatayda bir sütun (~4rem) "Replenishment" gibi tek kelimelik bir adı
-   taşımaya yetmez; kelime ortadan kırılırdı. Bu yüzden adlar sırayla
-   çizginin üstüne ve altına yazılır: her ad iki sütun genişliğinde, aynı
-   taraftaki komşusuyla çakışmaz. Segmentin son istasyonu tek sütunlu kalır
-   ama segment boşluğuna (--segment-arasi) taşar; son segment için hattın
-   sağında aynı pay bırakılır.
+   64rem ve üstünde fazlar alt alta, her faz bir satır: solda faz kartı
+   (--faz-sutunu), sağda o fazın yatay hattı. Üç satır aynı sütun sayısını
+   paylaşır ki istasyonlar satırlar arasında alt alta hizalansın. Ölçüler
+   CSS'te yazmaz; SurecHatti.astro haritadan satır içi değişken basar:
+   --sutun-sayisi (en kalabalık fazın aşama sayısı), --sutun (istasyonun
+   fazı içindeki sırası). Aşaması az olan fazın sondaki sütunları boş kalır;
+   çizgisi son istasyonunda biter. İstasyonda nokta çizginin üstünde, numara
+   ve ad tek sıra halinde çizginin altında.
+   Sezon ekseni satırdan satıra sürer: ekseni sürdüren satır
+   (.hat-segmenti--devam, haritadan türer) bir sonrakine sol kenarda, faz
+   kartıyla hat arasındaki boşlukta duran bir köşeli bağlayıcıyla bağlanır.
+   Bağlayıcı istasyon konumlarına değil yalnızca çizginin satır içindeki
+   yüksekliğine (--hat-y) dayanır; satır yüksekliği dizi etiketleriyle
+   değişse de doğru yere oturur. Diğer Süreçler eksende durmaz, ona
+   bağlayıcı yok; satırlar ince bir çizgiyle ayrılır.
    Durum şekille ayrışır: aktif = dolu nokta, soluk = boş halka (renk yalnızca
-   destekleyici, spec §8). Nokta ve çizgi yalnızca sözde öğe; ekran okuyucu
-   durumu istasyonun .sr-only metninden okur. */
+   destekleyici, spec §8). Nokta, çizgi ve bağlayıcı yalnızca sözde öğe;
+   ekran okuyucu durumu istasyonun .sr-only metninden okur. */
 .surec-hatti { list-style: none; padding-left: 0; margin: 2.25rem 0 0;
-  font-family: var(--arayuz); --nokta: .75rem; --hat: 2px; --segment-arasi: 1.75rem }
+  font-family: var(--arayuz); --nokta: .75rem; --hat: 2px }
 .surec-hatti .hat-segmenti { margin: 0 0 2rem }
 .faz-karti { margin: 0 0 1rem; padding: .75rem 1rem .8rem; border: 1px solid var(--cizgi);
   border-radius: .5rem; background: var(--kutu-zemin) }
@@ -289,35 +291,36 @@ body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-bl
 .hat-dizileri { margin: .25rem 0 0; font-size: .8125rem; line-height: 1.45 }
 .hat-dizileri .dizi-etiketi { display: block }
 @media (min-width: 64rem) {
-  .surec-hatti { display: grid; grid-template-columns: var(--oranlar);
-    column-gap: var(--segment-arasi); padding-right: var(--segment-arasi) }
-  /* Dört satır: faz kartı, üstteki adlar, çizgi, alttaki adlar. Satırlar
-     hattın kendisinde tanımlı; segment ve durak listesi onları subgrid ile
-     paylaşır ki üç segmentin çizgisi aynı yükseklikte dursun. Subgrid'i
-     tanımayan tarayıcı önceki grid-template-rows bildirimine düşer: her
-     segment kendi satırlarını kurar, çizgiler biraz kayabilir ama hat
-     okunur kalır. */
-  .surec-hatti { grid-template-rows: auto auto var(--nokta) auto }
-  .surec-hatti .hat-segmenti { display: grid; grid-row: 1 / span 4;
-    grid-template-rows: auto auto var(--nokta) auto; grid-template-rows: subgrid; margin: 0 }
-  .faz-karti { grid-row: 1; margin-bottom: 1.25rem }
-  .hat-duraklari { display: grid; grid-row: 2 / span 3;
-    grid-template-rows: auto var(--nokta) auto; grid-template-rows: subgrid;
-    grid-template-columns: repeat(var(--adet), minmax(0, 1fr)) }
-  .hat-duraklari::before { content: ""; grid-row: 2; grid-column: 1 / -1; align-self: center;
-    margin-right: calc(100% / var(--adet)); border-top: var(--hat) solid var(--cizgi) }
-  .surec-hatti .istasyon { grid-column: var(--sutun) / span 2; padding: 0 .75rem 0 0;
+  /* --hat-payi çizgiyi faz kartındaki adın hizasına indirir; --hat-y
+     çizginin merkezinin satırın üst kenarına uzaklığı (bağlayıcı bunu okur). */
+  .surec-hatti { margin-top: 1rem; --faz-sutunu: 12rem; --faz-arasi: 2rem;
+    --satir-ici: 1.5rem; --ayrac: 1px; --hat-payi: 1.05rem;
+    --hat-y: calc(var(--satir-ici) + var(--hat-payi) + var(--nokta) / 2) }
+  .surec-hatti .hat-segmenti { position: relative; display: grid; align-items: start;
+    grid-template-columns: var(--faz-sutunu) minmax(0, 1fr); column-gap: var(--faz-arasi);
+    margin: 0; padding-block: var(--satir-ici) }
+  .surec-hatti .hat-segmenti + .hat-segmenti { border-top: var(--ayrac) solid var(--cizgi) }
+  .faz-karti { margin: 0 }
+  .hat-duraklari { display: grid; padding-top: var(--hat-payi);
+    grid-template-columns: repeat(var(--sutun-sayisi), minmax(0, 1fr)) }
+  .surec-hatti .istasyon { grid-column: var(--sutun); padding: calc(var(--nokta) + .55rem) .75rem 0 0;
     font-size: .875rem; line-height: 1.4; hyphens: auto; overflow-wrap: break-word }
-  .istasyon:nth-child(odd) { grid-row: 1; align-self: end; padding-bottom: .6rem }
-  .istasyon:nth-child(even) { grid-row: 3; padding-top: .6rem }
-  .surec-hatti .istasyon:last-child { grid-column: var(--sutun) / span 1; padding-right: 0;
-    margin-right: calc(-1 * var(--segment-arasi)) }
-  .istasyon:nth-child(odd)::before { top: auto; bottom: calc(-1 * var(--nokta)) }
-  .istasyon:nth-child(even)::before { top: calc(-1 * var(--nokta)) }
-  .istasyon::after { content: none }
-  .surec-hatti .asama-no { display: block; margin: 0 0 .1rem; font-size: .8125rem }
-  .istasyon .asama-adi { display: block }
+  .istasyon::before { top: 0 }
+  /* Yatay çizgi: noktanın merkezinden bir sonraki sütunun noktasına; sütun
+     arası boşluk olmadığı için istasyonun genişliği tam bir adım. */
+  .istasyon::after { top: calc(var(--nokta) / 2 - var(--hat) / 2); bottom: auto;
+    left: calc(var(--nokta) / 2); width: 100%; border-left: 0;
+    border-top: var(--hat) solid var(--cizgi) }
+  .surec-hatti .asama-no { margin-right: .3rem; font-size: .8125rem }
   .hat-dizileri { margin-top: .35rem; font-size: .8125rem; line-height: 1.4 }
+  /* Bağlayıcı: bu satırın çizgisinden bir sonraki satırın çizgisine, sol
+     kenarda köşeli bir ayraç; iki ucu da satırın ilk noktasında biter. */
+  .hat-segmenti--devam::after { content: ""; position: absolute;
+    left: calc(var(--faz-sutunu) + var(--faz-arasi) / 2);
+    width: calc(var(--faz-arasi) / 2 + var(--nokta) / 2);
+    top: calc(var(--hat-y) - var(--hat) / 2);
+    bottom: calc(-1 * (var(--ayrac) + var(--hat-y) + var(--hat) / 2));
+    border: var(--hat) solid var(--cizgi); border-right: 0; border-radius: .6rem 0 0 .6rem }
 }
 /* --- Aşama sayfası: dizi kartı (DiziKarti.astro) -----------------------
    Spec §5: tanım + algoritma satırları (faz sayfasıyla aynı bileşen,

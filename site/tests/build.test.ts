@@ -1318,19 +1318,42 @@ describe('ana sayfa süreç hattı', () => {
     for (const faz of HARITA) expect(hat, faz.slug).toContain(`href="/${faz.slug}/"`)
   })
 
-  it('yatay düzenin ölçüleri haritadan basılır', () => {
+  it('fazlar alt alta; ortak sütun sayısı haritadan basılır', () => {
     // Aşama eklenince hat kendiliğinden yeniden dizilsin diye CSS hiçbir
     // aşama sayısı yazmaz; SurecHatti.astro haritadan satır içi değişken
-    // basar. Beklenen değerler burada da HARITA'dan türer.
+    // basar. Üç faz satırı tek bir sütun sayısını paylaşır (en kalabalık
+    // fazın aşama sayısı) ki istasyonlar satırlar arasında alt alta hizalansın.
     const html = oku('index.html')
-    const oranlar = HARITA.map((faz) => `${faz.asamalar.length}fr`).join(' ')
-    expect(html).toContain(`<ol class="surec-hatti" style="--oranlar: ${oranlar}">`)
-    const adetler = [...html.matchAll(/<ol class="hat-duraklari" style="--adet: (\d+)">/g)].map(([, n]) => Number(n))
-    expect(adetler).toEqual(HARITA.map((faz) => faz.asamalar.length))
+    const sutunSayisi = Math.max(...HARITA.map((faz) => faz.asamalar.length))
+    expect(html).toContain(`<ol class="surec-hatti" style="--sutun-sayisi: ${sutunSayisi}">`)
+    expect(html).not.toContain('--oranlar')
+    expect(html).not.toContain('--adet')
+    // Her faz satırı kendi hattını taşır: segment başına bir durak listesi,
+    // içinde o fazın aşamaları kadar istasyon.
+    const segmentler = hatSegmentleri(html)
+    expect(segmentler.length).toBe(HARITA.length)
+    HARITA.forEach((faz, i) => {
+      expect(segmentler[i].match(/<ol class="hat-duraklari"/g)?.length, faz.slug).toBe(1)
+      expect(istasyonlar(segmentler[i]).length, faz.slug).toBe(faz.asamalar.length)
+    })
     // Her istasyon fazı içindeki 1 tabanlı sırasını taşır; yedinci bir aşama
     // eklense de yerleşim bu değerden okunur.
     const sutunlar = istasyonlar(html).map(({ acilis }) => Number(acilis.match(/style="--sutun: (\d+)"/)?.[1]))
     expect(sutunlar).toEqual(HARITA.flatMap((faz) => faz.asamalar.map((_, i) => i + 1)))
+  })
+
+  it('sezon ekseni Sezon Öncesi satırından Sezon İçi satırına bağlanır', () => {
+    // Bağlayıcı yalnızca ekseni sürdüren faz satırında: Sezon Öncesi'nin
+    // hemen ardından Sezon İçi geliyorsa. Diğer Süreçler eksende durmaz,
+    // ona bağlayıcı çizilmez. Beklenen HARITA sırasından türer.
+    const html = oku('index.html')
+    const beklenen = HARITA.map(
+      (faz, i) => faz.slug === 'sezon-oncesi' && HARITA[i + 1]?.slug === 'sezon-ici',
+    )
+    expect(beklenen.filter(Boolean).length).toBe(1)
+    const acilislar = [...html.matchAll(/<li class="(hat-segmenti[^"]*)"/g)].map(([, s]) => s.split(/\s+/))
+    expect(acilislar.map((s) => s.includes('hat-segmenti--devam'))).toEqual(beklenen)
+    expect(sinifSay(html, (b) => b === 'hat-segmenti--devam')).toBe(1)
   })
 
   it('aktif istasyon aşamaya ve dizisine bağlanır', () => {
@@ -1367,10 +1390,7 @@ describe('ana sayfa süreç hattı', () => {
     expect(html).not.toContain('faz-kartlari')
     const kartlar = [...html.matchAll(/<header class="faz-karti">([\s\S]*?)<\/header>/g)].map(([, g]) => g)
     expect(kartlar.length).toBe(HARITA.length)
-    const segmentler = html
-      .slice(html.indexOf('<ol class="surec-hatti"'))
-      .split('<li class="hat-segmenti">')
-      .slice(1)
+    const segmentler = hatSegmentleri(html)
     expect(segmentler.length).toBe(HARITA.length)
     for (const segment of segmentler) {
       expect(segment.indexOf('<header class="faz-karti">')).toBe(0)
@@ -1394,22 +1414,34 @@ describe('ana sayfa süreç hattı', () => {
     expect(html).not.toContain('algoritma--')
   })
 
-  it('süreç hattı geniş ekranda yatay, dar ekranda dikey', () => {
-    // 64rem ve üstünde segment genişlikleri aşama sayısıyla orantılı; oran,
-    // sütun sayısı ve istasyon sütunu CSS'e değişkenle gelir, sayı yazılmaz.
+  it('süreç hattı geniş ekranda faz satırları, dar ekranda dikey', () => {
+    // 64rem ve üstünde her faz bir satır: solda faz kartı, sağda hat. Durak
+    // listesi hattın ortak sütun sayısını kullanır; istasyon sütunu da
+    // değişkenle gelir, CSS'te aşama sayısı yazmaz.
     const css = baglıCss(oku('index.html'))
     expect(css).toMatch(/\.surec-hatti\{[^}]*list-style(-type)?:none/)
     // Derlenmiş CSS medya sorgusunu aralık sözdizimine çevirir: (width>=64rem).
-    const genis = css.match(/@media \((?:min-width:\s*|width>=)64rem\)\{[^@]*\.surec-hatti[,{][^@]*/)?.[0] ?? ''
-    expect(genis).toMatch(/\.surec-hatti\{[^}]*grid-template-columns:var\(--oranlar\)/)
-    expect(genis).toMatch(/\.hat-duraklari\{[^}]*grid-template-columns:repeat\(var\(--adet\),\s*minmax\(0,\s*1fr\)\)/)
-    expect(genis).toMatch(/\.istasyon\{[^}]*grid-column:var\(--sutun\)\s*\/\s*span 2/)
+    const genis = css.match(/@media \((?:min-width:\s*|width>=)64rem\)\{[^@]*\.surec-hatti[,{\s][^@]*/)?.[0] ?? ''
+    expect(genis).toMatch(/\.hat-duraklari\{[^}]*grid-template-columns:repeat\(var\(--sutun-sayisi\),\s*minmax\(0,\s*1fr\)\)/)
+    expect(genis).toMatch(/\.istasyon\{[^}]*grid-column:var\(--sutun\)/)
+    expect(genis).toMatch(/\.hat-segmenti--devam::?after\{/)
+    // Adlar artık çizginin üstüne ve altına sırayla yazılmıyor: tek sıra,
+    // çizginin altında. Eski düzenin artıkları kalmasın.
+    expect(css).not.toMatch(/\.istasyon:nth-child\((odd|even)\)/)
+    expect(css).not.toContain('--oranlar')
+    expect(css).not.toContain('subgrid')
     expect(genis).not.toMatch(/nth-child\(\d+\)/)
     expect(genis).not.toMatch(/\dfr \dfr/)
-    // Subgrid'i tanımayan tarayıcı için önce düz satır tanımı.
-    expect(genis).toMatch(/grid-template-rows:auto var\(--nokta\) auto;grid-template-rows:subgrid/)
   })
 })
+
+/** Ana sayfadaki süreç hattının faz satırları (hat-segmenti), sırayla. */
+function hatSegmentleri(html: string): string[] {
+  return html
+    .slice(html.indexOf('<ol class="surec-hatti"'))
+    .split(/<li class="hat-segmenti[^"]*">/)
+    .slice(1)
+}
 
 /** `acilis` ile başlayan öğenin, ilk `kapanis`a kadarki işaretlemesi; yoksa ''. */
 function kesit(html: string, acilis: string, kapanis: string): string {

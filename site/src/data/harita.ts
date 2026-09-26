@@ -220,3 +220,17 @@ export function algoritmaBul(
   }
   return undefined
 }
+
+/**
+ * Sezon ekseni, sırasıyla: Sezon Öncesi biter, Sezon İçi başlar. Diğer
+ * Süreçler bu eksende durmaz (bkz. FazSlug). Ana sayfanın süreç hattı
+ * ekseni sürdüren faz satırını bir sonrakine bağlar (SurecHatti.astro).
+ */
+export const SEZON_EKSENI: readonly FazSlug[] = ['sezon-oncesi', 'sezon-ici']
+
+/** `faz`'dan sonra gelen faz sezon ekseninde onun hemen ardılıysa true. */
+export function eksenDevamEderMi(faz: Faz, sonraki: Faz | undefined): boolean {
+  if (!sonraki) return false
+  const i = SEZON_EKSENI.indexOf(faz.slug)
+  return i !== -1 && SEZON_EKSENI[i + 1] === sonraki.slug
+}
