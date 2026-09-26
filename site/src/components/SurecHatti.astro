@@ -1,0 +1,71 @@
+---
+// site/src/components/SurecHatti.astro
+//
+// Ana sayfanın haritası: on beş aşama, üç faz segmentine bölünmüş tek bir
+// hat (spec §3). Her aşama bir istasyon: numara + aşamanın kendi adı (ayrı
+// bir kısa ad alanı yok; uzun ad CSS ile satır kırar). Aktif istasyon dolu
+// noktalı, adı aşama sayfasına bağlanır ve altında o aşamayı kapsayan
+// yayındaki dizilerin etiketleri durur. Soluk istasyon boş halkalı ve
+// bağlantısız. Durum şekil ve metinle iletilir; renk yalnızca destekleyici
+// (spec §8). Segment başlığı faz sayfasına bağlanır.
+//
+// Geniş ekranda yatay, 64rem altında dikey hat — ikisi de saf CSS
+// (src/styles/site.css, "Süreç hattı" bölümü). Yatay düzen segmentin
+// sütun sayısını `--adet` değişkeninden okur.
+import { HARITA, type Asama } from '../data/harita'
+import { algoritmaDurumu, asamaAktifMi, type DiziAtfi, type DiziBagi } from '../lib/haritaDurumu'
+import DiziEtiketi from './DiziEtiketi.astro'
+
+interface Props {
+  diziler: DiziBagi[]
+}
+
+const { diziler } = Astro.props
+
+/** Aşamanın aktif algoritmalarını kapsayan diziler; her dizi bir kez. */
+function asamaDizileri(asama: Asama): DiziAtfi[] {
+  const bulunan = new Map<string, DiziAtfi>()
+  for (const algoritma of asama.algoritmalar) {
+    const durum = algoritmaDurumu(algoritma.id, diziler)
+    if (durum.tur !== 'aktif') continue
+    for (const dizi of durum.diziler) bulunan.set(dizi.adres, dizi)
+  }
+  return [...bulunan.values()]
+}
+---
+
+<ol class="surec-hatti">
+  {
+    HARITA.map((faz) => (
+      <li class="hat-segmenti">
+        <h3 class="hat-fazi">
+          <a href={`/${faz.slug}/`}>{faz.ad}</a>
+        </h3>
+        <ol class="hat-duraklari" style={`--adet: ${faz.asamalar.length}`}>
+          {faz.asamalar.map((asama) => {
+            const aktif = asamaAktifMi(asama, diziler)
+            const no = String(asama.no).padStart(2, '0')
+            return (
+              <li class={`istasyon istasyon--${aktif ? 'aktif' : 'soluk'}`} data-faz={faz.slug}>
+                <span class="asama-no">{no}</span>{' '}
+                {aktif ? (
+                  <a class="asama-adi" href={`/${asama.slug}/`}>{asama.ad}</a>
+                ) : (
+                  <span class="asama-adi">{asama.ad}</span>
+                )}
+                <span class="sr-only">{aktif ? 'yazıldı' : 'yazılmadı'}</span>
+                {aktif && (
+                  <p class="hat-dizileri">
+                    {asamaDizileri(asama).map((dizi) => (
+                      <DiziEtiketi baslik={dizi.baslik} adres={dizi.adres} yaziSayisi={dizi.yaziSayisi} />
+                    ))}
+                  </p>
+                )}
+              </li>
+            )
+          })}
+        </ol>
+      </li>
+    ))
+  }
+</ol>

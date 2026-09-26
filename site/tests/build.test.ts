@@ -852,7 +852,6 @@ describe('harita', () => {
     const algoritmaMi = (b: string) => b.startsWith('algoritma--')
     const toplam = FAZ_SAYFALARI.reduce((t, yol) => t + sinifSay(oku(yol), algoritmaMi), 0)
     expect(toplam).toBe(34)
-    expect(sinifSay(oku('index.html'), algoritmaMi)).toBe(34)
   })
 
   it('aktif algoritmalar diziye bağlanır', () => {
@@ -865,7 +864,6 @@ describe('harita', () => {
       const beklenen = [...aktifler].filter((id) => algoritmaBul(id)?.faz.slug === faz.slug)
       expect(sinifSay(oku(`${faz.slug}/index.html`), aktifMi), faz.slug).toBe(beklenen.length)
     }
-    expect(sinifSay(oku('index.html'), aktifMi)).toBe(aktifler.size)
     for (const dizi of diziler().filter((d) => d.yayinda)) {
       const faz = asamaBul(dizi.alan)!.faz.slug
       expect(oku(`${faz}/index.html`), dizi.adres).toContain(`href="${dizi.adres}"`)
@@ -880,7 +878,7 @@ describe('harita', () => {
     // türer (sinifSay), elle yazılmaz.
     const aktifMi = (b: string) => b === 'algoritma--aktif'
     const solukMi = (b: string) => b === 'algoritma--soluk'
-    for (const yol of [...FAZ_SAYFALARI, 'index.html']) {
+    for (const yol of FAZ_SAYFALARI) {
       const html = oku(yol)
       const aktifBeklenen = sinifSay(html, aktifMi)
       const solukBeklenen = sinifSay(html, solukMi)
@@ -1035,7 +1033,7 @@ describe('harita', () => {
     // "1. 07 Allocation" hatası: <ol> kendi numarasını, bileşen haritanın
     // numarasını basıyordu. Numarayı kapatan kural paylaşılan stil
     // dosyasında; sayfanın bağladığı CSS'te gerçekten var mı diye bakılır.
-    for (const yol of [...FAZ_SAYFALARI, 'index.html']) {
+    for (const yol of FAZ_SAYFALARI) {
       const html = oku(yol)
       expect(html, yol).toContain('<ol class="faz-haritasi">')
       const stiller = [...html.matchAll(/<link rel="stylesheet" href="\/([^"]+)"/g)]
@@ -1056,22 +1054,19 @@ describe('harita', () => {
     expect(html).toContain('id="harita"')
   })
 
-  it('ana sayfada sezon ekseni yan yana, Diğer Süreçler altında, Temeller en altta', () => {
-    // Spec §0.1 madde 8. Yan yana duran iki faz .harita-fazlari grid'inin
-    // içinde; Diğer Süreçler grid'in dışında, Temeller rafından önce.
+  it('ana sayfada süreç hattı, faz kartları ve Temeller rafı sırayla', () => {
+    // Spec §3: tanım, süreç hattı, faz kartları, Temeller rafı. Menünün
+    // "Harita" çapası (id="harita") hattın bölümünde durur.
     const html = oku('index.html')
-    const grid = html.indexOf('class="harita-fazlari"')
-    const oncesi = html.indexOf('href="/sezon-oncesi/"', grid)
-    const ici = html.indexOf('href="/sezon-ici/"', grid)
-    const eksenDisi = html.indexOf('class="faz faz--eksen-disi"')
-    const diger = html.indexOf('href="/diger-surecler/"', grid)
+    const bolum = html.indexOf('id="harita"')
+    const hat = html.indexOf('<ol class="surec-hatti">')
+    const kartlar = html.indexOf('class="faz-kartlari"')
     const raf = html.indexOf('class="temeller-rafi"')
-    const sira = [grid, oncesi, ici, eksenDisi, diger, raf]
+    const sira = [bolum, hat, kartlar, raf]
     expect(sira.every((y) => y > -1), sira.join(',')).toBe(true)
     expect([...sira].sort((a, b) => a - b)).toEqual(sira)
-    // Diğer Süreçler grid'in içinde değil: grid'in kapanışı ondan önce.
-    const gridIci = html.slice(grid, eksenDisi)
-    expect(gridIci).not.toContain('href="/diger-surecler/"')
+    // Bölüm etiketi hattın hemen öncesinde açılır; arada başka bölüm yok.
+    expect(html.slice(bolum, hat)).not.toContain('<section')
   })
 
   it('Diğer Süreçler sayfası kendi fazıyla başlar ve 404 sayfası ona bağlanır', () => {
@@ -1115,5 +1110,105 @@ describe('harita', () => {
     const govde = html.slice(html.indexOf('<main'))
     expect(govde).toContain('href="/sozluk/"')
     expect(govde).toContain('href="/veri-seti/"')
+  })
+})
+
+/** Ana sayfadaki süreç hattının istasyonları, sırayla: açılış etiketi ve gövdesi. */
+function istasyonlar(html: string): { acilis: string; govde: string }[] {
+  return [...html.matchAll(/(<li class="istasyon[ "][^>]*>)([\s\S]*?)<\/li>/g)].map(
+    ([, acilis, govde]) => ({ acilis, govde }),
+  )
+}
+
+describe('ana sayfa süreç hattı', () => {
+  it('ana sayfada on beş istasyon', () => {
+    // Spec §3: 15 aşama, dolu = aktif, boş halka = soluk. Aktif sayısı
+    // içerikten türer (tests/yardimci/icerikDurumu.ts).
+    const html = oku('index.html')
+    expect(sinifSay(html, (b) => b === 'istasyon')).toBe(15)
+    const aktifBeklenen = asamalar().filter((a) => a.aktif).length
+    expect(aktifBeklenen).toBeGreaterThan(0)
+    expect(sinifSay(html, (b) => b === 'istasyon--aktif')).toBe(aktifBeklenen)
+    expect(sinifSay(html, (b) => b === 'istasyon--soluk')).toBe(15 - aktifBeklenen)
+    // Durum şekille birlikte metinle de iletilir.
+    for (const { acilis, govde } of istasyonlar(html)) {
+      const aktif = acilis.includes('istasyon--aktif')
+      expect(govde, acilis).toContain(`<span class="sr-only">${aktif ? 'yazıldı' : 'yazılmadı'}</span>`)
+    }
+  })
+
+  it('istasyonlar faz sırasıyla', () => {
+    const html = oku('index.html')
+    const sira = istasyonlar(html).map(({ acilis }) => acilis.match(/data-faz="([^"]+)"/)?.[1])
+    expect(sira).toEqual([
+      ...Array(6).fill('sezon-oncesi'),
+      ...Array(5).fill('sezon-ici'),
+      ...Array(4).fill('diger-surecler'),
+    ])
+    // Numara haritanın kendi numarası, iki haneli.
+    const numaralar = istasyonlar(html).map(({ govde }) => govde.match(/<span class="asama-no">(\d+)<\/span>/)?.[1])
+    expect(numaralar).toEqual(Array.from({ length: 15 }, (_, i) => String(i + 1).padStart(2, '0')))
+    // Segment başlıkları faz sayfasına bağlanır, hattın içinde.
+    const hat = html.slice(html.indexOf('<ol class="surec-hatti">'))
+    for (const faz of HARITA) expect(hat, faz.slug).toContain(`href="/${faz.slug}/"`)
+  })
+
+  it('aktif istasyon aşamaya ve dizisine bağlanır', () => {
+    const html = oku('index.html')
+    const aktifler = new Set(asamalar().filter((a) => a.aktif).map((a) => a.slug))
+    const yayindakiler = diziler().filter((d) => d.yayinda)
+    for (const { acilis, govde } of istasyonlar(html)) {
+      if (!acilis.includes('istasyon--aktif')) continue
+      const slug = [...aktifler].find((s) => govde.includes(`href="/${s}/"`))
+      expect(slug, acilis).toBeDefined()
+      for (const dizi of yayindakiler.filter((d) => asamaBul(d.alan)?.asama.slug === slug)) {
+        expect(govde, dizi.adres).toMatch(new RegExp(`class="dizi-etiketi" href="${dizi.adres}">[^<]+ · \\d+ yazı<`))
+      }
+    }
+  })
+
+  it('soluk istasyon bağlantısız', () => {
+    let soluk = 0
+    for (const { acilis, govde } of istasyonlar(oku('index.html'))) {
+      if (!acilis.includes('istasyon--soluk')) continue
+      soluk++
+      expect(govde, acilis).not.toContain('<a')
+    }
+    expect(soluk).toBeGreaterThan(0)
+  })
+
+  it('üç faz kartı', () => {
+    // Spec §3: faz adı (bağlantı), "a / t algoritma yazıldı". Aktif sayı
+    // içerikten türer; aktif aşaması olmayan faz "0 / N" gösterir.
+    const html = oku('index.html')
+    expect(sinifSay(html, (b) => b === 'faz-karti')).toBe(3)
+    const kartlar = [...html.matchAll(/<li class="faz-karti">([\s\S]*?)<\/li>/g)].map(([, g]) => g)
+    expect(kartlar.length).toBe(3)
+    const aktifler = aktifAlgoritmalar()
+    HARITA.forEach((faz, i) => {
+      const algoritmalar = faz.asamalar.flatMap((a) => a.algoritmalar)
+      const aktif = algoritmalar.filter((a) => aktifler.has(a.id)).length
+      expect(kartlar[i], faz.slug).toContain(`href="/${faz.slug}/"`)
+      expect(kartlar[i], faz.slug).toContain(`${aktif} / ${algoritmalar.length} algoritma yazıldı`)
+      const aktifAsamasiYok = asamalar().every((a) => a.faz !== faz.slug || !a.aktif)
+      if (aktifAsamasiYok) expect(kartlar[i], faz.slug).toContain(`0 / ${algoritmalar.length} algoritma yazıldı`)
+    })
+  })
+
+  it('ana sayfa artık algoritma listesini basmaz', () => {
+    // Algoritmalar faz sayfalarında (spec §3).
+    const html = oku('index.html')
+    expect(sinifSay(html, (b) => b.startsWith('algoritma--'))).toBe(0)
+    expect(html).not.toContain('algoritma--')
+  })
+
+  it('süreç hattı geniş ekranda yatay, dar ekranda dikey', () => {
+    // 64rem ve üstünde segment genişlikleri aşama sayısıyla orantılı (6/5/4).
+    const css = baglıCss(oku('index.html'))
+    expect(css).toMatch(/\.surec-hatti\{[^}]*list-style(-type)?:none/)
+    // Derlenmiş CSS medya sorgusunu aralık sözdizimine çevirir: (width>=64rem).
+    expect(css).toMatch(
+      /@media \((?:min-width:\s*|width>=)64rem\)\{[^@]*\.surec-hatti[,{][^}]*grid-template-columns:6fr 5fr 4fr/,
+    )
   })
 })

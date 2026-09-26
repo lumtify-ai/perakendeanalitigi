@@ -1,0 +1,23 @@
+---
+// site/src/components/FazKarti.astro
+//
+// Ana sayfadaki kompakt faz kartı (spec §3): faz adı faz sayfasına bağlanır,
+// altında ilerleme sayacı "a / t algoritma yazıldı" — faz sayfasının başında
+// yazan sayacın aynısı (fazIlerlemesi). Kart bir <li>; üç kart birlikte
+// .faz-kartlari listesinde durur.
+import type { Faz } from '../data/harita'
+import { fazIlerlemesi, type DiziBagi } from '../lib/haritaDurumu'
+
+interface Props {
+  faz: Faz
+  diziler: DiziBagi[]
+}
+
+const { faz, diziler } = Astro.props
+const ilerleme = fazIlerlemesi(faz, diziler)
+---
+
+<li class="faz-karti">
+  <a class="faz-karti-adi" href={`/${faz.slug}/`}>{faz.ad}</a>
+  <span class="faz-karti-ilerleme">{ilerleme.aktif} / {ilerleme.toplam} algoritma yazıldı</span>
+</li>
