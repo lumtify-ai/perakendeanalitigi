@@ -37,7 +37,7 @@ export const HARITA: Faz[] = [
       {
         no: 1,
         slug: 'mfp',
-        ad: 'Merchandise Financial Planning',
+        ad: 'Merchandise Financial Planning (MFP)',
         algoritmalar: [{ id: 'uzun-donem-talep', ad: 'Uzun dönem talep tahmini (makro)' }],
       },
       {
@@ -75,7 +75,7 @@ export const HARITA: Faz[] = [
       {
         no: 6,
         slug: 'magaza-kumeleme',
-        ad: 'Mağaza kümeleme',
+        ad: 'Mağaza kümeleme (Clustering)',
         algoritmalar: [{ id: 'magaza-gruplama', ad: 'Yapay zeka ile mağaza gruplama' }],
       },
     ],
@@ -135,7 +135,7 @@ export const HARITA: Faz[] = [
       {
         no: 12,
         slug: 'tedarik',
-        ad: 'Tedarik',
+        ad: 'Tedarik ve Üretim',
         algoritmalar: [
           { id: 'tedarikci-performans-secim', ad: 'Tedarikçi performans ve seçim öneri sistemi' },
         ],

@@ -122,6 +122,9 @@ describe('HARITA', () => {
   it('adlar spec §2 ile birebir', () => {
     expect(asamaBul('allocation')!.asama.ad).toBe('Allocation — ilk sevkiyat')
     expect(asamaBul('transfer')!.asama.ad).toBe('Mağazalar arası transfer')
+    expect(asamaBul('mfp')!.asama.ad).toBe('Merchandise Financial Planning (MFP)')
+    expect(asamaBul('magaza-kumeleme')!.asama.ad).toBe('Mağaza kümeleme (Clustering)')
+    expect(asamaBul('tedarik')!.asama.ad).toBe('Tedarik ve Üretim')
   })
 
   it('TEMELLER harita dışı sabit bir alan adıdır', () => {
