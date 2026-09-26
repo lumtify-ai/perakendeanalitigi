@@ -32,7 +32,7 @@ Bir sınıflandırıcı kurmak kolay. Neyi sınıflandırdığını tanımlamak 
 "Ürün tuttu mu" iyi bir etiket değildir; tutan ama geç fark edilen ürün
 için RPT artık değersizdir. Kullandığımız tanım şu:
 
-> Bu pazartesi RPT verilseydi, tedarik süresi sonra gelen maldan **en az
+> Bu pazartesi RPT verilseydi, tedarik süresi dolunca gelen maldan **en az
 > MOQ'nun yarısı tam fiyattan satılır mıydı?**
 
 Sipariş miktarı, bir sonraki yazıda kuracağımız hesabın önerdiği miktar
@@ -163,14 +163,17 @@ sorusu.
 Stoklu mağaza payının eksi işaretli olması da sezgisel: mağazaların
 çoğunda hâlâ mal varsa ürün henüz tükenmemiştir, acele yoktur.
 
-## Neden lojistik regresyon?
+## Hangisi?
 
 LightGBM daha az alarm veriyor ama daha çok kaçırıyor; kârda ikisi
-başa baş. Satır sayısı küçük, pozitif sayısı daha da küçük. Böyle bir
-veride esnek bir model fazladan bir şey öğrenemiyor, lojistik regresyon
-ise bir buyer'a "bu ürün neden aday" sorusunun cevabını tek tabloda
-veriyor. Replenishment dizisinin tezi burada da geçerli: karmaşıklık
-kendini ölçümle kazanmalı.
+başa baş. Sonraki yazılardaki oyunlarda "öneri" kolu LightGBM ile
+koşturuldu; aynı oyunlar lojistik regresyonla da koşturuldu ve sonuç yine
+başa baş çıktı (altıncı yazıda). Satır sayısı küçük, pozitif sayısı daha da
+küçük. Böyle bir veride esnek bir model fazladan bir şey öğrenemiyor;
+lojistik regresyon ise bir buyer'a "bu ürün neden aday" sorusunun cevabını
+tek tabloda veriyor. Ben olsam lojistiği seçerdim.
+Replenishment dizisinin tezi burada da geçerli: karmaşıklık kendini
+ölçümle kazanmalı.
 
 ## Bir uyarı
 

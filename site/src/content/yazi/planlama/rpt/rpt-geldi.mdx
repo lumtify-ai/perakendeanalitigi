@@ -77,7 +77,7 @@ hafta önce geldiği için satış neredeyse hiç artmıyor ve kâr, RPT hiç
 verilmeseydi kazanılacak olanın altında kalıyor.
 
 Depoda kalan mal bir dağıtım hatasıydı. Ama asıl hata o gün değil, on
-dört hafta önce yapılmıştı. Beşinci yazının hesabı bu ürün için üçüncü
+beş hafta önce yapılmıştı. Beşinci yazının hesabı bu ürün için üçüncü
 pazartesi sıfır diyordu. **Dağıtım, kararın hatasını düzeltemez;** yalnız
 görünür olmasını geciktirir.
 
@@ -85,7 +85,11 @@ görünür olmasını geciktirir.
 
 Şimdi kolların tamamı. Her kol aynı talebi yaşıyor; fark yalnız RPT
 kararında ve RPT'nin dağıtımında. Karşılaştırma tabanı hiç RPT
-verilmeyen sezon. Sonbahar-kış:
+verilmeyen sezon. Buradaki kâr farkları bütün Collection'ı kapsıyor,
+beşinci yazıdakiler yalnız RPT verilen ürünleri; aradaki küçük fark
+aşağıda anlatılan gürültü payı. "Öneri" LightGBM'li aday modeliyle;
+lojistik regresyonla sonbahar-kışta 5.148.489 TL, ilkbahar-yazda
+1.574.436 TL, yani başa baş. Sonbahar-kış:
 
 | Kol | RPT adedi | Çıkışta depoda | Kurtarılan kayıp satış | Δ brüt kâr |
 |---|---:|---:|---:|---:|
@@ -133,7 +137,9 @@ pazartesi sabahına kadar olanı.
 ## Şans mı?
 
 Aynı beklenen talepten, farklı tohumlarla on alternatif sezon ürettik ve
-kolları hepsinde yeniden koşturduk. Öneri ile d dağıtımı, Banu'nun
+kolları hepsinde yeniden koşturduk. Dağıtım kuralı her yolda oyundan
+önce yeniden seçildi: on yolun sekizinde d, ikisinde b. Öneri ile bu
+dağıtım, Banu'nun
 kuralı ile bugünkü dağıtıma göre sonbahar-kışta medyan **11.560.400 TL**,
 ilkbahar-yazda medyan **6.057.818 TL** daha kârlı; on yolun onunda aynı
 yönde. Yalnız dağıtımı değiştirmenin kazancı da on yolun onunda pozitif.

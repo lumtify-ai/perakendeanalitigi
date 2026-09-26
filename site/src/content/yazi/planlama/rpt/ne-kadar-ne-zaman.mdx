@@ -32,8 +32,8 @@ $C_u$ bir eksik birimin, $C_o$ bir fazla birimin bedeli. Oran büyükse
 cesur, küçükse temkinli davranır. Buna kritik oran denir.
 
 RPT aynı problemin sezon içindeki hâli, üç farkla. Talep dağılımı
-**bugünkü kestirimden** geliyor, geçmişten değil. Mal bugün değil tedarik
-süresi sonra geliyor. Ve fazla birim çöpe gitmiyor, indirime kalıyor.
+**bugünkü kestirimden** geliyor, geçmişten değil. Mal bugün değil, tedarik
+süresi dolunca geliyor. Ve fazla birim çöpe gitmiyor, indirime kalıyor.
 
 ## Lumoda'nın terazisi
 
@@ -100,9 +100,9 @@ Dört yöntemin aynı sabah söyledikleri:
 | Kâhin (gerçek talebi bilen, ikinci pazartesi) | 4.170 |
 
 Newsvendor, Banu'nun üç katından fazlasını istiyor. Beklenen satış
-1.198'i tam fiyattan, 2.099'u indirimde. Siparişin kârının büyük kısmı
-indirim döneminden geliyor, çünkü Lumoda'da indirimli fiyat bile maliyetin
-üstünde.
+1.198'i tam fiyattan, 2.099'u indirimde. Satışın büyük kısmı indirim
+döneminde, ve newsvendor buna rağmen sipariş veriyor, çünkü Lumoda'da
+indirimli fiyat bile maliyetin üstünde.
 
 Uzak Doğu'daki tişörtün üçüncü pazartesisi ise tamamen başka:
 
@@ -135,7 +135,8 @@ aynı.
 Kolları aynı talep üzerinde koşturup, hiç RPT verilmeyen bir sezona göre
 brüt kâr farkını ölçelim. Hepsinde gelen mal, altıncı yazıda anlatacağımız
 en iyi dağıtım kuralıyla mağazalara gidiyor; yani fark yalnız **karardan**
-geliyor.
+geliyor. Tablolar yalnız RPT verilen ürünlerin kâr farkını topluyor; "öneri"
+kolu LightGBM'li aday modeliyle koşturuldu.
 
 Sonbahar-kış sezonu:
 
@@ -164,7 +165,7 @@ Yerli tarafta Banu'nun kuralı sonbahar-kışta para kazandırıyor ama
 önerinin yarısından az; ilkbahar-yazda kaybettiriyor. Miktar sabit
 olduğu için hit'lerde az, sıradan ürünlerde fazla sipariş veriyor.
 
-FRR kuralı temkinli ve isabetli: az sipariş veriyor, çoğunda kazanıyor.
+FRR kuralı temkinli: az sipariş veriyor, yerli siparişlerinde kazanıyor.
 Sansürlü veriyle ölçeklendiği için talebi düşük kestiriyor ve hit'lerde
 kazanabileceğinin bir kısmını bırakıyor.
 

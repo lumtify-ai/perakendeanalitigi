@@ -48,7 +48,8 @@ küçük bir kısmı yaşanmış.
 
 **b** hızı stoklu güne böler ve sezonun geri kalanına aynı hızla yayar.
 Hız doğru olsa bile yanılır, çünkü ürün yaşlandıkça yavaşlar; b bunu
-görmez ve **yukarı** yanılır.
+görmez ve ortalamada **yukarı** yanılır. Şortta gerçeğin altında kalıyor,
+çünkü şort ortalamanın çok üstünde bir ürün.
 
 **c** literatürdeki kuralın kendisi. Fisher, Rajaram ve Raman'ın
 çalıştığı perakendecinin kullandığı hesap: ilk haftaların satışını,
@@ -90,15 +91,14 @@ görünen, sahada kullanılan hesaplar. İkisinin de hatası sistematik.
 
 **Üçüncüsü, zaman geçtikçe d iyileşiyor ama yavaş.** İkinci haftadan
 altıncı haftaya hata %16'dan %11'e iniyor. Dört hafta beklemek beş puan
-kazandırıyor. Önceki yazıdaki tabloyu hatırlayın: Uzak Doğu'dan gelen bir
-üründe dört hafta beklemek, RPT'nin gelişinde eğriden geriye kalanı
-sıfırlamak demek. Tahminin iyileşmesi ile zamanın tükenmesi arasındaki
+kazandırıyor. İlk yazıdaki Uzak Doğu tişörtünü hatırlayın: üçüncü
+pazartesi verilen sipariş gelişinde indirime kadarki eğriden %3,8
+buluyordu; altıncı pazartesi verilseydi %0,0 bulacaktı. Tahminin iyileşmesi ile zamanın tükenmesi arasındaki
 yarış RPT'nin ta kendisi.
 
 Sonbahar-kış sezonunda aynı tablo biraz daha zayıf: d katmanı ikinci
-haftada %20, plan %55. Sebebi eğri. Sonbahar-kışın eğrisi tek bir
-ilkbahar-yaz sezonundan öğreniliyor; ikinci sezona elimizde yalnız bir
-geçmiş sezon var.
+haftada %20, plan %55. Sebebi eğri. Sonbahar-kış sınavın ilk sezonu ve
+eğrisi, ondan önce kapanmış tek sezondan, bir ilkbahar-yazdan öğreniliyor.
 
 ## Stoklu gün: SQL
 
@@ -239,8 +239,8 @@ konusu bu.
 - Sezon talebini ilk haftalardan kestirmek için eğrinin **şeklini**
   geçmişten, **seviyesini** bu sezondan alın. Eğriyi de sansürden
   arındırın.
-- Böyle yapılınca ikinci haftanın sonunda hata planın üçte birinin
-  altına iniyor. Sonraki haftalarda iyileşme yavaş; zaman ise hızlı
+- Böyle yapılınca ilkbahar-yazda ikinci haftanın sonunda hata planın
+  hatasının üçte birine iniyor. Sonraki haftalarda iyileşme yavaş; zaman ise hızlı
   akıyor.
 
 Sonraki yazıda bu kestirimi kullanarak ilk soruya dönüyoruz: bu ürün
