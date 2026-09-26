@@ -4,8 +4,6 @@
 // **dosya ağacının kendisi şemadır.** src/lib/dogrula.ts bulduğu dosyaların
 // *içini* doğrular; burası *hangi dosyanın nerede durduğunu* doğrular.
 //
-import { asamaBul, TEMELLER } from '../data/harita'
-
 // Bu ayrım keyfi değil: ağaç bozukken içerik kontrolleri yanıltıcı hata
 // üretir (örneğin alan dosyası eksik bir dizinin yazıları "tanımsız alan"
 // diye tek tek raporlanır, asıl eksik olan tek bir dosyadır). Bu yüzden
@@ -30,6 +28,8 @@ import { asamaBul, TEMELLER } from '../data/harita'
 //      göründüğü kod okunmadan anlaşılmaz.
 //   8. Harita aşaması olan ama altında hiç dizisi olmayan alan dosyası —
 //      aşama sayfası boş kalır, build bunu hata saymaz.
+
+import { asamaBul, TEMELLER } from '../data/harita'
 
 /** Alan `tanim` alanının asgari uzunluğu. Bir tanım cümlesi bundan kısa olmaz. */
 export const TANIM_ASGARI_UZUNLUK = 40
