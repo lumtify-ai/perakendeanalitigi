@@ -1,0 +1,41 @@
+---
+// site/src/components/FazHaritasi.astro
+//
+// Bir fazın aşamaları ve algoritmaları. Aktif aşamanın adı kendi sayfasına
+// bağlanır; öteki aşamaların sayfası yoktur, adları düz metin kalır.
+// Başlık seviyesi dışarıdan gelir: faz sayfasında aşamalar h2, ana sayfada
+// faz adı h2 olduğu için h3.
+import type { Faz } from '../data/harita'
+import { asamaAktifMi, type DiziBagi } from '../lib/haritaDurumu'
+import AlgoritmaSatiri from './AlgoritmaSatiri.astro'
+
+interface Props {
+  faz: Faz
+  diziler: DiziBagi[]
+  baslikSeviyesi?: 2 | 3
+}
+
+const { faz, diziler, baslikSeviyesi = 2 } = Astro.props
+const Baslik = `h${baslikSeviyesi}` as 'h2' | 'h3'
+---
+
+<ol class="faz-haritasi">
+  {
+    faz.asamalar.map((asama) => {
+      const aktif = asamaAktifMi(asama, diziler)
+      return (
+        <li class={`asama asama--${aktif ? 'aktif' : 'soluk'}`}>
+          <Baslik class="asama-basligi">
+            <span class="asama-no">{String(asama.no).padStart(2, '0')}</span>{' '}
+            {aktif ? <a href={`/${asama.slug}/`}>{asama.ad}</a> : <span>{asama.ad}</span>}
+          </Baslik>
+          <ul class="algoritmalar">
+            {asama.algoritmalar.map((algoritma) => (
+              <AlgoritmaSatiri algoritma={algoritma} diziler={diziler} />
+            ))}
+          </ul>
+        </li>
+      )
+    })
+  }
+</ol>

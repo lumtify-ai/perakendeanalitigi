@@ -6,6 +6,7 @@ import { diziYazilari } from '../../../lib/agac'
 import { yaziYolunuAyristir } from '../../../lib/yol'
 import { zorunlu } from '../../../lib/zorunlu'
 import { alanBasligi } from '../../../lib/alanBasligi'
+import { fazBasamagi } from '../../../lib/haritaGirdisi'
 
 export async function getStaticPaths() {
   const yazilar = await getCollection('yazi')
@@ -45,6 +46,7 @@ const diziAdresi = `/${yol.alan}/${yol.dizi}/`
   yazar={girdi.data.yazar}
   durum={girdi.data.durum}
   basamaklar={[
+    ...fazBasamagi(yol.alan),
     { ad: alanBasligi(yol.alan, alanGirdi.data), adres: `/${yol.alan}/` },
     { ad: diziGirdi.data.baslik, adres: diziAdresi },
     { ad: girdi.data.baslik },

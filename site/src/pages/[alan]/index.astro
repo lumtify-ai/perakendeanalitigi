@@ -3,8 +3,11 @@
 import { getCollection, render } from 'astro:content'
 import Temel from '../../layouts/Temel.astro'
 import KirintiYolu from '../../components/KirintiYolu.astro'
+import AlgoritmaSatiri from '../../components/AlgoritmaSatiri.astro'
+import { asamaBul } from '../../data/harita'
 import { alanYazilari } from '../../lib/agac'
 import { alanBasligi } from '../../lib/alanBasligi'
+import { diziBaglari, fazBasamagi } from '../../lib/haritaGirdisi'
 
 export async function getStaticPaths() {
   const alanlar = await getCollection('alan')
@@ -24,6 +27,11 @@ const tekilYazilar = alanYazilari(tumYazilar, girdi.id)
 
 const baslik = alanBasligi(girdi.id, girdi.data)
 
+// Temeller haritada yok: onun yerine algoritma bölümü değil, raf
+// bağlantıları (Sözlük, Veri seti) basılır.
+const asama = asamaBul(girdi.id)?.asama
+const baglar = diziBaglari(tumDiziler, tumYazilar)
+
 const isaretleme = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
@@ -34,7 +42,7 @@ const isaretleme = {
 ---
 
 <Temel baslik={baslik} aciklama={girdi.data.tanim} isaretleme={isaretleme}>
-  <KirintiYolu basamaklar={[{ ad: baslik }]} />
+  <KirintiYolu basamaklar={[...fazBasamagi(girdi.id), { ad: baslik }]} />
 
   <h1>{baslik}</h1>
 
@@ -44,9 +52,22 @@ const isaretleme = {
   <Content />
 
   {
-    diziler.length > 0 && (
+    asama && (
       <section>
         <h2>Algoritmalar</h2>
+        <ul class="algoritmalar">
+          {asama.algoritmalar.map((algoritma) => (
+            <AlgoritmaSatiri algoritma={algoritma} diziler={baglar} />
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  {
+    diziler.length > 0 && (
+      <section>
+        <h2>Diziler</h2>
         <ul class="dizi-kartlari">
           {diziler.map((dizi) => {
             const [, diziId] = dizi.id.split('/')
@@ -77,6 +98,18 @@ const isaretleme = {
               <p>{yazi.ozet}</p>
             </li>
           ))}
+        </ul>
+      </section>
+    )
+  }
+
+  {
+    !asama && (
+      <section>
+        <h2>Başvuru</h2>
+        <ul>
+          <li><a href="/sozluk/">Sözlük</a> — terimlerin tanımları</li>
+          <li><a href="/veri-seti/">Veri seti</a> — bütün vakaların kullandığı veri</li>
         </ul>
       </section>
     )

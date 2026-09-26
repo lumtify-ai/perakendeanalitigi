@@ -7,6 +7,7 @@ import Rozet from '../../../components/Rozet.astro'
 import { diziYazilari } from '../../../lib/agac'
 import { zorunlu } from '../../../lib/zorunlu'
 import { alanBasligi } from '../../../lib/alanBasligi'
+import { fazBasamagi } from '../../../lib/haritaGirdisi'
 
 export async function getStaticPaths() {
   const diziler = await getCollection('dizi')
@@ -45,6 +46,7 @@ const isaretleme = {
 <Temel baslik={girdi.data.baslik} aciklama={girdi.data.ozet} isaretleme={isaretleme}>
   <KirintiYolu
     basamaklar={[
+      ...fazBasamagi(alanId),
       { ad: alanBasligi(alanId, alanGirdi.data), adres: `/${alanId}/` },
       { ad: girdi.data.baslik },
     ]}

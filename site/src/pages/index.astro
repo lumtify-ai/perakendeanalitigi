@@ -1,33 +1,26 @@
 ---
 // site/src/pages/index.astro
-import { getCollection } from 'astro:content'
+//
+// Ana sayfa haritanın kendisidir: Lumtify planlama haritasının iki fazı yan
+// yana, altında harita dışı Temeller rafı. Aşama ve algoritmaların sırası
+// src/data/harita.ts'den gelir; bu dosya sıra tutmaz.
+import { getCollection, getEntry } from 'astro:content'
 import Temel from '../layouts/Temel.astro'
-import { alanYazilari, diziYazilari } from '../lib/agac'
+import FazHaritasi from '../components/FazHaritasi.astro'
+import { HARITA, TEMELLER } from '../data/harita'
+import { alanYazilari } from '../lib/agac'
 import { alanBasligi } from '../lib/alanBasligi'
-import { asamaBul } from '../data/harita'
+import { diziBaglari } from '../lib/haritaGirdisi'
+import { zorunlu } from '../lib/zorunlu'
 
-const [alanlar, diziler, yazilar] = await Promise.all([
-  getCollection('alan'),
+const [diziler, yazilar, hamTemeller] = await Promise.all([
   getCollection('dizi'),
   getCollection('yazi'),
+  getEntry('alan', TEMELLER),
 ])
-
-// Geçici: aşamalar harita sırasıyla, Temeller (haritada yok) başta. Ana
-// sayfanın faz düzenine geçişi ayrı bir adımda.
-const sirali = alanlar.sort(
-  (a, b) => (asamaBul(a.id)?.asama.no ?? 0) - (asamaBul(b.id)?.asama.no ?? 0),
-)
-
-const agac = sirali.map((alan) => ({
-  alan,
-  diziler: diziler
-    .filter((d) => d.data.alan === alan.id)
-    .map((dizi) => {
-      const [, diziId] = dizi.id.split('/')
-      return { dizi, diziId, yazilar: diziYazilari(yazilar, alan.id, diziId) }
-    }),
-  tekilYazilar: alanYazilari(yazilar, alan.id),
-}))
+const baglar = diziBaglari(diziler, yazilar)
+const temeller = zorunlu(hamTemeller, 'alan', TEMELLER)
+const temelYazilari = alanYazilari(yazilar, TEMELLER)
 
 const TANIM =
   'Perakende analitiği, mağaza ve ürün verisini kullanarak stok, fiyat ve ' +
@@ -46,41 +39,38 @@ const TANIM =
     değildir.
   </p>
 
-  {/* Üst menüdeki "Alanlar" bağlantısının hedefi (tasarım dokümanı §9) */}
-  <section id="alanlar" class="agac">
-    <h2 class="agac-basligi">Alanlar</h2>
+  {/* Üst menüdeki "Harita" bağlantısının hedefi (tasarım dokümanı §9) */}
+  <section id="harita" class="harita">
+    <div class="harita-fazlari">
+      {
+        HARITA.map((faz) => (
+          <section class="faz">
+            <h2>
+              <a href={`/${faz.slug}/`}>{faz.ad}</a>
+            </h2>
+            <FazHaritasi faz={faz} diziler={baglar} baslikSeviyesi={3} />
+          </section>
+        ))
+      }
+    </div>
 
-  {
-    agac.map(({ alan, diziler: altDiziler, tekilYazilar }) => (
-      <section class="alan-bolumu">
-        <h3>
-          <a href={`/${alan.id}/`}>{alanBasligi(alan.id, alan.data)}</a>
-        </h3>
-        <p>{alan.data.tanim}</p>
-
-        {altDiziler.length > 0 && (
-          <ul class="dizi-listesi">
-            {altDiziler.map(({ dizi, diziId, yazilar: uyeler }) => (
-              <li>
-                <a href={`/${alan.id}/${diziId}/`}>{dizi.data.baslik}</a>
-                <span class="sayac"> · {uyeler.length} yazı</span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {tekilYazilar.length > 0 && (
-          <ul class="yazi-listesi">
-            {tekilYazilar.map((yazi) => (
-              <li>
-                <a href={yazi.adres}>{yazi.baslik}</a>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    ))
-  }
+    <section class="temeller-rafi">
+      <h2>
+        <a href={`/${TEMELLER}/`}>{alanBasligi(TEMELLER, temeller.data)}</a>
+      </h2>
+      <p>{temeller.data.tanim}</p>
+      <ul class="yazi-listesi">
+        {
+          temelYazilari.map((yazi) => (
+            <li>
+              <a href={yazi.adres}>{yazi.baslik}</a>
+            </li>
+          ))
+        }
+        <li><a href="/sozluk/">Sözlük</a> — terimlerin tanımları</li>
+        <li><a href="/veri-seti/">Veri seti</a> — bütün vakaların kullandığı veri</li>
+      </ul>
+    </section>
   </section>
 
   <section class="kim-yaziyor">

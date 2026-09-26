@@ -146,3 +146,13 @@ body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-bl
    kurtarır. Kalanlar için yatay kaydırma yedek: formülü satır sonundan
    sarmak matematiği bozacağı için kaydırma doğru davranıştır. */
 @media (max-width: 34rem) { .katex-display { font-size: .92em } }
+/* --- Harita (src/components/FazHaritasi.astro) ------------------------
+   En sade hâli: yalnızca soluk öğeler ikincil metin rengini alır ve iki
+   faz geniş ekranda yan yana durur. Görünüş tasarım turunda bu sınıflara
+   bağlanacak. */
+.harita-fazlari { display: grid; gap: 0 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+.asama--soluk .asama-basligi, .algoritma--soluk,
+.algoritma--deginilmis > .algoritma-adi { color: var(--soluk) }
+.algoritma-dizileri a + a::before, .deginme-notu a + a::before { content: " · " }
+.algoritma-dizileri, .deginme-notu { font-family: var(--arayuz); font-size: .875rem; margin-left: .35rem }

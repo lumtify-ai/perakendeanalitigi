@@ -1,0 +1,41 @@
+---
+// site/src/pages/sezon-oncesi.astro
+//
+// Faz sayfası. Faz adreste görünmez (aşama adresi /<aşama>/ kalır); bu
+// sayfa yalnızca gezinmenin ve kırıntı yolunun başıdır. Kök adın ayrılmış
+// olduğu src/data/harita.ts'deki AYRILMIS_KOK_ADLAR'da yazılı.
+import { getCollection } from 'astro:content'
+import Temel from '../layouts/Temel.astro'
+import KirintiYolu from '../components/KirintiYolu.astro'
+import FazHaritasi from '../components/FazHaritasi.astro'
+import { diziBaglari, fazAl } from '../lib/haritaGirdisi'
+
+const faz = fazAl('sezon-oncesi')
+const [diziler, yazilar] = await Promise.all([getCollection('dizi'), getCollection('yazi')])
+const baglar = diziBaglari(diziler, yazilar)
+
+const GIRIS =
+  'Sezon öncesi, ürün rafa çıkmadan verilen kararların dönemidir. Bütçe, ' +
+  'koleksiyonun genişliği, ürünün fiyatı, hangi mağazaya gideceği ve kimden ' +
+  'alınacağı bu dönemde belirlenir. Elde henüz satış yoktur; geçen sezonun ' +
+  'benzer ürünleri ve bir tahmin vardır. Burada verilen karar sezon boyunca ' +
+  'taşınır: az alınan ürün yeniden sipariş edilmeden çoğalmaz, çok alınan ' +
+  'ürün indirim yapılmadan erimez.'
+
+const isaretleme = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: faz.ad,
+  description: GIRIS,
+  inLanguage: 'tr',
+}
+---
+
+<Temel baslik={faz.ad} aciklama={GIRIS} isaretleme={isaretleme}>
+  <KirintiYolu basamaklar={[{ ad: faz.ad }]} />
+
+  <h1>{faz.ad}</h1>
+  <p class="tanim">{GIRIS}</p>
+
+  <FazHaritasi faz={faz} diziler={baglar} />
+</Temel>

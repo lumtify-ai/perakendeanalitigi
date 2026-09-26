@@ -262,7 +262,12 @@ describe('alan sayfası', () => {
   // alanGovdeleriDogrula, tests/dogrula.test.ts); burada yalnizca sonucun
   // gercekten oyle oldugu, hem de her alan sayfasi icin dogrulaniyor.
   it('alan sayfası kod içermez', () => {
-    for (const alan of ['transfer/index.html', 'temeller/index.html']) {
+    for (const alan of [
+      'transfer/index.html',
+      'temeller/index.html',
+      'rpt/index.html',
+      'replenishment/index.html',
+    ]) {
       expect(oku(alan), alan).not.toContain('<pre')
     }
   })
@@ -488,11 +493,12 @@ describe('site geneli vaatler', () => {
 })
 
 describe('üst menü', () => {
-  // Tasarım dokümanı §9. "Alanlar" bağlantısı olmadan derin bir yazı
-  // sayfasından alanların listesine giden üst düzey bir yol yoktu.
+  // Tasarım dokümanı §9. Menüdeki çapa olmadan derin bir yazı sayfasından
+  // haritaya giden üst düzey bir yol yoktu. Çapa önce "Alanlar"dı; içerik
+  // ağacı Lumtify haritasına oturunca "Harita" oldu.
   it('beş bağlantıyı da her sayfada basar', () => {
     for (const { yol, html } of tumSayfalar()) {
-      expect(html, yol).toContain('href="/#alanlar"')
+      expect(html, yol).toContain('<a href="/#harita">Harita</a>')
       expect(html, yol).toContain('href="/veri-seti/"')
       expect(html, yol).toContain('href="/sozluk/"')
       expect(html, yol).toContain('href="/kadro/"')
@@ -512,8 +518,8 @@ describe('üst menü', () => {
     expect(menu).toContain('rel="noopener"')
   })
 
-  it('Alanlar bağlantısının hedefi ana sayfada gerçekten var', () => {
-    expect(oku('index.html')).toContain('id="alanlar"')
+  it('Harita bağlantısının hedefi ana sayfada gerçekten var', () => {
+    expect(oku('index.html')).toContain('id="harita"')
   })
 })
 
@@ -733,5 +739,99 @@ describe('adresler', () => {
     for (const desen of desenler) expect(yonlendirmeler).toMatch(desen)
     const yerler = desenler.map((desen) => yonlendirmeler.search(desen))
     expect(yerler[0]).toBeLessThan(yerler[2])
+  })
+})
+
+/**
+ * Bir sınıf belirtecini taşıyan öğe sayısı. Ham metinde saymak yanlış olur:
+ * Astro bileşen CSS'ini sayfaya gömebilir ve aynı sınıf adı orada da geçer.
+ * Yalnızca işaretlemedeki class="..." değerlerine bakılır.
+ */
+function sinifSay(html: string, uyar: (belirtec: string) => boolean): number {
+  let sayi = 0
+  for (const [, deger] of html.matchAll(/class="([^"]*)"/g)) {
+    if (deger.split(/\s+/).some(uyar)) sayi++
+  }
+  return sayi
+}
+
+const FAZ_SAYFALARI = ['sezon-oncesi/index.html', 'sezon-ici/index.html']
+
+describe('harita', () => {
+  it('faz sayfaları üretilir', () => {
+    for (const yol of FAZ_SAYFALARI) expect(existsSync(DIST + yol), yol).toBe(true)
+    expect(sinifSay(oku('sezon-ici/index.html'), (b) => b === 'asama')).toBe(8)
+    expect(sinifSay(oku('sezon-oncesi/index.html'), (b) => b === 'asama')).toBe(7)
+  })
+
+  it('otuz sekiz algoritmanın hepsi görünür', () => {
+    const algoritmaMi = (b: string) => b.startsWith('algoritma--')
+    const toplam = FAZ_SAYFALARI.reduce((t, yol) => t + sinifSay(oku(yol), algoritmaMi), 0)
+    expect(toplam).toBe(38)
+    expect(sinifSay(oku('index.html'), algoritmaMi)).toBe(38)
+  })
+
+  it('aktif algoritmalar diziye bağlanır', () => {
+    const html = oku('sezon-ici/index.html')
+    expect(html).toContain('href="/replenishment/depodan-magazaya/"')
+    expect(html).toContain('href="/rpt/tekrar-siparis/"')
+    expect(html).toContain('href="/transfer/blok-transfer/"')
+    expect(sinifSay(html, (b) => b === 'algoritma--aktif')).toBe(4)
+  })
+
+  it('değinme notu üretilmiş bir dizi kapağına gider', () => {
+    for (const yol of FAZ_SAYFALARI) {
+      const html = oku(yol)
+      const notlar = [...html.matchAll(/<span class="deginme-notu">([\s\S]*?)<\/span>/g)]
+      for (const [, not] of notlar) {
+        for (const [, adres] of not.matchAll(/href="([^"]+)"/g)) {
+          expect(existsSync(DIST + adres.replace(/^\//, '') + 'index.html'), `${yol} → ${adres}`).toBe(
+            true,
+          )
+        }
+      }
+    }
+    // Yaşam eğrisi Sezon Öncesi'nde; ona RPT dizisi değiniyor.
+    const oncesi = oku('sezon-oncesi/index.html')
+    expect(sinifSay(oncesi, (b) => b === 'deginme-notu')).toBeGreaterThanOrEqual(1)
+    expect(oncesi).toContain('href="/rpt/tekrar-siparis/"')
+  })
+
+  it('soluk aşamaya bağlantı yok ve sayfası üretilmez', () => {
+    for (const asama of ['indirim', 'crm', 'mfp']) {
+      expect(existsSync(DIST + asama), asama).toBe(false)
+    }
+    for (const yol of FAZ_SAYFALARI) expect(oku(yol), yol).not.toContain('href="/indirim/"')
+  })
+
+  it('ana sayfa iki fazı ve Temeller rafını gösterir', () => {
+    const html = oku('index.html')
+    expect(html).toContain('href="/sezon-oncesi/"')
+    expect(html).toContain('href="/sezon-ici/"')
+    expect(html).toContain('href="/temeller/"')
+    expect(html).toContain('id="harita"')
+  })
+
+  it('kırıntı yolu fazla başlar', () => {
+    const kirinti = (yol: string) => {
+      const html = oku(yol)
+      const bas = html.indexOf('class="kirinti"')
+      expect(bas, yol).toBeGreaterThan(-1)
+      return html.slice(bas, html.indexOf('</nav>', bas))
+    }
+    const yazi = kirinti('replenishment/depodan-magazaya/sabahki-toplama-emri/index.html')
+    const sira = ['href="/sezon-ici/"', 'Sezon İçi', 'Replenishment', 'Depodan Mağazaya']
+    const yerler = sira.map((parca) => yazi.indexOf(parca))
+    expect(yerler.every((y) => y > -1), yerler.join(',')).toBe(true)
+    expect([...yerler].sort((a, b) => a - b)).toEqual(yerler)
+
+    expect(kirinti('temeller/urun-hiyerarsisi/index.html')).not.toContain('Sezon')
+  })
+
+  it('Temeller rafı sözlüğe ve veri setine bağlanır', () => {
+    const html = oku('temeller/index.html')
+    const govde = html.slice(html.indexOf('<main'))
+    expect(govde).toContain('href="/sozluk/"')
+    expect(govde).toContain('href="/veri-seti/"')
   })
 })

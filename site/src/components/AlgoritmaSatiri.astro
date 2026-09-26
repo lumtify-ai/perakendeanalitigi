@@ -1,0 +1,40 @@
+---
+// site/src/components/AlgoritmaSatiri.astro
+//
+// Haritadaki tek bir algoritma, üç durumdan biriyle (src/lib/haritaDurumu.ts).
+// Faz sayfası, ana sayfa ve aşama sayfası aynı satırı basar ki bir durumun
+// görünüşü üç yerde ayrışmasın. Sınıf adları sabittir; tasarım turu onlara
+// bağlanacak.
+import type { Algoritma } from '../data/harita'
+import { algoritmaDurumu, type DiziBagi } from '../lib/haritaDurumu'
+
+interface Props {
+  algoritma: Algoritma
+  diziler: DiziBagi[]
+}
+
+const { algoritma, diziler } = Astro.props
+const durum = algoritmaDurumu(algoritma.id, diziler)
+---
+
+<li class={`algoritma algoritma--${durum.tur}`}>
+  <span class="algoritma-adi">{algoritma.ad}</span>
+  {
+    durum.tur === 'aktif' && (
+      <span class="algoritma-dizileri">
+        {durum.diziler.map((dizi) => (
+          <a href={dizi.adres}>{dizi.baslik}</a>
+        ))}
+      </span>
+    )
+  }
+  {
+    durum.tur === 'deginilmis' && (
+      <span class="deginme-notu">
+        {durum.diziler.map((dizi) => (
+          <a href={dizi.adres}>{dizi.baslik} dizisinde değinildi →</a>
+        ))}
+      </span>
+    )
+  }
+</li>
