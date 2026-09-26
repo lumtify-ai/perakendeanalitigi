@@ -1,8 +1,8 @@
 /* site/src/styles/site.css
  *
  * Yapı: (1) font yüzleri, (2) tema simgeleri, (3) ortak temel.
- * Tema: "Editorial sıcak" — gövde ve başlık IBM Plex Serif, arayüz Plex
- * Sans, kod Plex Mono; kağıt tonunda sıcak zemin, derin çivit vurgu.
+ * Tema: Lumtify ailesi — gövde ve başlık IBM Plex Serif, arayüz Plex
+ * Sans, kod Plex Mono; soğuk kırık beyaz zemin, derin lacivert vurgu.
  * Karanlık sürüm prefers-color-scheme ile, saf CSS (site JavaScript
  * içermez). Fontlar depoya gömülü — hiçbir harici istek yok.
  */
@@ -20,10 +20,14 @@
 @import "@fontsource/ibm-plex-mono/latin-600.css";
 @import "@fontsource/ibm-plex-mono/latin-ext-400.css";
 @import "@fontsource/ibm-plex-mono/latin-ext-600.css";
-/* ===== YÖN A — "Editorial sıcak" ======================================
+/* ===== Palet — Lumtify ailesi (2026-09-26 renk turu) ====================
    Gövde serif (okuma), başlık serif, arayüz/veri sans, kod mono.
-   Kağıt tonunda sıcak zemin, mürekkep siyahı yerine sıcak koyu gri.
-   Vurgu: derin çivit — sakin ama ölü değil. */
+   Renkler lumtify.com'un paletinden: soğuk kırık beyaz zemin, lacivert-siyah
+   mürekkep, derin lacivert vurgu; koyu temada arduvaz zemin ve çivit vurgu.
+   Site Lumtify'ın planlama haritasının açık kısmı olduğu için iki site aynı
+   aileden görünür. Kontrast sözleşmesi tests/renk.test.ts'te: gövde 7:1,
+   metin 4,5:1, alt çizgi ve halka gibi metin dışı öğeler 3:1. Değişkenler
+   yalnızca #rrggbb yazılır; test başka biçimi okumaz. */
 
 :root {
   --govde: 'IBM Plex Serif', Georgia, serif;
@@ -31,23 +35,23 @@
   --arayuz: 'IBM Plex Sans', system-ui, sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, monospace;
   --olcek: 1.1875rem; --satir: 1.78; --h1: 2.1rem; --h2: 1.45rem;
-  --bg: #fbf9f5; --ink: #2e2a25; --koyu: #16130f; --soluk: #78706a;
-  --cizgi: #e2dbd0; --kutu-zemin: #f5f1e9; --tablo-baslik: #f5f1e9;
-  --kod-zemin: #f5f1e9; --kod-cizgi: #e2dbd0;
-  --vurgu: #3a4f9b; --vurgu-zemin: #eef1f9; --vurgu-cizgi: #c9d2ea;
-  --rozet-zemin: #f5f1e9; --rozet-ink: #6b6259; --rozet-cizgi: #ded5c8;
+  --bg: #fbfbfc; --ink: #232d3b; --koyu: #0f1723; --soluk: #5b6471;
+  --cizgi: #e3e6ea; --kutu-zemin: #f2f4f7; --tablo-baslik: #f2f4f7;
+  --kod-zemin: #f4f6f9; --kod-cizgi: #e3e6ea;
+  --vurgu: #1a4b8f; --vurgu-zemin: #eef3fa; --vurgu-cizgi: #6d8dbd;
+  --rozet-zemin: #f2f4f7; --rozet-ink: #414c5c; --rozet-cizgi: #cbd2da;
   --uyari-zemin: #fdf6e3; --uyari-cizgi: #e3d199;
-  --tooltip-zemin: #2e2a25; --tooltip-ink: #fbf9f5;
+  --tooltip-zemin: #0f1723; --tooltip-ink: #f8fafc;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1a1815; --ink: #ddd6cc; --koyu: #f3ede4; --soluk: #948b81;
-    --cizgi: #35302a; --kutu-zemin: #211e1a; --tablo-baslik: #211e1a;
-    --kod-zemin: #211e1a; --kod-cizgi: #35302a;
-    --vurgu: #9fb0e8; --vurgu-zemin: #1d2033; --vurgu-cizgi: #333b5c;
-    --rozet-zemin: #211e1a; --rozet-ink: #a89e93; --rozet-cizgi: #3d372f;
-    --uyari-zemin: #2a2318; --uyari-cizgi: #574a2a;
-    --tooltip-zemin: #f3ede4; --tooltip-ink: #1a1815;
+    --bg: #0f172a; --ink: #cbd5e1; --koyu: #f8fafc; --soluk: #94a3b8;
+    --cizgi: #273449; --kutu-zemin: #1e293b; --tablo-baslik: #1e293b;
+    --kod-zemin: #172033; --kod-cizgi: #273449;
+    --vurgu: #a5b4fc; --vurgu-zemin: #1e2250; --vurgu-cizgi: #6069c4;
+    --rozet-zemin: #1e293b; --rozet-ink: #cbd5e1; --rozet-cizgi: #334155;
+    --uyari-zemin: #2a2416; --uyari-cizgi: #6b5a2a;
+    --tooltip-zemin: #f8fafc; --tooltip-ink: #0f172a;
   }
 }
 /* --- Ortak temel: iki yönün de paylaştığı yapı ------------------------- */
