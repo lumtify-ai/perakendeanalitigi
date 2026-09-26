@@ -83,6 +83,15 @@ def aday_bolumu(v: VeriB) -> None:
                   f"(i) ile (ii) aynı {y((d['etiket_duz'] == d['etiket_gercek']).mean())}; "
                   f"(ii) pozitif, (i) negatif {int((d['etiket_duz'] & ~d['etiket_gercek']).sum())}, "
                   f"tersi {int((~d['etiket_duz'] & d['etiket_gercek']).sum())}")
+        # Sınama satırları rpt_yok kolundan: gerçekleşen tarihten küçük farklar (açıklama aşağıda)
+        oid_ = v.w.optionlar["option_id"].to_numpy()
+        km = v.H["kayit_mevcut"]
+        m = t[["option", "h", "x"]].merge(km[["option", "h", "x"]], on=["option", "h"], suffixes=("", "_g"))
+        fark = (m["x"] - m["x_g"]).abs()
+        print(f"  NOT: sınama satırlarının {int((fark > 0).sum())}/{len(m)}'inde bugüne kadarki satış gerçekleşen "
+              f"tarihten farklı (en çok {s(fark.max())} adet). Neden: motorun operasyon rastgele akışı (iade ve "
+              f"işlem indirimi) bütün hücrelerce paylaşılır; bir kolda herhangi bir hücrenin satışı değişince "
+              f"(ör. önceki sezonun RPT'si) sonraki bütün çekilişler kayar.")
         if len(e) < 600:
             print(f"  NOT: {G} eğitimi küçük ({len(e)} satır, {int(e['etiket_duz'].sum())} pozitif) — "
                   f"sonuçlar kırılgan.")
@@ -138,15 +147,17 @@ def miktar_bolumu(v: VeriB) -> None:
     print(f"  kritik oran (yalnız tam fiyat vs hiç satılmaz): Cu/(Cu+c) = {y(((p - c) / p).mean())}")
 
     alt("Hikâye option'ları, h=3 pazartesisi: dört miktar")
+    print("  (gerçekleşen tarihin h=3 sabahı — HİKÂYE/SANSÜR bölümleriyle aynı x, D, d)")
     kahin = v.K["rp"][("kahin", v.K["en_iyi"])]
     for etiket, oid in HIKAYE.items():
         o = _oid(v, oid)
         G = opt.at[o, "sezon_kodu"]
-        t = v.H["aday"][G]["sinama"]
-        r = t[(t["option"] == o) & (t["h"] == 3)]
-        if r.empty:
+        # Gerçekleşen tarihin (Banu'nun gördüğü) h=3 sabahı; Faz A ile birebir
+        km = v.H["kayit_mevcut"]
+        km = km[(km["option"] == o) & (km["h"] == 3)]
+        if km.empty:
             continue
-        r = r.iloc[0]
+        r = aday.ozellikler(km, w, v.b.egriler[G], v.b.belirsizlik[G], v.b.p_ind).iloc[0]
         e = v.b.egriler[G]
         dalga = int(opt.at[o, "dalga"])
         mu, sg = v.b.belirsizlik[G].al(3)
@@ -156,7 +167,7 @@ def miktar_bolumu(v: VeriB) -> None:
         q_banu = miktar.banu(float(w.ilk_alim[o]), int(r["moq"]))
         q_frr = miktar.frr(r["x"], e[("ham", "indirim")].k((dalga,), 3), float(w.ilk_alim[o]), int(r["moq"]))
         plan = kahin.plan.get(o)
-        print(f"  {oid} ({opt.at[o, 'mense']}, RPT {r['L']} hf, MOQ {s(r['moq'])}, Q1 {s(w.ilk_alim[o])}):")
+        print(f"  {oid} ({opt.at[o, 'mense']}, RPT {int(r['L'])} hf, MOQ {s(r['moq'])}, Q1 {s(w.ilk_alim[o])}):")
         print(f"    bugüne kadar x = {s(r['x'])}, D = {s(r['D'])}; d kestirimi {s(r['d_kestirim'])}; "
               f"envanter pozisyonu {s(r['ip'])} (depo {s(r['depo'])}, mağaza {s(r['magaza'])}, açık {s(r['acik'])})")
         print(f"    beklenen: geliş öncesi talep {s(nv['B'])}, gelişten indirime tam fiyat talep {s(nv['Xtf'])}, "
@@ -245,6 +256,14 @@ def sonuc_bolumu(v: VeriB) -> None:
         for kol in ("mevcut", "frr3", "oneri"):
             d = k.loc[(kol, en), "delta_kar"]
             print(f"  {KOL_ADI[kol]} / {en}: kâhinin Δkârının {y(d / kahin) if kahin else '—'}'i")
+        ops = oyun.oyun_optionlari(w, G)
+        tb = olcutler.option_olcutleri(w, v.K["ham"][("rpt_yok", "mevcut")], ops).set_index("option")
+        kk = olcutler.option_olcutleri(w, v.K["ham"][("oneri", en)], ops).set_index("option")
+        rptsiz = kk["rpt"] == 0
+        gurultu = (kk["kar"] - tb["kar"])[rptsiz]
+        print(f"  gürültü payı: oneri/{en} kolunda RPT'siz {int(rptsiz.sum())} option'ın Δkârı toplam "
+              f"{s(gurultu.sum())} TL (en büyük mutlak {s(gurultu.abs().max())} TL) — ortak operasyon "
+              f"akışının (iade, işlem indirimi) kaymasından; kol farklarının içindeki rastgele kısım")
         print(f"  dağıtımın payı (Banu'nun RPT'leri): mevcut→{en} Δkâr "
               f"{s(k.loc[('mevcut', en), 'delta_kar'] - k.loc[('mevcut', 'mevcut'), 'delta_kar'])} TL; "
               f"kararın payı: mevcut/{en} → oneri/{en} "
@@ -300,11 +319,75 @@ def sonuc_bolumu(v: VeriB) -> None:
               f"{s(np.median(fark_d))} TL, {int((np.array(fark_d) > 0).sum())}/{len(fark_d)}")
 
 
+def turetilmis_bolumu(v: VeriB, v_a=None) -> None:
+    """Yazılarda elle türetilen sayılar (kural: yayımlanan her sayı rapordan)."""
+    from rpt import hikaye, sansur
+
+    baslik("YAZI TÜRETİLMİŞLERİ — yazılarda kullanılan türetilmiş sayılar")
+    w = v.w
+    opt = w.optionlar
+    if v_a is not None:
+        oid = HIKAYE["yerli"]
+        o = v_a.opt.set_index("option_id").loc[oid]
+        p = v_a.panel[v_a.panel["option_id"] == oid].set_index("h")
+        k67 = p.loc[[6, 7], "kayip"]
+        print(f"  (1) {oid} h=6 + h=7 kayıp satış [gerçek]: {s(k67.iloc[0])} + {s(k67.iloc[1])} = {s(k67.sum())}")
+        r = hikaye.rpt_siparisleri(v_a.t, v_a.opt)
+        rpt = int(r.loc[r["option_id"] == oid, "adet"].sum())
+        print(f"  (2) {oid} Q1 + Banu RPT: {s(o['ilk_alim'])} + {s(rpt)} = {s(o['ilk_alim'] + rpt)}")
+        bitti = int(hikaye.bitis_haftasi(v_a.panel, v_a.opt)[oid])
+        mt = hikaye.magaza_tablosu(v_a.t, v_a.hh, oid, bitti).set_index("ad")
+        akm = mt.loc[[a for a in mt.index if "Akmerkez" in a][0], "satis"]
+        bag = mt.loc[[a for a in mt.index if "Bağdat" in a][0], "satis"]
+        print(f"  (3) h={bitti} mağaza tablosu: İstanbul Akmerkez satış ÷ İstanbul Bağdat Caddesi satış = "
+              f"{s(akm)} / {s(bag)} = {s(akm / bag, 1)}")
+        x3 = p.loc[p.index < 3, "satis"].sum()
+        print(f"  (4) {oid} h=3'e kadar satış ÷ Q1 = {s(x3)} / {s(o['ilk_alim'])} = {y(x3 / o['ilk_alim'])}")
+        c = v_a.hh[(v_a.hh["option_id"] == oid) & (v_a.hh["h"] < 3)]
+        k = sansur.duzeltilmis_talep(c, 3).iloc[0]
+        ham, duz, gercek = k["x"] / 3, k["D"] / 3, (c["satis"].sum() + c["kayip"].sum()) / 3
+        print(f"  (5) h=3 stoklu gün düzeltmesinin kapattığı ham→gerçek haftalık açığın payı: "
+              f"({s(duz, 1)} − {s(ham, 1)}) / ({s(gercek, 1)} − {s(ham, 1)}) = {y((duz - ham) / (gercek - ham), 0)}")
+        tab = v_a.hata["SS25"].set_index(["kesit", "katman", "h"])
+        d2, p2 = tab.loc[("tümü", "d", 2), "wape"], tab.loc[("tümü", "plan", 2), "wape"]
+        print(f"  (6) SS25 h=2: d katmanı WAPE ÷ plan WAPE = {y(d2)} / {y(p2)} = {s(d2 / p2, 2)}")
+    else:
+        print("  (1)–(6) Faz A verisi gerekir: rapor.py üzerinden koşun.")
+
+    en = v.K["en_iyi"]
+    print(f"  (7) Banu'nun RPT'leri menşeye göre, dağıtım {en} (AW24 + SS25):")
+    top = {}
+    for G in v.b.oyun_sezonlari:
+        ops = oyun.oyun_optionlari(w, G)
+        taban = olcutler.option_olcutleri(w, v.K["ham"][("rpt_yok", "mevcut")], ops).set_index("option")
+        k = olcutler.option_olcutleri(w, v.K["ham"][("mevcut", en)], ops).set_index("option")
+        for m in ("Yerli", "Uzak Doğu"):
+            km = k[(k["mense"] == m) & (k["rpt"] > 0)]
+            tm = taban.loc[km.index]
+            dk, dtf = (km["kar"] - tm["kar"]).sum(), (km["satis_tf"] - tm["satis_tf"]).sum()
+            a = top.setdefault(m, [0, 0.0, 0.0, 0])
+            a[0] += len(km); a[1] += dk; a[2] += dtf; a[3] += km["rpt"].sum()
+            print(f"      {G} {m:9s}: {len(km)} option, {s(km['rpt'].sum())} adet, Δkâr {s(dk)} TL, "
+                  f"ek tam fiyat satış {s(dtf)}")
+    for m, (n, dk, dtf, adet) in top.items():
+        print(f"      toplam {m:9s}: {n} option, {s(adet)} adet, Δkâr {s(dk)} TL, ek tam fiyat satış {s(dtf)}")
+    print("  (8) Collection kâr tabanı (rpt_yok) ve Banu'nun Δkârı:")
+    for G in v.b.oyun_sezonlari:
+        tab = oyun.ozet_tablosu(w, {k_: v.K["ham"][k_] for k_ in
+                                    [("rpt_yok", "mevcut"), ("mevcut", "mevcut"), ("mevcut", en)]}, G, None)
+        t = tab.set_index(["kol", "kural"])
+        taban = t.loc[("rpt_yok", "mevcut"), "kar"]
+        for kural in ("mevcut", en):
+            dk = t.loc[("mevcut", kural), "delta_kar"]
+            print(f"      {G}: taban {s(taban)} TL; Banu / {kural} Δkâr {s(dk)} TL = tabanın {y(dk / taban)}")
+
+
 def faz_b(v_a=None) -> VeriB:
     v = hazirla_b()
     aday_bolumu(v)
     miktar_bolumu(v)
     sonuc_bolumu(v)
+    turetilmis_bolumu(v, v_a)
     return v
 
 

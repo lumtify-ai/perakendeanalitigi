@@ -93,6 +93,7 @@ def hazirlik(dunya, talep, oyun_sezonlari=OYUN, modeller: bool = True) -> dict:
         for G in oyun_sezonlari:
             b.modeller[G] = aday.Modeller(at[G]["egitim"])
         sonuc["aday"] = at
+    sonuc["kayit_mevcut"] = kaydedici.tablo()
     return sonuc
 
 

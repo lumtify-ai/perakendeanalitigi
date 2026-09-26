@@ -15,7 +15,8 @@ def test_rapor_b_duman(yol0):
         rapor_b.aday_bolumu(v)
         rapor_b.miktar_bolumu(v)
         rapor_b.sonuc_bolumu(v)
+        rapor_b.turetilmis_bolumu(v, None)
     cikti = tampon.getvalue()
-    for bolum in ("ADAY (4. yazı)", "MİKTAR (5. yazı)", "SONUÇ (6. yazı)", "MDL169-EKR", "MDL190-HAK"):
+    for bolum in ("ADAY (4. yazı)", "MİKTAR (5. yazı)", "SONUÇ (6. yazı)", "MDL169-EKR", "MDL190-HAK", "YAZI TÜRETİLMİŞLERİ"):
         assert bolum in cikti
     assert v.K["en_iyi"] in ("b", "c", "d")
