@@ -23,7 +23,11 @@ export async function getStaticPaths() {
 
 const { girdi } = Astro.props
 const yol = yaziYolunuAyristir(girdi.id)
-const { Content } = await render(girdi)
+const { Content, headings } = await render(girdi)
+// "Bu yazıda" yalnızca h2'leri listeler; alt başlıklar menüyü kalabalıklaştırır.
+const basliklar = headings
+  .filter((baslik) => baslik.depth === 2)
+  .map(({ slug, text }) => ({ slug, text }))
 const alanGirdi = zorunlu(await getEntry('alan', yol.alan), 'alan', yol.alan)
 ---
 
@@ -33,6 +37,7 @@ const alanGirdi = zorunlu(await getEntry('alan', yol.alan), 'alan', yol.alan)
   tip={girdi.data.tip}
   yazar={girdi.data.yazar}
   durum={girdi.data.durum}
+  basliklar={basliklar}
   basamaklar={[
     ...fazBasamagi(yol.alan),
     { ad: alanBasligi(yol.alan, alanGirdi.data), adres: `/${yol.alan}/` },

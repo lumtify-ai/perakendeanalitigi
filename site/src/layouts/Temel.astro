@@ -8,9 +8,10 @@ interface Props {
   isaretleme?: Record<string, unknown>
   /** Sayfa arama motorlarına ve yapay zekâ tarayıcılarına kapatılsın mı? */
   dizinlenmesin?: boolean
-  /** Sayfa iskeleti: 'okuma' (40rem okuma sütunu) ya da 'harita' (72rem
-   *  geniş çerçeve — ana sayfa, faz ve aşama sayfaları). */
-  duzen?: 'okuma' | 'harita'
+  /** Sayfa iskeleti: 'okuma' (40rem okuma sütunu), 'harita' (72rem
+   *  geniş çerçeve — ana sayfa, faz ve aşama sayfaları) ya da 'yazi' (72rem
+   *  çerçevede yan menüler ve ortada 40rem okuma sütunu — Yazi.astro). */
+  duzen?: 'okuma' | 'harita' | 'yazi'
 }
 
 const { baslik, aciklama, isaretleme, dizinlenmesin = false, duzen = 'okuma' } = Astro.props

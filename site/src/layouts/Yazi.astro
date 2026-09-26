@@ -4,6 +4,8 @@ import Temel from './Temel.astro'
 import KirintiYolu from '../components/KirintiYolu.astro'
 import Rozet from '../components/Rozet.astro'
 import DiziGezinme from '../components/DiziGezinme.astro'
+import DiziYanMenu from '../components/DiziYanMenu.astro'
+import BuYazida from '../components/BuYazida.astro'
 import type { YaziOzet } from '../lib/agac'
 
 interface Props {
@@ -14,9 +16,18 @@ interface Props {
   durum: string
   basamaklar: { ad: string; adres?: string }[]
   dizi?: { baslik: string; adres: string; sirali: YaziOzet[]; suanki: string }
+  /** Yazının h2 başlıkları (render() → headings, derinlik 2). */
+  basliklar: { slug: string; text: string }[]
 }
 
-const { baslik, ozet, tip, yazar, durum, basamaklar, dizi } = Astro.props
+const { baslik, ozet, tip, yazar, durum, basamaklar, dizi, basliklar } = Astro.props
+
+// Sağ menü ("Bu yazıda") hikâyede basılmaz (spec §0.4, §6): hikâye baştan
+// sona okunur, bölüm atlamaya davet etmez. h2'siz yazıda da basılmaz.
+const sagMenu = tip === 'hikaye' ? [] : basliklar
+// Sağ sütun boşsa geniş öğeler (pre, KaTeX, demo, tablo) oraya taşabilir;
+// doluysa taşmaz, çünkü sticky menü ile çakışır (site.css · yazı düzeni).
+const duzenSinifi = sagMenu.length > 0 ? 'yazi-duzeni' : 'yazi-duzeni yazi-duzeni--sag-bos'
 
 // Teknik içerik TechArticle, anlatı Article olarak işaretlenir
 const tur = tip === 'teknik' || tip === 'sonuc' ? 'TechArticle' : 'Article'
@@ -37,32 +48,61 @@ const isaretleme = {
   aciklama={ozet}
   isaretleme={isaretleme}
   dizinlenmesin={durum === 'hazirlaniyor'}
+  duzen="yazi"
 >
-  <KirintiYolu basamaklar={basamaklar} />
+  <div class={duzenSinifi}>
+    {
+      dizi && (
+        <DiziYanMenu
+          diziBasligi={dizi.baslik}
+          diziAdresi={dizi.adres}
+          sirali={dizi.sirali}
+          suanki={dizi.suanki}
+        />
+      )
+    }
 
-  <article>
-    <header>
-      <Rozet tip={tip} />
-      <h1>{baslik}</h1>
-      <p class="ozet">{ozet}</p>
-      {durum === 'hazirlaniyor' && <p class="uyari">Bu yazı hazırlanıyor.</p>}
-    </header>
+    <div class="yazi-govdesi">
+      <KirintiYolu basamaklar={basamaklar} />
 
-    <slot />
+      <article>
+        <header>
+          <Rozet tip={tip} />
+          <h1>{baslik}</h1>
+          <p class="ozet">{ozet}</p>
+          {durum === 'hazirlaniyor' && <p class="uyari">Bu yazı hazırlanıyor.</p>}
+          {
+            dizi && (
+              <DiziYanMenu
+                diziBasligi={dizi.baslik}
+                diziAdresi={dizi.adres}
+                sirali={dizi.sirali}
+                suanki={dizi.suanki}
+                bicim="kutu"
+              />
+            )
+          }
+        </header>
 
-    <footer>
-      <p class="yazar">Yazan: {yazar}</p>
-    </footer>
-  </article>
+        <slot />
 
-  {
-    dizi && (
-      <DiziGezinme
-        sirali={dizi.sirali}
-        suanki={dizi.suanki}
-        diziBasligi={dizi.baslik}
-        diziAdresi={dizi.adres}
-      />
-    )
-  }
+        <footer>
+          <p class="yazar">Yazan: {yazar}</p>
+        </footer>
+      </article>
+
+      {
+        dizi && (
+          <DiziGezinme
+            sirali={dizi.sirali}
+            suanki={dizi.suanki}
+            diziBasligi={dizi.baslik}
+            diziAdresi={dizi.adres}
+          />
+        )
+      }
+    </div>
+
+    <BuYazida basliklar={sagMenu} />
+  </div>
 </Temel>

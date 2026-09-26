@@ -9,7 +9,9 @@ import {
   aktifAlgoritmalar,
   asamalar,
   diziler,
+  diziSiralamasi,
   noindexBeklenen,
+  YAZI_KOKU,
   yayindakiYaziSayisi,
 } from './yardimci/icerikDurumu'
 
@@ -784,9 +786,12 @@ describe('sayfa iskeleti', () => {
     for (const yol of ['index.html', 'sezon-ici/index.html', 'rpt/index.html']) {
       expect(oku(yol), yol).toContain('<main class="duzen-harita"')
     }
+    // Yazı sayfası kendi çerçevesinde: 72rem içinde yan menüler ve 40rem
+    // okuma sütunu (spec §6; Temel.astro · duzen="yazi").
     expect(oku('transfer/blok-transfer/sonuclar/index.html')).toContain(
-      '<main class="duzen-okuma"',
+      '<main class="duzen-yazi"',
     )
+    expect(oku('sozluk/index.html')).toContain('<main class="duzen-okuma"')
   })
 
   it("ölçüler CSS'te", () => {
@@ -1287,5 +1292,138 @@ describe('ana sayfa süreç hattı', () => {
     expect(genis).not.toMatch(/\dfr \dfr/)
     // Subgrid'i tanımayan tarayıcı için önce düz satır tanımı.
     expect(genis).toMatch(/grid-template-rows:auto var\(--nokta\) auto;grid-template-rows:subgrid/)
+  })
+})
+
+/** `acilis` ile başlayan öğenin, ilk `kapanis`a kadarki işaretlemesi; yoksa ''. */
+function kesit(html: string, acilis: string, kapanis: string): string {
+  const bas = html.indexOf(acilis)
+  if (bas === -1) return ''
+  return html.slice(bas, html.indexOf(kapanis, bas) + kapanis.length)
+}
+
+/** Üretilmiş bütün yazı sayfaları: içerikteki her .mdx bir sayfa. */
+function yaziSayfalari(): { yol: string; html: string }[] {
+  const yollar = (readdirSync(YAZI_KOKU, { recursive: true }) as string[])
+    .map((ad) => ad.split(sep).join('/'))
+    .filter((ad) => ad.endsWith('.mdx'))
+    .map((ad) => `${ad.slice(0, -'.mdx'.length)}/index.html`)
+  return yollar.map((yol) => ({ yol, html: oku(yol) }))
+}
+
+describe('yazı sayfası yan gezinmesi', () => {
+  // Spec §6: 64rem üstünde üç sütun — sol menü (dizinin yazıları), okuma
+  // sütunu, sağ menü ("Bu yazıda", h2 başlıkları). Hikâyede sağ menü yok;
+  // h2'siz yazıda da yok. 64rem altında dizi listesi başlığın altında bir
+  // <details> kutusu. Sayılar içerikten türer (tests/yardimci/icerikDurumu.ts).
+  const RPT = diziSiralamasi('rpt', 'tekrar-siparis')
+
+  it('teknik yazıda "Bu yazıda" h2 sayısı kadar bağlantı', () => {
+    const html = oku('rpt/tekrar-siparis/ne-kadar-daha-satardi/index.html')
+    const menu = kesit(html, '<nav class="bu-yazida"', '</nav>')
+    const hedefler = [...menu.matchAll(/<a href="#([^"]+)"/g)].map(([, id]) => id)
+    const makale = kesit(html, '<article', '</article>')
+    const h2Sayisi = (makale.match(/<h2[\s>]/g) ?? []).length
+    expect(h2Sayisi).toBeGreaterThan(0)
+    expect(hedefler.length).toBe(h2Sayisi)
+    for (const id of hedefler) expect(html, id).toContain(`id="${id}"`)
+    expect(menu).toContain('aria-label="Bu yazıda"')
+  })
+
+  it('hikâyede "Bu yazıda" yok', () => {
+    const html = oku('rpt/tekrar-siparis/ucuncu-pazartesi/index.html')
+    expect(html).toContain('rozet-hikaye')
+    expect(sinifSay(html, (b) => b === 'bu-yazida')).toBe(0)
+  })
+
+  it("h2'siz yazıda boş kutu yok", () => {
+    const sayfalar = yaziSayfalari()
+    expect(sayfalar.length).toBeGreaterThan(0)
+    for (const { yol, html } of sayfalar) {
+      if (sinifSay(html, (b) => b === 'bu-yazida') === 0) continue
+      expect(kesit(html, '<nav class="bu-yazida"', '</nav>'), yol).toContain('<a ')
+    }
+  })
+
+  it('sol menü dizinin bütün yazılarını taşır', () => {
+    expect(RPT.length).toBeGreaterThan(2)
+    const suanki = RPT[2]
+    const html = oku(`rpt/tekrar-siparis/${suanki}/index.html`)
+    const menu = kesit(html, '<nav class="dizi-yan-menu"', '</nav>')
+    expect(menu).toContain('aria-label="Dizinin yazıları"')
+    expect((menu.match(/<li[\s>]/g) ?? []).length).toBe(RPT.length)
+    for (const slug of RPT) expect(menu).toContain(`href="/rpt/tekrar-siparis/${slug}/"`)
+    expect(menu).toMatch(
+      new RegExp(`href="/rpt/tekrar-siparis/${suanki}/"[^>]*aria-current="page"`),
+    )
+    expect((menu.match(/aria-current="page"/g) ?? []).length).toBe(1)
+    expect(menu).toContain('href="/rpt/tekrar-siparis/"')
+  })
+
+  it('hazırlanıyor yazı sol menüde işaretli', () => {
+    // İçerikte hazırlanıyor yazı olmadığında bu test yalnızca dizinin
+    // yayındaki yazılarının işaretsiz olduğunu doğrular.
+    for (const { dizi, alan } of diziler()) {
+      const sira = diziSiralamasi(alan, dizi)
+      if (sira.length === 0) continue
+      const menu = kesit(oku(`${alan}/${dizi}/${sira[0]}/index.html`), '<nav class="dizi-yan-menu"', '</nav>')
+      const isaretli = (menu.match(/hazırlanıyor/g) ?? []).length
+      const beklenen = sira.length - yayindakiYaziSayisi(alan, dizi)
+      expect(isaretli, `${alan}/${dizi}`).toBe(beklenen)
+    }
+  })
+
+  it('mobil dizi kutusu', () => {
+    const html = oku(`rpt/tekrar-siparis/${RPT[2]}/index.html`)
+    const kutu = kesit(html, '<details class="dizi-kutusu"', '</details>')
+    expect(kutu).not.toBe('')
+    const ozet = kesit(kutu, '<summary', '</summary>')
+    expect(ozet).toContain(`3 / ${RPT.length}`)
+    expect((kutu.match(/<li[\s>]/g) ?? []).length).toBe(RPT.length)
+    // Kutu başlığın altında, yazının gövdesinden önce.
+    expect(html.indexOf('<details class="dizi-kutusu"')).toBeGreaterThan(html.indexOf('<h1'))
+  })
+
+  it('tekil yazı sol menüsüz', () => {
+    const html = oku('temeller/urun-hiyerarsisi/index.html')
+    expect(sinifSay(html, (b) => b === 'dizi-yan-menu')).toBe(0)
+    expect(sinifSay(html, (b) => b === 'dizi-kutusu')).toBe(0)
+    expect(html).toContain('<article')
+  })
+
+  it('yazı sonunda önceki/sonraki kalır, liste sol menüye taşındı', () => {
+    const html = oku(`rpt/tekrar-siparis/${RPT[2]}/index.html`)
+    const son = kesit(html, '<nav class="dizi-gezinme"', '</nav>')
+    expect(son).toContain(`rel="prev" href="/rpt/tekrar-siparis/${RPT[1]}/"`)
+    expect(son).toContain(`rel="next" href="/rpt/tekrar-siparis/${RPT[3]}/"`)
+    expect(son).toContain('href="/rpt/tekrar-siparis/"')
+    expect(son).not.toContain('<ol')
+  })
+
+  it('geniş öğeler sağ menüye taşmaz', () => {
+    // Karar: sağ menü sticky olduğu için geniş öğe (pre, KaTeX, demo,
+    // tablo) onun altından geçemez; menüyü örter ya da menü onu örter.
+    // Taşma yalnızca sağ sütun boşken (hikâye ya da h2'siz yazı) açılır:
+    // okuma sütununun işaretlemesi o zaman `yazi-duzeni--sag-bos` taşır.
+    for (const { yol, html } of yaziSayfalari()) {
+      const sagMenu = sinifSay(html, (b) => b === 'bu-yazida') > 0
+      const sagBos = sinifSay(html, (b) => b === 'yazi-duzeni--sag-bos') > 0
+      expect(sagBos, yol).toBe(!sagMenu)
+    }
+    const css = baglıCss(oku('rpt/tekrar-siparis/ne-kadar-daha-satardi/index.html'))
+    // Yazı düzeninde genişleyen her kural sağ-boş değiştiricisine bağlı.
+    const genisleyen = [...css.matchAll(/([^{}]*)\{[^}]*--genis-olcu[^}]*\}/g)]
+      .map(([, secici]) => secici)
+      .filter((secici) => /duzen-yazi|yazi-duzeni/.test(secici))
+    expect(genisleyen.length).toBeGreaterThan(0)
+    for (const secici of genisleyen) {
+      for (const parca of secici.split(',')) expect(parca, parca).toContain('yazi-duzeni--sag-bos')
+    }
+  })
+
+  it('yan menüler sticky, CSS saf', () => {
+    const css = baglıCss(oku('rpt/tekrar-siparis/ne-kadar-daha-satardi/index.html'))
+    expect(css).toMatch(/\.dizi-yan-menu[^{]*\{[^}]*position:\s*sticky/)
+    expect(css).toMatch(/\.bu-yazida[^{]*\{[^}]*position:\s*sticky/)
   })
 })

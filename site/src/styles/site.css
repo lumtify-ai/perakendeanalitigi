@@ -66,7 +66,9 @@ main.duzen-harita { max-width: 72rem; margin-inline: auto; }
    kadar (40rem + 12rem = 52rem) genişler; viewport merkezi her zaman sütun
    merkeziyle çakışır (body ve .duzen-okuma ikisi de margin-inline:auto),
    bu yüzden viewport'a göre ortalamak taşmayı da otomatik sınırlar. 64rem
-   altında bu kural uygulanmaz — dar ekranda taşma yasak (spec §2, §8). */
+   altında bu kural uygulanmaz — dar ekranda taşma yasak (spec §2, §8).
+   Yazı sayfaları bu kuralın dışında: onların taşması yan menülere göre
+   ayarlı (aşağıda, "Yazı sayfası" bölümü). */
 @media (min-width: 64rem) {
   .duzen-okuma pre, .duzen-okuma .katex-display, .duzen-okuma .demo, .duzen-okuma .genis {
     width: 100vw; max-width: 52rem; margin-left: 50%; transform: translateX(-50%);
@@ -117,9 +119,11 @@ th { background: var(--tablo-baslik); font-weight: 600; color: var(--koyu) }
 .terim > .tanim { position: absolute; bottom: 100%; left: 0; z-index: 20; width: max-content;
   max-width: min(22rem, 90vw); margin-bottom: .4rem; padding: .6rem .75rem; border-radius: .4rem;
   font-family: var(--arayuz); font-size: .8125rem; line-height: 1.45;
-  background: var(--tooltip-zemin); color: var(--tooltip-ink);
-  opacity: 0; visibility: hidden; transition: opacity 120ms ease; }
-.terim:hover > .tanim, .terim:focus-within > .tanim { opacity: 1; visibility: visible }
+  background: var(--tooltip-zemin); color: var(--tooltip-ink); display: none; }
+/* Gizli tanım `display: none` ile kapanır, `visibility: hidden` ile değil:
+   görünmez ama kutusu duran bir tanım satır sonundaki terimde sayfayı
+   sağa taşırıyordu (375px'te yatay kaydırma, spec §8). */
+.terim:hover > .tanim, .terim:focus-within > .tanim { display: block }
 .kirinti ol { display: flex; flex-wrap: wrap; list-style: none; padding: 0; margin: 0 0 1.25rem;
   font-family: var(--arayuz); font-size: .8125rem; color: var(--soluk) }
 .kirinti li + li::before { content: "›"; margin: 0 .45rem; color: var(--cizgi) }
@@ -150,9 +154,6 @@ th { background: var(--tablo-baslik); font-weight: 600; color: var(--koyu) }
 .dizi-gezinme { margin-top: 3.5rem; border-top: 1px solid var(--cizgi); padding-top: 1.5rem;
   font-family: var(--arayuz); font-size: .875rem }
 .dizi-adi { font-weight: 600; color: var(--koyu) }
-.dizi-gezinme ol { list-style: decimal; padding-left: 1.4rem; color: var(--soluk) }
-.dizi-gezinme .suanki { font-weight: 600; color: var(--koyu) }
-.dizi-gezinme .durum { color: var(--cizgi) }
 .komsular { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.25rem }
 .lumtify-koprusu { font-family: var(--arayuz); margin-top: 3.5rem; padding: 1.4rem 1.5rem;
   border: 1px solid var(--vurgu-cizgi); border-radius: .6rem; background: var(--vurgu-zemin) }
@@ -338,3 +339,81 @@ body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-bl
 .dizi-yazi-listesi .durum { color: var(--soluk); font-size: .8125rem }
 .dizi-yazi-listesi .ozet { margin: .35rem 0 0; font-size: .9375rem; line-height: 1.55; color: var(--soluk) }
 .demo-baglanti { margin-top: 1.75rem; font-family: var(--arayuz); font-size: .9375rem }
+/* --- Yazı sayfası: yan gezinmeli üç sütun (Yazi.astro) ------------------
+   Spec §6. 64rem ve üstünde 72rem çerçevede üç sütun: sol menü (dizinin
+   yazıları, DiziYanMenu.astro), ortada tam 40rem okuma sütunu, sağ menü
+   ("Bu yazıda", BuYazida.astro). Yan sütunlar kalan alanı eşit böler, bu
+   yüzden okuma sütunu çerçevenin tam ortasında durur — tekil yazıda sol,
+   hikâyede sağ sütun boş kalsa da sütun yerinden kaymaz. Yan menüler
+   sticky: okur yazının neresinde olursa olsun dizideki yerini ve yazının
+   bölümlerini görür. Menü ekrandan uzunsa kendi içinde kayar.
+   64rem altında tek sütun; yan menüler kalkar, dizi listesi başlığın
+   altındaki <details> kutusuna (.dizi-kutusu) geçer, "Bu yazıda" mobilde
+   yok.
+   Geniş öğeler (pre, KaTeX, demo, tablo): sağ menü sticky olduğu için
+   onların altından geçemez — ya menü yazının üstüne biner ya da blok
+   menüyü örter. Bu yüzden taşma yalnızca sağ sütun boşken açılır
+   (.yazi-duzeni--sag-bos: hikâye ya da h2'siz yazı); sağ menü varken geniş
+   öğe okuma sütununda kalır ve kendi içinde kayar. Taşma yalnız sağa:
+   solda da sticky menü var. Ölçü: okuma sütunu + ara + sağ sütun =
+   20rem + 50cqi (yan sütun = (100cqi − 40rem − 2·ara) / 2), en fazla
+   52rem — Task 1'deki okuma sayfası taşmasıyla aynı üst sınır. */
+main.duzen-yazi { max-width: 72rem; margin-inline: auto; }
+.yazi-duzeni { --ara: 2.5rem }
+.dizi-yan-menu, .bu-yazida { display: none }
+.yan-menu-basligi { margin: 0 0 .7rem; font-family: var(--arayuz); font-size: .6875rem;
+  font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--soluk) }
+.yan-menu-basligi a { color: inherit; text-decoration: none }
+.yan-menu-basligi a:hover { color: var(--vurgu) }
+/* `main ol`/`main li`/`main a`'yı sınıf özgüllüğüyle yener. Sol kenarda
+   ince bir ray; okunan yazı rayın üstünde kalın bir çizgi, kalın ve koyu
+   harf — durum renge yaslanmaz (spec §8). */
+.yan-liste { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--cizgi);
+  font-family: var(--arayuz); font-size: .8125rem; line-height: 1.2rem }
+.yan-liste > li { position: relative; margin: 0; padding: .3rem 0 .3rem .9rem }
+.yan-liste a { color: var(--soluk); text-decoration: none }
+.yan-liste a:hover { color: var(--vurgu) }
+.yan-liste a[aria-current="page"] { color: var(--koyu); font-weight: 600 }
+.yan-liste a[aria-current="page"]::before { content: ""; position: absolute; left: -1px;
+  top: .3rem; bottom: .3rem; border-left: 2px solid var(--vurgu) }
+.yan-liste .durum { color: var(--soluk); font-size: .75rem }
+/* Dizinin yazıları numaralı: haritadaki aşama numarası gibi mono, iki hane. */
+.yan-liste--sirali { counter-reset: yazi }
+.yan-liste--sirali > li { padding-left: 2.35rem }
+.yan-liste--sirali > li::before { counter-increment: yazi;
+  content: counter(yazi, decimal-leading-zero); position: absolute; left: .9rem; top: .3rem;
+  font-family: var(--mono); font-size: .6875rem; line-height: 1.2rem; color: var(--soluk);
+  font-variant-numeric: tabular-nums }
+/* Odak görünür: klavyeyle gezen okur menüde nerede olduğunu görür. */
+.yan-liste a:focus-visible, .yan-menu-basligi a:focus-visible,
+.dizi-kutusu summary:focus-visible, .dizi-kutusu a:focus-visible {
+  outline: 2px solid var(--vurgu); outline-offset: 2px; border-radius: .2rem }
+/* Mobil dizi kutusu: kadro kutusuyla aynı kutu dili. */
+.dizi-kutusu { margin: 1.4rem 0 0; font-family: var(--arayuz); font-size: .875rem;
+  border: 1px solid var(--cizgi); border-radius: .5rem; background: var(--kutu-zemin) }
+.dizi-kutusu > summary { display: flex; align-items: baseline; gap: .5rem; cursor: pointer;
+  padding: .6rem 1rem; list-style: none; color: var(--koyu) }
+.dizi-kutusu > summary::-webkit-details-marker { display: none }
+.dizi-kutusu > summary::after { content: "+"; margin-left: auto; font-family: var(--mono);
+  color: var(--soluk) }
+.dizi-kutusu[open] > summary::after { content: "−" }
+.dizi-kutusu-adi { font-weight: 600 }
+.dizi-kutusu-sira { color: var(--soluk); font-variant-numeric: tabular-nums }
+.dizi-kutusu > nav { padding: .8rem 1rem .9rem; border-top: 1px solid var(--cizgi) }
+.dizi-kutusu-kapak { margin: .8rem 0 0; font-size: .8125rem }
+@media (min-width: 64rem) {
+  .yazi-duzeni { display: grid; container-type: inline-size; align-items: start;
+    grid-template-columns: minmax(0, 1fr) 40rem minmax(0, 1fr); column-gap: var(--ara) }
+  .yazi-govdesi { grid-column: 2; grid-row: 1; min-width: 0 }
+  .dizi-yan-menu, .bu-yazida { display: block; grid-row: 1; position: sticky; top: 2rem;
+    max-height: calc(100vh - 4rem); overflow-y: auto; padding: .15rem 0 .15rem 2px }
+  .dizi-yan-menu { grid-column: 1 }
+  .bu-yazida { grid-column: 3 }
+  .dizi-kutusu { display: none }
+  .yazi-duzeni--sag-bos { --genis-olcu: min(52rem, 20rem + 50cqi) }
+  .yazi-duzeni--sag-bos .yazi-govdesi pre, .yazi-duzeni--sag-bos .yazi-govdesi .katex-display,
+  .yazi-duzeni--sag-bos .yazi-govdesi .demo, .yazi-duzeni--sag-bos .yazi-govdesi .genis {
+    width: var(--genis-olcu) }
+  /* Tablo yalnızca gerektiği kadar genişler; küçük tablo uzamaz. */
+  .yazi-duzeni--sag-bos .yazi-govdesi table { max-width: var(--genis-olcu) }
+}

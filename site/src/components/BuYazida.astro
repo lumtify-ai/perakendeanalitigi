@@ -1,0 +1,29 @@
+---
+// site/src/components/BuYazida.astro
+//
+// Yazının h2 başlıkları, çapa bağlantısı olarak (spec §6). Liste build
+// sırasında render() → headings'ten gelir; sayfa şablonları yalnızca
+// derinlik 2'yi süzer. Boş listede hiçbir şey basılmaz — içi boş bir kutu
+// okura "burada bir şey olmalıydı" der. Hikâyede bu bileşeni Yazi.astro
+// hiç çağırmaz. JavaScript olmadığı için okunan bölüm vurgulanmaz.
+interface Props {
+  basliklar: { slug: string; text: string }[]
+}
+
+const { basliklar } = Astro.props
+---
+
+{
+  basliklar.length > 0 && (
+    <nav class="bu-yazida" aria-label="Bu yazıda">
+      <p class="yan-menu-basligi">Bu yazıda</p>
+      <ol class="yan-liste">
+        {basliklar.map((baslik) => (
+          <li>
+            <a href={`#${baslik.slug}`}>{baslik.text}</a>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  )
+}

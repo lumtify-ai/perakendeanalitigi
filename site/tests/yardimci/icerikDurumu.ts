@@ -152,3 +152,19 @@ export function noindexBeklenen(): string[] {
     ...taslakDiziAdresleriBeklenen(),
   ].sort()
 }
+
+/** Bir dizinin bütün yazılarının slug'ları, okuma sırasına (`sira`) göre —
+ *  hazırlanıyor olanlar dahil. Yazı sayfasının sol menüsü ve mobil dizi
+ *  kutusu dizinin tamamını listeler (src/lib/agac.ts · diziYazilari). */
+export function diziSiralamasi(alan: string, dizi: string): string[] {
+  const dizin = join(YAZI_KOKU, alan, dizi)
+  if (!existsSync(dizin)) return []
+  return readdirSync(dizin)
+    .filter((ad) => extname(ad) === '.mdx' && !ad.startsWith('.'))
+    .map((ad) => {
+      const { data } = matter(readFileSync(join(dizin, ad), 'utf-8'))
+      return { slug: ad.slice(0, -'.mdx'.length), sira: Number(data.sira) }
+    })
+    .sort((a, b) => a.sira - b.sira)
+    .map((y) => y.slug)
+}

@@ -1,5 +1,9 @@
 ---
 // site/src/components/DiziGezinme.astro
+//
+// Yazının sonunda dizi adı ve önceki/sonraki. Dizinin sıralı listesi
+// buradan sol menüye (DiziYanMenu.astro) taşındı (spec §6); okur yazıyı
+// bitirdiğinde ihtiyacı olan tek şey bir sonraki adım.
 import type { YaziOzet } from '../lib/agac'
 
 import { komsular } from '../lib/agac'
@@ -15,24 +19,10 @@ const { sirali, suanki, diziBasligi, diziAdresi } = Astro.props
 const { onceki, sonraki } = komsular(sirali, suanki)
 ---
 
-<nav class="dizi-gezinme" aria-label="Dizideki yazılar">
+<nav class="dizi-gezinme" aria-label="Dizide önceki ve sonraki yazı">
   <p class="dizi-adi">
     <a href={diziAdresi}>{diziBasligi}</a> dizisi
   </p>
-  <ol>
-    {
-      sirali.map((yazi) => (
-        <li class={yazi.slug === suanki ? 'suanki' : undefined}>
-          {yazi.slug === suanki ? (
-            <span aria-current="page">{yazi.baslik}</span>
-          ) : (
-            <a href={yazi.adres}>{yazi.baslik}</a>
-          )}
-          {yazi.durum === 'hazirlaniyor' && <span class="durum"> · hazırlanıyor</span>}
-        </li>
-      ))
-    }
-  </ol>
 
   <div class="komsular">
     {onceki && <a rel="prev" href={onceki.adres}>← {onceki.baslik}</a>}

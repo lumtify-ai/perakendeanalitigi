@@ -1,0 +1,64 @@
+---
+// site/src/components/DiziYanMenu.astro
+//
+// Yazı sayfasında dizinin bütün yazıları (spec §6). İki biçimde basılır,
+// içerik aynı: 'menu' 64rem üstünde sol sütundaki sticky gezinme,
+// 'kutu' 64rem altında başlığın altındaki <details> kutusu. Hangisinin
+// görüneceğine CSS karar verir; ikisi hiçbir genişlikte birlikte görünmez.
+// Hazırlanıyor yazı da listelenir — dizinin tamamı okura görünsün diye —
+// ama yanına "hazırlanıyor" yazılır.
+import type { YaziOzet } from '../lib/agac'
+
+interface Props {
+  diziBasligi: string
+  diziAdresi: string
+  sirali: YaziOzet[]
+  suanki: string
+  bicim?: 'menu' | 'kutu'
+}
+
+const { diziBasligi, diziAdresi, sirali, suanki, bicim = 'menu' } = Astro.props
+const sira = sirali.findIndex((yazi) => yazi.slug === suanki) + 1
+---
+
+{
+  bicim === 'menu' ? (
+    <nav class="dizi-yan-menu" aria-label="Dizinin yazıları">
+      <p class="yan-menu-basligi">
+        <a href={diziAdresi}>{diziBasligi}</a>
+      </p>
+      <ol class="yan-liste yan-liste--sirali">
+        {sirali.map((yazi) => (
+          <li>
+            <a href={yazi.adres} aria-current={yazi.slug === suanki ? 'page' : undefined}>
+              {yazi.baslik}
+            </a>
+            {yazi.durum === 'hazirlaniyor' && <span class="durum"> · hazırlanıyor</span>}
+          </li>
+        ))}
+      </ol>
+    </nav>
+  ) : (
+    <details class="dizi-kutusu">
+      <summary>
+        <span class="dizi-kutusu-adi">{diziBasligi}</span>
+        <span class="dizi-kutusu-sira"> · {sira} / {sirali.length}</span>
+      </summary>
+      <nav aria-label="Dizinin yazıları">
+        <ol class="yan-liste yan-liste--sirali">
+          {sirali.map((yazi) => (
+            <li>
+              <a href={yazi.adres} aria-current={yazi.slug === suanki ? 'page' : undefined}>
+                {yazi.baslik}
+              </a>
+              {yazi.durum === 'hazirlaniyor' && <span class="durum"> · hazırlanıyor</span>}
+            </li>
+          ))}
+        </ol>
+        <p class="dizi-kutusu-kapak">
+          <a href={diziAdresi}>Dizinin kapağı</a>
+        </p>
+      </nav>
+    </details>
+  )
+}
