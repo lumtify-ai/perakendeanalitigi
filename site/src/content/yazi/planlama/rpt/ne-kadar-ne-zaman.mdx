@@ -69,7 +69,7 @@ katmanının geçmiş sezonlardaki hatası, logaritmik ölçekte:
 
 | Hafta | h=2 | h=3 | h=4 | h=5 | h=6 |
 |---|---:|---:|---:|---:|---:|
-| σ | 0,268 | 0,235 | 0,205 | 0,181 | 0,157 |
+| σ | 0,268 | 0,235 | 0,204 | 0,181 | 0,157 |
 
 İlkbahar-yaz sezonu için, iki geçmiş sezondan. Beklediğiniz her hafta
 dağılım daralıyor. Bu, beklemenin değeridir. Bedeli ise tedarik süresi:
@@ -83,11 +83,11 @@ talebi üç parçaya bölüyor:
 
 | Dönem | Beklenen talep |
 |---|---:|
-| Bugünden RPT'nin gelişine | 2.344 |
-| Gelişten indirime, tam fiyat | 1.198 |
-| İndirim dönemi | 2.631 |
+| Bugünden RPT'nin gelişine | 2.362 |
+| Gelişten indirime, tam fiyat | 1.208 |
+| İndirim dönemi | 2.649 |
 
-İlk parça RPT'nin yetişemeyeceği talep; eldeki 763 adetlik stok onun bir
+İlk parça RPT'nin yetişemeyeceği talep; eldeki 764 adetlik stok onun bir
 kısmını karşılayacak. RPT'nin hedefi ikinci ve üçüncü parça.
 
 Dört yöntemin aynı sabah söyledikleri:
@@ -95,12 +95,12 @@ Dört yöntemin aynı sabah söyledikleri:
 | Yöntem | Sipariş |
 |---|---:|
 | Banu: ilk alımın yarısı | 1.040 |
-| FRR kuralı | 1.460 |
-| Newsvendor | 3.500 |
+| FRR kuralı | 1.470 |
+| Newsvendor | 3.530 |
 | Kâhin (gerçek talebi bilen, ikinci pazartesi) | 4.170 |
 
 Newsvendor, Banu'nun üç katından fazlasını istiyor. Beklenen satış
-1.198'i tam fiyattan, 2.099'u indirimde. Satışın büyük kısmı indirim
+1.208'i tam fiyattan, 2.116'sı indirimde. Satışın büyük kısmı indirim
 döneminde, ve newsvendor buna rağmen sipariş veriyor, çünkü Lumoda'da
 indirimli fiyat bile maliyetin üstünde.
 
@@ -108,9 +108,9 @@ Uzak Doğu'daki tişörtün üçüncü pazartesisi ise tamamen başka:
 
 | Dönem | Beklenen talep |
 |---|---:|
-| Bugünden RPT'nin gelişine | 2.713 |
-| Gelişten indirime, tam fiyat | 141 |
-| İndirim dönemi | 272 |
+| Bugünden RPT'nin gelişine | 2.708 |
+| Gelişten indirime, tam fiyat | 142 |
+| İndirim dönemi | 270 |
 
 Tedarikçinin <T k="moq">MOQ</T>'su 600. Gelişten sonra kalan bütün talep
 bunun altında. Newsvendor sıfır diyor; MOQ kapısı olmasa bile en iyi
@@ -120,8 +120,8 @@ sipariş vermiyor. Banu'nun kuralı 750 verdi, FRR kuralı 1.240 verirdi.
 ## Ne zaman
 
 Newsvendor'u aday modeliyle birleştirip her pazartesi çalıştırdığımızda
-ilkbahar-yaz sezonunda 12 ürüne RPT verildi. On tanesi ikinci pazartesi,
-ikisi üçüncü. Hiçbiri Uzak Doğu'dan değil.
+ilkbahar-yaz sezonunda 12 ürüne RPT verildi. Hepsi ikinci pazartesi.
+Hiçbiri Uzak Doğu'dan değil.
 
 Bu, önceki yazıdaki pencerenin başka bir yüzü. Yerli bir üründe ikinci
 pazartesi kestirim hâlâ belirsiz, ama beklemenin bedeli daha büyük. Bir
@@ -142,22 +142,22 @@ Sonbahar-kış sezonu:
 
 | Kol | Yerli RPT | Yerli Δ kâr | Uzak Doğu RPT | Uzak Doğu Δ kâr |
 |---|---:|---:|---:|---:|
-| Banu | 23 | 2.048.241 TL | 12 | −4.798.464 TL |
-| FRR, üçüncü pazartesi | 8 | 2.915.027 TL | 2 | −981.117 TL |
-| Öneri | 12 | 4.855.003 TL | 0 | 0 |
-| Kâhin | 16 | 6.648.331 TL | 3 | 167.966 TL |
+| Banu | 23 | 2.082.194 TL | 12 | −4.879.457 TL |
+| FRR, üçüncü pazartesi | 7 | 2.934.902 TL | 2 | −1.000.490 TL |
+| Öneri | 13 | 5.245.081 TL | 0 | 0 |
+| Kâhin | 16 | 6.881.541 TL | 3 | 133.706 TL |
 
 İlkbahar-yaz sezonu:
 
 | Kol | Yerli RPT | Yerli Δ kâr | Uzak Doğu RPT | Uzak Doğu Δ kâr |
 |---|---:|---:|---:|---:|
-| Banu | 29 | −1.293.551 TL | 9 | −2.056.690 TL |
-| FRR, üçüncü pazartesi | 4 | 801.382 TL | 1 | −157.447 TL |
-| Öneri | 12 | 1.620.256 TL | 0 | 0 |
-| Kâhin | 13 | 2.440.469 TL | 0 | 0 |
+| Banu | 29 | −1.395.744 TL | 9 | −2.091.285 TL |
+| FRR, üçüncü pazartesi | 4 | 800.710 TL | 1 | −156.887 TL |
+| Öneri | 12 | 1.572.612 TL | 0 | 0 |
+| Kâhin | 13 | 2.453.159 TL | 0 | 0 |
 
 Sonbahar-kışta Banu'nun on iki Uzak Doğu RPT'si, gelişten sonra toplam
-**35** adet ek tam fiyat satış getirdi ve 4,8 milyon TL kaybettirdi. Kâhin
+**47** adet ek tam fiyat satış getirdi ve 4.879.457 TL kaybettirdi. Kâhin
 bile Uzak Doğu'dan yalnız üç sipariş veriyor ve bunlardan neredeyse bir
 şey kazanamıyor.
 

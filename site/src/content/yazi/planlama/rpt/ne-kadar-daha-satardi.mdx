@@ -38,10 +38,10 @@ Dört yöntemin üçüncü pazartesi sabahı söyledikleri:
 
 | Katman | Ne yapıyor | Kestirim |
 |---|---|---:|
-| a | Çıplak satış: raporda görünen | 1.364 |
-| b | Stoklu gün hızı × kalan haftalar | 5.023 |
-| c | Çıplak satış ÷ eğrinin payı (FRR kuralı) | 3.763 |
-| d | Stoklu gün düzeltmeli talep ÷ düzeltilmiş eğrinin payı | 4.891 |
+| a | Çıplak satış: raporda görünen | 1.367 |
+| b | Stoklu gün hızı × kalan haftalar | 5.050 |
+| c | Çıplak satış ÷ eğrinin payı (FRR kuralı) | 3.769 |
+| d | Stoklu gün düzeltmeli talep ÷ düzeltilmiş eğrinin payı | 4.925 |
 
 **a** kestirim değil; başlangıç noktası. Üçüncü haftada sezonun ancak
 küçük bir kısmı yaşanmış.
@@ -59,7 +59,7 @@ böl. Şekli doğru, ama iki yerden sansür yiyor. Payda da pay da sansürlü.
 **d** c'nin iki kusurunu da düzeltiyor: pay stoklu gün düzeltmeli talep,
 payda stoklu gün düzeltmeli eğri.
 
-Şort için d bile gerçeğin altında kalıyor: 4.891'e karşı 6.018. Buna
+Şort için d bile gerçeğin altında kalıyor: 4.925'e karşı 6.018. Buna
 aşağıda döneceğiz. Önce bütün option'lara bakalım.
 
 ## Sınav sonucu
@@ -132,8 +132,8 @@ SELECT sum(coalesce(adet, 0))       AS satis,
 FROM hucre LEFT JOIN satis USING (magaza_id, urun_id);
 ```
 
-Sonuç: 1.364 adet satış, 1.006 stoklu hücre-gün, çıplak haftalık hız
-454,7, düzeltilmiş 502,3.
+Sonuç: 1.367 adet satış, 1.005 stoklu hücre-gün, çıplak haftalık hız
+455,7, düzeltilmiş 505,0.
 
 Toplama dikkat: hız zincir düzeyinde değil, **mağaza × beden** düzeyinde
 düzeltilip sonra toplanıyor. Zincir toplamını stoklu gün toplamına
@@ -194,7 +194,7 @@ gibi, yani önü yüklü gösterir.
 
 | Eğri | $k_3$ |
 |---|---:|
-| Çıplak satıştan öğrenilen | %36,2 |
+| Çıplak satıştan öğrenilen | %36,3 |
 | Stoklu gün düzeltmeli | %30,8 |
 | Sınav sezonunun gerçek eğrisi | %29,7 |
 
@@ -202,7 +202,7 @@ gibi, yani önü yüklü gösterir.
 fazlasını gördüğünü varsayar ve sezon talebini düşük kestirir. c
 katmanının %19'luk eksik yanlılığının bir kısmı buradan geliyor. Öğrenme
 sezonlarının kendi gerçek eğrisine ortalama uzaklık, ilk altı haftada,
-çıplakta 5,16 puan, düzeltilmişte 0,43 puan.
+çıplakta 5,19 puan, düzeltilmişte 0,42 puan.
 
 Eğriyi düzeltmek için mağaza × beden düzeyinde bir Poisson modeli
 kullanıldı: her hücrenin satışı, hücrenin kendi seviyesi × haftanın
@@ -212,11 +212,11 @@ sorusunu her hücre için aynı eğri altında cevaplıyor.
 
 ## Şort neden hâlâ eksik?
 
-d katmanı ortalamada neredeyse yansız (%−2), ama şortta 4.891'e karşı
+d katmanı ortalamada neredeyse yansız (%−2), ama şortta 4.925'e karşı
 6.018. İki sebep var.
 
 Birincisi, stoklu gün **günü** kurtarır, **saati** kurtaramaz. Üçüncü
-pazartesiye kadar şortun hücre-günlerinin %95,8'i stoklu görünüyor. Bir
+pazartesiye kadar şortun hücre-günlerinin %95,7'si stoklu görünüyor. Bir
 beden sabah üç adetle açılıp öğlen bitiyorsa o gün stoklu sayılır;
 öğleden sonra gelen müşteri yine kaybolur. Tutan ürünlerde bu tam da
 olan şey: rafa az mal kalmış, her gün erkenden bitiyor. Önceki yazıda
@@ -227,7 +227,7 @@ kapattığını görmüştük; sebep bu.
 ortalamaya doğru çekilir; en uçtaki ürün en çok eksik kalan üründür.
 
 Bu ikisi de RPT için aynı sonuca çıkıyor: kestirimin kendisi yetmez,
-**belirsizliği** de lazım. "Sezon talebi 4.891" demek yetmez; bu sayının
+**belirsizliği** de lazım. "Sezon talebi 4.925" demek yetmez; bu sayının
 ne kadar oynayabileceğini de söyleyebilmek gerekir. Miktar kararının iki hatası farklı bedeller taşıdığı için, bu aralığın
 genişliği siparişin büyüklüğünü doğrudan değiştirir. Beşinci yazının
 konusu bu.

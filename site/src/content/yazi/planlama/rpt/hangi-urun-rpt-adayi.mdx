@@ -58,8 +58,8 @@ ya da hayır sorusunda ise yeterli.
 
 ## Sonuç nadir
 
-İlkbahar-yaz sezonunun 545 karar satırının yalnız **25**'i pozitif:
-%4,6. Aday olmak nadir bir durum. Bu, kararın asıl zorluğunu da söylüyor:
+İlkbahar-yaz sezonunun 545 karar satırının yalnız **24**'ü pozitif:
+%4,4. Aday olmak nadir bir durum. Bu, kararın asıl zorluğunu da söylüyor:
 her hafta yüzlerce "hayır"ın içinden birkaç "evet"i bulmak.
 
 Pozitiflerin nerede toplandığına bakın. Modelin eğitildiği iki geçmiş
@@ -67,7 +67,7 @@ sezonda:
 
 | Menşe | h=2 | h=3 | h=4 | h=5 | h=6 |
 |---|---:|---:|---:|---:|---:|
-| Yerli | 20 | 18 | 7 | 2 | 0 |
+| Yerli | 20 | 18 | 8 | 2 | 0 |
 | Uzak Doğu | 0 | 0 | 0 | 0 | 0 |
 
 İki şey açıkça okunuyor. Uzak Doğu'dan gelen hiçbir ürün, hiçbir haftada
@@ -100,13 +100,13 @@ sezonlarında eğitildi, sınav sezonunu hiç görmedi.
 
 | Model | Alarm | Doğru | Yanlış alarm | Kaçan | İsabet | Duyarlılık |
 |---|---:|---:|---:|---:|---:|---:|
-| Banu'nun kuralı | 87 | 13 | 74 | 12 | %15 | %52 |
-| Lojistik regresyon | 38 | 20 | 18 | 5 | %53 | %80 |
-| LightGBM | 28 | 15 | 13 | 10 | %54 | %60 |
+| Banu'nun kuralı | 88 | 12 | 76 | 12 | %14 | %50 |
+| Lojistik regresyon | 40 | 19 | 21 | 5 | %48 | %79 |
+| LightGBM | 26 | 13 | 13 | 11 | %50 | %54 |
 
-Banu'nun kuralı çok bağırıyor ve çoğunda yanılıyor: 87 alarmın 13'ü
-doğru. Lojistik regresyon yarısından az alarmla, yakalanması gereken 25 satırın
-20'sini buluyor.
+Banu'nun kuralı çok bağırıyor ve çoğunda yanılıyor: 88 alarmın 12'si
+doğru. Lojistik regresyon yarısından az alarmla, yakalanması gereken 24 satırın
+19'unu buluyor.
 
 Satır sayıları paranın kendisi değil. Aynı sınavı TL ile de okuyabiliriz:
 her yanlış alarm, verilmemesi gereken bir siparişin sonradan bakıldığında
@@ -115,9 +115,9 @@ getirmediği kâr.
 
 | Model | Yanlış alarmların bedeli | Kaçanların bedeli |
 |---|---:|---:|
-| Banu'nun kuralı | 6.663.110 TL | 3.714.202 TL |
-| Lojistik regresyon | 1.993.756 TL | 536.286 TL |
-| LightGBM | 1.611.158 TL | 1.418.167 TL |
+| Banu'nun kuralı | 6.794.130 TL | 3.719.001 TL |
+| Lojistik regresyon | 2.227.550 TL | 535.005 TL |
+| LightGBM | 1.617.567 TL | 1.881.178 TL |
 
 Bir option'a sezonda en fazla bir RPT verildiğini varsayıp, her modelin
 bir option için **ilk** alarmında sipariş verildiğini düşünelim. Sezonun
@@ -125,16 +125,16 @@ sonunda toplam kâr farkı:
 
 | Model | İlk alarm alan option | Kâr |
 |---|---:|---:|
-| Banu'nun kuralı | 38 | −1.560.362 TL |
-| Lojistik regresyon | 15 | 2.724.383 TL |
-| LightGBM | 14 | 2.636.725 TL |
-| Mükemmel sınıflandırıcı | 10 | 3.493.786 TL |
+| Banu'nun kuralı | 38 | −1.558.430 TL |
+| Lojistik regresyon | 16 | 2.607.405 TL |
+| LightGBM | 13 | 2.519.322 TL |
+| Mükemmel sınıflandırıcı | 10 | 3.491.021 TL |
 
 Banu'nun kuralı, sipariş miktarı doğru hesaplansa bile kaybettiriyor.
 Lojistik regresyon mükemmel bir sınıflandırıcının getireceği kârın
-dörtte üçünden fazlasını alıyor.
+yaklaşık dörtte üçünü alıyor.
 
-Aynı sınav sonbahar-kış sezonunda daha da net: kural %32 isabetle, lojistik
+Aynı sınav sonbahar-kış sezonunda daha da net: kural %31 isabetle, lojistik
 regresyon %82 isabet ve %100 duyarlılıkla. Ama o sezonun modeli yalnız 483
 satırla ve 22 pozitifle eğitildi; bu sonuçlara güvenmek için veri az.
 
@@ -144,11 +144,11 @@ Lojistik regresyonun katsayıları, özellikler ölçeklendikten sonra:
 
 | Özellik | Katsayı |
 |---|---:|
-| MOQ ÷ tahmini ek talep | −2,94 |
-| Gelişten sonra kalan tam fiyat talep | 0,88 |
-| Tedarikçinin RPT süresi | −0,56 |
-| Stoklu mağaza payı | −0,54 |
-| Zincir STR'si | 0,46 |
+| MOQ ÷ tahmini ek talep | −2,90 |
+| Gelişten sonra kalan tam fiyat talep | 0,91 |
+| Tedarikçinin RPT süresi | −0,58 |
+| Uzak Doğu tedarikçisi | −0,46 |
+| Zincir STR'si | 0,45 |
 
 Ağırlığın büyük kısmı tek bir soruda: **tedarikçinin en küçük siparişi,
 karşılanamayacak talebe göre ne kadar büyük?** Banu'nun kuralının
@@ -160,15 +160,16 @@ belirleyici değil. Belirleyici olan "tedarikçinin üreteceği en küçük
 partiyi, geldiğinde tam fiyattan satacak kadar talep kalıyor mu"
 sorusu.
 
-Stoklu mağaza payının eksi işaretli olması da sezgisel: mağazaların
-çoğunda hâlâ mal varsa ürün henüz tükenmemiştir, acele yoktur.
+Tedarikçinin RPT süresi ve Uzak Doğu'dan gelmek, ikisi de eksi işaretli.
+Pozitiflerin tablosunun söylediğini model de öğrenmiş: tedarik uzadıkça
+gelişten sonra satacak zaman kalmıyor.
 
 ## Hangisi?
 
 LightGBM daha az alarm veriyor ama daha çok kaçırıyor; kârda ikisi
 başa baş. Sonraki yazılardaki oyunlarda "öneri" kolu LightGBM ile
-koşturuldu; aynı oyunlar lojistik regresyonla da koşturuldu ve sonuç yine
-başa baş çıktı (altıncı yazıda). Satır sayısı küçük, pozitif sayısı daha da
+koşturuldu; aynı oyunlar lojistik regresyonla da koşturuldu ve iki model
+aynı siparişleri verdi (altıncı yazıda). Satır sayısı küçük, pozitif sayısı daha da
 küçük. Böyle bir veride esnek bir model fazladan bir şey öğrenemiyor;
 lojistik regresyon ise bir buyer'a "bu ürün neden aday" sorusunun cevabını
 tek tabloda veriyor. Ben olsam lojistiği seçerdim.
