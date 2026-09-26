@@ -5,9 +5,11 @@ tanim: >-
   pahalı ve en geç verilebilen düzeltmesidir.
 ---
 
-Planın en büyük kısmı, satıştan önce ve eldeki en zayıf bilgiyle verilir:
-geçen sezonun benzer ürünleri, gidilecek mağaza sayısı, ürünün rafta kalacağı
-hafta sayısı. Sezon başlayınca bilgi hızla iyileşir, ama tedarik süresi
-yüzünden o bilgiyle yapılabilecek şey hızla azalır.
+RPT kararı sezonun ilk haftalarında verilir. Ürün beklenenden hızlı
+satmaktadır, ama ne kadar daha satacağı henüz belli değildir: stoksuz kalan
+günler gerçek talebi gizler. Tedarik süresi de kararı bekletmeye izin
+vermez. Yerli bir tedarikçi dört ile altı hafta arasında teslim eder, Uzak
+Doğu'daki bir tedarikçi on dört hafta ve üstünde.
 
-Bu alan o iki eğrinin kesiştiği yeri anlatır.
+Bu aşama iki soruya cevap arar: hangi ürün yeniden sipariş edilmeye değer ve
+ne kadar?
