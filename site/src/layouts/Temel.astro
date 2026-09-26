@@ -8,9 +8,12 @@ interface Props {
   isaretleme?: Record<string, unknown>
   /** Sayfa arama motorlarına ve yapay zekâ tarayıcılarına kapatılsın mı? */
   dizinlenmesin?: boolean
+  /** Sayfa iskeleti: 'okuma' (40rem okuma sütunu) ya da 'harita' (72rem
+   *  geniş çerçeve — ana sayfa, faz ve aşama sayfaları). */
+  duzen?: 'okuma' | 'harita'
 }
 
-const { baslik, aciklama, isaretleme, dizinlenmesin = false } = Astro.props
+const { baslik, aciklama, isaretleme, dizinlenmesin = false, duzen = 'okuma' } = Astro.props
 // Her sayfa aynı kalıpta: "Başlık · perakendeanalitigi.com". Ana sayfa da
 // dahil — başlığa yalnız alan adını koymak sekmede sitenin ne anlattığını
 // söylemiyordu.
@@ -72,7 +75,7 @@ const kurum = {
       </nav>
     </header>
 
-    <main>
+    <main class={`duzen-${duzen}`}>
       <slot />
     </main>
 

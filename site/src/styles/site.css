@@ -50,12 +50,31 @@
     --tooltip-zemin: #f3ede4; --tooltip-ink: #1a1815;
   }
 }
-body { max-width: 41rem }
 /* --- Ortak temel: iki yönün de paylaştığı yapı ------------------------- */
 
-body { margin-inline: auto; padding: 0 1.25rem 5rem; color: var(--ink);
+/* Gövdenin kendisi artık bir genişlik sınırı dayatmaz — sınır sayfa tipine
+   göre düzen bileşenindedir: header/footer 72rem dış çerçevede, `main`
+   sayfa tipine göre kendi ölçüsünü kurar (.duzen-okuma 40rem,
+   .duzen-harita 72rem). Yan boşluk mobilde dahil tek değer: 16px (1rem). */
+body { margin-inline: auto; padding: 0 1rem 5rem; color: var(--ink);
   background: var(--bg); font-family: var(--govde); font-size: var(--olcek);
   line-height: var(--satir); -webkit-font-smoothing: antialiased; }
+body > header, body > footer { max-width: 72rem; margin-inline: auto; }
+main.duzen-okuma { max-width: 40rem; margin-inline: auto; }
+main.duzen-harita { max-width: 72rem; margin-inline: auto; }
+/* Geniş öğeler: okuma sütununu aşıp en fazla okuma sütunu + sağ menü alanı
+   kadar (40rem + 12rem = 52rem) genişler; viewport merkezi her zaman sütun
+   merkeziyle çakışır (body ve .duzen-okuma ikisi de margin-inline:auto),
+   bu yüzden viewport'a göre ortalamak taşmayı da otomatik sınırlar. 64rem
+   altında bu kural uygulanmaz — dar ekranda taşma yasak (spec §2, §8). */
+@media (min-width: 64rem) {
+  .duzen-okuma pre, .duzen-okuma .katex-display, .duzen-okuma .demo, .duzen-okuma .genis {
+    width: 100vw; max-width: 52rem; margin-left: 50%; transform: translateX(-50%);
+  }
+}
+/* Kendi içinde yatay kayan genel amaçlı sarmalayıcı (tablo, çıplak MDX
+   `<table>` için ayrıca aşağıda; bu sınıf başka geniş içerikler için). */
+.yatay-kaydir { overflow-x: auto; }
 body > header { display: flex; flex-wrap: wrap; align-items: baseline;
   justify-content: space-between; gap: .5rem 1.5rem; padding-block: 1.5rem;
   border-bottom: 1px solid var(--cizgi); margin-bottom: 2.5rem; }

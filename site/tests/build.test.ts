@@ -765,6 +765,45 @@ describe('adresler', () => {
   })
 })
 
+/** Bir sayfanın bağladığı bütün stylesheet dosyalarının birleşik içeriği. */
+function baglıCss(html: string): string {
+  return [...html.matchAll(/<link rel="stylesheet" href="\/([^"]+)"/g)]
+    .map(([, dosya]) => oku(dosya))
+    .join('')
+}
+
+describe('sayfa iskeleti', () => {
+  it('body genişlik sınırı taşımaz', () => {
+    const css = baglıCss(oku('index.html'))
+    expect(css).not.toMatch(/body\s*\{[^}]*max-width/)
+    expect(css).not.toMatch(/body\{[^}]*max-width/)
+  })
+
+  it('harita sayfaları geniş çerçevede', () => {
+    for (const yol of ['index.html', 'sezon-ici/index.html', 'rpt/index.html']) {
+      expect(oku(yol), yol).toContain('<main class="duzen-harita"')
+    }
+    expect(oku('transfer/blok-transfer/sonuclar/index.html')).toContain(
+      '<main class="duzen-okuma"',
+    )
+  })
+
+  it("ölçüler CSS'te", () => {
+    const css = baglıCss(oku('index.html'))
+    expect(css).toContain('72rem')
+    expect(css).toContain('40rem')
+  })
+
+  it('tablo ve kod kendi içinde kayar', () => {
+    const css = baglıCss(oku('index.html'))
+    const tabloKayar =
+      /table\s*\{[^}]*overflow-x:\s*auto/.test(css) || /\.yatay-kaydir\s*\{[^}]*overflow-x:\s*auto/.test(css)
+    const kodKayar = /pre\s*\{[^}]*overflow-x:\s*auto/.test(css)
+    expect(tabloKayar).toBe(true)
+    expect(kodKayar).toBe(true)
+  })
+})
+
 /**
  * Bir sınıf belirtecini taşıyan öğe sayısı. Ham metinde saymak yanlış olur:
  * Astro bileşen CSS'ini sayfaya gömebilir ve aynı sınıf adı orada da geçer.
