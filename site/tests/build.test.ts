@@ -802,11 +802,20 @@ describe('sayfa iskeleti', () => {
 
   it('tablo ve kod kendi içinde kayar', () => {
     const css = baglıCss(oku('index.html'))
-    const tabloKayar =
-      /table\s*\{[^}]*overflow-x:\s*auto/.test(css) || /\.yatay-kaydir\s*\{[^}]*overflow-x:\s*auto/.test(css)
+    const tabloKayar = /table\s*\{[^}]*overflow-x:\s*auto/.test(css)
     const kodKayar = /pre\s*\{[^}]*overflow-x:\s*auto/.test(css)
     expect(tabloKayar).toBe(true)
     expect(kodKayar).toBe(true)
+  })
+
+  it('ölü sınıf yok, sr-only tek tanımlı', () => {
+    // .yatay-kaydir hiçbir işaretlemede kullanılmıyordu. .sr-only'yi
+    // Tailwind zaten üretiyor (sınıf .astro dosyalarında geçtiği için);
+    // elle yazılmış ikinci bir tanım ikisinden hangisinin kazandığını
+    // kaynak sırasına bırakırdı.
+    const css = baglıCss(oku('index.html'))
+    expect(css).not.toContain('.yatay-kaydir')
+    expect((css.match(/\.sr-only\{/g) ?? []).length).toBe(1)
   })
 })
 
@@ -912,17 +921,25 @@ const FAZ_SAYFALARI = [
 describe('harita', () => {
   it('faz sayfaları üretilir', () => {
     for (const yol of FAZ_SAYFALARI) expect(existsSync(DIST + yol), yol).toBe(true)
-    // Spec §0.1 madde 8: 6 / 5 / 4 aşama.
-    expect(sinifSay(oku('sezon-oncesi/index.html'), (b) => b === 'asama')).toBe(6)
-    expect(sinifSay(oku('sezon-ici/index.html'), (b) => b === 'asama')).toBe(5)
-    expect(sinifSay(oku('diger-surecler/index.html'), (b) => b === 'asama')).toBe(4)
+    // Spec §0.1 madde 8: her faz sayfası haritadaki aşamalarının hepsini
+    // basar. Sayılar HARITA'dan türer; harita.ts değişince test elle
+    // güncellenmez.
+    expect(HARITA.map((faz) => `${faz.slug}/index.html`)).toEqual(FAZ_SAYFALARI)
+    for (const faz of HARITA) {
+      expect(sinifSay(oku(`${faz.slug}/index.html`), (b) => b === 'asama'), faz.slug).toBe(
+        faz.asamalar.length,
+      )
+    }
   })
 
-  it('otuz dört algoritmanın hepsi görünür', () => {
-    // Spec §0.1 madde 10: 10 / 9 / 15 algoritma.
+  it('haritanın bütün algoritmaları görünür', () => {
+    // Spec §0.1 madde 10: her faz sayfası kendi algoritmalarının hepsini
+    // basar (bugün 10 / 9 / 15). Beklenen sayı HARITA'dan türer.
     const algoritmaMi = (b: string) => b.startsWith('algoritma--')
-    const toplam = FAZ_SAYFALARI.reduce((t, yol) => t + sinifSay(oku(yol), algoritmaMi), 0)
-    expect(toplam).toBe(34)
+    for (const faz of HARITA) {
+      const beklenen = faz.asamalar.reduce((t, a) => t + a.algoritmalar.length, 0)
+      expect(sinifSay(oku(`${faz.slug}/index.html`), algoritmaMi), faz.slug).toBe(beklenen)
+    }
   })
 
   it('aktif algoritmalar diziye bağlanır', () => {
@@ -1060,11 +1077,14 @@ describe('harita', () => {
 
   it('dizi etiketi yazı sayısını taşır, algoritma adı bağlantısız kalır', () => {
     // Haritada tıklanan tek öğe dizi etiketidir, algoritma adı değil
-    // (spec §0.1 madde 5). blok-transfer dizisinin 7 yayındaki yazısı var
-    // ("adresler" describe'undaki YAYINDAKILER listesiyle aynı sayı).
+    // (spec §0.1 madde 5). Etiketin adı ve sayısı içerikten türer: dizinin
+    // başlığı ve yayındaki yazı sayısı.
     const html = oku('sezon-ici/index.html')
     expect(html).toContain('class="dizi-etiketi"')
-    expect(html).toMatch(/class="dizi-etiketi" href="\/transfer\/blok-transfer\/">Blok Transfer · 7 yazı</)
+    const blok = diziler().find((d) => d.adres === '/transfer/blok-transfer/')!
+    const sayi = yayindakiYaziSayisi('transfer', 'blok-transfer')
+    expect(sayi).toBeGreaterThan(0)
+    expect(html).toContain(`class="dizi-etiketi" href="${blok.adres}">${blok.baslik} · ${sayi} yazı<`)
 
     // Her aktif algoritma satırının içinde yalnızca dizi-etiketi sınıflı <a>
     // olabilir; algoritma adının kendisi bir bağlantı değildir.
@@ -1132,8 +1152,12 @@ describe('harita', () => {
         .join('')
       expect(stiller, yol).toMatch(/\.faz-haritasi\{[^}]*list-style(-type)?:none/)
     }
-    expect(oku('sezon-ici/index.html')).toContain('<span class="asama-no">07</span>')
-    expect(oku('diger-surecler/index.html')).toContain('<span class="asama-no">12</span>')
+    // Her fazın ilk aşaması haritanın kendi numarasıyla (07, 12 gibi), iki
+    // haneli; numara HARITA'dan türer.
+    for (const faz of HARITA) {
+      const no = String(faz.asamalar[0].no).padStart(2, '0')
+      expect(oku(`${faz.slug}/index.html`), faz.slug).toContain(`<span class="asama-no">${no}</span>`)
+    }
   })
 
   it('ana sayfa üç fazı ve Temeller rafını gösterir', () => {
@@ -1257,15 +1281,17 @@ describe('dizi kapağı yazı listesi', () => {
 })
 
 describe('ana sayfa süreç hattı', () => {
-  it('ana sayfada on beş istasyon', () => {
-    // Spec §3: 15 aşama, dolu = aktif, boş halka = soluk. Aktif sayısı
-    // içerikten türer (tests/yardimci/icerikDurumu.ts).
+  it('ana sayfada haritanın her aşaması bir istasyon', () => {
+    // Spec §3: bugün 15 aşama, dolu = aktif, boş halka = soluk. İstasyon
+    // sayısı HARITA'dan, aktif sayısı içerikten türer
+    // (tests/yardimci/icerikDurumu.ts).
     const html = oku('index.html')
-    expect(sinifSay(html, (b) => b === 'istasyon')).toBe(15)
+    const asamaSayisi = HARITA.flatMap((faz) => faz.asamalar).length
+    expect(sinifSay(html, (b) => b === 'istasyon')).toBe(asamaSayisi)
     const aktifBeklenen = asamalar().filter((a) => a.aktif).length
     expect(aktifBeklenen).toBeGreaterThan(0)
     expect(sinifSay(html, (b) => b === 'istasyon--aktif')).toBe(aktifBeklenen)
-    expect(sinifSay(html, (b) => b === 'istasyon--soluk')).toBe(15 - aktifBeklenen)
+    expect(sinifSay(html, (b) => b === 'istasyon--soluk')).toBe(asamaSayisi - aktifBeklenen)
     // Durum şekille birlikte metinle de iletilir.
     for (const { acilis, govde } of istasyonlar(html)) {
       const aktif = acilis.includes('istasyon--aktif')
@@ -1326,16 +1352,16 @@ describe('ana sayfa süreç hattı', () => {
     expect(soluk).toBeGreaterThan(0)
   })
 
-  it('üç faz kartı', () => {
+  it('her faza bir faz kartı', () => {
     // Spec §3: faz adı (bağlantı), "a / t algoritma yazıldı". Aktif sayı
     // içerikten türer; aktif aşaması olmayan faz "0 / N" gösterir. Kart
     // segmentin başlığıdır: hattın içinde, segmentin durak listesinden önce;
     // faz adı ayrı bir kart satırında tekrarlanmaz.
     const html = oku('index.html')
-    expect(sinifSay(html, (b) => b === 'faz-karti')).toBe(3)
+    expect(sinifSay(html, (b) => b === 'faz-karti')).toBe(HARITA.length)
     expect(html).not.toContain('faz-kartlari')
     const kartlar = [...html.matchAll(/<header class="faz-karti">([\s\S]*?)<\/header>/g)].map(([, g]) => g)
-    expect(kartlar.length).toBe(3)
+    expect(kartlar.length).toBe(HARITA.length)
     const segmentler = html
       .slice(html.indexOf('<ol class="surec-hatti"'))
       .split('<li class="hat-segmenti">')

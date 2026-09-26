@@ -38,6 +38,8 @@ export type DiziDurumu = {
   alan: string
   dizi: string
   adres: string
+  /** Frontmatter `baslik` — dizi etiketinin ve kartının bastığı ad. */
+  baslik: string
   algoritmalar: string[]
   demo: boolean
   yayinda: boolean
@@ -57,6 +59,7 @@ export function diziler(): DiziDurumu[] {
         alan,
         dizi,
         adres: `/${alan}/${dizi}/`,
+        baslik: String(data.baslik),
         algoritmalar: data.algoritmalar ?? [],
         demo: data.demo === true,
         yayinda: yazilar(join(YAZI_KOKU, alan, dizi)).some((y) => y.durum === 'yayinda'),
