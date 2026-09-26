@@ -323,15 +323,18 @@ body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-bl
   color: var(--soluk); font-variant-numeric: tabular-nums }
 /* --- Dizi kapağı: numaralı yazı listesi ([dizi]/index.astro) -----------
    Spec §5: her satırda sıra (tarayıcının kendi decimal numarası), tip
-   rozeti, başlık, özet. Ana sayfadaki tekil yazı listesiyle (aşama
-   sayfası, alanYazilari) aynı sınıfı paylaşır — ikisi de dizi/alan içeriği
-   listeler, aynı boşluk ve tipografiyi kullanır. Demo bağlantısı bu
-   listenin dışında, ayrı bir paragraf (.demo-baglanti) olarak kalır. */
-.yazi-listesi { margin-block: 1.15rem; padding-left: 1.6rem; font-family: var(--arayuz) }
-.yazi-listesi > li { margin-block: 1.15rem }
-.yazi-listesi .rozet { margin-right: .55rem; vertical-align: .05em }
-.yazi-listesi > li > a { font-weight: 600; color: var(--koyu); text-decoration-color: var(--vurgu-cizgi) }
-.yazi-listesi > li > a:hover { color: var(--vurgu); text-decoration-color: currentColor }
-.yazi-listesi .durum { color: var(--soluk); font-size: .8125rem }
-.yazi-listesi .ozet { margin: .35rem 0 0; font-size: .9375rem; line-height: 1.55; color: var(--soluk) }
+   rozeti, başlık, özet. Sınıf adı `dizi-yazi-listesi` — `yazi-listesi`
+   sınıfı zaten ana sayfadaki Temeller rafında (src/pages/index.astro) ve
+   aşama sayfasındaki tekil "Yazılar" listesinde (src/pages/[alan]/
+   index.astro · alanYazilari) kullanılıyordu; aynı adı burada da
+   kullanmak o iki listeyi istemeden yeniden biçimlendirirdi. Demo
+   bağlantısı bu listenin dışında, ayrı bir paragraf (.demo-baglanti)
+   olarak kalır. */
+.dizi-yazi-listesi { margin-block: 1.15rem; padding-left: 1.6rem; font-family: var(--arayuz) }
+.dizi-yazi-listesi > li { margin-block: 1.15rem }
+.dizi-yazi-listesi .rozet { margin-right: .55rem; vertical-align: .05em }
+.dizi-yazi-listesi > li > a { font-weight: 600; color: var(--koyu); text-decoration-color: var(--vurgu-cizgi) }
+.dizi-yazi-listesi > li > a:hover { color: var(--vurgu); text-decoration-color: currentColor }
+.dizi-yazi-listesi .durum { color: var(--soluk); font-size: .8125rem }
+.dizi-yazi-listesi .ozet { margin: .35rem 0 0; font-size: .9375rem; line-height: 1.55; color: var(--soluk) }
 .demo-baglanti { margin-top: 1.75rem; font-family: var(--arayuz); font-size: .9375rem }

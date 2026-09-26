@@ -10,6 +10,7 @@ import {
   asamalar,
   diziler,
   noindexBeklenen,
+  yayindakiYaziSayisi,
 } from './yardimci/icerikDurumu'
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url))
@@ -1123,26 +1124,33 @@ function istasyonlar(html: string): { acilis: string; govde: string }[] {
 describe('aşama sayfası dizi kartı', () => {
   // Spec §5: aşama sayfası tanım + algoritma satırları + dizi kartları
   // (başlık, özet, yazı sayısı). Sınıf adı yeni bileşenin
-  // (DiziKarti.astro) bastığı sabit ad.
+  // (DiziKarti.astro) bastığı sabit ad. Beklenen yazı sayısı içerikten
+  // türer (tests/yardimci/icerikDurumu.ts · yayindakiYaziSayisi); RPT'ye
+  // yeni bir yazı eklendiğinde bu test elle güncellenmeden geçer.
   it('dizi kartı basar', () => {
     const html = oku('rpt/index.html')
+    const beklenen = yayindakiYaziSayisi('rpt', 'tekrar-siparis')
+    expect(beklenen).toBeGreaterThan(0)
     expect(html).toContain('class="dizi-karti"')
     expect(html).toContain('href="/rpt/tekrar-siparis/"')
-    expect(html).toContain('6 yazı')
+    expect(html).toContain(`${beklenen} yazı`)
   })
 })
 
 describe('dizi kapağı yazı listesi', () => {
   // Spec §5: numaralı yazı listesi, her satırda sıra, başlık, tip rozeti,
-  // özet. Liste sınıfı ana sayfadaki tekil yazı listesiyle aynı ad
-  // (yazi-listesi) — ikisi de aynı stili paylaşır.
+  // özet. Sınıf adı `dizi-yazi-listesi` — ana sayfadaki Temeller rafı ve
+  // aşama sayfasındaki tekil "Yazılar" listesi `yazi-listesi` sınıfını
+  // zaten kullanıyordu; aynı adı burada da kullanmak o sayfaları
+  // istemeden yeniden biçimlendirirdi (kontrolör kararı, brief'teki
+  // `ol.yazi-listesi` ifadesinin yerine geçer).
   it('yazıları tip rozetiyle listeler', () => {
     const html = oku('rpt/tekrar-siparis/index.html')
-    const bas = html.indexOf('<ol class="yazi-listesi">')
+    const bas = html.indexOf('<ol class="dizi-yazi-listesi">')
     expect(bas).toBeGreaterThan(-1)
     const govde = html.slice(bas, html.indexOf('</ol>', bas))
     const maddeler = [...govde.matchAll(/<li>([\s\S]*?)<\/li>/g)]
-    expect(maddeler.length).toBe(6)
+    expect(maddeler.length).toBe(yayindakiYaziSayisi('rpt', 'tekrar-siparis'))
     for (const [, madde] of maddeler) {
       expect(madde).toContain('class="rozet')
       expect(madde).toContain('<p class="ozet">')

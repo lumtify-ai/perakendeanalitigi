@@ -66,6 +66,13 @@ export function diziler(): DiziDurumu[] {
   return sonuc
 }
 
+/** Bir dizinin yayındaki yazı sayısı — DiziKarti ve dizi kapağı listesinin
+ *  bastığı sayıyla aynı kaynaktan (src/lib/haritaGirdisi.ts · diziBaglari
+ *  aynı `durum: yayinda` filtresini kullanır). */
+export function yayindakiYaziSayisi(alan: string, dizi: string): number {
+  return yazilar(join(YAZI_KOKU, alan, dizi)).filter((y) => y.durum === 'yayinda').length
+}
+
 /** Yayındaki bir dizinin kapsadığı algoritmalar. */
 export function aktifAlgoritmalar(): Set<string> {
   return new Set(diziler().filter((d) => d.yayinda).flatMap((d) => d.algoritmalar))
