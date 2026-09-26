@@ -236,11 +236,64 @@ def test_politikalar_enjekte_edilir_ve_gorunum_salt_okunur(k):
 
 def test_verilen_talep_matrisiyle_ayni_sonuc(k):
     """Motor talebi yalnız matristen okur: aynı matris, aynı çıktı."""
-    from perakende_veri.v3.dunya import akislar
-
-    kisa = simule_et(k.dunya, k.talep, rng_operasyon=akislar()["operasyon"], gun_sayisi=200)
+    kisa = simule_et(k.dunya, k.talep, gun_sayisi=200)
     for ad in ("satis", "kayip_satis", "sevkiyat", "stok"):
         tam = k.ham[ad]
         pd.testing.assert_frame_equal(
             kisa[ad].reset_index(drop=True), tam[tam["gun"] < 200].reset_index(drop=True)
         )
+
+
+# --- Operasyon rastgeleliği politikadan bağımsız ------------------------
+
+def test_binom_ters_cdf_kesin():
+    import math
+
+    from perakende_veri.v3.dunya import binom_ters_cdf
+
+    u = (np.arange(200_000) + 0.5) / 200_000
+    for n in (1, 4, 12):
+        k = binom_ters_cdf(u, np.full(u.size, n), 0.06)
+        assert k.max() <= n
+        frekans = np.bincount(k, minlength=n + 1) / u.size
+        kesin = [math.comb(n, j) * 0.06**j * 0.94 ** (n - j) for j in range(n + 1)]
+        assert np.allclose(frekans, kesin, atol=1e-4)
+    assert binom_ters_cdf(np.array([0.99]), np.array([0]), 0.06)[0] == 0
+
+
+def test_operasyon_uretici_gun_anahtarli():
+    from perakende_veri.v3.dunya import operasyon_uretici
+
+    a = operasyon_uretici(100).random(5)
+    operasyon_uretici(99).random(1000)          # başka günün tüketimi etkilemez
+    assert np.array_equal(a, operasyon_uretici(100).random(5))
+    assert not np.array_equal(a, operasyon_uretici(101).random(5))
+
+
+def test_rpt_degisince_diger_optionlar_birebir_ayni(k):
+    """Tek bir option'ın RPT'si kaldırıldığında yalnız o option'ın hücreleri
+    değişir: diğer bütün hücrelerin satışı, iadesi, tutarı ve kayıp satışı
+    varsayılan koşuyla birebir aynıdır (iade ve işlem indirimi hücre × gün
+    tekdüzesinden gelir, paylaşılan bir akıştan değil)."""
+    rpt = [s for s in k.ham["siparis"] if s["tip"] == "rpt"]
+    hedef = rpt[len(rpt) // 2]["option"]
+    varsayilan = LumodaRPT()
+
+    def bir_eksik(g):
+        return {o: q for o, q in varsayilan(g).items() if o != hedef}
+
+    alt = simule_et(k.dunya, k.talep, rpt_politikasi=bir_eksik)
+    assert sum(s["tip"] == "rpt" for s in alt["siparis"]) == len(rpt) - 1
+
+    diger = k.dunya.hucre_option != hedef
+    for ad in ("satis", "kayip_satis"):
+        a, b = k.ham[ad], alt[ad]
+        a_d = a[diger[a["hucre"].to_numpy()]].reset_index(drop=True)
+        b_d = b[diger[b["hucre"].to_numpy()]].reset_index(drop=True)
+        pd.testing.assert_frame_equal(a_d, b_d)
+    # Hedef option'ın kendisi gerçekten değişti (test boş değil)
+    s_a = k.ham["satis"]
+    s_b = alt["satis"]
+    hedef_a = s_a[~diger[s_a["hucre"].to_numpy()]]["adet"].sum()
+    hedef_b = s_b[~diger[s_b["hucre"].to_numpy()]]["adet"].sum()
+    assert hedef_a != hedef_b

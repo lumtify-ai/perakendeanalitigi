@@ -168,7 +168,7 @@ def test_rpt_var_ve_bir_kismi_gec_gelir(con):
 
 def test_rpt_depoda_kalir(con):
     """Gelen RPT normal replenishment'la dağıtılır ve büyük kısmı çıkışta
-    hâlâ depodadır (gerçekleşen: RPT adedinin %62–74'ü kadar depo stoğu)."""
+    hâlâ depodadır (gerçekleşen: RPT adedinin %63–74'ü kadar depo stoğu)."""
     oran = _tek(con, f"""
         WITH r AS ({RPT}),
         d AS (SELECT u.option_id, ds.tarih, sum(ds.adet) depo FROM depo_stok ds JOIN urun u USING (urun_id)
@@ -183,7 +183,7 @@ def test_rpt_depoda_kalir(con):
 def test_olu_stok_kapisi_rpt_sonrasi(con):
     """Dizinin 4. sorusu veride: RPT geldikten sonraki ilk pazartesi hızı
     sıfır görünen stoksuz hücreler (hücrelerin %13'ü) RPT sonrası kayıp
-    satışın %45'ini taşır ama sevkiyatın %5'ini alır."""
+    satışın %46'sını taşır ama sevkiyatın %5'ini alır."""
     df = con.sql(f"""
         WITH r AS ({RPT}),
         m AS (SELECT r.option_id, r.cik,

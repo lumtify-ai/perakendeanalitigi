@@ -139,11 +139,11 @@ def hareket_tablolari(dunya: Dunya, ham: dict) -> dict[str, pd.DataFrame]:
 
 
 def tablolari_uret(donus_ham: bool = False):
-    """On bir tabloyu tek tohumun dört akışından üretir."""
+    """On bir tabloyu tek tohumun akışlarından üretir (bkz. dunya modülü)."""
     rng = akislar()
     dunya = dunya_kur(rng["dunya"])
     talep = talep_matrisi(dunya, rng["talep"])
-    ham = simule_et(dunya, talep, rng_operasyon=rng["operasyon"])
+    ham = simule_et(dunya, talep)
     h = hareket_tablolari(dunya, ham)
     satis, stok = _kirlet(rng["kirli"], h["satis"], h["stok"], dunya)
 

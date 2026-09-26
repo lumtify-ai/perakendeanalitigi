@@ -14,5 +14,5 @@ def v3_kosu():
     rng = akislar()
     dunya = dunya_kur(rng["dunya"])
     talep = talep_matrisi(dunya, rng["talep"])
-    ham = simule_et(dunya, talep, rng_operasyon=rng["operasyon"])
+    ham = simule_et(dunya, talep)
     return {"dunya": dunya, "talep": talep, "ham": ham}

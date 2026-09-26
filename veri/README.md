@@ -227,7 +227,7 @@ siparişleri (`siparis`) yazılır.
 | `satis` | ~978 bin | v2 şeması. `indirim_tutari` planlı indirimi ve işlem indirimini birlikte taşır |
 | `stok` | ~1,05 milyon | Mağaza, pazartesi fotoğrafı + **`stoklu_gun`** |
 | `depo_stok` | ~109 bin | Depo, pazartesi fotoğrafı: `tarih, urun_id, adet` |
-| `sevkiyat` | ~317 bin | + `tip`: `ilk_dagitim` / `replenishment` / `geri_toplama` (negatif adet) |
+| `sevkiyat` | ~319 bin | + `tip`: `ilk_dagitim` / `replenishment` / `geri_toplama` (negatif adet) |
 | `kayip_satis` | ~119 bin | v2 şeması |
 
 Fotoğraflar (`stok`, `depo_stok`) pazartesi sabahı, günün hiçbir hareketinden
@@ -289,9 +289,9 @@ bakar: zincir STR'si (brüt satış ÷ mağazalara giden) ≥ %55 ve "lansman + 
 hafta + RPT süresi < indirim başı" ise ilk alımın %50'si kadar (en az MOQ)
 RPT verir; option başına en fazla bir. Gelen RPT depoya girer ve normal
 replenishment'la dağıtılır. Tam sezonlarda (SS24, AW24, SS25) sezon başına
-34–38 RPT; %29–38'i indirimden sonra gelir; çıkışta RPT adedinin %62–74'ü
+34–38 RPT; %29–38'i indirimden sonra gelir; çıkışta RPT adedinin %63–74'ü
 kadar stok hâlâ depodadır. RPT geldiğinde hızı sıfır görünen stoksuz
-hücreler (hücrelerin %13'ü) sonraki kayıp satışın %45'ini taşır ama
+hücreler (hücrelerin %13'ü) sonraki kayıp satışın %46'sını taşır ama
 sevkiyatın %5'ini alır. Kuralın kusurları kasıtlıdır (spec 2.8).
 
 ## Stoklu gün
@@ -344,7 +344,9 @@ tablolar = hareket_tablolari(dunya, ham)   # pencereli, kimlikli, temiz
 
 Varsayılan politikalarla (`LumodaRPT`, `mevcut_dagitim`) motor yayımlanan
 tabloları birebir üretir (`tests/test_v3_esdegerlik.py`). Günlük işlem
-sırası, rastgele akışlar ve politika arayüzü `v3/simulasyon.py` ve
+sırası, rastgele akışlar (operasyon rastgeleliği — iade ve işlem indirimi —
+(gün, hücre) başına anahtarlıdır: bir politika bazı hücrelerin satışını
+değiştirince diğer hücrelerin iade ve indirimleri aynen kalır) ve politika arayüzü `v3/simulasyon.py` ve
 `v3/dunya.py` belgelerindedir. Beklenen talep:
 `dunya.gercek_statik[c] * dunya.g_gercek[d, dunya.hucre_option[c]]`
 (plan için `plan_statik`, `g_plan`); gün indisi 0 = 2023-07-03.

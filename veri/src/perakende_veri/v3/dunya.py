@@ -11,11 +11,21 @@ Rastgelelik dört bağımsız akıştan gelir (koordinasyon kararı):
                                                   sürpriz, τ, sürüklenme,
                                                   teslim sapmaları
     talep      SeedSequence(TOHUM).spawn(3)[0]    günlük Poisson talebi
-    operasyon  SeedSequence(TOHUM).spawn(3)[1]    iade, işlem indirimi
+    operasyon  SeedSequence(TOHUM, spawn_key=     iade, işlem indirimi — GÜN
+               (1, d)), gün başına ayrı üreteç    BAŞINA AYRI üreteç, bkz. aşağı
     kirli      SeedSequence(TOHUM).spawn(3)[2]    kirli kayıtlar
 
 `dunya` akışı v2 ile aynı tohumla başlar ve önce `magazalari_uret`'i
 çağırır: v3'ün 25 mağazası v2'ninkilerle birebir aynıdır.
+
+Operasyon rastgeleliği (hücre, gün) başına politikadan bağımsızdır: d günü
+için `operasyon_uretici(d)` kurulur ve her gün tam olarak iki C boyutlu
+tekdüze dizi çeker (önce iade, sonra işlem indirimi), satış olsun olmasın.
+Bir hücrenin iadesi ve indirimi yalnız kendi tekdüze sayısına ve kendi
+satışına bağlıdır: karşı-olgusal bir politika bazı hücrelerin satışını
+değiştirdiğinde diğer hücrelerin iade ve indirim kararları aynen kalır.
+(Eski tasarımda tek paylaşılan akış satan hücre sayısı kadar tüketiliyordu;
+bir hücrenin satışı değişince sonraki bütün çekilişler kayıyordu.)
 
 Talep akışı her gün BÜTÜN hücreler için (aktif olmayanlar λ = 0) çekilir;
 günlük talep matrisi politikadan bağımsızdır ve `talep_matrisi()` ile
@@ -57,13 +67,54 @@ RPT_SAPMA_SAYISI = 4   # option başına önceden çekilen RPT teslim sapması
 
 def akislar() -> dict[str, np.random.Generator]:
     """Dört bağımsız rastgele akış (modül belgesine bakın)."""
-    talep_ss, operasyon_ss, kirli_ss = np.random.SeedSequence(sabitler.TOHUM).spawn(3)
+    # spawn(3) sırası korunur: [0] talep, [1] operasyon (gün başına, aşağıda),
+    # [2] kirli. Operasyonun kendisi burada akış olarak verilmez.
+    talep_ss, _, kirli_ss = np.random.SeedSequence(sabitler.TOHUM).spawn(3)
     return {
         "dunya": np.random.default_rng(sabitler.TOHUM),
         "talep": np.random.default_rng(talep_ss),
-        "operasyon": np.random.default_rng(operasyon_ss),
         "kirli": np.random.default_rng(kirli_ss),
     }
+
+
+OPERASYON_ANAHTARI = 1   # SeedSequence(TOHUM).spawn(3) içindeki sırası
+
+
+def operasyon_uretici(d: int, tohum: int = sabitler.TOHUM) -> np.random.Generator:
+    """d günü için operasyon üreteci: SeedSequence(tohum, spawn_key=(1, d)).
+
+    Sayaç tabanlıdır: d. günün üreteci önceki günlerde ne çekildiğinden
+    bağımsızdır. Motor her gün bundan tam iki `random(C)` çeker.
+    """
+    return np.random.default_rng(
+        np.random.SeedSequence(tohum, spawn_key=(OPERASYON_ANAHTARI, d))
+    )
+
+
+def binom_ters_cdf(u: np.ndarray, n: np.ndarray, p: float) -> np.ndarray:
+    """Binomial(n, p)'nin ters dağılım fonksiyonu: en küçük k, F(k) ≥ u.
+
+    Hücre başına kendi tekdüze sayısıyla çekilir; n'si değişmeyen hücrenin
+    sonucu da değişmez. Kesin (olasılıklar yinelemeli çarpımla), bağımlılık
+    yok; n küçük olduğu için döngü kısa. Sonuç [0, n] aralığına kırpılır
+    (yuvarlama F(n)'yi 1'in hemen altında bırakabilir).
+    """
+    n = np.asarray(n, dtype=np.int64)
+    u = np.asarray(u, dtype=float)
+    k = np.zeros(n.shape, dtype=np.int64)
+    if n.size == 0 or n.max() <= 0:
+        return k
+    pmf = (1.0 - p) ** n
+    cdf = pmf.copy()
+    oran = p / (1.0 - p)
+    for j in range(int(n.max())):
+        asan = u > cdf
+        if not asan.any():
+            break
+        k += asan
+        pmf = pmf * np.maximum(n - j, 0) / (j + 1) * oran
+        cdf = cdf + pmf
+    return np.minimum(k, n)
 
 
 @dataclass

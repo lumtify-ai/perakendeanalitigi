@@ -56,18 +56,23 @@ Her gün d için, bu sırayla:
     (`sevkiyat` tip replenishment). Aynı gün ilk dağıtımı yapılan option
     ilk replenishment'ını bir sonraki pazartesi alır.
  8. İADE. n = d−7 günündeki brüt satış (hücre bugün açıksa, değilse 0);
-    iade = Binomial(n, 0,06) — operasyon akışı, BÜTÜN hücreler için tek
-    çağrı. Mağaza stoğuna döner; `satis`e negatif satır.
+    iade = Binomial(n, 0,06)'nın ters CDF'i, hücrenin o günkü iade
+    tekdüzesiyle (u_iade[d, c]). Mağaza stoğuna döner; `satis`e negatif satır.
  9. STOKLU BAYRAĞI. stoklu[d, c] = mağaza_stok[c] > 0 (satış öncesi,
     teslim/dağıtım/iade sonrası: müşterinin rafta bulduğu).
 10. TALEP → SATIŞ. satış = min(talep[d], stok); kayıp = talep − satış.
-    Satan hücreler için operasyon akışından tek `random(n)` çağrısı:
-    < 0,08 ise %30 işlem indirimi (yalnız planlı indirim yoksa uygulanır).
+    Satan hücrede u_indirim[d, c] < 0,08 ise %30 işlem indirimi (yalnız
+    planlı indirim yoksa uygulanır).
 
 Rastgele akış tüketimi: talep akışı yalnız `talep_matrisi`'nde (gün
-başına C Poisson, hücre sırasıyla). Operasyon akışı gün başına en fazla
-iki çağrı: 8. adımda binomial (C boyutlu), 10. adımda random (satan hücre
-sayısı kadar). Teslim sapmaları dünyada önceden çekilmiştir.
+başına C Poisson, hücre sırasıyla). Operasyon rastgeleliği politikadan
+BAĞIMSIZDIR: her gün d için `dunya.operasyon_uretici(d)` kurulur ve
+8. adımdan önce tam olarak `u_iade = random(C)`, sonra `u_indirim =
+random(C)` çekilir — satış olsun olmasın, bu sırayla. Hücrenin iadesi
+yalnız (u_iade[d, c], d−7 satışı), indirimi yalnız (u_indirim[d, c],
+bugünkü satışı) ile belirlenir; bir politikanın başka hücrelerde
+değiştirdiği satış bu hücreyi etkilemez. Teslim sapmaları dünyada önceden
+çekilmiştir.
 
 POLİTİKA ARAYÜZÜ
 ================
@@ -96,7 +101,7 @@ import numpy as np
 import pandas as pd
 
 from . import sabitler
-from .dunya import Dunya, akislar, talep_matrisi
+from .dunya import Dunya, binom_ters_cdf, operasyon_uretici, talep_matrisi
 from .politika import LumodaRPT, mevcut_dagitim
 from .tedarik import en_buyuk_kalan, moq_yuvarla
 
@@ -161,7 +166,7 @@ def simule_et(
     talep: np.ndarray | None = None,
     rpt_politikasi=None,
     dagitim_politikasi=None,
-    rng_operasyon: np.random.Generator | None = None,
+    operasyon_tohumu: int = sabitler.TOHUM,
     varsayilan_rpt: bool = True,
     gun_sayisi: int | None = None,
 ) -> dict:
@@ -180,7 +185,6 @@ def simule_et(
         rpt_politikasi = LumodaRPT()
     if dagitim_politikasi is None:
         dagitim_politikasi = mevcut_dagitim
-    rng = rng_operasyon if rng_operasyon is not None else akislar()["operasyon"]
 
     w = dunya
     D = w.gun_sayisi if gun_sayisi is None else gun_sayisi
@@ -389,11 +393,18 @@ def simule_et(
                 gonderilen_option += _topla(ho[hucreler], adet, O)
                 _sevk(d, hucreler, adet, "replenishment")
 
+        # Operasyon tekdüzeleri: gün başına anahtarlı, her gün iki C dizisi
+        op = operasyon_uretici(d, operasyon_tohumu)
+        u_iade = op.random(C)
+        u_indirim = op.random(C)
+
         # 8) İade
         acik_bugun = (hucre_lansman <= d) & (d < hucre_cikis)
         if d >= sabitler.IADE_GECIKME_GUN:
-            n = np.where(acik_bugun, satis_gecmisi[d - sabitler.IADE_GECIKME_GUN], 0)
-            iade = rng.binomial(n, sabitler.IADE_ORANI)
+            n = np.where(acik_bugun, satis_gecmisi[d - sabitler.IADE_GECIKME_GUN], 0).astype(np.int64)
+            iade = np.zeros(C, dtype=np.int64)
+            aday = np.flatnonzero(n > 0)
+            iade[aday] = binom_ters_cdf(u_iade[aday], n[aday], sabitler.IADE_ORANI)
             donen = np.flatnonzero(iade > 0)
             if donen.size:
                 stok[donen] += iade[donen]
@@ -414,7 +425,7 @@ def simule_et(
 
         satan = np.flatnonzero(satilan > 0)
         if satan.size:
-            islem = rng.random(satan.size) < sabitler.ISLEM_INDIRIM_OLASILIGI
+            islem = u_indirim[satan] < sabitler.ISLEM_INDIRIM_OLASILIGI
             md = w.indirim_orani[d, ho[satan]]
             birim = liste[satan] * (1 - md) * np.where(
                 islem & (md == 0), 1 - sabitler.ISLEM_INDIRIM_ORANI, 1.0
