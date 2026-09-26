@@ -187,8 +187,8 @@ describe('alan sayfası kod içermez', () => {
   })
 })
 
-// Dizi ↔ algoritma bağı: dizinin frontmatter'ındaki "algoritmalar" ve
-// "deginir" listeleri haritayla (src/data/harita.ts) tutarlı olmalı. Bugün bu
+// Dizi ↔ algoritma bağı: dizinin frontmatter'ındaki "algoritmalar" listesi
+// haritayla (src/data/harita.ts) tutarlı olmalı. Bugün bu
 // hiç doğrulanmıyor — yazım hatalı ya da başka aşamaya ait bir kimlik
 // sessizce geçer, aşama sayfası o algoritmayı hiçbir diziye bağlayamaz ve bu
 // build zamanı hiç görünmez.
@@ -207,28 +207,8 @@ describe('dizi algoritma bağları', () => {
     const alanlar: AlanGirdi[] = [{ id: 'rpt', body: 'RPT bir kavramdir.' }]
     const hatalar = hepsiniDogrula(yazilar, diziler, alanlar, TERIMLER)
     expect(hatalar.join('\n')).toMatch(/markdown/)
-    expect(hatalar.join('\n')).toMatch(/deginir/)
-  })
-
-  it('değinilen algoritma haritada olmalı', () => {
-    const diziler: DiziGirdi[] = [
-      {
-        id: 'transfer/blok-transfer',
-        data: { alan: 'transfer', algoritmalar: ['blok-tekleme-kiriklik'], deginir: ['yok-boyle'] },
-      },
-    ]
-    const hatalar = hepsiniDogrula(tamDizi(), diziler, ALANLAR, TERIMLER)
-    expect(hatalar.join('\n')).toMatch(/yok-boyle/)
-  })
-
-  it('aynı algoritma iki listede birden olamaz', () => {
-    const yazilar: YaziGirdi[] = [yazi('rpt/x/a', 'hikaye', 1), yazi('rpt/x/b', 'sonuc', 2)]
-    const diziler: DiziGirdi[] = [
-      { id: 'rpt/x', data: { alan: 'rpt', algoritmalar: ['rpt-adet'], deginir: ['rpt-adet'] } },
-    ]
-    const alanlar: AlanGirdi[] = [{ id: 'rpt', body: 'RPT bir kavramdir.' }]
-    const hatalar = hepsiniDogrula(yazilar, diziler, alanlar, TERIMLER)
-    expect(hatalar.join('\n')).toMatch(/rpt-adet/)
+    // Değinme kavramı kalktı (spec §0.1 madde 7); mesaj ona yönlendirmez.
+    expect(hatalar.join('\n')).not.toMatch(/deginir/)
   })
 
   it('algoritma listesi boş olamaz', () => {

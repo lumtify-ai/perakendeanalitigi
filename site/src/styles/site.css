@@ -156,7 +156,6 @@ body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-bl
 .faz-haritasi { list-style: none; padding-left: 0 }
 .harita-fazlari { display: grid; gap: 0 2rem;
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
-.asama--soluk .asama-basligi, .algoritma--soluk,
-.algoritma--deginilmis > .algoritma-adi { color: var(--soluk) }
-.algoritma-dizileri a + a::before, .deginme-notu a + a::before { content: " · " }
-.algoritma-dizileri, .deginme-notu { font-family: var(--arayuz); font-size: .875rem; margin-left: .35rem }
+.asama--soluk .asama-basligi, .algoritma--soluk { color: var(--soluk) }
+.algoritma-dizileri a + a::before { content: " · " }
+.algoritma-dizileri { font-family: var(--arayuz); font-size: .875rem; margin-left: .35rem }

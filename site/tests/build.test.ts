@@ -780,25 +780,13 @@ describe('harita', () => {
     expect(sinifSay(html, (b) => b === 'algoritma--aktif')).toBe(4)
   })
 
-  it('değinme notu üretilmiş bir dizi kapağına gider', () => {
-    for (const yol of FAZ_SAYFALARI) {
-      const html = oku(yol)
-      const notlar = [...html.matchAll(/<span class="deginme-notu">([\s\S]*?)<\/span>/g)]
-      // Desen işaretlemeyle ayrışırsa (öznitelik sırası, ek sınıf) döngü
-      // boş listede sessizce geçerdi; eşleşme sayısı sınıf sayısına eşit olmalı.
-      expect(notlar.length, yol).toBe(sinifSay(html, (b) => b === 'deginme-notu'))
-      for (const [, not] of notlar) {
-        for (const [, adres] of not.matchAll(/href="([^"]+)"/g)) {
-          expect(existsSync(DIST + adres.replace(/^\//, '') + 'index.html'), `${yol} → ${adres}`).toBe(
-            true,
-          )
-        }
-      }
-    }
-    // Yaşam eğrisi Sezon Öncesi'nde; ona RPT dizisi değiniyor.
-    const oncesi = oku('sezon-oncesi/index.html')
-    expect(sinifSay(oncesi, (b) => b === 'deginme-notu')).toBeGreaterThanOrEqual(1)
-    expect(oncesi).toContain('href="/rpt/tekrar-siparis/"')
+  it('hiçbir sayfada değinme izi yok', () => {
+    // Değinme kavramı kalktı (spec §0.1 madde 7): okur "X dizisinde
+    // değinildi" notlarıyla karşılaşmamalı. Algoritma ya aktif ya soluktur.
+    const suclular = tumSayfalar()
+      .filter(({ html }) => html.includes('deginme-notu') || /değinildi/i.test(html))
+      .map(({ yol }) => yol)
+    expect(suclular).toEqual([])
   })
 
   it('soluk aşamaya bağlantı yok ve sayfası üretilmez', () => {

@@ -1,7 +1,8 @@
 ---
 // site/src/components/AlgoritmaSatiri.astro
 //
-// Haritadaki tek bir algoritma, üç durumdan biriyle (src/lib/haritaDurumu.ts).
+// Haritadaki tek bir algoritma, iki durumdan biriyle: aktif ya da soluk
+// (src/lib/haritaDurumu.ts).
 // Faz sayfası, ana sayfa ve aşama sayfası aynı satırı basar ki bir durumun
 // görünüşü üç yerde ayrışmasın. Sınıf adları sabittir; tasarım turu onlara
 // bağlanacak.
@@ -24,15 +25,6 @@ const durum = algoritmaDurumu(algoritma.id, diziler)
       <span class="algoritma-dizileri">
         {durum.diziler.map((dizi) => (
           <a href={dizi.adres}>{dizi.baslik}</a>
-        ))}
-      </span>
-    )
-  }
-  {
-    durum.tur === 'deginilmis' && (
-      <span class="deginme-notu">
-        {durum.diziler.map((dizi) => (
-          <a href={dizi.adres}>{dizi.baslik} dizisinde değinildi →</a>
         ))}
       </span>
     )

@@ -9,7 +9,6 @@ const A: DiziBagi = {
   baslik: 'Otomatik ikmal',
   adres: '/replenishment/otomatik-ikmal/',
   algoritmalar: ['otomatik-ikmal'],
-  deginir: ['yok-satma'],
   yayinda: true,
 }
 
@@ -18,7 +17,6 @@ const B: DiziBagi = {
   baslik: 'Markdown taslağı',
   adres: '/indirim/markdown/',
   algoritmalar: ['markdown'],
-  deginir: ['yasam-egrisi'],
   yayinda: false,
 }
 
@@ -27,7 +25,6 @@ const C: DiziBagi = {
   baslik: 'Yok satma',
   adres: '/is-zekasi/yok-satma/',
   algoritmalar: ['yok-satma'],
-  deginir: [],
   yayinda: true,
 }
 
@@ -44,18 +41,19 @@ describe('algoritmaDurumu', () => {
     expect(algoritmaDurumu('yasam-egrisi', [B])).toEqual({ tur: 'soluk' })
   })
 
-  it('değinme soluk başlığa not ekler', () => {
-    expect(algoritmaDurumu('yok-satma', [A])).toEqual({
-      tur: 'deginilmis',
-      diziler: [{ baslik: A.baslik, adres: A.adres }],
-    })
+  it('algoritmayı kapsamayan yayındaki dizi onu soluk bırakır', () => {
+    // Değinme kavramı kalktı (spec §0.1 madde 7): bir dizinin başka bir
+    // algoritmadan söz etmesi haritada hiçbir iz bırakmaz.
+    expect(algoritmaDurumu('yok-satma', [A])).toEqual({ tur: 'soluk' })
   })
 
-  it('kapsama değinmeyi yener', () => {
-    expect(algoritmaDurumu('yok-satma', [A, C])).toEqual({
-      tur: 'aktif',
-      diziler: [{ baslik: C.baslik, adres: C.adres }],
-    })
+  it('yalnızca iki durum var: aktif ve soluk', () => {
+    const turler = new Set(
+      ['otomatik-ikmal', 'yok-satma', 'markdown', 'rota'].map(
+        (id) => algoritmaDurumu(id, [A, B, C]).tur,
+      ),
+    )
+    expect([...turler].sort()).toEqual(['aktif', 'soluk'])
   })
 
   it('hiçbiri yoksa soluk', () => {

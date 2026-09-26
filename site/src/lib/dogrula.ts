@@ -16,7 +16,7 @@ export type YaziGirdi = {
 
 export type DiziGirdi = {
   id: string
-  data: { alan: string; algoritmalar?: string[]; deginir?: string[] }
+  data: { alan: string; algoritmalar?: string[] }
 }
 
 /** Alan koleksiyonunun bir girdisi. Gövde, alan sayfası kuralları için okunur. */
@@ -232,12 +232,12 @@ function alanGovdeleriDogrula(alanlar: AlanGirdi[]): string[] {
 }
 
 /**
- * Her dizinin `algoritmalar` (kapsadığı) ve `deginir` (değindiği) listeleri
- * haritayla (src/data/harita.ts) tutarlı mı?
+ * Her dizinin `algoritmalar` (kapsadığı) listesi haritayla
+ * (src/data/harita.ts) tutarlı mı?
  *
- * Bugün bu hiç doğrulanmıyor: yazım hatalı bir algoritma kimliği, başka bir
- * aşamaya ait bir algoritmanın "algoritmalar" listesine sızması ya da aynı
- * algoritmanın hem kapsanıp hem değinilmesi build'i hiç kırmıyor. Sonucu,
+ * Doğrulanmasaydı yazım hatalı bir algoritma kimliği ya da başka bir
+ * aşamaya ait bir algoritmanın "algoritmalar" listesine sızması build'i hiç
+ * kırmazdı. Sonucu,
  * haritaDurumu.ts'nin (Task 2) aşama/algoritma durumunu yanlış türetmesi —
  * bir algoritma hiçbir diziye bağlı görünmez ya da yanlış aşamaya bağlanır —
  * ve bu build zamanı hiç görünmez.
@@ -272,32 +272,11 @@ function diziAlgoritmalariDogrula(diziler: DiziGirdi[]): string[] {
             `"${dizi.id}" dizisi "${id}" algoritmasını kapsıyor ama bu algoritma ` +
               `haritada "${bulunan.asama.slug}" aşamasına ait, "${klasorAlani}" ` +
               "aşamasına değil. Bir dizi yalnızca kendi aşamasının algoritmalarını " +
-              '"algoritmalar" listesinde kapsayabilir; başka bir aşamanın ' +
-              'algoritmasından yalnızca söz ediyorsa bunu "deginir" listesine taşıyın.',
+              '"algoritmalar" listesinde kapsayabilir, aksi hâlde yanlış aşama ' +
+              'aktif görünür. Başka bir aşamanın algoritmasından yalnızca söz ' +
+              'ediyorsa kimliği listeden çıkarın.',
           )
         }
-      }
-    }
-
-    const deginir = dizi.data.deginir ?? []
-    for (const id of deginir) {
-      if (!algoritmaBul(id)) {
-        hatalar.push(
-          `"${dizi.id}" dizisinin "deginir" listesinde haritada olmayan bir ` +
-            `kimlik var: "${id}". src/data/harita.ts'de böyle bir algoritma ` +
-            'tanımlı değil; kimliği düzeltin ya da haritaya ekleyin.',
-        )
-      }
-    }
-
-    const deginirSet = new Set(deginir)
-    for (const id of algoritmalar ?? []) {
-      if (deginirSet.has(id)) {
-        hatalar.push(
-          `"${dizi.id}" dizisinde "${id}" algoritması hem "algoritmalar" hem ` +
-            '"deginir" listesinde birden bulunuyor. Bir algoritma bir dizide ya ' +
-            'kapsanır ya da yalnızca değinilir, ikisi birden olamaz; birini kaldırın.',
-        )
       }
     }
   }

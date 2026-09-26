@@ -2,7 +2,6 @@
 baslik: Tekrar Sipariş (RPT)
 alan: rpt
 algoritmalar: [rpt-gereksinim, rpt-adet]
-deginir: [yasam-egrisi, yok-satma, ilk-sevkiyat, otomatik-ikmal, algoritma-basari]
 ozet: >-
   Beklenenden erken biten ürünü yeniden ürettirmek. Daha olsaydı ne kadar
   satardı, yetişir mi, gelince satar mı ve geldiğinde mağazaya nasıl gider?

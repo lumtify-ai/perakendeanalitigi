@@ -10,7 +10,7 @@ import type { DiziBagi } from './haritaDurumu'
 
 type HamDizi = {
   id: string
-  data: { baslik: string; algoritmalar: string[]; deginir: string[] }
+  data: { baslik: string; algoritmalar: string[] }
 }
 
 /** Dizi koleksiyonundan haritanın okuduğu bağ listesini kurar. */
@@ -26,7 +26,6 @@ export function diziBaglari(
       baslik: dizi.data.baslik,
       adres: `/${alan}/${diziSlug}/`,
       algoritmalar: dizi.data.algoritmalar,
-      deginir: dizi.data.deginir,
       yayinda: uyeler.some((yazi) => yazi.durum === 'yayinda'),
     }
   })

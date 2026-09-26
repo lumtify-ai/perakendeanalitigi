@@ -8,8 +8,8 @@ function yazi(id: string, durum: string) {
 }
 
 const DIZILER = [
-  { id: 'rpt/tekrar-siparis', data: { baslik: 'Tekrar Sipariş', algoritmalar: ['rpt-adet'], deginir: ['yok-satma'] } },
-  { id: 'indirim/markdown', data: { baslik: 'Markdown', algoritmalar: ['markdown'], deginir: [] } },
+  { id: 'rpt/tekrar-siparis', data: { baslik: 'Tekrar Sipariş', algoritmalar: ['rpt-adet'] } },
+  { id: 'indirim/markdown', data: { baslik: 'Markdown', algoritmalar: ['markdown'] } },
 ]
 
 describe('diziBaglari', () => {
@@ -20,8 +20,8 @@ describe('diziBaglari', () => {
       baslik: 'Tekrar Sipariş',
       adres: '/rpt/tekrar-siparis/',
       algoritmalar: ['rpt-adet'],
-      deginir: ['yok-satma'],
     })
+    expect(rpt).not.toHaveProperty('deginir')
   })
 
   it('en az bir yayındaki yazısı olan dizi yayındadır; yalnız taslağı olan değildir', () => {

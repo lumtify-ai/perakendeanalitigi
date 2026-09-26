@@ -24,12 +24,10 @@ const dizi = defineCollection({
     baslik: z.string(),
     alan: z.string(),
     ozet: z.string(),
-    // Haritadaki algoritma kimlikleri (src/data/harita.ts). `algoritmalar`
-    // dizinin kurduğu ve kendi aşamasında duranlar; `deginir` bir yazının bir
-    // bölümünde kurulup kullanılan, ama dizinin konusu olmayanlar. Adını anmak
-    // değinmek sayılmaz.
+    // Haritadaki algoritma kimlikleri (src/data/harita.ts): dizinin kurduğu
+    // ve kendi aşamasında duranlar. Dizinin konusu olmayan, yalnızca söz
+    // edilen algoritmalar hiçbir yerde listelenmez (spec §0.1 madde 7).
     algoritmalar: z.array(z.string()).min(1),
-    deginir: z.array(z.string()).default([]),
     demo: z.boolean().default(false),
   }),
 })
