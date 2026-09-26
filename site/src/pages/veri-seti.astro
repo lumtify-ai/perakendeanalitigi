@@ -3,24 +3,29 @@
 import Temel from '../layouts/Temel.astro'
 import KirintiYolu from '../components/KirintiYolu.astro'
 
-const SURUM = 'v2'
+const SURUM = 'v3'
 const DEPO = 'https://github.com/lumtify-ai/perakendeanalitigi'
 const INDIRME = `${DEPO}/releases/tag/veri-${SURUM}`
 
 // Türkçe kesme işareti yüzünden çift tırnak: 'master'ı' tek tırnakta kırılır
 const TABLOLAR = [
   { ad: "magaza", satir: "25", aciklama: "Mağaza master'ı: şehir, tip, metrekare, kapasite" },
-  { ad: "urun", satir: "1.200", aciklama: "SKU master'ı ve ürün hiyerarşisi" },
-  { ad: "takvim", satir: "365", aciklama: "Tarih boyutu: hafta, ay, sezon, tatil" },
-  { ad: "satis", satir: "~532 bin", aciklama: "Günlük satış; negatif adet iadedir" },
-  { ad: "stok", satir: "~643 bin", aciklama: "Haftalık stok fotoğrafı" },
-  { ad: "sevkiyat", satir: "~179 bin", aciklama: "Depodan mağazaya giren mal" },
-  { ad: "kayip_satis", satir: "~46 bin", aciklama: "Stoksuzluk yüzünden karşılanamayan talep" },
+  { ad: "urun", satir: "3.600", aciklama: "SKU master'ı, ürün hiyerarşisi, sezon, dalga, lansman ve tedarikçi" },
+  { ad: "takvim", satir: "731", aciklama: "Tarih boyutu: hafta, ay, sezon kodu, tatil, indirim dönemi" },
+  { ad: "sezon", satir: "15", aciklama: "Sezon ve teslimat dalgası takvimi: lansman, indirim başı, çıkış" },
+  { ad: "tedarikci", satir: "8", aciklama: "Tedarikçiler: menşe, ilk sipariş ve RPT süresi, MOQ" },
+  { ad: "siparis", satir: "~15 bin", aciklama: "Tedarikçi siparişleri: ilk alım, RPT, sürekli tedarik" },
+  { ad: "satis", satir: "~978 bin", aciklama: "Günlük satış; negatif adet iadedir" },
+  { ad: "stok", satir: "~1,05 milyon", aciklama: "Haftalık mağaza stok fotoğrafı ve stoklu gün sayısı" },
+  { ad: "depo_stok", satir: "~109 bin", aciklama: "Haftalık depo stok fotoğrafı" },
+  { ad: "sevkiyat", satir: "~319 bin", aciklama: "İlk dağıtım, replenishment ve sezon sonu geri toplama" },
+  { ad: "kayip_satis", satir: "~119 bin", aciklama: "Stoksuzluk yüzünden karşılanamayan talep" },
 ]
 
 const ACIKLAMA =
   "Lumoda, perakendeanalitigi.com'daki bütün vakaların kullandığı sentetik " +
-  "moda perakende veri setidir: 25 mağaza, 1.200 SKU, 2025 yılının tamamı. " +
+  "moda perakende veri setidir: 25 mağaza, 3.600 SKU, iki yıl, beş sezon, sekiz " +
+  "tedarikçi ve sonlu bir depo. " +
   "CSV, Parquet ve tek dosya DuckDB olarak indirilebilir."
 
 const isaretleme = {
@@ -78,11 +83,14 @@ const isaretleme = {
     <li><strong>DuckDB</strong> — tek dosya; indirip saniyeler içinde SQL çalıştırırsınız</li>
   </ul>
   <p><a href={INDIRME}>Veri setini indir ({SURUM})</a></p>
+  <h2>Önceki sürümler</h2>
   <p>
-    Yayımlanmış bir sürüm geri çekilmez:
-    <a href={`${DEPO}/releases/tag/veri-v1`}>v1</a> indirilebilir durumda
-    kalıyor. Ama sitedeki yazıların bütün sayıları {SURUM}'den türetilmiştir;
-    elinizdeki v1 ile koştururken sayıların tutmaması beklenen bir şeydir.
+    Yayımlanmış bir sürüm geri çekilmez. <strong>Transfer ve replenishment
+    dizilerinin sayıları <a href={`${DEPO}/releases/tag/veri-v2`}>v2</a>'den
+    türetilmiştir</strong>; o dizileri kendiniz koşturacaksanız v2'yi indirin.
+    v2 tek yıllık, depo kısıtı ve tedarik tarafı olmayan önceki sürümdür.
+    <a href={`${DEPO}/releases/tag/veri-v1`}>v1</a> de indirilebilir durumda
+    kalıyor.
   </p>
 
   <h2>Yeniden üretim</h2>
@@ -93,7 +101,7 @@ const isaretleme = {
   <pre><code>git clone {DEPO}
 cd perakendeanalitigi/veri
 pip install -e ".[dev]"
-python -m perakende_veri.uret</code></pre>
+python -m perakende_veri.v3.uret</code></pre>
 
   <p>
     Şemanın tamamı, verinin kasten bırakılmış kusurları ve yetmediği yerler:

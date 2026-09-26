@@ -304,11 +304,21 @@ describe('veri seti sayfası', () => {
     expect(oku('veri-seti/index.html')).toContain('"@type":"Dataset"')
   })
 
-  it('yedi tabloyu da listeler', () => {
+  it("v3'ün on bir tablosunu da listeler", () => {
     const html = oku('veri-seti/index.html')
-    for (const tablo of ['magaza', 'urun', 'takvim', 'satis', 'stok', 'sevkiyat', 'kayip_satis']) {
+    for (const tablo of [
+      'magaza', 'urun', 'takvim', 'sezon', 'tedarikci', 'siparis',
+      'satis', 'stok', 'depo_stok', 'sevkiyat', 'kayip_satis',
+    ]) {
       expect(html).toContain(tablo)
     }
+  })
+
+  it("eski dizilerin v2 kullandığını söyler ve v2 release'ine bağlanır", () => {
+    const html = oku('veri-seti/index.html')
+    expect(html).toContain('releases/tag/veri-v3')
+    expect(html).toContain('releases/tag/veri-v2')
+    expect(html).toContain('Transfer ve replenishment')
   })
 
   it('üç formatı da duyurur', () => {
