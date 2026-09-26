@@ -1,0 +1,22 @@
+---
+// site/src/components/DiziKarti.astro
+//
+// Aşama sayfasındaki dizi kartı (spec §5): başlık, özet, yazı sayısı.
+// Faz kartıyla (FazKarti.astro) aynı kutu dilini paylaşır — ikisi de aynı
+// çerçeveli, zeminli kart; aşama sayfası birden fazla dizi kartını yan yana
+// dizebilir (DiziKartlari ızgarası site.css'te).
+interface Props {
+  baslik: string
+  adres: string
+  ozet: string
+  yaziSayisi: number
+}
+
+const { baslik, adres, ozet, yaziSayisi } = Astro.props
+---
+
+<li class="dizi-karti">
+  <h3 class="dizi-karti-adi"><a href={adres}>{baslik}</a></h3>
+  <p class="dizi-karti-ozet">{ozet}</p>
+  <p class="dizi-karti-sayi">{yaziSayisi} yazı</p>
+</li>

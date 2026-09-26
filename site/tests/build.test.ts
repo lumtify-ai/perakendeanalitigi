@@ -1120,6 +1120,44 @@ function istasyonlar(html: string): { acilis: string; govde: string }[] {
   )
 }
 
+describe('aşama sayfası dizi kartı', () => {
+  // Spec §5: aşama sayfası tanım + algoritma satırları + dizi kartları
+  // (başlık, özet, yazı sayısı). Sınıf adı yeni bileşenin
+  // (DiziKarti.astro) bastığı sabit ad.
+  it('dizi kartı basar', () => {
+    const html = oku('rpt/index.html')
+    expect(html).toContain('class="dizi-karti"')
+    expect(html).toContain('href="/rpt/tekrar-siparis/"')
+    expect(html).toContain('6 yazı')
+  })
+})
+
+describe('dizi kapağı yazı listesi', () => {
+  // Spec §5: numaralı yazı listesi, her satırda sıra, başlık, tip rozeti,
+  // özet. Liste sınıfı ana sayfadaki tekil yazı listesiyle aynı ad
+  // (yazi-listesi) — ikisi de aynı stili paylaşır.
+  it('yazıları tip rozetiyle listeler', () => {
+    const html = oku('rpt/tekrar-siparis/index.html')
+    const bas = html.indexOf('<ol class="yazi-listesi">')
+    expect(bas).toBeGreaterThan(-1)
+    const govde = html.slice(bas, html.indexOf('</ol>', bas))
+    const maddeler = [...govde.matchAll(/<li>([\s\S]*?)<\/li>/g)]
+    expect(maddeler.length).toBe(6)
+    for (const [, madde] of maddeler) {
+      expect(madde).toContain('class="rozet')
+      expect(madde).toContain('<p class="ozet">')
+    }
+  })
+
+  it('demo bağlantısı olan dizide bağlantı listenin altında durur', () => {
+    const html = oku('transfer/blok-transfer/index.html')
+    const listeSonu = html.indexOf('</ol>')
+    const demoBas = html.indexOf('class="demo-baglanti"')
+    expect(listeSonu).toBeGreaterThan(-1)
+    expect(demoBas).toBeGreaterThan(listeSonu)
+  })
+})
+
 describe('ana sayfa süreç hattı', () => {
   it('ana sayfada on beş istasyon', () => {
     // Spec §3: 15 aşama, dolu = aktif, boş halka = soluk. Aktif sayısı

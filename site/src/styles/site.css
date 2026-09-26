@@ -300,3 +300,38 @@ body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-bl
   .istasyon .asama-adi { display: block }
   .hat-dizileri { margin-top: .35rem; font-size: .8125rem; line-height: 1.4 }
 }
+/* --- Aşama sayfası: dizi kartı (DiziKarti.astro) -----------------------
+   Spec §5: tanım + algoritma satırları (faz sayfasıyla aynı bileşen,
+   yukarıdaki .faz-haritasi .algoritmalar kuralları) + dizi kartları
+   (başlık, özet, yazı sayısı). Kart faz kartıyla aynı kutu dilini
+   paylaşır: çizgili çerçeve, kutu zemini, yuvarlak köşe. Aşamanın birden
+   fazla dizisi olduğunda 64rem üstünde yan yana dizilir; aşağıda tek
+   sütuna döner. */
+.dizi-kartlari { list-style: none; padding-left: 0; margin-block: 1.15rem;
+  display: grid; gap: 1rem }
+@media (min-width: 64rem) {
+  .dizi-kartlari { grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)) }
+}
+.dizi-karti { margin: 0; padding: 1rem 1.25rem 1.1rem; border: 1px solid var(--cizgi);
+  border-radius: .5rem; background: var(--kutu-zemin) }
+.dizi-karti-adi { margin: 0 0 .4rem; font-size: 1.0625rem; line-height: 1.3 }
+.dizi-karti-adi a { color: var(--koyu); text-decoration-color: var(--vurgu-cizgi) }
+.dizi-karti-adi a:hover { color: var(--vurgu); text-decoration-color: currentColor }
+.dizi-karti-ozet { margin: 0 0 .6rem; font-family: var(--arayuz); font-size: .9375rem;
+  line-height: 1.55; color: var(--soluk) }
+.dizi-karti-sayi { margin: 0; font-family: var(--arayuz); font-size: .8125rem;
+  color: var(--soluk); font-variant-numeric: tabular-nums }
+/* --- Dizi kapağı: numaralı yazı listesi ([dizi]/index.astro) -----------
+   Spec §5: her satırda sıra (tarayıcının kendi decimal numarası), tip
+   rozeti, başlık, özet. Ana sayfadaki tekil yazı listesiyle (aşama
+   sayfası, alanYazilari) aynı sınıfı paylaşır — ikisi de dizi/alan içeriği
+   listeler, aynı boşluk ve tipografiyi kullanır. Demo bağlantısı bu
+   listenin dışında, ayrı bir paragraf (.demo-baglanti) olarak kalır. */
+.yazi-listesi { margin-block: 1.15rem; padding-left: 1.6rem; font-family: var(--arayuz) }
+.yazi-listesi > li { margin-block: 1.15rem }
+.yazi-listesi .rozet { margin-right: .55rem; vertical-align: .05em }
+.yazi-listesi > li > a { font-weight: 600; color: var(--koyu); text-decoration-color: var(--vurgu-cizgi) }
+.yazi-listesi > li > a:hover { color: var(--vurgu); text-decoration-color: currentColor }
+.yazi-listesi .durum { color: var(--soluk); font-size: .8125rem }
+.yazi-listesi .ozet { margin: .35rem 0 0; font-size: .9375rem; line-height: 1.55; color: var(--soluk) }
+.demo-baglanti { margin-top: 1.75rem; font-family: var(--arayuz); font-size: .9375rem }

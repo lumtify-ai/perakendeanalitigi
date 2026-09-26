@@ -4,6 +4,7 @@ import { getCollection, render } from 'astro:content'
 import Temel from '../../layouts/Temel.astro'
 import KirintiYolu from '../../components/KirintiYolu.astro'
 import AlgoritmaSatiri from '../../components/AlgoritmaSatiri.astro'
+import DiziKarti from '../../components/DiziKarti.astro'
 import { asamaBul } from '../../data/harita'
 import { alanYazilari } from '../../lib/agac'
 import { alanBasligi } from '../../lib/alanBasligi'
@@ -83,13 +84,14 @@ const isaretleme = {
         <ul class="dizi-kartlari">
           {diziler.map((dizi) => {
             const [, diziId] = dizi.id.split('/')
+            const bag = baglar.find((b) => b.id === dizi.id)
             return (
-              <li>
-                <h3>
-                  <a href={`/${girdi.id}/${diziId}/`}>{dizi.data.baslik}</a>
-                </h3>
-                <p>{dizi.data.ozet}</p>
-              </li>
+              <DiziKarti
+                baslik={dizi.data.baslik}
+                adres={`/${girdi.id}/${diziId}/`}
+                ozet={dizi.data.ozet}
+                yaziSayisi={bag?.yaziSayisi ?? 0}
+              />
             )
           })}
         </ul>
