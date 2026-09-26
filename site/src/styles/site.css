@@ -440,6 +440,12 @@ main.duzen-yazi { max-width: 72rem; margin-inline: auto; }
     max-height: calc(100vh - 4rem); overflow-y: auto; padding: .3rem }
   .dizi-yan-menu { grid-column: 1 }
   .bu-yazida { grid-column: 3 }
+  /* Odak görünür (spec §8): geniş blok (z-index 2) sağ menünün üstünden
+     geçer; klavye odağı o sırada bloğun altında kalan bir bağlantıya
+     düşerse halkası görünmezdi. Odak menüdeyken menü blokların üstüne
+     çıkar, opak sayfa zemini alır. Sol menü bu kurala gerek duymaz: geniş
+     bloklar yalnız sağa taşar, sol menüye hiç değmez. */
+  .bu-yazida:focus-within { z-index: 3; background: var(--bg) }
   .dizi-kutusu { display: none }
   .yazi-duzeni { --genis-olcu: calc(20rem + 50cqi) }
   .yazi-duzeni--sag-bos { --genis-olcu: min(52rem, 20rem + 50cqi) }

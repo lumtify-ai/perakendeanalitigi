@@ -1574,6 +1574,16 @@ describe('yazı sayfası yan gezinmesi', () => {
     expect(tablo.govde).toMatch(/width:\s*max-content/)
     expect(tablo.govde).toMatch(/min-width:\s*100%/)
     expect(css).toMatch(/(?:^|[}\s])table\s*\{[^}]*overflow-x:\s*auto/)
+    // Odak görünür (spec §8): klavye odağı sağ menüdeyken menü blokların
+    // üstüne çıkar ve opak zemin alır; yoksa bloğun altında kalan bağlantının
+    // odak halkası görünmezdi.
+    const odak = kurallar.find((k) => k.parcalar.includes('.bu-yazida:focus-within'))
+    expect(odak, '.bu-yazida:focus-within').toBeDefined()
+    expect(odak!.govde).toMatch(/background:\s*var\(--bg\)/)
+    const blokKatmani = Math.max(
+      ...genisleyen.map((k) => zIndex(k.govde)).filter((z) => Number.isFinite(z)),
+    )
+    expect(zIndex(odak!.govde)).toBeGreaterThan(blokKatmani)
     // Ölçü: sağ sütunun sağ kenarı; sağ sütun boşken 52rem sınırı.
     expect(css).toMatch(/\.yazi-duzeni\s*\{\s*--genis-olcu:\s*calc\(20rem \+ 50cqi\)/)
     expect(css).toMatch(/\.yazi-duzeni--sag-bos\s*\{\s*--genis-olcu:\s*min\(52rem,\s*20rem \+ 50cqi\)/)
