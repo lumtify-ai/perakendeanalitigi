@@ -32,21 +32,24 @@ const TANIM =
 ---
 
 <Temel baslik="Perakende Analitiği" aciklama={TANIM} duzen="harita">
-  <h1>Perakende Analitiği</h1>
-  <p class="tanim">{TANIM}</p>
-  <p>
-    Bütün çözümler tek bir açık veri setinin üzerinde çalışır:
-    <a href="/veri-seti/">Lumoda</a>, 25 mağazalık kurgusal bir moda
-    perakende zinciri. Veri, kod ve model açıktır; hiçbiri form arkasında
-    değildir.
-  </p>
+  {/* Düz yazı 40rem ölçüde (.olcu); 72rem çerçeveyi yalnız süreç hattı kullanır. */}
+  <div class="olcu">
+    <h1>Perakende Analitiği</h1>
+    <p class="tanim">{TANIM}</p>
+    <p>
+      Bütün çözümler tek bir açık veri setinin üzerinde çalışır:
+      <a href="/veri-seti/">Lumoda</a>, 25 mağazalık kurgusal bir moda
+      perakende zinciri. Veri, kod ve model açıktır; hiçbiri form arkasında
+      değildir.
+    </p>
+  </div>
 
   {/* Üst menüdeki "Harita" bağlantısının hedefi (tasarım dokümanı §9) */}
   <section id="harita" class="harita">
     <h2 class="sr-only">Süreç hattı</h2>
     <SurecHatti diziler={baglar} />
 
-    <section class="temeller-rafi">
+    <section class="temeller-rafi olcu">
       <h2>
         <a href={`/${TEMELLER}/`}>{alanBasligi(TEMELLER, temeller.data)}</a>
       </h2>
@@ -65,7 +68,7 @@ const TANIM =
     </section>
   </section>
 
-  <section class="kim-yaziyor">
+  <section class="kim-yaziyor olcu">
     <h2>Kim yazıyor</h2>
     <p>
       Bu site <a href="https://lumtify.com">Lumtify</a>'ın perakende analitiği

@@ -62,6 +62,12 @@ body { margin-inline: auto; padding: 0 1rem 5rem; color: var(--ink);
 body > header, body > footer { max-width: 72rem; margin-inline: auto; }
 main.duzen-okuma { max-width: 40rem; margin-inline: auto; }
 main.duzen-harita { max-width: 72rem; margin-inline: auto; }
+/* Okuma ölçüsü: harita düzeninin (72rem) içinde düz yazı yine 40rem
+   satırda kalır. Ana sayfa, faz, aşama ve Temeller sayfalarında her düz
+   yazı bloğu bu sınıfın içindedir; 72rem çerçeveyi yalnız süreç hattı
+   (.surec-hatti) ve dizi kartları (.dizi-kartlari) kullanır. Sola yaslı:
+   geniş blokla aynı sol kenardan başlar. */
+.olcu { max-width: 40rem }
 /* Geniş öğeler: okuma sütununu aşıp en fazla okuma sütunu + sağ menü alanı
    kadar (40rem + 12rem = 52rem) genişler; viewport merkezi her zaman sütun
    merkeziyle çakışır (body ve .duzen-okuma ikisi de margin-inline:auto),
@@ -173,8 +179,9 @@ body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-bl
    aşama açık, algoritmaları altında noktalı liste; soluk aşama kapalı,
    algoritmaları tek küçük satırda. Numara sütunu (--no-sutunu) sabit
    genişlikte; ad, algoritma listesi ve soluk satır aynı sol kenara hizalanır.
-   Ana sayfa bu listeyi basmaz; onun haritası aşağıdaki süreç hattıdır. */
-.faz-sayfasi { max-width: 40rem }
+   Ana sayfa bu listeyi basmaz; onun haritası aşağıdaki süreç hattıdır.
+   Sayfanın 40rem genişliği paylaşılan .olcu sınıfından gelir
+   (FazSayfasi.astro). */
 .faz-ilerlemesi { font-family: var(--arayuz); font-size: .875rem; color: var(--soluk);
   font-variant-numeric: tabular-nums; margin: 0 0 2.25rem }
 /* Aşamanın sırası haritanın kendi numarasıdır (01–15); listenin tarayıcı
@@ -199,13 +206,18 @@ body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-bl
 /* Soluk aşama renkle birlikte ağırlıkla da ayrışır: adı kalın değil. */
 .asama--soluk .asama-basligi { color: var(--soluk); font-weight: 400 }
 .algoritma--soluk { color: var(--soluk) }
-/* `main ul`'un madde işaretini ve girintisini sınıf özgüllüğüyle yener. */
-.faz-haritasi .algoritmalar { list-style: none; margin: .45rem 0 0; padding-left: var(--no-sutunu) }
+/* Algoritma satırı listesi (AlgoritmaSatiri.astro) nerede basılırsa
+   basılsın — faz haritası ya da aşama sayfası — aynı görünür: `main ul`'un
+   madde işaretini ve girintisini sınıf özgüllüğüyle yener; yoksa satırın
+   kendi noktasının yanında bir de disc çıkar ("• ●"). Faz haritasında
+   liste ayrıca aşama adının hizasına girinti alır. */
+.algoritmalar { list-style: none; padding-left: 0 }
+.faz-haritasi .algoritmalar { margin: .45rem 0 0; padding-left: var(--no-sutunu) }
 /* Noktanın da asılı girintisi var: algoritma adı sarınca noktanın altına
    değil adın altına düşer. */
-.faz-haritasi .algoritmalar > .algoritma { margin-block: .2rem; font-size: 1rem; line-height: 1.5;
+.algoritmalar > .algoritma { margin-block: .2rem; font-size: 1rem; line-height: 1.5;
   padding-left: 1.1rem; text-indent: -1.1rem }
-.faz-haritasi .durum-noktasi { display: inline-block; width: 1.1rem; margin: 0; text-indent: 0 }
+.algoritmalar .durum-noktasi { display: inline-block; width: 1.1rem; margin: 0; text-indent: 0 }
 .soluk-algoritmalar { margin: .3rem 0 0; padding-left: var(--no-sutunu);
   font-family: var(--arayuz); font-size: .8125rem; line-height: 1.55; color: var(--soluk) }
 .algoritma-dizileri a + a::before { content: " · " }
@@ -303,7 +315,7 @@ body > footer { margin-top: 4rem; border-top: 1px solid var(--cizgi); padding-bl
 }
 /* --- Aşama sayfası: dizi kartı (DiziKarti.astro) -----------------------
    Spec §5: tanım + algoritma satırları (faz sayfasıyla aynı bileşen,
-   yukarıdaki .faz-haritasi .algoritmalar kuralları) + dizi kartları
+   yukarıdaki .algoritmalar kuralları) + dizi kartları
    (başlık, özet, yazı sayısı). Kart faz kartıyla aynı kutu dilini
    paylaşır: çizgili çerçeve, kutu zemini, yuvarlak köşe. Aşamanın birden
    fazla dizisi olduğunda 64rem üstünde yan yana dizilir; aşağıda tek

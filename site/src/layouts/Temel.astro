@@ -9,7 +9,8 @@ interface Props {
   /** Sayfa arama motorlarına ve yapay zekâ tarayıcılarına kapatılsın mı? */
   dizinlenmesin?: boolean
   /** Sayfa iskeleti: 'okuma' (40rem okuma sütunu), 'harita' (72rem
-   *  geniş çerçeve — ana sayfa, faz ve aşama sayfaları) ya da 'yazi' (72rem
+   *  geniş çerçeve — ana sayfa, faz ve aşama sayfaları; düz yazı yine 40rem
+   *  ölçüde kalır, sayfa onu `.olcu` sınıfıyla sarar) ya da 'yazi' (72rem
    *  çerçevede yan menüler ve ortada 40rem okuma sütunu — Yazi.astro). */
   duzen?: 'okuma' | 'harita' | 'yazi'
 }

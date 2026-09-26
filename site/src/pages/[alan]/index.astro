@@ -57,30 +57,33 @@ const isaretleme = {
 >
   <KirintiYolu basamaklar={[...fazBasamagi(girdi.id), { ad: baslik }]} />
 
-  <h1>{baslik}</h1>
+  {/* Düz yazı 40rem ölçüde (.olcu); 72rem çerçeveyi yalnız dizi kartları kullanır. */}
+  <div class="olcu">
+    <h1>{baslik}</h1>
 
-  {/* İlk paragraf doğrudan tanımla açılır — hikâyeyle açılan sayfa alıntılanmaz */}
-  <p class="tanim">{girdi.data.tanim}</p>
+    {/* İlk paragraf doğrudan tanımla açılır — hikâyeyle açılan sayfa alıntılanmaz */}
+    <p class="tanim">{girdi.data.tanim}</p>
 
-  <Content />
+    <Content />
 
-  {
-    asama && (
-      <section>
-        <h2>Algoritmalar</h2>
-        <ul class="algoritmalar">
-          {asama.algoritmalar.map((algoritma) => (
-            <AlgoritmaSatiri algoritma={algoritma} diziler={baglar} />
-          ))}
-        </ul>
-      </section>
-    )
-  }
+    {
+      asama && (
+        <section>
+          <h2>Algoritmalar</h2>
+          <ul class="algoritmalar">
+            {asama.algoritmalar.map((algoritma) => (
+              <AlgoritmaSatiri algoritma={algoritma} diziler={baglar} />
+            ))}
+          </ul>
+        </section>
+      )
+    }
+  </div>
 
   {
     diziler.length > 0 && (
       <section>
-        <h2>Diziler</h2>
+        <h2 class="olcu">Diziler</h2>
         <ul class="dizi-kartlari">
           {diziler.map((dizi) => {
             const [, diziId] = dizi.id.split('/')
@@ -101,7 +104,7 @@ const isaretleme = {
 
   {
     tekilYazilar.length > 0 && (
-      <section>
+      <section class="olcu">
         <h2>Yazılar</h2>
         <ul class="yazi-listesi">
           {tekilYazilar.map((yazi) => (
@@ -119,7 +122,7 @@ const isaretleme = {
 
   {
     !asama && (
-      <section>
+      <section class="olcu">
         <h2>Başvuru</h2>
         <ul>
           <li><a href="/sozluk/">Sözlük</a> — terimlerin tanımları</li>

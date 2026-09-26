@@ -810,6 +810,71 @@ describe('sayfa iskeleti', () => {
   })
 })
 
+const BOS_ETIKETLER = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'])
+
+/**
+ * `<main>` içindeki her açılış etiketi: adı, kendi sınıfları ve atalarının
+ * sınıfları. Küçük bir yığın yürüyücüsü — tam bir HTML ayrıştırıcısı değil,
+ * ama Astro'nun ürettiği düzgün işaretleme için yeterli.
+ */
+function mainEtiketleri(html: string): { ad: string; siniflar: string[]; atalar: string[] }[] {
+  const bas = html.indexOf('<main')
+  const govde = html.slice(bas, html.indexOf('</main>', bas)).replace(/<!--[\s\S]*?-->/g, '')
+  const yigin: { ad: string; siniflar: string[] }[] = []
+  const sonuc: { ad: string; siniflar: string[]; atalar: string[] }[] = []
+  for (const [etiket, kapanis, hamAd] of govde.matchAll(/<(\/?)([a-zA-Z][\w-]*)\b[^>]*>/g)) {
+    const ad = hamAd.toLowerCase()
+    if (kapanis) {
+      const yer = yigin.map((e) => e.ad).lastIndexOf(ad)
+      if (yer > -1) yigin.length = yer
+      continue
+    }
+    const siniflar = etiket.match(/class="([^"]*)"/)?.[1].split(/\s+/).filter(Boolean) ?? []
+    sonuc.push({ ad, siniflar, atalar: yigin.flatMap((e) => e.siniflar) })
+    if (!BOS_ETIKETLER.has(ad) && !etiket.endsWith('/>')) yigin.push({ ad, siniflar })
+  }
+  return sonuc
+}
+
+describe('okuma ölçüsü', () => {
+  // Harita düzeni (72rem) yalnızca süreç hattına ve dizi kartlarına geniş
+  // çerçeve verir; düz yazının satırı her sayfada 40rem'de kalır (spec §2).
+  // Ölçü paylaşılan .olcu sınıfıyla kurulur. Geniş kalmasına izin verilen
+  // bloklar: süreç hattı, dizi kartları, kırıntı yolu ve ekran okuyucu
+  // başlıkları (görünmez).
+  const DUZ_YAZI = new Set(['p', 'ul', 'ol', 'dl', 'h1', 'h2', 'h3', 'h4', 'blockquote', 'table', 'pre'])
+  const GENIS_SERBEST = ['surec-hatti', 'dizi-kartlari', 'kirinti', 'sr-only']
+
+  it("CSS'te .olcu 40rem", () => {
+    expect(baglıCss(oku('index.html'))).toMatch(/\.olcu\{[^}]*max-width:40rem/)
+  })
+
+  it('harita düzenindeki her düz yazı bloğu ölçünün içinde', () => {
+    for (const yol of ['index.html', 'rpt/index.html', 'temeller/index.html', ...FAZ_SAYFALARI]) {
+      const etiketler = mainEtiketleri(oku(yol))
+      const bloklar = etiketler.filter((e) => DUZ_YAZI.has(e.ad))
+      expect(bloklar.length, yol).toBeGreaterThan(3)
+      for (const blok of bloklar) {
+        const hepsi = [...blok.siniflar, ...blok.atalar]
+        if (GENIS_SERBEST.some((s) => hepsi.includes(s))) continue
+        expect(hepsi, `${yol} <${blok.ad} class="${blok.siniflar.join(' ')}">`).toContain('olcu')
+      }
+    }
+  })
+
+  it('geniş bloklar ölçünün dışında', () => {
+    const genisler = [
+      ['index.html', 'surec-hatti'],
+      ['rpt/index.html', 'dizi-kartlari'],
+    ] as const
+    for (const [yol, sinif] of genisler) {
+      const blok = mainEtiketleri(oku(yol)).find((e) => e.siniflar.includes(sinif))
+      expect(blok, yol).toBeDefined()
+      expect(blok!.atalar, yol).not.toContain('olcu')
+    }
+  })
+})
+
 /**
  * Bir sınıf belirtecini taşıyan öğe sayısı. Ham metinde saymak yanlış olur:
  * Astro bileşen CSS'ini sayfaya gömebilir ve aynı sınıf adı orada da geçer.
@@ -910,6 +975,20 @@ describe('harita', () => {
         expect(govde, yol).toContain('<span class="sr-only">yazılmadı</span>')
       }
     }
+  })
+
+  it('aşama sayfasındaki algoritma listesi madde işareti basmaz', () => {
+    // Satırın kendi noktası (● / ○) var; `main ul`'un disc işareti de
+    // kalırsa "• ●" çift işaret çıkar. Sıfırlama kuralı faz haritasına
+    // kapsamlanmamalı: AlgoritmaSatiri listesi nerede basılırsa geçerli.
+    const html = oku('rpt/index.html')
+    expect(html).toContain('<ul class="algoritmalar">')
+    const css = baglıCss(html)
+    // Seçici `.algoritmalar` ile başlar (önünde `{`, `}` ya da `,`): önüne
+    // bir ata sınıfı (`.faz-haritasi `) eklenmiş kural aşama sayfasını
+    // kapsamaz.
+    expect(css).toMatch(/(?:^|[{},])\.algoritmalar\{[^}]*list-style(-type)?:none/)
+    expect(css).toMatch(/(?:^|[{},])\.algoritmalar>\.algoritma\{[^}]*text-indent:-1\.1rem/)
   })
 
   it('faz sayfası ilerlemeyi söyler', () => {
@@ -1067,7 +1146,7 @@ describe('harita', () => {
     const html = oku('index.html')
     const bolum = html.indexOf('id="harita"')
     const hat = html.indexOf('<ol class="surec-hatti"')
-    const raf = html.indexOf('class="temeller-rafi"')
+    const raf = html.indexOf('class="temeller-rafi')
     const sira = [bolum, hat, raf]
     expect(sira.every((y) => y > -1), sira.join(',')).toBe(true)
     expect([...sira].sort((a, b) => a - b)).toEqual(sira)
