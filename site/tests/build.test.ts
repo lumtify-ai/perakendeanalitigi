@@ -857,6 +857,37 @@ describe('harita', () => {
     }
   })
 
+  it('durum ekran okuyucuya da metinle iletilir: her algoritma satırı yazıldı/yazılmadı taşır', () => {
+    // Spec §8: durum yalnızca renk ve şekille değil, metinle de verilir.
+    // DurumNoktasi'nin ● / ○ işareti aria-hidden; yanındaki algoritma-adi
+    // yalnızca adı taşıyor, durumu değil — bu yüzden görünmez ama okunur
+    // bir sr-only metin (.sr-only) eklenir. Beklenen sayı sınıf sayısından
+    // türer (sinifSay), elle yazılmaz.
+    const aktifMi = (b: string) => b === 'algoritma--aktif'
+    const solukMi = (b: string) => b === 'algoritma--soluk'
+    for (const yol of [...FAZ_SAYFALARI, 'index.html']) {
+      const html = oku(yol)
+      const aktifBeklenen = sinifSay(html, aktifMi)
+      const solukBeklenen = sinifSay(html, solukMi)
+
+      const aktifSatirlar = [
+        ...html.matchAll(/<li class="algoritma algoritma--aktif">([\s\S]*?)<\/li>/g),
+      ]
+      const solukSatirlar = [
+        ...html.matchAll(/<li class="algoritma algoritma--soluk">([\s\S]*?)<\/li>/g),
+      ]
+      expect(aktifSatirlar.length, yol).toBe(aktifBeklenen)
+      expect(solukSatirlar.length, yol).toBe(solukBeklenen)
+
+      for (const [, govde] of aktifSatirlar) {
+        expect(govde, yol).toContain('<span class="sr-only">yazıldı</span>')
+      }
+      for (const [, govde] of solukSatirlar) {
+        expect(govde, yol).toContain('<span class="sr-only">yazılmadı</span>')
+      }
+    }
+  })
+
   it('dizi etiketi yazı sayısını taşır, algoritma adı bağlantısız kalır', () => {
     // Haritada tıklanan tek öğe dizi etiketidir, algoritma adı değil
     // (spec §0.1 madde 5). blok-transfer dizisinin 7 yayındaki yazısı var

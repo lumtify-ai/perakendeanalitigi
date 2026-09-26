@@ -2,9 +2,10 @@
 // site/src/components/DurumNoktasi.astro
 //
 // Bir algoritmanın yazılıp yazılmadığını nokta şekliyle gösterir: ● yazıldı,
-// ○ yazılmadı. Erişilebilirlik: durum yalnızca renkle değil, şekil ve
-// (çağıran bileşendeki) metinle de verilir (spec §8); bu yüzden nokta
-// `aria-hidden` — okunacak metni yanındaki `algoritma-adi` taşır.
+// ○ yazılmadı. Erişilebilirlik (spec §8): görsel nokta `aria-hidden` — ama
+// yanındaki `algoritma-adi` yalnızca algoritmanın adını taşır, durumu değil.
+// Bu yüzden ekran okuyucu için görünmez ama okunur bir "yazıldı"/"yazılmadı"
+// metni eklenir (`.sr-only`); durum hem şekille hem metinle iletilir.
 interface Props {
   aktif: boolean
 }
@@ -12,4 +13,4 @@ interface Props {
 const { aktif } = Astro.props
 ---
 
-<span class={`durum-noktasi durum-noktasi--${aktif ? 'aktif' : 'soluk'}`} aria-hidden="true">{aktif ? '●' : '○'}</span>
+<span class={`durum-noktasi durum-noktasi--${aktif ? 'aktif' : 'soluk'}`} aria-hidden="true">{aktif ? '●' : '○'}</span><span class="sr-only">{aktif ? 'yazıldı' : 'yazılmadı'}</span>
