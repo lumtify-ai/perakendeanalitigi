@@ -6,12 +6,15 @@ import { TANIM_ASGARI_UZUNLUK } from './lib/agacSekli'
 const alan = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/alan' }),
   schema: z.object({
-    baslik: z.string(),
+    // Aşama alanının başlığı ve sırası haritadan gelir (src/data/harita.ts);
+    // frontmatter'da tekrar edilirse ikisi zamanla ayrışır. Yalnızca harita
+    // dışı raf (temeller) kendi başlığını taşır. Okuma src/lib/alanBasligi.ts
+    // üzerinden yapılır, doğrudan data.baslik okunmaz.
+    baslik: z.string().optional(),
     // İlk paragraf doğrudan tanımla açılır; hikâyeyle açılan sayfa alıntılanmaz.
     // Alt sınır olmadan boş dize geçiyordu; aynı sınır ağaç doğrulamasında da
     // uygulanır (src/lib/agacSekli.ts).
     tanim: z.string().min(TANIM_ASGARI_UZUNLUK),
-    sira: z.number().int(),
   }),
 })
 
@@ -21,6 +24,12 @@ const dizi = defineCollection({
     baslik: z.string(),
     alan: z.string(),
     ozet: z.string(),
+    // Haritadaki algoritma kimlikleri (src/data/harita.ts). `algoritmalar`
+    // dizinin kurduğu ve kendi aşamasında duranlar; `deginir` bir yazının bir
+    // bölümünde kurulup kullanılan, ama dizinin konusu olmayanlar. Adını anmak
+    // değinmek sayılmaz.
+    algoritmalar: z.array(z.string()).min(1),
+    deginir: z.array(z.string()).default([]),
     demo: z.boolean().default(false),
   }),
 })

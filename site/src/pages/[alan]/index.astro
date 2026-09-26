@@ -4,6 +4,7 @@ import { getCollection, render } from 'astro:content'
 import Temel from '../../layouts/Temel.astro'
 import KirintiYolu from '../../components/KirintiYolu.astro'
 import { alanYazilari } from '../../lib/agac'
+import { alanBasligi } from '../../lib/alanBasligi'
 
 export async function getStaticPaths() {
   const alanlar = await getCollection('alan')
@@ -21,19 +22,21 @@ const [tumDiziler, tumYazilar] = await Promise.all([
 const diziler = tumDiziler.filter((d) => d.data.alan === girdi.id)
 const tekilYazilar = alanYazilari(tumYazilar, girdi.id)
 
+const baslik = alanBasligi(girdi.id, girdi.data)
+
 const isaretleme = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
-  name: girdi.data.baslik,
+  name: baslik,
   description: girdi.data.tanim,
   inLanguage: 'tr',
 }
 ---
 
-<Temel baslik={girdi.data.baslik} aciklama={girdi.data.tanim} isaretleme={isaretleme}>
-  <KirintiYolu basamaklar={[{ ad: girdi.data.baslik }]} />
+<Temel baslik={baslik} aciklama={girdi.data.tanim} isaretleme={isaretleme}>
+  <KirintiYolu basamaklar={[{ ad: baslik }]} />
 
-  <h1>{girdi.data.baslik}</h1>
+  <h1>{baslik}</h1>
 
   {/* İlk paragraf doğrudan tanımla açılır — hikâyeyle açılan sayfa alıntılanmaz */}
   <p class="tanim">{girdi.data.tanim}</p>

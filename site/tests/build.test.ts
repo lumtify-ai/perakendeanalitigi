@@ -476,7 +476,7 @@ describe('site geneli vaatler', () => {
     const BEKLENEN_KOPRU_SAYFALARI = [
       'transfer/blok-transfer/basari-nasil-olculur/index.html',
       'replenishment/depodan-magazaya/basari-nasil-olculur/index.html',
-      'planlama/rpt/rpt-geldi/index.html',
+      'rpt/tekrar-siparis/rpt-geldi/index.html',
     ]
 
     const gecenler = tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))
@@ -668,5 +668,70 @@ describe('tekil alan yazısı', () => {
     expect(html).toContain('href="/temeller/"')
     expect(html).toContain('"position":2')
     expect(html).not.toContain('"position":3')
+  })
+})
+
+describe('adresler', () => {
+  it('yayındaki on dört yazının adresi değişmez', () => {
+    // İçerik ağacı Lumtify haritasına göre yeniden düzenlendi (2026-09-26);
+    // transfer, replenishment ve temeller zaten aşama slug'ında duruyordu ve
+    // yerinden kıpırdamamalı. Dışarıda paylaşılmış bağlantıların hepsi bu
+    // listeye bağlı; biri kayarsa yönlendirmesiz 404 olur.
+    const YAYINDAKILER = [
+      ...[
+        'magazanin-sorunu',
+        'karar-nasil-verilir',
+        'matematiksel-model',
+        'sql-ve-greedy',
+        'mip-ve-pulp',
+        'sonuclar',
+        'basari-nasil-olculur',
+      ].map((y) => `transfer/blok-transfer/${y}`),
+      ...[
+        'sabahki-toplama-emri',
+        'karar-nasil-verilir',
+        'koli-mi-acik-mi',
+        'kural-tabanli-yontem',
+        'tahminle-yontem',
+        'basari-nasil-olculur',
+      ].map((y) => `replenishment/depodan-magazaya/${y}`),
+      'temeller/urun-hiyerarsisi',
+    ]
+    expect(YAYINDAKILER).toHaveLength(14)
+    const eksikler = YAYINDAKILER.filter((yol) => !existsSync(DIST + yol + '/index.html'))
+    expect(eksikler).toEqual([])
+  })
+
+  it('RPT yeni adresinde', () => {
+    // RPT dizisi eski "planlama" alanından haritadaki kendi aşamasına taşındı.
+    const RPT_YAZILARI = [
+      'ucuncu-pazartesi',
+      'rpt-karari-nasil-verilir',
+      'ne-kadar-daha-satardi',
+      'hangi-urun-rpt-adayi',
+      'ne-kadar-ne-zaman',
+      'rpt-geldi',
+    ]
+    const eksikler = RPT_YAZILARI.filter(
+      (y) => !existsSync(DIST + `rpt/tekrar-siparis/${y}/index.html`),
+    )
+    expect(eksikler).toEqual([])
+    expect(existsSync(DIST + 'planlama')).toBe(false)
+  })
+
+  it('eski RPT adresleri kalıcı olarak taşınır', () => {
+    // Cloudflare ilk eşleşen satırı uygular: özel desen (/planlama/rpt/*)
+    // genel desenden (/planlama/*) önce gelmezse bütün RPT yazıları dizi
+    // yerine aşama sayfasına düşer.
+    const yonlendirmeler = oku('_redirects')
+    const desenler = [
+      /^\/planlama\/rpt\/\*\s+\/rpt\/tekrar-siparis\/:splat\s+301$/m,
+      /^\/planlama\/rpt\s+\/rpt\/tekrar-siparis\/\s+301$/m,
+      /^\/planlama\/\*\s+\/rpt\/\s+301$/m,
+      /^\/planlama\s+\/rpt\/\s+301$/m,
+    ]
+    for (const desen of desenler) expect(yonlendirmeler).toMatch(desen)
+    const yerler = desenler.map((desen) => yonlendirmeler.search(desen))
+    expect(yerler[0]).toBeLessThan(yerler[2])
   })
 })

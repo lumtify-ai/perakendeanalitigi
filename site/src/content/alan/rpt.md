@@ -1,10 +1,8 @@
 ---
-baslik: Planlama
 tanim: >-
-  Planlama, sezon başlamadan aylar önce hangi üründen ne kadar alınacağına
-  karar veren ve bu kararı sezon içinde gelen satışla düzelten iştir. Tekrar
-  sipariş (RPT) bu düzeltmenin en pahalı ve en geç verilebilen hâlidir.
-sira: 3
+  Tekrar sipariş (RPT), sezon içinde beklenenden hızlı satan bir ürünün
+  tedarikçiye yeniden ürettirilmesi kararıdır. Planın sezon içindeki en
+  pahalı ve en geç verilebilen düzeltmesidir.
 ---
 
 Planın en büyük kısmı, satıştan önce ve eldeki en zayıf bilgiyle verilir:

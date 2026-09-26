@@ -3,6 +3,8 @@
 import { getCollection } from 'astro:content'
 import Temel from '../layouts/Temel.astro'
 import { alanYazilari, diziYazilari } from '../lib/agac'
+import { alanBasligi } from '../lib/alanBasligi'
+import { asamaBul } from '../data/harita'
 
 const [alanlar, diziler, yazilar] = await Promise.all([
   getCollection('alan'),
@@ -10,7 +12,11 @@ const [alanlar, diziler, yazilar] = await Promise.all([
   getCollection('yazi'),
 ])
 
-const sirali = alanlar.sort((a, b) => a.data.sira - b.data.sira)
+// Geçici: aşamalar harita sırasıyla, Temeller (haritada yok) başta. Ana
+// sayfanın faz düzenine geçişi ayrı bir adımda.
+const sirali = alanlar.sort(
+  (a, b) => (asamaBul(a.id)?.asama.no ?? 0) - (asamaBul(b.id)?.asama.no ?? 0),
+)
 
 const agac = sirali.map((alan) => ({
   alan,
@@ -48,7 +54,7 @@ const TANIM =
     agac.map(({ alan, diziler: altDiziler, tekilYazilar }) => (
       <section class="alan-bolumu">
         <h3>
-          <a href={`/${alan.id}/`}>{alan.data.baslik}</a>
+          <a href={`/${alan.id}/`}>{alanBasligi(alan.id, alan.data)}</a>
         </h3>
         <p>{alan.data.tanim}</p>
 

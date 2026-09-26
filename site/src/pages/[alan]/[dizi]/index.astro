@@ -6,6 +6,7 @@ import KirintiYolu from '../../../components/KirintiYolu.astro'
 import Rozet from '../../../components/Rozet.astro'
 import { diziYazilari } from '../../../lib/agac'
 import { zorunlu } from '../../../lib/zorunlu'
+import { alanBasligi } from '../../../lib/alanBasligi'
 
 export async function getStaticPaths() {
   const diziler = await getCollection('dizi')
@@ -44,7 +45,7 @@ const isaretleme = {
 <Temel baslik={girdi.data.baslik} aciklama={girdi.data.ozet} isaretleme={isaretleme}>
   <KirintiYolu
     basamaklar={[
-      { ad: alanGirdi.data.baslik, adres: `/${alanId}/` },
+      { ad: alanBasligi(alanId, alanGirdi.data), adres: `/${alanId}/` },
       { ad: girdi.data.baslik },
     ]}
   />

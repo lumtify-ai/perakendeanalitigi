@@ -5,6 +5,7 @@ import Yazi from '../../../layouts/Yazi.astro'
 import { diziYazilari } from '../../../lib/agac'
 import { yaziYolunuAyristir } from '../../../lib/yol'
 import { zorunlu } from '../../../lib/zorunlu'
+import { alanBasligi } from '../../../lib/alanBasligi'
 
 export async function getStaticPaths() {
   const yazilar = await getCollection('yazi')
@@ -44,7 +45,7 @@ const diziAdresi = `/${yol.alan}/${yol.dizi}/`
   yazar={girdi.data.yazar}
   durum={girdi.data.durum}
   basamaklar={[
-    { ad: alanGirdi.data.baslik, adres: `/${yol.alan}/` },
+    { ad: alanBasligi(yol.alan, alanGirdi.data), adres: `/${yol.alan}/` },
     { ad: diziGirdi.data.baslik, adres: diziAdresi },
     { ad: girdi.data.baslik },
   ]}

@@ -1,11 +1,9 @@
 ---
-baslik: Depodan Mağazaya Replenishment
 tanim: >-
   Replenishment, depodaki kısıtlı stoğun hangi mağazaya, hangi bedende ve
   koli mi açık adet mi olarak gideceğine karar veren haftalık ya da günlük
   süreçtir. Transferden farkı, malın henüz depoda olması ve kararın satıştan
   önce verilmesidir.
-sira: 2
 ---
 
 Depoda hiçbir zaman sınırsız stok yoktur. Replenishment'ın bütün zorluğu

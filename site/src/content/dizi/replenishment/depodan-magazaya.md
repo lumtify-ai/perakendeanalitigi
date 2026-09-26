@@ -1,6 +1,8 @@
 ---
 baslik: Depodan Mağazaya
 alan: replenishment
+algoritmalar: [otomatik-ikmal]
+deginir: [yok-satma, algoritma-basari, kiriklik-atil-stok]
 ozet: >-
   Depodaki kısıtlı stok hangi mağazaya, koli mi açık adet mi olarak gider?
   Kural tabanlı yöntem ile LightGBM aynı talep üzerinde yarışır.

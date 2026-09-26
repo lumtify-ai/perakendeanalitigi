@@ -1,7 +1,7 @@
 # RPT — tekrar sipariş
 
 Lumoda v3 sentetik verisi üstünde tedarikçiye tekrar sipariş (RPT) vakası.
-Sitedeki `/planlama/rpt/` dizisinin bütün sayıları buradan çıkar. Tasarım:
+Sitedeki `/rpt/tekrar-siparis/` dizisinin bütün sayıları buradan çıkar. Tasarım:
 `docs/superpowers/specs/2026-09-26-veri-v3-ve-rpt-design.md`, bölüm 3.
 
 RPT burada **tedarikçiye verilen tekrar üretim siparişidir**; depodan mağazaya
