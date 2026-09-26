@@ -4,6 +4,8 @@
 // **dosya ağacının kendisi şemadır.** src/lib/dogrula.ts bulduğu dosyaların
 // *içini* doğrular; burası *hangi dosyanın nerede durduğunu* doğrular.
 //
+import { asamaBul, TEMELLER } from '../data/harita'
+
 // Bu ayrım keyfi değil: ağaç bozukken içerik kontrolleri yanıltıcı hata
 // üretir (örneğin alan dosyası eksik bir dizinin yazıları "tanımsız alan"
 // diye tek tek raporlanır, asıl eksik olan tek bir dosyadır). Bu yüzden
@@ -20,6 +22,14 @@
 //      basar ve sayfalardan biri üretilmez.
 //   4. İki parçalı olmayan dizi id'si — sayfa yanlış URL'de üretilir.
 //   5. Boş `tanim` — zod `z.string()` boş dizeyi geçirir.
+//   6. Haritada (src/data/harita.ts) karşılığı olmayan bir alan dosyası —
+//      yazım hatalı bir aşama slug'ı "harita dışı raf" gibi sessizce geçer
+//      ve o aşama sayfasından hiç görünmez.
+//   7. Harita aşaması olan bir alan dosyasında `baslik` yazılması — başlık
+//      haritadan gelir (bkz. alanBasligi.ts); ikisi çakışırsa hangisinin
+//      göründüğü kod okunmadan anlaşılmaz.
+//   8. Harita aşaması olan ama altında hiç dizisi olmayan alan dosyası —
+//      aşama sayfası boş kalır, build bunu hata saymaz.
 
 /** Alan `tanim` alanının asgari uzunluğu. Bir tanım cümlesi bundan kısa olmaz. */
 export const TANIM_ASGARI_UZUNLUK = 40
@@ -71,6 +81,8 @@ const SABIT_ROTALAR: { adres: string; kaynak: string }[] = [
   { adres: '/sozluk/', kaynak: 'src/pages/sozluk.astro' },
   { adres: '/kadro/', kaynak: 'src/pages/kadro.astro' },
   { adres: '/veri-seti/', kaynak: 'src/pages/veri-seti.astro' },
+  { adres: '/sezon-oncesi/', kaynak: 'src/pages/sezon-oncesi.astro' },
+  { adres: '/sezon-ici/', kaynak: 'src/pages/sezon-ici.astro' },
 ]
 
 function uzantisiniAl(yol: string): string {
@@ -211,6 +223,74 @@ function tanimlariDogrula(dosyalar: AgacDosyasi[]): string[] {
 }
 
 /**
+ * Her alan dosyası Lumtify haritasında bir aşama mıdır, yoksa `temeller`
+ * rafı mıdır? Üçüncü bir seçenek yok.
+ *
+ * Bir aşama olan alan dosyası `baslik` yazamaz (başlık haritadan gelir,
+ * bkz. alanBasligi.ts) ve altında en az bir dizi dosyası bulunmalıdır (bir
+ * aşama sayfası dizi kartlarını listeler; dizisi olmayan aşama boş kalır).
+ * `temeller` ise haritanın dışındaki tek raf olduğu için tersine `baslik`
+ * yazmak ZORUNDADIR ve dizi zorunluluğundan muaftır (tekil yazıları tutar).
+ */
+function alanHaritaDogrula(dosyalar: AgacDosyasi[]): string[] {
+  const diziAlanlari = new Set(
+    dosyalar
+      .filter((dosya) => dosya.koleksiyon === 'dizi')
+      .map((dosya) => uzantisiniAt(dosya.goreliYol).split('/')[0]),
+  )
+
+  const hatalar: string[] = []
+
+  for (const dosya of dosyalar) {
+    if (dosya.koleksiyon !== 'alan') continue
+    const id = uzantisiniAt(dosya.goreliYol)
+    const bulunan = asamaBul(id)
+
+    if (bulunan) {
+      if (dosya.data?.baslik !== undefined) {
+        hatalar.push(
+          `${kaynakYolu(dosya)} bir harita aşaması ("${bulunan.asama.ad}") ama ` +
+            '"baslik" alanı yazıyor; başlık haritadan gelir (src/data/harita.ts, ' +
+            'bkz. alanBasligi.ts). İkisi çakışırsa hangi adın göründüğü kod ' +
+            'okunmadan anlaşılmaz. Frontmatter\'daki "baslik" alanını silin.',
+        )
+      }
+      if (!diziAlanlari.has(id)) {
+        hatalar.push(
+          `${kaynakYolu(dosya)} bir harita aşaması ama altında hiç dizi dosyası yok ` +
+            `(src/content/dizi/${id}/*.md). Aşama sayfası dizi kartlarını listeler; ` +
+            'dizisi olmayan bir aşama sayfası sessizce boş kalır, build bunu hata ' +
+            'saymaz. En az bir dizi dosyası ekleyin.',
+        )
+      }
+      continue
+    }
+
+    if (id === TEMELLER) {
+      if (dosya.data?.baslik === undefined) {
+        hatalar.push(
+          `${kaynakYolu(dosya)} harita dışı bir raf ("${TEMELLER}") ama "baslik" ` +
+            "alanı yok. Aşama olmayan alan sayfaları başlığını frontmatter'dan alır " +
+            '(bkz. alanBasligi.ts); baslik olmadan sayfa build sırasında hata verir. ' +
+            '"baslik" alanı ekleyin.',
+        )
+      }
+      continue
+    }
+
+    hatalar.push(
+      `${kaynakYolu(dosya)} src/data/harita.ts'deki hiçbir aşamayla eşleşmiyor ve ` +
+        `"${TEMELLER}" da değil ("${id}"). Bir alan dosyası ya haritada bir aşama ` +
+        'olmalı ya da harita dışı raf olarak "temeller" olmalı; aksi hâlde yazım ' +
+        'hatalı bir slug sessizce "harita dışı raf" gibi davranır ve aşama ' +
+        'sayfasından hiç görünmez. Slug\'ı düzeltin ya da haritaya ekleyin.',
+    )
+  }
+
+  return hatalar
+}
+
+/**
  * İçerik ağacının şeklini doğrular. Boş dizi dönerse ağaç sağlamdır.
  *
  * Adımlar birbirine bağımlıdır: uzantısı ya da derinliği yanlış bir dosyanın
@@ -234,5 +314,6 @@ export function agacSekliniDogrula(dosyalar: AgacDosyasi[]): string[] {
     ...alanVarligiDogrula(sekliSaglam),
     ...adresCakismalariDogrula(sekliSaglam),
     ...tanimlariDogrula(sekliSaglam),
+    ...alanHaritaDogrula(sekliSaglam),
   ]
 }

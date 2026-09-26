@@ -17,7 +17,7 @@ const TANIM =
 function saglamAgac(): AgacDosyasi[] {
   return [
     { koleksiyon: 'alan', goreliYol: 'transfer.md', data: { tanim: TANIM } },
-    { koleksiyon: 'alan', goreliYol: 'temeller.md', data: { tanim: TANIM } },
+    { koleksiyon: 'alan', goreliYol: 'temeller.md', data: { tanim: TANIM, baslik: 'Temeller' } },
     {
       koleksiyon: 'dizi',
       goreliYol: 'transfer/blok-transfer.md',
@@ -179,5 +179,60 @@ describe('alan tanımı', () => {
       dosya.goreliYol === 'transfer.md' ? { ...dosya, data: {} } : dosya,
     )
     expect(agacSekliniDogrula(agac)).toHaveLength(1)
+  })
+})
+
+// Alan dosyası ile Lumtify haritası arasındaki bağ: bir alan ya bir harita
+// aşamasıdır ya da `temeller` raftır, üçüncü bir seçenek yoktur. Bugün bu
+// kontrol yok — yanlış yazılmış bir aşama slug'ı build'i hiç kırmadan sessizce
+// "harita dışı raf" gibi davranır ve aşama sayfasından hiç görünmez.
+describe('harita tutarlılığı', () => {
+  it('haritada olmayan alan dosyası reddedilir', () => {
+    const agac: AgacDosyasi[] = [
+      { koleksiyon: 'alan', goreliYol: 'replenishmnt.md', data: { tanim: TANIM } },
+    ]
+    const hatalar = agacSekliniDogrula(agac)
+    expect(hatalar).toHaveLength(1)
+    expect(hatalar[0]).toContain('replenishmnt')
+    expect(hatalar[0]).toContain('src/data/harita.ts')
+  })
+
+  it('temeller haritada değil ama geçerli', () => {
+    const agac: AgacDosyasi[] = [
+      { koleksiyon: 'alan', goreliYol: 'temeller.md', data: { tanim: TANIM, baslik: 'Temeller' } },
+    ]
+    expect(agacSekliniDogrula(agac)).toEqual([])
+  })
+
+  it('faz adresleri sabit rotadır', () => {
+    const agac: AgacDosyasi[] = [
+      { koleksiyon: 'alan', goreliYol: 'sezon-ici.md', data: { tanim: TANIM } },
+    ]
+    // Sezon-ici hem harita üyesi değil hem de sabit bir rotayla çakışıyor;
+    // ikisi de ayrı hata satırı üretir, burada yalnız adres çakışmasını arıyoruz.
+    const hatalar = agacSekliniDogrula(agac)
+    expect(hatalar.join('\n')).toContain('/sezon-ici/')
+  })
+
+  it('harita aşamasında baslik yazılamaz', () => {
+    const agac: AgacDosyasi[] = [
+      { koleksiyon: 'alan', goreliYol: 'rpt.md', data: { tanim: TANIM, baslik: 'X' } },
+    ]
+    const hatalar = agacSekliniDogrula(agac)
+    expect(hatalar.join('\n')).toContain('başlık haritadan gelir')
+  })
+
+  it('temeller başlıksız reddedilir', () => {
+    const agac: AgacDosyasi[] = [
+      { koleksiyon: 'alan', goreliYol: 'temeller.md', data: { tanim: TANIM } },
+    ]
+    expect(agacSekliniDogrula(agac)).not.toEqual([])
+  })
+
+  it('dizisi olmayan aşamanın alan dosyası reddedilir', () => {
+    const agac: AgacDosyasi[] = [
+      { koleksiyon: 'alan', goreliYol: 'indirim.md', data: { tanim: TANIM } },
+    ]
+    expect(agacSekliniDogrula(agac)).not.toEqual([])
   })
 })

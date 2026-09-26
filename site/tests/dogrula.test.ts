@@ -16,7 +16,9 @@ function yazi(
   return { id, body, data: { tip, sira, baslik: id } }
 }
 
-const DIZILER: DiziGirdi[] = [{ id: 'transfer/blok-transfer', data: { alan: 'transfer' } }]
+const DIZILER: DiziGirdi[] = [
+  { id: 'transfer/blok-transfer', data: { alan: 'transfer', algoritmalar: ['blok-tekleme-kiriklik'] } },
+]
 const ALANLAR: AlanGirdi[] = [
   { id: 'transfer', body: 'Transfer bir kavramdir.' },
   { id: 'temeller', body: 'Temeller bir kavramdir.' },
@@ -182,5 +184,64 @@ describe('alan sayfası kod içermez', () => {
 
   it('kodsuz alan gövdesine dokunmaz', () => {
     expect(hepsiniDogrula(tamDizi(), DIZILER, ALANLAR, TERIMLER)).toEqual([])
+  })
+})
+
+// Dizi ↔ algoritma bağı: dizinin frontmatter'ındaki "algoritmalar" ve
+// "deginir" listeleri haritayla (src/data/harita.ts) tutarlı olmalı. Bugün bu
+// hiç doğrulanmıyor — yazım hatalı ya da başka aşamaya ait bir kimlik
+// sessizce geçer, aşama sayfası o algoritmayı hiçbir diziye bağlayamaz ve bu
+// build zamanı hiç görünmez.
+describe('dizi algoritma bağları', () => {
+  it('dizi haritada olmayan bir algoritmayı kapsayamaz', () => {
+    const diziler: DiziGirdi[] = [
+      { id: 'transfer/blok-transfer', data: { alan: 'transfer', algoritmalar: ['yok-boyle'] } },
+    ]
+    const hatalar = hepsiniDogrula(tamDizi(), diziler, ALANLAR, TERIMLER)
+    expect(hatalar.join('\n')).toMatch(/yok-boyle/)
+  })
+
+  it('dizi başka aşamanın algoritmasını kapsayamaz', () => {
+    const yazilar: YaziGirdi[] = [yazi('rpt/x/a', 'hikaye', 1), yazi('rpt/x/b', 'sonuc', 2)]
+    const diziler: DiziGirdi[] = [{ id: 'rpt/x', data: { alan: 'rpt', algoritmalar: ['markdown'] } }]
+    const alanlar: AlanGirdi[] = [{ id: 'rpt', body: 'RPT bir kavramdir.' }]
+    const hatalar = hepsiniDogrula(yazilar, diziler, alanlar, TERIMLER)
+    expect(hatalar.join('\n')).toMatch(/markdown/)
+    expect(hatalar.join('\n')).toMatch(/deginir/)
+  })
+
+  it('değinilen algoritma haritada olmalı', () => {
+    const diziler: DiziGirdi[] = [
+      {
+        id: 'transfer/blok-transfer',
+        data: { alan: 'transfer', algoritmalar: ['blok-tekleme-kiriklik'], deginir: ['yok-boyle'] },
+      },
+    ]
+    const hatalar = hepsiniDogrula(tamDizi(), diziler, ALANLAR, TERIMLER)
+    expect(hatalar.join('\n')).toMatch(/yok-boyle/)
+  })
+
+  it('aynı algoritma iki listede birden olamaz', () => {
+    const yazilar: YaziGirdi[] = [yazi('rpt/x/a', 'hikaye', 1), yazi('rpt/x/b', 'sonuc', 2)]
+    const diziler: DiziGirdi[] = [
+      { id: 'rpt/x', data: { alan: 'rpt', algoritmalar: ['rpt-adet'], deginir: ['rpt-adet'] } },
+    ]
+    const alanlar: AlanGirdi[] = [{ id: 'rpt', body: 'RPT bir kavramdir.' }]
+    const hatalar = hepsiniDogrula(yazilar, diziler, alanlar, TERIMLER)
+    expect(hatalar.join('\n')).toMatch(/rpt-adet/)
+  })
+
+  it('algoritma listesi boş olamaz', () => {
+    const diziler: DiziGirdi[] = [
+      { id: 'transfer/blok-transfer', data: { alan: 'transfer', algoritmalar: [] } },
+    ]
+    const hatalar = hepsiniDogrula(tamDizi(), diziler, ALANLAR, TERIMLER)
+    expect(hatalar.length).toBeGreaterThan(0)
+  })
+
+  it('algoritmalar alanı hiç yoksa da hata verir', () => {
+    const diziler: DiziGirdi[] = [{ id: 'transfer/blok-transfer', data: { alan: 'transfer' } }]
+    const hatalar = hepsiniDogrula(tamDizi(), diziler, ALANLAR, TERIMLER)
+    expect(hatalar.length).toBeGreaterThan(0)
   })
 })

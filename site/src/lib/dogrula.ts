@@ -1,5 +1,6 @@
 // site/src/lib/dogrula.ts
 import { yaziYolunuAyristir } from './yol'
+import { algoritmaBul } from '../data/harita'
 
 export type YaziGirdi = {
   id: string
@@ -15,7 +16,7 @@ export type YaziGirdi = {
 
 export type DiziGirdi = {
   id: string
-  data: { alan: string }
+  data: { alan: string; algoritmalar?: string[]; deginir?: string[] }
 }
 
 /** Alan koleksiyonunun bir girdisi. Gövde, alan sayfası kuralları için okunur. */
@@ -230,6 +231,80 @@ function alanGovdeleriDogrula(alanlar: AlanGirdi[]): string[] {
     )
 }
 
+/**
+ * Her dizinin `algoritmalar` (kapsadığı) ve `deginir` (değindiği) listeleri
+ * haritayla (src/data/harita.ts) tutarlı mı?
+ *
+ * Bugün bu hiç doğrulanmıyor: yazım hatalı bir algoritma kimliği, başka bir
+ * aşamaya ait bir algoritmanın "algoritmalar" listesine sızması ya da aynı
+ * algoritmanın hem kapsanıp hem değinilmesi build'i hiç kırmıyor. Sonucu,
+ * haritaDurumu.ts'nin (Task 2) aşama/algoritma durumunu yanlış türetmesi —
+ * bir algoritma hiçbir diziye bağlı görünmez ya da yanlış aşamaya bağlanır —
+ * ve bu build zamanı hiç görünmez.
+ */
+function diziAlgoritmalariDogrula(diziler: DiziGirdi[]): string[] {
+  const hatalar: string[] = []
+
+  for (const dizi of diziler) {
+    const [klasorAlani] = dizi.id.split('/')
+    const algoritmalar = dizi.data.algoritmalar
+
+    if (!algoritmalar || algoritmalar.length === 0) {
+      hatalar.push(
+        `"${dizi.id}" dizisinin "algoritmalar" listesi boş ya da yok. Bir dizi en ` +
+          'az bir algoritmayı kapsamalıdır — src/data/harita.ts\'deki ilgili ' +
+          `algoritma kimliğini/kimliklerini src/content/dizi/${dizi.id}.md ` +
+          'içindeki "algoritmalar" listesine ekleyin; boş bırakılırsa dizinin ' +
+          'hangi algoritmayı kapsadığı belirsiz kalır ve aşama sayfası bu diziyi ' +
+          'hiçbir algoritmaya bağlayamaz.',
+      )
+    } else {
+      for (const id of algoritmalar) {
+        const bulunan = algoritmaBul(id)
+        if (!bulunan) {
+          hatalar.push(
+            `"${dizi.id}" dizisinin "algoritmalar" listesinde haritada olmayan ` +
+              `bir kimlik var: "${id}". src/data/harita.ts'de böyle bir algoritma ` +
+              'tanımlı değil; kimliği düzeltin ya da haritaya ekleyin.',
+          )
+        } else if (bulunan.asama.slug !== klasorAlani) {
+          hatalar.push(
+            `"${dizi.id}" dizisi "${id}" algoritmasını kapsıyor ama bu algoritma ` +
+              `haritada "${bulunan.asama.slug}" aşamasına ait, "${klasorAlani}" ` +
+              "aşamasına değil. Bir dizi yalnızca kendi aşamasının algoritmalarını " +
+              '"algoritmalar" listesinde kapsayabilir; başka bir aşamanın ' +
+              'algoritmasından yalnızca söz ediyorsa bunu "deginir" listesine taşıyın.',
+          )
+        }
+      }
+    }
+
+    const deginir = dizi.data.deginir ?? []
+    for (const id of deginir) {
+      if (!algoritmaBul(id)) {
+        hatalar.push(
+          `"${dizi.id}" dizisinin "deginir" listesinde haritada olmayan bir ` +
+            `kimlik var: "${id}". src/data/harita.ts'de böyle bir algoritma ` +
+            'tanımlı değil; kimliği düzeltin ya da haritaya ekleyin.',
+        )
+      }
+    }
+
+    const deginirSet = new Set(deginir)
+    for (const id of algoritmalar ?? []) {
+      if (deginirSet.has(id)) {
+        hatalar.push(
+          `"${dizi.id}" dizisinde "${id}" algoritması hem "algoritmalar" hem ` +
+            '"deginir" listesinde birden bulunuyor. Bir algoritma bir dizide ya ' +
+            'kapsanır ya da yalnızca değinilir, ikisi birden olamaz; birini kaldırın.',
+        )
+      }
+    }
+  }
+
+  return hatalar
+}
+
 /** Bütün değişmezleri koşar. Boş dizi dönerse içerik geçerlidir. */
 export function hepsiniDogrula(
   yazilar: YaziGirdi[],
@@ -251,5 +326,6 @@ export function hepsiniDogrula(
     ...kopruleriDogrula(yazilar),
     ...yazarlariDogrula(yazilar),
     ...alanGovdeleriDogrula(alanlar),
+    ...diziAlgoritmalariDogrula(diziler),
   ]
 }
