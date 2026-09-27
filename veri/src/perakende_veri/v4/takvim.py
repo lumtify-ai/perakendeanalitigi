@@ -22,13 +22,14 @@ D = (sabitler.BITIS - sabitler.ISINMA_BASLANGIC).days + 1
 def sezon_tablosu() -> pd.DataFrame:
     """`sezon` tablosu: sezon × dalga başına bir satır.
 
-    AW22 yalnız ısınmanın referans sezonudur (bkz. sabitler.SEZONLAR); dışa
-    aktarılan tabloya girmez (6 sezon × 3 dalga = 18 satır).
+    AW22 dahil 7 sezon × 3 dalga = 21 satır. AW22 ısınmanın referans
+    sezonu olsa da ürünleri pencerede (Ocak–Şubat 2023, indirim
+    döneminde) satılır; `urun.sezon_kodu` ona işaret edebileceğinden
+    `sezon_tablosu` bu sezonu da yayımlar (controller kararı, brief'in
+    "AW22 hariç 18 satır" ifadesini geçersiz kılar).
     """
     satirlar = []
     for kod, s in sabitler.SEZONLAR.items():
-        if kod == "AW22":
-            continue
         for dalga, lansman in enumerate(s["dalgalar"], start=1):
             satirlar.append(
                 {

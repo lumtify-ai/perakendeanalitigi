@@ -32,5 +32,11 @@ def test_takvim_tablosu_pencere():
     assert len(t) == 1096 and t.tarih.min() == pd.Timestamp("2023-01-01")
 
 
+def test_sezon_tablosu_aw22_dahil():
+    s = takvim.sezon_tablosu()
+    assert len(s) == 21
+    assert "AW22" in set(s.sezon_kodu)
+
+
 def test_black_friday_tatilde():
     assert all(str(b) in sabitler.TATILLER for b in sabitler.BLACK_FRIDAY)
