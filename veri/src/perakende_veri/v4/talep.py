@@ -105,7 +105,7 @@ def oznitelik_etkisi(
     """
     anahtarlar = _anahtar_sozlugu()
     k_idx = {a: i for i, a in enumerate(anahtarlar)}
-    S, G, K, O = len(SEZON_KODLARI), len(segmentler), len(anahtarlar), len(optionlar)
+    S, G, K = len(SEZON_KODLARI), len(segmentler), len(anahtarlar)
 
     taban = rng.normal(0.0, sabitler.OZNITELIK_TABAN_SIGMA, size=(G, K))
     yuruyus = rng.normal(0.0, sabitler.OZNITELIK_YURUYUS_SIGMA, size=(S - 1, G, K))
@@ -121,24 +121,8 @@ def oznitelik_etkisi(
                 adim[k_idx[anahtar]] += x
         birikimli[s] = birikimli[s - 1] + adim[None, :] + yuruyus[s - 1]
 
-    duzey = np.zeros((S, G, K))
-    for anahtar, tanim in sabitler.TREND.items():
-        tur, x = tanim[0], tanim[1]
-        if tur == "duzey_SS_AW":
-            duzey[:, :, k_idx[anahtar]] += np.where(ss_mi, x, -x)[:, None]
-        elif tur == "sabit_segment" and tanim[2] in segmentler:
-            duzey[:, segmentler.index(tanim[2]), k_idx[anahtar]] += x
-    katsayi = birikimli + duzey
-
-    X = np.zeros((O, K))
-    for alan in _OZNITELIK_ALANLARI:
-        degerler = optionlar[alan].to_numpy()
-        for i, v in enumerate(degerler):
-            if v is not None and not (isinstance(v, float) and np.isnan(v)):
-                X[i, k_idx[f"{alan}:{v}"]] = 1.0
-    log_etki = katsayi @ X.T  # [S, G, O]
-    log_etki -= log_etki.mean(axis=2, keepdims=True)
-    etki = np.exp(log_etki)
+    katsayi = birikimli + oznitelik_duzeyi(segmentler)
+    etki = etki_katsayidan(katsayi, optionlar)
 
     ss, gg, kk = np.meshgrid(np.arange(S), np.arange(G), np.arange(K), indexing="ij")
     trend_tablosu = pd.DataFrame(
@@ -150,6 +134,48 @@ def oznitelik_etkisi(
         }
     )
     return etki, trend_tablosu
+
+
+def oznitelik_duzeyi(segmentler: list[str]) -> np.ndarray:
+    """`[S, G, K]` birikmeyen (düzey) trend katsayıları: "duzey_SS_AW"
+    (SS'de +x, AW'de −x) ve "sabit_segment". Rastgelelik yok (Görev 10'un
+    plan katsayısı da bunu kullanır)."""
+    anahtarlar = _anahtar_sozlugu()
+    k_idx = {a: i for i, a in enumerate(anahtarlar)}
+    S, G, K = len(SEZON_KODLARI), len(segmentler), len(anahtarlar)
+    ss_mi = np.array([k.startswith("SS") for k in SEZON_KODLARI])
+    duzey = np.zeros((S, G, K))
+    for anahtar, tanim in sabitler.TREND.items():
+        tur, x = tanim[0], tanim[1]
+        if tur == "duzey_SS_AW":
+            duzey[:, :, k_idx[anahtar]] += np.where(ss_mi, x, -x)[:, None]
+        elif tur == "sabit_segment" and tanim[2] in segmentler:
+            duzey[:, segmentler.index(tanim[2]), k_idx[anahtar]] += x
+    return duzey
+
+
+def etki_katsayidan(katsayi: np.ndarray, optionlar: pd.DataFrame) -> np.ndarray:
+    """`[S, G, K]` log katsayı → `[S, G, O]` etki: option'ın öznitelik
+    anahtarlarının katsayı toplamı, her (sezon, segment) diliminde
+    option'lar üzerinden log ortalaması 0'a çekilip üslenir."""
+    anahtarlar = _anahtar_sozlugu()
+    k_idx = {a: i for i, a in enumerate(anahtarlar)}
+    X = np.zeros((len(optionlar), len(anahtarlar)))
+    for alan in _OZNITELIK_ALANLARI:
+        degerler = optionlar[alan].to_numpy()
+        for i, v in enumerate(degerler):
+            if v is not None and not (isinstance(v, float) and np.isnan(v)):
+                X[i, k_idx[f"{alan}:{v}"]] = 1.0
+    log_etki = katsayi @ X.T  # [S, G, O]
+    log_etki -= log_etki.mean(axis=2, keepdims=True)
+    return np.exp(log_etki)
+
+
+def katsayi_tablodan(trend_tablosu: pd.DataFrame, segmentler: list[str]) -> np.ndarray:
+    """`oznitelik_etkisi`'nin `trend_tablosu`'ndan `[S, G, K]` katsayı dizisi
+    (tablo (sezon, segment, anahtar) ij sırasıyla yazılır)."""
+    S, G, K = len(SEZON_KODLARI), len(segmentler), len(_anahtar_sozlugu())
+    return trend_tablosu["katsayi"].to_numpy(dtype=float).reshape(S, G, K)
 
 
 def surpriz(rng: np.random.Generator, optionlar: pd.DataFrame) -> np.ndarray:
@@ -441,6 +467,7 @@ def statik_taban(
     urunler: pd.DataFrame,
     optionlar: pd.DataFrame,
     etki: np.ndarray,
+    yerel: np.ndarray | None = None,
 ) -> np.ndarray:
     """`[C]` hücre başına statik taban (ONL dahil, ONL kalibrasyonu hariç).
 
@@ -451,13 +478,16 @@ def statik_taban(
     uygulanır). ONL: ONLINE_PAY/(1 − ONLINE_PAY) × aynı SKU'nun fiziksel
     statik toplamı × (Basic/NOS 1,25).
 
-    Tek çekiliş: yerel gürültü `[M, A]` (çekiliş sırası 5).
+    Tek çekiliş: yerel gürültü `[M, A]` (çekiliş sırası 5). `yerel`
+    verilirse çekiliş yapılmaz, verilen `[M, A]` kullanılır (Görev 10'un
+    plan λ'sı: yerel gürültüyü bilmez, 1 verir; `rng` o zaman None olabilir).
     """
     magazalar = magazalar.reset_index(drop=True)
     urunler = urunler.reset_index(drop=True)
     optionlar = optionlar.reset_index(drop=True)
     M, A = len(magazalar), len(ALT_KATEGORILER)
-    yerel = rng.lognormal(0.0, sabitler.YEREL_GURULTU_SIGMA, size=(M, A))
+    if yerel is None:
+        yerel = rng.lognormal(0.0, sabitler.YEREL_GURULTU_SIGMA, size=(M, A))
 
     g = gizli.set_index("magaza_id").loc[magazalar["magaza_id"]].reset_index()
     m_c = cesit["magaza_idx"].to_numpy()
@@ -561,6 +591,61 @@ def cekicilik(
     O = len(sezon)
     kendi = np.where(sezon >= 0, ort[np.maximum(sezon, 0), np.arange(O)], ort.mean(axis=0))
     return np.asarray(surpriz_o, dtype=float) * kendi
+
+
+def mevsim_ve_iklim_slotu(
+    magazalar: pd.DataFrame, gizli: pd.DataFrame
+) -> tuple[np.ndarray, np.ndarray]:
+    """(`[N_GUN, 5, A·L]` mevsim tablosu, `[M]` iklim slotu). Slot 0–3
+    IKLIMLER, 4 = fiziksel mağaza sayısıyla ağırlıklı zincir ortalaması
+    (ONL'nin slotu; plan λ'sı bütün mağazalara bunu verir). Line üssü
+    (MEVSIM_LINE_USSU) her slotta korunur."""
+    magazalar = magazalar.reset_index(drop=True)
+    g = gizli.set_index("magaza_id").loc[magazalar["magaza_id"]].reset_index()
+    fiz_m = (magazalar["tip"] != "Online").to_numpy()
+    iklim_sayim = g.loc[fiz_m, "iklim"].value_counts()
+    w_iklim = np.array([iklim_sayim.get(i, 0) for i in IKLIMLER], dtype=float)
+    # [N, 4, A, L] → ONL zincir ortalaması eklenir → [N, 5, A·L]
+    mevsim4 = np.stack(
+        [mevsim_tablosu_kur(sabitler.MEVSIM_LINE_USSU[ln]) for ln in MEVSIM_LINELARI], axis=-1
+    )
+    mevsim_onl = np.einsum("i,dial->dal", w_iklim / w_iklim.sum(), mevsim4)
+    mevsim5 = np.ascontiguousarray(
+        np.concatenate([mevsim4, mevsim_onl[:, None]], axis=1).reshape(N_GUN, 5, -1)
+    )
+    iklim_slot_m = np.where(
+        fiz_m, g["iklim"].map({i: k for k, i in enumerate(IKLIMLER)}).fillna(0).to_numpy(), 4
+    ).astype(np.intp)
+    return mevsim5, iklim_slot_m
+
+
+def option_mevsim_idx(optionlar: pd.DataFrame) -> np.ndarray:
+    """`[O]` mevsim tablosunun son ekseninde option'ın sütunu: alt kategori · L + line."""
+    alt_o = optionlar["alt_kategori"].map({a: i for i, a in enumerate(ALT_KATEGORILER)}).to_numpy(dtype=np.intp)
+    line_o = optionlar["line"].map({ln: i for i, ln in enumerate(MEVSIM_LINELARI)}).to_numpy(dtype=np.intp)
+    return (alt_o * len(MEVSIM_LINELARI) + line_o).astype(np.intp)
+
+
+def devamli_etki_kur(
+    etki: np.ndarray,
+    magazalar: pd.DataFrame,
+    gizli: pd.DataFrame,
+    optionlar: pd.DataFrame,
+    cesit_hucre: pd.DataFrame,
+) -> np.ndarray:
+    """`[S, C]`: DEVAMLI hücrelerde sezonun öznitelik etkisi (fiziksel:
+    mağazanın segmenti; ONL: zincir ortalaması), diğer hücrelerde 1."""
+    magazalar = magazalar.reset_index(drop=True)
+    g = gizli.set_index("magaza_id").loc[magazalar["magaza_id"]].reset_index()
+    m_c = cesit_hucre["magaza_idx"].to_numpy().astype(np.intp)
+    o_c = cesit_hucre["option_idx"].to_numpy().astype(np.intp)
+    etki_ort = _zincir_ortalama_etki(etki, gizli)
+    etki_gen = np.concatenate([etki, etki_ort[:, None, :]], axis=1)  # [S, G+1, O]
+    seg_c = _segment_idx(g, list(sabitler.SEGMENTLER))[m_c]
+    devamli_c = (_option_sezon_idx(optionlar) < 0)[o_c]
+    devamli_etki = np.ones((len(SEZON_KODLARI), len(m_c)))
+    devamli_etki[:, devamli_c] = etki_gen[:, seg_c[devamli_c], o_c[devamli_c]]
+    return devamli_etki
 
 
 # ---------------------------------------------------------------------------
@@ -708,40 +793,16 @@ def lambda_kur(
     # --- Deterministik parçalar -------------------------------------------
     g_option = yasam_egrisi(optionlar, tau_oyn) * surukl * surpriz_o[None, :]
 
-    g = gizli.set_index("magaza_id").loc[magazalar["magaza_id"]].reset_index()
     fiz_m = (magazalar["tip"] != "Online").to_numpy()
-    iklim_sayim = g.loc[fiz_m, "iklim"].value_counts()
-    w_iklim = np.array([iklim_sayim.get(i, 0) for i in IKLIMLER], dtype=float)
-    # [N, 4, A, L] → ONL zincir ortalaması eklenir → [N, 5, A·L]
-    mevsim4 = np.stack(
-        [mevsim_tablosu_kur(sabitler.MEVSIM_LINE_USSU[ln]) for ln in MEVSIM_LINELARI], axis=-1
-    )
-    mevsim_onl = np.einsum("i,dial->dal", w_iklim / w_iklim.sum(), mevsim4)
-    mevsim5 = np.ascontiguousarray(
-        np.concatenate([mevsim4, mevsim_onl[:, None]], axis=1).reshape(N_GUN, 5, -1)
-    )
-
     m_c = cesit_hucre["magaza_idx"].to_numpy().astype(np.intp)
     o_c = cesit_hucre["option_idx"].to_numpy().astype(np.intp)
     fiz_c = fiz_m[m_c]
-    iklim_slot_m = np.where(
-        fiz_m, g["iklim"].map({i: k for k, i in enumerate(IKLIMLER)}).fillna(0).to_numpy(), 4
-    ).astype(np.intp)
-    alt_o = optionlar["alt_kategori"].map({a: i for i, a in enumerate(ALT_KATEGORILER)}).to_numpy(dtype=np.intp)
-    line_o = optionlar["line"].map({ln: i for i, ln in enumerate(MEVSIM_LINELARI)}).to_numpy(dtype=np.intp)
-    mevsim_o = (alt_o * len(MEVSIM_LINELARI) + line_o).astype(np.intp)
+    mevsim5, iklim_slot_m = mevsim_ve_iklim_slotu(magazalar, gizli)
+    mevsim_o = option_mevsim_idx(optionlar)
 
     cek = cekicilik(surpriz_o, etki, optionlar, gizli)
     kanib = kanibalizasyon_payi(cesit_hucre, optionlar, cek)
-
-    # DEVAMLI hücrelerde o günün sezonunun etkisi (ONL: zincir ortalaması)
-    etki_ort = _zincir_ortalama_etki(etki, gizli)
-    etki_gen = np.concatenate([etki, etki_ort[:, None, :]], axis=1)  # [S, G+1, O]
-    seg_c = _segment_idx(g, segmentler)[m_c]
-    devamli_c = (_option_sezon_idx(optionlar) < 0)[o_c]
-    S = len(SEZON_KODLARI)
-    devamli_etki = np.ones((S, len(m_c)))
-    devamli_etki[:, devamli_c] = etki_gen[:, seg_c[devamli_c], o_c[devamli_c]]
+    devamli_etki = devamli_etki_kur(etki, magazalar, gizli, optionlar, cesit_hucre)
 
     sezon_g = sezon_gun()
     mg_kaymasiz = magaza_gun_carpani(magazalar, gizli, olaylar, magaza_toplam=None)

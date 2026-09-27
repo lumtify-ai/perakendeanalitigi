@@ -625,3 +625,29 @@ ESNEKLIK_OUTLET_CARPANI = 1.2
 # rastgele uygulanan indirim.
 ISLEM_INDIRIM_OLASILIGI = 0.08
 ISLEM_INDIRIM_ORANI = 0.30
+
+# --- Plan (Görev 10) ---------------------------------------------------------
+# Lumoda'nın planı bilerek naiftir (spec §4.3): sürprizi, sürüklenmeyi,
+# iklim kaymasını, mağaza × alt kategori gürültüsünü, olay kaymalarını ve
+# bu sezonun öznitelik etkisini bilmez (bir önceki aynı tip sezonunkini
+# kullanır), gerçek esnekliği bilmez (sabit PLAN_ESNEKLIK varsayar).
+HEDEF_TAM_FIYAT_STR = 0.80      # ilk alım = sezon planı (lansman → indirim) ÷ hedef STR
+YUVARLAMA_ADET = 10             # sipariş adedi 10'un katı (v3)
+PLANLANAN_TESLIM_ONCE_GUN = 7   # ilk siparişin planlanan teslimi = lansman − 7 gün
+
+# Planın indirim inancı: indirimin ilk 28 gününde %30, sonra çıkışa kadar
+# %50; talep etkisi (1 − oran)^(−PLAN_ESNEKLIK).
+PLAN_ESNEKLIK = 1.7
+PLAN_INDIRIM_ILK_GUN = 28
+PLAN_INDIRIM_ILK_ORAN = 0.30
+PLAN_INDIRIM_SONRA_ORAN = 0.50
+
+# Plan tabloları: "geçen yılın gerçekleşeni" = önceki yılın aynı sezonunun
+# gizli gerçek beklenen talebi × PLAN_BULUNABILIRLIK (simülasyon çıktısı
+# plana geri beslenmez); × büyüme hedefi × yönetim iyimserliği (üst
+# kategori başına bir kez çekilir).
+PLAN_BULUNABILIRLIK = 0.85
+PLAN_BUYUME_HEDEFI = 1.06
+PLAN_IYIMSERLIK_ARALIGI = (1.03, 1.12)
+PLAN_RANGE_SIGMA = 0.05         # range_plan option sayısı = gerçekleşen × lognormal(0, σ)
+MFP_STOK_KAPSAMA_AY = 1.0       # dönem sonu stok hedefi = sonraki ayın satış planı × kapsama
