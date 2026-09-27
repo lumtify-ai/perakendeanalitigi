@@ -722,3 +722,11 @@ IKAME_PAYI = {
     "Mont": 0.20, "Ceket": 0.20, "Trençkot": 0.20,
     "Çanta": 0.25, "Şal": 0.25, "Kemer": 0.25,
 }
+
+# --- Mağaza olayları ve elle transfer (Görev 14) ------------------------------
+# Bölge müdürünün pazartesi elle transferi: bölge başına 0..ELLE_TRANSFER_MAKS
+# (eşit olasılıklı); kaynak = son ELLE_SATIS_PENCERESI_GUN günde satışı 0 ve
+# option stoğu ≥ ELLE_STOK_ESIGI olan (mağaza, option).
+ELLE_TRANSFER_MAKS = 3
+ELLE_STOK_ESIGI = 3
+ELLE_SATIS_PENCERESI_GUN = 28

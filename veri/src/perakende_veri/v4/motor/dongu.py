@@ -20,8 +20,8 @@ zincir planı (v3 ısınma kuralı). Sezonluk ürünlerin stoğu yoktur; ilk
 siparişleri dünyada hazırdır (`siparis_gun` negatif olabilir: d = 0'da
 zaten verilmiştir; asla dizi indisi olarak kullanılmaz).
 
-GÜNLÜK SIRA (spec §6.1; [T14] = o görevde doldurulur)
-=====================================================
+GÜNLÜK SIRA (spec §6.1)
+=======================
 
  1. FOTOĞRAF. Depo stoğu her gün (görünür SKU: devamlı hep, sezonluk ilk
     teslimden çıkış + 7'ye kadar, ve stoğu olan her SKU); mağaza stoğu
@@ -35,8 +35,17 @@ GÜNLÜK SIRA (spec §6.1; [T14] = o görevde doldurulur)
  3. VARIŞLAR. Yolda kuyruğundan bugün varanlar stoğa (depo ya da hücre).
     Hedef mağaza bugün kapalıysa mal aynı gün depoya döner (`sevkiyat` tip
     `geri_yonlendirme`, hücreden depoya, yolda süresiz).
- 4. OLAYLAR [T14]. Açılış / kapanış / tadilat transferleri
-    (`politikalar.acilis`, `kapanis`).
+ 4. OLAYLAR. Açılış: `acilis(g, m)` açılıştan yolda_gun(depo → m) gün
+    önce (mal açılış günü varır; `sevkiyat` tip `acilis_transferi`).
+    Kapanış: `kapanis(g, m)` kapanış günü, stok devrinden ve satıştan önce
+    (`kapanis_transferi`); o günden sonra mağaza kapalıdır: varan mal ve
+    iade aynı gün depoya (3. ve 16. adım), raf stoğu hep 0. Karar gününden
+    itibaren `Gorunum.kapanacak[m]`: ilk dağıtım (bekleyen sevkler dahil)
+    ve replenishment o mağazaya gitmez. Tadilat: [olay, bitiş) kapalı (λ 0,
+    varış depoya, stok rafta bekler), bitişte yeniden açılır. Stok devri
+    (6. adım) yalnız hücrenin kendi penceresi bitince çalışır, mağaza
+    kapanınca değil: kapanan mağazanın stoğu hep `kapanis_transferi`yle
+    çıkar.
  5. İLK DAĞITIM. Option'ın karar günü = max(lansman − en uzak aday
     mağazanın yolda süresi, ilk siparişin gerçek teslimi): `paket_secimi`
     ve `ilk_dagitim` (paket sayısı) çağrılır; motor aday olmayan, varış
@@ -47,6 +56,7 @@ GÜNLÜK SIRA (spec §6.1; [T14] = o görevde doldurulur)
     günlere düşen sevkler bekler ve o gün depoya yeniden sığdırılır.
     Paket × paket içeriği SKU'lara (`sevkiyat` tip `ilk_dagitim`,
     `paket_id`). ONL (depodan satar) ve outlet akışı hücreleri almaz.
+    Bekleyen sevk günü kapanış kararlı ya da varışta kapalı mağaza düşer.
  6. ÇIKIŞ / OUTLET, STOK DEVRİ. cikis_gun == d option'lar için
     `outlet_akisi(g, os)` transferleri (`sevkiyat` tip `outlet_akisi`,
     yolda süreyle). Ardından penceresi kapanmış (d ≥ hucre_kapanis)
@@ -76,7 +86,8 @@ GÜNLÜK SIRA (spec §6.1; [T14] = o görevde doldurulur)
     dağıtılamaz hücreleri sıfırlar (ONL, outlet akışı, ilk dağıtımı
     bitmemiş ya da çıkmış option, kapalı / kapanış kararlı mağaza), depo
     yetmeyen SKU'larda `orantili_kes` (v3) ve yola çıkarır.
-11. ELLE TRANSFER [T14] (pazartesi). `elle_transfer(g)` (şimdilik boş).
+11. ELLE TRANSFER (pazartesi). `elle_transfer(g)` → Transferler
+    (`elle_transfer`; Lumoda: bölge müdürü, `LumodaElleTransfer`).
 12. FİYAT. markdown (hücrenin hattı) ve kampanya; `oran_talep = max(md,
     kampanya)`.
 13. TALEP. `u = sayac_uretici(d, "talep").random(C)`; `λ = lam.gun(d) ×
@@ -99,7 +110,8 @@ GÜNLÜK SIRA (spec §6.1; [T14] = o görevde doldurulur)
 
 Rastgelelik politikadan bağımsızdır: her gün `talep`, `indirim`, `iade`,
 `beden_ikame`, `ikame` amaçları birer `random(C)` çeker; kalite (gün,
-option) anahtarlıdır.
+option) anahtarlıdır; Lumoda'nın elle transferi pazartesi `elle` amacından
+sabit boy (7 × 8) çeker.
 
 Mal defteri (`test_stok_korunumu`): her `sevkiyat` satırı `gun`de
 kaynaktan (kaynak_hucre ya da depo, −1) çıkar, `varis_gun`de hedefe
@@ -117,6 +129,7 @@ from ..kampanya import kampanya_id_takvimi
 from ..plan import en_buyuk_kalan
 from ..politika import Politikalar, Transferler, paket_tablosu
 from ..rastgele import sayac_uretici_option
+from ..takvim import gun_indisi
 from ..tedarik import hatali_adet
 from .durum import (
     YOK_GUN,
@@ -314,10 +327,27 @@ def simule_et(
         oo, hh = np.nonzero(hat_var & (np.maximum(lansman, 0) == gun)[:, None])
         fiyat_baslangic[int(gun)] = (oo, hh)
     fiziksel_kapanis = np.where(fiz, w.hucre_kapanis, YOK_GUN)
+    # Mağaza olayları: gün → [(politika adı, mağaza)]
+    magaza_idx = {mid: i for i, mid in enumerate(w.magazalar["magaza_id"])}
+    olay_cagrilari: dict[int, list[tuple[str, int]]] = {}
+    for r in w.magaza_olay.itertuples():
+        m = magaza_idx[r.magaza_id]
+        if r.olay == "acilis":
+            gun = gun_indisi(r.olay_tarihi) - int(y_m[m])
+        elif r.olay == "kapanis":
+            gun = gun_indisi(r.olay_tarihi)
+        else:
+            continue
+        if gun >= 0:
+            olay_cagrilari.setdefault(gun, []).append((r.olay, m))
     bekleyen_ilk: dict[int, list[tuple]] = {}   # sevk günü → [(o, mağazalar, paketler, paket sayıları)]
 
     def ilk_sevk(d, o, ms, ps, ns):
-        """Paketli ilk dağıtım sevki; paket sayıları depoya sığdırılır."""
+        """Paketli ilk dağıtım sevki; paket sayıları depoya sığdırılır.
+        Karardan sonra kapanış kararı verilen ya da varışta kapalı mağaza
+        düşer."""
+        varis = np.minimum(d + y_m[ms], len(acik) - 1)
+        ns = np.where(~kapanacak[d][ms] & acik[varis, ms], ns, 0)
         sk = option_skulari[o]
         ic = icerik[ps[:, None], beden_sira[sk][None, :]]            # [n_m, n_s]
         ns = paketleri_sigdir(ns, ic, z.depo[sk])
@@ -422,7 +452,14 @@ def simule_et(
                 z.depo += topla(hs[c], a, S)
                 kay.sevk(d, d, hm[c], -1, c, -1, hs[c], a, "geri_yonlendirme")
 
-        # 4) Olaylar [T14]
+        # 4) Olaylar (açılış / kapanış transferleri)
+        if d in olay_cagrilari:
+            g = gorunum(d)
+            for olay, m in olay_cagrilari[d]:
+                if olay == "acilis":
+                    transfer_uygula(d, pol.acilis(g, m), "acilis_transferi")
+                else:
+                    transfer_uygula(d, pol.kapanis(g, m), "kapanis_transferi")
 
         # 5) İlk dağıtım
         for o, ms, ps, ns in bekleyen_ilk.pop(d, []):
@@ -503,7 +540,7 @@ def simule_et(
             if hucreler.size:
                 depodan_hucrelere(d, hucreler, gonder[hucreler], "replenishment")
 
-            # 11) Elle transfer [T14]
+            # 11) Elle transfer
             transfer_uygula(d, pol.elle_transfer(g), "elle_transfer")
 
         if d in fiyat_baslangic:   # pazartesi olmayan lansman

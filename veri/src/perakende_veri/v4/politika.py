@@ -11,9 +11,9 @@ profili, segment) bakmaz.
     replenishment(g)    -> [C] depodan istenen adet  (Görev 12, Lumoda)
     rpt(g)              -> {option: adet}            (Görev 13, `LumodaRPT`, v3)
     markdown(g)         -> [O, 3] indirim oranı      (Görev 13, `LumodaMarkdown`)
-    acilis(g, m)        -> Transferler               (Görev 14; şimdilik boş)
-    kapanis(g, m)       -> Transferler               (Görev 14; şimdilik boş)
-    elle_transfer(g)    -> Transferler               (Görev 14; şimdilik boş)
+    acilis(g, m)        -> Transferler               (Görev 14, yalnız depodan)
+    kapanis(g, m)       -> Transferler               (Görev 14, bütün stok depoya)
+    elle_transfer(g)    -> Transferler               (Görev 14, `LumodaElleTransfer`)
     outlet_akisi(g, os) -> Transferler               (Görev 13, Lumoda)
 
 Tedarikçi seçimi burada değildir: `dunya_kur(tedarikci_secimi=…)`
@@ -31,6 +31,7 @@ import pandas as pd
 
 from . import sabitler
 from .plan import en_buyuk_kalan, moq_yuvarla
+from .rastgele import sayac_uretici
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +146,8 @@ def lumoda_replenishment(g) -> np.ndarray:
     Hedef    önümüzdeki 28 günün PLAN talebi (sürprizi, yerel sapmayı
              bilmez; planlı indirimin talep artışını bilir)
     İstek    max(hedef − mağaza stoğu − yolda, 0) (v4: yoldaki mal sayılır)
-    Kapı     hücre yeni değilse (option'ın ilk dağıtımından beri ≥ 28 gün)
+    Kapı     hücre yeni değilse (max(option'ın ilk dağıtımı, mağazanın
+             açılışı)'ndan beri ≥ 28 gün)
              ve son 28 günlük satış hızıyla zaten 4 haftalık stoğu varsa mal
              gitmez — hız sıfırsa HİÇ gitmez (kasıtlı v3 kusuru).
     Sıfır    ONL hücreleri (online depodan satar), kapalı ve kapanış kararı
@@ -157,7 +159,9 @@ def lumoda_replenishment(g) -> np.ndarray:
     w = g.dunya
     hedef = np.rint(w.ileri_plan(g.gun, sabitler.REPL_HEDEF_GUN)).astype(np.int64)
     eksik = np.maximum(hedef - g.magaza_stok - g.yolda, 0)
-    ilk_gun = g.ilk_dagitim_gun[w.hucre_option]
+    ilk_gun = np.maximum(
+        np.asarray(g.ilk_dagitim_gun)[w.hucre_option], _acilis_gunleri(w)[w.hucre_magaza]
+    )
     yeni = (g.gun - ilk_gun) < sabitler.OLU_STOK_PENCERESI_GUN
     haftalik_hiz = g.satis_28 / sabitler.OLU_STOK_PENCERESI_GUN * 7.0
     uygun = yeni | (g.magaza_stok < haftalik_hiz * sabitler.OLU_STOK_HEDEF_HAFTA)
@@ -375,23 +379,152 @@ lumoda_markdown = LumodaMarkdown()
 
 
 # ---------------------------------------------------------------------------
-# Yer tutucular (Görev 14 doldurur; imzalar sabit)
+# Lumoda: açılış, kapanış, elle transfer (Görev 14)
 # ---------------------------------------------------------------------------
 
 
+def _acilis_gunleri(w) -> np.ndarray:
+    """[M] mağazanın yayımlanan açılış tarihinin gün indisi (0 = ısınma
+    başı; pencereden önce açılanlar negatif)."""
+    t = pd.to_datetime(w.magazalar["acilis_tarihi"])
+    return (t - pd.Timestamp(sabitler.ISINMA_BASLANGIC)).dt.days.to_numpy(dtype=np.int64)
+
+
 def lumoda_acilis(g, m: int) -> Transferler:
-    """Görev 14: yeni mağazanın açılış transferi. Şimdilik boş."""
-    return Transferler.bos()
+    """Yeni mağazanın açılış transferi (Lumoda: "yalnız depodan, ne varsa").
+
+    Motor bunu açılıştan `yolda_gun(depo → m)` gün önce çağırır; mal açılış
+    günü varır.
+    Hücreler  mağazanın açılış günü penceresi açık fiziksel, outlet akışı
+              olmayan hücreleri; ilk dağıtımı bu mağazayı kapsamayan
+              option'lar (lansman < açılış: dalga dağıtıldığında mağaza
+              henüz yoktu; devamlılar dahil). Lansmanı açılışta ya da sonra
+              olan option'lar ilk dağıtımdan pay alır.
+    Hedef     açılış gününden itibaren 28 günlük plan talebi (Lumoda planı
+              mağazanın açılışını ve olgunlaşmasını bilir)
+    İstek     max(hedef − raf − yolda, 0)
+    Kaynak    yalnız depo; depo neyi karşılıyorsa (SKU başına min(istek,
+              depo) — mağazada SKU başına tek hücre, orantılı kesme tek
+              istekte budur). Diğer mağazalardan hiçbir şey alınmaz
+              (derinlikli mağazalar kullanılmaz).
+    """
+    w = g.dunya
+    acilis = int(_acilis_gunleri(w)[m])
+    hm, hs, ho = w.hucre_magaza, w.hucre_sku, w.hucre_option
+    lansman = w.optionlar["lansman_gun"].to_numpy()
+    c = np.flatnonzero(
+        (hm == m) & ~w.hucre_online & ~w.hucre_outlet_akisi
+        & (w.hucre_acilis <= acilis) & (acilis < w.hucre_kapanis)
+        & (lansman[ho] < acilis)
+    )
+    if c.size == 0:
+        return Transferler.bos()
+    hedef = np.rint(w.ileri_plan(acilis, sabitler.REPL_HEDEF_GUN)[c]).astype(np.int64)
+    istek = np.maximum(hedef - np.asarray(g.magaza_stok)[c] - np.asarray(g.yolda)[c], 0)
+    adet = np.minimum(istek, np.asarray(g.depo)[hs[c]])
+    v = adet > 0
+    n = int(v.sum())
+    return Transferler(
+        kaynak=np.full(n, -1, dtype=np.int64), hedef=np.full(n, m, dtype=np.int64),
+        sku=hs[c][v].astype(np.int64), adet=adet[v].astype(np.int64),
+    )
 
 
 def lumoda_kapanis(g, m: int) -> Transferler:
-    """Görev 14: kapanan mağazanın stoğu. Şimdilik boş."""
-    return Transferler.bos()
+    """Kapanış günü (motor satıştan ve stok devrinden önce çağırır):
+    mağazanın bütün raf stoğu depoya (Lumoda: "bütün stok depoya"; satılacağı
+    mağazaya ya da outlet'e dağıtmaz). Yoldaki mal varışta depoya döner
+    (motor)."""
+    w = g.dunya
+    stok = np.asarray(g.magaza_stok)
+    c = np.flatnonzero((w.hucre_magaza == m) & (stok > 0))
+    n = c.size
+    return Transferler(
+        kaynak=np.full(n, m, dtype=np.int64), hedef=np.full(n, -1, dtype=np.int64),
+        sku=w.hucre_sku[c].astype(np.int64), adet=stok[c].astype(np.int64),
+    )
 
 
-def lumoda_elle_transfer(g) -> Transferler:
-    """Görev 14: bölge müdürünün haftalık elle transferleri. Şimdilik boş."""
-    return Transferler.bos()
+class LumodaElleTransfer:
+    """Bölge müdürlerinin pazartesi elle transferleri (kural dışı, gerekçesiz).
+
+    Her pazartesi `sayac_uretici(d, "elle").random((7, 2 + 2·maks))` tek
+    çekiliş (politikadan bağımsız sabit boy); satır r = bölge r (fiziksel
+    mağazaların bölge adları sıralı), sütun 0 → k = ⌊4u⌋ ∈ {0..3}, sütun
+    1 + 2j / 2 + 2j → j. transferin kaynağı / hedefi.
+    Kaynak  bölgede (mağaza, option) çiftleri, (mağaza, option) sırasıyla:
+            mağaza bugün açık ve kapanış kararsız; option'ın hücreleri
+            penceresinde ve en az 28 gündür rafta (pencere başı ve mağazanın
+            açılışı ≥ 28 gün önce: "son 28 günde satış 0" anlamlı olsun);
+            son 28 günde satış 0; option stoğu (bütün bedenler) ≥ 3.
+            j. seçim kalan adaylardan ⌊u · n⌋ (aynı çift iki kez seçilmez).
+    Hedef   aynı bölgede başka, bugün açık, kapanış kararsız ve o option'ın
+            penceresi açık hücresi olan mağazalardan ⌊u · n⌋ (ihtiyaca
+            bakılmaz); yoksa o seçim boş geçer.
+    Miktar  kaynağın o option'daki bütün stoğu (bütün bedenler).
+    """
+
+    BOLGE_SAYISI = 7
+
+    def __init__(
+        self,
+        maks: int = sabitler.ELLE_TRANSFER_MAKS,
+        stok_esigi: int = sabitler.ELLE_STOK_ESIGI,
+        pencere_gun: int = sabitler.ELLE_SATIS_PENCERESI_GUN,
+    ):
+        self.maks = maks
+        self.stok_esigi = stok_esigi
+        self.pencere_gun = pencere_gun
+
+    def __call__(self, g) -> Transferler:
+        w = g.dunya
+        d = g.gun
+        u = sayac_uretici(d, "elle").random((self.BOLGE_SAYISI, 2 + 2 * self.maks))
+        mag = w.magazalar
+        O = len(w.optionlar)
+        fiziksel = (mag["tip"] != "Online").to_numpy()
+        bolge = mag["bolge"].to_numpy()
+        bolgeler = sorted(set(bolge[fiziksel]))
+        uygun_m = fiziksel & np.asarray(g.acik_magaza) & ~np.asarray(g.kapanacak)
+
+        hm, ho = w.hucre_magaza, w.hucre_option
+        stok_c = np.asarray(g.magaza_stok)
+        c = np.flatnonzero(
+            (w.hucre_acilis <= d) & (d < w.hucre_kapanis) & ~w.hucre_online & uygun_m[hm]
+        )
+        cift, ters = np.unique(hm[c].astype(np.int64) * O + ho[c], return_inverse=True)
+        stok = np.bincount(ters, stok_c[c], minlength=cift.size)
+        satis = np.bincount(ters, np.asarray(g.satis_28)[c], minlength=cift.size)
+        cm, co = cift // O, cift % O
+        rafta = np.full(cift.size, np.iinfo(np.int64).max, dtype=np.int64)
+        np.minimum.at(rafta, ters, np.asarray(w.hucre_acilis)[c].astype(np.int64))
+        rafta = np.maximum(rafta, _acilis_gunleri(w)[cm])
+        aday = (stok >= self.stok_esigi) & (satis == 0) & (rafta <= d - self.pencere_gun)
+
+        k_, h_, s_, a_ = [], [], [], []
+        for r, b in enumerate(bolgeler[: self.BOLGE_SAYISI]):
+            n_tr = min(int(u[r, 0] * (self.maks + 1)), self.maks)
+            kalan = np.flatnonzero(aday & (bolge[cm] == b))
+            for j in range(n_tr):
+                if kalan.size == 0:
+                    break
+                i = kalan[min(int(u[r, 1 + 2 * j] * kalan.size), kalan.size - 1)]
+                kalan = kalan[kalan != i]
+                m, o = int(cm[i]), int(co[i])
+                hedefler = np.unique(cm[(co == o) & (bolge[cm] == b) & (cm != m)])
+                if hedefler.size == 0:
+                    continue
+                m2 = int(hedefler[min(int(u[r, 2 + 2 * j] * hedefler.size), hedefler.size - 1)])
+                kc = c[(hm[c] == m) & (ho[c] == o) & (stok_c[c] > 0)]
+                k_.append(np.full(kc.size, m)); h_.append(np.full(kc.size, m2))
+                s_.append(w.hucre_sku[kc]); a_.append(stok_c[kc])
+        if not k_:
+            return Transferler.bos()
+        b_ = lambda x: np.concatenate(x).astype(np.int64)  # noqa: E731
+        return Transferler(b_(k_), b_(h_), b_(s_), b_(a_))
+
+
+lumoda_elle_transfer = LumodaElleTransfer()
 
 
 def lumoda_politikalari() -> dict[str, Callable]:
