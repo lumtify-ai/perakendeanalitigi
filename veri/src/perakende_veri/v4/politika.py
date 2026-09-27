@@ -151,15 +151,23 @@ def lumoda_replenishment(g) -> np.ndarray:
              ve son 28 günlük satış hızıyla zaten 4 haftalık stoğu varsa mal
              gitmez — hız sıfırsa HİÇ gitmez (kasıtlı v3 kusuru).
     Sıfır    ONL hücreleri (online depodan satar) ve bugün kapalı mağazalar.
-             Kapanış kararı verilmiş mağazaya kapanış gününe dek gönderir
-             (kasıtlı kusur: kimse replenishment listesini düzeltmez; mağaza
-             anlamlı stokla kapanır, stok kapanış transferiyle depoya döner).
+    Kapanış  kapanış kararı verilmiş mağazaya kapanış gününe dek gönderir ve
+             hedefi kararı yok sayar: o mağazanın hücrelerinde hedef, karar
+             gününden önceki son pazartesinin 28 günlük plan hedefinde sabit
+             kalır (plan kapanışı bilir ve daralır; kimse replenishment
+             listesini düzeltmez — kasıtlı kusur). Mağaza anlamlı stokla
+             kapanır, stok kapanış transferiyle depoya döner.
 
     Depo yetmezse motor istekleri SKU içinde orantılı keser; dağıtılamaz
     hücreleri (ilk dağıtımı bitmemiş, çıkmış, outlet akışı) motor sıfırlar.
     """
     w = g.dunya
     hedef = np.rint(w.ileri_plan(g.gun, sabitler.REPL_HEDEF_GUN)).astype(np.int64)
+    for m, karar_pzt in _kapanis_karar_pazartesileri(w).items():
+        if g.kapanacak[m] and g.acik_magaza[m]:
+            c = w.hucre_magaza == m
+            sabit = np.rint(w.ileri_plan(karar_pzt, sabitler.REPL_HEDEF_GUN)[c]).astype(np.int64)
+            hedef[c] = sabit
     eksik = np.maximum(hedef - g.magaza_stok - g.yolda, 0)
     ilk_gun = np.maximum(
         np.asarray(g.ilk_dagitim_gun)[w.hucre_option], _acilis_gunleri(w)[w.hucre_magaza]
@@ -389,6 +397,18 @@ def _acilis_gunleri(w) -> np.ndarray:
     başı; pencereden önce açılanlar negatif)."""
     t = pd.to_datetime(w.magazalar["acilis_tarihi"])
     return (t - pd.Timestamp(sabitler.ISINMA_BASLANGIC)).dt.days.to_numpy(dtype=np.int64)
+
+
+def _kapanis_karar_pazartesileri(w) -> dict[int, int]:
+    """{mağaza: kapanış karar gününden önceki (kesin) son pazartesi} (gün
+    indisi; d = 0 pazartesidir). `magaza_olay` kamuya açıktır."""
+    idx = {mid: i for i, mid in enumerate(w.magazalar["magaza_id"])}
+    bas = pd.Timestamp(sabitler.ISINMA_BASLANGIC)
+    sonuc = {}
+    for r in w.magaza_olay[w.magaza_olay.olay == "kapanis"].itertuples():
+        karar = int((pd.Timestamp(r.karar_tarihi) - bas).days)
+        sonuc[idx[r.magaza_id]] = max((karar - 1) // 7 * 7, 0)
+    return sonuc
 
 
 def lumoda_acilis(g, m: int) -> Transferler:

@@ -140,16 +140,23 @@ def test_kapanan_magazaya_yolda_mal_depoya(kucuk_dunya):
 
 def test_kapanacaga_replenishment_surer(kucuk_dunya, kucuk_kosu):
     """Lumoda kapanacak mağazaya kapanış gününe dek replenishment gönderir
-    (kimse listeyi düzeltmez); kapanış günü ve sonrasında göndermez; kalan
-    stok kapanış transferiyle döner. (Hedef plan talebidir ve plan kapanışı
-    bilir: 28 günlük hedef kapanışa doğru daralır, stok da azalır.)"""
-    w, sev = kucuk_dunya, kucuk_kosu["sevkiyat"]
+    (kimse listeyi düzeltmez) ve hedefi karar öncesi düzeyinde tutar;
+    kapanış günü ve sonrasında göndermez. Mağaza anlamlı stokla kapanır:
+    kapanış transferi, karar günündeki raf stoğunun (karardan önceki son
+    pazartesi fotoğrafı) en az ORAN'ı kadardır."""
+    ORAN = 0.5
+    w, k = kucuk_dunya, kucuk_kosu
+    sev, stok = k["sevkiyat"], k["stok"]
+    hm = w.hucre_magaza
     for r in _olaylar(w, "kapanis").itertuples():
         m, karar, kg = _indis(w, r.magaza_id), gun_indisi(r.karar_tarihi), gun_indisi(r.olay_tarihi)
         rep = sev[(sev.hedef == m) & (sev.tip == "replenishment")]
         assert len(rep[(rep.gun >= karar) & (rep.gun < kg)]) > 0, r.magaza_id
         assert len(rep[rep.gun >= kg]) == 0, r.magaza_id
-        assert sev[(sev.tip == "kapanis_transferi") & (sev.kaynak == m)].adet.sum() > 0
+        f = stok[(stok.gun <= karar) & (hm[stok.hucre.to_numpy()] == m)]
+        karar_stok = f[f.gun == f.gun.max()].adet.sum()
+        kt = sev[(sev.tip == "kapanis_transferi") & (sev.kaynak == m)].adet.sum()
+        assert kt >= ORAN * karar_stok > 0, (r.magaza_id, kt, karar_stok)
 
 
 def test_kapanacaga_ilk_dagitim_yok(kucuk_dunya, kucuk_kosu):
