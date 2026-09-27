@@ -467,3 +467,119 @@ LUMODA_UZMANLIK_AGIRLIGI = 3.0
 # Kalite kontrol numunesi: min(adet, NUMUNE_TABAN + adet // NUMUNE_BOLEN).
 NUMUNE_TABAN = 32
 NUMUNE_BOLEN = 50
+
+# --- Talep (Görev 8) ------------------------------------------------------
+# λ = liste fiyatında beklenen günlük talep (hücre = mağaza × SKU). Fiyat
+# etkisi burada yok (motor uygular). "KALİBRASYON" yorumlu düğmeler
+# Görev 17'de (uçtan uca hacim/pay ayarı) yeniden ayarlanabilir; buradaki
+# değerler ilk tahmindir.
+
+# Mağaza tabanı = TABAN_OLCEK × (kapasite / KAPASITE_REFERANS)^KAPASITE_USSU
+#                 × TIP_TALEP_CARPANI[tip] × exp(MAGAZA_GURULTU_SIGMA × yerel_gurultu)
+TABAN_OLCEK = 0.6               # KALİBRASYON: toplam hacim
+KAPASITE_REFERANS = 5000.0      # ~550 m² tek katlı AVM
+KAPASITE_USSU = 1.0             # KALİBRASYON: brief "kapasiteyle orantılı"
+TIP_TALEP_CARPANI = {"AVM": 1.0, "Cadde": 0.85, "Outlet": 1.3}  # KALİBRASYON
+MAGAZA_GURULTU_SIGMA = 0.10     # gizli_magaza.yerel_gurultu (N(0,1)) ölçeği
+
+# Üst kategori ve line hacim çarpanları (v3'ün TABAN_TALEP ve
+# LINE_HACIM × SEZONLUK_TEPE çarpanlarının devamı).
+UST_KATEGORI_TABAN = {                                      # KALİBRASYON
+    "Üst Giyim": 1.0, "Alt Giyim": 0.75, "Elbise & Tulum": 0.7,
+    "Dış Giyim": 0.45, "Aksesuar": 0.6,
+}
+LINE_TALEP_CARPANI = {"Collection": 1.7, "Outlet": 0.8, "Basic": 1.15, "NOS": 1.3}  # KALİBRASYON
+
+# Genç eğilim: kalıbın "genç" skoru × (genc_egilim − 0,5) × katsayı, log uzayında.
+GENC_KALIP_SKORU = {"oversize": 1.0, "relaxed": 0.5, "regular": -0.5, "slim": -0.5}
+GENC_ETKI_KATSAYISI = 0.6
+
+# Fiyat segmenti ↔ gelir uyumu (talep çarpanı).
+FIYAT_GELIR_TALEP = {
+    "giris": {"dusuk": 1.25, "orta": 1.0, "yuksek": 0.8},
+    "orta": {"dusuk": 1.0, "orta": 1.1, "yuksek": 1.0},
+    "premium": {"dusuk": 0.6, "orta": 1.0, "yuksek": 1.35},
+}
+
+# Zincir beden eğrisi (beden sırası 1..5; v2/v3 değerleri) ve kaydırma:
+# mağazanın `beden_kayma`'sı (−1/0/+1) × BEDEN_KAYMA_ADIM kadar sıra
+# kayar (kenarlar BEDEN_KENAR ile uzatılır, doğrusal ara değer).
+BEDEN_PAYLARI_ZINCIR = [0.10, 0.22, 0.32, 0.24, 0.12]
+BEDEN_KENAR = 0.04
+BEDEN_KAYMA_ADIM = 0.5
+
+KAT_ERKEK_CARPANI = 0.9         # çok katlı mağazada erkek ürünleri üst katta
+YEREL_GURULTU_SIGMA = 0.15      # mağaza × alt kategori lognormal
+
+# Online payı (ulusal talebin kategoriye göre payı); Basic/NOS online'da güçlü.
+ONLINE_PAY = {
+    "Üst Giyim": 0.18, "Alt Giyim": 0.17, "Elbise & Tulum": 0.20,
+    "Dış Giyim": 0.12, "Aksesuar": 0.25,
+}
+ONLINE_BASIC_CARPANI = 1.25
+
+# Ürün sürprizi (lognormal medyan 1); v3'ten küçük (spec §3.3).
+SURPRIZ_SIGMA = {"Collection": 0.40, "Outlet": 0.30, "Basic": 0.15, "NOS": 0.08}
+
+# Yaşam eğrisi (v3 formülü): (h+1)^a · exp(−h/τ), tepe 1'e ölçekli.
+YASAM_A = 1.0
+YASAM_TAU_HAFTA = 4.0
+YASAM_TAU_OYNAMA = 0.20         # alt kategori başına ±%20
+
+# Sürüklenme: option düzeyinde haftalık log AR(1).
+SURUKLENME_RHO = 0.7
+SURUKLENME_SIGMA = 0.10
+
+# Öznitelik etkisi: başlangıç katsayısı N(0, OZNITELIK_TABAN_SIGMA) (segment
+# × "alan:değer"), sezondan sezona TREND + N(0, OZNITELIK_YURUYUS_SIGMA).
+OZNITELIK_TABAN_SIGMA = 0.10    # KALİBRASYON: öğrenilebilirlik (spec §8.3)
+OZNITELIK_YURUYUS_SIGMA = 0.03
+# Önceden yazılmış trend hikâyesi (log katsayı):
+#   "birikimli": her sezon eklenir; "birikimli_SS": yalnız SS sezonlarında
+#   eklenir; "duzey_SS_AW": SS'de +x, AW'de −x (birikmez);
+#   "sabit_segment": yalnız verilen segmentte sabit +x.
+TREND = {
+    "kalip:oversize": ("birikimli", 0.12),
+    "kalip:slim": ("birikimli", -0.10),
+    "kumas:keten": ("birikimli_SS", 0.08),
+    "desen:çiçekli": ("duzey_SS_AW", 0.15),
+    "fiyat_segmenti:premium": ("sabit_segment", 0.30, "metropol_premium"),
+}
+
+# Mevsim: alt kategori → (tepe ayı, genlik); 1.0 = 1 Ocak. v3 MEVSIM +
+# yeni kategoriler (Bluz, Elbise, Tulum, Çanta, Şal, Kemer).
+MEVSIM = {
+    "Mont": (12.5, 0.95), "Ceket": (11.0, 0.55), "Trençkot": (10.5, 0.35),
+    "Kazak": (12.5, 0.70), "Sweatshirt": (12.0, 0.40),
+    "Tişört": (6.5, 0.50), "Gömlek": (5.5, 0.20), "Bluz": (6.0, 0.30),
+    "Pantolon": (10.0, 0.10), "Jean": (10.0, 0.15),
+    "Etek": (6.0, 0.35), "Şort": (6.5, 1.00),
+    "Elbise": (6.5, 0.55), "Tulum": (6.5, 0.50),
+    "Çanta": (8.0, 0.10), "Şal": (12.0, 0.80), "Kemer": (9.0, 0.05),
+}
+# Yaz ürünü: tepe ayı [3, 9]; diğerleri kış ürünü.
+YAZ_TEPE_ARALIGI = (3.0, 9.0)
+# İklim kaymaları (ay / çarpan). "genişlik": tepe çevresinde yaz sezonunun
+# her düzeyde bu kadar ay uzaması (düz tepe), bkz. talep._mevsim_egrisi.
+IKLIM_KAYMA = {
+    "ılıman": {},
+    "sicak_sahil": {"yaz_tepe": -0.7, "yaz_genislik": 0.5, "kis_genlik": 0.6},
+    "karasal": {"yaz_genlik": 1.15, "kis_genlik": 1.15},
+    "soguk": {"kis_tepe": 0.5, "kis_genlik": 1.3, "yaz_genlik": 0.7},
+}
+
+# Mağaza-gün çarpanları.
+HAFTA_GUNU_CARPANI = [1.0, 1.0, 1.0, 1.0, 1.0, 1.55, 1.55]  # v3 (Pzt..Paz)
+TATIL_CARPANI = 0.6             # resmî tatil (fiziksel trafik)
+BLACK_FRIDAY_CARPANI = 1.8      # trafik (fiziksel ve online)
+TURISTIK_YAZ_AYLARI = {6, 7, 8, 9}
+TURISTIK_YAZ_CARPANI = 1.6
+TURISTIK_KIS_CARPANI = 0.85
+OLGUNLASMA_DERINLIK = 0.5       # 1 − 0,5·exp(−hafta/4)
+OLGUNLASMA_HAFTA = 4.0
+
+# Olay kaymaları: kapanan mağazanın talebinin payı → en yakın 2 fiziksel
+# açık mağaza (her biri) ve ONL.
+TADILAT_KAYMA = {"yakin": 0.15, "onl": 0.10}      # toplam %40
+KAPANIS_KAYMA = {"yakin": 0.1125, "onl": 0.075}   # toplam %30, aynı dağılım
+KAYMA_YAKIN_SAYISI = 2
