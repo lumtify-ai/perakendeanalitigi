@@ -4,9 +4,9 @@ Lumoda tedarikçi seçimi.
 v3'te tedarikçi ilk siparişin ne kadar önce verileceğini, RPT'nin kaç
 haftada geleceğini ve MOQ'yu belirliyordu — bunlar yayımlanan (`tedarikciler`)
 tabloda kalır. v4 buna bir **gizli profil** ekler (`gizli_tedarikci`):
-gecikme, hatalı oran, maliyet çarpanı, kapasite, uzmanlık bonusu — hiçbiri
-dışa aktarılan tablolara girmez (global kısıt: "gizli gerçek ... tedarikçi
-profili ... dışa aktarılan tablolara girmez"). Lumoda'nın alışılmış
+gecikme, hatalı oran, maliyet çarpanı, kapasite — hiçbiri dışa aktarılan
+tablolara girmez (global kısıt: "gizli gerçek ... tedarikçi profili ...
+dışa aktarılan tablolara girmez"). Lumoda'nın alışılmış
 birincil/ikincil tedarikçi seçimi bu gizli profile bakmadan (yalnız kamuya
 açık menşe/uzmanlık bilgisiyle) yapılır — ileride yazılacak bir algoritmanın
 "yenmesi" gereken referans budur.
@@ -36,12 +36,16 @@ def tedarikcileri_uret(rng: np.random.Generator) -> tuple[pd.DataFrame, pd.DataF
     yaparken bildiği şeyler).
 
     `gizli_tedarikci`: tedarikci_id, mense (kolaylık için tekrar; zaten
-    kamuya açık), gecikme_ort_gun, gecikme_sd_gun (gerçekleşen teslim
-    sapmasının tedarikçiye özgü dağılımı), hatali_orani, maliyet_carpani,
-    kapasite_sezon_adet, uzmanlik_bonusu — bunların hiçbiri Lumoda'nın plan
-    aşamasında bildiği şeyler değildir; yalnız gerçekleşen teslimatlarda
-    ortaya çıkar (bkz. `teslim_sapmasi`, `hatali_adet`).
+    kamuya açık), gecikme_parametre_t (mense'e göre anlamı değişir: Yakın/
+    Uzak Doğu'da beta ölçeği `olcek_t`, Yerli'de sabit kayma `bias_t` —
+    bkz. `teslim_sapmasi`), gecikme_beklenen_gun (bunun analitik beklenen
+    değeri), hatali_orani, maliyet_carpani, kapasite_sezon_adet —
+    bunların hiçbiri Lumoda'nın plan aşamasında bildiği şeyler değildir;
+    yalnız gerçekleşen teslimatlarda ortaya çıkar (bkz. `teslim_sapmasi`,
+    `hatali_adet`).
     """
+    beta_ortalama = sabitler.SAPMA_BETA[0] / sum(sabitler.SAPMA_BETA)
+
     tedarikci_satirlari = []
     gizli_satirlari = []
     for sira, (ad, ulke, mense, uzmanlik) in enumerate(sabitler.TEDARIKCI_TANIMLARI, start=1):
@@ -64,18 +68,24 @@ def tedarikcileri_uret(rng: np.random.Generator) -> tuple[pd.DataFrame, pd.DataF
             *sabitler.HATALI_ORANI_BETA
         ) * (sabitler.HATALI_ORANI_ARALIGI[1] - sabitler.HATALI_ORANI_ARALIGI[0])
 
+        if mense == "Yerli":
+            parametre = float(rng.uniform(*sabitler.YERLI_BIAS_ARALIGI))
+            beklenen = parametre
+        else:
+            parametre = float(rng.uniform(*sabitler.OLCEK_T_ARALIGI))
+            beklenen = parametre * m["sapma_maks"] * beta_ortalama
+
         gizli_satirlari.append(
             {
                 "tedarikci_id": tedarikci_id,
                 "mense": mense,
-                "gecikme_ort_gun": float(rng.uniform(*sabitler.GECIKME_PROFIL_ORT[mense])),
-                "gecikme_sd_gun": float(rng.uniform(*sabitler.GECIKME_PROFIL_SD[mense])),
+                "gecikme_parametre_t": parametre,
+                "gecikme_beklenen_gun": float(beklenen),
                 "hatali_orani": float(hatali_orani),
                 "maliyet_carpani": float(rng.uniform(*sabitler.MALIYET_CARPANI_ARALIGI[mense])),
                 "kapasite_sezon_adet": int(
                     rng.uniform(*sabitler.KAPASITE_SEZON_ARALIGI[mense]) // 100 * 100
                 ),
-                "uzmanlik_bonusu": sabitler.UZMANLIK_MALIYET_CARPANI,
             }
         )
 
@@ -113,6 +123,14 @@ def lumoda_tedarikci_secimi(
     (`gizli.kapasite_sezon_adet`, `talep_tahmini` ile ölçülür) dolarsa
     ikinciye taşar. Kapasite kontrolü kümülatiftir: aynı birincile atanan
     farklı alt kategorilerin talebi aynı havuzu paylaşır.
+
+    Taşma zinciri (fix round 1 — controller kararı): ikincil de dolarsa,
+    önce kamuya açık uzmanlık alanı alt kategoriyle eşleşen tedarikçiler
+    arasında o sezon için en çok kalan kapasitesi olana, orada da yer
+    yoksa herhangi bir tedarikçide kalan kapasitesi olana taşar. Hepsi
+    doluysa ikincilde kalır (aşım kabul edilir — üçüncü bir "sabit" taşma
+    hedefi yok, çünkü Lumoda'nın gerçek hayattaki alışkanlığı budur: en
+    kötü ihtimalde alışılmış ikinci tedarikçiye fazladan sipariş vermek).
 
     Tasarım kararı: DEVAMLI (sürekli) option'lar kapasiteye tabi değildir
     (her zaman birincile gider) — "yıllık kapasiteyi iki sezona eşit
@@ -154,19 +172,44 @@ def lumoda_tedarikci_secimi(
     kullanim: dict[tuple[int, str], float] = {}
     secim = np.empty(O, dtype=np.int64)
 
+    def _kalan(aday: int, sezon: str) -> float:
+        return kapasite[aday] - kullanim.get((aday, sezon), 0.0)
+
+    def _en_bos(havuz: np.ndarray, sezon: str) -> int | None:
+        kalanlar = [(_kalan(a, sezon), a) for a in havuz]
+        kalanlar = [x for x in kalanlar if x[0] > 0]
+        if not kalanlar:
+            return None
+        kalanlar.sort(key=lambda x: x[0], reverse=True)
+        return kalanlar[0][1]
+
     for o in range(O):
         alt = alt_arr[o]
         b = birincil[alt]
         if sezon_arr[o] == sabitler.DEVAMLI:
             secim[o] = b
             continue
-        anahtar = (b, sezon_arr[o])
-        kullanilan = kullanim.get(anahtar, 0.0)
-        if kullanilan + talep[o] <= kapasite[b]:
-            secim[o] = b
-            kullanim[anahtar] = kullanilan + talep[o]
-        else:
-            secim[o] = ikincil[alt]
+
+        sezon = sezon_arr[o]
+        ik = ikincil[alt]
+        secildi = None
+        for aday in (b, ik):
+            if _kalan(aday, sezon) >= talep[o]:
+                secildi = aday
+                break
+
+        if secildi is None:
+            alan = sabitler.ALT_KATEGORI_ALAN.get(alt)
+            uzmanlik_havuzu = tum_idx[uzmanlik_arr == alan] if alan else tum_idx[:0]
+            secildi = _en_bos(uzmanlik_havuzu, sezon)
+            if secildi is None:
+                secildi = _en_bos(tum_idx, sezon)
+            if secildi is None:
+                secildi = ik  # hepsi dolu: alışılmış ikincilde kal (aşım kabul)
+
+        secim[o] = secildi
+        anahtar = (secildi, sezon)
+        kullanim[anahtar] = kullanim.get(anahtar, 0.0) + talep[o]
 
     return secim
 
@@ -183,24 +226,45 @@ def teslim_sapmasi(
     gün); v3'ün sayıları çağıran tarafça verilir (ilk: n=1, RPT: n=4,
     sürekli: n=128).
 
-    Her tedarikçinin kendi gizli (ortalama, sd) profilinden Normal çekilir,
-    sonra menşenin ilan edilmiş sınırına (`MENSE_V4` sapma_min/maks)
-    kırpılır: Yerli ±3 gün simetrik, Yakın 0…10, Uzak Doğu 0…21 — kırpma
-    hem yönü (Uzak Doğu/Yakın hiç erken gelmez) hem sınırı garanti eder,
-    tedarikçiler arası (gizli) farklılaşma ortalama/sd'den gelir.
+    Şekil brief'in beta biçimini korur (v3'ün UZAK_DOGU_SAPMA_BETA'sıyla
+    aynı Beta(1,3; 3,5)); tedarikçi düzeyinde farklılaşma yalnız gizli
+    `gecikme_parametre_t`'den gelen bir ölçek/kayma ile eklenir, sonra
+    menşenin ilan edilmiş sınırına (`MENSE_V4` sapma_min/maks) kırpılır:
+
+    - Uzak Doğu / Yakın: `round(olcek_t × sapma_maks × Beta(1.3, 3.5))`,
+      sağa çarpık (çoğu teslim birkaç gün, bazen üç hafta gecikir),
+      kırpma 0…sapma_maks'ı garanti eder (hiç erken gelmez).
+    - Yerli: `round(bias_t + tam sayı gürültü [-2, +2])`, kırpma ±3'ü
+      garanti eder (simetrik, ±3 gün).
     """
     tedarikci_idx = np.asarray(tedarikci_idx)
     O = len(tedarikci_idx)
-    ort = gizli["gecikme_ort_gun"].to_numpy()[tedarikci_idx]
-    sd = gizli["gecikme_sd_gun"].to_numpy()[tedarikci_idx]
     mense = gizli["mense"].to_numpy()[tedarikci_idx]
+    parametre = gizli["gecikme_parametre_t"].to_numpy()[tedarikci_idx]
+    sapma = np.zeros((O, n), dtype=np.int64)
 
-    ham = rng.normal(ort[:, None], sd[:, None], size=(O, n))
+    yerli = mense == "Yerli"
+    if yerli.any():
+        bias = parametre[yerli][:, None]
+        gurultu = rng.integers(
+            -sabitler.YERLI_GURULTU_MAKS_GUN, sabitler.YERLI_GURULTU_MAKS_GUN + 1,
+            size=(int(yerli.sum()), n),
+        )
+        m = sabitler.MENSE_V4["Yerli"]
+        ham = np.rint(bias + gurultu)
+        sapma[yerli] = np.clip(ham, m["sapma_min"], m["sapma_maks"]).astype(np.int64)
 
-    alt = np.array([sabitler.MENSE_V4[m]["sapma_min"] for m in mense])
-    ust = np.array([sabitler.MENSE_V4[m]["sapma_maks"] for m in mense])
-    sapma = np.clip(np.rint(ham), alt[:, None], ust[:, None])
-    return sapma.astype(np.int64)
+    for mense_adi in ("Yakın", "Uzak Doğu"):
+        maske = mense == mense_adi
+        if not maske.any():
+            continue
+        m = sabitler.MENSE_V4[mense_adi]
+        olcek = parametre[maske][:, None]
+        beta = rng.beta(*sabitler.SAPMA_BETA, size=(int(maske.sum()), n))
+        ham = np.rint(olcek * m["sapma_maks"] * beta)
+        sapma[maske] = np.clip(ham, m["sapma_min"], m["sapma_maks"]).astype(np.int64)
+
+    return sapma
 
 
 # ---------------------------------------------------------------------------

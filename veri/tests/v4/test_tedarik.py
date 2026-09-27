@@ -78,7 +78,7 @@ def test_lumoda_secimi_performansa_kor(t):
     secim1 = lumoda_tedarikci_secimi(dunya_akisi(), optionlar, tedarikciler, gizli, talep)
 
     gizli_ters = gizli.copy()
-    for kol in ["hatali_orani", "maliyet_carpani", "gecikme_ort_gun", "gecikme_sd_gun"]:
+    for kol in ["hatali_orani", "maliyet_carpani", "gecikme_parametre_t", "gecikme_beklenen_gun"]:
         gizli_ters[kol] = gizli_ters[kol].to_numpy()[::-1]
     secim2 = lumoda_tedarikci_secimi(dunya_akisi(), optionlar, tedarikciler, gizli_ters, talep)
 
@@ -100,6 +100,62 @@ def test_kapasite_tasmasi(t):
 
     assert np.all(secim2 != birincil)
     assert len(set(secim2.tolist())) == 1  # hepsi aynı ikincile taşar
+
+
+def test_kapasite_zinciri_ucuncu_tedarikciye(t):
+    """Birincil ve ikincil sırayla dolunca üçüncü (farklı) bir tedarikçiye taşar."""
+    tedarikciler, gizli = t
+    optionlar = _sahte_optionlar(3, ["Tişört"] * 3)
+    talep = np.full(3, 100)
+
+    secim0 = lumoda_tedarikci_secimi(dunya_akisi(), optionlar, tedarikciler, gizli, talep)
+    assert len(set(secim0.tolist())) == 1
+    birincil = int(secim0[0])
+
+    gizli1 = gizli.copy()
+    gizli1.loc[birincil, "kapasite_sezon_adet"] = 0
+    secim1 = lumoda_tedarikci_secimi(dunya_akisi(), optionlar, tedarikciler, gizli1, talep)
+    assert len(set(secim1.tolist())) == 1
+    ikincil = int(secim1[0])
+    assert ikincil != birincil
+
+    gizli2 = gizli1.copy()
+    gizli2.loc[ikincil, "kapasite_sezon_adet"] = 0
+    secim2 = lumoda_tedarikci_secimi(dunya_akisi(), optionlar, tedarikciler, gizli2, talep)
+    assert len(set(secim2.tolist())) == 1
+    ucuncu = int(secim2[0])
+    assert ucuncu not in (birincil, ikincil)
+
+
+def test_kapasite_hepsi_dolu_ikincilde_kalir(t):
+    """Bütün tedarikçilerin kapasitesi sıfırlanırsa alışılmış ikincilde kalınır (aşım kabul)."""
+    tedarikciler, gizli = t
+    optionlar = _sahte_optionlar(3, ["Tişört"] * 3)
+    talep = np.full(3, 100)
+
+    secim0 = lumoda_tedarikci_secimi(dunya_akisi(), optionlar, tedarikciler, gizli, talep)
+    birincil = int(secim0[0])
+    gizli1 = gizli.copy()
+    gizli1.loc[birincil, "kapasite_sezon_adet"] = 0
+    secim1 = lumoda_tedarikci_secimi(dunya_akisi(), optionlar, tedarikciler, gizli1, talep)
+    ikincil = int(secim1[0])
+
+    gizli_hepsi_dolu = gizli.copy()
+    gizli_hepsi_dolu["kapasite_sezon_adet"] = 0
+    secim_final = lumoda_tedarikci_secimi(
+        dunya_akisi(), optionlar, tedarikciler, gizli_hepsi_dolu, talep
+    )
+    assert np.all(secim_final == ikincil)
+
+
+def test_uzak_dogu_sapma_carpik(t):
+    """Uzak Doğu teslim sapması sağa çarpık: ortalama > medyan (Beta(1.3,3.5))."""
+    tedarikciler, gizli = t
+    idx = np.flatnonzero((tedarikciler["mense"] == "Uzak Doğu").to_numpy())
+    idx_genis = np.repeat(idx, 50)
+    sapma = teslim_sapmasi(dunya_akisi(), gizli, idx_genis, 500)
+    ornekler = sapma.astype(float).flatten()
+    assert ornekler.mean() > np.median(ornekler)
 
 
 def test_devamli_kapasite_siniri_yok(t):

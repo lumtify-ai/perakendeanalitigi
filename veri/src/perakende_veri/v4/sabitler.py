@@ -397,18 +397,21 @@ MENSE_V4: dict[str, dict] = {
     "Uzak Doğu": {"ilk": (24, 30), "rpt": (12, 16), "moq": 600, "sapma_min": 0, "sapma_maks": 21},
 }
 
-# Gizli gecikme profili (tedarikçi başına, menşe aralığından bir kez
-# çekilir): ortalama ve standart sapma (gün); v3/spec yalnız menşe
-# düzeyinde sınır verir (MENSE_V4 sapma_min/maks), tedarikçi düzeyinde
-# farklılaşma (gizli gerçek — bir algoritmanın öğrenmesi gereken şey)
-# burada tasarım kararıdır. `teslim_sapmasi` bu ortalama/sd ile Normal
-# çeker, sonra menşenin sapma_min/maks'ına kırpar (yön/sınır garantisi).
-GECIKME_PROFIL_ORT: dict[str, tuple[float, float]] = {
-    "Yerli": (-1.0, 1.0), "Yakın": (3.0, 7.0), "Uzak Doğu": (7.0, 14.0),
-}
-GECIKME_PROFIL_SD: dict[str, tuple[float, float]] = {
-    "Yerli": (1.0, 2.0), "Yakın": (1.5, 3.0), "Uzak Doğu": (3.0, 6.0),
-}
+# Gizli gecikme şekli (fix round 1 - controller kararı): brief'in beta
+# biçimi korunur (v3'ün UZAK_DOGU_SAPMA_BETA'sıyla aynı şekil), tedarikçi
+# düzeyinde farklılaşma yalnız bir ölçek/kayma parametresiyle eklenir —
+# `teslim_sapmasi` mense'e göre:
+#   Uzak Doğu: round(olcek_t × 21 × Beta(1.3, 3.5)), olcek_t ~ U(0.6, 1.4)
+#   Yakın:     round(olcek_t × 10 × Beta(1.3, 3.5)), olcek_t ~ U(0.6, 1.4)
+#   Yerli:     round(bias_t + tam sayı gürültü ±2), bias_t ~ U(-1, 1)
+# sonra menşenin sapma_min/maks'ına (MENSE_V4) kırpılır. `olcek_t`/`bias_t`
+# gizli_tedarikci'de `gecikme_parametre_t` sütununda saklanır (anlamı
+# mense'e göre değişir); `gecikme_beklenen_gun` bunun analitik beklentisidir
+# (Beta(a,b) ortalaması a/(a+b)).
+SAPMA_BETA = (1.3, 3.5)
+OLCEK_T_ARALIGI = (0.6, 1.4)
+YERLI_BIAS_ARALIGI = (-1.0, 1.0)
+YERLI_GURULTU_MAKS_GUN = 2
 
 # Hatalı oran: tedarikçi başına beta(2,5) ile [0,5%–6%] aralığına
 # ölçeklenir (sağa çarpık: çoğu tedarikçi iyi, birkaçı kötü).
@@ -423,9 +426,12 @@ MALIYET_CARPANI_ARALIGI: dict[str, tuple[float, float]] = {
 
 # Kapasite (sezon başına adet); tasarım kararı — spec kesin sayı vermez,
 # yalnız "sezon başına adet" der. Uzak Doğu fabrikaları en büyük, yerli
-# en küçük kapasiteli.
+# en küçük kapasiteli. KALİBRASYON DÜĞMESİ: fix round 1'de toplam ilk alım
+# hacmiyle (Collection+Outlet, 80 mağaza+online, sezon başına ~1,0-1,3M
+# adet) tutarlı olacak şekilde büyütüldü; kesin değerler Görev 17'de
+# (uçtan uca hacim ayarı) yeniden ayarlanabilir.
 KAPASITE_SEZON_ARALIGI: dict[str, tuple[int, int]] = {
-    "Yerli": (5_000, 15_000), "Yakın": (8_000, 20_000), "Uzak Doğu": (20_000, 60_000),
+    "Yerli": (40_000, 120_000), "Yakın": (60_000, 150_000), "Uzak Doğu": (120_000, 300_000),
 }
 
 # Uzmanlık alanı → alt kategoriler (herhangi bir tedarikçi herhangi bir alt
@@ -441,9 +447,10 @@ ALT_KATEGORI_ALAN: dict[str, str] = {
     alt: alan for alan, altlar in UZMANLIK_ALANLARI.items() for alt in altlar
 }
 
-# Uzmanlıkta maliyet ×0,93, hatalı oran ×0,7 (spec §4.1). `uzmanlik_bonusu`
-# (gizli tabloda) maliyet tarafını taşır; hatalı tarafı `hatali_adet`'in
-# `uyum` parametresiyle doğrudan bu sabitten uygulanır.
+# Uzmanlıkta maliyet ×0,93, hatalı oran ×0,7 (spec §4.1); her iki taraf da
+# doğrudan bu sabitlerden uygulanır (`alis_fiyati_uygula`, `hatali_adet`'in
+# `uyum` parametresi) — gizli_tedarikci'de ayrı bir "bonus" sütunu yok
+# (fix round 1: inert `uzmanlik_bonusu` sütunu kaldırıldı, bkz. task-6-report).
 UZMANLIK_MALIYET_CARPANI = 0.93
 UZMANLIK_HATALI_CARPANI = 0.7
 
