@@ -361,3 +361,102 @@ ALIS_FIYATI_SIGMA = 0.08  # lognormal(0, sigma) gürültü
 
 # Liste fiyatı (Lumoda kuralı): alış × segment çarpanı, ",99"a yuvarlanır.
 LISTE_FIYATI_CARPANI = {"giris": 2.2, "orta": 2.6, "premium": 3.1}
+
+# --- Tedarik (Görev 6) ---------------------------------------------------
+# 18 tedarikçi: (ad, ülke, menşe, uzmanlık). Sıra tedarikci_id'yi belirler
+# (T01…T18); v3'ün yerli adlarının devamı + kurgusal Mısır/Uzak Doğu adları.
+# Uzmanlık: her alan ≥ 2 tedarikçi (örgü 4, denim 3, dış giyim 4, dokuma 5,
+# aksesuar 2); aksesuarda en az bir yerli (Malatya Konfeksiyon).
+TEDARIKCI_TANIMLARI: list[tuple[str, str, str, str]] = [
+    ("Ege Tekstil", "Türkiye", "Yerli", "dokuma"),
+    ("Marmara Konfeksiyon", "Türkiye", "Yerli", "örgü"),
+    ("Denizli Örme", "Türkiye", "Yerli", "örgü"),
+    ("Bursa Dokuma", "Türkiye", "Yerli", "dokuma"),
+    ("Çorlu Giyim", "Türkiye", "Yerli", "dış giyim"),
+    ("Kayseri İplik", "Türkiye", "Yerli", "örgü"),
+    ("Gaziantep Tekstil", "Türkiye", "Yerli", "denim"),
+    ("Adana Pamuklu", "Türkiye", "Yerli", "dokuma"),
+    ("Malatya Konfeksiyon", "Türkiye", "Yerli", "aksesuar"),
+    ("Kahramanmaraş Örme", "Türkiye", "Yerli", "dış giyim"),
+    ("Kahire Nil Tekstil", "Mısır", "Yakın", "dokuma"),
+    ("İskenderiye Delta Giyim", "Mısır", "Yakın", "denim"),
+    ("Ningbo Hengtai Garment", "Çin", "Uzak Doğu", "dış giyim"),
+    ("Guangzhou Feng Apparel", "Çin", "Uzak Doğu", "denim"),
+    ("Dhaka Meghna Apparels", "Bangladeş", "Uzak Doğu", "örgü"),
+    ("Chittagong Padma Garments", "Bangladeş", "Uzak Doğu", "dokuma"),
+    ("Saigon Lotus Garment", "Vietnam", "Uzak Doğu", "dış giyim"),
+    ("Tiruppur Ganga Textiles", "Hindistan", "Uzak Doğu", "aksesuar"),
+]
+assert len(TEDARIKCI_TANIMLARI) == 18
+
+# Menşe tablosu (v3'ün genişlemesi): ilk sipariş / RPT süresi (hafta), MOQ,
+# gerçekleşen teslimin planlanana göre sapma sınırları (gün).
+MENSE_V4: dict[str, dict] = {
+    "Yerli": {"ilk": (10, 12), "rpt": (4, 6), "moq": 300, "sapma_min": -3, "sapma_maks": 3},
+    "Yakın": {"ilk": (14, 16), "rpt": (7, 9), "moq": 400, "sapma_min": 0, "sapma_maks": 10},
+    "Uzak Doğu": {"ilk": (24, 30), "rpt": (12, 16), "moq": 600, "sapma_min": 0, "sapma_maks": 21},
+}
+
+# Gizli gecikme profili (tedarikçi başına, menşe aralığından bir kez
+# çekilir): ortalama ve standart sapma (gün); v3/spec yalnız menşe
+# düzeyinde sınır verir (MENSE_V4 sapma_min/maks), tedarikçi düzeyinde
+# farklılaşma (gizli gerçek — bir algoritmanın öğrenmesi gereken şey)
+# burada tasarım kararıdır. `teslim_sapmasi` bu ortalama/sd ile Normal
+# çeker, sonra menşenin sapma_min/maks'ına kırpar (yön/sınır garantisi).
+GECIKME_PROFIL_ORT: dict[str, tuple[float, float]] = {
+    "Yerli": (-1.0, 1.0), "Yakın": (3.0, 7.0), "Uzak Doğu": (7.0, 14.0),
+}
+GECIKME_PROFIL_SD: dict[str, tuple[float, float]] = {
+    "Yerli": (1.0, 2.0), "Yakın": (1.5, 3.0), "Uzak Doğu": (3.0, 6.0),
+}
+
+# Hatalı oran: tedarikçi başına beta(2,5) ile [0,5%–6%] aralığına
+# ölçeklenir (sağa çarpık: çoğu tedarikçi iyi, birkaçı kötü).
+HATALI_ORANI_ARALIGI = (0.005, 0.06)
+HATALI_ORANI_BETA = (2.0, 5.0)
+
+# Maliyet çarpanı: genel aralık 0,85–1,15; Uzak Doğu alt aralığı ortalaması
+# tam 0,90 olacak şekilde daraltılır (spec: "Uzak Doğu ortalaması 0,9").
+MALIYET_CARPANI_ARALIGI: dict[str, tuple[float, float]] = {
+    "Yerli": (0.85, 1.15), "Yakın": (0.85, 1.15), "Uzak Doğu": (0.85, 0.95),
+}
+
+# Kapasite (sezon başına adet); tasarım kararı — spec kesin sayı vermez,
+# yalnız "sezon başına adet" der. Uzak Doğu fabrikaları en büyük, yerli
+# en küçük kapasiteli.
+KAPASITE_SEZON_ARALIGI: dict[str, tuple[int, int]] = {
+    "Yerli": (5_000, 15_000), "Yakın": (8_000, 20_000), "Uzak Doğu": (20_000, 60_000),
+}
+
+# Uzmanlık alanı → alt kategoriler (herhangi bir tedarikçi herhangi bir alt
+# kategoriyi üretebilir; bonus yalnız kendi alanında).
+UZMANLIK_ALANLARI: dict[str, list[str]] = {
+    "örgü": ["Tişört", "Sweatshirt", "Kazak"],
+    "denim": ["Jean"],
+    "dış giyim": ["Mont", "Ceket", "Trençkot"],
+    "dokuma": ["Gömlek", "Bluz", "Pantolon", "Etek", "Şort", "Elbise", "Tulum"],
+    "aksesuar": ["Çanta", "Şal", "Kemer"],
+}
+ALT_KATEGORI_ALAN: dict[str, str] = {
+    alt: alan for alan, altlar in UZMANLIK_ALANLARI.items() for alt in altlar
+}
+
+# Uzmanlıkta maliyet ×0,93, hatalı oran ×0,7 (spec §4.1). `uzmanlik_bonusu`
+# (gizli tabloda) maliyet tarafını taşır; hatalı tarafı `hatali_adet`'in
+# `uyum` parametresiyle doğrudan bu sabitten uygulanır.
+UZMANLIK_MALIYET_CARPANI = 0.93
+UZMANLIK_HATALI_CARPANI = 0.7
+
+# Lumoda alışkanlığı: dış giyim ağırlıklı dört alt kategoride (mont, jean,
+# ceket, trençkot) alışılmış birincil/ikincil tedarikçi %60 olasılıkla
+# yalnız Uzak Doğu havuzundan seçilir (v3'ün UZAK_DOGU_OLASILIGI'nin
+# alışkanlık düzeyindeki karşılığı).
+LUMODA_UZAK_DOGU_ALT_KATEGORILERI = {"Mont", "Jean", "Ceket", "Trençkot"}
+LUMODA_UZAK_DOGU_HAVUZ_OLASILIGI = 0.6
+# Alışkanlık seçiminde kamuya açık uzmanlık alanı eşleşen tedarikçiye
+# ağırlık çarpanı (gizli performansa değil, yalnız bu kamu bilgisine bakar).
+LUMODA_UZMANLIK_AGIRLIGI = 3.0
+
+# Kalite kontrol numunesi: min(adet, NUMUNE_TABAN + adet // NUMUNE_BOLEN).
+NUMUNE_TABAN = 32
+NUMUNE_BOLEN = 50
