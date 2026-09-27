@@ -479,7 +479,7 @@ NUMUNE_BOLEN = 50
 TABAN_OLCEK = 0.6               # KALİBRASYON: toplam hacim
 KAPASITE_REFERANS = 5000.0      # ~550 m² tek katlı AVM
 KAPASITE_USSU = 1.0             # KALİBRASYON: brief "kapasiteyle orantılı"
-TIP_TALEP_CARPANI = {"AVM": 1.0, "Cadde": 0.85, "Outlet": 1.3}  # KALİBRASYON
+TIP_TALEP_CARPANI = {"AVM": 1.0, "Cadde": 0.85, "Outlet": 1.6}  # KALİBRASYON
 MAGAZA_GURULTU_SIGMA = 0.10     # gizli_magaza.yerel_gurultu (N(0,1)) ölçeği
 
 # Üst kategori ve line hacim çarpanları (v3'ün TABAN_TALEP ve
@@ -514,7 +514,7 @@ YEREL_GURULTU_SIGMA = 0.15      # mağaza × alt kategori lognormal
 # Online payı (ulusal talebin kategoriye göre payı); Basic/NOS online'da güçlü.
 ONLINE_PAY = {
     "Üst Giyim": 0.18, "Alt Giyim": 0.17, "Elbise & Tulum": 0.20,
-    "Dış Giyim": 0.12, "Aksesuar": 0.25,
+    "Dış Giyim": 0.12, "Aksesuar": 0.21,
 }
 ONLINE_BASIC_CARPANI = 1.25
 
@@ -567,6 +567,16 @@ IKLIM_KAYMA = {
     "karasal": {"yaz_genlik": 1.15, "kis_genlik": 1.15},
     "soguk": {"kis_tepe": 0.5, "kis_genlik": 1.3, "yaz_genlik": 0.7},
 }
+
+# Line başına mevsim genliği üssü (mevsim^üs, yıllık ortalama 1'e yeniden
+# normalize): Basic/NOS daha düz (stok bulunurluğu bandı için sigorta).
+MEVSIM_LINE_USSU = {"Collection": 1.0, "Outlet": 1.0, "Basic": 0.6, "NOS": 0.4}  # KALİBRASYON
+
+# Outlet akışı eğrisi (fix round 1): Collection option'ın çıkıştan sonraki
+# 84 günlük outlet penceresinde yaşam çarpanı
+# OUTLET_AKISI_TALEP × (1 − OUTLET_AKISI_DUSUS · t/84) (option tepesi = 1).
+OUTLET_AKISI_TALEP = 0.35       # KALİBRASYON
+OUTLET_AKISI_DUSUS = 0.6
 
 # Mağaza-gün çarpanları.
 HAFTA_GUNU_CARPANI = [1.0, 1.0, 1.0, 1.0, 1.0, 1.55, 1.55]  # v3 (Pzt..Paz)

@@ -154,6 +154,7 @@ def test_kapanis_kaymasi(dw):
     magaza_c = hucre.magaza_idx.to_numpy()
     kapanislar = olaylar[olaylar.olay == "kapanis"]
     assert len(kapanislar) >= 1
+    karsilastirma = 0
     for i, r in kapanislar.iterrows():
         m = _magaza_idx(dw, r.magaza_id)
         alicilar = gt["kayma_alicilari"][r.magaza_id]
@@ -173,6 +174,8 @@ def test_kapanis_kaymasi(dw):
             )
             if kapanan > 0:
                 assert artis / kapanan == pytest.approx(0.30, rel=0.01), (r.magaza_id, d)
+                karsilastirma += 1
+    assert karsilastirma >= 3
 
 
 # ---------------------------------------------------------------------------
@@ -264,6 +267,70 @@ def test_online_payi_kaba(dw):
         toplam += v.sum()
         onl_top += v[onl_hucre].sum()
     assert 0.12 <= onl_top / toplam <= 0.25
+
+
+def _yillik(dw, yil: str = "2024"):
+    """Bir yılın gün indisleri (yardımcı)."""
+    return range(gun_indisi(f"{yil}-01-01"), gun_indisi(f"{int(yil) + 1}-01-01"))
+
+
+def test_online_payi_kategori(dw):
+    """Her üst kategoride ONL'nin yıllık λ payı %12–25."""
+    lam, hucre, optionlar = dw["lam"], dw["hucre"], dw["optionlar"]
+    onl = (hucre.magaza_idx == len(dw["magazalar"]) - 1).to_numpy()
+    ust = optionlar.ust_kategori.to_numpy()[hucre.option_idx.to_numpy()]
+    kod, kategoriler = pd.factorize(ust)
+    top = np.zeros(len(kategoriler))
+    onl_top = np.zeros(len(kategoriler))
+    for d in _yillik(dw):
+        v = lam.gun(d)
+        top += np.bincount(kod, weights=v, minlength=len(kategoriler))
+        onl_top += np.bincount(kod[onl], weights=v[onl], minlength=len(kategoriler))
+    pay = dict(zip(kategoriler, onl_top / top))
+    assert all(0.12 <= p <= 0.25 for p in pay.values()), pay
+
+
+def test_outlet_akisi_canli(dw):
+    """Outlet akışı hücresinin açık gün başına ortalama λ'sı, aynı
+    mağazalardaki Outlet line hücresininkinin en az %40'ı; hiçbir outlet
+    mağazasının yıllık λ'sı fiziksel mağazaların 10. yüzdeliğinin altında
+    değil."""
+    lam, hucre, optionlar, magazalar = dw["lam"], dw["hucre"], dw["optionlar"], dw["magazalar"]
+    m_c = hucre.magaza_idx.to_numpy()
+    outlet_m = magazalar.index[magazalar.tip == "Outlet"].to_numpy()
+    assert len(outlet_m)
+    outlet_hucre = np.isin(m_c, outlet_m)
+    akis = outlet_hucre & hucre.outlet_akisi.to_numpy()
+    outlet_line = outlet_hucre & (optionlar.line.to_numpy()[hucre.option_idx.to_numpy()] == "Outlet")
+    acilis, kapanis = hucre.acilis_gun.to_numpy(), hucre.kapanis_gun.to_numpy()
+    M = len(magazalar)
+    toplamlar = {"akis": [0.0, 0], "line": [0.0, 0]}
+    magaza_yil = np.zeros(M)
+    for d in _yillik(dw):
+        v = lam.gun(d)
+        acik = (acilis <= d) & (d < kapanis) & (lam.magaza_gun[d][m_c] > 0)
+        for ad, maske in (("akis", akis), ("line", outlet_line)):
+            toplamlar[ad][0] += v[maske & acik].sum()
+            toplamlar[ad][1] += int((maske & acik).sum())
+        magaza_yil += np.bincount(m_c, weights=v, minlength=M)
+    ort_akis = toplamlar["akis"][0] / toplamlar["akis"][1]
+    ort_line = toplamlar["line"][0] / toplamlar["line"][1]
+    assert ort_akis >= 0.40 * ort_line, (ort_akis, ort_line)
+    fiziksel = (magazalar.tip != "Online").to_numpy()
+    tam_yil = fiziksel & (magaza_yil > 0)
+    p10 = np.percentile(magaza_yil[tam_yil], 10)
+    assert (magaza_yil[outlet_m] >= p10).all(), (magaza_yil[outlet_m], p10)
+
+
+def test_mevsim_line_ussu():
+    """Basic/NOS'un mevsim genliği Collection'ınkinden küçük; ortalama 1."""
+    yil = slice(gun_indisi("2024-01-01"), gun_indisi("2025-01-01"))
+    mont = ALT_KATEGORILER.index("Mont")
+    ilik = IKLIMLER.index("ılıman")
+    tam = mevsim_tablosu_kur(sabitler.MEVSIM_LINE_USSU["Collection"])[yil, ilik, mont]
+    nos = mevsim_tablosu_kur(sabitler.MEVSIM_LINE_USSU["NOS"])[yil, ilik, mont]
+    assert nos.max() / nos.min() < tam.max() / tam.min()
+    assert nos.mean() == pytest.approx(1.0, abs=0.03)
 
 
 def test_deterministik(dw):

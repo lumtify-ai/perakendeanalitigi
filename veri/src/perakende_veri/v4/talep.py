@@ -44,13 +44,14 @@ import numpy as np
 import pandas as pd
 
 from . import sabitler
-from .cesit import kanibalizasyon_payi
+from .cesit import OUTLET_AKISI_GUN, kanibalizasyon_payi
 from .magaza import _haversine_km
 from .takvim import D, gun_indisi, simulasyon_takvimi
 
 IKLIMLER = ["ılıman", "sicak_sahil", "karasal", "soguk"]
 ALT_KATEGORILER = [alt for altlar in sabitler.KATEGORILER.values() for alt in altlar]
 SEZON_KODLARI = list(sabitler.SEZONLAR)
+MEVSIM_LINELARI = list(sabitler.MEVSIM_LINE_USSU)
 N_GUN = D + sabitler.UZATMA_GUN
 
 _OZNITELIK_ALANLARI = ["kumas", "kalip", "desen", "detay", "fiyat_segmenti"]
@@ -182,8 +183,12 @@ def yasam_egrisi(
     """`[n_gun, O]`: sezonluk option'da (h+1)^a·exp(−h/τ) (tepe 1'e ölçekli,
     h = lansmandan beri hafta, lansmandan önce 0); DEVAMLI'da 1.
 
-    Eğri çıkıştan sonra da sönmeye devam eder (outlet akışı penceresi);
-    satışı kesen hücre penceresidir, eğri değil.
+    Outlet akışı (fix round 1, controller kararı): Collection option'ın
+    çıkışından sonraki OUTLET_AKISI_GUN günde (yalnız outlet mağazalarının
+    outlet akışı hücreleri açıktır; normal ve ONL hücrelerinin penceresi
+    çıkışta kapanır) eğri sönmeye devam etmez, outlet eğrisiyle yeniden
+    başlar: OUTLET_AKISI_TALEP × (1 − OUTLET_AKISI_DUSUS · t/84), t =
+    çıkıştan beri gün (tepe = 1'e göre). Böylece option düzeyinde kalır.
     """
     a = sabitler.YASAM_A
     tau = (
@@ -198,6 +203,15 @@ def yasam_egrisi(
     hp = np.maximum(h, 0.0)
     deger = (hp + 1.0) ** a * np.exp(-hp / tau[None, :]) / tepe[None, :]
     deger = np.where(h < 0, 0.0, deger)
+    if "line" in optionlar and "cikis_gun" in optionlar:
+        collection = (optionlar["line"] == "Collection").to_numpy()
+        cikis = optionlar["cikis_gun"].to_numpy(dtype=float)
+        t = np.arange(n_gun, dtype=float)[:, None] - cikis[None, :]
+        pencere = collection[None, :] & (t >= 0) & (t < OUTLET_AKISI_GUN)
+        outlet = sabitler.OUTLET_AKISI_TALEP * (
+            1.0 - sabitler.OUTLET_AKISI_DUSUS * t / OUTLET_AKISI_GUN
+        )
+        deger = np.where(pencere, outlet, deger)
     return np.where(sezonluk[None, :], deger, 1.0)
 
 
@@ -220,8 +234,10 @@ def _mevsim_egrisi(ay: np.ndarray, tepe: float, genlik: float, genislik: float) 
     return ham(ay) / ham(izgara).mean()
 
 
-def mevsim_tablosu_kur() -> np.ndarray:
-    """`[N_GUN, 4 iklim, A]` mevsim çarpanı (IKLIMLER × ALT_KATEGORILER).
+def mevsim_tablosu_kur(ussu: float = 1.0) -> np.ndarray:
+    """`[N_GUN, 4 iklim, A]` mevsim çarpanı (IKLIMLER × ALT_KATEGORILER),
+    `ussu` üssüyle yumuşatılmış (line başına, MEVSIM_LINE_USSU) ve yıllık
+    ortalaması 1'e yeniden normalize.
 
     Yaz ürünü (tepe ayı YAZ_TEPE_ARALIGI içinde) ve kış ürünü iklim
     kaymalarını ayrı alır (sabitler.IKLIM_KAYMA)."""
@@ -241,7 +257,9 @@ def mevsim_tablosu_kur() -> np.ndarray:
                 tepe += k.get("kis_tepe", 0.0)
                 genlik *= k.get("kis_genlik", 1.0)
                 genislik = 0.0
-            tablo[:, i, j] = _mevsim_egrisi(ay, tepe, genlik, genislik)
+            # mevsim^ussu = exp(ussu·A·cos)/…: genliği ölçeklemek, üs almak +
+            # yıllık ortalamaya yeniden bölmekle aynıdır.
+            tablo[:, i, j] = _mevsim_egrisi(ay, tepe, genlik * ussu, genislik)
     return tablo
 
 
@@ -564,7 +582,7 @@ class Lambda:
     hucre_option: np.ndarray    # [C]
     hucre_magaza: np.ndarray    # [C]
     magaza_iklim: np.ndarray    # [M] mevsim slotu (0–3 IKLIMLER, 4 = ONL)
-    option_alt: np.ndarray      # [O] alt kategori indisi (ALT_KATEGORILER)
+    option_mevsim: np.ndarray   # [O] alt kategori · L + line (MEVSIM_LINELARI)
     g_option: np.ndarray        # [N_GUN, O] yaşam × sürüklenme × sürpriz
     mevsim_tablosu: np.ndarray  # [N_GUN, 5, A] 4 iklim + ONL zincir ortalaması
     magaza_gun: np.ndarray      # [N_GUN, M]
@@ -581,7 +599,7 @@ class Lambda:
 
     def gun(self, d: int) -> np.ndarray:
         """Gün d'de liste fiyatında beklenen talep `[C]` (fiyat etkisi yok)."""
-        tablo = self.mevsim_tablosu[d].take(self.magaza_iklim, axis=0).take(self.option_alt, axis=1)
+        tablo = self.mevsim_tablosu[d].take(self.magaza_iklim, axis=0).take(self.option_mevsim, axis=1)
         tablo *= self.g_option[d][None, :]
         tablo *= self.magaza_gun[d][:, None]
         v = tablo.ravel().take(self.hucre_mo)
@@ -651,7 +669,7 @@ def _gunluk_magaza_toplami(
         hucre_option=lam.hucre_option[idx],
         hucre_magaza=lam.hucre_magaza[idx],
         magaza_iklim=lam.magaza_iklim,
-        option_alt=lam.option_alt,
+        option_mevsim=lam.option_mevsim,
         g_option=lam.g_option,
         mevsim_tablosu=lam.mevsim_tablosu,
         magaza_gun=np.ones((N_GUN, M)),
@@ -694,9 +712,14 @@ def lambda_kur(
     fiz_m = (magazalar["tip"] != "Online").to_numpy()
     iklim_sayim = g.loc[fiz_m, "iklim"].value_counts()
     w_iklim = np.array([iklim_sayim.get(i, 0) for i in IKLIMLER], dtype=float)
-    mevsim4 = mevsim_tablosu_kur()
-    mevsim_onl = np.einsum("i,dia->da", w_iklim / w_iklim.sum(), mevsim4)
-    mevsim5 = np.ascontiguousarray(np.concatenate([mevsim4, mevsim_onl[:, None, :]], axis=1))
+    # [N, 4, A, L] → ONL zincir ortalaması eklenir → [N, 5, A·L]
+    mevsim4 = np.stack(
+        [mevsim_tablosu_kur(sabitler.MEVSIM_LINE_USSU[ln]) for ln in MEVSIM_LINELARI], axis=-1
+    )
+    mevsim_onl = np.einsum("i,dial->dal", w_iklim / w_iklim.sum(), mevsim4)
+    mevsim5 = np.ascontiguousarray(
+        np.concatenate([mevsim4, mevsim_onl[:, None]], axis=1).reshape(N_GUN, 5, -1)
+    )
 
     m_c = cesit_hucre["magaza_idx"].to_numpy().astype(np.intp)
     o_c = cesit_hucre["option_idx"].to_numpy().astype(np.intp)
@@ -705,6 +728,8 @@ def lambda_kur(
         fiz_m, g["iklim"].map({i: k for k, i in enumerate(IKLIMLER)}).fillna(0).to_numpy(), 4
     ).astype(np.intp)
     alt_o = optionlar["alt_kategori"].map({a: i for i, a in enumerate(ALT_KATEGORILER)}).to_numpy(dtype=np.intp)
+    line_o = optionlar["line"].map({ln: i for i, ln in enumerate(MEVSIM_LINELARI)}).to_numpy(dtype=np.intp)
+    mevsim_o = (alt_o * len(MEVSIM_LINELARI) + line_o).astype(np.intp)
 
     cek = cekicilik(surpriz_o, etki, optionlar, gizli)
     kanib = kanibalizasyon_payi(cesit_hucre, optionlar, cek)
@@ -728,7 +753,7 @@ def lambda_kur(
             hucre_option=o_c,
             hucre_magaza=m_c,
             magaza_iklim=iklim_slot_m,
-            option_alt=alt_o,
+            option_mevsim=mevsim_o,
             g_option=g_option,
             mevsim_tablosu=mevsim5,
             magaza_gun=mg,
