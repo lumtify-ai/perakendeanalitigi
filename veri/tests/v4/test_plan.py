@@ -189,9 +189,13 @@ def test_ilk_alim_moq_ve_kapasite(dw):
     kap = dw["gizli_ted"]["kapasite_sezon_adet"].to_numpy()
     df = pd.DataFrame({"t": dw["ted_idx"], "s": opt["sezon_kodu"], "a": alim,
                        "asim": teshis["kapasite_asimi"].to_numpy(), "moq": moq})
+    # Tedarikçi × sezon toplamı ≤ kapasite; TEK istisna MOQ tabanı: kalan
+    # kapasite MOQ'nun altındayken MOQ sipariş edilen (`kapasite_asimi`)
+    # option'lar. Onlar hariç toplam kapasiteyi aşmaz, onlar tam MOQ'dur.
+    asim = df["asim"].to_numpy()
+    assert (alim[asim] == moq[asim]).all()
     for (ti, s), g in df[sez].groupby(["t", "s"]):
-        izin = kap[ti] + g.loc[g.asim, "moq"].sum()
-        assert g.a.sum() <= izin, (ti, s)
+        assert g.loc[~g.asim, "a"].sum() <= kap[ti], (ti, s)
 
 
 def test_ilk_alim_talep_tahminiyle_tutarli(dw):

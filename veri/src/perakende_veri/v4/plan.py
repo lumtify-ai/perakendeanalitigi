@@ -59,13 +59,13 @@ from .talep import (
     N_GUN,
     SEZON_KODLARI,
     Lambda,
-    _option_sezon_idx,
     devamli_etki_kur,
     etki_katsayidan,
     katsayi_tablodan,
     magaza_gun_carpani,
     mevsim_ve_iklim_slotu,
     option_mevsim_idx,
+    option_sezon_idx,
     oznitelik_duzeyi,
     sezon_gun,
     statik_taban,
@@ -455,7 +455,7 @@ def _ay_metni(ay_mutlak: np.ndarray) -> np.ndarray:
 
 def _sezon_anahtari(ozet: LambdaOzeti, optionlar: pd.DataFrame) -> np.ndarray:
     """`[N, O]` (gün, option) satışının yazıldığı sezon (−1 = hiçbiri)."""
-    sezon_o = _option_sezon_idx(optionlar)
+    sezon_o = option_sezon_idx(optionlar)
     return np.where(sezon_o[None, :] >= 0, sezon_o[None, :], ozet.gun_sezonu[:, None])
 
 
@@ -570,7 +570,7 @@ def _magaza_plan(ozet: LambdaOzeti, magazalar: pd.DataFrame, optionlar: pd.DataF
     ust_o = optionlar["ust_kategori"].map({u: i for i, u in enumerate(UST_KATEGORILER)}).to_numpy()
     tek = np.zeros((O, U))
     tek[np.arange(O), ust_o] = 1.0
-    sezon_o = _option_sezon_idx(optionlar)
+    sezon_o = option_sezon_idx(optionlar)
     toplam = ozet.magaza_sezon.sum(axis=0)  # sezonluk: bütün ömrü kendi sezonuna
     hedef = np.zeros((S, M, U))
     for s in range(S):

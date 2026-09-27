@@ -15,7 +15,7 @@ import pandas as pd
 import pytest
 
 from perakende_veri.v4 import sabitler
-from perakende_veri.v4.cesit import cesit_ata, hucreleri_kur
+from perakende_veri.v4.cesit import cesit_ata, hucreleri_kur, kanibalizasyon_payi
 from perakende_veri.v4.magaza import Olcek, alt_kume, magazalari_uret, olaylari_uret
 from perakende_veri.v4.rastgele import dunya_akisi
 from perakende_veri.v4.takvim import gun_indisi
@@ -340,23 +340,66 @@ def test_deterministik(dw):
         np.testing.assert_array_equal(dw["lam"].gun(d), ikinci["lam"].gun(d))
 
 
-def test_surpriz_bir_kez_sayilir(dw):
-    """Sürpriz λ'ya yalnız g_option'dan girer: sürprizi 2 katına çıkarmak
-    (kanibalizasyon payı çekiciliksiz, yalnız n^β/n) option'ın λ'sını tam
-    2 katına çıkarır, grup komşularınınkini değiştirmez."""
-    import dataclasses as dc
-    lam, opt = dw["lam"], dw["optionlar"]
+def test_kanib_cekiciliksiz(dw):
+    """Kanibalizasyon payı yalnız n^β/n: `lam.kanib(d)`, çekicilik 1 ile
+    kurulmuş `kanibalizasyon_payi`'yla birebir (sürpriz × öznitelik payda
+    ikinci kez sayılmaz)."""
     assert "cekicilik" not in dw["gizli_talep"]
-    o = int(np.flatnonzero((opt["line"] == "Collection").to_numpy())[0])
-    g2 = lam.g_option.copy()
-    g2[:, o] *= 2.0
-    lam2 = dc.replace(lam, g_option=g2)
-    d = int(opt.at[o, "lansman_gun"]) + 10
-    a, b = lam.gun(d), lam2.gun(d)
-    kendi = lam.hucre_option == o
-    assert a[kendi].sum() > 0
-    np.testing.assert_allclose(b[kendi], 2.0 * a[kendi])
-    np.testing.assert_array_equal(b[~kendi], a[~kendi])
+    O = len(dw["optionlar"])
+    beklenen = kanibalizasyon_payi(dw["hucre"], dw["optionlar"], np.ones(O))
+    for d in (60, 250, 480, 700, 900, 1150, 1300):
+        np.testing.assert_array_equal(dw["lam"].kanib(d), beklenen(d))
+
+
+def test_surpriz_bir_kez_sayilir(dw, monkeypatch):
+    """Bir option'ın sürprizi 2 katına çıkarılıp dünya yeniden kurulunca
+    aynı (mağaza, alt kategori) grubundaki DİĞER option'ların λ'sı
+    değişmez (eski çift sayımda grup payı sürprizin ortalamasına bölünüyor,
+    komşular düşüyordu); option'ın kendi λ'sı tam 2 katına çıkar.
+
+    Yalnız olay kayması almayan/vermeyen fiziksel mağazalara bakılır: ONL
+    kalibrasyonu ve kayma oranları λ toplamlarından türer, orada ikinci
+    dereceden oynar."""
+    from perakende_veri.v4 import talep
+
+    opt, hucre, lam = dw["optionlar"], dw["hucre"], dw["lam"]
+    olayli = set(dw["gizli_talep"]["kayma_alicilari"])
+    for alicilar in dw["gizli_talep"]["kayma_alicilari"].values():
+        olayli |= {dw["magazalar"].magaza_id.iloc[a] for a in alicilar}
+    temiz_m = np.flatnonzero(
+        (~dw["magazalar"].magaza_id.isin(olayli) & (dw["magazalar"].tip != "Online")).to_numpy()
+    )
+    alt = opt["alt_kategori"].to_numpy()
+    m_c, o_c = hucre.magaza_idx.to_numpy(), hucre.option_idx.to_numpy()
+    temiz_c = np.isin(m_c, temiz_m)
+
+    # Temiz bir mağazada o gün kendisi ve grup komşuları talep gören ilk
+    # Collection option'ı seç (dünya yeniden kurulmadan önce).
+    secim = None
+    for o in np.flatnonzero((opt["line"] == "Collection").to_numpy()):
+        d = int(opt.at[o, "lansman_gun"]) + 10
+        v = lam.gun(d)
+        magazalar_o = np.unique(m_c[(o_c == o) & temiz_c & (v > 0)])
+        grup = np.isin(m_c, magazalar_o) & (alt[o_c] == alt[o])
+        kendi, komsu = grup & (o_c == o), grup & (o_c != o) & (v > 0)
+        if kendi.any() and komsu.any():
+            secim = (int(o), d, kendi, komsu)
+            break
+    assert secim is not None
+    o, d, kendi, komsu = secim
+    orijinal = talep.surpriz
+
+    def iki_kat(rng, optionlar):
+        s = orijinal(rng, optionlar)
+        s[o] *= 2.0
+        return s
+
+    monkeypatch.setattr(talep, "surpriz", iki_kat)
+    ikinci = _dunya(Olcek.KUCUK)
+    assert ikinci["gizli_talep"]["surpriz"][o] == 2.0 * dw["gizli_talep"]["surpriz"][o]
+    a, b = lam.gun(d), ikinci["lam"].gun(d)
+    np.testing.assert_allclose(b[kendi], 2.0 * a[kendi], rtol=1e-12)
+    np.testing.assert_allclose(b[komsu], a[komsu], rtol=1e-12)
 
 
 # ---------------------------------------------------------------------------

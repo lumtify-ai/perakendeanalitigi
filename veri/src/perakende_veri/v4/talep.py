@@ -85,7 +85,7 @@ def sezon_gun() -> np.ndarray:
     return np.maximum(idx, 0)
 
 
-def _option_sezon_idx(optionlar: pd.DataFrame) -> np.ndarray:
+def option_sezon_idx(optionlar: pd.DataFrame) -> np.ndarray:
     """Sezonluk option'ın kendi sezonu; DEVAMLI için −1."""
     harita = {k: i for i, k in enumerate(SEZON_KODLARI)}
     return optionlar["sezon_kodu"].map(harita).fillna(-1).to_numpy(dtype=int)
@@ -549,7 +549,7 @@ def statik_taban(
     ust_c = pd.Series(ust).map(sabitler.UST_KATEGORI_TABAN).to_numpy(dtype=float)
     line_c = pd.Series(line).map(sabitler.LINE_TALEP_CARPANI).to_numpy(dtype=float)
 
-    sezon_o = _option_sezon_idx(optionlar)[o_c]
+    sezon_o = option_sezon_idx(optionlar)[o_c]
     seg_c = seg_m[m_c]
     etki_c = np.ones(len(cesit))
     secim = fiz & (sezon_o >= 0)
@@ -633,7 +633,7 @@ def devamli_etki_kur(
     etki_ort = _zincir_ortalama_etki(etki, gizli)
     etki_gen = np.concatenate([etki, etki_ort[:, None, :]], axis=1)  # [S, G+1, O]
     seg_c = _segment_idx(g, list(sabitler.SEGMENTLER))[m_c]
-    devamli_c = (_option_sezon_idx(optionlar) < 0)[o_c]
+    devamli_c = (option_sezon_idx(optionlar) < 0)[o_c]
     devamli_etki = np.ones((len(SEZON_KODLARI), len(m_c)))
     devamli_etki[:, devamli_c] = etki_gen[:, seg_c[devamli_c], o_c[devamli_c]]
     return devamli_etki
