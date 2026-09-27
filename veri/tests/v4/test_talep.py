@@ -69,9 +69,6 @@ def optionlar_kucuk():
     return optionlar
 
 
-OUTLET_MAGAZA_YUZDELIK = 10
-
-
 def _magaza_idx(dw, magaza_id: str) -> int:
     return int(dw["magazalar"].index[dw["magazalar"].magaza_id == magaza_id][0])
 
@@ -318,36 +315,86 @@ def outlet_akisi_talebi(w, D: int) -> tuple[float, np.ndarray]:
     return toplam, sayilan
 
 
-def test_outlet_akisi_canli(kucuk_dunya, kucuk_kosu):
-    """Outlet akışı talebi indirimli fiyatta kalibre (Görev 13 fix):
-    tam KÜÇÜK koşuda pencerelerdeki fiyat etkili outlet akışı talebi,
-    `outlet_akisi` ile gelen adedin 0,8–1,2 katı (liste fiyatında
-    kalibre edilseydi outlet hattının %50–70 indirimi talebi ~10 kat
-    şişirirdi)."""
-    w, k = kucuk_dunya, kucuk_kosu
+def _outlet_orani(w, k) -> tuple[float, int]:
     talep, sayilan = outlet_akisi_talebi(w, k["gun_sayisi"])
     sev = k["sevkiyat"]
     oa = sev[sev.tip == "outlet_akisi"]
-    gelen = oa.adet[sayilan[w.sku_option[oa.sku.to_numpy()]]].sum()
+    return talep, int(oa.adet[sayilan[w.sku_option[oa.sku.to_numpy()]]].sum())
+
+
+def test_outlet_akisi_canli(kucuk_dunya, kucuk_kosu):
+    """Outlet akışı talebi indirimli fiyatta kalibredir; KÜÇÜK'te yalnız
+    kaba akıl sağlığı bandı 0,5–3,0.
+
+    `OUTLET_AKISI_TALEP` TAM'da (yayımlanan veri) kalibre edilir: fiyat
+    etkili outlet akışı talebi ≈ `outlet_akisi` ile gelen adet (bağlayıcı
+    kontrol `test_outlet_akisi_tam`, 0,8–1,2). KÜÇÜK dünya outlet
+    mağazalarını ve olayları fazla ağırlıklandırır (20 mağazanın 3'ü
+    outlet): outlet başına gelen artık stok TAM'dakinden az, oran yukarı
+    kayar."""
+    talep, gelen = _outlet_orani(kucuk_dunya, kucuk_kosu)
     assert gelen > 0
+    assert 0.5 <= talep / gelen <= 3.0, (talep, gelen)
+
+
+@pytest.fixture(scope="module")
+def tam_kosu():
+    """TAM dünya ve Lumoda koşusu (modül başına bir kez; Görev 17 TAM
+    fixture'larını birleştirecek)."""
+    from perakende_veri.v4.dunya import dunya_kur
+    from perakende_veri.v4.motor import simule_et
+
+    w = dunya_kur(Olcek.TAM)
+    return w, simule_et(w)
+
+
+@pytest.mark.yavas
+def test_outlet_akisi_tam(tam_kosu):
+    """Bağlayıcı kalibrasyon: TAM'da fiyat etkili outlet akışı talebi ÷
+    `outlet_akisi` ile gelen adet 0,8–1,2."""
+    w, k = tam_kosu
+    talep, gelen = _outlet_orani(w, k)
     assert 0.8 <= talep / gelen <= 1.2, (talep, gelen)
 
 
-def test_outlet_magaza_hacmi(dw):
-    """Hiçbir outlet mağazasının yıllık (liste fiyatı) λ'sı fiziksel
-    mağazaların OUTLET_MAGAZA_YUZDELIK. yüzdeliğinin altında değil."""
-    lam, hucre, magazalar = dw["lam"], dw["hucre"], dw["magazalar"]
-    m_c = hucre.magaza_idx.to_numpy()
-    outlet_m = magazalar.index[magazalar.tip == "Outlet"].to_numpy()
+def magaza_fiyatli_talep(w, k, yil: str = "2024") -> np.ndarray:
+    """[M] bir yılın mağaza başına beklenen talebi, günün gerçekleşen
+    fiyatında: Σ λ × (1 − max(md, kampanya))^(−ε); md koşunun `fiyat`
+    kaydından hücrenin hattında (outlet akışı hücresi outlet hattı)."""
+    from perakende_veri.v4.motor.satis import hat_indisi
+
+    O, M = len(w.optionlar), len(w.magazalar)
+    hm, ho = w.hucre_magaza, w.hucre_option
+    hat = hat_indisi(w.hucre_online, w.hucre_outlet_akisi)
+    eps = np.asarray(w.esneklik_hucre)
+    f = k["fiyat"]
+    bas, bit = gun_indisi(f"{yil}-01-01"), gun_indisi(f"{int(yil) + 1}-01-01")
+    oran = np.zeros((O, 3))
+    onceki = f[f.gun < bas].sort_values("gun", kind="stable")
+    oran[onceki.option.to_numpy(), onceki.hat.to_numpy()] = onceki.oran.to_numpy()
+    gunluk = {d: g for d, g in f[(f.gun >= bas) & (f.gun < bit)].groupby("gun")}
+    toplam = np.zeros(M)
+    for d in range(bas, bit):
+        if d in gunluk:
+            g = gunluk[d]
+            oran[g.option.to_numpy(), g.hat.to_numpy()] = g.oran.to_numpy()
+        r = np.maximum(oran[ho, hat], w.kampanya_takvimi(d)[hm, ho])
+        toplam += np.bincount(hm, weights=w.lam.gun(d) * (1.0 - r) ** (-eps), minlength=M)
+    return toplam
+
+
+def test_outlet_magaza_hacmi(kucuk_dunya, kucuk_kosu):
+    """Günün fiyatında (outlet akışı outlet hattı takviminde, diğerleri
+    kendi markdown ve kampanyasıyla) hiçbir outlet mağazasının 2024 talebi
+    fiziksel mağazaların 10. yüzdeliğinin altında değil."""
+    w = kucuk_dunya
+    t = magaza_fiyatli_talep(w, kucuk_kosu)
+    tip = w.magazalar["tip"].to_numpy()
+    outlet_m = np.flatnonzero(tip == "Outlet")
     assert len(outlet_m)
-    M = len(magazalar)
-    magaza_yil = np.zeros(M)
-    for d in _yillik(dw):
-        magaza_yil += np.bincount(m_c, weights=lam.gun(d), minlength=M)
-    fiziksel = (magazalar.tip != "Online").to_numpy()
-    tam_yil = fiziksel & (magaza_yil > 0)
-    esik = np.percentile(magaza_yil[tam_yil], OUTLET_MAGAZA_YUZDELIK)
-    assert (magaza_yil[outlet_m] >= esik).all(), (magaza_yil[outlet_m], esik)
+    fiziksel = (tip != "Online") & (t > 0)
+    p10 = np.percentile(t[fiziksel], 10)
+    assert (t[outlet_m] >= p10).all(), (t[outlet_m], p10)
 
 
 def test_mevsim_line_ussu():
