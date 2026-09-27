@@ -69,6 +69,9 @@ def optionlar_kucuk():
     return optionlar
 
 
+OUTLET_MAGAZA_YUZDELIK = 10
+
+
 def _magaza_idx(dw, magaza_id: str) -> int:
     return int(dw["magazalar"].index[dw["magazalar"].magaza_id == magaza_id][0])
 
@@ -290,36 +293,61 @@ def test_online_payi_kategori(dw):
     assert all(0.12 <= p <= 0.25 for p in pay.values()), pay
 
 
-def test_outlet_akisi_canli(dw):
-    """Outlet akışı hücresinin açık gün başına ortalama λ'sı, aynı
-    mağazalardaki Outlet line hücresininkinin en az %40'ı; hiçbir outlet
-    mağazasının yıllık λ'sı fiziksel mağazaların 10. yüzdeliğinin altında
-    değil."""
-    lam, hucre, optionlar, magazalar = dw["lam"], dw["hucre"], dw["optionlar"], dw["magazalar"]
+def outlet_akisi_talebi(w, D: int) -> tuple[float, np.ndarray]:
+    """(Beklenen outlet akışı talebi, sayılan option maskesi [O]): penceresi
+    [cikis, cikis+84) D içinde biten Collection option'larının outlet akışı
+    hücrelerinde Σ λ × (1 − md)^(−ε), md Lumoda'nın outlet hattı takvimi
+    (çıkışta %50, 28 günde bir kademe, en çok %70), ε hücrenin esnekliği
+    (outlet segmenti dahil). Kampanya oranı ≤ %40 < md: fiyatı md belirler."""
+    opt = w.optionlar
+    cik = opt["cikis_gun"].to_numpy()
+    sayilan = (opt["line"] == "Collection").to_numpy() & (cik + sabitler.OUTLET_OMRU_GUN <= D)
+    oc = np.flatnonzero(w.hucre_outlet_akisi & sayilan[w.hucre_option])
+    eps = np.asarray(w.esneklik_hucre)[oc]
+    ci = cik[w.hucre_option[oc]]
+    k = np.asarray(sabitler.MARKDOWN_KADEMELERI)
+    bas = int(np.searchsorted(k, sabitler.OUTLET_MARKDOWN_BASLANGIC - 1e-9))
+    toplam = 0.0
+    for d in range(max(int(ci.min()), 0), D):
+        t = d - ci
+        m = (t >= 0) & (t < sabitler.OUTLET_OMRU_GUN)
+        if not m.any():
+            continue
+        md = k[np.minimum(bas + t[m] // sabitler.OUTLET_MARKDOWN_ARALIK_GUN, len(k) - 1)]
+        toplam += float((w.lam.gun(d)[oc[m]] * (1.0 - md) ** (-eps[m])).sum())
+    return toplam, sayilan
+
+
+def test_outlet_akisi_canli(kucuk_dunya, kucuk_kosu):
+    """Outlet akışı talebi indirimli fiyatta kalibre (Görev 13 fix):
+    tam KÜÇÜK koşuda pencerelerdeki fiyat etkili outlet akışı talebi,
+    `outlet_akisi` ile gelen adedin 0,8–1,2 katı (liste fiyatında
+    kalibre edilseydi outlet hattının %50–70 indirimi talebi ~10 kat
+    şişirirdi)."""
+    w, k = kucuk_dunya, kucuk_kosu
+    talep, sayilan = outlet_akisi_talebi(w, k["gun_sayisi"])
+    sev = k["sevkiyat"]
+    oa = sev[sev.tip == "outlet_akisi"]
+    gelen = oa.adet[sayilan[w.sku_option[oa.sku.to_numpy()]]].sum()
+    assert gelen > 0
+    assert 0.8 <= talep / gelen <= 1.2, (talep, gelen)
+
+
+def test_outlet_magaza_hacmi(dw):
+    """Hiçbir outlet mağazasının yıllık (liste fiyatı) λ'sı fiziksel
+    mağazaların OUTLET_MAGAZA_YUZDELIK. yüzdeliğinin altında değil."""
+    lam, hucre, magazalar = dw["lam"], dw["hucre"], dw["magazalar"]
     m_c = hucre.magaza_idx.to_numpy()
     outlet_m = magazalar.index[magazalar.tip == "Outlet"].to_numpy()
     assert len(outlet_m)
-    outlet_hucre = np.isin(m_c, outlet_m)
-    akis = outlet_hucre & hucre.outlet_akisi.to_numpy()
-    outlet_line = outlet_hucre & (optionlar.line.to_numpy()[hucre.option_idx.to_numpy()] == "Outlet")
-    acilis, kapanis = hucre.acilis_gun.to_numpy(), hucre.kapanis_gun.to_numpy()
     M = len(magazalar)
-    toplamlar = {"akis": [0.0, 0], "line": [0.0, 0]}
     magaza_yil = np.zeros(M)
     for d in _yillik(dw):
-        v = lam.gun(d)
-        acik = (acilis <= d) & (d < kapanis) & (lam.magaza_gun[d][m_c] > 0)
-        for ad, maske in (("akis", akis), ("line", outlet_line)):
-            toplamlar[ad][0] += v[maske & acik].sum()
-            toplamlar[ad][1] += int((maske & acik).sum())
-        magaza_yil += np.bincount(m_c, weights=v, minlength=M)
-    ort_akis = toplamlar["akis"][0] / toplamlar["akis"][1]
-    ort_line = toplamlar["line"][0] / toplamlar["line"][1]
-    assert ort_akis >= 0.40 * ort_line, (ort_akis, ort_line)
+        magaza_yil += np.bincount(m_c, weights=lam.gun(d), minlength=M)
     fiziksel = (magazalar.tip != "Online").to_numpy()
     tam_yil = fiziksel & (magaza_yil > 0)
-    p10 = np.percentile(magaza_yil[tam_yil], 10)
-    assert (magaza_yil[outlet_m] >= p10).all(), (magaza_yil[outlet_m], p10)
+    esik = np.percentile(magaza_yil[tam_yil], OUTLET_MAGAZA_YUZDELIK)
+    assert (magaza_yil[outlet_m] >= esik).all(), (magaza_yil[outlet_m], esik)
 
 
 def test_mevsim_line_ussu():

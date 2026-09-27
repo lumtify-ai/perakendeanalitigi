@@ -96,7 +96,9 @@ def _grup_en_buyuk_kalan(x: np.ndarray, grup: np.ndarray, hedef: np.ndarray) -> 
     """Grup içinde en büyük kalan: her eleman ⌊x⌋ alır, grubun `hedef`ine
     kalan adetler kesri en büyük (eşitlikte küçük indis) elemanlara birer
     birer verilir; kesri 0 olan eleman artık almaz. `grup` yoğun indis."""
-    taban = np.floor(x + 1e-9).astype(np.int64)
+    # Aşağı güvenli taban: kayan nokta Σx'i hedefin hemen üstüne itse bile
+    # Σ taban hedefi aşmaz (tam sayı x kesri ~1 ile kalandan geri alır).
+    taban = np.maximum(np.floor(x - 1e-9), 0).astype(np.int64)
     kalan = np.asarray(hedef, dtype=np.int64) - np.bincount(grup, taban, minlength=len(hedef)).astype(np.int64)
     kesir = x - taban
     sira = np.lexsort((np.arange(len(x)), -kesir, grup))

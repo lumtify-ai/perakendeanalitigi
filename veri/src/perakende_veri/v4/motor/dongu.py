@@ -240,6 +240,7 @@ def simule_et(
             satis_28=salt_okunur(z.satis_28),
             gonderilen_option=salt_okunur(z.gonderilen_option),
             satilan_option=salt_okunur(z.satilan_option),
+            satilan_option_magaza=salt_okunur(z.satilan_option_magaza),
             rpt_sayisi=salt_okunur(z.rpt_sayisi),
             ilk_dagitim_gun=salt_okunur(z.ilk_dagitim_gun),
             fiyat_orani=salt_okunur(z.fiyat_orani),
@@ -560,6 +561,7 @@ def simule_et(
         if d >= sabitler.OLU_STOK_PENCERESI_GUN:
             z.satis_28 -= z.satis_gecmisi[d - sabitler.OLU_STOK_PENCERESI_GUN]
         z.satilan_option += topla(ho, satilan, O)
+        z.satilan_option_magaza += topla(ho[fiz], satilan[fiz], O)
         z.satilan_option_kum[d + 1] = z.satilan_option
 
         # 16) İade

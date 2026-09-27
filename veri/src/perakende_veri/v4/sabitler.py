@@ -575,7 +575,11 @@ MEVSIM_LINE_USSU = {"Collection": 1.0, "Outlet": 1.0, "Basic": 0.6, "NOS": 0.4} 
 # Outlet akışı eğrisi (fix round 1): Collection option'ın çıkıştan sonraki
 # 84 günlük outlet penceresinde yaşam çarpanı
 # OUTLET_AKISI_TALEP × (1 − OUTLET_AKISI_DUSUS · t/84) (option tepesi = 1).
-OUTLET_AKISI_TALEP = 0.35       # KALİBRASYON
+# Görev 13 fix: liste fiyatında değil, outlet hattının indirimli fiyatında
+# (çıkışta %50, 28 günde bir kademe, en çok %70; outlet esnekliğiyle ~×10)
+# kalibre: tam koşuda pencerelerdeki outlet akışı talebi ≈ outlet_akisi ile
+# gelen adet (test_talep.test_outlet_akisi_canli, 0,8–1,2).
+OUTLET_AKISI_TALEP = 0.031      # KALİBRASYON
 OUTLET_AKISI_DUSUS = 0.6
 
 # Mağaza-gün çarpanları.

@@ -211,25 +211,38 @@ def test_ikame_tek_tur_ve_stok_siniri(kucuk_dunya, kucuk_kosu):
 
 
 def test_ikame_payi_bandi(kucuk_dunya, kucuk_kosu):
-    """ikame ÷ (ikame + gizli kayıp) = ikame satışı ÷ ikame öncesi
-    karşılanmamış talep, %10–50 (küçük ölçek geniş bant; TAM %20–40 Görev 17).
-
-    Outlet mağazaları dışında ölçülür: outlet akışı hücrelerinin λ'sı liste
-    fiyatında kalibre edildi (Görev 8), outlet hattının %50–70 markdown'ı
-    ve outlet esnekliğiyle talep, gelen artık stoğun ~10 katına çıkar; bu
-    kayıp bütün grubu stoksuz bırakır, ikameyle kurtarılamaz ve zincir
-    payını ~%6'ya çeker (rapor: kalibrasyon kaygısı). Zincir payı da
-    raporlanır ve sıfırdan belirgin büyük olmalıdır."""
+    """Zincir genelinde ikame ÷ (ikame + gizli kayıp) = ikame satışı ÷ ikame
+    öncesi karşılanmamış talep, %10–50 (küçük ölçek geniş bant; TAM %20–40
+    Görev 17). Tanı: outlet mağazaları dışındaki pay da aynı bantta."""
     w = kucuk_dunya
     ik, kay = kucuk_kosu["ikame_satis"], kucuk_kosu["gizli_kayip"]
+    zincir = ik.adet.sum() / (ik.adet.sum() + kay.adet.sum())
+    assert 0.10 <= zincir <= 0.50, zincir
     tip = w.magazalar["tip"].to_numpy()
     oi = tip[w.hucre_magaza[ik.hucre.to_numpy()]] == "Outlet"
     ok = tip[w.hucre_magaza[kay.hucre.to_numpy()]] == "Outlet"
     a, b = ik.adet[~oi].sum(), kay.adet[~ok].sum()
-    pay = a / (a + b)
-    assert 0.10 <= pay <= 0.50, pay
-    zincir = ik.adet.sum() / (ik.adet.sum() + kay.adet.sum())
-    assert zincir > 0.03, zincir
+    assert 0.10 <= a / (a + b) <= 0.50, a / (a + b)
+
+
+def test_ikame_sayac_bagimsizligi(kucuk_dunya):
+    """Bir mağazanın stoğu değişince diğer mağazaların ikame satışı ve gizli
+    kaybı bit bit aynı (grup mağaza içinde, çekiliş hücre başına)."""
+    w = kucuk_dunya
+    d = 400
+    C = len(w.cesit)
+    kayip = _kayipli_gun(w, d)
+    stok = np.where(kayip > 0, 0, sayac_uretici(d, "elle", 7).integers(0, 3, C)).astype(np.int64)
+    m0 = int(w.hucre_magaza[np.flatnonzero(kayip > 0)[0]])
+    bu = w.hucre_magaza == m0
+    stok2 = stok.copy()
+    stok2[bu & (kayip == 0)] += 5
+    kayip2 = np.where(bu, kayip + 1, kayip)
+    s1, g1 = ikame(stok, kayip, w, d)
+    s2, g2 = ikame(stok2, kayip2, w, d)
+    assert not np.array_equal(s1[bu], s2[bu])
+    np.testing.assert_array_equal(s1[~bu], s2[~bu])
+    np.testing.assert_array_equal(g1[~bu], g2[~bu])
 
 
 # ---------------------------------------------------------------------------

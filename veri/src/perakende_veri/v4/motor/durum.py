@@ -57,7 +57,8 @@ class Gorunum:
     [gun, C] brüt satış (fiziksel: raftan; ONL: depodan), `stoklu_gecmisi`
     [gun, C] bool, `satis_28` [C] son 28 gün, `gonderilen_option` [O]
     mağazalara giden kümülatif, `satilan_option` [O] dünkü akşama kadar brüt
-    satış (ONL dahil), `rpt_sayisi` [O], `ilk_dagitim_gun` [O] (option'ın
+    satış (ONL dahil), `satilan_option_magaza` [O] aynısı yalnız fiziksel
+    mağazalarda (ONL hariç; mağazalara giden'le tutarlı STR payı), `rpt_sayisi` [O], `ilk_dagitim_gun` [O] (option'ın
     son ilk dağıtım sevki; henüz yoksa çok büyük), `fiyat_orani` [O, 3]
     (normal / outlet / online hattının güncel markdown oranı), `acik_magaza`
     [M] bool (bugün açık), `kapanacak` [M] bool (kapanış kararı verilmiş),
@@ -75,6 +76,7 @@ class Gorunum:
     satis_28: np.ndarray
     gonderilen_option: np.ndarray
     satilan_option: np.ndarray
+    satilan_option_magaza: np.ndarray
     rpt_sayisi: np.ndarray
     ilk_dagitim_gun: np.ndarray
     fiyat_orani: np.ndarray
@@ -104,6 +106,7 @@ class Durum:
         self.satis_28 = np.zeros(C, dtype=np.int64)
         self.gonderilen_option = np.zeros(O, dtype=np.int64)
         self.satilan_option = np.zeros(O, dtype=np.int64)
+        self.satilan_option_magaza = np.zeros(O, dtype=np.int64)
         self.satilan_option_kum = np.zeros((D + 1, O), dtype=np.int64)  # [d] = d'den önceki toplam
         self.rpt_sayisi = np.zeros(O, dtype=np.int64)
         self.surekli_sayisi = np.zeros(O, dtype=np.int64)

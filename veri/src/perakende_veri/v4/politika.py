@@ -178,13 +178,10 @@ def _tedarikci_sutunu(w, sutun: str) -> np.ndarray:
     return t.loc[w.optionlar["tedarikci_id"]].to_numpy()
 
 
-def _str(g) -> np.ndarray:
-    """[O] zincir STR'si: dünkü akşama kadar brüt satış (ONL dahil) ÷ bu
-    sabaha kadar mağazalara giden (hiç gitmemişse 0)."""
-    return np.divide(
-        g.satilan_option, g.gonderilen_option,
-        out=np.zeros(len(g.satilan_option)), where=np.asarray(g.gonderilen_option) > 0,
-    )
+def _str(pay: np.ndarray, gonderilen: np.ndarray) -> np.ndarray:
+    """[O] STR = pay ÷ mağazalara giden (hiç gitmemişse 0)."""
+    gonderilen = np.asarray(gonderilen)
+    return np.divide(pay, gonderilen, out=np.zeros(len(gonderilen)), where=gonderilen > 0)
 
 
 class LumodaRPT:
@@ -233,7 +230,9 @@ class LumodaRPT:
         yetisir = (
             opt["lansman_gun"].to_numpy() + 7 * self.ilk_hafta + 7 * rpt_hafta
         ) < opt["indirim_gun"].to_numpy()
-        secilen = np.flatnonzero(aday & (_str(g) >= self.str_esigi) & yetisir)
+        secilen = np.flatnonzero(
+            aday & (_str(g.satilan_option, g.gonderilen_option) >= self.str_esigi) & yetisir
+        )
         if not secilen.size:
             return {}
         moq = _tedarikci_sutunu(w, "moq_option")
@@ -247,7 +246,8 @@ class LumodaMarkdown:
     Normal ve online hat (aynı oran): Collection ve Outlet line, her
     pazartesi `indirim_gun − 28`'den çıkışa kadar.
         beklenen = 0,80 × min(1, (d − lansman) ÷ (indirim − lansman))
-        STR (brüt satış ÷ mağazalara giden) < 0,7 × beklenen ise bir kademe
+        STR (fiziksel mağazaların brüt satışı, ONL hariç ÷ mağazalara
+        giden; payla payda aynı kanaldan) < 0,7 × beklenen ise bir kademe
         derinleşir (haftada en fazla bir kademe); d ≥ indirim_gun iken en az
         %30. Kademeler %20 / 30 / 40 / 50 / 70; oran hiç sığlaşmaz.
     İçseldir: STR'si düşük option daha erken ve daha derin indirilir (esneklik
@@ -294,7 +294,8 @@ class LumodaMarkdown:
         if aktif.any():
             ilerleme = np.clip((d - lan) / np.maximum(ind - lan, 1), 0.0, 1.0)
             beklenen = self.beklenen_str * ilerleme
-            derin = aktif & (_str(g) < self.tetik * beklenen)
+            str_ = _str(g.satilan_option_magaza, g.gonderilen_option)
+            derin = aktif & (str_ < self.tetik * beklenen)
             sonraki = k[np.minimum(np.searchsorted(k, su_an + 1e-9, side="right"), len(k) - 1)]
             oran = np.where(derin, np.maximum(su_an, sonraki), su_an)
             oran = np.where(aktif & (d >= ind), np.maximum(oran, self.indirim_tabani), oran)
