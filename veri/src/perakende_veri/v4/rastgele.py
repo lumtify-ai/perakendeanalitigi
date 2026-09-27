@@ -30,6 +30,7 @@ AMACLAR: dict[str, int] = {
     "ikame": 4,
     "beden_ikame": 5,
     "elle": 6,
+    "kalite": 7,
 }
 
 # Poisson ters CDF'te kayan nokta kuyruğu hiç kapanmayabilir (pmf, cdf'yi
@@ -47,6 +48,19 @@ def sayac_uretici(d: int, amac: str, tohum: int = TOHUM) -> np.random.Generator:
     """
     return np.random.default_rng(
         np.random.SeedSequence(tohum, spawn_key=(AMACLAR[amac], d))
+    )
+
+
+def sayac_uretici_option(d: int, amac: str, o: int, tohum: int = TOHUM) -> np.random.Generator:
+    """d günü, o option'ı, `amac` çekilişi için sayaç üreteci.
+
+    `SeedSequence(tohum, spawn_key=(AMACLAR[amac], d, o))`: bir option'ın
+    çekilişi, aynı gün başka option'lar için kaç üreteç açıldığından (ör.
+    bir politikanın kaç sipariş verdiğinden) bağımsızdır. Motor RPT ve
+    sürekli teslimlerin kalite kontrolünü bununla çeker ("kalite").
+    """
+    return np.random.default_rng(
+        np.random.SeedSequence(tohum, spawn_key=(AMACLAR[amac], d, o))
     )
 
 

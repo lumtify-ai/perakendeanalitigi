@@ -651,3 +651,28 @@ PLAN_BUYUME_HEDEFI = 1.06
 PLAN_IYIMSERLIK_ARALIGI = (1.03, 1.12)
 PLAN_RANGE_SIGMA = 0.05         # range_plan option sayısı = gerçekleşen × lognormal(0, σ)
 MFP_STOK_KAPSAMA_AY = 1.0       # dönem sonu stok hedefi = sonraki ayın satış planı × kapsama
+
+# --- Motor (Görev 12) --------------------------------------------------------
+# İlk dağıtım: ilk alımın bu payı paketle mağazalara gider (magaza_plan
+# payıyla), kalanı depoda (online + replenishment) kalır.
+ILK_DAGITIM_PAYI = 0.60
+
+# Replenishment (v3 kuralı, v3 değerleri kopyalanmıştır).
+REPL_HEDEF_GUN = 28             # hedef: önümüzdeki 4 haftanın plan talebi
+OLU_STOK_PENCERESI_GUN = 28     # hız penceresi ve yeni hücre muafiyeti
+OLU_STOK_HEDEF_HAFTA = 4        # hızla kaç haftalık stok "yeter" sayılır
+
+# Basic/NOS sürekli tedarik (v3 kuralı).
+SUREKLI_GOZDEN_GECIRME_HAFTA = 2
+SUREKLI_EMNIYET_HAFTA = {"Basic": 2, "NOS": 3}
+SUREKLI_DUZELTME_GUN = 56       # plan düzeltmesinin baktığı geçmiş
+SUREKLI_DUZELTME_SINIR = (0.7, 1.6)
+
+# İade (spec §6.1 adım 7). Online gecikmesi sabit 10 gün (7–14 aralığının
+# ortası). Kalite izi: p_iade × (1 + IADE_KALITE_CARPANI × tedarikçinin
+# gizli hatalı oranı).
+IADE_ORANI_MAGAZA = 0.06
+IADE_GECIKME_MAGAZA = 7
+IADE_ORANI_ONLINE = 0.27
+IADE_GECIKME_ONLINE = 10
+IADE_KALITE_CARPANI = 4.0
