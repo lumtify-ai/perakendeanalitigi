@@ -108,10 +108,13 @@ def lumoda_tedarikci_secimi(
 ) -> np.ndarray:
     """Option başına tedarikçi indisi (0-tabanlı, `tedarikciler` satır sırası).
 
-    Politika olarak enjekte edilebilir imza:
-    `Callable[[optionlar, tedarikciler, talep_tahmini], np.ndarray]`
-    (rng çağıran taraf — burada Lumoda varsayılanı için — tarafından
-    bağlanır).
+    Politika olarak enjekte edilebilir imza (`dunya.TedarikciSecimi`):
+    `Callable[[rng, optionlar, tedarikciler, kapasite, talep_tahmini],
+    np.ndarray]`. `dunya_kur` üçüncü tablo olarak gizli profilin yalnız
+    **kapasite görünümünü** verir (`tedarikci_id`, `kapasite_sezon_adet`;
+    alıcının bildiği bilgi) — gecikme, hatalı oran, maliyet çarpanı
+    politikaya hiç ulaşmaz. Bu fonksiyon da yalnız `kapasite_sezon_adet`'i
+    okur.
 
     Alt kategori başına **bir kez** (rng ile, gizli profile hiç bakmadan)
     sabit bir birincil ve ikincil tedarikçi çekilir: mont/jean/ceket/

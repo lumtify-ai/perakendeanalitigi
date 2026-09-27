@@ -223,6 +223,22 @@ def test_politika_enjeksiyonu_diger_akislari_bozmaz(kucuk_dunya):
     assert _sha(w.urunler) == _sha(w3.urunler)
 
 
+def test_politika_yalniz_kapasite_gorunumunu_gorur(kucuk_dunya):
+    """Enjekte edilen politika gizli profilin yalnız kapasite görünümünü
+    alır (gecikme/hatalı/maliyet sızmaz); varsayılanı saran casus aynı
+    dünyayı verir."""
+    gorulen: list[set] = []
+
+    def casus(rng, optionlar, tedarikciler, kapasite, talep_tahmini):
+        gorulen.append(set(kapasite.columns))
+        return lumoda_tedarikci_secimi(rng, optionlar, tedarikciler, kapasite, talep_tahmini)
+
+    w2 = dunya_kur(Olcek.KUCUK, tedarikci_secimi=casus)
+    assert gorulen == [{"tedarikci_id", "kapasite_sezon_adet"}]
+    assert np.array_equal(w2.tedarikci_idx, kucuk_dunya.tedarikci_idx)
+    assert _sha(w2.urunler) == _sha(kucuk_dunya.urunler)
+
+
 def test_ileri_plan(kucuk_dunya):
     """ileri_plan = Σ plan λ [d, d+gun) (hafta hizalı ve hizasız); option
     düzeyindeki toplamla tutarlı."""

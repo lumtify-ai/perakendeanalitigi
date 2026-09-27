@@ -107,6 +107,11 @@ SUREKLI_SAPMA_SAYISI = 128
 # ileri_plan hafta blok önbelleği (hücre düzeyi haftalık toplam, LRU).
 _HAFTA_ONBELLEK_BOYUTU = 16
 
+# Tedarikçi seçimi politikası: (rng, optionlar, tedarikciler, kapasite
+# görünümü, talep_tahmini) -> [O] tedarikçi satır indisi. Kapasite görünümü
+# gizli profilin yalnız KAPASITE_GORUNUMU sütunlarıdır (alıcının bildiği);
+# gecikme, hatalı oran ve maliyet çarpanı politikaya verilmez.
+KAPASITE_GORUNUMU = ["tedarikci_id", "kapasite_sezon_adet"]
 TedarikciSecimi = Callable[
     [np.random.Generator, pd.DataFrame, pd.DataFrame, pd.DataFrame, np.ndarray], np.ndarray
 ]
@@ -215,7 +220,7 @@ class Dunya:
     olcek: Olcek = Olcek.TAM
     tohum: int = sabitler.TOHUM
 
-    _onbellek: dict = field(default_factory=dict, repr=False)
+    _onbellek: dict = field(init=False, repr=False, default_factory=dict)
 
     def __post_init__(self):
         O = len(self.optionlar)
@@ -354,9 +359,11 @@ def dunya_kur(
 ) -> Dunya:
     """Dünyayı kurar (bkz. modül docstring'i: akış tablosu, montaj sırası).
 
-    `tedarikci_secimi(rng, optionlar, tedarikciler, gizli_tedarikci,
+    `tedarikci_secimi(rng, optionlar, tedarikciler, kapasite_gorunumu,
     talep_tahmini) -> [O]` (tedarikçi satır indisi) politikası enjekte
-    edilebilir; kendi çocuk üretecini (`tedarikci_secimi`) alır, bu yüzden
+    edilebilir; `kapasite_gorunumu` gizli tedarikçi profilinin yalnız
+    `tedarikci_id` ve `kapasite_sezon_adet` sütunlarıdır (kapasite alıcının
+    bildiği bilgidir; gecikme, hatalı oran, maliyet çarpanı sızmaz); kendi çocuk üretecini (`tedarikci_secimi`) alır, bu yüzden
     başka bir politika diğer bileşenlerin çekilişlerini değiştirmez.
     """
     rng = akislar(tohum)
@@ -391,7 +398,10 @@ def dunya_kur(
 
     # --- Tedarikçi seçimi ve maliyeti ----------------------------------------
     ted_idx = np.asarray(
-        tedarikci_secimi(rng["tedarikci_secimi"], optionlar, tedarikciler, gizli_ted, tahmin),
+        tedarikci_secimi(
+            rng["tedarikci_secimi"], optionlar, tedarikciler,
+            gizli_ted[KAPASITE_GORUNUMU].copy(), tahmin,
+        ),
         dtype=np.int64,
     )
     assert ted_idx.shape == (len(optionlar),), "tedarikci_secimi [O] döndürmeli"
