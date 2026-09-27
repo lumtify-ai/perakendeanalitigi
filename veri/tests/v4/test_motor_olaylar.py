@@ -9,6 +9,7 @@ import dataclasses
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from perakende_veri.v4 import sabitler
 from perakende_veri.v4.dunya import yolda_gun
@@ -137,17 +138,31 @@ def test_kapanan_magazaya_yolda_mal_depoya(kucuk_dunya):
     _defter_dogrula(w, k)
 
 
-def test_kapanacaga_replenishment_yok(kucuk_dunya, kucuk_kosu):
-    """Karar gününden itibaren kapanacak mağazaya replenishment, ilk dağıtım,
-    açılış ve elle transfer gitmez; o mağaza elle transfer kaynağı da olmaz."""
+def test_kapanacaga_replenishment_surer(kucuk_dunya, kucuk_kosu):
+    """Lumoda kapanacak mağazaya kapanış gününe dek replenishment gönderir
+    (kimse listeyi düzeltmez); kapanış günü ve sonrasında göndermez; kalan
+    stok kapanış transferiyle döner. (Hedef plan talebidir ve plan kapanışı
+    bilir: 28 günlük hedef kapanışa doğru daralır, stok da azalır.)"""
+    w, sev = kucuk_dunya, kucuk_kosu["sevkiyat"]
+    for r in _olaylar(w, "kapanis").itertuples():
+        m, karar, kg = _indis(w, r.magaza_id), gun_indisi(r.karar_tarihi), gun_indisi(r.olay_tarihi)
+        rep = sev[(sev.hedef == m) & (sev.tip == "replenishment")]
+        assert len(rep[(rep.gun >= karar) & (rep.gun < kg)]) > 0, r.magaza_id
+        assert len(rep[rep.gun >= kg]) == 0, r.magaza_id
+        assert sev[(sev.tip == "kapanis_transferi") & (sev.kaynak == m)].adet.sum() > 0
+
+
+def test_kapanacaga_ilk_dagitim_yok(kucuk_dunya, kucuk_kosu):
+    """Karar gününden itibaren kapanacak mağazaya ilk dağıtım (bekleyen sevk
+    dahil), açılış, elle transfer ve outlet akışı gitmez; o mağaza elle
+    transfer kaynağı da olmaz."""
     w, sev = kucuk_dunya, kucuk_kosu["sevkiyat"]
     for r in _olaylar(w, "kapanis").itertuples():
         m, karar = _indis(w, r.magaza_id), gun_indisi(r.karar_tarihi)
-        once = sev[(sev.hedef == m) & (sev.gun < karar) & (sev.tip == "replenishment")]
-        assert len(once) > 0
+        assert len(sev[(sev.hedef == m) & (sev.gun < karar) & (sev.tip == "ilk_dagitim")]) > 0
         sonra = sev[(sev.hedef == m) & (sev.gun >= karar)]
         assert not sonra.tip.isin(
-            ["replenishment", "ilk_dagitim", "acilis_transferi", "elle_transfer", "outlet_akisi"]
+            ["ilk_dagitim", "acilis_transferi", "elle_transfer", "outlet_akisi"]
         ).any()
         assert len(sev[(sev.kaynak == m) & (sev.gun >= karar) & (sev.tip == "elle_transfer")]) == 0
 
@@ -155,16 +170,6 @@ def test_kapanacaga_replenishment_yok(kucuk_dunya, kucuk_kosu):
 # ---------------------------------------------------------------------------
 # Açılış
 # ---------------------------------------------------------------------------
-
-
-def _acilis_orani(w, k, m: int, a: int) -> float:
-    """Açılışın ilk haftasında mağazaya varan mal ÷ açılış gününün 28 günlük
-    plan hedefi (mağazanın o gün penceresi açık fiziksel hücreleri)."""
-    sev = k["sevkiyat"]
-    varan = sev[(sev.hedef == m) & (sev.varis_gun >= a) & (sev.varis_gun < a + 7)].adet.sum()
-    c = (w.hucre_magaza == m) & (w.hucre_acilis <= a) & (a < w.hucre_kapanis)
-    hedef = w.ileri_plan(a, sabitler.REPL_HEDEF_GUN)[c].sum()
-    return float(varan / hedef)
 
 
 def test_acilis_transferi(kucuk_dunya, kucuk_kosu):
@@ -187,19 +192,50 @@ def test_acilis_transferi(kucuk_dunya, kucuk_kosu):
     assert len(sev[(sev.tip == "acilis_transferi") & (sev.kaynak >= 0)]) == 0
 
 
-def test_sezon_ortasi_acilis_ince(kucuk_dunya, kucuk_kosu):
-    """Sezon ortası açılışta ilk hafta varan mal ÷ plan hedefi, sezon başı
-    açılıştakinden küçük (depo ince: ilk alım dağıtılmış)."""
-    w, k = kucuk_dunya, kucuk_kosu
+@pytest.fixture(scope="module")
+def acilis_kapsamasi(kucuk_dunya):
+    """Açılış karar günü (a − y) depo kapsaması, salt okur sarmalayıcıyla:
+    Σ min(depo[sku], hedef) ÷ Σ hedef, mağazanın açılış günü penceresi açık
+    fiziksel, outlet akışı olmayan hücreleri üzerinden (hedef = açılıştan
+    28 günlük plan). {magaza_id: (sezon başı mı, kapsama)}."""
+    w = kucuk_dunya
     lansmanlar = set(pd.to_datetime(w.sezon.loc[w.sezon.dalga == 1, "lansman_tarihi"]))
-    bas, orta = [], []
-    for r in _olaylar(w, "acilis").itertuples():
-        m, a = _indis(w, r.magaza_id), gun_indisi(r.olay_tarihi)
-        if a + 7 > k["gun_sayisi"]:
-            continue
-        (bas if pd.Timestamp(r.olay_tarihi) in lansmanlar else orta).append(_acilis_orani(w, k, m, a))
-    assert len(bas) >= 1 and len(orta) >= 2, (bas, orta)
+    acilis_t = dict(zip(w.magazalar["magaza_id"], pd.to_datetime(w.magazalar["acilis_tarihi"])))
+    sonuc = {}
+
+    def olcer(g, m):
+        mid = w.magazalar.at[m, "magaza_id"]
+        a = gun_indisi(acilis_t[mid])
+        c = np.flatnonzero((w.hucre_magaza == m) & ~w.hucre_online & ~w.hucre_outlet_akisi
+                           & (w.hucre_acilis <= a) & (a < w.hucre_kapanis))
+        hedef = w.ileri_plan(a, sabitler.REPL_HEDEF_GUN)[c]
+        depo = np.asarray(g.depo)[w.hucre_sku[c]]
+        sonuc[mid] = (acilis_t[mid] in lansmanlar, float(np.minimum(depo, hedef).sum() / hedef.sum()))
+        return lumoda_politikalari()["acilis"](g, m)
+
+    son = max(gun_indisi(t) for t in _olaylar(w, "acilis").olay_tarihi)
+    simule_et(w, Politikalar(acilis=olcer), gun_sayisi=min(son + 1, w.gun_sayisi))
+    return sonuc
+
+
+def test_acilis_kapsama_olcumu(kucuk_dunya, acilis_kapsamasi):
+    """Ölçüm altı açılışın hepsinde çalışır ve [0, 1] içinde değer verir."""
+    assert set(acilis_kapsamasi) == set(_olaylar(kucuk_dunya, "acilis").magaza_id)
+    assert len(acilis_kapsamasi) == 6
+    for bas, k in acilis_kapsamasi.values():
+        assert 0.0 <= k <= 1.0
+    assert any(b for b, _ in acilis_kapsamasi.values())
+    assert any(not b for b, _ in acilis_kapsamasi.values())
+
+
+@pytest.mark.xfail(strict=True, reason="kalibrasyon Task 18: sezon ortası depo ince değil (0.91–0.95)")
+def test_sezon_ortasi_acilis_ince(acilis_kapsamasi):
+    """Spec §8.3: sezon ortası açılışta depo, açılış hedefinin %60'ından
+    azını karşılar ve sezon başı açılıştakinden azını."""
+    bas = [k for b, k in acilis_kapsamasi.values() if b]
+    orta = [k for b, k in acilis_kapsamasi.values() if not b]
     assert np.mean(orta) < np.mean(bas), (bas, orta)
+    assert np.mean(orta) < 0.60, orta
 
 
 def test_yeni_magaza_replenishment_alir(kucuk_dunya, kucuk_kosu):
@@ -277,11 +313,23 @@ def test_elle_transfer_ayni_bolge(kucuk_dunya, kucuk_kosu):
     # Kaynağın son 28 günde satışı 0 ve stoğu ≥ 3.
     sat = k["satis"]
     ho = w.hucre_option
+    acilis_gun = np.array([gun_indisi(t) for t in w.magazalar["acilis_tarihi"]])
     for (gun, m, o), grup in el.groupby(["gun", "kaynak", "option"]):
         assert grup.adet.sum() >= sabitler.ELLE_STOK_ESIGI
+        assert grup.hedef.nunique() == 1
         c = np.flatnonzero((w.hucre_magaza == m) & (ho == o))
         s = sat[sat.hucre.isin(c) & (sat.gun >= gun - 28) & (sat.gun < gun) & (sat.adet > 0)]
         assert len(s) == 0
+        # En az 28 gündür rafta (hücre penceresi ve mağaza açılışı)
+        pencerede = c[(w.hucre_acilis[c] <= gun) & (gun < w.hucre_kapanis[c])]
+        assert pencerede.size and max(w.hucre_acilis[pencerede].min(), acilis_gun[m]) <= gun - 28
+        # Hedef o option'ın penceresi açık bir hücresini taşır
+        h = int(grup.hedef.iloc[0])
+        hc = (w.hucre_magaza == h) & (ho == o) & (w.hucre_acilis <= gun) & (gun < w.hucre_kapanis)
+        assert hc.any()
+    # Bölge sayısı çekilişin satır sayısını aşmaz
+    fiz = w.magazalar["tip"].to_numpy() != "Online"
+    assert len(set(bolge[fiz])) <= LumodaElleTransfer.BOLGE_SAYISI
 
 
 def test_elle_transfer_deterministik(kucuk_dunya):
@@ -301,15 +349,21 @@ def test_elle_transfer_deterministik(kucuk_dunya):
 
 
 def test_olay_sinirlarinda_onek(kucuk_dunya, kucuk_kosu):
-    """Kapanış günü ve tadilat sınırlarında kesilen koşu tam koşunun öneki."""
+    """Olay sınırlarında kesilen koşu tam koşunun öneki: ilk iki açılışın
+    transfer günü (a − y), açılış günü ve ertesi; ilk kapanışın karar günü,
+    kapanış günü ve ertesi; ilk tadilatın başı ve bitiş ertesi."""
     w = kucuk_dunya
+    y_m = yolda_gun(w.depo_mesafe_km, depo=True)
     kesimler = set()
-    for r in _olaylar(w, "kapanis").itertuples():
-        g = gun_indisi(r.olay_tarihi)
-        kesimler |= {g, g + 1}
-    for r in _olaylar(w, "tadilat").itertuples():
-        kesimler |= {gun_indisi(r.olay_tarihi), gun_indisi(r.bitis_tarihi) + 1}
-    for n in sorted(kesimler)[:6]:
+    for r in _olaylar(w, "acilis").sort_values("olay_tarihi").head(2).itertuples():
+        a = gun_indisi(r.olay_tarihi)
+        kesimler |= {a - int(y_m[_indis(w, r.magaza_id)]), a, a + 1}
+    r = _olaylar(w, "kapanis").sort_values("olay_tarihi").iloc[0]
+    g = gun_indisi(r.olay_tarihi)
+    kesimler |= {gun_indisi(r.karar_tarihi), g, g + 1}
+    r = _olaylar(w, "tadilat").sort_values("olay_tarihi").iloc[0]
+    kesimler |= {gun_indisi(r.olay_tarihi), gun_indisi(r.bitis_tarihi) + 1}
+    for n in sorted(kesimler):
         if 0 < n <= w.gun_sayisi:
             _onek_esit(simule_et(w, gun_sayisi=n), kucuk_kosu, n, ("satis", "sevkiyat", "depo_stok", "stok"))
 

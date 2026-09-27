@@ -41,7 +41,9 @@ GÜNLÜK SIRA (spec §6.1)
     (`kapanis_transferi`); o günden sonra mağaza kapalıdır: varan mal ve
     iade aynı gün depoya (3. ve 16. adım), raf stoğu hep 0. Karar gününden
     itibaren `Gorunum.kapanacak[m]`: ilk dağıtım (bekleyen sevkler dahil)
-    ve replenishment o mağazaya gitmez. Tadilat: [olay, bitiş) kapalı (λ 0,
+    o mağazaya gitmez (motor sevk gününde de düşürür); replenishment
+    politikaya kalmıştır (Lumoda kapanış gününe dek göndermeye devam eder,
+    mağaza anlamlı stokla kapanır). Tadilat: [olay, bitiş) kapalı (λ 0,
     varış depoya, stok rafta bekler), bitişte yeniden açılır. Stok devri
     (6. adım) yalnız hücrenin kendi penceresi bitince çalışır, mağaza
     kapanınca değil: kapanan mağazanın stoğu hep `kapanis_transferi`yle
@@ -84,7 +86,8 @@ GÜNLÜK SIRA (spec §6.1)
     oran). Hücrenin hattı: ONL 2, outlet akışı hücresi 1, diğerleri 0.
 10. REPLENİSHMENT (pazartesi). `replenishment(g)` → [C] istek; motor
     dağıtılamaz hücreleri sıfırlar (ONL, outlet akışı, ilk dağıtımı
-    bitmemiş ya da çıkmış option, kapalı / kapanış kararlı mağaza), depo
+    bitmemiş ya da çıkmış option, bugün kapalı mağaza; kapanış kararlı
+    mağazaya gönderip göndermemek politikanındır), depo
     yetmeyen SKU'larda `orantili_kes` (v3) ve yola çıkarır.
 11. ELLE TRANSFER (pazartesi). `elle_transfer(g)` → Transferler
     (`elle_transfer`; Lumoda: bölge müdürü, `LumodaElleTransfer`).
@@ -111,7 +114,7 @@ GÜNLÜK SIRA (spec §6.1)
 Rastgelelik politikadan bağımsızdır: her gün `talep`, `indirim`, `iade`,
 `beden_ikame`, `ikame` amaçları birer `random(C)` çeker; kalite (gün,
 option) anahtarlıdır; Lumoda'nın elle transferi pazartesi `elle` amacından
-sabit boy (7 × 8) çeker.
+(operasyon tohumuyla, `Gorunum.operasyon_tohumu`) sabit boy (7 × 8) çeker.
 
 Mal defteri (`test_stok_korunumu`): her `sevkiyat` satırı `gun`de
 kaynaktan (kaynak_hucre ya da depo, −1) çıkar, `varis_gun`de hedefe
@@ -259,6 +262,7 @@ def simule_et(
             fiyat_orani=salt_okunur(z.fiyat_orani),
             acik_magaza=salt_okunur(acik[d]), kapanacak=salt_okunur(kapanacak[d]),
             acik_siparisler=acik_sip,
+            operasyon_tohumu=operasyon_tohumu,
         )
 
     def siparis_ekle(s: dict) -> None:
@@ -533,7 +537,7 @@ def simule_et(
             istek = np.asarray(pol.replenishment(g), dtype=np.int64)
             dagitilabilir = (
                 (z.ilk_dagitim_gun[ho] < d) & (d < cikis[ho]) & fiz & ~outlet_c
-                & acik[d][hm] & ~kapanacak[d][hm]
+                & acik[d][hm]
             )
             gonder = orantili_kes(np.where(dagitilabilir, np.maximum(istek, 0), 0), hs, z.depo)
             hucreler = np.flatnonzero(gonder > 0)

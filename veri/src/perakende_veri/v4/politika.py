@@ -150,8 +150,10 @@ def lumoda_replenishment(g) -> np.ndarray:
              açılışı)'ndan beri ≥ 28 gün)
              ve son 28 günlük satış hızıyla zaten 4 haftalık stoğu varsa mal
              gitmez — hız sıfırsa HİÇ gitmez (kasıtlı v3 kusuru).
-    Sıfır    ONL hücreleri (online depodan satar), kapalı ve kapanış kararı
-             verilmiş mağazalar.
+    Sıfır    ONL hücreleri (online depodan satar) ve bugün kapalı mağazalar.
+             Kapanış kararı verilmiş mağazaya kapanış gününe dek gönderir
+             (kasıtlı kusur: kimse replenishment listesini düzeltmez; mağaza
+             anlamlı stokla kapanır, stok kapanış transferiyle depoya döner).
 
     Depo yetmezse motor istekleri SKU içinde orantılı keser; dağıtılamaz
     hücreleri (ilk dağıtımı bitmemiş, çıkmış, outlet akışı) motor sıfırlar.
@@ -165,8 +167,7 @@ def lumoda_replenishment(g) -> np.ndarray:
     yeni = (g.gun - ilk_gun) < sabitler.OLU_STOK_PENCERESI_GUN
     haftalik_hiz = g.satis_28 / sabitler.OLU_STOK_PENCERESI_GUN * 7.0
     uygun = yeni | (g.magaza_stok < haftalik_hiz * sabitler.OLU_STOK_HEDEF_HAFTA)
-    magaza_uygun = np.asarray(g.acik_magaza) & ~np.asarray(g.kapanacak)
-    uygun &= magaza_uygun[w.hucre_magaza] & ~w.hucre_online
+    uygun &= np.asarray(g.acik_magaza)[w.hucre_magaza] & ~w.hucre_online
     return np.where(uygun, eksik, 0)
 
 
@@ -406,7 +407,8 @@ def lumoda_acilis(g, m: int) -> Transferler:
     Kaynak    yalnız depo; depo neyi karşılıyorsa (SKU başına min(istek,
               depo) — mağazada SKU başına tek hücre, orantılı kesme tek
               istekte budur). Diğer mağazalardan hiçbir şey alınmaz
-              (derinlikli mağazalar kullanılmaz).
+              (derinlikli mağazalar kullanılmaz). Depoda ne varsa alır —
+              online (depodan satar) aç kalsa bile (kasıtlı naif pratik).
     """
     w = g.dunya
     acilis = int(_acilis_gunleri(w)[m])
@@ -448,7 +450,7 @@ def lumoda_kapanis(g, m: int) -> Transferler:
 class LumodaElleTransfer:
     """Bölge müdürlerinin pazartesi elle transferleri (kural dışı, gerekçesiz).
 
-    Her pazartesi `sayac_uretici(d, "elle").random((7, 2 + 2·maks))` tek
+    Her pazartesi `sayac_uretici(d, "elle", operasyon_tohumu).random((7, 2 + 2·maks))` tek
     çekiliş (politikadan bağımsız sabit boy); satır r = bölge r (fiziksel
     mağazaların bölge adları sıralı), sütun 0 → k = ⌊4u⌋ ∈ {0..3}, sütun
     1 + 2j / 2 + 2j → j. transferin kaynağı / hedefi.
@@ -479,12 +481,16 @@ class LumodaElleTransfer:
     def __call__(self, g) -> Transferler:
         w = g.dunya
         d = g.gun
-        u = sayac_uretici(d, "elle").random((self.BOLGE_SAYISI, 2 + 2 * self.maks))
+        u = sayac_uretici(d, "elle", g.operasyon_tohumu).random(
+            (self.BOLGE_SAYISI, 2 + 2 * self.maks)
+        )
         mag = w.magazalar
         O = len(w.optionlar)
         fiziksel = (mag["tip"] != "Online").to_numpy()
         bolge = mag["bolge"].to_numpy()
         bolgeler = sorted(set(bolge[fiziksel]))
+        if len(bolgeler) > self.BOLGE_SAYISI:
+            raise ValueError(f"{len(bolgeler)} bölge; çekiliş {self.BOLGE_SAYISI} satırlık")
         uygun_m = fiziksel & np.asarray(g.acik_magaza) & ~np.asarray(g.kapanacak)
 
         hm, ho = w.hucre_magaza, w.hucre_option
@@ -502,7 +508,7 @@ class LumodaElleTransfer:
         aday = (stok >= self.stok_esigi) & (satis == 0) & (rafta <= d - self.pencere_gun)
 
         k_, h_, s_, a_ = [], [], [], []
-        for r, b in enumerate(bolgeler[: self.BOLGE_SAYISI]):
+        for r, b in enumerate(bolgeler):
             n_tr = min(int(u[r, 0] * (self.maks + 1)), self.maks)
             kalan = np.flatnonzero(aday & (bolge[cm] == b))
             for j in range(n_tr):

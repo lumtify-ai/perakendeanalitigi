@@ -62,7 +62,9 @@ class Gorunum:
     son ilk dağıtım sevki; henüz yoksa çok büyük), `fiyat_orani` [O, 3]
     (normal / outlet / online hattının güncel markdown oranı), `acik_magaza`
     [M] bool (bugün açık), `kapanacak` [M] bool (kapanış kararı verilmiş),
-    `acik_siparisler` (henüz teslim edilmemiş siparişlerin kopyaları).
+    `acik_siparisler` (henüz teslim edilmemiş siparişlerin kopyaları),
+    `operasyon_tohumu` (motorun operasyon çekilişleri tohumu; politikanın
+    kendi sayaç çekilişleri bununla tohumlanır).
     """
 
     dunya: object
@@ -83,6 +85,7 @@ class Gorunum:
     acik_magaza: np.ndarray
     kapanacak: np.ndarray
     acik_siparisler: tuple
+    operasyon_tohumu: int = sabitler.TOHUM
 
 
 # ---------------------------------------------------------------------------
