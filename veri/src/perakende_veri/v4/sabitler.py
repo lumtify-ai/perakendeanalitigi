@@ -593,3 +593,35 @@ OLGUNLASMA_HAFTA = 4.0
 TADILAT_KAYMA = {"yakin": 0.15, "onl": 0.10}      # toplam %40
 KAPANIS_KAYMA = {"yakin": 0.1125, "onl": 0.075}   # toplam %30, aynı dağılım
 KAYMA_YAKIN_SAYISI = 2
+
+# --- Kampanya ve esneklik (Görev 9) ----------------------------------------
+# Kampanya takvimi talepten bağımsız (dışsal) çekilir: ayrı bir alt rng
+# kullanır (bkz. kampanya.kampanyalari_uret), böylece markdown (içsel,
+# Lumoda kuralı) ile karışmayan temiz fiyat varyasyonu sağlar.
+KAMPANYA_BF_ORANI = 0.30
+KAMPANYA_BF_GUN = 4  # Cuma..Pazartesi dahil
+
+KAMPANYA_KATEGORI_YIL = 10          # tam yılda kategori kampanyası sayısı
+KAMPANYA_KATEGORI_GUN_ARALIGI = (7, 14)
+KAMPANYA_KATEGORI_ORANLARI = [0.20, 0.30, 0.40]
+KAMPANYA_KATEGORI_BOLGE_ARALIGI = (2, 4)
+
+KAMPANYA_IKINCI_URUN_YIL = 4        # tam yılda "ikinci ürün" kampanyası sayısı
+KAMPANYA_IKINCI_URUN_GUN = 10
+# "İkinci ürüne %50" mekaniği kayıt tutulmaz; okuyucu tipe (ikinci_urun)
+# bakıp etkin indirim oranını burada saklanan değerden okur.
+KAMPANYA_IKINCI_URUN_ORAN_ETKIN = 0.25
+
+# Gizli esneklik ε = ESNEKLIK_UST[ust_kategori] × ESNEKLIK_GELIR[gelir],
+# outlet segmentinde ayrıca × ESNEKLIK_OUTLET_CARPANI (fiyata daha duyarlı).
+ESNEKLIK_UST = {
+    "Üst Giyim": 1.8, "Alt Giyim": 1.6, "Elbise & Tulum": 2.0,
+    "Dış Giyim": 1.4, "Aksesuar": 2.2,
+}
+ESNEKLIK_GELIR = {"dusuk": 1.25, "orta": 1.0, "yuksek": 0.75}
+ESNEKLIK_OUTLET_CARPANI = 1.2
+
+# İşlem indirimi (v3'teki gibi): tam fiyatlı (markdown/kampanya yok) satışta
+# rastgele uygulanan indirim.
+ISLEM_INDIRIM_OLASILIGI = 0.08
+ISLEM_INDIRIM_ORANI = 0.30
