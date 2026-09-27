@@ -6,6 +6,7 @@ v4 hiçbir v2/v3/kök modülünü içe aktarmaz. Spec:
 """
 
 from datetime import date
+from pathlib import Path
 
 TOHUM = 2026
 
@@ -730,3 +731,13 @@ IKAME_PAYI = {
 ELLE_TRANSFER_MAKS = 3
 ELLE_STOK_ESIGI = 3
 ELLE_SATIS_PENCERESI_GUN = 28
+
+# --- Yayım ve kirli kayıtlar (Görev 15, spec §6.4, §7) -----------------------
+# Kirli kayıtlar üç yıla ve ~80 mağazaya ölçekli (v3: 80 / 50 / 60, iki yıl,
+# 25 mağaza); `kirlet` dünya akış tablosunun `kirli` çocuk üretecini kullanır.
+MUKERRER_KAYIT = 200
+BEDELSIZ_KAYIT = 120
+HAYALET_STOK_KAYDI = 150
+TEK_TARAFLI_TRANSFER = 40  # elle_transfer satırında varis_tarihi boş
+
+CIKTI_DIZINI = Path(__file__).resolve().parents[3] / "cikti" / "v4"

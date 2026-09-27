@@ -26,7 +26,9 @@ kalır. Sıra değiştirilmez; yeni bileşen yedeklerden birini alır.
     8   siparis           ilk_siparisler: teslim sapması [O,1] → hatalı adet
     9   plan_tablolari    plan_tablolari: iyimserlik → range gürültüsü
     10  sapma             teslim_sapmasi: RPT [O,4] → sürekli [O,128]
-    11–14 yedek           kullanılmıyor (ileride eklenecek bileşenler)
+    11  kirli             kirlet (Görev 15: mükerrer, bedelsiz, hayalet stok,
+                          tek taraflı transfer; dunya_kur tüketmez)
+    12–14 yedek           kullanılmıyor (ileride eklenecek bileşenler)
 
 Günlük motor akışı ayrıdır ve dokunulmaz: `rastgele.sayac_uretici(d, amac)`.
 
@@ -95,7 +97,7 @@ AKIS_SIRASI = [
     "siparis",
     "plan_tablolari",
     "sapma",
-    "yedek_1",
+    "kirli",
     "yedek_2",
     "yedek_3",
     "yedek_4",
