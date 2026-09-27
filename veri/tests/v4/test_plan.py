@@ -95,7 +95,6 @@ def test_plan_surprizi_bilmez(dw):
     gt2 = dict(dw["gt"])
     gt2["surpriz"] = dw["gt"]["surpriz"] * 3.0
     gt2["suruklenme"] = dw["gt"]["suruklenme"] * 1.7
-    gt2["cekicilik"] = dw["gt"]["cekicilik"] * 2.0
     plan2 = plan_lambda(
         dw["magazalar"], dw["gizli"], dw["olaylar"], dw["optionlar"], dw["urunler"], dw["hucre"], gt2
     )

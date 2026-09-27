@@ -4,7 +4,9 @@ Plan, Lumoda'nın **inandığı** taleptir, gizli gerçek değil; bilerek
 naiftir (spec §4.3). Görev 8'in `Lambda`'sı Lumoda'nın bilgisiyle yeniden
 kurulur (formül kopyalanmaz, `talep`'in yapı taşları çağrılır):
 
-- sürpriz = 1, sürüklenme = 1 (option düzeyinde "tutacak mı" bilgisi yok);
+- sürpriz = line başına beklenen değeri E[S] = exp(σ²/2) (lognormal(0, σ)
+  medyanı 1, ortalaması değil: zincir düzeyini geçmişten bilir, option
+  düzeyinde "tutacak mı" bilgisi yoktur), sürüklenme = 1;
 - mevsim: bütün mağazalarda iklimlerin fiziksel mağaza sayısıyla ağırlıklı
   zincir ortalaması (line üssü MEVSIM_LINE_USSU korunur);
 - mağaza × alt kategori yerel gürültüsü = 1 (mağaza düzeyi hacim, gizli
@@ -58,7 +60,6 @@ from .talep import (
     SEZON_KODLARI,
     Lambda,
     _option_sezon_idx,
-    cekicilik,
     devamli_etki_kur,
     etki_katsayidan,
     katsayi_tablodan,
@@ -184,7 +185,8 @@ def plan_lambda(
     """Lumoda'nın plan λ'sı (`talep.Lambda`; `gun(d)` → `[C]`). Rastgelelik
     yok: gerçek dünyadan yalnız `gizli_talep`'in Lumoda'nın bilebileceği
     parçalarını (önceki sezonların öznitelik katsayıları, alt kategori τ'su,
-    ONL kalibrasyonu) okur; sürpriz, sürüklenme, çekicilik okunmaz.
+    ONL kalibrasyonu) okur; tek tek sürpriz ve sürüklenme okunmaz (sürprizin
+    yalnız line başına beklenen değeri, SURPRIZ_SIGMA'dan).
 
     `indirim=True` (varsayılan): planlanan indirim inancı option-gün
     çarpanına katlıdır (plan tabloları, ilk alım ve replenishment hedefi
@@ -208,12 +210,12 @@ def plan_lambda(
     )
     statik = statik * np.where(fiz_c, 1.0, kalib_o[o_c])
 
-    g_option = yasam_egrisi(optionlar, gizli_talep["tau_oynama"])
+    sigma = optionlar["line"].map(sabitler.SURPRIZ_SIGMA).to_numpy(dtype=float)
+    g_option = yasam_egrisi(optionlar, gizli_talep["tau_oynama"]) * np.exp(sigma**2 / 2)[None, :]
     if indirim:
         g_option = g_option * indirim_inanci(optionlar)[0]
 
     mevsim5, _ = mevsim_ve_iklim_slotu(magazalar, gizli)
-    cek = cekicilik(np.ones(O), etki, optionlar, gizli)
     devamli_etki = devamli_etki_kur(etki, magazalar, gizli, optionlar, cesit_hucre)
     return Lambda(
         statik=statik,
@@ -226,7 +228,7 @@ def plan_lambda(
         mevsim_tablosu=mevsim5,
         magaza_gun=magaza_gun_carpani(magazalar, gizli, olaylar, magaza_toplam=None),
         sezon_gun=sezon_gun(),
-        kanib=kanibalizasyon_payi(cesit_hucre, optionlar, cek),
+        kanib=kanibalizasyon_payi(cesit_hucre, optionlar, np.ones(O)),
     )
 
 

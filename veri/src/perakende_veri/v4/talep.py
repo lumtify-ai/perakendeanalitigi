@@ -12,7 +12,11 @@
                  (sezonluklarda 1; etki statikte katlı)
     magaza_gun = gün-of-hafta × tatil/Black Friday × yıl büyümesi × turistik
                  × açılış olgunlaşması × kapalılık (0) + olay kaymaları
-    kanib      = cesit.kanibalizasyon_payi (hücre penceresi dışında 0)
+    kanib      = cesit.kanibalizasyon_payi (hücre penceresi dışında 0),
+                 yalnız n^β/n çeşit etkisi: çekicilik 1 verilir — option'ın
+                 çekiciliği (sürpriz × öznitelik) zaten g_option ve statikte,
+                 grup içi paylar ona zaten orantılı (fix: sürpriz eskiden
+                 kanibalizasyon payında ikinci kez sayılıyordu, λ ∝ sürpriz²)
 
 Fiyat etkisi burada YOK (motor uygular, Görev 9/11). Online (`ONL`)
 hücrelerinin statiği fiziksel hücrelerin aynı SKU'daki statik toplamından
@@ -566,7 +570,7 @@ def statik_taban(
 
 
 # ---------------------------------------------------------------------------
-# Çekicilik
+# Montaj yardımcıları (Görev 10'un plan λ'sı da kullanır)
 # ---------------------------------------------------------------------------
 
 
@@ -578,19 +582,6 @@ def _zincir_ortalama_etki(etki: np.ndarray, gizli: pd.DataFrame) -> np.ndarray:
     w = np.array([sayim.get(s, 0) for s in sabitler.SEGMENTLER], dtype=float)
     w = w / w.sum()
     return np.einsum("g,sgo->so", w, etki)
-
-
-def cekicilik(
-    surpriz_o: np.ndarray, etki: np.ndarray, optionlar: pd.DataFrame, gizli: pd.DataFrame
-) -> np.ndarray:
-    """`[O]` = sürpriz × option'ın kendi sezonundaki zincir ortalaması
-    öznitelik etkisi (DEVAMLI'da sezonlar üzerinden ortalama). Görev 7'nin
-    `kanibalizasyon_payi`'na girer."""
-    ort = _zincir_ortalama_etki(etki, gizli)
-    sezon = _option_sezon_idx(optionlar.reset_index(drop=True))
-    O = len(sezon)
-    kendi = np.where(sezon >= 0, ort[np.maximum(sezon, 0), np.arange(O)], ort.mean(axis=0))
-    return np.asarray(surpriz_o, dtype=float) * kendi
 
 
 def mevsim_ve_iklim_slotu(
@@ -800,8 +791,7 @@ def lambda_kur(
     mevsim5, iklim_slot_m = mevsim_ve_iklim_slotu(magazalar, gizli)
     mevsim_o = option_mevsim_idx(optionlar)
 
-    cek = cekicilik(surpriz_o, etki, optionlar, gizli)
-    kanib = kanibalizasyon_payi(cesit_hucre, optionlar, cek)
+    kanib = kanibalizasyon_payi(cesit_hucre, optionlar, np.ones(O))
     devamli_etki = devamli_etki_kur(etki, magazalar, gizli, optionlar, cesit_hucre)
 
     sezon_g = sezon_gun()
@@ -841,7 +831,6 @@ def lambda_kur(
         "surpriz": surpriz_o,
         "suruklenme": surukl,
         "tau_oynama": tau_oyn,
-        "cekicilik": cek,
         "onl_kalibrasyonu": kalib,
         "statik_toplam": statik_toplam,
         "gunluk_magaza_toplami": gunluk_toplam,

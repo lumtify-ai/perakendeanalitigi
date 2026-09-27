@@ -340,10 +340,23 @@ def test_deterministik(dw):
         np.testing.assert_array_equal(dw["lam"].gun(d), ikinci["lam"].gun(d))
 
 
-def test_cekicilik_sekli(dw):
-    c = dw["gizli_talep"]["cekicilik"]
-    assert c.shape == (len(dw["optionlar"]),)
-    assert np.isfinite(c).all() and (c > 0).all()
+def test_surpriz_bir_kez_sayilir(dw):
+    """Sürpriz λ'ya yalnız g_option'dan girer: sürprizi 2 katına çıkarmak
+    (kanibalizasyon payı çekiciliksiz, yalnız n^β/n) option'ın λ'sını tam
+    2 katına çıkarır, grup komşularınınkini değiştirmez."""
+    import dataclasses as dc
+    lam, opt = dw["lam"], dw["optionlar"]
+    assert "cekicilik" not in dw["gizli_talep"]
+    o = int(np.flatnonzero((opt["line"] == "Collection").to_numpy())[0])
+    g2 = lam.g_option.copy()
+    g2[:, o] *= 2.0
+    lam2 = dc.replace(lam, g_option=g2)
+    d = int(opt.at[o, "lansman_gun"]) + 10
+    a, b = lam.gun(d), lam2.gun(d)
+    kendi = lam.hucre_option == o
+    assert a[kendi].sum() > 0
+    np.testing.assert_allclose(b[kendi], 2.0 * a[kendi])
+    np.testing.assert_array_equal(b[~kendi], a[~kendi])
 
 
 # ---------------------------------------------------------------------------
