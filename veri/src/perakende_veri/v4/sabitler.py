@@ -676,3 +676,44 @@ IADE_GECIKME_MAGAZA = 7
 IADE_ORANI_ONLINE = 0.27
 IADE_GECIKME_ONLINE = 10
 IADE_KALITE_CARPANI = 4.0
+
+# --- Markdown, RPT, ikame, çıkış (Görev 13) ---------------------------------
+# Lumoda markdown kuralı (spec §5.2, içsel): Collection ve Outlet line,
+# pazartesi, indirim_gun − MARKDOWN_ONCE_GUN'den itibaren. Beklenen STR =
+# MARKDOWN_BEKLENEN_STR × min(1, (d − lansman) ÷ (indirim − lansman));
+# option STR'si (brüt satış ÷ mağazalara giden) beklenenin
+# MARKDOWN_TETIK katının altındaysa bir kademe derinleşir (haftada en fazla
+# bir); indirim gününden itibaren en az MARKDOWN_INDIRIM_TABANI; hiç
+# sığlaşmaz. Normal ve online hattı aynı.
+MARKDOWN_KADEMELERI = (0.20, 0.30, 0.40, 0.50, 0.70)
+MARKDOWN_ONCE_GUN = 28
+MARKDOWN_BEKLENEN_STR = 0.80
+MARKDOWN_TETIK = 0.7
+MARKDOWN_INDIRIM_TABANI = 0.30
+# Outlet hattı: outlet akışıyla gelen Collection, çıkış gününde %50'den
+# başlar, her OUTLET_MARKDOWN_ARALIK_GUN günde bir kademe (en çok %70).
+OUTLET_MARKDOWN_BASLANGIC = 0.50
+OUTLET_MARKDOWN_ARALIK_GUN = 28
+# Outlet'te satış penceresi çıkıştan sonra 12 hafta (cesit.OUTLET_AKISI_GUN ile aynı).
+OUTLET_OMRU_GUN = 84
+# Outlet akışında depo stoğunun bölünmesi: son bu kadar günün outlet satışı payı.
+OUTLET_SATIS_PENCERESI_GUN = 28
+
+# Lumoda'nın RPT pratiği (v3 kuralı, v3 değerleri kopyalanmıştır).
+RPT_ILK_HAFTA = 3
+RPT_SON_HAFTA = 6
+RPT_STR_ESIGI = 0.55
+RPT_MIKTAR_ORANI = 0.50
+
+# İkame (spec §5.4). Beden ikamesi: karşılanmamış talebin BEDEN_IKAME_ORANI'
+# aynı option'ın komşu bedenine (önce büyük). Kategori ikamesi: kalanın
+# IKAME_PAYI[alt kategori]'si aynı mağaza × alt kategori × fiyat segmentinde
+# stoğu olan başka option'lara. Tek tur.
+BEDEN_IKAME_ORANI = 0.05
+IKAME_PAYI = {
+    "Tişört": 0.40, "Sweatshirt": 0.40,
+    "Gömlek": 0.30, "Bluz": 0.30, "Pantolon": 0.30, "Jean": 0.30, "Etek": 0.30, "Şort": 0.30,
+    "Kazak": 0.25, "Elbise": 0.25, "Tulum": 0.25,
+    "Mont": 0.20, "Ceket": 0.20, "Trençkot": 0.20,
+    "Çanta": 0.25, "Şal": 0.25, "Kemer": 0.25,
+}

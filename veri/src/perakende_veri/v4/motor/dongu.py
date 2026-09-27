@@ -20,8 +20,8 @@ zincir planı (v3 ısınma kuralı). Sezonluk ürünlerin stoğu yoktur; ilk
 siparişleri dünyada hazırdır (`siparis_gun` negatif olabilir: d = 0'da
 zaten verilmiştir; asla dizi indisi olarak kullanılmaz).
 
-GÜNLÜK SIRA (spec §6.1; [T13]/[T14] = o görevde doldurulur)
-============================================================
+GÜNLÜK SIRA (spec §6.1; [T14] = o görevde doldurulur)
+=====================================================
 
  1. FOTOĞRAF. Depo stoğu her gün (görünür SKU: devamlı hep, sezonluk ilk
     teslimden çıkış + 7'ye kadar, ve stoğu olan her SKU); mağaza stoğu
@@ -47,18 +47,31 @@ GÜNLÜK SIRA (spec §6.1; [T13]/[T14] = o görevde doldurulur)
     günlere düşen sevkler bekler ve o gün depoya yeniden sığdırılır.
     Paket × paket içeriği SKU'lara (`sevkiyat` tip `ilk_dagitim`,
     `paket_id`). ONL (depodan satar) ve outlet akışı hücreleri almaz.
- 6. ÇIKIŞ / OUTLET [T13]. cikis_gun == d option'lar için
-    `outlet_akisi(g, os)` transferleri (şimdilik boş).
- 7. RPT [T13] (pazartesi). `rpt(g)` → {option: adet | SKU dizisi};
-    sipariş tedarik süresi sonra, önceden çekilmiş sapmayla gelir.
+ 6. ÇIKIŞ / OUTLET, STOK DEVRİ. cikis_gun == d option'lar için
+    `outlet_akisi(g, os)` transferleri (`sevkiyat` tip `outlet_akisi`,
+    yolda süreyle). Ardından penceresi kapanmış (d ≥ hucre_kapanis)
+    fiziksel hücrede kalan raf stoğu depoya devredilir (`stok_devri`,
+    yolda süreyle): outlet penceresi (çıkış + 84) biten outlet akışı
+    hücreleri, çıkışta outlet'e gitmeyen normal hücre stoğu, pencere
+    kapandıktan sonra varan mal ve müşteri iadesi (ertesi gün). Çıkmış
+    option'ın depo stoğu orada kalır: replenishment çıkıştan sonra
+    dağıtmaz, ONL'nin penceresi çıkışta kapanır.
+ 7. RPT (pazartesi). `rpt(g)` → {option: adet | SKU dizisi}; option'ın
+    tedarikçisine, planlanan = d + 7 × rpt_hafta, gerçekleşen = planlanan
+    + sapma_rpt[o, k] (k = option'ın kaçıncı RPT'si); teslimde kalite
+    `sayac_uretici_option(d, "kalite", o)`; mal depoya girer ve
+    replenishment'la dağılır (v3).
  8. SÜREKLİ TEDARİK (pazartesi, d % 14 == 0). Devamlı option'lar, v3'ün
     SKU düzeyindeki (s, S) kuralı: plan × düzeltme (son 56 günün zincir
     brüt satışı ÷ aynı dönemin planı, [0,7; 1,6]); bir bedenin envanter
     pozisyonu (depo + açık sipariş) (L + emniyet) haftalık planın altındaysa
     her beden (L + 2 + emniyet) haftaya tamamlanır, en az MOQ. Politika
     değildir.
- 9. MARKDOWN [T13] (pazartesi). `markdown(g)` → [O, 3] (normal / outlet /
-    online hattı); değişen oranlar `fiyat` kaydına.
+ 9. MARKDOWN (pazartesi). `markdown(g)` → [O, 3] (normal / outlet /
+    online hattı); değişen (option, hat) oranları `fiyat` kaydına. Ayrıca
+    her option'ın lansman gününde (en erken 0; pazartesi değilse fiyat
+    adımından önce) hücresi olan her hat için başlangıç satırı (o anki
+    oran). Hücrenin hattı: ONL 2, outlet akışı hücresi 1, diğerleri 0.
 10. REPLENİSHMENT (pazartesi). `replenishment(g)` → [C] istek; motor
     dağıtılamaz hücreleri sıfırlar (ONL, outlet akışı, ilk dağıtımı
     bitmemiş ya da çıkmış option, kapalı / kapanış kararlı mağaza), depo
@@ -69,10 +82,14 @@ GÜNLÜK SIRA (spec §6.1; [T13]/[T14] = o görevde doldurulur)
 13. TALEP. `u = sayac_uretici(d, "talep").random(C)`; `λ = lam.gun(d) ×
     (1 − oran_talep)^(−ε)`; `talep = PoissonTersCDF(u, λ)`.
 14. SATIŞ. Fiziksel hücre: `min(talep, raf)`; ONL: replenishment
-    sevkinden SONRA **kalan** depodan `min(talep, depo[sku])`. Kalan talep
-    gizli kayıp. İşlem indirimi (u_indirim < 0,08, oran 0 iken %30) yalnız
-    fiyata.
-15. İKAME [T13].
+    sevkinden SONRA **kalan** depodan `min(talep, depo[sku])`. İşlem
+    indirimi (u_indirim < 0,08, oran 0 iken %30) yalnız fiyata.
+15. İKAME (`satis.ikame`, tek tur). Karşılanmamış talep önce komşu
+    bedene (%5), kalanı alt kategori payıyla aynı (mağaza, alt kategori,
+    fiyat segmenti) grubunda stoğu kalan başka option'lara (bugünün λ'sı
+    ağırlığıyla) geçer; sığmayan gizli kayıp. İkame satışı alıcı hücrenin
+    o günkü `satis` satırına normal satış olarak eklenir (aynı fiyat
+    kuralı), ayrıca gizli `ikame_satis` kaydına yazılır.
 16. İADE. Fiziksel: n = d−7 satışı, Binom(n, 0,06 × (1 + 4 × tedarikçinin
     gizli hatalı oranı)), mağaza rafına (mağaza bugün kapalıysa aynı gün
     depoya, `sevkiyat` tip `iade_depoya`). ONL: n = d−10 satışı, oran 0,27
@@ -80,13 +97,15 @@ GÜNLÜK SIRA (spec §6.1; [T13]/[T14] = o görevde doldurulur)
 17. STOKLU BAYRAĞI. stoklu[d, c] = satış öncesi raf > 0 (ONL: depo > 0) —
     müşterinin bulduğu.
 
-Rastgelelik politikadan bağımsızdır: her gün `talep`, `indirim`, `iade`
-amaçları birer `random(C)` çeker; kalite (gün, option) anahtarlıdır.
+Rastgelelik politikadan bağımsızdır: her gün `talep`, `indirim`, `iade`,
+`beden_ikame`, `ikame` amaçları birer `random(C)` çeker; kalite (gün,
+option) anahtarlıdır.
 
 Mal defteri (`test_stok_korunumu`): her `sevkiyat` satırı `gun`de
 kaynaktan (kaynak_hucre ya da depo, −1) çıkar, `varis_gun`de hedefe
 (hedef_hucre ya da depo) girer; depo ayrıca teslim (adet − hatalı), online
-satış ve online iadeyle; hücre satış ve mağaza iadesiyle değişir.
+satış ve online iadeyle; hücre satış ve mağaza iadesiyle değişir (satış
+ikameyle gelen adedi de içerir; ONL'de ikame depodan düşer).
 """
 
 import numpy as np
@@ -115,6 +134,7 @@ from .satis import (
     gunun_birim_fiyati,
     hat_indisi,
     iade_cek,
+    ikame,
     satis_yap,
     talep_cek,
     tekduzeler,
@@ -142,14 +162,17 @@ def simule_et(
 
     Dönen sözlük: `satis` (gun, hucre, adet, tutar, indirim_tutari,
     kampanya_id = fiyatı belirleyen kampanyanın `kampanya` satır konumu,
-    −1 = yok; iade negatif satır, satış gününün fiyatı ve kampanyasıyla), `gizli_kayip` (gun, hucre, adet),
-    `ikame_satis` [T13], `sevkiyat` (gun, varis_gun, kaynak, hedef,
+    −1 = yok; iade negatif satır, satış gününün fiyatı ve kampanyasıyla;
+    ikame satışı dahil), `gizli_kayip` (gun, hucre, adet; ikameden sonra
+    kalıcı kayıp, kaynak hücrede), `ikame_satis` (gun, hucre, adet; alıcı
+    hücrede, gizli), `sevkiyat` (gun, varis_gun, kaynak, hedef,
     kaynak_hucre, hedef_hucre, sku, adet, tip, paket_id; −1 = depo /
     paketsiz), `stok` (pazartesi: gun, hucre, adet, stoklu_gun),
     `depo_stok` (günlük: gun, sku, adet), `siparis` (sözlük listesi: tip,
     option, siparis_gun, planlanan_gun, gerceklesen_gun, skular, adetler,
     tedarikci, teslimde hatali/numune), `kalite` (teslim başına), `fiyat`
-    (markdown değişimleri: gun, option, hat, oran), `son_durum`,
+    (gun, option, hat, oran: lansmanda başlangıç satırı + pazartesi
+    değişimleri), `son_durum`,
     `gun_sayisi`.
     """
     pol = Politikalar() if politikalar is None else politikalar
@@ -177,7 +200,7 @@ def simule_et(
     # günüyle birebir aynı kalsın (varış günü D'yi aşabilir).
     acik, kapanacak = magaza_takvimi(w, w.gun_sayisi + TAKVIM_PAYI)
     y_m = yolda_gun(w.depo_mesafe_km, depo=True)
-    hat_c = hat_indisi(w.magazalar, hm)
+    hat_c = hat_indisi(onl, outlet_c)
     eps_c = np.asarray(w.esneklik_hucre, dtype=float)
     kalite_izi = 1.0 + sabitler.IADE_KALITE_CARPANI * w.gizli_tedarikci["hatali_orani"].to_numpy()[ted][ho]
     p_iade = np.where(onl, sabitler.IADE_ORANI_ONLINE, sabitler.IADE_ORANI_MAGAZA) * kalite_izi
@@ -281,6 +304,15 @@ def simule_et(
     cikis_gunleri: dict[int, list[int]] = {}
     for o in np.flatnonzero(sezonluk):
         cikis_gunleri.setdefault(int(cikis[o]), []).append(int(o))
+    # Fiyat kaydının başlangıç satırları: option'ın lansman günü (en erken
+    # 0), option'ın hücresi olan her hat için.
+    hat_var = np.zeros((O, 3), dtype=bool)
+    hat_var[ho, hat_c] = True
+    fiyat_baslangic: dict[int, tuple[np.ndarray, np.ndarray]] = {}
+    for gun in np.unique(np.maximum(lansman, 0)):
+        oo, hh = np.nonzero(hat_var & (np.maximum(lansman, 0) == gun)[:, None])
+        fiyat_baslangic[int(gun)] = (oo, hh)
+    fiziksel_kapanis = np.where(fiz, w.hucre_kapanis, YOK_GUN)
     bekleyen_ilk: dict[int, list[tuple]] = {}   # sevk günü → [(o, mağazalar, paketler, paket sayıları)]
 
     def ilk_sevk(d, o, ms, ps, ns):
@@ -299,29 +331,47 @@ def simule_et(
         depodan_hucrelere(d, hucreler[g], adet[g], "ilk_dagitim", paket[g])
 
     def transfer_uygula(d: int, tr: Transferler, tip: str) -> None:
-        """Genel transfer: kaynak stoğuyla sınırlı, hedefte hücre yoksa atılır."""
-        for k, h, s, a in zip(*(np.asarray(x, dtype=np.int64) for x in (tr.kaynak, tr.hedef, tr.sku, tr.adet))):
-            if a <= 0 or k == h:
-                continue
-            kc = int(hucre_bul([k], [s])[0]) if k >= 0 else -1
-            hc = int(hucre_bul([h], [s])[0]) if h >= 0 else -1
-            if (k >= 0 and kc < 0) or (h >= 0 and hc < 0):
-                continue
-            a = int(min(a, z.stok[kc] if k >= 0 else z.depo[s]))
-            if a <= 0:
-                continue
-            if k >= 0:
-                z.stok[kc] -= a
-            else:
-                z.depo[s] -= a
-            if k >= 0 and h >= 0:
-                sure = int(yolda_gun(w.mesafe_km[k, h], depo=False))
-            else:
-                sure = int(y_m[h if h >= 0 else k])
-            z.yola_cikar(np.array([d + sure]), np.array([hc]), np.array([s]), np.array([a]))
-            if h >= 0 and k < 0:
-                z.gonderilen_option[w.sku_option[s]] += a
-            kay.sevk(d, d + sure, k, h, kc, hc, [s], [a], tip)
+        """Genel transfer (satır sırasıyla): kaynak stoğuyla sınırlı (aynı
+        kaynaktan birden çok satır sırayla tüketir), hedefte hücre yoksa
+        satır atılır; yolda süre mağaza→mağaza mesafeden, depo↔mağaza
+        mağazanın depo süresinden."""
+        k, h, s, a = (np.asarray(x, dtype=np.int64).ravel() for x in (tr.kaynak, tr.hedef, tr.sku, tr.adet))
+        if a.size == 0:
+            return
+        kc = np.where(k >= 0, hucre_bul(np.maximum(k, 0), s), -1)
+        hc = np.where(h >= 0, hucre_bul(np.maximum(h, 0), s), -1)
+        g = (a > 0) & (k != h) & ~((k >= 0) & (kc < 0)) & ~((h >= 0) & (hc < 0))
+        k, h, s, a, kc, hc = k[g], h[g], s[g], a[g], kc[g], hc[g]
+        if a.size == 0:
+            return
+        # Sıralı tüketim: satır i kaynağın kalanından min(a_i, kalan) alır,
+        # yani min(birikimli istek, stok) − min(önceki birikimli istek, stok).
+        anahtar = np.where(k >= 0, kc, C + s)
+        mevcut = np.where(k >= 0, z.stok[np.maximum(kc, 0)], z.depo[s])
+        sira = np.argsort(anahtar, kind="stable")
+        a_s, an_s = a[sira], anahtar[sira]
+        kum = np.cumsum(a_s)
+        bas = np.searchsorted(an_s, an_s, side="left")
+        grup_kum = kum - np.concatenate([[0], kum])[bas]
+        m_s = mevcut[sira]
+        ver = np.empty_like(a)
+        ver[sira] = np.minimum(grup_kum, m_s) - np.minimum(grup_kum - a_s, m_s)
+        g = ver > 0
+        k, h, s, a, kc, hc = k[g], h[g], s[g], ver[g], kc[g], hc[g]
+        if a.size == 0:
+            return
+        mk = k >= 0
+        np.subtract.at(z.stok, kc[mk], a[mk])
+        z.depo -= topla(s[~mk], a[~mk], S)
+        sure = np.where(
+            mk & (h >= 0),
+            yolda_gun(w.mesafe_km[np.maximum(k, 0), np.maximum(h, 0)], depo=False),
+            y_m[np.where(h >= 0, h, k)],
+        )
+        z.yola_cikar(d + sure, hc, s, a)
+        depodan = ~mk & (h >= 0)
+        z.gonderilen_option += topla(w.sku_option[s[depodan]], a[depodan], O)
+        kay.sevk(d, d + sure, k, h, kc, hc, s, a, tip)
 
     # --- Günlük döngü ------------------------------------------------------
     for d in range(D):
@@ -363,11 +413,11 @@ def simule_et(
             h = hh >= 0
             z.depo += topla(sk[~h], ad[~h], S)
             hh, sk, ad = hh[h], sk[h], ad[h]
-            z.stok[hh] += ad
+            np.add.at(z.stok, hh, ad)          # aynı partide aynı hücre birden çok kez olabilir
             kapali = ~acik[d][hm[hh]]
             if kapali.any():
                 c, a = hh[kapali], ad[kapali]
-                z.stok[c] -= a
+                np.subtract.at(z.stok, c, a)
                 z.depo += topla(hs[c], a, S)
                 kay.sevk(d, d, hm[c], -1, c, -1, hs[c], a, "geri_yonlendirme")
 
@@ -396,13 +446,20 @@ def simule_et(
                     else:
                         bekleyen_ilk.setdefault(int(gun), []).append((o, mm, ps[mm], ns[mm]))
 
-        # 6) Çıkış / outlet akışı [T13]
+        # 6) Çıkış / outlet akışı, stok devri
         if d in cikis_gunleri:
             transfer_uygula(d, pol.outlet_akisi(gorunum(d), np.array(cikis_gunleri[d])), "outlet_akisi")
+        devir = np.flatnonzero((fiziksel_kapanis <= d) & (z.stok > 0))
+        if devir.size:
+            a = z.stok[devir].copy()
+            m = hm[devir]
+            z.stok[devir] = 0
+            z.yola_cikar(d + y_m[m], np.full(devir.size, -1), hs[devir], a)
+            kay.sevk(d, d + y_m[m], m, -1, devir, -1, hs[devir], a, "stok_devri")
 
         if pazartesi:
             g = gorunum(d)
-            # 7) RPT [T13]
+            # 7) RPT
             for o, miktar in sorted(pol.rpt(g).items()):
                 sk = option_skulari[o]
                 adetler = (
@@ -424,7 +481,10 @@ def simule_et(
             if d % (7 * sabitler.SUREKLI_GOZDEN_GECIRME_HAFTA) == 0:
                 surekli_tedarik(w, z, d, sezonluk, L_o, moq_o, ted, option_skulari, siparis_ekle)
 
-            # 9) Markdown [T13]
+            # 9) Markdown
+            if d in fiyat_baslangic:
+                oo, hh = fiyat_baslangic.pop(d)
+                kay.fiyat.append((d, oo, hh, z.fiyat_orani[oo, hh].copy()))
             yeni = np.asarray(pol.markdown(g), dtype=float)
             degisen = np.argwhere(yeni != z.fiyat_orani)
             if len(degisen):
@@ -445,6 +505,10 @@ def simule_et(
             # 11) Elle transfer [T14]
             transfer_uygula(d, pol.elle_transfer(g), "elle_transfer")
 
+        if d in fiyat_baslangic:   # pazartesi olmayan lansman
+            oo, hh = fiyat_baslangic.pop(d)
+            kay.fiyat.append((d, oo, hh, z.fiyat_orani[oo, hh].copy()))
+
         # 12) Fiyat
         u = tekduzeler(d, C, w.tohum, operasyon_tohumu)
         md = z.fiyat_orani[ho, hat_c]
@@ -452,7 +516,8 @@ def simule_et(
         oran_talep = np.maximum(md, kamp)
 
         # 13) Talep
-        talep = talep_cek(u["talep"], w.lam.gun(d), oran_talep, eps_c)
+        lam_d = w.lam.gun(d)
+        talep = talep_cek(u["talep"], lam_d, oran_talep, eps_c)
         if talep_kaydi is not None:
             talep_kaydi[d] = talep
 
@@ -461,6 +526,19 @@ def simule_et(
         satilan = satis_yap(talep, z.stok, z.depo, onl, hs)
         z.stok -= np.where(onl, 0, satilan)
         z.depo -= topla(hs[onl], satilan[onl], S)
+        kayip = talep - satilan
+
+        # 15) İkame (tek tur; alıcının kalan stoğundan, aynı fiyat kuralıyla)
+        ik, kayip = ikame(np.where(onl, z.depo[hs], z.stok), kayip, w, d, lam_d)
+        alan = np.flatnonzero(ik > 0)
+        if alan.size:
+            a = ik[alan]
+            kay.ikame.append((d, alan, a))
+            o_mask = onl[alan]
+            z.stok[alan[~o_mask]] -= a[~o_mask]
+            z.depo -= topla(hs[alan[o_mask]], a[o_mask], S)
+            satilan = satilan + ik
+
         birim, _ = gunun_birim_fiyati(liste, md, kamp, u["indirim"])
         birim_gecmisi[d % GECMIS_FIYAT] = birim
         # Uygulanan kampanya: oranı markdown'ı aşan (fiyatı belirleyen) kampanya
@@ -474,7 +552,6 @@ def simule_et(
             kay.satis.append((d, satan, a, np.round(birim[satan] * a, 2),
                               np.round((liste[satan] - birim[satan]) * a, 2),
                               kampanya_gecmisi[d % GECMIS_FIYAT, satan]))
-        kayip = talep - satilan
         kayip_olan = np.flatnonzero(kayip > 0)
         if kayip_olan.size:
             kay.kayip.append((d, kayip_olan, kayip[kayip_olan]))
@@ -484,8 +561,6 @@ def simule_et(
             z.satis_28 -= z.satis_gecmisi[d - sabitler.OLU_STOK_PENCERESI_GUN]
         z.satilan_option += topla(ho, satilan, O)
         z.satilan_option_kum[d + 1] = z.satilan_option
-
-        # 15) İkame [T13]
 
         # 16) İade
         n = np.zeros(C, dtype=np.int64)
@@ -518,7 +593,7 @@ def simule_et(
     ham = {
         "satis": Kayit.tablo(kay.satis, "hucre", ["adet", "tutar", "indirim_tutari", "kampanya_id"]),
         "gizli_kayip": Kayit.tablo(kay.kayip, "hucre", ["adet"]),
-        "ikame_satis": pd.DataFrame(columns=["gun", "hucre", "adet"]),
+        "ikame_satis": Kayit.tablo(kay.ikame, "hucre", ["adet"]),
         "sevkiyat": kay.sevkiyat_tablosu(),
         "stok": Kayit.tablo(kay.stok, "hucre", ["adet", "stoklu_gun"]),
         "depo_stok": Kayit.tablo(kay.depo, "sku", ["adet"]),

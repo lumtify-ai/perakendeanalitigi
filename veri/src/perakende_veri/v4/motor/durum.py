@@ -157,7 +157,7 @@ class Kayit:
 
     def __init__(self):
         self.satis, self.kayip, self.stok, self.depo = [], [], [], []
-        self.sevkiyat, self.fiyat = [], []
+        self.sevkiyat, self.fiyat, self.ikame = [], [], []
         self.kalite: list[dict] = []
 
     def sevk(self, gun, varis, kaynak, hedef, kaynak_hucre, hedef_hucre, sku, adet, tip, paket=-1):

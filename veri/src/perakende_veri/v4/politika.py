@@ -9,18 +9,18 @@ profili, segment) bakmaz.
     ilk_dagitim(g, o)   -> [M] paket sayısı          (Görev 12, Lumoda)
     paket_secimi(g, o)  -> [M] paket indisi          (Görev 12, Lumoda)
     replenishment(g)    -> [C] depodan istenen adet  (Görev 12, Lumoda)
-    rpt(g)              -> {option: adet}            (Görev 13; şimdilik boş)
-    markdown(g)         -> [O, 3] indirim oranı      (Görev 13; şimdilik değişmez)
+    rpt(g)              -> {option: adet}            (Görev 13, `LumodaRPT`, v3)
+    markdown(g)         -> [O, 3] indirim oranı      (Görev 13, `LumodaMarkdown`)
     acilis(g, m)        -> Transferler               (Görev 14; şimdilik boş)
     kapanis(g, m)       -> Transferler               (Görev 14; şimdilik boş)
     elle_transfer(g)    -> Transferler               (Görev 14; şimdilik boş)
-    outlet_akisi(g, os) -> Transferler               (Görev 13; şimdilik boş)
+    outlet_akisi(g, os) -> Transferler               (Görev 13, Lumoda)
 
 Tedarikçi seçimi burada değildir: `dunya_kur(tedarikci_secimi=…)`
 parametresidir (sipariş dünyada önceden kurulur).
 
-v4 hiçbir v2/v3/kök modülünü içe aktarmaz (v3 `mevcut_dagitim` kuralı
-kopyalanmıştır).
+v4 hiçbir v2/v3/kök modülünü içe aktarmaz (v3 `mevcut_dagitim` ve
+`LumodaRPT` kuralları kopyalanmıştır).
 """
 
 from dataclasses import dataclass, field
@@ -30,7 +30,7 @@ import numpy as np
 import pandas as pd
 
 from . import sabitler
-from .plan import en_buyuk_kalan
+from .plan import en_buyuk_kalan, moq_yuvarla
 
 
 # ---------------------------------------------------------------------------
@@ -167,19 +167,215 @@ def lumoda_replenishment(g) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
-# Yer tutucular (Görev 13–14 doldurur; imzalar sabit)
+# Lumoda: RPT, markdown, outlet akışı (Görev 13)
 # ---------------------------------------------------------------------------
 
 
-def lumoda_rpt(g) -> dict[int, int]:
-    """Görev 13: Banu'nun RPT kuralı. Şimdilik sipariş yok."""
-    return {}
+def _tedarikci_sutunu(w, sutun: str) -> np.ndarray:
+    """[O] option'ın tedarikçisinin yayımlanan bir sütunu (`optionlar.tedarikci_id`
+    üzerinden; gizli profil okunmaz)."""
+    t = w.tedarikciler.set_index("tedarikci_id")[sutun]
+    return t.loc[w.optionlar["tedarikci_id"]].to_numpy()
 
 
-def lumoda_markdown(g) -> np.ndarray:
-    """Görev 13: STR'ye bağlı kademeli markdown, [O, 3] (normal / outlet /
-    online hattı). Şimdilik değişiklik yok (güncel oranlar)."""
-    return np.array(g.fiyat_orani, copy=True)
+def _str(g) -> np.ndarray:
+    """[O] zincir STR'si: dünkü akşama kadar brüt satış (ONL dahil) ÷ bu
+    sabaha kadar mağazalara giden (hiç gitmemişse 0)."""
+    return np.divide(
+        g.satilan_option, g.gonderilen_option,
+        out=np.zeros(len(g.satilan_option)), where=np.asarray(g.gonderilen_option) > 0,
+    )
+
+
+class LumodaRPT:
+    """Her pazartesi, lansmandan 3–6 hafta sonraki Collection option'ları
+    (v3 `LumodaRPT` birebir; RPT süresi ve MOQ option'ın tedarikçisinden).
+
+    Tetik    zincir STR'si (brüt satış ÷ mağazalara giden) ≥ %55
+    Yetişme  lansman + 3 hafta + RPT süresi < indirim başı
+             (siparişin verildiği güne değil lansmana bakar; teslim
+             sapmasını görmez — kasıtlı kusur)
+    Miktar   ilk alımın %50'si, en az MOQ (10'un katına yukarı)
+    Sınır    option başına en fazla bir RPT
+
+    STR'nin payı dünkü akşama kadarki satış, paydası bu sabaha kadar
+    mağazalara giden (ilk dağıtım + replenishment + depodan outlet akışı;
+    mağazadan geri dönüş düşülmez).
+    """
+
+    def __init__(
+        self,
+        str_esigi: float = sabitler.RPT_STR_ESIGI,
+        ilk_hafta: int = sabitler.RPT_ILK_HAFTA,
+        son_hafta: int = sabitler.RPT_SON_HAFTA,
+        miktar_orani: float = sabitler.RPT_MIKTAR_ORANI,
+    ):
+        self.str_esigi = str_esigi
+        self.ilk_hafta = ilk_hafta
+        self.son_hafta = son_hafta
+        self.miktar_orani = miktar_orani
+
+    def __call__(self, g) -> dict[int, int]:
+        w = g.dunya
+        opt = w.optionlar
+        d = g.gun
+        h = d - opt["lansman_gun"].to_numpy()
+        pencere = (h >= 7 * self.ilk_hafta) & (h <= 7 * self.son_hafta)
+        aday = (
+            (opt["line"].to_numpy() == "Collection")
+            & pencere
+            & (np.asarray(g.rpt_sayisi) == 0)
+            & (np.asarray(g.gonderilen_option) > 0)
+        )
+        if not aday.any():
+            return {}
+        rpt_hafta = _tedarikci_sutunu(w, "rpt_hafta")
+        yetisir = (
+            opt["lansman_gun"].to_numpy() + 7 * self.ilk_hafta + 7 * rpt_hafta
+        ) < opt["indirim_gun"].to_numpy()
+        secilen = np.flatnonzero(aday & (_str(g) >= self.str_esigi) & yetisir)
+        if not secilen.size:
+            return {}
+        moq = _tedarikci_sutunu(w, "moq_option")
+        miktar = moq_yuvarla(self.miktar_orani * np.asarray(w.ilk_alim)[secilen], moq[secilen])
+        return {int(o): int(m) for o, m in zip(secilen, miktar)}
+
+
+class LumodaMarkdown:
+    """Lumoda'nın markdown kuralı, [O, 3] (normal / outlet / online hattı).
+
+    Normal ve online hat (aynı oran): Collection ve Outlet line, her
+    pazartesi `indirim_gun − 28`'den çıkışa kadar.
+        beklenen = 0,80 × min(1, (d − lansman) ÷ (indirim − lansman))
+        STR (brüt satış ÷ mağazalara giden) < 0,7 × beklenen ise bir kademe
+        derinleşir (haftada en fazla bir kademe); d ≥ indirim_gun iken en az
+        %30. Kademeler %20 / 30 / 40 / 50 / 70; oran hiç sığlaşmaz.
+    İçseldir: STR'si düşük option daha erken ve daha derin indirilir (esneklik
+    tuzağı). Devamlı (Basic/NOS) option'lar bu kuralla hiç indirilmez.
+
+    Outlet hattı (outlet akışı hücreleri): Collection option çıkış gününde
+    %50'den başlar, her 4 haftada bir kademe (en çok %70), outlet penceresi
+    boyunca. Outlet mağazasında normal pencereyle satılan Outlet line normal
+    hattı izler (motor hücreyi hattına eşler).
+    """
+
+    def __init__(
+        self,
+        kademeler=sabitler.MARKDOWN_KADEMELERI,
+        once_gun: int = sabitler.MARKDOWN_ONCE_GUN,
+        beklenen_str: float = sabitler.MARKDOWN_BEKLENEN_STR,
+        tetik: float = sabitler.MARKDOWN_TETIK,
+        indirim_tabani: float = sabitler.MARKDOWN_INDIRIM_TABANI,
+        outlet_baslangic: float = sabitler.OUTLET_MARKDOWN_BASLANGIC,
+        outlet_aralik_gun: int = sabitler.OUTLET_MARKDOWN_ARALIK_GUN,
+        outlet_omru_gun: int = sabitler.OUTLET_OMRU_GUN,
+    ):
+        self.kademeler = np.asarray(kademeler, dtype=float)
+        self.once_gun = once_gun
+        self.beklenen_str = beklenen_str
+        self.tetik = tetik
+        self.indirim_tabani = indirim_tabani
+        self.outlet_baslangic = outlet_baslangic
+        self.outlet_aralik_gun = outlet_aralik_gun
+        self.outlet_omru_gun = outlet_omru_gun
+
+    def __call__(self, g) -> np.ndarray:
+        w = g.dunya
+        opt = w.optionlar
+        d = g.gun
+        k = self.kademeler
+        yeni = np.array(g.fiyat_orani, dtype=float, copy=True)
+        lan, ind, cik = (opt[c].to_numpy() for c in ("lansman_gun", "indirim_gun", "cikis_gun"))
+        sezonluk = opt["sezonluk"].to_numpy(dtype=bool)
+
+        # Normal ve online hat
+        su_an = np.maximum(yeni[:, 0], yeni[:, 2])
+        aktif = sezonluk & (d >= lan) & (d >= ind - self.once_gun) & (d < cik)
+        if aktif.any():
+            ilerleme = np.clip((d - lan) / np.maximum(ind - lan, 1), 0.0, 1.0)
+            beklenen = self.beklenen_str * ilerleme
+            derin = aktif & (_str(g) < self.tetik * beklenen)
+            sonraki = k[np.minimum(np.searchsorted(k, su_an + 1e-9, side="right"), len(k) - 1)]
+            oran = np.where(derin, np.maximum(su_an, sonraki), su_an)
+            oran = np.where(aktif & (d >= ind), np.maximum(oran, self.indirim_tabani), oran)
+            yeni[:, 0] = np.where(aktif, oran, yeni[:, 0])
+            yeni[:, 2] = np.where(aktif, oran, yeni[:, 2])
+
+        # Outlet hattı (outlet akışıyla gelen Collection)
+        t = d - cik
+        outlet = (opt["line"].to_numpy() == "Collection") & (t >= 0) & (t < self.outlet_omru_gun)
+        if outlet.any():
+            bas = int(np.searchsorted(k, self.outlet_baslangic - 1e-9))
+            hedef = k[np.minimum(bas + np.maximum(t, 0) // self.outlet_aralik_gun, len(k) - 1)]
+            yeni[:, 1] = np.where(outlet, np.maximum(yeni[:, 1], hedef), yeni[:, 1])
+        return yeni
+
+
+def lumoda_outlet_akisi(g, os: np.ndarray) -> Transferler:
+    """Sezon çıkışında kalan stok outlet mağazalarına (`os` bugün çıkan
+    option'lar).
+
+    Hedef    bugün açık, kapanış kararı verilmemiş ve option'ı outlet akışı
+             hücresi olarak taşıyan outlet mağazaları
+    Mağaza   her normal fiziksel mağazanın (AVM/cadde) o option'daki stoğu
+             en yakın hedef outlet mağazasına (`mesafe_km`)
+    Depo     option'ın depo stoğu hedef outlet mağazalarına son 28 günün
+             outlet hattı satış payıyla (bütün option'lar; hiç yoksa
+             kapasite payıyla), SKU başına en büyük kalanla
+
+    Hedef yoksa transfer yok (motor kapanmış penceredeki raf stoğunu
+    `stok_devri` ile depoya devreder). Yolda süre motorca uygulanır.
+    """
+    w = g.dunya
+    mag = w.magazalar
+    tip = mag["tip"].to_numpy()
+    M = len(mag)
+    hm, hs, ho = w.hucre_magaza, w.hucre_sku, w.hucre_option
+    outlet_c = np.asarray(w.hucre_outlet_akisi)
+    stok = np.asarray(g.magaza_stok)
+    depo = np.asarray(g.depo)
+    uygun_m = (tip == "Outlet") & np.asarray(g.acik_magaza) & ~np.asarray(g.kapanacak)
+    normal_m = ~np.isin(tip, ["Outlet", "Online"])
+    # Son 28 günün outlet hattı satışı (mağaza başına)
+    outlet_satis = np.bincount(hm[outlet_c], np.asarray(g.satis_28)[outlet_c], minlength=M)
+    kapasite = mag["kapasite"].to_numpy(dtype=float)
+
+    k, h, s, a = [], [], [], []
+    for o in np.asarray(os, dtype=np.int64):
+        oc = ho == o
+        hedef_m = np.zeros(M, dtype=bool)
+        hedef_m[hm[oc & outlet_c]] = True
+        hedef_m &= uygun_m
+        hedefler = np.flatnonzero(hedef_m)
+        if hedefler.size == 0:
+            continue
+        # Normal mağazalar → en yakın hedef
+        kc = np.flatnonzero(oc & normal_m[hm] & (stok > 0))
+        if kc.size:
+            en_yakin = hedefler[np.argmin(w.mesafe_km[np.ix_(hm[kc], hedefler)], axis=1)]
+            k.append(hm[kc]); h.append(en_yakin); s.append(hs[kc]); a.append(stok[kc])
+        # Depo → satış (yoksa kapasite) payıyla
+        pay = outlet_satis[hedefler].astype(float)
+        if pay.sum() <= 0:
+            pay = kapasite[hedefler]
+        for sk in np.flatnonzero((w.sku_option == o) & (depo > 0)):
+            bol = en_buyuk_kalan(int(depo[sk]), pay)
+            v = bol > 0
+            k.append(np.full(int(v.sum()), -1)); h.append(hedefler[v])
+            s.append(np.full(int(v.sum()), sk)); a.append(bol[v])
+    if not k:
+        return Transferler.bos()
+    b = lambda x: np.concatenate(x).astype(np.int64)  # noqa: E731
+    return Transferler(b(k), b(h), b(s), b(a))
+
+
+lumoda_rpt = LumodaRPT()
+lumoda_markdown = LumodaMarkdown()
+
+
+# ---------------------------------------------------------------------------
+# Yer tutucular (Görev 14 doldurur; imzalar sabit)
+# ---------------------------------------------------------------------------
 
 
 def lumoda_acilis(g, m: int) -> Transferler:
@@ -194,12 +390,6 @@ def lumoda_kapanis(g, m: int) -> Transferler:
 
 def lumoda_elle_transfer(g) -> Transferler:
     """Görev 14: bölge müdürünün haftalık elle transferleri. Şimdilik boş."""
-    return Transferler.bos()
-
-
-def lumoda_outlet_akisi(g, os: np.ndarray) -> Transferler:
-    """Görev 13: sezon çıkışında kalan stok outlet mağazalarına ve depoya.
-    `os` bugün çıkan option indisleri. Şimdilik boş."""
     return Transferler.bos()
 
 

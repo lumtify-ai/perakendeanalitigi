@@ -369,7 +369,13 @@ def test_talep_kaydi_satis_arti_kayip(kucuk_dunya):
     toplam = np.zeros(talep.shape, dtype=np.int64)
     np.add.at(toplam, (sat.gun.to_numpy(), sat.hucre.to_numpy()), sat.adet.to_numpy())
     np.add.at(toplam, (kay.gun.to_numpy(), kay.hucre.to_numpy()), kay.adet.to_numpy())
-    np.testing.assert_array_equal(toplam, talep)
+    # Görev 13: ikame kaybı bir hücreden başka hücrenin satışına taşır; özdeşlik
+    # gün toplamında birebir, hücrede ikame satışı düşülünce eşitsizlik olarak tutar.
+    np.testing.assert_array_equal(toplam.sum(axis=1), talep.sum(axis=1))
+    ik = k["ikame_satis"]
+    assert len(ik) > 0
+    np.add.at(toplam, (ik.gun.to_numpy(), ik.hucre.to_numpy()), -ik.adet.to_numpy())
+    assert (toplam <= talep).all()
 
 
 def test_iade_oranlari(kucuk_dunya, kucuk_kosu):
