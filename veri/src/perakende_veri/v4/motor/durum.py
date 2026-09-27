@@ -46,7 +46,10 @@ class Gorunum:
     `depo_mesafe_km`, çeşit yapısı (`cesit`, `hucre_*`, `sku_option`,
     `sku_beden_payi`). **Asla** `lam`, `gizli_*` (`gizli_magaza`,
     `gizli_tedarikci`, `gizli_talep`), `esneklik`, `esneklik_hucre`,
-    `sapma_*` ve `gercek()` okunmaz — bunlar motorun gizli gerçeğidir.
+    `sapma_*`, `ilk_siparisler` (gerçekleşen teslim günü, hatalı adet,
+    numune: teslimden önce bilinemeyen gerçekleşme) ve `gercek()` okunmaz —
+    bunlar motorun gizli gerçeğidir. Açık siparişlerin kamuya açık hâli
+    `acik_siparisler`'dedir (gerçekleşen gün ve kalite çıkarılmış).
     (Sözleşmedir; `dunya` v3'teki gibi nesnenin kendisidir.)
 
     Alanlar: `gun`, `tarih`; `magaza_stok` [C] (o anki), `depo` [S] (o

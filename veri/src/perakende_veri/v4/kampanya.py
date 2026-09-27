@@ -227,29 +227,28 @@ def _kapsam_maskesi(degerler: np.ndarray, kapsam: str) -> np.ndarray:
     return np.isin(degerler, list(kume))
 
 
-def kampanya_orani(
+def _oran_ve_id(
     kampanya: pd.DataFrame, d: int, magazalar: pd.DataFrame, optionlar: pd.DataFrame
-) -> np.ndarray:
-    """`[M, O]` o gün geçerli en yüksek kampanya oranı (seyrek işlem; Black
-    Friday'in trafik çarpanı Görev 8'de, burada değil).
-
-    Bölgesel kapsam (`kapsam_bolge` boş değilse) yalnız fiziksel mağazalara
-    uygulanır — boş kapsam (= hepsi) dışında ONL hiçbir bölgesel kampanyaya
-    girmez (controller kararı)."""
+) -> tuple[np.ndarray, np.ndarray]:
+    """(`[M, O]` en yüksek oran, `[M, O]` o oranı veren kampanyanın
+    `kampanya` satır konumu; −1 = yok). Eşit oranda tablo sırasında önce
+    gelen kazanır."""
     M, O = len(magazalar), len(optionlar)
     oran = np.zeros((M, O), dtype=float)
+    kid = np.full((M, O), -1, dtype=np.int64)
 
     tarih = pd.Timestamp(sabitler.ISINMA_BASLANGIC) + pd.Timedelta(int(d), unit="D")
-    aktif = kampanya[(kampanya.baslangic <= tarih) & (kampanya.bitis >= tarih)]
-    if aktif.empty:
-        return oran
+    konum = np.arange(len(kampanya))
+    aktif_maske = ((kampanya.baslangic <= tarih) & (kampanya.bitis >= tarih)).to_numpy()
+    if not aktif_maske.any():
+        return oran, kid
 
     bolge = magazalar["bolge"].to_numpy()
     online_mi = (magazalar["tip"] == "Online").to_numpy()
     ust_kat = optionlar["ust_kategori"].to_numpy()
     line = optionlar["line"].to_numpy()
 
-    for k in aktif.itertuples():
+    for i, k in zip(konum[aktif_maske], kampanya[aktif_maske].itertuples()):
         if k.kapsam_bolge:
             m_maske = _kapsam_maskesi(bolge, k.kapsam_bolge) & ~online_mi
         else:
@@ -260,8 +259,42 @@ def kampanya_orani(
         if not m_maske.any() or not o_maske.any():
             continue
         hucre = np.ix_(m_maske, o_maske)
+        daha_yuksek = k.oran > oran[hucre]
+        kid[hucre] = np.where(daha_yuksek, i, kid[hucre])
         oran[hucre] = np.maximum(oran[hucre], k.oran)
-    return oran
+    return oran, kid
+
+
+def kampanya_orani(
+    kampanya: pd.DataFrame, d: int, magazalar: pd.DataFrame, optionlar: pd.DataFrame
+) -> np.ndarray:
+    """`[M, O]` o gün geçerli en yüksek kampanya oranı (seyrek işlem; Black
+    Friday'in trafik çarpanı Görev 8'de, burada değil).
+
+    Bölgesel kapsam (`kapsam_bolge` boş değilse) yalnız fiziksel mağazalara
+    uygulanır — boş kapsam (= hepsi) dışında ONL hiçbir bölgesel kampanyaya
+    girmez (controller kararı)."""
+    return _oran_ve_id(kampanya, d, magazalar, optionlar)[0]
+
+
+def _degisim_gunleri(kampanya: pd.DataFrame, gun_sayisi: int) -> list[int]:
+    degisim_gunleri = {0}
+    for row in kampanya.itertuples():
+        bas_gun = gun_indisi(row.baslangic)
+        bit_gun = gun_indisi(row.bitis) + 1  # kampanya biter, oran düşebilir
+        if 0 <= bas_gun < gun_sayisi:
+            degisim_gunleri.add(bas_gun)
+        if 0 <= bit_gun < gun_sayisi:
+            degisim_gunleri.add(bit_gun)
+    return sorted(degisim_gunleri)
+
+
+def _basamakli(sirali_gunler: list[int], degerler: dict[int, np.ndarray]) -> Callable[[int], np.ndarray]:
+    def sorgula(d: int) -> np.ndarray:
+        idx = max(bisect.bisect_right(sirali_gunler, d) - 1, 0)
+        return degerler[sirali_gunler[idx]]
+
+    return sorgula
 
 
 def kampanya_takvimi(
@@ -273,28 +306,30 @@ def kampanya_takvimi(
 
     Dönen dizi salt okunurdur (paylaşılan önbellek, motor değiştirmemeli).
     """
-    degisim_gunleri = {0}
-    for row in kampanya.itertuples():
-        bas_gun = gun_indisi(row.baslangic)
-        bit_gun = gun_indisi(row.bitis) + 1  # kampanya biter, oran düşebilir
-        if 0 <= bas_gun < gun_sayisi:
-            degisim_gunleri.add(bas_gun)
-        if 0 <= bit_gun < gun_sayisi:
-            degisim_gunleri.add(bit_gun)
-    sirali_gunler = sorted(degisim_gunleri)
-
+    sirali_gunler = _degisim_gunleri(kampanya, gun_sayisi)
     onbellek: dict[int, np.ndarray] = {}
     for g in sirali_gunler:
         arr = kampanya_orani(kampanya, g, magazalar, optionlar)
         arr.setflags(write=False)
         onbellek[g] = arr
+    return _basamakli(sirali_gunler, onbellek)
 
-    def sorgula(d: int) -> np.ndarray:
-        idx = bisect.bisect_right(sirali_gunler, d) - 1
-        idx = max(idx, 0)
-        return onbellek[sirali_gunler[idx]]
 
-    return sorgula
+def kampanya_id_takvimi(
+    kampanya: pd.DataFrame, magazalar: pd.DataFrame, optionlar: pd.DataFrame, gun_sayisi: int
+) -> Callable[[int], np.ndarray]:
+    """`kampanya_takvimi`nin paraleli: d → `[M, O]` int, o günün en yüksek
+    oranını veren kampanyanın `kampanya` satır konumu (−1 = kampanya yok).
+    Oranı `kampanya_takvimi(d)` ile birebir aynı kampanyadan gelir (eşit
+    oranda tablo sırasında önce gelen). Motor satışın `kampanya_id`'sini
+    bununla yazar. Dönen dizi salt okunurdur."""
+    sirali_gunler = _degisim_gunleri(kampanya, gun_sayisi)
+    onbellek: dict[int, np.ndarray] = {}
+    for g in sirali_gunler:
+        arr = _oran_ve_id(kampanya, g, magazalar, optionlar)[1]
+        arr.setflags(write=False)
+        onbellek[g] = arr
+    return _basamakli(sirali_gunler, onbellek)
 
 
 # ---------------------------------------------------------------------------

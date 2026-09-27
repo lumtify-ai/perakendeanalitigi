@@ -94,6 +94,7 @@ import pandas as pd
 
 from .. import sabitler
 from ..dunya import yolda_gun
+from ..kampanya import kampanya_id_takvimi
 from ..plan import en_buyuk_kalan
 from ..politika import Politikalar, Transferler, paket_tablosu
 from ..rastgele import sayac_uretici_option
@@ -119,6 +120,7 @@ from .satis import (
     tekduzeler,
 )
 
+TAKVIM_PAYI = 8  # mağaza takvimi dünya ufkunun bu kadar gün ötesine uzanır (yolda ≤ 4)
 GECMIS_FIYAT = max(sabitler.IADE_GECIKME_MAGAZA, sabitler.IADE_GECIKME_ONLINE) + 1
 
 
@@ -139,7 +141,8 @@ def simule_et(
     kayit_talep       True ise `talep` [D, C] int16 de döner
 
     Dönen sözlük: `satis` (gun, hucre, adet, tutar, indirim_tutari,
-    kampanya_id; iade negatif satır), `gizli_kayip` (gun, hucre, adet),
+    kampanya_id = fiyatı belirleyen kampanyanın `kampanya` satır konumu,
+    −1 = yok; iade negatif satır, satış gününün fiyatı ve kampanyasıyla), `gizli_kayip` (gun, hucre, adet),
     `ikame_satis` [T13], `sevkiyat` (gun, varis_gun, kaynak, hedef,
     kaynak_hucre, hedef_hucre, sku, adet, tip, paket_id; −1 = depo /
     paketsiz), `stok` (pazartesi: gun, hucre, adet, stoklu_gun),
@@ -169,7 +172,10 @@ def simule_et(
     tarihler = pd.DatetimeIndex(w.takvim["tarih"])
     option_skulari = [np.flatnonzero(w.sku_option == o) for o in range(O)]
     hucre_pencere = lambda d: (w.hucre_acilis <= d) & (d < w.hucre_kapanis)  # noqa: E731
-    acik, kapanacak = magaza_takvimi(w, max(D, 1))
+    # Takvim her zaman dünyanın tam gün sayısı (+ yolda payı) üzerinden
+    # kurulur, kısaltılmış D üzerinden değil: ilk n gün, tam koşunun ilk n
+    # günüyle birebir aynı kalsın (varış günü D'yi aşabilir).
+    acik, kapanacak = magaza_takvimi(w, w.gun_sayisi + TAKVIM_PAYI)
     y_m = yolda_gun(w.depo_mesafe_km, depo=True)
     hat_c = hat_indisi(w.magazalar, hm)
     eps_c = np.asarray(w.esneklik_hucre, dtype=float)
@@ -192,6 +198,8 @@ def simule_et(
     z = Durum(D, C, S, O, M)
     kay = Kayit()
     birim_gecmisi = np.zeros((GECMIS_FIYAT, C))
+    kampanya_gecmisi = np.full((GECMIS_FIYAT, C), -1, dtype=np.int64)
+    kampanya_id = kampanya_id_takvimi(w.kampanya, w.magazalar, w.optionlar, w.lam.gun_sayisi)
     talep_kaydi = np.zeros((D, C), dtype=np.int16) if kayit_talep else None
 
     def gorunum(d: int) -> Gorunum:
@@ -374,7 +382,7 @@ def simule_et(
                 ps = np.asarray(pol.paket_secimi(g, o), dtype=np.int64)
                 ns = np.maximum(np.asarray(pol.ilk_dagitim(g, o), dtype=np.int64), 0)
                 sevk_gun = np.maximum(int(lansman[o]) - y_m, d)
-                varis = np.minimum(sevk_gun + y_m, D - 1)
+                varis = np.minimum(sevk_gun + y_m, len(acik) - 1)
                 ns = np.where(aday_magaza[o] & ~kapanacak[d] & acik[varis, np.arange(M)], ns, 0)
                 sk = option_skulari[o]
                 ic = icerik[ps[:, None], beden_sira[sk][None, :]]
@@ -455,11 +463,17 @@ def simule_et(
         z.depo -= topla(hs[onl], satilan[onl], S)
         birim, _ = gunun_birim_fiyati(liste, md, kamp, u["indirim"])
         birim_gecmisi[d % GECMIS_FIYAT] = birim
+        # Uygulanan kampanya: oranı markdown'ı aşan (fiyatı belirleyen) kampanya
+        kampanyali = kamp > md
+        kampanya_gecmisi[d % GECMIS_FIYAT] = (
+            np.where(kampanyali, kampanya_id(d)[hm, ho], -1) if kampanyali.any() else -1
+        )
         satan = np.flatnonzero(satilan > 0)
         if satan.size:
             a = satilan[satan]
             kay.satis.append((d, satan, a, np.round(birim[satan] * a, 2),
-                              np.round((liste[satan] - birim[satan]) * a, 2), -1))
+                              np.round((liste[satan] - birim[satan]) * a, 2),
+                              kampanya_gecmisi[d % GECMIS_FIYAT, satan]))
         kayip = talep - satilan
         kayip_olan = np.flatnonzero(kayip > 0)
         if kayip_olan.size:
@@ -483,8 +497,10 @@ def simule_et(
         donen = np.flatnonzero(iade > 0)
         if donen.size:
             a = iade[donen]
-            b = birim_gecmisi[(d - gecikme[donen]) % GECMIS_FIYAT, donen]
-            kay.satis.append((d, donen, -a, -np.round(b * a, 2), -np.round((liste[donen] - b) * a, 2), -1))
+            satis_gunu = (d - gecikme[donen]) % GECMIS_FIYAT
+            b = birim_gecmisi[satis_gunu, donen]
+            kay.satis.append((d, donen, -a, -np.round(b * a, 2), -np.round((liste[donen] - b) * a, 2),
+                              kampanya_gecmisi[satis_gunu, donen]))
             o_mask = onl[donen]
             z.depo += topla(hs[donen[o_mask]], a[o_mask], S)
             fc, fa = donen[~o_mask], a[~o_mask]

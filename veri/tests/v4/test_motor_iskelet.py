@@ -12,6 +12,7 @@ import pandas as pd
 import pytest
 
 from perakende_veri.v4.dunya import yolda_gun
+from perakende_veri.v4.takvim import gun_indisi
 from perakende_veri.v4.motor import Gorunum, simule_et
 from perakende_veri.v4.politika import (
     Politikalar,
@@ -36,20 +37,9 @@ def _topla(indis, deger, n) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 
-def test_stok_korunumu(kucuk_dunya, kucuk_kosu):
-    """Her hücre ve her SKU için hareket defteri son stoğu birebir verir.
-
-    Hücre: Σ varış (hedef hücre, varış günü < D) − Σ çıkış (kaynak hücre)
-    − Σ satış + Σ iade = son mağaza stoğu. Kapalı mağazaya varan mal ve
-    kapalı mağazanın iadesi, aynı gün hücreden depoya bir `sevkiyat`
-    satırıyla (kaynak hücre = o hücre) geçer; defter bunu çıkış olarak sayar.
-
-    Depo (SKU): Σ teslim (adet − hatalı; gerçekleşen gün < D) − Σ depodan
-    giden + Σ depoya varan − online satış + online iade = son depo.
-
-    Yolda: varış günü ≥ D olan satırlar son durumun yolda dizilerine eşit.
-    """
-    w, k = kucuk_dunya, kucuk_kosu
+def _defter_dogrula(w, k, akis_var: bool = True) -> None:
+    """Hücre, depo ve yolda defterini son duruma karşı doğrular (bkz.
+    `test_stok_korunumu`)."""
     D = k["gun_sayisi"]
     C, S = len(w.cesit), len(w.urunler)
     son = k["son_durum"]
@@ -65,7 +55,8 @@ def test_stok_korunumu(kucuk_dunya, kucuk_kosu):
     fiz_sat = sat[~onl[sat.hucre.to_numpy()]]
     h_satis = _topla(fiz_sat.hucre[fiz_sat.adet > 0], fiz_sat.adet[fiz_sat.adet > 0], C)
     h_iade = _topla(fiz_sat.hucre[fiz_sat.adet < 0], -fiz_sat.adet[fiz_sat.adet < 0], C)
-    assert h_satis.sum() > 0 and h_iade.sum() > 0 and h_giris.sum() > 0
+    if akis_var:
+        assert h_satis.sum() > 0 and h_iade.sum() > 0 and h_giris.sum() > 0
     np.testing.assert_array_equal(h_giris - h_cikis - h_satis + h_iade, son["magaza_stok"])
     assert son["magaza_stok"][onl].sum() == 0, "ONL hücresinde raf stoğu olmaz"
 
@@ -82,7 +73,8 @@ def test_stok_korunumu(kucuk_dunya, kucuk_kosu):
     hs = w.hucre_sku
     d_onl_satis = _topla(hs[onl_sat.hucre[onl_sat.adet > 0]], onl_sat.adet[onl_sat.adet > 0], S)
     d_onl_iade = _topla(hs[onl_sat.hucre[onl_sat.adet < 0]], -onl_sat.adet[onl_sat.adet < 0], S)
-    assert d_onl_satis.sum() > 0 and d_onl_iade.sum() > 0 and d_gelen.sum() > 0
+    if akis_var:
+        assert d_onl_satis.sum() > 0 and d_onl_iade.sum() > 0 and d_gelen.sum() > 0
     np.testing.assert_array_equal(
         teslim - d_giden + d_gelen - d_onl_satis + d_onl_iade, son["depo"]
     )
@@ -92,6 +84,22 @@ def test_stok_korunumu(kucuk_dunya, kucuk_kosu):
     np.testing.assert_array_equal(_topla(y_h.hedef_hucre, y_h.adet, C), son["yolda_hucre"])
     y_d = yolda[yolda.hedef == -1]
     np.testing.assert_array_equal(_topla(y_d.sku, y_d.adet, S), son["yolda_depo"])
+
+
+def test_stok_korunumu(kucuk_dunya, kucuk_kosu):
+    """Her hücre ve her SKU için hareket defteri son stoğu birebir verir.
+
+    Hücre: Σ varış (hedef hücre, varış günü < D) − Σ çıkış (kaynak hücre)
+    − Σ satış + Σ iade = son mağaza stoğu. Kapalı mağazaya varan mal ve
+    kapalı mağazanın iadesi, aynı gün hücreden depoya bir `sevkiyat`
+    satırıyla (kaynak hücre = o hücre) geçer; defter bunu çıkış olarak sayar.
+
+    Depo (SKU): Σ teslim (adet − hatalı; gerçekleşen gün < D) − Σ depodan
+    giden + Σ depoya varan − online satış + online iade = son depo.
+
+    Yolda: varış günü ≥ D olan satırlar son durumun yolda dizilerine eşit.
+    """
+    _defter_dogrula(kucuk_dunya, kucuk_kosu)
 
 
 def test_stok_hic_eksi_degil(kucuk_kosu):
@@ -238,6 +246,113 @@ def test_gun_sayisi_oneki(kucuk_dunya, kucuk_kosu):
     assert [(s["tip"], s["option"], s["gerceklesen_gun"]) for s in kisa_sip] == [
         (s["tip"], s["option"], s["gerceklesen_gun"]) for s in tam_sip
     ]
+
+
+def _onek_esit(kisa, tam, n, adlar=("satis", "sevkiyat", "depo_stok")) -> None:
+    for ad in adlar:
+        t = tam[ad]
+        pd.testing.assert_frame_equal(
+            kisa[ad].reset_index(drop=True), t[t.gun < n].reset_index(drop=True),
+            obj=f"{ad} (n={n})",
+        )
+
+
+def test_gun_sayisi_oneki_acilis_sinirlari(kucuk_dunya, kucuk_kosu):
+    """Açılış sınırında kesilen koşu da tam koşunun öneki: mağaza takvimi
+    kısaltılmış D'ye göre değil dünya ufkuna göre kurulur (varışı D'yi aşan
+    ilk dağıtım, açılacak mağazayı kapalı saymaz)."""
+    w = kucuk_dunya
+    acilanlar = w.magaza_olay[w.magaza_olay.olay == "acilis"]
+    assert len(acilanlar) > 0
+    for r in acilanlar.itertuples():
+        a = gun_indisi(r.olay_tarihi)
+        for n in (a - 1, a):
+            if 0 < n <= w.gun_sayisi:
+                _onek_esit(simule_et(w, gun_sayisi=n), kucuk_kosu, n)
+
+
+def test_gun_sayisi_oneki_bildirilen_hata(kucuk_dunya, kucuk_kosu):
+    """İnceleme bulgusu: n=412 koşusu 411. günün M021 ilk dağıtımını atlıyordu."""
+    for n in (412, 413, 951, 952):
+        _onek_esit(simule_et(kucuk_dunya, gun_sayisi=n), kucuk_kosu, n)
+
+
+# ---------------------------------------------------------------------------
+# Transfer korunumu (elle transfer, geri yönlendirme, yolda depo)
+# ---------------------------------------------------------------------------
+
+
+def test_transfer_korunumu(kucuk_dunya):
+    """Enjekte edilen elle transfer: M009 → M007 (M007'nin tadilatı boyunca:
+    varışlar `geri_yonlendirme` ile depoya döner) ve M008 → depo. Koşu son
+    transfer yoldayken kesilir; defter (hücre, depo, yolda) tutar."""
+    w = kucuk_dunya
+    mid = w.magazalar["magaza_id"].to_numpy()
+    kaynak, hedef, depoya = (int(np.flatnonzero(mid == x)[0]) for x in ("M009", "M007", "M008"))
+    t = w.magaza_olay[(w.magaza_olay.magaza_id == "M007") & (w.magaza_olay.olay == "tadilat")].iloc[0]
+    bas, bit = gun_indisi(t.olay_tarihi), gun_indisi(t.bitis_tarihi)
+    hedef_skulari = set(w.hucre_sku[w.hucre_magaza == hedef])
+    k_hucre = np.flatnonzero(w.hucre_magaza == kaynak)
+    d_hucre = np.flatnonzero(w.hucre_magaza == depoya)
+
+    def elle(g):
+        if not (bas - 14 <= g.gun <= bit):
+            return Transferler.bos()
+        k = [c for c in k_hucre if g.magaza_stok[c] > 0 and w.hucre_sku[c] in hedef_skulari][:30]
+        dp = [c for c in d_hucre if g.magaza_stok[c] > 0][:15]
+        n1, n2 = len(k), len(dp)
+        return Transferler(
+            kaynak=np.array([kaynak] * n1 + [depoya] * n2, dtype=np.int64),
+            hedef=np.array([hedef] * n1 + [-1] * n2, dtype=np.int64),
+            sku=w.hucre_sku[np.array(k + dp, dtype=np.int64)],
+            adet=np.full(n1 + n2, 2, dtype=np.int64),
+        )
+
+    son_pazartesi = max(d for d in range(bas - 14, bit + 1) if d % 7 == 0)
+    k = simule_et(w, Politikalar(elle_transfer=elle), gun_sayisi=son_pazartesi + 1)
+    sev = k["sevkiyat"]
+    el = sev[sev.tip == "elle_transfer"]
+    assert ((el.kaynak == kaynak) & (el.hedef == hedef)).sum() > 0
+    assert ((el.kaynak == depoya) & (el.hedef == -1)).sum() > 0
+    ss = el[el.hedef == hedef]
+    beklenen = yolda_gun(w.mesafe_km[kaynak, hedef], depo=False)
+    assert (ss.varis_gun - ss.gun == beklenen).all()
+    geri = sev[sev.tip == "geri_yonlendirme"]
+    assert len(geri) > 0 and (geri.kaynak == hedef).all() and (geri.hedef == -1).all()
+    assert k["son_durum"]["yolda_depo"].sum() > 0
+    assert (k["son_durum"]["magaza_stok"] >= 0).all() and (k["son_durum"]["depo"] >= 0).all()
+    _defter_dogrula(w, k)
+
+
+# ---------------------------------------------------------------------------
+# Kampanya kimliği
+# ---------------------------------------------------------------------------
+
+
+def test_kampanya_id(kucuk_dunya, kucuk_kosu):
+    """Satışın kampanya_id'si fiyatı belirleyen kampanyadır: oranı günün
+    (mağaza, option) kampanya oranına ve uygulanan indirime eşit."""
+    w = kucuk_dunya
+    sat = kucuk_kosu["satis"]
+    s = sat[(sat.adet > 0) & (sat.kampanya_id >= 0)]
+    assert len(s) > 0
+    oran = w.kampanya["oran"].to_numpy()[s.kampanya_id.to_numpy()]
+    liste = w.urunler["liste_fiyati"].to_numpy()[w.hucre_sku[s.hucre.to_numpy()]]
+    np.testing.assert_allclose(s.indirim_tutari / (liste * s.adet), oran, atol=1e-3)
+    gun_orani = np.array([
+        w.kampanya_takvimi(d)[w.hucre_magaza[c], w.hucre_option[c]]
+        for d, c in zip(s.gun.to_numpy()[:2000], s.hucre.to_numpy()[:2000])
+    ])
+    np.testing.assert_allclose(gun_orani, oran[:2000])
+    # Kampanyasız satışta kampanya oranı yoktur (markdown yok: Görev 12).
+    yok = sat[(sat.adet > 0) & (sat.kampanya_id < 0)].head(2000)
+    gun_orani = np.array([
+        w.kampanya_takvimi(d)[w.hucre_magaza[c], w.hucre_option[c]]
+        for d, c in zip(yok.gun.to_numpy(), yok.hucre.to_numpy())
+    ])
+    assert (gun_orani == 0).all()
+    # İade satırı satış gününün kampanyasını taşır.
+    assert (sat[sat.adet < 0].kampanya_id >= 0).any()
 
 
 # ---------------------------------------------------------------------------
