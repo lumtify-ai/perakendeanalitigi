@@ -163,3 +163,201 @@ GEBZE_DEPO = (40.80, 29.43)
 
 # Tip başına raf yoğunluğu: kapasite = m² × yoğunluk × (1 − 0,08·(kat−1)).
 TIP_YOGUNLUK = {"AVM": 9.0, "Cadde": 8.0, "Outlet": 12.5}
+
+# --- Ürün (Görev 5) ---------------------------------------------------------
+# marka (Lumoda) > cinsiyet > üst kategori > alt kategori > line > model >
+# option > SKU. v2'nin ağacı korunur, Elbise & Tulum ve Aksesuar eklenir
+# (spec §3.1 tablosu birebir); Çocuk yok.
+MARKA = "Lumoda"
+
+KATEGORILER: dict[str, list[str]] = {
+    "Üst Giyim": ["Tişört", "Gömlek", "Bluz", "Kazak", "Sweatshirt"],
+    "Alt Giyim": ["Pantolon", "Jean", "Etek", "Şort"],
+    "Elbise & Tulum": ["Elbise", "Tulum"],
+    "Dış Giyim": ["Mont", "Ceket", "Trençkot"],
+    "Aksesuar": ["Çanta", "Şal", "Kemer"],
+}
+
+# Bluz, Elbise, Tulum, Etek yalnız Kadın.
+YALNIZ_KADIN = {"Bluz", "Elbise", "Tulum", "Etek"}
+AKSESUAR = {"Çanta", "Şal", "Kemer"}
+
+CINSIYETLER = ["Kadın", "Erkek", "Unisex"]
+CINSIYET_PAYLARI = [0.52, 0.38, 0.10]
+
+# Beden setleri v2 mantığında (içe aktarılmaz, burada yeniden tanımlanır),
+# beş kademe; Elbise & Tulum kadın harf setini kullanır, Aksesuar tek
+# beden (STD).
+BEDEN_SETLERI: dict[tuple[str, str], tuple[str, list[str]]] = {
+    ("Kadın", "Üst Giyim"): ("Kadın Harf", ["XS", "S", "M", "L", "XL"]),
+    ("Kadın", "Dış Giyim"): ("Kadın Harf", ["XS", "S", "M", "L", "XL"]),
+    ("Kadın", "Elbise & Tulum"): ("Kadın Harf", ["XS", "S", "M", "L", "XL"]),
+    ("Kadın", "Alt Giyim"): ("Kadın Numara", ["34", "36", "38", "40", "42"]),
+    ("Erkek", "Üst Giyim"): ("Erkek Harf", ["S", "M", "L", "XL", "XXL"]),
+    ("Erkek", "Dış Giyim"): ("Erkek Harf", ["S", "M", "L", "XL", "XXL"]),
+    ("Erkek", "Alt Giyim"): ("Erkek Numara", ["30", "32", "34", "36", "38"]),
+    ("Unisex", "Üst Giyim"): ("Unisex Harf", ["S", "M", "L", "XL", "XXL"]),
+    ("Unisex", "Dış Giyim"): ("Unisex Harf", ["S", "M", "L", "XL", "XXL"]),
+    ("Unisex", "Alt Giyim"): ("Unisex Numara", ["30", "32", "34", "36", "38"]),
+}
+# Aksesuar cinsiyetten bağımsız tek beden (lookup cinsiyeti yok sayar,
+# bkz. urun._beden_seti).
+AKSESUAR_BEDEN_SETI = ("Standart", ["STD"])
+
+BEDEN_KADEME_SAYISI = 5
+
+# Beden başına standart paket (Lumoda'da her beden setine tek paket);
+# Aksesuar koli adediyle (STD × 6).
+PAKET_ADETLERI = [1, 2, 2, 1, 1]
+AKSESUAR_KOLI_ADEDI = 6
+
+# --- Öznitelikler ------------------------------------------------------
+OZNITELIKLER: dict[str, list[str]] = {
+    "kumas": ["pamuk", "keten", "denim", "yün", "viskon", "karışım"],
+    "kalip": ["slim", "regular", "relaxed", "oversize"],
+    "desen": ["düz", "çizgili", "kareli", "baskılı", "çiçekli"],
+    "fiyat_segmenti": ["giris", "orta", "premium"],
+}
+FIYAT_SEGMENTI_PAYLARI = [0.35, 0.45, 0.20]
+
+# Alt kategori → (detay alanı, izinli değerler). Aksesuar hiç girmez
+# (detay None kalır) — tek alanlık `detay` sütunu böylece kategoriye göre
+# ya boy ya yaka taşır, `detay_alani` hangisi olduğunu söyler.
+DETAY: dict[str, tuple[str, list[str]]] = {
+    "Tişört": ("yaka", ["bisiklet yaka", "V yaka", "polo yaka", "balıkçı yaka", "hakim yaka"]),
+    "Gömlek": ("yaka", ["klasik yaka", "hakim yaka", "polo yaka", "yuvarlak yaka"]),
+    "Bluz": ("yaka", ["V yaka", "yuvarlak yaka", "hakim yaka", "yakasız"]),
+    "Kazak": ("yaka", ["balıkçı yaka", "bisiklet yaka", "V yaka", "hırka yaka"]),
+    "Sweatshirt": ("yaka", ["bisiklet yaka", "kapüşonlu", "polo yaka"]),
+    "Pantolon": ("boy", ["crop", "normal", "uzun"]),
+    "Jean": ("boy", ["crop", "normal", "uzun"]),
+    "Etek": ("boy", ["crop", "normal", "uzun"]),
+    "Şort": ("boy", ["crop", "normal", "uzun"]),
+    "Elbise": ("boy", ["crop", "normal", "uzun"]),
+    "Tulum": ("boy", ["crop", "normal", "uzun"]),
+    "Mont": ("boy", ["crop", "normal", "uzun"]),
+    "Ceket": ("boy", ["crop", "normal", "uzun"]),
+    "Trençkot": ("boy", ["crop", "normal", "uzun"]),
+}
+
+# Alt kategori → izinli kumaşlar (denim yalnız Jean/Etek/Şort'ta, yün
+# yalnız kışlık üst giyim/dış giyimde vb.).
+GECERLI_KUMAS: dict[str, list[str]] = {
+    "Tişört": ["pamuk", "viskon", "karışım"],
+    "Gömlek": ["pamuk", "keten", "viskon", "karışım"],
+    "Bluz": ["pamuk", "keten", "viskon", "karışım"],
+    "Kazak": ["yün", "karışım", "pamuk"],
+    "Sweatshirt": ["pamuk", "karışım"],
+    "Pantolon": ["pamuk", "keten", "viskon", "karışım"],
+    "Jean": ["denim"],
+    "Etek": ["pamuk", "keten", "denim", "viskon", "karışım"],
+    "Şort": ["pamuk", "keten", "denim", "karışım"],
+    "Elbise": ["pamuk", "keten", "viskon", "karışım"],
+    "Tulum": ["pamuk", "keten", "viskon", "karışım"],
+    "Mont": ["karışım", "pamuk"],
+    "Ceket": ["denim", "karışım", "yün"],
+    "Trençkot": ["pamuk", "karışım"],
+    "Çanta": ["karışım", "viskon"],
+    "Şal": ["yün", "viskon", "keten"],
+    "Kemer": ["karışım", "viskon"],
+}
+
+# Alt kategori başına kesim/model adı havuzu (v2/v3'ün deseninin devamı,
+# yeni alt kategoriler için genişletilmiş).
+KESIMLER: dict[str, list[str]] = {
+    "Tişört": ["Bisiklet Yaka", "V Yaka", "Oversize", "Slim Fit", "Polo Yaka"],
+    "Gömlek": ["Slim Fit", "Regular Fit", "Oduncu", "Keten", "Oxford"],
+    "Bluz": ["Fırfırlı", "Saten", "Yakasız", "Bağlamalı", "Basic"],
+    "Kazak": ["Balıkçı Yaka", "Bisiklet Yaka", "Hırka", "Örgü Desenli"],
+    "Sweatshirt": ["Kapüşonlu", "Bisiklet Yaka", "Oversize", "Fermuarlı"],
+    "Pantolon": ["Chino", "Kumaş", "Jogger", "Yüksek Bel", "Wide Leg"],
+    "Jean": ["Slim Fit", "Mom Fit", "Straight", "Skinny", "Baggy"],
+    "Etek": ["Midi", "Mini", "Pileli", "Kalem"],
+    "Şort": ["Bermuda", "Klasik", "Paperbag"],
+    "Elbise": ["Midi", "Maxi", "Gömlek", "Askılı", "Bodycon"],
+    "Tulum": ["Salopet", "Geniş Paça", "Dar Paça"],
+    "Mont": ["Şişme", "Parka", "Puffer", "Bomber"],
+    "Ceket": ["Blazer", "Deri", "Kot", "Süet"],
+    "Trençkot": ["Klasik", "Uzun", "Kemerli"],
+    "Çanta": ["Omuz Çantası", "El Çantası", "Sırt Çantası", "Crossbody"],
+    "Şal": ["Yün Şal", "İpek Şal", "Fularlı Şal", "Kareli Şal"],
+    "Kemer": ["İnce Kemer", "Geniş Kemer", "Örgü Kemer"],
+}
+
+# Renk paleti (ad → üç harfli kod). Devamlı ürünler çekirdek altkümede
+# döner: temel ürün sezon rengi taşımaz.
+RENKLER: dict[str, str] = {
+    "Siyah": "SYH", "Beyaz": "BYZ", "Bej": "BEJ", "Lacivert": "LCV",
+    "Haki": "HAK", "Bordo": "BRD", "Ekru": "EKR", "İndigo": "IND",
+    "Gri Melanj": "GRM", "Kiremit": "KRM", "Pudra": "PDR", "Yeşil": "YSL",
+}
+DEVAMLI_RENK_HAVUZU = ["Siyah", "Beyaz", "Lacivert", "Gri Melanj", "Bej", "İndigo"]
+
+# --- Hacim (Görev 5) ----------------------------------------------------
+# Sezon başına Collection ~210 + Outlet ~40 option; devamlı Basic 80 + NOS
+# 40. `option_carpani` (bkz. Olcek) her ikisini de ölçekler.
+SEZON_COLLECTION_OPTION = 210
+SEZON_OUTLET_OPTION = 40
+DEVAMLI_BASIC_OPTION = 80
+DEVAMLI_NOS_OPTION = 40
+
+RENK_SAYISI_ARALIGI = {"Collection": (2, 4), "Outlet": (2, 4), "Basic": (3, 3), "NOS": (2, 2)}
+
+DEVAMLI = "DEVAMLI"
+
+# Alt kategori ağırlıkları, sezon/line tipine göre (v3 tablosunun
+# genişletilmiş hâli: Bluz, Elbise, Tulum, Çanta, Şal, Kemer eklendi).
+# AW'de Şort hiç yok, SS'de Mont hiç yok (Collection'da 0 ağırlık ⇒ hiç
+# üretilmez, bkz. urun.test_mont_yaz_yok/test_sort_kis_yok).
+ALT_KATEGORI_AGIRLIK: dict[str, dict[str, float]] = {
+    "AW": {
+        "Tişört": 0.5, "Gömlek": 1.0, "Bluz": 0.8, "Kazak": 1.5, "Sweatshirt": 1.2,
+        "Pantolon": 1.0, "Jean": 1.2, "Etek": 0.4, "Şort": 0.0,
+        "Elbise": 0.5, "Tulum": 0.2,
+        "Mont": 1.4, "Ceket": 1.0, "Trençkot": 0.6,
+        "Çanta": 0.5, "Şal": 1.0, "Kemer": 0.3,
+    },
+    "SS": {
+        "Tişört": 1.6, "Gömlek": 1.3, "Bluz": 1.0, "Kazak": 0.2, "Sweatshirt": 0.5,
+        "Pantolon": 1.0, "Jean": 1.1, "Etek": 1.0, "Şort": 1.2,
+        "Elbise": 1.3, "Tulum": 0.8,
+        "Mont": 0.0, "Ceket": 0.6, "Trençkot": 0.4,
+        "Çanta": 0.6, "Şal": 0.1, "Kemer": 0.4,
+    },
+    "Basic": {
+        "Tişört": 3.0, "Gömlek": 1.0, "Bluz": 0.8, "Kazak": 0.6, "Sweatshirt": 1.5,
+        "Pantolon": 1.5, "Jean": 2.0, "Etek": 0.2, "Şort": 0.4,
+        "Elbise": 0.3, "Tulum": 0.0,
+        "Mont": 0.3, "Ceket": 0.0, "Trençkot": 0.0,
+        "Çanta": 0.4, "Şal": 0.2, "Kemer": 0.3,
+    },
+    "NOS": {
+        "Tişört": 3.0, "Gömlek": 1.0, "Bluz": 0.0, "Kazak": 0.0, "Sweatshirt": 1.0,
+        "Pantolon": 1.0, "Jean": 2.0, "Etek": 0.0, "Şort": 0.0,
+        "Elbise": 0.0, "Tulum": 0.0,
+        "Mont": 0.0, "Ceket": 0.0, "Trençkot": 0.0,
+        "Çanta": 0.3, "Şal": 0.0, "Kemer": 0.2,
+    },
+}
+
+# --- Fiyat (Görev 5) -----------------------------------------------------
+# Alt kategori başına taban alış fiyatı (TL); tedarikçi çarpanı Görev 6'da
+# uygulanır (burada yok).
+TABAN_FIYAT: dict[str, float] = {
+    "Tişört": 120, "Gömlek": 260, "Bluz": 240, "Kazak": 340, "Sweatshirt": 300,
+    "Pantolon": 380, "Jean": 420, "Etek": 290, "Şort": 190,
+    "Elbise": 420, "Tulum": 460,
+    "Mont": 900, "Ceket": 720, "Trençkot": 850,
+    "Çanta": 380, "Şal": 150, "Kemer": 180,
+}
+
+KUMAS_CARPANI = {
+    "yün": 1.5, "keten": 1.3, "denim": 1.2, "viskon": 1.0, "pamuk": 0.9, "karışım": 0.85,
+}
+
+# Alış fiyatı segment çarpanı (kumaş sonrası, tedarikçi öncesi).
+SEGMENT_ALIS_CARPANI = {"giris": 0.75, "orta": 1.0, "premium": 1.45}
+ALIS_FIYATI_SIGMA = 0.08  # lognormal(0, sigma) gürültü
+
+# Liste fiyatı (Lumoda kuralı): alış × segment çarpanı, ",99"a yuvarlanır.
+LISTE_FIYATI_CARPANI = {"giris": 2.2, "orta": 2.6, "premium": 3.1}
