@@ -4,6 +4,14 @@
 müşteri profili, konum) altı gözlemlenebilir segmente toplanır; segment ve
 eksenler hiçbir dışa aktarılan tabloya girmez (yalnız `gizli_magaza`).
 
+**Segment latent sınıftır, eksenler onun gürültülü tezahürüdür** (spec
+§8.3): metropol (İstanbul/Ankara/İzmir) mağazalarında `segment` önce
+kotayla atanır (karıştırılmış sırayla ≥7 metropol_premium, ≥7
+metropol_genc, kalanı anadolu_aile), gelir/genç-eğilim eksenleri SONRA bu
+sınıfın örtüşen dağılımlarından çekilir. Eksenler segmentten türetilmez;
+bu yüzden k-means gibi bir kümeleme segmentleri ancak kısmen geri kurar
+(ARI ~0,4–0,8 hedeflenir, kusursuz ayrışma değil).
+
 Olay seçimi (6 açılış, 4 kapanış, 2 tadilat) **tasarımla** yapılır, tohuma
 göre yeniden denenmez: her kapanış profili şehir sayısı / haversine
 uzaklığı gibi yapısal kurallarla bulunur (bkz. `_profil*_sec`), açılış ve
@@ -272,7 +280,9 @@ def magazalari_uret(rng: np.random.Generator) -> tuple[pd.DataFrame, pd.DataFram
     digerleri = _cesitli_sec(govde, kullanilmis, 1 + 6 + 2)
     profil4 = digerleri[0]
     acilis_magazalari = digerleri[1:7]
-    tadilat_magazalari = digerleri[7:9]
+    # digerleri[7:9] (tadilat adayları) burada kullanılmaz: tadilat
+    # mağazaları `olaylari_uret` içinde, açılış/kapanış kesinleştikten
+    # sonra ayrıca seçilir (bkz. orada `_cesitli_sec` çağrısı).
     kapanis_magazalari.append(profil4)
 
     acilis_plani = {}
@@ -344,25 +354,39 @@ def magazalari_uret(rng: np.random.Generator) -> tuple[pd.DataFrame, pd.DataFram
     return magazalar, gizli
 
 
-def _segment_belirle(tip, iklim, gelir, genc_egilim, turistik, metropol) -> str:
+# Metropol kotaları: karıştırılmış (rng.permutation) sırayla ilk N_PREMIUM
+# "metropol_premium", sonraki N_GENC "metropol_genc", kalanı "anadolu_aile".
+# Kota tohumdan bağımsız ≥7/≥7 garantisi verir (25 metropol mağazasının
+# tamamı bu üç gruba dağılır); dağılım rng'nin *hangi* mağazaları seçtiğini
+# değiştirir, *kaç* mağaza seçildiğini değil.
+_METROPOL_PREMIUM_KOTA = 9
+_METROPOL_GENC_KOTA = 8
+
+
+def _yapisal_segment(tip: str, iklim: str, turistik: bool) -> str | None:
+    """Eksen gürültüsü olmadan, salt tip/iklim/turistikten kesin belirlenen
+    segment: outlet, soguk_iklim, sicak_sahil. Metropol ve sade Anadolu
+    mağazaları için `None` döner (onlar ayrıca çözülür)."""
     if tip == "Outlet":
         return "outlet"
     if iklim == "soguk":
         return "soguk_iklim"
     if iklim == "sicak_sahil" or turistik:
         return "sicak_sahil"
-    if metropol and gelir == "yuksek":
-        return "metropol_premium"
-    if metropol and genc_egilim > 0.5:
-        return "metropol_genc"
-    return "anadolu_aile"
+    return None
 
 
 def _gizli_segmentler_uret(govde: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
-    """Dört gizli eksen + türetilen segment. Metropol (İstanbul/Ankara/İzmir)
-    mağazalarında gelir/genç eğilimi kısmen tasarımla (index % 3) atanır:
-    tohuma bakmaksızın her segmentte >= 6 mağaza garantiye alınır (bkz.
-    `SEHIR_MAGAZA_SAYISI`/`OUTLET_SEHIRLERI` yorumu ve Görev 4 kararları)."""
+    """Dört gizli eksen + segment. Segment **latent sınıftır**: outlet,
+    soğuk iklim ve sıcak sahil/turistik için tip/iklimden kesin (yapısal)
+    belirlenir; metropol (İstanbul/Ankara/İzmir) mağazalarında ise önce
+    kotayla atanır (bkz. `_METROPOL_PREMIUM_KOTA`/`_METROPOL_GENC_KOTA`),
+    eksenler bu sınıfın SONRASINDA, örtüşen dağılımlardan çekilir — segment
+    eksenlerden türetilmez, eksenler segmentin gürültülü tezahürüdür.
+    Bu örtüşme (premium ve genç eğilimlerinin gelir/genç-eğilim aralıkları
+    kesişir) k-means'in segmentleri yalnızca kısmen geri kurmasını sağlar
+    (spec §8.3). ≥6 mağaza/segment garantisi tohumdan bağımsız, kotayla
+    sağlanır (bkz. `SEHIR_MAGAZA_SAYISI`/`OUTLET_SEHIRLERI` yorumu)."""
     n = len(govde)
     magaza_id = govde.magaza_id.to_numpy()
     sehir = govde.sehir.to_numpy()
@@ -371,29 +395,50 @@ def _gizli_segmentler_uret(govde: pd.DataFrame, rng: np.random.Generator) -> pd.
     metropol = np.isin(sehir, list(sabitler.METROPOL_SEHIRLERI))
     turistik = np.isin(sehir, list(sabitler.TURISTIK_SEHIRLER))
 
+    segment = np.empty(n, dtype=object)
+    yapisal = np.array(
+        [_yapisal_segment(t, ik, tu) for t, ik, tu in zip(tip, iklim, turistik)],
+        dtype=object,
+    )
+    yapisal_cozuldu = yapisal != None  # noqa: E711
+    segment[yapisal_cozuldu] = yapisal[yapisal_cozuldu]
+
+    # Genel (yapısal olmayan, metropol dışı) eksen dağılımı; metropol grubu
+    # aşağıda üzerine yazılır.
     gelir = np.array(rng.choice(["dusuk", "orta", "yuksek"], size=n, p=[0.3, 0.5, 0.2]))
     genc_egilim = rng.uniform(0.0, 1.0, n)
 
-    metropol_ve_fiziksel = metropol & (tip != "Outlet")
-    metropol_idx = np.flatnonzero(metropol_ve_fiziksel)
-    desen = np.arange(len(metropol_idx)) % 3
-    for konum, d in zip(metropol_idx, desen):
-        if d == 0:  # premium adayı: yüksek gelir, düşük genç eğilim
-            gelir[konum] = "yuksek"
-            genc_egilim[konum] = rng.uniform(0.05, 0.45)
-        elif d == 1:  # genç adayı: yüksek olmayan gelir, yüksek genç eğilim
-            gelir[konum] = rng.choice(["dusuk", "orta"])
-            genc_egilim[konum] = rng.uniform(0.55, 0.95)
-        # d == 2: her iki eksen de serbest (rastgele), anadolu_aile'ye düşer
+    metropol_idx = np.flatnonzero(metropol & ~yapisal_cozuldu)
+    karisik = rng.permutation(metropol_idx)
+    premium_idx = karisik[: _METROPOL_PREMIUM_KOTA]
+    genc_idx = karisik[_METROPOL_PREMIUM_KOTA : _METROPOL_PREMIUM_KOTA + _METROPOL_GENC_KOTA]
+    kalan_idx = karisik[_METROPOL_PREMIUM_KOTA + _METROPOL_GENC_KOTA :]
+
+    segment[premium_idx] = "metropol_premium"
+    gelir[premium_idx] = rng.choice(
+        ["yuksek", "orta", "dusuk"], size=len(premium_idx), p=[0.70, 0.25, 0.05]
+    )
+    genc_egilim[premium_idx] = rng.beta(3, 4, len(premium_idx))
+
+    segment[genc_idx] = "metropol_genc"
+    gelir[genc_idx] = rng.choice(
+        ["orta", "dusuk", "yuksek"], size=len(genc_idx), p=[0.55, 0.25, 0.20]
+    )
+    genc_egilim[genc_idx] = rng.beta(5, 2.5, len(genc_idx))
+
+    segment[kalan_idx] = "anadolu_aile"
+    gelir[kalan_idx] = rng.choice(
+        ["orta", "dusuk", "yuksek"], size=len(kalan_idx), p=[0.5, 0.35, 0.15]
+    )
+    genc_egilim[kalan_idx] = rng.beta(3, 3, len(kalan_idx))
+
+    # Kalan (yapısal olmayan, metropol olmayan) mağazalar: anadolu_aile.
+    kalan_genel = ~yapisal_cozuldu & ~metropol
+    segment[kalan_genel] = "anadolu_aile"
 
     beden_kayma = rng.integers(-1, 2, n, endpoint=True)
     kadin_payi = rng.uniform(0.35, 0.75, n)
     yerel_gurultu = rng.normal(0.0, 1.0, n)
-
-    segment = [
-        _segment_belirle(t, ik, g, ge, tu, mp)
-        for t, ik, g, ge, tu, mp in zip(tip, iklim, gelir, genc_egilim, turistik, metropol)
-    ]
 
     return pd.DataFrame(
         {
@@ -493,9 +538,13 @@ def alt_kume(
     (ONL dahil) tutulacağını işaretleyen boolean dizi.
 
     Tam ölçekte (`olcek.magaza is None`) tüm satırlar tutulur. Küçük ölçekte
-    zorunlu kapsam (olay mağazaları, kapanan mağazaların en yakın komşusu,
-    en az bir outlet, her segmentten ve her fiziksel tipten en az bir) önce
-    kurulur; kalan slotlar `magaza_id` sırasıyla deterministik doldurulur.
+    önce **korumalı** küme kurulur (olay mağazaları, kapanan mağazaların en
+    yakın komşusu, en az bir outlet, her segmentten ve her fiziksel tipten
+    en az bir); bu küme asla budanmaz. Korumalı küme `olcek.magaza`'yı zaten
+    aşıyorsa (ölçek çok küçükse) `ValueError` yükseltilir — budama yerine
+    net bir hata, zorunlu kapsamdan sessizce ödün vermez. Kalan slotlar
+    (korumalı olmayanlar arasından) `magaza_id` sırasıyla deterministik
+    doldurulur.
     """
     if olcek.magaza is None:
         return np.ones(len(magazalar), dtype=bool)
@@ -504,7 +553,7 @@ def alt_kume(
     magazalar_idx = magazalar.set_index("magaza_id")
     gizli_idx = gizli.set_index("magaza_id")
 
-    secili: set[str] = set(olaylar.magaza_id.unique())
+    korumali: set[str] = set(olaylar.magaza_id.unique())
 
     # Kapanan mağazaların en yakın (fiziksel) komşusu
     kapananlar = olaylar.query("olay == 'kapanis'").magaza_id.tolist()
@@ -513,7 +562,7 @@ def alt_kume(
         digerleri = fiziksel[fiziksel.magaza_id != mid]
         d = _haversine_km(lat0, lon0, digerleri.enlem.to_numpy(), digerleri.boylam.to_numpy())
         en_yakin = digerleri.magaza_id.to_numpy()[np.argmin(d)]
-        secili.add(en_yakin)
+        korumali.add(en_yakin)
 
     def _segmentleri(kume: set[str]) -> set[str]:
         varsa = [mid for mid in kume if mid in gizli_idx.index]
@@ -524,41 +573,44 @@ def alt_kume(
         return set(magazalar_idx.loc[varsa, "tip"]) if varsa else set()
 
     # En az bir outlet (segment + tip ihtiyacını birlikte karşılar)
-    if "outlet" not in _segmentleri(secili):
+    if "outlet" not in _segmentleri(korumali):
         outlet_id = fiziksel[fiziksel.tip == "Outlet"].magaza_id.iloc[0]
-        secili.add(outlet_id)
+        korumali.add(outlet_id)
 
     # Her segmentten en az bir
     for seg in sabitler.SEGMENTLER:
-        if seg in _segmentleri(secili):
+        if seg in _segmentleri(korumali):
             continue
         aday = gizli_idx[
             (gizli_idx.segment == seg) & gizli_idx.index.isin(fiziksel.magaza_id)
         ].index
         if len(aday):
-            secili.add(aday[0])
+            korumali.add(aday[0])
 
     # Her fiziksel tipten en az bir
     for tip in ("AVM", "Cadde", "Outlet"):
-        if tip in _tipleri(secili):
+        if tip in _tipleri(korumali):
             continue
         aday = fiziksel[fiziksel.tip == tip].magaza_id.iloc[0]
-        secili.add(aday)
+        korumali.add(aday)
 
-    # Kalan slotları magaza_id sırasıyla deterministik doldur
+    korumali_fiziksel = korumali & set(fiziksel.magaza_id)
+    if len(korumali_fiziksel) > olcek.magaza:
+        raise ValueError(
+            f"alt_kume: zorunlu kapsam (olay mağazaları, komşuları, outlet, "
+            f"segment ve tip temsilcileri) {len(korumali_fiziksel)} fiziksel "
+            f"mağaza gerektiriyor ama olcek.magaza={olcek.magaza}; ölçek bu "
+            f"kapsamı budamadan karşılayamayacak kadar küçük."
+        )
+
+    # Kalan slotları (korumalı olmayanlar arasından) magaza_id sırasıyla
+    # deterministik doldur.
+    secili = set(korumali)
     for mid in sorted(fiziksel.magaza_id):
         if len(secili & set(fiziksel.magaza_id)) >= olcek.magaza:
             break
-        secili.add(mid)
-
-    # Fazlaya taşarsa (nadiren) magaza_id sırasıyla kırp, olay mağazaları hariç
-    fiziksel_secili = sorted(secili & set(fiziksel.magaza_id))
-    if len(fiziksel_secili) > olcek.magaza:
-        zorunlu = set(olaylar.magaza_id.unique())
-        cikarilabilir = [mid for mid in reversed(fiziksel_secili) if mid not in zorunlu]
-        fazla = len(fiziksel_secili) - olcek.magaza
-        for mid in cikarilabilir[:fazla]:
-            secili.discard(mid)
+        if mid not in korumali:
+            secili.add(mid)
 
     secili.add("ONL")
     return magazalar.magaza_id.isin(secili).to_numpy()

@@ -155,3 +155,19 @@ def test_kucuk_olcek_kapsami(m, olay):
 
 def test_segment_yayimlanan_tabloda_yok(m):
     assert "segment" not in m[0].columns and "gelir" not in m[0].columns
+
+
+def test_metropol_segmentleri_ekseni_ortusuyor(m):
+    # Segment latent sınıftır, eksenler onun gürültülü tezahürü: premium ve
+    # genç eğilim aralıkları kesişmeli (kusursuz ayrışma değil, spec §8.3).
+    gizli = m[1]
+    premium = gizli.query("segment == 'metropol_premium'").genc_egilim
+    genc = gizli.query("segment == 'metropol_genc'").genc_egilim
+    assert len(premium) >= 7 and len(genc) >= 7
+    assert premium.max() > genc.min()
+
+
+def test_alt_kume_kucuk_olcek_hata_verir(m, olay):
+    magazalar, gizli = m
+    with pytest.raises(ValueError):
+        alt_kume(magazalar, gizli, olay, Olcek(magaza=10))
