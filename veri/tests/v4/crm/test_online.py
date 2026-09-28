@@ -103,14 +103,36 @@ def test_listede_olmayan_satin_alma_arama_listesinde(kucuk_online, kucuk_girdi, 
         assert r["satin_alma"].iloc[0] == e[(g, op)]
 
 
+def _enjekte_disi(cikti):
+    """Enjekte arama hücreleri (gizli bayrak) hariç günlük satırlar."""
+    k = ["gun", "liste", "sira", "option"]
+    e = cikti.gizli["enjekte"].assign(_e=True)
+    gl = cikti.gunluk.merge(e, on=k, how="left")
+    return gl[gl["_e"].isna()].drop(columns="_e")
+
+
 def test_ayni_ilgide_sira1_tiklamasi_sira20den_buyuk(kucuk_online):
+    c = kucuk_online.gizli["tiklama_sabiti"]
     for ilgi in (0.3, 1.0, 3.0):
-        assert tiklama_olasiligi(1, ilgi) > tiklama_olasiligi(20, ilgi)
-    gl = kucuk_online.gunluk
-    gl = gl[~gl["liste"].astype(str).str.startswith("arama:") | (gl["gosterim"] > 0)]
+        assert tiklama_olasiligi(1, ilgi, c) > tiklama_olasiligi(20, ilgi, c)
+    gl = _enjekte_disi(kucuk_online)
+    assert len(gl) + len(kucuk_online.gizli["enjekte"]) == len(kucuk_online.gunluk)
     oran = gl.groupby("sira")[["tiklama", "gosterim"]].sum()
     ctr = oran["tiklama"] / oran["gosterim"]
     assert ctr.loc[1] > ctr.loc[20]
+
+
+def test_gizli_tiklama_olasiligi_yeniden_kurulur(kucuk_online):
+    """gizli γ ve c'den kurulan olasılık, gözlenen tıklamayla tutarlı
+    (enjekte hariç; tıklama ≥ alım tabanı küçük)."""
+    gz = kucuk_online.gizli
+    gl = _enjekte_disi(kucuk_online).merge(gz["ilgi_gunluk"], on=["gun", "option"], how="left")
+    assert gl["ilgi"].notna().all()
+    p = tiklama_olasiligi(gl["sira"].to_numpy(), gl["ilgi"].to_numpy(), gz["tiklama_sabiti"])
+    beklenen = (p * gl["gosterim"].to_numpy()).sum()
+    assert gl["tiklama"].sum() == pytest.approx(beklenen, rel=0.05)
+    enj = gz["enjekte"]
+    assert enj["liste"].astype(str).str.startswith("arama:").all() and (enj["sira"] == 1).all()
 
 
 def test_her_online_fis_icin_tek_siparis_ayni_musteri(kucuk_online, onl_satirlari):
@@ -189,6 +211,8 @@ def test_ters_siralama_satin_almayi_degistirmez(kucuk_girdi, kucuk_crm):
     b = tr.gunluk.groupby(["gun", "option"])["satin_alma"].sum()
     a, b = a[a > 0].sort_index(), b[b > 0].sort_index()
     assert a.index.equals(b.index) and (a.to_numpy() == b.to_numpy()).all()
+    # aynı gerçek tıklama modeli (tek c, Lumoda'yla ayarlı)
+    assert lum.gizli["tiklama_sabiti"] == tr.gizli["tiklama_sabiti"]
     # sıralama gerçekten değişti
     k = ["gun", "liste", "sira"]
     x = lum.gunluk[lum.gunluk["sira"] == 1].drop_duplicates(k).set_index(k)["option"]
@@ -236,3 +260,63 @@ def test_huni_oranlari(kucuk_online):
     assert 0.04 <= s["satin_alma"] / s["tiklama"] <= 0.14
     assert 0.2 <= s["satin_alma"] / s["sepete_ekleme"] <= 0.5
     assert 0.2 <= s["sepete_ekleme"] / s["tiklama"] <= 0.32
+
+
+# ---------------------------------------------------------------------------
+# Spec §8 sıralama öğrenilebilirliği (TAM, yavas)
+# ---------------------------------------------------------------------------
+
+PBM_EN_AZ_GOSTERIM = 200
+PBM_TUR = 100
+
+
+def pbm_degerlendir(cikti) -> dict:
+    """Kategori listelerinde (enjekte yok) ≥ 200 gösterimli option'lar için
+    saf tıklama oranı ve PBM tahmininin (tıklama ~ Poisson(gösterim × θ_sıra
+    × γ_option), dönüşümlü kapalı biçim MLE, yalnız `gunluk`'tan) gerçek
+    ilgiyle (gizli γ, gösterim ağırlıklı ortalama) Spearman'ı."""
+    gl = cikti.gunluk
+    gl = gl[gl["liste"].astype(str).str.startswith("kategori:")]
+    n_o = gl.groupby("option")["gosterim"].sum()
+    secili = n_o.index[n_o >= PBM_EN_AZ_GOSTERIM]
+    gl = gl[gl["option"].isin(secili)]
+    o_kod, o_ad = pd.factorize(gl["option"])
+    s_kod = gl["sira"].to_numpy() - 1
+    n = gl["gosterim"].to_numpy(dtype=float)
+    c = gl["tiklama"].to_numpy(dtype=float)
+    O, P = len(o_ad), S.LISTE_UZUNLUGU
+    theta = np.ones(P)
+    for _ in range(PBM_TUR):
+        gamma = np.bincount(o_kod, c, O) / np.maximum(np.bincount(o_kod, n * theta[s_kod], O), 1e-12)
+        theta = np.bincount(s_kod, c, P) / np.maximum(np.bincount(s_kod, n * gamma[o_kod], P), 1e-12)
+        theta /= theta[0]
+    saf = np.bincount(o_kod, c, O) / np.bincount(o_kod, n, O)
+    ig = gl[["gun", "option", "gosterim"]].merge(cikti.gizli["ilgi_gunluk"], on=["gun", "option"], how="left")
+    assert ig["ilgi"].notna().all()
+    gercek = (np.bincount(o_kod, ig["ilgi"].to_numpy() * n, O) / np.bincount(o_kod, n, O))
+    from scipy.stats import spearmanr
+
+    r_saf = spearmanr(saf, gercek).statistic
+    r_pbm = spearmanr(gamma, gercek).statistic
+    return {"n_option": O, "saf": float(r_saf), "pbm": float(r_pbm), "kazanc": float(r_pbm - r_saf),
+            "theta": theta}
+
+
+@pytest.fixture(scope="module")
+def tam_online(tam_kosu):
+    from perakende_veri.v4.crm.dongu import crm_simule_et
+    from perakende_veri.v4.crm.girdi import girdi_hamdan
+
+    g = girdi_hamdan(tam_kosu["dunya"], tam_kosu["ham"])
+    return online_uret(g, crm_simule_et(g))
+
+
+@pytest.mark.yavas
+def test_siralama_ogrenilebilirligi_tam(tam_online):
+    r = pbm_degerlendir(tam_online)
+    enj = tam_online.gizli["enjekte"].merge(tam_online.gunluk, on=["gun", "liste", "sira", "option"])
+    pay = enj["satin_alma"].sum() / tam_online.gunluk["satin_alma"].sum()
+    print(f"\nPBM (TAM): {r['n_option']} option, saf {r['saf']:.3f}, PBM {r['pbm']:.3f}, "
+          f"kazanç {r['kazanc']:.3f}; θ(1, 5, 20, 48) {r['theta'][[0, 4, 19, 47]].round(3).tolist()}; "
+          f"enjekte hücre satın alma payı {pay:.3f}")
+    assert r["kazanc"] >= 0.10

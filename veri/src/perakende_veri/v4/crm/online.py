@@ -29,9 +29,14 @@ ilgi(option, arketip) = exp(log sürpriz + öznitelik etkisi (A, segment
 ortalaması; sezonluk option kendi sezonu, DEVAMLI günün sezonu) + arketip
 tercihi (alt kategori, fiyat segmenti, kalıp, desen ortalarının düzgüne göre
 log-oranı) + 0,5 × arketip indirim duyarlılığı ortalaması × oran). Günün
-ilgi ortalaması, online etkin müşterilerin (hayatta, online_payi > 0)
-arketip ağırlığıyla (Σ ziyaret_hizi × online_payi, 7 günde bir) ortalanır;
-göreli ilgi = ilgi_ort / uygun option'ların ortalaması.
+ilgisi γ(option, d), online etkin müşterilerin (hayatta, online_payi > 0)
+arketip ağırlığıyla (Σ ziyaret_hizi × online_payi; pencere başından 7
+günlük adımlarla, adımın ilk günü) ortalanır. Tıklama olasılığı konum
+yanlılığı modeli (PBM): p = min(0,9, c × bakılma(sıra) × γ), c koşu
+boyunca TEK sabit (`tiklama_sabiti`): bütün pencerede (koşulan aralıktan
+bağımsız) Lumoda'nın sıralamasıyla beklenen Σ tıklama / Σ görüntüleme =
+`TIKLAMA_GORUNTULEME` olacak şekilde bir ön geçişte ayarlanır. Enjekte
+edilen başka politika aynı c ile (aynı gerçek tıklama modeliyle) koşar.
 
 **Gün d** (`online_gun`):
 
@@ -40,11 +45,7 @@ göreli ilgi = ilgi_ort / uygun option'ların ortalaması.
    kendisinden); liste türlerine `LISTE_TRAFIK_PAYI` (kategori ve arama
    listeleri içinde son 7 gün satış + 1 ile orantılı; boş liste 0),
    multinom.
-3. Hücre tıklama olasılığı = min(0,9, `TIKLAMA_GORUNTULEME` × bakılma ×
-   göreli ilgi / Σ_liste (bakılma × göreli ilgi)): görüntüleme başına
-   beklenen tıklama liste uzunluğundan ve ölçekten bağımsız
-   `TIKLAMA_GORUNTULEME`; liste içinde sıra ve ilgiyle paylaşılır
-   (enjekte hücrede norm 1).
+3. Hücre tıklama olasılığı = min(0,9, c × bakılma(sıra) × γ(option, d)).
 4. Listede olmayan satın alınan option `arama:<alt>` listesinin 1. sırasına
    eklenir (**enjekte hücre**; aynı (gün, liste, sıra 1)'de iki option
    olabilir, anahtar (gün, liste, sıra, option)).
@@ -57,6 +58,13 @@ göreli ilgi = ilgi_ort / uygun option'ların ortalaması.
    max(Binom(gösterim, p), alım); enjekte hücrede tıklama = alım +
    Poisson(3 × alım), gösterim = tıklama + Poisson(2 × tıklama) (o option'ı
    bulan arama sayısı); sepete ekleme = max(Binom(tıklama, 0,25), alım).
+
+**Gizli** (`OnlineCikti.gizli`): bakılma eğrisi, `tiklama_sabiti` c,
+`ilgi_gunluk` (gun, option, ilgi = o gün kullanılan γ; o gün hücresi olan
+her option), `arketip_agirligi` (adım başı gün × arketip), sezon × option ×
+arketip `ilgi` (oran 0), `enjekte` (gun, liste, sira, option: listede
+olmayan satın almanın arama hücreleri). Gerçek tıklama olasılığı
+`tiklama_olasiligi(sira, ilgi, c)` ile yeniden kurulur.
 
 Rastgelelik `crm_alt_ureticiler(d, "online", GUN_ADIMLARI)`; olay adımları
 aynı akışın sonraki adımları (`online_olay.OLAY_ADIMLARI`).
@@ -161,11 +169,10 @@ def bakilma(sira) -> np.ndarray:
     return 1.0 / (1.0 + np.asarray(sira, dtype=float)) ** S.BAKILMA_US
 
 
-def tiklama_olasiligi(sira, goreli_ilgi, liste_normu=1.0) -> np.ndarray:
-    """Görüntüleme başına hücre tıklama olasılığı; `liste_normu` listenin
-    Σ bakılma × göreli ilgi'si."""
-    q = bakilma(sira) * np.asarray(goreli_ilgi, dtype=float)
-    return np.minimum(S.TIKLAMA_UST, S.TIKLAMA_GORUNTULEME * q / np.asarray(liste_normu, dtype=float))
+def tiklama_olasiligi(sira, ilgi, sabit) -> np.ndarray:
+    """Görüntüleme başına hücre tıklama olasılığı (PBM):
+    min(0,9, c × bakılma(sıra) × γ)."""
+    return np.minimum(S.TIKLAMA_UST, float(sabit) * bakilma(sira) * np.asarray(ilgi, dtype=float))
 
 
 def _log_goreli(anahtar: str, eksen: list, degerler: np.ndarray) -> np.ndarray:
@@ -389,18 +396,30 @@ class GunSonucu:
     olay: dict | None = None         # online_olay.gun_olaylari girdisi
 
 
-def online_gun(d: int, hz: _Hazir, dunya, nufus, siralama: Callable, w_a: np.ndarray,
-               tohum: int, olay: bool) -> GunSonucu:
-    """Gün d'nin liste hücreleri (modül docstring'i)."""
-    akis = crm_alt_ureticiler(d, "online", GUN_ADIMLARI, tohum)
+@dataclass
+class Hucreler:
+    """Gün d'nin deterministik kısmı: listelenen hücreler (enjekte hariç),
+    γ [O], liste görüntüleme payı `w_l` [L] ve toplam görüntüleme `V_top`."""
+
+    h_l: np.ndarray
+    h_s: np.ndarray
+    h_o: np.ndarray
+    ilgi: np.ndarray
+    w_l: np.ndarray
+    V_top: int
+
+
+def gun_hucreleri(d: int, hz: _Hazir, dunya, nufus, siralama: Callable, w_a: np.ndarray) -> Hucreler:
+    """Sıralama, gizli ilgi γ ve görüntüleme payları (rastgelelik yok)."""
     O, L = hz.O, len(hz.listeler)
     lansman, cikis, onl_var = hz.penceresi
     uygun = hz.stoklu[d] & (lansman <= d) & (d <= cikis) & onl_var
     satis7 = hz.satin[max(d - S.SATIS_PENCERE_GUN, 0):d].sum(axis=0, dtype=np.int64)
     kamp = np.asarray(dunya.kampanya_takvimi(d))[nufus.magaza.onl]
     oran = np.maximum(hz.md_oran[d].astype(float), kamp)
-    gor = GunGorunum(gun=d, listeler=hz.listeler, kategori_liste=hz.kat_liste, arama_liste=hz.arama_liste,
-                     uygun=uygun.copy(), satis7=satis7.copy(), lansman_gun=lansman, oran=oran.copy())
+    gor = GunGorunum(gun=d, listeler=hz.listeler, kategori_liste=hz.kat_liste.copy(),
+                     arama_liste=hz.arama_liste.copy(), uygun=uygun.copy(), satis7=satis7.copy(),
+                     lansman_gun=lansman.copy(), oran=oran.copy())
     sirali = siralama(gor)
 
     idx = {a: i for i, a in enumerate(hz.listeler)}
@@ -419,12 +438,34 @@ def online_gun(d: int, hz: _Hazir, dunya, nufus, siralama: Callable, w_a: np.nda
     h_s = np.concatenate(hs) if hs else np.zeros(0, dtype=np.int64)
     h_o = np.concatenate(ho) if ho else np.zeros(0, dtype=np.int64)
 
-    # gizli ilgi
+    # gizli ilgi γ
     z = hz.z[gunun_sezonu(d)]
     u = z[:, None] + hz.tercih + S.ILGI_INDIRIM * hz.ind_a[None, :] * oran[:, None]
     ilgi = np.exp(u) @ (w_a / w_a.sum()) if w_a.sum() > 0 else np.exp(u).mean(axis=1)
-    ref = ilgi[uygun].mean() if uygun.any() else ilgi.mean()
-    goreli = ilgi / ref
+
+    # görüntüleme payları
+    tur = hz.liste_turu
+    w_l = np.zeros(L)
+    dolu = np.bincount(h_l, minlength=L) > 0
+    ag = np.bincount(h_l, weights=satis7[h_o] + 1.0, minlength=L)
+    for t, ad in ((0, "kategori"), (3, "arama")):
+        s_ = (tur == t) & dolu
+        if ag[s_].sum() > 0:
+            w_l[s_] = S.LISTE_TRAFIK_PAYI[ad] * ag[s_] / ag[s_].sum()
+    for t, ad in ((1, "yeni_gelenler"), (2, "indirim")):
+        w_l[(tur == t) & dolu] = S.LISTE_TRAFIK_PAYI[ad]
+    if w_l.sum() > 0:
+        w_l = w_l / w_l.sum()
+    V_top = int(round(hz.fis_sayisi[d] * S.GORUNTULEME_FIS))
+    return Hucreler(h_l=h_l, h_s=h_s, h_o=h_o, ilgi=ilgi, w_l=w_l, V_top=V_top)
+
+
+def online_gun(d: int, hz: _Hazir, hc: Hucreler, sabit: float, tohum: int, olay: bool) -> GunSonucu:
+    """Gün d'nin liste hücreleri (modül docstring'i); `hc` `gun_hucreleri`,
+    `sabit` koşunun tıklama sabiti c."""
+    akis = crm_alt_ureticiler(d, "online", GUN_ADIMLARI, tohum)
+    O, L = hz.O, len(hz.listeler)
+    h_l, h_s, h_o, ilgi = hc.h_l, hc.h_s, hc.h_o, hc.ilgi
 
     # listede olmayan satın alma → arama:<alt>, sıra 1
     satin = hz.satin[d].astype(np.int64)
@@ -436,25 +477,11 @@ def online_gun(d: int, hz: _Hazir, dunya, nufus, siralama: Callable, w_a: np.nda
     h_s = np.r_[h_s, np.ones(len(eksik), dtype=np.int64)]
     h_o = np.r_[h_o, eksik]
     enj = np.r_[np.zeros(n_liste, dtype=bool), np.ones(len(eksik), dtype=bool)]
-    q = bakilma(h_s) * goreli[h_o]
-    norm = np.bincount(h_l[~enj], weights=q[~enj], minlength=L)
-    p = tiklama_olasiligi(h_s, goreli[h_o], np.where(enj, 1.0, norm[h_l]))
+    p = tiklama_olasiligi(h_s, ilgi[h_o], sabit)
 
     # görüntüleme
-    tur = hz.liste_turu
-    w_l = np.zeros(L)
-    dolu = np.bincount(h_l[~enj], minlength=L) > 0
-    ag = np.bincount(h_l[~enj], weights=satis7[h_o[~enj]] + 1.0, minlength=L)
-    for t, ad in ((0, "kategori"), (3, "arama")):
-        s = (tur == t) & dolu
-        if ag[s].sum() > 0:
-            w_l[s] = S.LISTE_TRAFIK_PAYI[ad] * ag[s] / ag[s].sum()
-    for t, ad in ((1, "yeni_gelenler"), (2, "indirim")):
-        s = (tur == t) & dolu
-        w_l[s] = S.LISTE_TRAFIK_PAYI[ad]
-    V_top = int(round(hz.fis_sayisi[d] * S.GORUNTULEME_FIS))
-    V = (akis["goruntuleme"].multinomial(V_top, w_l / w_l.sum()).astype(np.int64)
-         if w_l.sum() > 0 else np.zeros(L, dtype=np.int64))
+    V = (akis["goruntuleme"].multinomial(hc.V_top, hc.w_l).astype(np.int64)
+         if hc.w_l.sum() > 0 else np.zeros(L, dtype=np.int64))
 
     # satın alma dağıtımı
     alim = _dagit(akis["dagitim"], satin, h_o, V[h_l] * p)
@@ -534,6 +561,23 @@ class OnlineCikti:
     sure: dict
 
 
+def tiklama_sabiti(hz: _Hazir, dunya, nufus, gunler, w_a_gun: Callable, onbellek: dict | None = None) -> float:
+    """Koşunun tek tıklama sabiti c: Lumoda'nın sıralamasıyla `gunler`de
+    Σ_gün Σ_hücre E[görüntüleme] × bakılma × γ × c = `TIKLAMA_GORUNTULEME` ×
+    Σ görüntüleme (üst sınır 0,9 yok sayılır). `onbellek` verilirse günlerin
+    `Hucreler`'i oraya yazılır (Lumoda koşusu yeniden hesaplamaz)."""
+    pay = payda = 0.0
+    for d in gunler:
+        hc = gun_hucreleri(d, hz, dunya, nufus, lumoda_siralama, w_a_gun(d))
+        if onbellek is not None:
+            onbellek[d] = hc
+        EV = hc.V_top * hc.w_l
+        payda += float((EV[hc.h_l] * bakilma(hc.h_s) * hc.ilgi[hc.h_o]).sum())
+        pay += hc.V_top
+    assert payda > 0, "tıklama sabiti: hiç hücre yok"
+    return S.TIKLAMA_GORUNTULEME * pay / payda
+
+
 def gizli_tablolar(hz: _Hazir, optionlar: pd.DataFrame) -> dict:
     """Bakılma eğrisi ve sezon × option × arketip ilgisi (oran 0; indirim
     terimi ayrıca `ilgi_indirim_katsayisi` × arketip ort. × oran)."""
@@ -555,6 +599,7 @@ def gizli_tablolar(hz: _Hazir, optionlar: pd.DataFrame) -> dict:
         "ilgi_indirim_katsayisi": S.ILGI_INDIRIM,
         "arketip_indirim_ortalamasi": dict(zip(S.ARKETIPLER, hz.ind_a.tolist())),
         "tiklama_goruntuleme": S.TIKLAMA_GORUNTULEME,
+        "tiklama_ust": S.TIKLAMA_UST,
         "goruntuleme_fis": S.GORUNTULEME_FIS,
         "liste_trafik_payi": dict(S.LISTE_TRAFIK_PAYI),
     }
@@ -572,25 +617,43 @@ def online_uret(girdi, crm_ham, tohum: int = S.CRM_TOHUM, siralama: Callable = l
     sure: dict = {}
     t = time.perf_counter()
     pb, ps = pencere()
+    ps = min(ps, crm_ham.D - 1)
     bas = pb if gun_bas is None else int(gun_bas)
     son = min(ps if gun_son is None else int(gun_son), crm_ham.D - 1)
     ob, os_ = gun_indisi(olay_bas), gun_indisi(olay_son)
     olay_gunleri = set(range(max(ob, bas), min(os_, son) + 1))
     nufus = crm_ham.nufus
     hz = _hazirla(girdi, crm_ham, olay_gunleri)
+    dunya = girdi.dunya
     sure["hazirlik"] = time.perf_counter() - t
+
+    # arketip ağırlığı: pencere başından 7 günlük adımlar (koşulan aralıktan bağımsız)
+    w_onbellek: dict = {}
+
+    def w_a_gun(d: int) -> np.ndarray:
+        g0 = pb + ((d - pb) // 7) * 7
+        if g0 not in w_onbellek:
+            w_onbellek[g0] = arketip_agirligi(nufus, g0)
+        return w_onbellek[g0]
+
+    t = time.perf_counter()
+    hucre_onbellek: dict = {}
+    sabit = tiklama_sabiti(hz, dunya, nufus, range(pb, ps + 1), w_a_gun,
+                           hucre_onbellek if siralama is lumoda_siralama else None)
+    sure["tiklama_sabiti"] = time.perf_counter() - t
 
     parca = {k: [] for k in ("gun", "liste", "sira", "option", "gosterim", "tiklama", "sepete_ekleme",
                              "satin_alma")}
+    enj_parca, ilgi_parca = [], []
     olaylar = []
     oturum_ofset = 0
-    w_a = None
     t_gun = t_olay = 0.0
     for d in range(bas, son + 1):
         t0 = time.perf_counter()
-        if w_a is None or (d - bas) % 7 == 0:
-            w_a = arketip_agirligi(nufus, d)
-        g = online_gun(d, hz, girdi.dunya, nufus, siralama, w_a, tohum, d in olay_gunleri)
+        hc = hucre_onbellek.pop(d, None)
+        if hc is None:
+            hc = gun_hucreleri(d, hz, dunya, nufus, siralama, w_a_gun(d))
+        g = online_gun(d, hz, hc, sabit, tohum, d in olay_gunleri)
         sira = np.lexsort((g.option, g.sira, g.liste))
         n = len(sira)
         parca["gun"].append(np.full(n, d, dtype=np.int16))
@@ -601,6 +664,10 @@ def online_uret(girdi, crm_ham, tohum: int = S.CRM_TOHUM, siralama: Callable = l
         parca["tiklama"].append(g.tiklama[sira].astype(np.int32))
         parca["sepete_ekleme"].append(g.sepete[sira].astype(np.int32))
         parca["satin_alma"].append(g.satin_alma[sira].astype(np.int32))
+        e = np.flatnonzero(g.enjekte)
+        enj_parca.append((np.full(len(e), d), g.liste[e], g.sira[e], g.option[e]))
+        uo = np.unique(g.option)
+        ilgi_parca.append((np.full(len(uo), d), uo, hc.ilgi[uo]))
         t1 = time.perf_counter()
         t_gun += t1 - t0
         if g.olay is not None:
@@ -608,6 +675,7 @@ def online_uret(girdi, crm_ham, tohum: int = S.CRM_TOHUM, siralama: Callable = l
             oturum_ofset += ol["oturum_sayisi"]
             olaylar.append(ol)
             t_olay += time.perf_counter() - t1
+    hucre_onbellek.clear()
     sure["gunluk"] = t_gun
     sure["olay"] = t_olay
 
@@ -618,6 +686,25 @@ def online_uret(girdi, crm_ham, tohum: int = S.CRM_TOHUM, siralama: Callable = l
     beklenen = int(hz.satin[bas:son + 1].sum())
     assert toplam == beklenen, f"satın alma toplamı {toplam} ≠ ONL fiş satırları {beklenen}"
     olay = olay_tablosu(olaylar, hz.listeler)
-    gizli = gizli_tablolar(hz, girdi.dunya.optionlar)
+    gizli = gizli_tablolar(hz, dunya.optionlar)
+    gizli["tiklama_sabiti"] = sabit
+
+    def birles(parcalar, i, tip):
+        return np.concatenate([p[i] for p in parcalar]).astype(tip) if parcalar else np.zeros(0, tip)
+
+    gizli["enjekte"] = pd.DataFrame({
+        "gun": birles(enj_parca, 0, np.int16),
+        "liste": pd.Categorical.from_codes(birles(enj_parca, 1, np.int16), categories=list(hz.listeler)),
+        "sira": birles(enj_parca, 2, np.int16), "option": birles(enj_parca, 3, np.int32),
+    })
+    gizli["ilgi_gunluk"] = pd.DataFrame({"gun": birles(ilgi_parca, 0, np.int16),
+                                         "option": birles(ilgi_parca, 1, np.int32),
+                                         "ilgi": birles(ilgi_parca, 2, np.float64)})
+    gz = sorted(w_onbellek)
+    gizli["arketip_agirligi"] = pd.DataFrame({
+        "adim_gun": np.repeat(gz, len(S.ARKETIPLER)),
+        "arketip": np.tile(S.ARKETIPLER, len(gz)),
+        "agirlik": np.concatenate([w_onbellek[g] / w_onbellek[g].sum() for g in gz]) if gz else np.zeros(0),
+    })
     sure["birlestir"] = time.perf_counter() - t
     return OnlineCikti(gunluk=gunluk, olay=olay, gizli=gizli, listeler=hz.listeler, sure=sure)
