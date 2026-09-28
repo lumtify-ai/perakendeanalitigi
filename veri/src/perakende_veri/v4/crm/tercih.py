@@ -53,11 +53,14 @@ _BEDEN_YONU = np.array(
     ],
     dtype=np.int8,
 )
+BEDEN_YONU = _BEDEN_YONU  # [17] alt kategori → 0 üst beden, 1 alt beden, −1 aksesuar
 
 # Beden sırası farkının log-ceza tabanı (`beden_dagin` ile bölünerek
-# yumuşatılır); fark 0 → 0.
-BEDEN_FARK_1 = -1.2
-BEDEN_FARK_2 = -3.0
+# yumuşatılır); fark 0 → 0. KALİBRASYON (Görev 5): −1,2 / −3,0 ile KUCUK'ta
+# 60 günlük koşuda (aksesuar hariç) müşterinin bedenindeki birim payı %70–71
+# (brief alt sınırı %70), −1,8 / −3,5 ile %75–76 (5 B tohumu).
+BEDEN_FARK_1 = -1.8
+BEDEN_FARK_2 = -3.5
 
 
 def tip_kodu(urunler) -> np.ndarray:
@@ -86,7 +89,7 @@ def tip_ozellik() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 def tip_puani(nufus, k_idx, tip_idx) -> np.ndarray:
     """`[len(k_idx), len(tip_idx)]` log-puan: alt kategori tercihi + fiyat
-    segmenti eğilimi + beden uyumu terimi (fark 0 → 0, 1 → −1,2, ≥2 → −3,0;
+    segmenti eğilimi + beden uyumu terimi (fark 0 → 0, 1 → −1,8, ≥2 → −3,5;
     `beden_dagin` ile yumuşar; aksesuar 0)."""
     k_idx = np.asarray(k_idx, dtype=np.int64)
     tip_idx = np.asarray(tip_idx, dtype=np.int64)
@@ -95,8 +98,9 @@ def tip_puani(nufus, k_idx, tip_idx) -> np.ndarray:
     seg = seg_t[tip_idx]
     beden = beden_t[tip_idx]
 
-    kat = np.log(np.asarray(nufus.tercih_kat)[k_idx][:, alt])
-    fiyat = np.log(np.asarray(nufus.fiyat_segment_egilim)[k_idx][:, seg])
+    # log önce (müşteri × 17 / × 3), sonra tip sütunlarına dağıt: aynı değer, daha ucuz
+    kat = np.log(np.asarray(nufus.tercih_kat)[k_idx])[:, alt]
+    fiyat = np.log(np.asarray(nufus.fiyat_segment_egilim)[k_idx])[:, seg]
 
     yon = _BEDEN_YONU[alt]                                            # [T]
     musteri_ust = np.asarray(nufus.beden_ust, dtype=np.float64)[k_idx][:, None]
@@ -111,15 +115,35 @@ def tip_puani(nufus, k_idx, tip_idx) -> np.ndarray:
     return kat + fiyat + beden_terim
 
 
+def sku_kodlari(urunler) -> tuple[np.ndarray, np.ndarray]:
+    """SKU başına (kalıp indisi `KALIPLAR`, desen indisi `DESENLER`); günlük
+    eşleştirici bir kez hesaplayıp `sku_ek_puani_cift`'e verir."""
+    kalip_idx = pd.Series(urunler["kalip"].to_numpy()).map(_KALIP_IDX).to_numpy(dtype=np.int64)
+    desen_idx = pd.Series(urunler["desen"].to_numpy()).map(_DESEN_IDX).to_numpy(dtype=np.int64)
+    return kalip_idx, desen_idx
+
+
+def sku_ek_puani_cift(nufus, k_idx, sku_idx, oran, kodlar) -> np.ndarray:
+    """`sku_ek_puani`'nın çift (eleman eleman) biçimi: `[n]` log-puan eki,
+    i. eleman müşteri `k_idx[i]` × SKU `sku_idx[i]` (`oran` [n] ya da
+    skaler); `kodlar` = `sku_kodlari(urunler)`. Yoğun matrisin köşegeniyle
+    aynı değer (test_tercih)."""
+    k_idx = np.asarray(k_idx, dtype=np.int64)
+    sku_idx = np.asarray(sku_idx, dtype=np.int64)
+    kalip_idx, desen_idx = kodlar
+    kalip_p = np.log(np.asarray(nufus.tercih_kalip)[k_idx, kalip_idx[sku_idx]])
+    desen_p = np.log(np.asarray(nufus.tercih_desen)[k_idx, desen_idx[sku_idx]])
+    indirim = np.asarray(nufus.indirim_duyarlilik, dtype=np.float64)[k_idx] * np.asarray(oran, dtype=np.float64)
+    return kalip_p + desen_p + indirim
+
+
 def sku_ek_puani(nufus, k_idx, sku_idx, oran, urunler) -> np.ndarray:
     """`[len(k_idx), len(sku_idx)]` log-puan eki: kalıp + desen eğilimi +
     indirim duyarlılığı × `oran` (SKU başına ya da skaler)."""
     k_idx = np.asarray(k_idx, dtype=np.int64)
     sku_idx = np.asarray(sku_idx, dtype=np.int64)
-    kalip = urunler["kalip"].to_numpy()[sku_idx]
-    desen = urunler["desen"].to_numpy()[sku_idx]
-    kalip_idx = pd.Series(kalip).map(_KALIP_IDX).to_numpy(dtype=np.int64)
-    desen_idx = pd.Series(desen).map(_DESEN_IDX).to_numpy(dtype=np.int64)
+    kalip, desen = sku_kodlari(urunler)
+    kalip_idx, desen_idx = kalip[sku_idx], desen[sku_idx]
 
     kalip_p = np.log(np.asarray(nufus.tercih_kalip)[k_idx][:, kalip_idx])
     desen_p = np.log(np.asarray(nufus.tercih_desen)[k_idx][:, desen_idx])
@@ -163,17 +187,27 @@ TAMAMLAYICI: dict[tuple[str, str], float] = {
 
 AYNI_ALT_CARPANI = 0.6
 
+#: Açık çiftlerin etkin çarpanı `TAMAMLAYICI[çift] ** TAMAMLAYICI_GUC`
+#: (log-uzayda ×GUC; köşegen ve nötr çiftler değişmez). KALİBRASYON (Görev
+#: 5): müşteri kategori tercihleri sivri (Dirichlet yoğunluğu 10) olduğundan
+#: fişler kategoriye göre ayrışır; tamamlayıcılıksız (Elbise, Çanta) birlikte
+#: görünmesi bağımsız beklentinin ~0,7'si, GUC 1'de ~1,0 (yalnız ayrışmayı
+#: dengeler), GUC 3'te 1,5–1,8, GUC 4'te 1,76–2,09 (KUCUK, 60 gün, 5 B
+#: tohumu; bağımsız beklenti fiş boyutları sabit permütasyon; test_ayristir).
+TAMAMLAYICI_GUC = 4.0
+
 
 def tamamlayici_matris() -> np.ndarray:
     """`[17, 17]` log-tamamlayıcılık matrisi (simetrik); köşegen `log(0,6)`,
-    açık çiftler `TAMAMLAYICI`'daki değer, diğerleri `log(1) = 0`."""
+    açık çiftler `GUC × log(TAMAMLAYICI[çift])`, diğerleri `log(1) = 0`.
+    Gizli gerçek budur (eşleştiricinin kullandığı etkin matris)."""
     n = A_ALT
     m = np.ones((n, n), dtype=np.float64)
     np.fill_diagonal(m, AYNI_ALT_CARPANI)
     for (a, b), deger in TAMAMLAYICI.items():
         i, j = _ALT_IDX[a], _ALT_IDX[b]
-        m[i, j] = deger
-        m[j, i] = deger
+        m[i, j] = deger ** TAMAMLAYICI_GUC
+        m[j, i] = deger ** TAMAMLAYICI_GUC
     return np.log(m)
 
 

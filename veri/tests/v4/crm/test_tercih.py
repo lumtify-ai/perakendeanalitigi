@@ -164,3 +164,16 @@ def test_gizli_matris_yayimlanan_yapida_degil():
 
     assert not any("tamamlay" in ad.lower() for ad in Nufus.SUTUNLAR)
     assert not any("tamamlay" in ad.lower() for ad in Nufus.GOZLEMLENEBILIR)
+
+
+def test_sku_ek_puani_cift_kosegenle_ayni(kucuk_girdi, n):
+    from perakende_veri.v4.crm.tercih import sku_ek_puani, sku_ek_puani_cift, sku_kodlari
+
+    u = kucuk_girdi.dunya.urunler
+    rng = np.random.default_rng(3)
+    k = rng.integers(0, len(n.arketip), 50)
+    s = rng.integers(0, len(u), 50)
+    oran = rng.choice([0.0, 0.3, 0.5], 50)
+    yogun = sku_ek_puani(n, k, s, oran, u)
+    cift = sku_ek_puani_cift(n, k, s, oran, sku_kodlari(u))
+    assert np.allclose(cift, np.diag(yogun), atol=1e-6)

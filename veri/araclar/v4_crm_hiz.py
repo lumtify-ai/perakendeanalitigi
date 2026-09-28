@@ -7,6 +7,7 @@ iskeleti TAM ölçekte, bütün günlerde. Kapı: eşleştirme ≤ 12 dk.
     python araclar/v4_crm_hiz.py --karsilastir 20   # önce 20 günde yoğun ↔ tip
     python araclar/v4_crm_hiz.py --yogun            # tam koşuda eski yoğun varyant
     python araclar/v4_crm_hiz.py --kucuk            # duman testi (A KUCUK)
+    python araclar/v4_crm_hiz.py --ayristir         # gerçek gun_ayristir, gerçek nüfus, bütün günler
 
 İki varyant: `gun_esle_tip` (varsayılan; Görev 5 için seçilen iki aşamalı,
 tip düzeyinde, sayım düzeyinde algoritma, docstring'inde; ziyaretçi seçimi
@@ -56,6 +57,11 @@ from ctypes import wintypes
 
 import numpy as np
 
+from perakende_veri.v4.crm.ayristir import (  # eşleştirme çekirdeği tek kaynak
+    asama1, asama2, grup_en_buyuk_kalan, grup_ici_karistir, segment_argmax, segment_ici,
+)
+from perakende_veri.v4.crm.tercih import A_ALT, N_TIP, STD_BEDEN, tip_kodu, tip_ozellik
+
 N_MUSTERI = 1_800_000
 IL_ICI_AGIRLIK = 0.15
 SEPET_FIZIKSEL = 2.2
@@ -63,10 +69,6 @@ SEPET_ONLINE = 1.8
 BF_CARPANI = 1.3
 TUR = 5
 KAPI_SN = 12 * 60
-A_ALT = 17
-STD_BEDEN = 7          # aksesuar tipinin bedeni (beden_sira ≤ 5)
-TIP_BEDEN = 8
-N_TIP = A_ALT * 3 * TIP_BEDEN
 
 
 # ---------------------------------------------------------------------------
@@ -96,47 +98,6 @@ def bellek_gb() -> tuple[float, float]:
     psapi.GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(_PMC), wintypes.DWORD]
     psapi.GetProcessMemoryInfo(k32.GetCurrentProcess(), ctypes.byref(pmc), pmc.cb)
     return pmc.WorkingSetSize / 2**30, pmc.PeakWorkingSetSize / 2**30
-
-
-# ---------------------------------------------------------------------------
-# Vektörel yardımcılar
-# ---------------------------------------------------------------------------
-
-
-def segment_ici(uzunluk: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Segment uzunluklarından (segment no, segment içi sıra) düz dizileri."""
-    uzunluk = np.asarray(uzunluk, dtype=np.int64)
-    seg = np.repeat(np.arange(len(uzunluk)), uzunluk)
-    bas = np.cumsum(uzunluk) - uzunluk
-    return seg, np.arange(len(seg)) - bas[seg]
-
-
-def segment_argmax(deger: np.ndarray, uzunluk: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Bitişik segmentlerde (uzunluk > 0) en büyük değerin konumu ve değeri."""
-    bas = np.cumsum(uzunluk) - uzunluk
-    enb = np.maximum.reduceat(deger, bas)
-    esit = np.flatnonzero(deger == np.repeat(enb, uzunluk))
-    seg = np.searchsorted(bas, esit, side="right") - 1
-    ilk = np.flatnonzero(np.r_[True, seg[1:] != seg[:-1]])
-    return esit[ilk], enb
-
-
-def grup_en_buyuk_kalan(agirlik: np.ndarray, grup: np.ndarray, hedef: np.ndarray) -> np.ndarray:
-    """Grup içinde `hedef[g]` adedi ağırlıkla orantılı tam sayılara böler."""
-    top = np.bincount(grup, agirlik, minlength=len(hedef))
-    x = agirlik / top[grup] * hedef[grup]
-    taban = np.floor(x).astype(np.int64)
-    kalan = hedef - np.bincount(grup, taban, minlength=len(hedef))
-    sira = np.lexsort((-(x - taban), grup))
-    g = grup[sira]
-    rutbe = np.arange(len(sira)) - np.searchsorted(g, g, side="left")
-    taban[sira[rutbe < kalan[g]]] += 1
-    return taban
-
-
-def grup_ici_karistir(grup: np.ndarray, rng) -> np.ndarray:
-    """Gruba göre sıralı, grup içinde rastgele permütasyon indisi."""
-    return np.lexsort((rng.random(len(grup)), grup))
 
 
 # ---------------------------------------------------------------------------
@@ -348,24 +309,6 @@ def gun_esle_yogun(satirlar, hm, hs, sku, nufus, adaylar, onl_m, T, bf: bool, rn
 # ---------------------------------------------------------------------------
 
 
-def segment_kategorik(logit: np.ndarray, uzunluk: np.ndarray, tekrar: np.ndarray, rng):
-    """Bitişik segmentlerin her birinde softmax(logit)'ten `tekrar[s]`
-    bağımsız çekiliş: (seçilen konumlar [Σ tekrar], segment lse). Gumbel-max
-    ile aynı dağılım: argmax_i(logit_i + G_i) ~ softmax, en büyük değer
-    ~ lse + Gumbel (argmax'tan bağımsız). Logitler sonlu olmalı."""
-    uzunluk = np.asarray(uzunluk, dtype=np.int64)
-    bas = np.cumsum(uzunluk) - uzunluk
-    mx = np.maximum.reduceat(logit, bas).astype(np.float64)
-    w = np.exp(logit.astype(np.float64) - np.repeat(mx, uzunluk))
-    C = np.cumsum(w)
-    toplam = np.add.reduceat(w, bas)
-    alt = C[bas + uzunluk - 1] - toplam
-    seg = np.repeat(np.arange(len(uzunluk)), tekrar)
-    x = alt[seg] + rng.random(len(seg)) * toplam[seg]
-    pos = np.clip(np.searchsorted(C, x, side="right"), bas[seg], bas[seg] + uzunluk[seg] - 1)
-    return pos, mx + np.log(toplam)
-
-
 def _gumbel_top_k(aday, ters_w, hayatta, k, rng) -> np.ndarray:
     """Gumbel-top-k (üstel yarış: E/w'nin en küçük k'sı); ölüler dışarıda.
     k'dan az hayatta aday varsa hepsi."""
@@ -424,38 +367,11 @@ def ziyaretci_sec(F_m, f_bas, F, nufus, adaylar, rng, sayac: dict) -> tuple[np.n
     return musteri, yeni
 
 
-def _grup_ici_es(sol_grup: np.ndarray, sag_grup: np.ndarray, rng) -> tuple[np.ndarray, np.ndarray]:
-    """İki çoklu kümeyi grup içinde rastgele eşler (grup başına sayılar
-    eşit olmalı): (sol sıra, sağ sıra) — sol[a[i]] ile sag[b[i]] eş."""
-    a = np.argsort(sol_grup, kind="stable")
-    b = grup_ici_karistir(sag_grup, rng)
-    assert (sol_grup[a] == sag_grup[b]).all()
-    return a, b
-
-
 def gun_esle_tip(satirlar, hm, hs, sku, nufus, adaylar, onl_m, T, bf: bool, rng, sure: dict) -> dict:
-    """İki aşamalı eşleştirme, sayım düzeyinde (birimler açılmaz).
-
-    Satış satırı = (mağaza, SKU) hattı, `c` adet. Grup = (mağaza, tip);
-    tip = (alt kategori, fiyat segmenti, beden sırası; aksesuar STD).
-
-    Aşama 1 (tip düzeyinde kesin): puan birimde yalnız tipe bağlı; aynı
-    tipteki n boş birimin Gumbel-max'ı = tip puanı + log n + tek Gumbel.
-    Çapa: açık fiş × mağazasının grupları, puan + log(kalan) + Gumbel;
-    çakışmada grubun kalanı kadar en yüksek fiş kazanır. Tamamlayıcı:
-    bekleyen birimin en iyi fişi = grubun kapasiteli fişler üzerindeki
-    softmax'ından kategorik çekiliş, kazanan değeri lse + Gumbel; taşmada
-    en yüksek değerliler. 2.–5. turlar yalnız açık fiş / bekleyen birim.
-    Turlar arasında Gumbel yeniden çekilir (yoğun sürümde birimin Gumbel'i
-    sabitti; fark yalnız taşanların koşullu dağılımında).
-
-    Aşama 2 (tip içinde, SKU çokluklarıyla): (fiş, grup) başına k birim
-    grubun hatlarından kategorik çekilir, ağırlık = kalan_c × exp(kalıp +
-    desen tercihi + indirim duyarlılığı × SKU-gün oranı). Bir hatta kalandan
-    fazla istek düşerse değeri (lse + Gumbel) en yüksek istekler kazanır;
-    kalanlar sonraki tura (≤ 5), sonra grup içinde rastgele. Grubun tek
-    hattı varsa ya da bütün grubu tek fiş aldıysa seçim yok.
-    """
+    """İki aşamalı, sayım düzeyinde eşleştirme; çekirdek
+    `perakende_veri.v4.crm.ayristir.asama1/asama2` (Görev 5'in kullandığı
+    kodun aynısı), puanlar bu betiğin sahte nüfusundan. Tip = `tercih.tip_kodu`
+    (306 tip)."""
     M = len(onl_m)
     t = time.perf_counter()
     hucre = satirlar[:, 0].astype(np.int64)
@@ -466,14 +382,12 @@ def gun_esle_tip(satirlar, hm, hs, sku, nufus, adaylar, onl_m, T, bf: bool, rng,
     h_c = satirlar[sira, 1].astype(np.int64)
     h_oran = satirlar[sira, 2].astype(np.float32)
     gk, g_bas_h, L_g = np.unique(anahtar, return_index=True, return_counts=True)
-    Gn = len(gk)
-    h_g = np.repeat(np.arange(Gn), L_g)
+    h_g = np.repeat(np.arange(len(gk)), L_g)
     n_g = np.add.reduceat(h_c, g_bas_h)
     g_m, g_tip = gk // N_TIP, gk % N_TIP
-    g_alt, g_seg, g_bed = g_tip // (3 * TIP_BEDEN), (g_tip // TIP_BEDEN) % 3, g_tip % TIP_BEDEN
+    alt_t, seg_t, bed_t = tip_ozellik()
+    g_alt, g_seg, g_bed = alt_t[g_tip], seg_t[g_tip], bed_t[g_tip]
     g_aks = g_bed == STD_BEDEN
-    G_m = np.bincount(g_m, minlength=M)
-    gm_bas = np.cumsum(G_m) - G_m
     U_m = np.bincount(g_m, n_g, minlength=M).astype(np.int64)
     Ut = int(n_g.sum())
 
@@ -502,174 +416,33 @@ def gun_esle_tip(satirlar, hm, hs, sku, nufus, adaylar, onl_m, T, bf: bool, rng,
         uyum = (g_aks[pg] | (g_bed[pg] == f_bed[pf])).astype(np.float32)
         return f_tercih[pf, g_alt[pg]] + f_seg[pf, g_seg[pg]] + 1.5 * uyum
 
-    # 4) Çapa, tip düzeyinde: açık fiş × mağazasının grupları
-    cift = {"capa": 0, "tamam": 0, "asama2": 0}
-    kalan_g = n_g.copy()
-    capa_g = np.full(F, -1, dtype=np.int64)
-    acik = np.arange(F)
-    for _ in range(TUR):
-        if not len(acik):
-            break
-        uz = G_m[fis_m[acik]]
-        pi, ic = segment_ici(uz)
-        pf = acik[pi]
-        pg = gm_bas[fis_m[pf]] + ic
-        cift["capa"] += len(pf)
-        with np.errstate(divide="ignore"):
-            skor = puan_tip(pf, pg) + np.log(kalan_g[pg]).astype(np.float32)
-        skor += rng.gumbel(size=len(pf)).astype(np.float32)
-        yer, enb = segment_argmax(skor, uz)
-        g_sec = pg[yer]
-        o = np.lexsort((-enb, g_sec))
-        gs = g_sec[o]
-        rutbe = np.arange(len(o)) - np.searchsorted(gs, gs)
-        kabul = o[rutbe < kalan_g[gs]]
-        capa_g[acik[kabul]] = g_sec[kabul]
-        kalan_g -= np.bincount(g_sec[kabul], minlength=Gn)
-        kalsin = np.ones(len(acik), dtype=bool)
-        kalsin[kabul] = False
-        acik = acik[kalsin]
-    tur_disi_capa = len(acik)
-    if len(acik):   # mağazanın boş birimlerinden rastgele
-        yuva = np.repeat(np.arange(Gn), kalan_g)
-        yuva = yuva[grup_ici_karistir(g_m[yuva], rng)]
-        y_bas = np.searchsorted(g_m[yuva], np.arange(M))
-        fm = fis_m[acik]
-        rutbe = np.arange(len(fm)) - np.searchsorted(fm, fm)
-        g_sec = yuva[y_bas[fm] + rutbe]
-        capa_g[acik] = g_sec
-        kalan_g -= np.bincount(g_sec, minlength=Gn)
-    sure["4 capa (tip)"] += time.perf_counter() - t
-    t = time.perf_counter()
-
-    # 5) Tamamlayıcı, tip düzeyinde: bekleyen grup × kapasiteli fiş
-    kap = boyut - 1
-    sepet = np.zeros((F, A_ALT), dtype=np.float32)
-    np.add.at(sepet, (np.arange(F), g_alt[capa_g]), 1.0)
-    atama_f, atama_g = [np.arange(F)], [capa_g]
-    bekleyen = kalan_g
-    for _ in range(TUR):
-        gw = np.flatnonzero(bekleyen > 0)
-        if not len(gw):
-            break
-        fo = np.flatnonzero(kap > 0)
-        Fo_m = np.bincount(fis_m[fo], minlength=M)
-        fo_bas = np.cumsum(Fo_m) - Fo_m
-        uz = Fo_m[g_m[gw]]
-        assert (uz > 0).all()
-        pi, ic = segment_ici(uz)
-        pg = gw[pi]
-        pf = fo[fo_bas[g_m[pg]] + ic]
-        cift["tamam"] += len(pf)
-        tamam = sepet @ T
-        logit = puan_tip(pf, pg) + tamam[pf, g_alt[pg]]
-        adet_g = bekleyen[gw]
-        pos, lse = segment_kategorik(logit, uz, adet_g, rng)
-        hedef_f = pf[pos]
-        hedef_g = np.repeat(gw, adet_g)
-        deger = np.repeat(lse, adet_g) + rng.gumbel(size=len(pos))
-        o = np.lexsort((-deger, hedef_f))
-        hf = hedef_f[o]
-        rutbe = np.arange(len(o)) - np.searchsorted(hf, hf)
-        kabul = o[rutbe < kap[hf]]
-        f_k, g_k = hedef_f[kabul], hedef_g[kabul]
-        atama_f.append(f_k)
-        atama_g.append(g_k)
-        np.add.at(sepet, (f_k, g_alt[g_k]), 1.0)
-        kap -= np.bincount(f_k, minlength=F)
-        bekleyen = bekleyen - np.bincount(g_k, minlength=Gn)
-    tur_disi_tamam = int(bekleyen.sum())
-    if tur_disi_tamam:   # kalan kapasiteye rastgele (mağaza içinde Σ kap = bekleyen)
-        g_rest = np.repeat(np.arange(Gn), bekleyen)
-        yuva = np.repeat(np.arange(F), np.maximum(kap, 0))
-        a, b = _grup_ici_es(g_m[g_rest], fis_m[yuva], rng)
-        atama_f.append(yuva[b])
-        atama_g.append(g_rest[a])
-    sure["5 tamam (tip)"] += time.perf_counter() - t
-    t = time.perf_counter()
-
-    # 6) Aşama 2: tip içinde SKU, hat çoklukları üzerinde
-    af, ag = np.concatenate(atama_f), np.concatenate(atama_g)
+    af, ag = asama1(fis_m, boyut, g_m, g_alt, n_g, M, puan_tip, T, rng, sayac)
     assert len(af) == Ut
-    uk, k_a = np.unique(ag * F + af, return_counts=True)
-    a_g, a_f = uk // F, uk % F
-    A = len(uk)
-    H = len(h_s)
-    parca_f, parca_h, parca_n = [], [], []   # (fiş, hat, adet) sonuç parçaları
-    c_kalan = h_c.copy()
-    ihtiyac = k_a.copy()
-    # Seçimsiz: grubun tek hattı var ya da grubun hepsi tek fişte
-    tek_hat = L_g[a_g] == 1
-    if tek_hat.any():
-        parca_f.append(a_f[tek_hat])
-        parca_h.append(g_bas_h[a_g[tek_hat]])
-        parca_n.append(k_a[tek_hat])
-    tum = (k_a == n_g[a_g]) & ~tek_hat
-    if tum.any():
-        ti, tc = segment_ici(L_g[a_g[tum]])
-        hh = g_bas_h[a_g[tum]][ti] + tc
-        parca_f.append(a_f[tum][ti])
-        parca_h.append(hh)
-        parca_n.append(h_c[hh])
-    secimsiz = tek_hat | tum
-    ihtiyac[secimsiz] = 0
-    if secimsiz.any():
-        c_kalan -= np.bincount(np.concatenate(parca_h), np.concatenate(parca_n), minlength=H).astype(np.int64)
-    for _ in range(TUR):
-        aktif = np.flatnonzero(ihtiyac > 0)
-        if not len(aktif):
-            break
-        pi, ic = segment_ici(L_g[a_g[aktif]])
-        pa = aktif[pi]
-        ph = g_bas_h[a_g[pa]] + ic
-        cift["asama2"] += len(pa)
-        c = musteri[a_f[pa]]
+    sure["4-5 asama1 (tip)"] += time.perf_counter() - t
+    t = time.perf_counter()
+
+    def logit(f, h):
+        c = musteri[f]
         cm = np.maximum(c, 0)
-        s = h_s[ph]
-        w = np.where(c >= 0, nufus["kalip"][cm, sku["kalip"][s]] + nufus["desen"][cm, sku["desen"][s]]
-                     + nufus["duyarlilik"][cm] * h_oran[ph], 0.0)
-        with np.errstate(divide="ignore"):
-            logit = w + np.log(c_kalan[ph])
-        pos, lse = segment_kategorik(logit, L_g[a_g[aktif]], ihtiyac[aktif], rng)
-        istek_a = np.repeat(aktif, ihtiyac[aktif])
-        istek_h = ph[pos]
-        deger = np.repeat(lse, ihtiyac[aktif]) + rng.gumbel(size=len(pos))
-        deger[c_kalan[istek_h] <= 0] = -np.inf   # kenar: sıfır ağırlıklı hat
-        o = np.lexsort((-deger, istek_h))
-        ho = istek_h[o]
-        rutbe = np.arange(len(o)) - np.searchsorted(ho, ho)
-        kabul = o[(rutbe < c_kalan[ho]) & np.isfinite(deger[o])]
-        ka, kh = istek_a[kabul], istek_h[kabul]
-        ck, cn = np.unique(ka * H + kh, return_counts=True)
-        parca_f.append(a_f[ck // H])
-        parca_h.append(ck % H)
-        parca_n.append(cn)
-        ihtiyac -= np.bincount(ka, minlength=A)
-        c_kalan -= np.bincount(kh, minlength=H)
-    tur_disi_sku = int(ihtiyac.sum())
-    if tur_disi_sku:   # grup içinde rastgele
-        ra = np.repeat(np.arange(A), ihtiyac)
-        rh = np.repeat(np.arange(H), c_kalan)
-        a, b = _grup_ici_es(a_g[ra], h_g[rh], rng)
-        parca_f.append(a_f[ra[a]])
-        parca_h.append(rh[b])
-        parca_n.append(np.ones(len(a), dtype=np.int64))
+        s = h_s[h]
+        return np.where(c >= 0, nufus["kalip"][cm, sku["kalip"][s]] + nufus["desen"][cm, sku["desen"][s]]
+                        + nufus["duyarlilik"][cm] * h_oran[h], 0.0)
+
+    pf_, ph_, pn_ = asama2(af, ag, F, g_bas_h, L_g, n_g, h_c, h_g, logit, rng, sayac)
     sure["6 asama2 (SKU)"] += time.perf_counter() - t
     t = time.perf_counter()
 
-    # 7) (fiş, SKU) satırları: mağazada SKU başına tek hat → (fiş, hat) eşsiz
-    pf_, ph_, pn_ = np.concatenate(parca_f), np.concatenate(parca_h), np.concatenate(parca_n)
+    H = len(h_s)
     satir_k, ters = np.unique(pf_ * H + ph_, return_inverse=True)
-    satir_adet = np.bincount(ters, pn_)
     assert (np.bincount(pf_, pn_, minlength=F) == boyut).all()
     assert (np.bincount(ph_, pn_, minlength=H) == h_c).all()
-    assert satir_adet.min() > 0
     sure["7 birlestir"] += time.perf_counter() - t
     return {"birim": Ut, "fis": F, "satir": len(satir_k), "yeni": yeni,
-            "cift": cift["capa"] + cift["tamam"] + cift["asama2"],
-            "cift_capa": cift["capa"], "cift_tamam": cift["tamam"], "cift_asama2": cift["asama2"],
-            "tur_disi_capa": tur_disi_capa, "tur_disi_tamam": tur_disi_tamam, "tur_disi_sku": tur_disi_sku,
-            "gumbel_yedek": sayac["gumbel_yedek"]}
+            "cift": sayac["cift_capa"] + sayac["cift_tamam"] + sayac["cift_asama2"],
+            "cift_capa": sayac["cift_capa"], "cift_tamam": sayac["cift_tamam"],
+            "cift_asama2": sayac["cift_asama2"],
+            "tur_disi_capa": sayac["tur_disi_capa"], "tur_disi_tamam": sayac["tur_disi_tamam"],
+            "tur_disi_sku": sayac["tur_disi_sku"], "gumbel_yedek": sayac["gumbel_yedek"]}
 
 
 # ---------------------------------------------------------------------------
@@ -725,12 +498,10 @@ def calistir(gun_sayisi: int | None = None, butce_sn: float = 2 * KAPI_SN,
     def kod(s):
         return u[s].astype("category").cat.codes.to_numpy().astype(np.int64)
 
-    sku = {"alt": kod("alt_kategori"), "seg": kod("fiyat_segmenti"),
-           "beden": u["beden_sira"].to_numpy().astype(np.int8),
-           "aks": (u["ust_kategori"] == "Aksesuar").to_numpy(),
-           "kalip": kod("kalip"), "desen": kod("desen")}
-    assert sku["alt"].max() < A_ALT and sku["beden"].max() < STD_BEDEN
-    sku["tip"] = (sku["alt"] * 3 + sku["seg"]) * TIP_BEDEN + np.where(sku["aks"], STD_BEDEN, sku["beden"])
+    tip = tip_kodu(u)
+    alt_t, seg_t, bed_t = tip_ozellik()
+    sku = {"alt": alt_t[tip], "seg": seg_t[tip], "beden": bed_t[tip].astype(np.int8),
+           "aks": bed_t[tip] == STD_BEDEN, "kalip": kod("kalip"), "desen": kod("desen"), "tip": tip}
     onl_m = (w.magazalar["tip"] == "Online").to_numpy()
     il_m = w.magazalar["sehir"].astype("category").cat.codes.to_numpy().astype(np.int64)
     M = len(onl_m)
@@ -807,6 +578,63 @@ def calistir(gun_sayisi: int | None = None, butce_sn: float = 2 * KAPI_SN,
     print(f"Kapı (≤ {KAPI_SN // 60} dk, nüfus + eşleştirme): {'GEÇTİ' if kapi else 'AŞTI'}")
 
 
+def ayristir_kos(gun_sayisi: int | None = None, kucuk: bool = False) -> None:
+    """Gerçek Görev 5 ayrıştırması (`crm.ayristir.gun_ayristir`) bütün
+    günlerde, en küçük sürücüyle: gerçek başlangıç nüfusu, her gün katılış
+    (`nufus.katilis_sayisi` + `ekle`), terk/iade/boş ziyaret yok. Kapı:
+    `gun_ayristir` toplamı ≤ 12 dk."""
+    from perakende_veri.v4.crm.ayristir import Kayit, gun_ayristir
+    from perakende_veri.v4.crm.girdi import girdi_kur
+    from perakende_veri.v4.crm.nufus import katilis_sayisi, nufus_baslat
+    from perakende_veri.v4.crm.rastgele import crm_uretici
+    from perakende_veri.v4.crm.sabitler import CRM_TOHUM
+    from perakende_veri.v4.crm.yasam import Tetik
+    from perakende_veri.v4.magaza import Olcek
+
+    t0 = time.perf_counter()
+    g = girdi_kur(Olcek.KUCUK if kucuk else Olcek.TAM)
+    print(f"girdi_kur: {time.perf_counter() - t0:.1f} sn, bellek {bellek_gb()[0]:.2f} GB", flush=True)
+    t0 = time.perf_counter()
+    nufus = nufus_baslat(np.random.default_rng(CRM_TOHUM), g)
+    t_nufus = time.perf_counter() - t0
+    print(f"nufus_baslat: {t_nufus:.1f} sn, K = {nufus.K:,}", flush=True)
+    tetik = Tetik.bos(nufus.K)
+    kayit = Kayit()
+    D = g.D if gun_sayisi is None else gun_sayisi
+    t_kat = t_esle = 0.0
+    t_bas = time.perf_counter()
+    for d in range(D):
+        t = time.perf_counter()
+        rng = crm_uretici(d, "katilis")
+        n = katilis_sayisi(rng, g, nufus, d)
+        if n.sum():
+            nufus.ekle(rng, int(n.sum()), np.repeat(np.arange(len(n)), n), kayit_gun=d)
+        t2 = time.perf_counter()
+        t_kat += t2 - t
+        gun_ayristir(d, g, nufus, tetik, kayit)
+        t_esle += time.perf_counter() - t2
+        if d % 100 == 0:
+            print(f"  gün {d}: ayrıştırma {t_esle:.0f} sn, K {nufus.K:,}, bellek {bellek_gb()[0]:.2f} GB",
+                  flush=True)
+    t_top = time.perf_counter() - t_bas
+    _, tepe = bellek_gb()
+    sy = kayit.sayac
+    print(f"\nGün {D}: birim {sy['birim']:,}, fiş {sy['fis']:,}, fiş satırı {sy['satir']:,}, "
+          f"yeni (eksik) müşteri {sy['yeni']:,}, son K {nufus.K:,}")
+    print(f"Çift/gün: çapa {sy['cift_capa'] / D:,.0f}, tamamlayıcı {sy['cift_tamam'] / D:,.0f}, "
+          f"aşama 2 {sy['cift_asama2'] / D:,.0f}")
+    print(f"Tur dışı: çapa fişi {sy['tur_disi_capa']:,}, tamamlayıcı birim {sy['tur_disi_tamam']:,} "
+          f"(%{100 * sy['tur_disi_tamam'] / max(sy['birim'], 1):.2f}), aşama 2 birim {sy['tur_disi_sku']:,}; "
+          f"ziyaretçi Gumbel yedeği {sy['gumbel_yedek']:,} mağaza-gün; aday yapısı kuruluşu "
+          f"{kayit.durum.adaylar.kurulus_sayisi}")
+    print(f"gun_ayristir toplamı {t_esle:.1f} sn ({t_esle / 60:.2f} dk); katılış {t_kat:.1f} sn; "
+          f"döngü {t_top:.1f} sn; nufus_baslat {t_nufus:.1f} sn")
+    for k, v in sorted(kayit.sure.items()):
+        print(f"  {k:16s} {v:7.1f} sn  %{100 * v / max(t_esle, 1e-9):4.1f}")
+    print(f"Tepe bellek (süreç, A dahil): {tepe:.2f} GB")
+    print(f"Kapı (gun_ayristir ≤ {KAPI_SN // 60} dk): {'GEÇTİ' if t_esle <= KAPI_SN else 'AŞTI'}")
+
+
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -818,5 +646,10 @@ if __name__ == "__main__":
     ap.add_argument("--karsilastir", type=int, default=0,
                     help="önce N eşit aralıklı günde yoğun ve tip varyantlarını karşılaştır")
     ap.add_argument("--kucuk", action="store_true", help="duman testi: A KUCUK ölçekte")
+    ap.add_argument("--ayristir", action="store_true",
+                    help="gerçek Görev 5 gun_ayristir'i gerçek nüfusla bütün günlerde ölç")
     a = ap.parse_args()
-    calistir(a.gun, a.butce_dk * 60, a.yogun, a.karsilastir, a.kucuk)
+    if a.ayristir:
+        ayristir_kos(a.gun, a.kucuk)
+    else:
+        calistir(a.gun, a.butce_dk * 60, a.yogun, a.karsilastir, a.kucuk)

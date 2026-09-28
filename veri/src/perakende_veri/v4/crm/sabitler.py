@@ -242,3 +242,30 @@ EV_KAPANIS_CARPANI = 2.0     # ev mağazası kapandı, geçiş yapmadı
 TERK_P_UST = 0.95
 EV_GECIS_OLASILIGI = 0.6     # KALİBRASYON ilde açık mağaza varsa en yakınına geçiş
 EV_KAPANIS_ONLINE_CARPANI = 2.0  # geçmeyenin online payı ×2 (en çok 1)
+
+# --- Günlük ayrıştırma (Görev 5, spec §3) ---------------------------------------
+# Ziyaretçi ağırlığı (fiziksel mağaza m): ziyaret_hizi × (1 − online_payi) ×
+# (ev mağazası m ise 1, aynı ildeki başka müşteri IL_ICI_AGIRLIK); ONL:
+# ziyaret_hizi × online_payi. Kapanmış ev mağazasının satışı olmadığından
+# ağırlığı fiilen 0.
+IL_ICI_AGIRLIK = 0.15            # KALİBRASYON spec §3 "il içi diğerleri hafif"
+ADAY_YENIDEN_KUR_GUN = 28        # aday yapısı en geç bu kadar günde bir baştan kurulur
+ZIYARET_RET_SINIRI = 4           # çekiliş > sınır × k + 64 ise Gumbel-top-k yedeği
+SEPET_BF_CARPANI = 1.3           # Black Friday günlerinde sepet hedefi ×1,3 (spec §3)
+FIS_EN_COK = 8                   # fiş başına adet 1–8 (spec §3)
+FIS_EK_SEKIL = 1.0               # KALİBRASYON fiş ek adedi ağırlığı (sepet_ort − 1) × Gamma(1, 1): çarpık (üstel)
+ESLESTIRME_TUR = 5               # çapa / tamamlayıcı / aşama 2 çakışma turları
+TEKRAR_TAMPON = 8                # müşteri başına son alınan option sayısı (halka)
+TEKRAR_BONUS = 0.8               # KALİBRASYON tamponda olan option'a log-bonus (aşama 2)
+TEKRAR_BONUS_DEVAMLI = 1.2       # KALİBRASYON Basic/NOS option'da
+# Fiş saati (dakika, gün içi). Mağaza 10:00–22:00: hafta içi 19:00 tepeli
+# (σ 1,2 sa), hafta sonu 15:30 tepeli (σ 1,5 sa) normal + düzgün karışım;
+# ONL 24 saat: 21:00 tepeli (σ 3 sa, gece yarısında sarılır) + düzgün.
+SAAT_ACILIS, SAAT_KAPANIS = 10.0, 22.0
+SAAT_HAFTA_ICI = (19.0, 1.2, 0.55)   # (tepe, σ, tepe payı) KALİBRASYON
+SAAT_HAFTA_SONU = (15.5, 1.5, 0.60)  # KALİBRASYON
+SAAT_ONLINE = (21.0, 3.0, 0.60)      # KALİBRASYON
+# Tamamlayıcı adımı dalgalarla: bir turda fiş başına en çok DALGA birim kabul
+# edilir (son tur hariç), böylece sonraki birimler sepete eklenenleri görür.
+TAMAMLAYICI_TUR = 8
+TAMAMLAYICI_DALGA = 1
