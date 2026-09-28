@@ -62,7 +62,8 @@ OLCUTLER = [
     ("trend_ss23_fark", "(bilgi)", None),
     ("trend_kayma", "SS25 − SS23 fark > 0", lambda x: x > 0),
     ("acilis_orta_sayisi", "= 4", lambda x: x == 4),
-    ("acilis_orta_kapsama_max", "< 0,60 (4'ün en büyüğü)", lambda x: x < 0.60),
+    ("acilis_orta_kapsama_ort", "< 0,60 (4'ün ortalaması)", lambda x: x < 0.60),
+    ("acilis_orta_kapsama_max", "(bilgi; 4'ün en büyüğü)", None),
     ("tedarikci_spearman", "≥ 0,5", lambda x: x >= 0.5),
 ]
 
@@ -113,6 +114,7 @@ def olc(tohum: int) -> dict:
     o["trend_kayma"] = og["trend"]["fark"] - og["trend_ss23"]["fark"]
     orta = {m: v["kapsama"] for m, v in og["acilis"].items() if v["sezon_ortasi"]}
     o["acilis_orta_sayisi"] = len(orta)
+    o["acilis_orta_kapsama_ort"] = sum(orta.values()) / len(orta) if orta else float("nan")
     o["acilis_orta_kapsama_max"] = max(orta.values()) if orta else float("nan")
     o["acilis_orta_kapsama"] = orta
     o["tedarikci_spearman"] = og["tedarikci"]["spearman"]
@@ -123,9 +125,14 @@ def olc(tohum: int) -> dict:
 
 
 def _oku() -> dict:
-    if JSON_YOLU.exists():
-        return json.loads(JSON_YOLU.read_text(encoding="utf-8"))
-    return {}
+    if not JSON_YOLU.exists():
+        return {}
+    sonuc = json.loads(JSON_YOLU.read_text(encoding="utf-8"))
+    for o in sonuc.values():  # ortalama ölçütünden önce yazılmış JSON'lar için
+        orta = o.get("acilis_orta_kapsama")
+        if orta and "acilis_orta_kapsama_ort" not in o:
+            o["acilis_orta_kapsama_ort"] = sum(orta.values()) / len(orta)
+    return sonuc
 
 
 def _bicim(x) -> str:

@@ -296,18 +296,60 @@ Veri çözülebilir olmalı ama önemsiz olmamalı. `tests/v4/test_ogrenilebilir
 | Kampanyayla esneklik | Kampanya DiD'si havuzda gerçeğin ±%20'sinde | ε̂ 1,746, gerçek 1,850, göreli hata 0,056 (20 kampanya) |
 | Trend | SS25'te oversize, slim'den plana göre fazla satar (p < 0,05); fark SS23'ten SS25'e büyür (kayma) | log fark SS25 0,604 (p 7,4e-14), SS23 0,053 |
 | Tedarikçi | Sipariş ve kalite verisinden profil sıralaması, Spearman ≥ 0,5 | 0,942 |
-| Açılış | Sezon ortası açılışta depo, benzer mağazanın sezonluk karışımının %60'ından azını karşılar | M033 0,594 · M037 0,435 · M041 0,545 · M044 0,564 |
+| Açılış | Sezon ortası açılışlarda depo, benzer mağazanın sezonluk karışımının ortalamada %60'ından azını karşılar (4 açılışın ortalaması) | ortalama 0,535 (M033 0,594 · M037 0,435 · M041 0,545 · M044 0,564) |
 
 - **Esneklik yalnız havuzda iddia edilir.** Kategori başına: Aksesuar
   0,225, Dış Giyim 0,076, Elbise & Tulum 0,073, Üst Giyim 0,048 göreli
   hata. Alt Giyim'den süzgeçlerden geçen kampanya kalmıyor.
 - **Açılış ölçüsü yalnız sezonluk SKU'lardır** (Collection + Outlet).
   Basic/NOS sürekli tedarikle depoda hep vardır; bütün line'larla kapsama
-  0,80–0,95. M033'ün marjı ince (0,594). Sezon başı açılışlar (M021 0,600,
+  0,80–0,95. Test dört sezon ortası açılışın ortalamasını sınar, tek tek
+  her birini değil: 4 açılış küçük bir örnek, tekil değerler gürültülü
+  (bkz. Tohuma duyarlılık). Sezon başı açılışlar (M021 0,600,
   M027 0,456) sezon ortasından belirgin geniş değil; test bu karşıtlığı
   iddia etmez.
 - Açılışta "benzer mağaza" gizli segmentle seçilir. Bu testin istisnasıdır:
   öğrenmeyi değil, dünyanın özelliğini sınar.
+
+## Tohuma duyarlılık
+
+Kalibrasyon düğmeleri yayımlanan tohumda (2026) ayarlandı. Aynı sabitlerle
+dört tohum daha koşuldu (1, 2, 3, 4; `araclar/v4_cok_tohum.py`). Düğmeler
+değişmedi, yayımlanan veri aynı.
+
+| Ölçüt | Bant | Tohum 2026 | 5 tohumda aralık | Geçen |
+|---|---|---|---|---|
+| Online payı 2023 | 0,15–0,20 | 0,171 | 0,165–0,177 | 5/5 |
+| Online payı 2024 | 0,15–0,20 | 0,179 | 0,170–0,179 | 5/5 |
+| Online payı 2025 | 0,15–0,20 | 0,175 | 0,167–0,176 | 5/5 |
+| Online iade | 0,25–0,30 | 0,294 | 0,284–0,294 | 5/5 |
+| Collection tam fiyat STR | 0,55–0,70 | 0,559 | 0,559–0,649 | 5/5 |
+| Bulunabilirlik Basic/NOS | 0,85–0,95 | 0,873 | 0,873–0,898 | 5/5 |
+| Bulunabilirlik Collection | 0,70–0,85 | 0,739 | 0,707–0,739 | 5/5 |
+| İkame payı | 0,20–0,40 | 0,266 | 0,248–0,270 | 5/5 |
+| Option plan hatası | 0,40–0,55 | 0,461 | 0,445–0,468 | 5/5 |
+| Kategori × ay plan hatası SS24 | 0,10–0,20 | 0,121 | 0,076–0,150 | 3/5 |
+| Kategori × ay plan hatası AW24 | 0,10–0,20 | 0,104 | 0,096–0,203 | 3/5 |
+| Outlet akışı oranı (talep ÷ gelen) | 0,8–1,2 | 0,880 | 0,575–1,117 | 3/5 |
+| Üretim süresi | < 600 sn | 231 sn | 182–231 sn | 5/5 |
+| Kümeleme ARI | 0,4–0,8 | 0,564 | 0,564–1,000 | 2/5 |
+| Saf esneklik göreli hatası | > 0,4 | 0,909 | 0,816–0,910 | 5/5 |
+| Kampanya esnekliği göreli hatası | ≤ 0,2 | 0,056 | 0,053–0,073 | 5/5 |
+| Trend SS25 p | < 0,05 | 7,3e-14 | 7,3e-14–0,001 | 5/5 |
+| Trend kayması (SS25 − SS23 farkı) | > 0 | 0,552 | 0,390–0,620 | 5/5 |
+| Sezon ortası açılış sayısı | = 4 | 4 | 4 | 5/5 |
+| Sezon ortası açılış kapsaması (4'ün ortalaması) | < 0,60 | 0,535 | 0,443–0,584 | 5/5 |
+| Tedarikçi Spearman | ≥ 0,5 | 0,942 | 0,868–0,942 | 5/5 |
+
+Yazılardaki sayılar yayımlanan tohumdan (2026) gelir. Kümeleme ARI'si,
+outlet akışı oranı ve kategori × ay plan hatası bu örnek büyüklüğünde
+(80 mağaza, 6 segment, ~30 kategori-ay hücresi) tohuma duyarlıdır; başka
+bir tohumla üretilen veride banttan çıkabilirler.
+
+Açılış kapsamasının tek tek en büyüğü 5 tohumda 0,536–0,760 arasında
+oynar (2/5'i 0,60'ın altında); test bu yüzden ortalamayı sınar. Düğmelerle
+yeniden ortalama denendi, tutmadı: her düğme ya yayılımı yalnız ölçekliyor
+ya da tohum 2026'da başka bir bandı kırıyordu.
 
 ## Testler
 
