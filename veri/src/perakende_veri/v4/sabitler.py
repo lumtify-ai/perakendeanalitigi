@@ -544,7 +544,12 @@ SURUKLENME_SIGMA = 0.10
 
 # Öznitelik etkisi: başlangıç katsayısı N(0, OZNITELIK_TABAN_SIGMA) (segment
 # × "alan:değer"), sezondan sezona TREND + N(0, OZNITELIK_YURUYUS_SIGMA).
-OZNITELIK_TABAN_SIGMA = 0.10    # KALİBRASYON: öğrenilebilirlik (spec §8.3)
+# KALİBRASYON (Görev 18, öğrenilebilirlik spec §8.3): segmentin kendi
+# öznitelik tercihleri (kumaş/detay alt kategoriye bağlı) satış karışımına
+# segmente tutarlı bir iz bırakır; k-means ARI'sının düğmesi (0,10 → TAM
+# ARI 0,19; bkz. task-18 raporu). Plan bir önceki aynı tip sezonun
+# katsayısını bildiği için taban plan hatasına girmez.
+OZNITELIK_TABAN_SIGMA = 0.30
 # KALİBRASYON (Görev 17'de eklendi): kategori × ay plan hatası bandının
 # (%10–20, SS24 ve AW24) kendi düğmesi — plan bir önceki aynı tip sezonun
 # katsayısını kullanır, yürüyüş kategoriye tutarlı bir sapma verir

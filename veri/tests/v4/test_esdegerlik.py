@@ -103,9 +103,11 @@ def test_sayac_bagimsizligi(kucuk_dunya):
     assert diger.any()
 
     maske = diger & fiyat_ayni
-    assert maske.any() and (diger & ~fiyat_ayni).any(), (
-        "hem fiyatı etkilenen hem etkilenmeyen başka-mağaza hücre/günü beklenir"
-    )
+    # Fiyatı dolaylı etkilenen başka-mağaza hücresi olup olmaması dünyaya
+    # bağlıdır (Görev 18: OZNITELIK_TABAN_SIGMA 0,30 ile KÜÇÜK 400 günde
+    # hiç yok); iddia yalnız karşılaştırılacak hücre bulunmasını ister.
+    assert maske.any(), "fiyatı etkilenmeyen başka-mağaza hücre/günü beklenir"
+    print(f"\nfiyatı dolaylı etkilenen başka-mağaza (gün, hücre): {int((diger & ~fiyat_ayni).sum())}")
     # Fiyatı değişmeyen (gün, hücre) çiftlerinde talep birebir aynı olmalı
     # (aynı tekdüze u, aynı λ): sayaç bağımsızlığının asıl iddiası budur.
     np.testing.assert_array_equal(

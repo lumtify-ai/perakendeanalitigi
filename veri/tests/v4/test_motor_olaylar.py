@@ -235,14 +235,9 @@ def test_acilis_kapsama_olcumu(kucuk_dunya, acilis_kapsamasi):
     assert any(not b for b, _ in acilis_kapsamasi.values())
 
 
-@pytest.mark.xfail(strict=True, reason="kalibrasyon Task 18: sezon ortası depo ince değil (0.91–0.95)")
-def test_sezon_ortasi_acilis_ince(acilis_kapsamasi):
-    """Spec §8.3: sezon ortası açılışta depo, açılış hedefinin %60'ından
-    azını karşılar ve sezon başı açılıştakinden azını."""
-    bas = [k for b, k in acilis_kapsamasi.values() if b]
-    orta = [k for b, k in acilis_kapsamasi.values() if not b]
-    assert np.mean(orta) < np.mean(bas), (bas, orta)
-    assert np.mean(orta) < 0.60, orta
+# Spec §8.3'ün "sezon ortası açılışta depo ince" iddiası tam ölçekte
+# test_ogrenilebilirlik.test_acilis_depo_yetersiz'dedir (tek doğru kaynak);
+# buradaki KÜÇÜK ölçüm yalnız ölçerin çalıştığını denetler.
 
 
 def test_yeni_magaza_replenishment_alir(kucuk_dunya, kucuk_kosu):
