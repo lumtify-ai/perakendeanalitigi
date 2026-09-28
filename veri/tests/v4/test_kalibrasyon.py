@@ -44,8 +44,15 @@ Collection sezon sonu tam fiyat STR
 bulunabilirlik
     Pazartesi `stok` fotoğraflarından: Σ `stoklu_gun` ÷ Σ açık gün;
     açık gün = satırın kapsadığı d−7…d−1 günlerinden hücrenin kendi
-    penceresinde [açılış, kapanış) ve mağazanın açık olduğu günler (pay
-    satır başına açık günle kırpılır). Yalnız fiziksel mağaza hücreleri,
+    penceresinde [açılış, kapanış) ve mağazanın açık olduğu günler. Pay
+    satır başına açık günle kırpılır — bu bir YAKLAŞIKLIKTIR: `stoklu_gun`
+    günleri ayırmaz. Tadilat / kapanış haftalarında mağaza kapalıyken
+    rafta mal varsa bayrak o günleri de stoklu sayar (açık gün 0 olduğu
+    için kırpılır, ama kısmi haftada hangi günün stoklu olduğu
+    bilinmez); pencere hafta ortasında biterse son kısmi hafta hiç
+    fotoğraflanmaz (pazartesi satırı yok), ortasında başlayan ilk haftanın
+    pencere öncesi günleri paydada yoktur. Etkisi küçüktür (2 tadilat, 4
+    kapanış; pencere sınırları çoğunlukla pazartesi). Yalnız fiziksel mağaza hücreleri,
     line'a göre; Basic + NOS birlikte %85–95, Collection %70–85. Outlet
     akışı hücreleri (çıkıştan sonra outlet mağazasına akan Collection
     artığı) Collection'a girmez: bunlar mağazanın taşıması beklenen çeşit
@@ -88,6 +95,7 @@ YILLAR = (2023, 2024, 2025)
 STR_SEZONLARI = ("SS23", "AW23", "SS24", "AW24", "SS25")
 PLAN_SEZONLARI = ("SS23", "AW23", "SS24", "AW24", "SS25", "AW25")
 KATEGORI_AY_SEZONLARI = ("SS24", "AW24")
+HATLAR = ["normal", "outlet", "online"]  # yayımlanan `fiyat.hat` kategorileri
 
 
 # ---------------------------------------------------------------------------
@@ -119,6 +127,21 @@ def _urun_cikis(w, urun_id: pd.Series, secili: np.ndarray) -> tuple[np.ndarray, 
     return o_idx, s_cik
 
 
+def _satis_hatti(w, s: pd.DataFrame, onl: np.ndarray) -> np.ndarray:
+    """[satır] satışın fiyat hattı indisi (`HATLAR`): ONL → online, outlet
+    akışı hücresi → outlet, diğerleri normal (`motor.satis.hat_indisi`)."""
+    S = len(w.urunler)
+    m_idx = pd.Index(w.magazalar["magaza_id"].astype(str)).get_indexer(s["magaza_id"].astype(str))
+    u_idx = pd.Index(w.urunler["urun_id"].astype(str)).get_indexer(s["urun_id"].astype(str))
+    anahtar = np.asarray(w.hucre_magaza, dtype=np.int64) * S + np.asarray(w.hucre_sku)
+    sira = np.argsort(anahtar)
+    k = m_idx.astype(np.int64) * S + u_idx
+    i = np.minimum(np.searchsorted(anahtar[sira], k), len(sira) - 1)
+    bulundu = (m_idx >= 0) & (u_idx >= 0) & (anahtar[sira][i] == k)
+    outlet = bulundu & np.asarray(w.hucre_outlet_akisi)[sira][i]
+    return np.where(onl, HATLAR.index("online"), np.where(outlet, HATLAR.index("outlet"), HATLAR.index("normal")))
+
+
 def collection_str(w, t: dict) -> dict[str, float]:
     """Tam fiyat STR (alınan paydalı, bant) ve basılan alternatifler."""
     opt = w.optionlar
@@ -138,11 +161,12 @@ def collection_str(w, t: dict) -> dict[str, float]:
     f = t["fiyat"]
     f = f[f["indirim_orani"] > 0]
     f_o = pd.Index(opt["option_id"].astype(str)).get_indexer(f["option_id"].astype(str))
-    f_h = (f["hat"].astype(str) == "online").to_numpy().astype(np.int64)
+    f_h = pd.Index(HATLAR).get_indexer(f["hat"].astype(str))
+    assert (f_h >= 0).all()
     YOK = np.iinfo(np.int64).max
-    ilk_md = np.full((len(opt), 2), YOK, dtype=np.int64)
+    ilk_md = np.full((len(opt), len(HATLAR)), YOK, dtype=np.int64)
     np.minimum.at(ilk_md, (f_o, f_h), f["hafta_baslangic"].to_numpy().astype("datetime64[ns]").astype(np.int64))
-    s_md = ilk_md[o_idx, onl.astype(np.int64)]
+    s_md = ilk_md[o_idx, _satis_hatti(w, s, onl)]
     etiket = sezon_ici & (tarih.astype("datetime64[ns]").astype(np.int64) < s_md)
     pay_etiket = float(adet[etiket].sum())
     pay_magaza = float(adet[etiket & ~onl].sum())

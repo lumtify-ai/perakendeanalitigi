@@ -489,7 +489,11 @@ UST_KATEGORI_TABAN = {                                      # KALİBRASYON
     "Üst Giyim": 1.0, "Alt Giyim": 0.75, "Elbise & Tulum": 0.7,
     "Dış Giyim": 0.45, "Aksesuar": 0.6,
 }
-LINE_TALEP_CARPANI = {"Collection": 1.7, "Outlet": 0.8, "Basic": 1.15, "NOS": 1.3}  # KALİBRASYON
+# KALİBRASYON (Görev 17): Basic/NOS çarpanı Basic/NOS bulunabilirliğinin
+# (%85–95) düğmesidir — replenishment hedefi 28 günlük plan talebinin
+# tam sayıya yuvarlanmışıdır; düşük λ'lı hücrede hedef 1–2 adet kalır ve
+# Poisson talebi rafı sık boşaltır. Basic 1,15 → 1,55, NOS 1,3 → 1,75.
+LINE_TALEP_CARPANI = {"Collection": 1.7, "Outlet": 0.8, "Basic": 1.55, "NOS": 1.75}
 
 # Genç eğilim: kalıbın "genç" skoru × (genc_egilim − 0,5) × katsayı, log uzayında.
 GENC_KALIP_SKORU = {"oversize": 1.0, "relaxed": 0.5, "regular": -0.5, "slim": -0.5}
@@ -517,8 +521,8 @@ YEREL_GURULTU_SIGMA = 0.15      # mağaza × alt kategori lognormal
 # 2023–25: 0,168 / 0,173 / 0,166). ONL iadesi ~%29 (mağaza ~%6) ve depo
 # stoksuzluğu yüzünden λ payı net ciro payının ~5 puan üstünde olmalı.
 ONLINE_PAY = {
-    "Üst Giyim": 0.22, "Alt Giyim": 0.21, "Elbise & Tulum": 0.235,
-    "Dış Giyim": 0.155, "Aksesuar": 0.235,
+    "Üst Giyim": 0.21, "Alt Giyim": 0.20, "Elbise & Tulum": 0.225,
+    "Dış Giyim": 0.145, "Aksesuar": 0.225,
 }
 ONLINE_BASIC_CARPANI = 1.25
 
@@ -584,7 +588,9 @@ IKLIM_KAYMA = {
 
 # Line başına mevsim genliği üssü (mevsim^üs, yıllık ortalama 1'e yeniden
 # normalize): Basic/NOS daha düz (stok bulunurluğu bandı için sigorta).
-MEVSIM_LINE_USSU = {"Collection": 1.0, "Outlet": 1.0, "Basic": 0.6, "NOS": 0.4}  # KALİBRASYON
+# KALİBRASYON (Görev 17): Basic/NOS bulunabilirlik bandı (%85–95) —
+# Basic 0,6 → 0,4, NOS 0,4 → 0,25.
+MEVSIM_LINE_USSU = {"Collection": 1.0, "Outlet": 1.0, "Basic": 0.4, "NOS": 0.25}
 
 # Outlet akışı eğrisi (fix round 1): Collection option'ın çıkıştan sonraki
 # 84 günlük outlet penceresinde yaşam çarpanı
@@ -686,9 +692,9 @@ MFP_STOK_KAPSAMA_AY = 1.0       # dönem sonu stok hedefi = sonraki ayın satı�
 # payıyla), kalanı depoda (online + replenishment) kalır.
 ILK_DAGITIM_PAYI = 0.70         # KALİBRASYON (Görev 17: 0,60 → 0,70)
 
-# Replenishment (v3 kuralı; hedef ufku Görev 17'de kalibre edildi, diğerleri
-# v3 değerleri).
-REPL_HEDEF_GUN = 42             # KALİBRASYON: hedef = önümüzdeki 6 haftanın plan talebi (v3: 28)
+# Replenishment (v3 kuralı, v3 değerleri kopyalanmıştır; spec §6.2 Lumoda
+# politikası — kalibrasyon düğmesi değildir).
+REPL_HEDEF_GUN = 28             # hedef: önümüzdeki 4 haftanın plan talebi
 OLU_STOK_PENCERESI_GUN = 28     # hız penceresi ve yeni hücre muafiyeti
 OLU_STOK_HEDEF_HAFTA = 4        # hızla kaç haftalık stok "yeter" sayılır
 

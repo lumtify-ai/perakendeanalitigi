@@ -294,6 +294,9 @@ def test_online_payi_kategori(dw):
         onl_top += np.bincount(kod[onl], weights=v[onl], minlength=len(kategoriler))
     pay = dict(zip(kategoriler, onl_top / top))
     assert all(0.12 <= p <= 0.30 for p in pay.values()), pay
+    # Spec §2.4 bekçisi: yapılandırma değerleri %12–25 (λ payı Basic/NOS
+    # çarpanı ve iadeler yüzünden yukarıda kalabilir, bkz. yukarı).
+    assert all(0.12 <= p <= 0.25 for p in sabitler.ONLINE_PAY.values()), sabitler.ONLINE_PAY
 
 
 def outlet_akisi_talebi(w, D: int) -> tuple[float, np.ndarray]:

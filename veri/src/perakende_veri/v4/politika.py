@@ -143,7 +143,7 @@ def lumoda_ilk_dagitim(g, o: int) -> np.ndarray:
 def lumoda_replenishment(g) -> np.ndarray:
     """[C] haftalık replenishment isteği (v3 `mevcut_dagitim` kuralı).
 
-    Hedef    önümüzdeki REPL_HEDEF_GUN (42) günün PLAN talebi (sürprizi, yerel sapmayı
+    Hedef    önümüzdeki `REPL_HEDEF_GUN` günün PLAN talebi (sürprizi, yerel sapmayı
              bilmez; planlı indirimin talep artışını bilir)
     İstek    max(hedef − mağaza stoğu − yolda, 0) (v4: yoldaki mal sayılır)
     Kapı     hücre yeni değilse (max(option'ın ilk dağıtımı, mağazanın
