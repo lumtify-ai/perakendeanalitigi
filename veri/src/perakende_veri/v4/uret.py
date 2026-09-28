@@ -28,11 +28,16 @@ def yayimla(dunya, ham: dict, kirli: bool = True) -> dict:
     return tablolar
 
 
-def tablolari_uret(olcek: Olcek = Olcek.TAM, donus_ham: bool = False):
+def tablolari_uret(
+    olcek: Olcek = Olcek.TAM, donus_ham: bool = False, tohum: int = sabitler.TOHUM
+):
     """Dünya → motor → yayımlanan tablolar. `donus_ham` ise
-    `(tablolar, dunya, ham)`."""
-    dunya = dunya_kur(olcek)
-    ham = simule_et(dunya)
+    `(tablolar, dunya, ham)`. `tohum` dünyanın (talep ve `kirli` akışı
+    dahil) ve motorun operasyon çekilişlerinin tohumudur; varsayılan
+    `sabitler.TOHUM` yayımlanan veri setidir (sağlamlık kontrolü:
+    `araclar/v4_cok_tohum.py`)."""
+    dunya = dunya_kur(olcek, tohum=tohum)
+    ham = simule_et(dunya, operasyon_tohumu=tohum)
     tablolar = yayimla(dunya, ham)
     if donus_ham:
         return tablolar, dunya, ham
