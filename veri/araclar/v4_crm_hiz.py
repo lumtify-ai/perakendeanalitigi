@@ -9,6 +9,7 @@ iskeleti TAM ölçekte, bütün günlerde. Kapı: eşleştirme ≤ 12 dk.
     python araclar/v4_crm_hiz.py --kucuk            # duman testi (A KUCUK)
     python araclar/v4_crm_hiz.py --ayristir         # gerçek gun_ayristir, gerçek nüfus, bütün günler
     python araclar/v4_crm_hiz.py --ayristir --iade  # + Görev 6 (işlem, iade, boş ziyaret)
+    python araclar/v4_crm_hiz.py --dongu            # Görev 7: tam crm_simule_et + ölçümler
 
 İki varyant: `gun_esle_tip` (varsayılan; Görev 5 için seçilen iki aşamalı,
 tip düzeyinde, sayım düzeyinde algoritma, docstring'inde; ziyaretçi seçimi
@@ -649,6 +650,99 @@ def ayristir_kos(gun_sayisi: int | None = None, kucuk: bool = False, iade: bool 
     print(f"Kapı (gun_ayristir ≤ {KAPI_SN // 60} dk): {'GEÇTİ' if t_esle <= KAPI_SN else 'AŞTI'}")
 
 
+def dongu_ozeti(ham, girdi) -> None:
+    """Görev 7 ölçümleri (kalibrasyon değil): yıllara göre nüfus, katılış,
+    terk; görünür/kartlı pay; mağazada kart okutma payı; sepet; kartlı
+    müşteri başına yıllık ziyaret."""
+    import pandas as pd
+
+    from perakende_veri.v4 import sabitler as a_sabitler
+    from perakende_veri.v4.crm.nufus import SEGMENT_ADLARI
+    from perakende_veri.v4.takvim import gun_indisi
+
+    nuf = ham.nufus
+    onl = nuf.magaza.onl
+    kg, tg = nuf.kayit_gun.astype(np.int64), nuf.terk_gun.astype(np.int64)
+    print(f"\nBaşlangıç tabanı (kayit_gun < 0): {(kg < 0).sum():,}; son K {nuf.K:,}; "
+          f"son hayatta {nuf.hayatta.sum():,}")
+    print("yıl   | yıl sonu hayatta | katılış   | terk      | yıl sonu görünür (hayatta)")
+    for yil in (2022, 2023, 2024, 2025):
+        b = max(gun_indisi(f"{yil}-01-01"), 0)
+        s = min(gun_indisi(f"{yil}-12-31"), ham.D - 1)
+        canli = (kg <= s) & ((tg < 0) | (tg > s))
+        gor = canli & (nuf.gorunur_gun >= 0) & (nuf.gorunur_gun <= s)
+        print(f"{yil}  | {canli.sum():>16,} | {((kg >= b) & (kg <= s)).sum():>9,} | "
+              f"{((tg >= b) & (tg <= s)).sum():>9,} | {gor.sum():>10,} (%{100 * gor.sum() / canli.sum():.1f})")
+    print(f"Hiç görünür olmuş: {nuf.gorunur_mu.sum():,} / {nuf.K:,} (%{100 * nuf.gorunur_mu.mean():.1f})")
+
+    fis = ham.tablo("fis")
+    g = fis["gun"].to_numpy(np.int64)
+    m = fis["magaza"].to_numpy(np.int64)
+    tip = fis["tip"].to_numpy()
+    kart = fis["kart"].to_numpy()
+    mus = fis["musteri"].to_numpy(np.int64)
+    fiz_s = (m != onl) & (tip == 0)
+    print(f"\nFiş {len(fis):,} (satış {int((tip == 0).sum()):,}, iade {int((tip == 1).sum()):,}); "
+          f"mağaza satış fişinde kart payı %{100 * kart[fiz_s].mean():.1f}; iade fişinde (mağaza) "
+          f"%{100 * kart[(m != onl) & (tip == 1)].mean():.1f}")
+    seg = nuf.magaza.segment[m]
+    for i, ad in enumerate(SEGMENT_ADLARI):
+        s = fiz_s & (seg == i)
+        if s.any():
+            print(f"  segment {ad:12s} kart %{100 * kart[s].mean():.1f}  ({int(s.sum()):,} fiş)")
+    sat = ham.kayit.tablo("fis_satir")[["fis_id", "adet"]]
+    sat = sat[sat["adet"] > 0]
+    boy = np.bincount(sat["fis_id"].to_numpy(np.int64), sat["adet"].to_numpy(np.int64), minlength=len(fis))
+    print(f"Sepet (adet/fiş): mağaza {boy[fiz_s].mean():.2f}, ONL {boy[(m == onl) & (tip == 0)].mean():.2f}")
+    del sat
+    print("yıl   | kartlı satış fişi | kartlı müşteri | yıllık ziyaret/kartlı müşteri (mağaza+ONL)")
+    for yil in (2023, 2024, 2025):
+        b, s = gun_indisi(f"{yil}-01-01"), gun_indisi(f"{yil}-12-31")
+        sec = (tip == 0) & kart & (g >= b) & (g <= s)
+        n_k = len(np.unique(mus[sec]))
+        print(f"{yil}  | {int(sec.sum()):>17,} | {n_k:>14,} | {sec.sum() / max(n_k, 1):.2f}")
+    bz = ham.kayit.sayac
+    print(f"İade birimi {bz['iade_birim']:,}; boş ziyaret birimi {bz['bos_birim']:,}; "
+          f"yeni (eksik) müşteri {bz['yeni']:,}; boş ziyaret yeni müşteri {bz['bos_yeni_musteri']:,}")
+    print(f"LTV: hayatta {int(ham.ltv['hayatta_olasiligi'].sum()):,}, geri gelecek "
+          f"%{100 * ham.ltv['geri_gelecek_2026'].mean():.1f} (tümü), fiyat_ort medyan {np.median(ham.fiyat_ort):.1f}")
+
+
+def dongu_kos(gun_sayisi: int | None = None, kucuk: bool = False) -> None:
+    """Görev 7: gerçek `crm_simule_et` (katılış, terk, olay, ayrıştırma,
+    Görev 6, kart, LTV); A bir kez kurulur, ölçüme dahil değil. Bütçe: B
+    toplamı ≤ 20 dk."""
+    from perakende_veri.v4.crm.dongu import crm_simule_et
+    from perakende_veri.v4.crm.girdi import girdi_kur
+    from perakende_veri.v4.magaza import Olcek
+
+    t0 = time.perf_counter()
+    g = girdi_kur(Olcek.KUCUK if kucuk else Olcek.TAM)
+    a_sure = time.perf_counter() - t0
+    simdi, tepe_a = bellek_gb()
+    print(f"girdi_kur: {a_sure:.1f} sn, bellek {simdi:.2f} GB (tepe {tepe_a:.2f} GB)", flush=True)
+    iz = {"tepe": 0.0}
+    t_bas = time.perf_counter()
+
+    def ilerleme(d, nufus, kayit):
+        if d % 25 == 0 or d == g.D - 1:
+            c = bellek_gb()[0]
+            iz["tepe"] = max(iz["tepe"], c)
+            if d % 100 == 0:
+                print(f"  gün {d}: {time.perf_counter() - t_bas:.0f} sn, K {nufus.K:,}, hayatta "
+                      f"{int(nufus.hayatta.sum()):,}, bellek {c:.2f} GB", flush=True)
+
+    ham = crm_simule_et(g, gun_sayisi=gun_sayisi, ilerleme=ilerleme)
+    t_b = time.perf_counter() - t_bas
+    print(f"\nB toplamı (crm_simule_et): {t_b:.1f} sn ({t_b / 60:.2f} dk); bütçe 20 dk: "
+          f"{'GEÇTİ' if t_b <= 20 * 60 else 'AŞTI'}")
+    for k, v in ham.sure.items():
+        print(f"  {k:22s} {v:7.1f} sn  %{100 * v / t_b:4.1f}")
+    print(f"Bellek: B sırasında örneklenen en yüksek çalışma kümesi {iz['tepe']:.2f} GB; süreç tepesi "
+          f"{bellek_gb()[1]:.2f} GB (A kurulumu tepesi {tepe_a:.2f} GB)", flush=True)
+    dongu_ozeti(ham, g)
+
+
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -664,8 +758,12 @@ if __name__ == "__main__":
                     help="gerçek Görev 5 gun_ayristir'i gerçek nüfusla bütün günlerde ölç")
     ap.add_argument("--iade", action="store_true",
                     help="--ayristir ile: Görev 6 adımlarını (işlem, iade, boş ziyaret) da ölç")
+    ap.add_argument("--dongu", action="store_true",
+                    help="Görev 7: tam crm_simule_et (bütçe B ≤ 20 dk) ve nüfus/kart ölçümleri")
     a = ap.parse_args()
-    if a.ayristir:
+    if a.dongu:
+        dongu_kos(a.gun, a.kucuk)
+    elif a.ayristir:
         ayristir_kos(a.gun, a.kucuk, a.iade)
     else:
         calistir(a.gun, a.butce_dk * 60, a.yogun, a.karsilastir, a.kucuk)

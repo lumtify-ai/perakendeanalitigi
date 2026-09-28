@@ -538,10 +538,8 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     """Gün d'nin pozitif satışını fişlere dağıtır, `kayit`'a fiş ve fiş
     satırı ekler (modül docstring'i). Uygun müşteri yetmeyen mağazada yeni
     müşteri eklenir (`nufus` büyür). `tetik` bu adımda değişmez (beden
-    uyumsuzluğu tetiği iadede, Görev 6)."""
-    s = girdi.satis_gun[d]
-    if not len(s):
-        return
+    uyumsuzluğu tetiği iadede, Görev 6). Aday yapısı satışsız günde de
+    güncellenir (aynı günün `bos_ziyaret`'i güncel adaylardan seçer)."""
     sure = kayit.sure
     t = time.perf_counter()
 
@@ -557,6 +555,9 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     sayac = kayit.sayac
     du.adaylar.guncelle(nufus, d)
     adim("0 aday yapisi")
+    s = girdi.satis_gun[d]
+    if not len(s):
+        return
     rng_z = crm_uretici(d, "ziyaret", kayit.tohum)
     akis = crm_alt_ureticiler(d, "atama", ATAMA_ADIMLARI, kayit.tohum)
     M = du.M
