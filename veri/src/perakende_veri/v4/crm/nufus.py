@@ -274,7 +274,15 @@ class Nufus:
     `il` `il_adlari` indisleri; `ev_magaza` A'nın mağaza indisi (ONL üyesi:
     ONL). `tercih_*` satırları olasılık vektörü (float32). `terk_gun` −1 =
     hayatta. `gorunur_mu`: kartlı ya da online üyeli — ilk kart okutulan ya
-    da online sipariş anında True yapılır (Görev 5–7). Kişisel veri yok."""
+    da online sipariş anında True yapılır (Görev 5–7). `gorunur_gun`: o ilk
+    kimlikli olayın günü (int32), −1 = henüz görünür değil; ısınma
+    tabanında da simülasyonda gözlenene kadar −1 kalır; Görev 7 yazar.
+    `GOZLEMLENEBILIR` yayımlanabilir sütunlardır (`musteri` tablosu); geri
+    kalan her sütun gizlidir. Kişisel veri yok."""
+
+    GOZLEMLENEBILIR: ClassVar[tuple[str, ...]] = (
+        "ev_magaza", "il", "yas_grubu", "cinsiyet", "kayit_gun", "kayit_kanali", "gorunur_gun",
+    )
 
     SUTUNLAR: ClassVar[dict[str, tuple[type, int]]] = {
         "arketip": (np.int8, 0),
@@ -300,6 +308,7 @@ class Nufus:
         "hayatta": (np.bool_, 0),
         "terk_gun": (np.int32, 0),
         "gorunur_mu": (np.bool_, 0),
+        "gorunur_gun": (np.int32, 0),
     }
 
     magaza: MagazaBilgi
@@ -328,6 +337,7 @@ class Nufus:
     hayatta: np.ndarray = None
     terk_gun: np.ndarray = None
     gorunur_mu: np.ndarray = None
+    gorunur_gun: np.ndarray = None
     _tampon: dict = field(default_factory=dict, repr=False)
 
     @classmethod
@@ -393,6 +403,7 @@ class Nufus:
         t["hayatta"][s] = True
         t["terk_gun"][s] = -1
         t["gorunur_mu"][s] = False
+        t["gorunur_gun"][s] = -1
         self.K = K0 + n
         self._goster()
         return np.arange(K0, K0 + n)

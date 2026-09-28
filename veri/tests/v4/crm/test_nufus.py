@@ -60,7 +60,7 @@ def test_nufus_ekle_buyur_ve_gorunumler(kucuk_girdi):
     assert nuf.tercih_kat.shape == (nuf.K, 17)
     assert (nuf.ev_magaza[yeni] == 0).all() and (nuf.kayit_gun[yeni] == 10).all()
     assert nuf.hayatta[yeni].all() and (nuf.terk_gun[yeni] == -1).all()
-    assert not nuf.gorunur_mu[yeni].any()
+    assert not nuf.gorunur_mu[yeni].any() and (nuf.gorunur_gun[yeni] == -1).all()
     # görünüm yazılabilir ve tampona yazar
     nuf.hayatta[0] = False
     assert not nuf.hayatta[0]
@@ -160,3 +160,15 @@ def test_kisisel_veri_yok():
     from perakende_veri.v4.crm.nufus import Nufus
 
     assert not {"ad", "eposta", "telefon"} & set(Nufus.__dataclass_fields__)
+
+
+def test_gozlemlenebilir_alanlar():
+    from perakende_veri.v4.crm.nufus import Nufus
+
+    gozlem = set(Nufus.GOZLEMLENEBILIR)
+    assert gozlem <= set(Nufus.SUTUNLAR)
+    assert Nufus.SUTUNLAR["gorunur_gun"][0] == np.int32
+    gizli = {"arketip", "terk_p", "ziyaret_hizi", "kart_olasiligi", "hayatta", "terk_gun"}
+    gizli |= {a for a in Nufus.SUTUNLAR if a.startswith(("tercih_", "beden_"))}
+    assert {"tercih_kat", "beden_ust", "beden_dagin"} <= gizli
+    assert not gizli & gozlem
