@@ -8,6 +8,7 @@ iskeleti TAM ölçekte, bütün günlerde. Kapı: eşleştirme ≤ 12 dk.
     python araclar/v4_crm_hiz.py --yogun            # tam koşuda eski yoğun varyant
     python araclar/v4_crm_hiz.py --kucuk            # duman testi (A KUCUK)
     python araclar/v4_crm_hiz.py --ayristir         # gerçek gun_ayristir, gerçek nüfus, bütün günler
+    python araclar/v4_crm_hiz.py --ayristir --iade  # + Görev 6 (işlem, iade, boş ziyaret)
 
 İki varyant: `gun_esle_tip` (varsayılan; Görev 5 için seçilen iki aşamalı,
 tip düzeyinde, sayım düzeyinde algoritma, docstring'inde; ziyaretçi seçimi
@@ -578,12 +579,14 @@ def calistir(gun_sayisi: int | None = None, butce_sn: float = 2 * KAPI_SN,
     print(f"Kapı (≤ {KAPI_SN // 60} dk, nüfus + eşleştirme): {'GEÇTİ' if kapi else 'AŞTI'}")
 
 
-def ayristir_kos(gun_sayisi: int | None = None, kucuk: bool = False) -> None:
+def ayristir_kos(gun_sayisi: int | None = None, kucuk: bool = False, iade: bool = False) -> None:
     """Gerçek Görev 5 ayrıştırması (`crm.ayristir.gun_ayristir`) bütün
     günlerde, en küçük sürücüyle: gerçek başlangıç nüfusu, her gün katılış
-    (`nufus.katilis_sayisi` + `ekle`), terk/iade/boş ziyaret yok. Kapı:
+    (`nufus.katilis_sayisi` + `ekle`), terk yok. `iade` ise Görev 6 adımları
+    da (işlem, iade bağlama, boş ziyaret; süreleri ayrıca). Kapı:
     `gun_ayristir` toplamı ≤ 12 dk."""
     from perakende_veri.v4.crm.ayristir import Kayit, gun_ayristir
+    from perakende_veri.v4.crm.iade import bos_ziyaret, iade_bagla, islem_indirimi_yerlestir
     from perakende_veri.v4.crm.girdi import girdi_kur
     from perakende_veri.v4.crm.nufus import katilis_sayisi, nufus_baslat
     from perakende_veri.v4.crm.rastgele import crm_uretici
@@ -601,7 +604,7 @@ def ayristir_kos(gun_sayisi: int | None = None, kucuk: bool = False) -> None:
     tetik = Tetik.bos(nufus.K)
     kayit = Kayit()
     D = g.D if gun_sayisi is None else gun_sayisi
-    t_kat = t_esle = 0.0
+    t_kat = t_esle = t_iade = 0.0
     t_bas = time.perf_counter()
     for d in range(D):
         t = time.perf_counter()
@@ -612,9 +615,15 @@ def ayristir_kos(gun_sayisi: int | None = None, kucuk: bool = False) -> None:
         t2 = time.perf_counter()
         t_kat += t2 - t
         gun_ayristir(d, g, nufus, tetik, kayit)
-        t_esle += time.perf_counter() - t2
+        t3 = time.perf_counter()
+        t_esle += t3 - t2
+        if iade:
+            islem_indirimi_yerlestir(d, g, nufus, kayit)
+            iade_bagla(d, g, nufus, tetik, kayit)
+            bos_ziyaret(d, g, nufus, tetik, kayit)
+            t_iade += time.perf_counter() - t3
         if d % 100 == 0:
-            print(f"  gün {d}: ayrıştırma {t_esle:.0f} sn, K {nufus.K:,}, bellek {bellek_gb()[0]:.2f} GB",
+            print(f"  gün {d}: ayrıştırma {t_esle:.0f} sn, Görev 6 {t_iade:.0f} sn, K {nufus.K:,}, bellek {bellek_gb()[0]:.2f} GB",
                   flush=True)
     t_top = time.perf_counter() - t_bas
     _, tepe = bellek_gb()
@@ -631,6 +640,11 @@ def ayristir_kos(gun_sayisi: int | None = None, kucuk: bool = False) -> None:
           f"döngü {t_top:.1f} sn; nufus_baslat {t_nufus:.1f} sn")
     for k, v in sorted(kayit.sure.items()):
         print(f"  {k:16s} {v:7.1f} sn  %{100 * v / max(t_esle, 1e-9):4.1f}")
+    if iade:
+        print(f"Görev 6 toplamı {t_iade:.1f} sn ({t_iade / 60:.2f} dk); ayrıştırma + Görev 6 "
+              f"{(t_esle + t_iade) / 60:.2f} dk; iade birimi {sy['iade_birim']:,}, iade fişi {sy['iade_fis']:,}, "
+              f"boş ziyaret birimi {sy['bos_birim']:,} (fişli {sy['bos_fisli_birim']:,}), "
+              f"boş ziyaret için yeni müşteri {sy['bos_yeni_musteri']:,}")
     print(f"Tepe bellek (süreç, A dahil): {tepe:.2f} GB")
     print(f"Kapı (gun_ayristir ≤ {KAPI_SN // 60} dk): {'GEÇTİ' if t_esle <= KAPI_SN else 'AŞTI'}")
 
@@ -648,8 +662,10 @@ if __name__ == "__main__":
     ap.add_argument("--kucuk", action="store_true", help="duman testi: A KUCUK ölçekte")
     ap.add_argument("--ayristir", action="store_true",
                     help="gerçek Görev 5 gun_ayristir'i gerçek nüfusla bütün günlerde ölç")
+    ap.add_argument("--iade", action="store_true",
+                    help="--ayristir ile: Görev 6 adımlarını (işlem, iade, boş ziyaret) da ölç")
     a = ap.parse_args()
     if a.ayristir:
-        ayristir_kos(a.gun, a.kucuk)
+        ayristir_kos(a.gun, a.kucuk, a.iade)
     else:
         calistir(a.gun, a.butce_dk * 60, a.yogun, a.karsilastir, a.kucuk)

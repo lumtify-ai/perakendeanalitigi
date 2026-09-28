@@ -273,3 +273,13 @@ TAMAMLAYICI_DALGA = 1
 # birimler × kapasiteli fişler yeniden çekilir, fiş seçimine log(kalan
 # kapasite) eklenir); rastgele yerleşim yalnız son çare.
 TAMAMLAYICI_ARTIK_TUR = 3
+
+# --- İade, işlem indirimi, boş ziyaret (Görev 6, spec §3.4–3.5, §4) ------------
+# İade birimi, iade gününden 7 (ONL 10) gün önceki aynı hücrenin satış
+# satırlarından birine bağlanır; birim ağırlığı 1 + IADE_BEDEN_AGIRLIK ×
+# (satır beden uyumsuz).
+IADE_BEDEN_AGIRLIK = 4.0
+# Gizli kayıp biriminin o gün o mağazada fişi olan müşteriye yazılma
+# olasılığı (kalanı fişsiz boş ziyaretçiye). Fişsiz ziyaretçi sayısı mağaza
+# başına max(1, round(birim / sepet hedefi)).
+BOS_FISLI_PAY = 0.5

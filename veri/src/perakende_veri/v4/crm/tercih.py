@@ -103,13 +103,13 @@ def tip_puani(nufus, k_idx, tip_idx) -> np.ndarray:
     fiyat = np.log(np.asarray(nufus.fiyat_segment_egilim)[k_idx])[:, seg]
 
     yon = _BEDEN_YONU[alt]                                            # [T]
-    musteri_ust = np.asarray(nufus.beden_ust, dtype=np.float64)[k_idx][:, None]
-    musteri_alt = np.asarray(nufus.beden_alt, dtype=np.float64)[k_idx][:, None]
+    musteri_ust = np.asarray(nufus.beden_ust)[k_idx].astype(np.float64)[:, None]
+    musteri_alt = np.asarray(nufus.beden_alt)[k_idx].astype(np.float64)[:, None]
     musteri_beden = np.where(yon[None, :] == 1, musteri_alt, musteri_ust)   # [K, T]
     urun_beden = (beden.astype(np.float64) + 1.0)[None, :]                 # beden_sira 1..5
     fark = np.abs(musteri_beden - urun_beden)
     taban = np.select([fark < 0.5, fark < 1.5], [0.0, BEDEN_FARK_1], default=BEDEN_FARK_2)
-    dagin = np.asarray(nufus.beden_dagin, dtype=np.float64)[k_idx][:, None]
+    dagin = np.asarray(nufus.beden_dagin)[k_idx].astype(np.float64)[:, None]
     beden_terim = np.where((yon == -1)[None, :], 0.0, taban / dagin)
 
     return kat + fiyat + beden_terim
@@ -133,7 +133,7 @@ def sku_ek_puani_cift(nufus, k_idx, sku_idx, oran, kodlar) -> np.ndarray:
     kalip_idx, desen_idx = kodlar
     kalip_p = np.log(np.asarray(nufus.tercih_kalip)[k_idx, kalip_idx[sku_idx]])
     desen_p = np.log(np.asarray(nufus.tercih_desen)[k_idx, desen_idx[sku_idx]])
-    indirim = np.asarray(nufus.indirim_duyarlilik, dtype=np.float64)[k_idx] * np.asarray(oran, dtype=np.float64)
+    indirim = np.asarray(nufus.indirim_duyarlilik)[k_idx].astype(np.float64) * np.asarray(oran, dtype=np.float64)
     return kalip_p + desen_p + indirim
 
 
@@ -148,7 +148,7 @@ def sku_ek_puani(nufus, k_idx, sku_idx, oran, urunler) -> np.ndarray:
     kalip_p = np.log(np.asarray(nufus.tercih_kalip)[k_idx][:, kalip_idx])
     desen_p = np.log(np.asarray(nufus.tercih_desen)[k_idx][:, desen_idx])
     oran_arr = np.broadcast_to(np.asarray(oran, dtype=np.float64), (len(sku_idx),))
-    indirim = np.asarray(nufus.indirim_duyarlilik, dtype=np.float64)[k_idx][:, None] * oran_arr[None, :]
+    indirim = np.asarray(nufus.indirim_duyarlilik)[k_idx].astype(np.float64)[:, None] * oran_arr[None, :]
 
     return kalip_p + desen_p + indirim
 

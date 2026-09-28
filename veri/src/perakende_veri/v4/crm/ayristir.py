@@ -1,6 +1,6 @@
 """Günlük ayrıştırma, satış (spec §3 adım 1–3): gün d'nin pozitif satışını
 fişlere, fişleri müşterilere dağıtır. İade, işlem indirimi yerleşimi ve boş
-ziyaret Görev 6'dadır.
+ziyaret `iade.py`'dedir (Görev 6).
 
 **Akış** (bütün mağazalar birlikte; birimler hiç açılmaz, sayımla çalışılır):
 
@@ -375,7 +375,9 @@ class Kayit:
       (0 mağaza, 1 online), tip (0 satış, 1 iade), saat (gün içi dakika).
     - `fis_satir`: satir_id (bütün kayıttaki sıra), fis_id, satir_no
       (fiş içinde 1'den), sku, adet, tutar, indirim_tutari, kampanya_id
-      (−1 yok), islem_adet (Görev 6 doldurur), beden_uyumsuz_adet,
+      (−1 yok), islem_adet (`iade.islem_indirimi_yerlestir` doldurur),
+      beden_uyumsuz_adet (iade satırında islem_adet ve beden_uyumsuz_adet
+      adetle aynı işaretli, negatif),
       orijinal_satir (iade satırının satir_id'si; satışta −1), a_satir
       (A'nın `ham["satis"]` satır konumu).
     - `bos_ziyaret` (Görev 6): gun, magaza, musteri, sku, adet.
