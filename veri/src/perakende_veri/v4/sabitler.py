@@ -556,6 +556,10 @@ SURUKLENME_SIGMA = 0.10
 # ARI 0,19; bkz. task-18 raporu). Plan bir önceki aynı tip sezonun
 # katsayısını bildiği için taban plan hatasına girmez.
 OZNITELIK_TABAN_SIGMA = 0.30
+# Çok tohum (2026, 1–4; ortalama raporu): ARI tohuma göre kaotik
+# (0,30 → 0,56 / 1,00 / 0,58 / 0,86 / 0,81; 0,25 → 0,48 / 1,00 / 0,58 /
+# 0,83 / 0,58; 0,15 → 2026'da 0,27). 0,30'dan her sapma tohum 2026'nın
+# M033 açılış kapsamasını 0,60'ın üstüne itti (0,606–0,620).
 # KALİBRASYON (Görev 17'de eklendi): kategori × ay plan hatası bandının
 # (%10–20, SS24 ve AW24) kendi düğmesi — plan bir önceki aynı tip sezonun
 # katsayısını kullanır, yürüyüş kategoriye tutarlı bir sapma verir
@@ -563,6 +567,10 @@ OZNITELIK_TABAN_SIGMA = 0.30
 # option MAPE'sini de büyütür. Görev 18 (öğrenilebilirlik): trend
 # hikâyesinin (0,08–0,15) bu gürültüye karşı görünür kaldığı denetlenmeli.
 OZNITELIK_YURUYUS_SIGMA = 0.06
+# Çok tohum: SS24'ü tohum 1 ve 4'te 0,10'un üstüne ancak ≥ 0,13 taşır;
+# ama yürüyüş DEVAMLI talebini de kaydırır (plan önceki sezonun
+# katsayısını bilir): tohum 2026'da Basic/NOS bulunabilirliği 0,08'de
+# 0,843, 0,13'te 0,803 (< 0,85). Üst sınır pratikte 0,06.
 # Önceden yazılmış trend hikâyesi (log katsayı):
 #   "birikimli": her sezon eklenir; "birikimli_SS": yalnız SS sezonlarında
 #   eklenir; "duzey_SS_AW": SS'de +x, AW'de −x (birikmez);
@@ -613,6 +621,10 @@ MEVSIM_LINE_USSU = {"Collection": 1.0, "Outlet": 1.0, "Basic": 0.4, "NOS": 0.25}
 # Görev 17: ilk alım oranı 0,93 ile 0,039 → oran 0,96;
 # test_talep.test_outlet_akisi_tam, yavas, 0,8–1,2; KÜÇÜK yalnız 0,5–3,0).
 OUTLET_AKISI_TALEP = 0.039      # KALİBRASYON
+# Çok tohum: gelen adet tohumlar arası dar (1,54–1,95 M), fiyat etkili talep
+# ×2,3 yayılır (outlet mağazalarının gelir/esneklik çekilişi, %50–70
+# indirimde (1 − md)^−ε ile büyür). Düğme yalnız ölçekler: 0,8–1,2 bandında
+# en çok 3/5 tohum.
 OUTLET_AKISI_DUSUS = 0.6
 
 # Mağaza-gün çarpanları.
@@ -702,6 +714,9 @@ MFP_STOK_KAPSAMA_AY = 1.0       # dönem sonu stok hedefi = sonraki ayın satı�
 # İlk dağıtım: ilk alımın bu payı paketle mağazalara gider (magaza_plan
 # payıyla), kalanı depoda (online + replenishment) kalır.
 ILK_DAGITIM_PAYI = 0.70         # KALİBRASYON (Görev 17: 0,60 → 0,70)
+# Açılış kapsaması (tohum 2026, M033): 0,60 → 0,726; 0,70 → 0,594; 0,70'in
+# üstünde doygun (0,75 → 0,592, Görev 18; σ_taban 0,25 ile 0,70 → 0,620,
+# 0,85 → 0,618). ILK_ALIM_PLAN_ORANI 0,88 (σ_taban 0,15 ile) → 0,611.
 
 # Replenishment (v3 kuralı, v3 değerleri kopyalanmıştır; spec §6.2 Lumoda
 # politikası — kalibrasyon düğmesi değildir).
