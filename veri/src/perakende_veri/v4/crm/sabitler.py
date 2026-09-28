@@ -228,3 +228,17 @@ KATILIS_BF_CARPANI = 3.0       # KALİBRASYON BF kampanya günleri (Cuma–Pazar
 KATILIS_KAMPANYA_CARPANI = 1.5  # KALİBRASYON mağazanın bölgesini kapsayan herhangi bir kampanya
 KATILIS_ACILIS_CARPANI = 3.0   # KALİBRASYON açılışın ilk KATILIS_ACILIS_HAFTA haftası
 KATILIS_ACILIS_HAFTA = 12
+
+# --- Yaşam döngüsü (Görev 4, spec §4) -------------------------------------------
+# Aylık terk çekilişinin tetik çarpanları (çarpılır, p en çok TERK_P_UST).
+# Değerler spec'ten (global kısıtlar), kalibrasyon düğmesi değil.
+STOKSUZLUK_GUN = 60          # stoksuzluktan sonra pencere (gün, dahil)
+STOKSUZLUK_CARPANI = 1.5
+IADE_GUN = 90                # son iadeden sonra pencere (gün, dahil)
+IADE_CARPANI = 1.2
+BEDEN_UYUMSUZ_ESIGI = 2      # tekrarlayan beden uyumsuzluğu (≥ 2)
+BEDEN_UYUMSUZ_CARPANI = 1.3
+EV_KAPANIS_CARPANI = 2.0     # ev mağazası kapandı, geçiş yapmadı
+TERK_P_UST = 0.95
+EV_GECIS_OLASILIGI = 0.6     # KALİBRASYON ilde açık mağaza varsa en yakınına geçiş
+EV_KAPANIS_ONLINE_CARPANI = 2.0  # geçmeyenin online payı ×2 (en çok 1)
