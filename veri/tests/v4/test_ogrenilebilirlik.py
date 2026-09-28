@@ -75,10 +75,17 @@ açılış (§8.3; eski KÜÇÜK xfail testinin tam ölçek yerine geçeni)
     günlük brüt satışının SKU karışımı × yeni mağazanın açılıştan itibaren
     28 günlük plan toplamı (Lumoda'nın plan λ'sı — şirketin kendi planı,
     gizli gerçek değil). Kapsama = Σ_sku min(depo_stok[karar günü, sku],
-    ihtiyaç[sku]) ÷ Σ ihtiyaç. Sezon ortası (dalga 1 lansmanına denk
-    gelmeyen) 4 açılışın her birinde < 0,60. Şimdilik strict xfail: Basic/NOS
-    ihtiyacı depoda hep var, taban ≥ 0,67 (Görev 18 raporu); sezonluk SKU
-    kapsaması ayrıca basılır.
+    ihtiyaç[sku]) ÷ Σ ihtiyaç, **yalnız sezonluk (Collection + Outlet line)
+    SKU'lar üzerinden** (controller kararı): spec §6.3'ün "sezon ortasında
+    ilk alımın büyük kısmı dağıtılmış, depo ince" iddiası sezon malı
+    içindir; Basic/NOS sürekli tedarikle hep yenilenir ve depo inceliği
+    sorusunun konusu değildir (tüm line'lı kapsamada ihtiyacın %71–83'ü
+    Basic/NOS'tur ve depo onu ~%95 karşılar). Sezon ortası (dalga 1
+    lansmanına denk gelmeyen) 4 açılışın her birinde < 0,60.
+    Tüm line'lı kapsama ve iki sezon başı açılış yalnız tanı olarak basılır;
+    sezon başı/ortası karşıtlığı iddia edilmez: sezon başında ikizin son 28
+    günlük karışımı hâlâ biten sezonun malını yansıtır (yeni sezon henüz
+    satılmadı), bu kestiriciyle o karşılaştırma anlamlı değildir.
 """
 
 import numpy as np
@@ -398,15 +405,15 @@ def acilis(t: dict, s: pd.DataFrame, gizli: dict, plan28: dict, lansmanlar: set)
         d = ds[ds["tarih"] == karar]
         depo = d.groupby(d["urun_id"].astype(str))["adet"].sum().reindex(ihtiyac.index).fillna(0).clip(lower=0)
         karsilanan = np.minimum(depo.to_numpy(), ihtiyac.to_numpy())
-        # Yalnız basılır: sezonluk (Collection + Outlet) SKU'lar — "ilk alım
-        # dağıtılmış" (spec §6.3) sezon malıdır; Basic/NOS deposu sürekli
-        # tedarikle hep dolu.
+        # İddia sezonluk (Collection + Outlet) SKU'larda: "ilk alım dağıtılmış"
+        # (spec §6.3) sezon malıdır; Basic/NOS deposu sürekli tedarikle hep
+        # dolu (tüm line'lı kapsama yalnız tanı).
         sez = ~u_line.reindex(ihtiyac.index).isin(["Basic", "NOS"]).to_numpy()
         sonuc[mid] = {
             "sezon_ortasi": pd.Timestamp(r.olay_tarihi) not in lansmanlar,
             "acilis": pd.Timestamp(r.olay_tarihi).date(), "karar": karar.date(), "ikiz": ikiz,
-            "kapsama": float(karsilanan.sum() / ihtiyac.sum()),
-            "sezonluk_kapsama": float(karsilanan[sez].sum() / ihtiyac.to_numpy()[sez].sum()),
+            "kapsama": float(karsilanan[sez].sum() / ihtiyac.to_numpy()[sez].sum()),
+            "tum_line_kapsama": float(karsilanan.sum() / ihtiyac.sum()),
             "sezonluk_pay": float(ihtiyac.to_numpy()[sez].sum() / ihtiyac.sum()),
         }
     return sonuc
@@ -461,8 +468,8 @@ def yazdir(o: dict) -> None:
           f" hatalı {td['spearman_hatali']:.3f}; {td['tedarikci']} tedarikçi)")
     for mid, v in o["acilis"].items():
         print(f"  açılış {mid} {v['acilis']} karar {v['karar']} ikiz {v['ikiz']}"
-              f" {'orta' if v['sezon_ortasi'] else 'baş '} kapsama {v['kapsama']:.3f}"
-              f"  (sezonluk {v['sezonluk_kapsama']:.3f}, ihtiyaçtaki payı {v['sezonluk_pay']:.3f})")
+              f" {'orta' if v['sezon_ortasi'] else 'baş '} sezonluk kapsama {v['kapsama']:.3f}"
+              f"  (tanı: tüm line {v['tum_line_kapsama']:.3f}, sezonluk ihtiyaç payı {v['sezonluk_pay']:.3f})")
 
 
 @pytest.fixture(scope="module")
@@ -494,13 +501,6 @@ def test_trend_gorunur(olcum):
     assert olcum["trend"]["p"] < 0.05, olcum["trend"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Görev 18 çatışması (rapor): ikizin karışımında Basic/NOS ihtiyacın %71–83'ü ve "
-    "sürekli tedarikli depo onu ~%95 karşılar → kapsama tabanı ≥ 0,67 (TAM: 0,86/0,76/0,91/0,87); "
-    "hiçbir KALİBRASYON düğmesi (ILK_DAGITIM_PAYI yalnız sezon malını oynatır) < 0,60'a indiremez. "
-    "Sezonluk SKU'larda kapsama 0,59/0,45/0,58/0,57 (< 0,60) — controller kararı bekleniyor.",
-)
 def test_acilis_depo_yetersiz(olcum):
     orta = {m: v["kapsama"] for m, v in olcum["acilis"].items() if v["sezon_ortasi"]}
     assert len(orta) == 4, olcum["acilis"]
