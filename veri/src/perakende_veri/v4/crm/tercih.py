@@ -1,0 +1,188 @@
+"""Müşteri × ürün tercih puanı ve gizli tamamlayıcılık matrisi (spec §1, §3).
+
+`Nufus` (ya da aynı sütunları taşıyan herhangi bir nesne: `arketip_ornegi`
+gibi) ile A'nın `dunya.urunler` tablosundaki ürün öznitelikleri arasında
+log-uzayda toplanabilir bir eşleştirme puanı üretir. Ölçek 5'in (Görev 5)
+günlük eşleştirme algoritması iki aşamalıdır: önce **tip** düzeyinde (alt
+kategori × fiyat segmenti × beden sırası; aksesuar tek beden STD) kesin
+eşleştirme, sonra tip içinde SKU (kalıp, desen, indirim oranı) düzeyinde
+ayrıştırma. Bu modül iki düzeyi ayrı fonksiyonlarla verir (`tip_puani`,
+`sku_ek_puani`) ki eşleştirici binlerce (müşteri, tip) çiftini tip
+düzeyinde ucuza puanlayıp yalnız kazanan tipler için SKU düzeyine insin;
+`urun_puani` ikisinin toplamı olarak SKU düzeyinde tek adımda da
+kullanılabilir (küçük ölçek, test, doğrulama).
+
+Gizli tamamlayıcılık matrisi (`tamamlayici_matris`) hiçbir yayımlanan
+tabloya ya da `Nufus` sütununa girmez; yalnız günlük ayrıştırmanın (Görev
+5) sepet-içi eşleştirme puanında kullanılır.
+"""
+
+import numpy as np
+import pandas as pd
+
+from .. import sabitler as a_sabitler
+from . import sabitler as S
+
+# ---------------------------------------------------------------------------
+# Tip kodlaması: (alt kategori, fiyat segmenti, beden sırası; aksesuar STD)
+# ---------------------------------------------------------------------------
+
+A_ALT = len(S.ALT_KATEGORILER)
+A_SEG = len(S.FIYAT_SEGMENTLERI)
+BEDEN_KADEME = a_sabitler.BEDEN_KADEME_SAYISI      # 5
+STD_BEDEN = BEDEN_KADEME                            # aksesuar tipinin beden indisi (5)
+TIP_BEDEN = BEDEN_KADEME + 1                        # 0..4 gerçek beden + STD
+N_TIP = A_ALT * A_SEG * TIP_BEDEN
+
+_ALT_IDX = {a: i for i, a in enumerate(S.ALT_KATEGORILER)}
+_SEG_IDX = {f: i for i, f in enumerate(S.FIYAT_SEGMENTLERI)}
+_KALIP_IDX = {k: i for i, k in enumerate(S.KALIPLAR)}
+_DESEN_IDX = {d: i for i, d in enumerate(S.DESENLER)}
+
+# Alt kategorinin beden uyumunda hangi müşteri bedenine bakılacağı:
+#   0 = beden_ust (Üst Giyim, Dış Giyim, Elbise & Tulum)
+#   1 = beden_alt (Alt Giyim)
+#  -1 = yok (Aksesuar, ceza 0)
+_UST_KATEGORI: dict[str, str] = {
+    a: u for u, altlar in a_sabitler.KATEGORILER.items() for a in altlar
+}
+_BEDEN_YONU = np.array(
+    [
+        1 if _UST_KATEGORI[a] == "Alt Giyim" else (-1 if _UST_KATEGORI[a] == "Aksesuar" else 0)
+        for a in S.ALT_KATEGORILER
+    ],
+    dtype=np.int8,
+)
+
+# Beden sırası farkının log-ceza tabanı (`beden_dagin` ile bölünerek
+# yumuşatılır); fark 0 → 0.
+BEDEN_FARK_1 = -1.2
+BEDEN_FARK_2 = -3.0
+
+
+def tip_kodu(urunler) -> np.ndarray:
+    """`urunler` (A'nın `dunya.urunler` tablosu ya da aynı sütunlara sahip
+    bir alt küme) satırları için tip kodu, `[0, N_TIP)`."""
+    alt = urunler["alt_kategori"].to_numpy()
+    fs = urunler["fiyat_segmenti"].to_numpy()
+    beden_sira = urunler["beden_sira"].to_numpy(dtype=np.int64)
+    alt_idx = pd.Series(alt).map(_ALT_IDX).to_numpy(dtype=np.int64)
+    seg_idx = pd.Series(fs).map(_SEG_IDX).to_numpy(dtype=np.int64)
+    aksesuar = np.isin(alt, list(a_sabitler.AKSESUAR))
+    beden_idx = np.where(aksesuar, STD_BEDEN, beden_sira - 1)
+    return (alt_idx * A_SEG + seg_idx) * TIP_BEDEN + beden_idx
+
+
+def tip_ozellik() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Bütün `[0, N_TIP)` tip kodları için (alt kategori indisi, fiyat
+    segmenti indisi, beden indisi [0..4 gerçek, `STD_BEDEN` aksesuar])."""
+    tip = np.arange(N_TIP)
+    beden_idx = tip % TIP_BEDEN
+    kalan = tip // TIP_BEDEN
+    seg_idx = kalan % A_SEG
+    alt_idx = kalan // A_SEG
+    return alt_idx, seg_idx, beden_idx
+
+
+def tip_puani(nufus, k_idx, tip_idx) -> np.ndarray:
+    """`[len(k_idx), len(tip_idx)]` log-puan: alt kategori tercihi + fiyat
+    segmenti eğilimi + beden uyumu terimi (fark 0 → 0, 1 → −1,2, ≥2 → −3,0;
+    `beden_dagin` ile yumuşar; aksesuar 0)."""
+    k_idx = np.asarray(k_idx, dtype=np.int64)
+    tip_idx = np.asarray(tip_idx, dtype=np.int64)
+    alt_t, seg_t, beden_t = tip_ozellik()
+    alt = alt_t[tip_idx]
+    seg = seg_t[tip_idx]
+    beden = beden_t[tip_idx]
+
+    kat = np.log(np.asarray(nufus.tercih_kat)[k_idx][:, alt])
+    fiyat = np.log(np.asarray(nufus.fiyat_segment_egilim)[k_idx][:, seg])
+
+    yon = _BEDEN_YONU[alt]                                            # [T]
+    musteri_ust = np.asarray(nufus.beden_ust, dtype=np.float64)[k_idx][:, None]
+    musteri_alt = np.asarray(nufus.beden_alt, dtype=np.float64)[k_idx][:, None]
+    musteri_beden = np.where(yon[None, :] == 1, musteri_alt, musteri_ust)   # [K, T]
+    urun_beden = (beden.astype(np.float64) + 1.0)[None, :]                 # beden_sira 1..5
+    fark = np.abs(musteri_beden - urun_beden)
+    taban = np.select([fark < 0.5, fark < 1.5], [0.0, BEDEN_FARK_1], default=BEDEN_FARK_2)
+    dagin = np.asarray(nufus.beden_dagin, dtype=np.float64)[k_idx][:, None]
+    beden_terim = np.where((yon == -1)[None, :], 0.0, taban / dagin)
+
+    return kat + fiyat + beden_terim
+
+
+def sku_ek_puani(nufus, k_idx, sku_idx, oran, urunler) -> np.ndarray:
+    """`[len(k_idx), len(sku_idx)]` log-puan eki: kalıp + desen eğilimi +
+    indirim duyarlılığı × `oran` (SKU başına ya da skaler)."""
+    k_idx = np.asarray(k_idx, dtype=np.int64)
+    sku_idx = np.asarray(sku_idx, dtype=np.int64)
+    kalip = urunler["kalip"].to_numpy()[sku_idx]
+    desen = urunler["desen"].to_numpy()[sku_idx]
+    kalip_idx = pd.Series(kalip).map(_KALIP_IDX).to_numpy(dtype=np.int64)
+    desen_idx = pd.Series(desen).map(_DESEN_IDX).to_numpy(dtype=np.int64)
+
+    kalip_p = np.log(np.asarray(nufus.tercih_kalip)[k_idx][:, kalip_idx])
+    desen_p = np.log(np.asarray(nufus.tercih_desen)[k_idx][:, desen_idx])
+    oran_arr = np.broadcast_to(np.asarray(oran, dtype=np.float64), (len(sku_idx),))
+    indirim = np.asarray(nufus.indirim_duyarlilik, dtype=np.float64)[k_idx][:, None] * oran_arr[None, :]
+
+    return kalip_p + desen_p + indirim
+
+
+def urun_puani(nufus, k_idx, sku_idx, girdi, oran=None) -> np.ndarray:
+    """`[len(k_idx), len(sku_idx)]` log-puan = `tip_puani` (SKU'nun tipi
+    için) + `sku_ek_puani`. `oran` verilmezse 0 (indirimsiz)."""
+    urunler = girdi.dunya.urunler
+    sku_idx = np.asarray(sku_idx, dtype=np.int64)
+    if oran is None:
+        oran = np.zeros(len(sku_idx))
+    tip = tip_kodu(urunler)[sku_idx]
+    return tip_puani(nufus, k_idx, tip) + sku_ek_puani(nufus, k_idx, sku_idx, oran, urunler)
+
+
+# ---------------------------------------------------------------------------
+# Gizli tamamlayıcılık matrisi (yayımlanmaz)
+# ---------------------------------------------------------------------------
+
+#: Alt kategori çiftlerinin (simetrik) çarpanı; diğer bütün çiftler 1,0,
+#: aynı alt kategori 0,6 (`tamamlayici_matris` içinde uygulanır).
+TAMAMLAYICI: dict[tuple[str, str], float] = {
+    ("Elbise", "Çanta"): 2.5,
+    ("Elbise", "Kemer"): 1.8,
+    ("Jean", "Tişört"): 2.2,
+    ("Jean", "Gömlek"): 1.8,
+    ("Mont", "Şal"): 2.0,
+    ("Mont", "Kazak"): 1.6,
+    ("Pantolon", "Gömlek"): 1.8,
+    ("Etek", "Bluz"): 2.0,
+    ("Şort", "Tişört"): 1.6,
+    ("Tulum", "Çanta"): 1.6,
+    ("Ceket", "Pantolon"): 1.5,
+    ("Sweatshirt", "Jean"): 1.4,
+}
+
+AYNI_ALT_CARPANI = 0.6
+
+
+def tamamlayici_matris() -> np.ndarray:
+    """`[17, 17]` log-tamamlayıcılık matrisi (simetrik); köşegen `log(0,6)`,
+    açık çiftler `TAMAMLAYICI`'daki değer, diğerleri `log(1) = 0`."""
+    n = A_ALT
+    m = np.ones((n, n), dtype=np.float64)
+    np.fill_diagonal(m, AYNI_ALT_CARPANI)
+    for (a, b), deger in TAMAMLAYICI.items():
+        i, j = _ALT_IDX[a], _ALT_IDX[b]
+        m[i, j] = deger
+        m[j, i] = deger
+    return np.log(m)
+
+
+def tamamlayicilik(sepet_alt: np.ndarray, aday_alt: np.ndarray) -> np.ndarray:
+    """`[len(aday_alt)]`: sepetteki alt kategorilerle her adayın toplam
+    log-tamamlayıcılığı (boş sepet → 0)."""
+    aday_alt = np.asarray(aday_alt, dtype=np.int64)
+    sepet_alt = np.asarray(sepet_alt, dtype=np.int64)
+    if len(sepet_alt) == 0:
+        return np.zeros(len(aday_alt))
+    m = tamamlayici_matris()
+    return m[sepet_alt][:, aday_alt].sum(axis=0)
