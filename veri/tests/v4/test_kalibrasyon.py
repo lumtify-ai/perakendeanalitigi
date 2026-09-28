@@ -21,8 +21,16 @@ online iade
 Collection sezon sonu tam fiyat STR
     Tam sezonu pencerede olan SS23, AW23, SS24, AW24, SS25 Collection
     option'ları. Pay: bu option'ların fiziksel mağaza + ONL'deki, çıkış
-    gününden önceki, tam fiyatlı brüt satış adedi — tam fiyat =
-    `indirim_tutari == 0` ve kampanya yok. Payda: bu option'ların teslim
+    gününden önceki, tam fiyatlı brüt satış adedi. Tam fiyatlı satış =
+    etiket fiyatından satış: o gün option'ın hattında markdown yok (fiyat
+    tablosu: hattın o haftaki `indirim_orani` 0; markdown hiç sığlaşmaz,
+    ilk markdown haftasından önce) ve kampanya yok. Rastgele işlem
+    indirimi (`ISLEM_INDIRIM_OLASILIGI`) tam fiyat sayılır: sadakat /
+    personel / kupon gibi işlem düzeyinde bir indirimdir, etiket fiyatını
+    değiştirmez. Sektör kullanımında tam fiyat STR etiket fiyatındaki
+    satışı markdown satışından ayırır; işlem indirimi bu ayrımın
+    konusu değildir (controller kararı; `indirim_tutari == 0` tanımı
+    işlem indirimli satışı da dışlıyordu, ~%8 — yalnız basılır). Payda: bu option'ların teslim
     alınmış ilk alım + RPT sipariş adedi (`siparis`, tip `ilk`/`rpt`,
     `gerceklesen_teslim` dolu) — "alınanın ne kadarı tam fiyata satıldı".
     Neden alınan: pay ONL'yi içerir, ONL depodan satar; "mağazalara
@@ -122,13 +130,11 @@ def collection_str(w, t: dict) -> dict[str, float]:
     adet = s["adet"].to_numpy().astype(np.int64)
     kampanyasiz = s["kampanya_id"].isna().to_numpy()
     sezon_ici = ~np.isnat(s_cik) & (tarih < s_cik) & (adet > 0) & kampanyasiz
-    tam_fiyat = sezon_ici & (s["indirim_tutari"].to_numpy() == 0)
     onl = (s["magaza_id"] == "ONL").to_numpy()
-    pay = float(adet[tam_fiyat].sum())
-    pay_magaza = float(adet[tam_fiyat & ~onl].sum())
 
-    # Kampanyasız ve hattın markdown oranı o hafta 0 (işlem indirimli satış
-    # dahil) — yalnız basılır. Markdown hiç sığlaşmaz: ilk markdown haftası.
+    # Etiket fiyatı: hattın (ONL → online, diğerleri normal; çıkıştan önce
+    # outlet hattı yok) ilk markdown haftasından önce. Markdown hiç
+    # sığlaşmaz ve yalnız pazartesi değişir.
     f = t["fiyat"]
     f = f[f["indirim_orani"] > 0]
     f_o = pd.Index(opt["option_id"].astype(str)).get_indexer(f["option_id"].astype(str))
@@ -137,8 +143,11 @@ def collection_str(w, t: dict) -> dict[str, float]:
     ilk_md = np.full((len(opt), 2), YOK, dtype=np.int64)
     np.minimum.at(ilk_md, (f_o, f_h), f["hafta_baslangic"].to_numpy().astype("datetime64[ns]").astype(np.int64))
     s_md = ilk_md[o_idx, onl.astype(np.int64)]
-    fiyat_tam = sezon_ici & (tarih.astype("datetime64[ns]").astype(np.int64) < s_md)
-    pay_islem_dahil = float(adet[fiyat_tam].sum())
+    etiket = sezon_ici & (tarih.astype("datetime64[ns]").astype(np.int64) < s_md)
+    pay_etiket = float(adet[etiket].sum())
+    pay_magaza = float(adet[etiket & ~onl].sum())
+    # Eski tanım (yalnız basılır): indirim_tutari == 0 (işlem indirimli hariç).
+    pay_sifir = float(adet[sezon_ici & (s["indirim_tutari"].to_numpy() == 0)].sum())
 
     sp = t["siparis"]
     alinan = float(
@@ -159,8 +168,8 @@ def collection_str(w, t: dict) -> dict[str, float]:
         ].sum()
     )
     return {
-        "str": pay / alinan,
-        "str_islem_indirimli_dahil": pay_islem_dahil / alinan,
+        "str": pay_etiket / alinan,
+        "str_indirim_tutari_sifir": pay_sifir / alinan,
         "str_magaza_gonderilen": pay_magaza / giden,
     }
 

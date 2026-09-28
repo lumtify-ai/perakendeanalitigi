@@ -526,7 +526,7 @@ ONLINE_BASIC_CARPANI = 1.25
 # KALİBRASYON (Görev 17): Collection σ option plan hatası bandını (MAPE
 # %40–55) taşır (0,40 → 0,397; 0,45 → 0,458; 0,50 → 0,520). Büyük σ
 # option eşleşmesini bozar: Collection bulunabilirliği ve tam fiyat STR
-# düşer (bkz. HEDEF_TAM_FIYAT_STR).
+# düşer (bkz. ILK_ALIM_PLAN_ORANI).
 SURPRIZ_SIGMA = {"Collection": 0.45, "Outlet": 0.30, "Basic": 0.15, "NOS": 0.08}
 
 # Yaşam eğrisi (v3 formülü): (h+1)^a · exp(−h/τ), tepe 1'e ölçekli.
@@ -545,7 +545,8 @@ OZNITELIK_TABAN_SIGMA = 0.10    # KALİBRASYON: öğrenilebilirlik (spec §8.3)
 # (%10–20, SS24 ve AW24) kendi düğmesi — plan bir önceki aynı tip sezonun
 # katsayısını kullanır, yürüyüş kategoriye tutarlı bir sapma verir
 # (σ 0,45'te 0,03 → AW24 0,0997; 0,06 → 0,113). Sürpriz σ tek başına
-# option MAPE'sini de büyütür.
+# option MAPE'sini de büyütür. Görev 18 (öğrenilebilirlik): trend
+# hikâyesinin (0,08–0,15) bu gürültüye karşı görünür kaldığı denetlenmeli.
 OZNITELIK_YURUYUS_SIGMA = 0.06
 # Önceden yazılmış trend hikâyesi (log katsayı):
 #   "birikimli": her sezon eklenir; "birikimli_SS": yalnız SS sezonlarında
@@ -592,9 +593,9 @@ MEVSIM_LINE_USSU = {"Collection": 1.0, "Outlet": 1.0, "Basic": 0.6, "NOS": 0.4} 
 # (çıkışta %50, 28 günde bir kademe, en çok %70; outlet esnekliğiyle ~×10)
 # kalibre, TAM ölçekte (yayımlanan veri): pencerelerdeki fiyat etkili outlet
 # akışı talebi ≈ outlet_akisi ile gelen adet (Görev 13: 0,069 → oran 0,99;
-# Görev 17: ilk alım küçülünce artık azaldı, 0,032 → oran 0,96;
+# Görev 17: ilk alım oranı 0,93 ile 0,039 → oran 0,96;
 # test_talep.test_outlet_akisi_tam, yavas, 0,8–1,2; KÜÇÜK yalnız 0,5–3,0).
-OUTLET_AKISI_TALEP = 0.032      # KALİBRASYON
+OUTLET_AKISI_TALEP = 0.039      # KALİBRASYON
 OUTLET_AKISI_DUSUS = 0.6
 
 # Mağaza-gün çarpanları.
@@ -650,16 +651,16 @@ ISLEM_INDIRIM_ORANI = 0.30
 # iklim kaymasını, mağaza × alt kategori gürültüsünü, olay kaymalarını ve
 # bu sezonun öznitelik etkisini bilmez (bir önceki aynı tip sezonunkini
 # kullanır), gerçek esnekliği bilmez (sabit PLAN_ESNEKLIK varsayar).
-# KALİBRASYON (Görev 17): ilk alım = sezon planı (lansman → indirim) ÷
-# HEDEF_TAM_FIYAT_STR. Ad Görev 10'dan kalır; 1'in üstü, Lumoda'nın
-# planın ~%83'ünü önden alıp kalanını RPT ve ertesi sezona bırakması
-# demektir. Plan talebi kampanya ve işlem indirimli günleri de içerdiği
-# için "tam fiyat" satış planın belirgin altındadır. Tek başına
-# Collection tam fiyat STR'si (%55–70) ile Collection bulunabilirliği
-# (%70–85) arasında çatışan düğme: 0,80 → STR 0,47 / bul. 0,84;
-# 1,00 → 0,52 / 0,77; 1,15 → 0,54 / 0,71; 1,20 → 0,549 / 0,699;
-# 1,25 → 0,553 / 0,678 (Görev 17 raporu).
-HEDEF_TAM_FIYAT_STR = 1.20
+# KALİBRASYON (Görev 17): ilk alım = sezon planı (lansman → indirim) ×
+# ILK_ALIM_PLAN_ORANI (Görev 10'da `÷ HEDEF_TAM_FIYAT_STR = 0,80`, yani
+# oran 1,25). 1'in altı: Lumoda planın bir kısmını önden alır, kalanını
+# RPT ile kovalar; plan talebi kampanya günlerini de içerdiği için tam
+# fiyatlı satış planın belirgin altındadır. Collection tam fiyat STR'si
+# (%55–70) ile Collection bulunabilirliği (%70–85) bu düğmede çatışır.
+# TAM ölçüm (STR etiket fiyatı tanımıyla / Collection bulunabilirliği):
+# 1,25 → 0,51 / 0,84; 0,93 → 0,575 / 0,743; 0,83 → 0,597 / 0,699
+# (Görev 17 raporu).
+ILK_ALIM_PLAN_ORANI = 0.93
 YUVARLAMA_ADET = 10             # sipariş adedi 10'un katı (v3)
 PLANLANAN_TESLIM_ONCE_GUN = 7   # ilk siparişin planlanan teslimi = lansman − 7 gün
 

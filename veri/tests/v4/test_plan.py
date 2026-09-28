@@ -204,7 +204,7 @@ def test_ilk_alim_talep_tahminiyle_tutarli(dw):
     serbest = _sezonluk(opt) & ~dw["teshis"]["kapasite_kirpildi"].to_numpy()
     beklenen = np.maximum(_moq(dw), np.ceil(tahmin / 10 - 1e-9) * 10)
     assert np.array_equal(alim[serbest], beklenen[serbest].astype(np.int64))
-    # tahmin = sezon planı ÷ 0,80, sezon planı > 0
+    # tahmin = sezon planı × ILK_ALIM_PLAN_ORANI, sezon planı > 0
     assert (tahmin[_sezonluk(opt)] > 0).all()
 
 

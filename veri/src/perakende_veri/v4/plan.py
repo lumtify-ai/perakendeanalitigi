@@ -290,7 +290,7 @@ def _option_gunluk_toplam(plan) -> np.ndarray:
 
 def talep_tahmini(plan: Lambda | LambdaOzeti, optionlar: pd.DataFrame) -> np.ndarray:
     """`[O]` sezon planı (plan λ'nın option'ın bütün hücreleri üzerinden
-    [lansman, indirim) toplamı) ÷ HEDEF_TAM_FIYAT_STR; MOQ/kapasite öncesi.
+    [lansman, indirim) toplamı) × ILK_ALIM_PLAN_ORANI; MOQ/kapasite öncesi.
     DEVAMLI option'da 0 (sürekli tedarik motorda). Görev 11 bunu tedarikçi
     seçiminden önce `lumoda_tedarikci_secimi`'ne verir."""
     optionlar = optionlar.reset_index(drop=True)
@@ -302,7 +302,7 @@ def talep_tahmini(plan: Lambda | LambdaOzeti, optionlar: pd.DataFrame) -> np.nda
     indirim = np.clip(optionlar["indirim_gun"].to_numpy(dtype=np.int64), 0, N)
     sezonluk = (optionlar["sezon_kodu"] != sabitler.DEVAMLI).to_numpy()
     sezon_plani = np.where(sezonluk, kum[indirim, idx] - kum[lansman, idx], 0.0)
-    return sezon_plani / sabitler.HEDEF_TAM_FIYAT_STR
+    return sezon_plani * sabitler.ILK_ALIM_PLAN_ORANI
 
 
 def ilk_alim(
