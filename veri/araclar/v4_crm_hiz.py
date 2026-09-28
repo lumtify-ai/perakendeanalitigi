@@ -654,9 +654,6 @@ def dongu_ozeti(ham, girdi) -> None:
     """Görev 7 ölçümleri (kalibrasyon değil): yıllara göre nüfus, katılış,
     terk; görünür/kartlı pay; mağazada kart okutma payı; sepet; kartlı
     müşteri başına yıllık ziyaret."""
-    import pandas as pd
-
-    from perakende_veri.v4 import sabitler as a_sabitler
     from perakende_veri.v4.crm.nufus import SEGMENT_ADLARI
     from perakende_veri.v4.takvim import gun_indisi
 

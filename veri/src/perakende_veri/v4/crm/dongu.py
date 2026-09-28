@@ -5,7 +5,9 @@ Gün d'nin sırası::
 
     1. katılış          nufus.katilis_sayisi + ekle (kayıt günü d)
     2. terk             ayın 1'inde yasam.gunluk_terk (önce terk: o gün ölen
-                        müşteri o gün gelmez)
+                        müşteri o gün gelmez). Katılış terkten önce olduğundan
+                        ayın 1'inde katılan müşteri aynı gün terk edebilir
+                        (hiç fişi olmadan; aylık olasılıkla, bilinçli)
     3. mağaza olayları  kapanış günü (magaza_olay "kapanis", olay_tarihi)
                         yasam.ev_kapanisi; açılış ve tadilatın B'de ayrı adımı
                         yok (satış yoksa fiş yok; açılış dalgası katılışta)
@@ -15,7 +17,8 @@ Gün d'nin sırası::
 
 **Kart okutma.** Gün d'nin her satış fişi: fiziksel mağazada müşterinin
 `kart_olasiligi`'yla kimlikli (sayaç üreteci `crm_uretici(d, "kart")`,
-satış fişi başına bir çekiliş, fiş_id sırasıyla), ONL'de hep kimlikli.
+fiziksel mağaza satış fişi başına bir çekiliş, fiş_id sırasıyla), ONL'de
+hep kimlikli (çekiliş yok).
 İade fişi: ONL hep; mağazada orijinal satış fişlerinden biri kimlikliyse
 kimlikli (fiş (mağaza, müşteri) başına birden çok orijinali toplayabilir).
 Müşterinin ilk kimlikli olayında `gorunur_mu` True, `gorunur_gun` = d.
@@ -140,8 +143,10 @@ def kart_okut(d: int, nufus: Nufus, kayit: Kayit, kart: _KartTampon, onl: int) -
     deger = np.zeros(len(fid), dtype=bool)
 
     satis = tip == 0
-    u = crm_uretici(d, "kart", kayit.tohum).random(int(satis.sum()))
-    deger[satis] = (mag[satis] == onl) | (u < nufus.kart_olasiligi[mus[satis]])
+    deger[satis & (mag == onl)] = True
+    fs = satis & (mag != onl)
+    u = crm_uretici(d, "kart", kayit.tohum).random(int(fs.sum()))
+    deger[fs] = u < nufus.kart_olasiligi[mus[fs]]
 
     iade = tip == 1
     deger[iade & (mag == onl)] = True

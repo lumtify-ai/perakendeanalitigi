@@ -10,15 +10,32 @@ import pytest
 from perakende_veri.v4 import sabitler as a_sabitler
 from perakende_veri.v4.crm.sabitler import CRM_TOHUM
 
-ONEK_GUN = 150
+ONEK_PAY = 40   # önek: ilk kapanış günü + bu kadar gün
+
+
+def _kapanis_gunleri(girdi) -> dict:
+    """{mağaza indisi: kapanış günü}, koşulan günlerdeki kapanışlar."""
+    from perakende_veri.v4.takvim import gun_indisi
+
+    w = girdi.dunya
+    idx = {mid: i for i, mid in enumerate(w.magazalar["magaza_id"])}
+    return {idx[r.magaza_id]: gun_indisi(r.olay_tarihi) for r in w.magaza_olay.itertuples()
+            if r.olay == "kapanis" and 0 < gun_indisi(r.olay_tarihi) < girdi.D}
+
+
+def _onek_gun(girdi) -> int:
+    """İlk kapanış + ONEK_PAY (KUCUK: 441 + 40 = 481): önek bir mağaza
+    olayını (ev_kapanisi) ve birkaç ay başı terkini içerir."""
+    return min(_kapanis_gunleri(girdi).values()) + ONEK_PAY
 
 
 @pytest.fixture(scope="module")
 def onek(kucuk_girdi):
-    """İlk ONEK_GUN gün, iki bağımsız koşu (determinizm ve önek)."""
+    """İlk N gün (`_onek_gun`), iki bağımsız koşu (determinizm ve önek)."""
     from perakende_veri.v4.crm.dongu import crm_simule_et
 
-    return crm_simule_et(kucuk_girdi, gun_sayisi=ONEK_GUN), crm_simule_et(kucuk_girdi, gun_sayisi=ONEK_GUN)
+    N = _onek_gun(kucuk_girdi)
+    return crm_simule_et(kucuk_girdi, gun_sayisi=N), crm_simule_et(kucuk_girdi, gun_sayisi=N)
 
 
 @pytest.fixture(scope="module")
@@ -179,6 +196,11 @@ def test_ltv_2026(kucuk_crm):
     assert (ltv["hayatta_olasiligi"].to_numpy() == nuf.hayatta).all()
     assert not ltv["geri_gelecek_2026"].to_numpy()[~nuf.hayatta].any()
     assert ltv["gerceklesen_harcama_2026"].sum() > 0
+    # makulluk: beklenen 2026 harcaması (hayattakiler) aşırı çarpık değil
+    h = np.sort(ltv["beklenen_harcama_2026"].to_numpy()[nuf.hayatta])
+    ust = h[-max(1, len(h) // 100):].sum() / h.sum()
+    assert ust < 0.15, ust
+    assert np.percentile(h, 99) / np.median(h) < 20, np.percentile(h, 99) / np.median(h)
 
 
 def test_determinizm(onek):
@@ -189,10 +211,15 @@ def test_determinizm(onek):
     assert crm_ozeti(a) != ""
 
 
-def test_gun_sayisi_onek(kucuk_crm, onek):
-    """İlk N günlük koşu tam koşunun ilk N gününe birebir eşit."""
+def test_gun_sayisi_onek(kucuk_girdi, kucuk_crm, onek):
+    """İlk N günlük koşu (N = ilk kapanış + 40) tam koşunun ilk N gününe
+    birebir eşit; önekte bir kapanış ve terk var."""
     kisa, _ = onek
-    N = ONEK_GUN
+    N = kisa.D
+    kap = _kapanis_gunleri(kucuk_girdi)
+    assert min(kap.values()) < N
+    assert (kisa.nufus.terk_gun >= 0).sum() > 1000
+    assert kisa.tetik.ev_kapandi.any() or kisa.tetik.ev_gecti.any()
     for ad in ("fis", "fis_satir", "bos_ziyaret"):
         k = kisa.tablo(ad)
         t = kucuk_crm.tablo(ad)
@@ -209,6 +236,16 @@ def test_gun_sayisi_onek(kucuk_crm, onek):
     assert np.array_equal(kisa.nufus.terk_gun, np.where(tg < N, tg, -1))
     gg = kucuk_crm.nufus.gorunur_gun[:K]
     assert np.array_equal(kisa.nufus.gorunur_gun, np.where(gg < N, gg, -1))
+    # kapanış tetikleri: N'den sonra kapanan mağazanın (N'deki) ev
+    # müşterileri tam koşuda sonradan değişebilir, onlar hariç
+    sonra = [m for m, g in kap.items() if g >= N]
+    sabit = ~np.isin(kisa.nufus.ev_magaza, sonra)
+    assert sabit.mean() > 0.6   # KUCUK: 0,80 (3 kapanış N'den sonra)
+    assert (kisa.tetik.ev_kapandi | kisa.tetik.ev_gecti)[sabit].any()
+    for ad in ("ev_kapandi", "ev_gecti"):
+        a, b = getattr(kisa.tetik, ad), getattr(kucuk_crm.tetik, ad)[:K]
+        assert np.array_equal(a[sabit], b[sabit]), ad
+    assert np.array_equal(kisa.nufus.ev_magaza[sabit], kucuk_crm.nufus.ev_magaza[:K][sabit])
 
 
 def test_satissiz_gunde_aday_yapisi_guncellenir(kucuk_girdi):
