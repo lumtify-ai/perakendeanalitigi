@@ -5,7 +5,6 @@ Brief: .superpowers/sdd/2026-09-27-veri-v4-cekirdek/task-11-brief.md
 """
 
 import hashlib
-import time
 
 import numpy as np
 import pandas as pd
@@ -138,11 +137,10 @@ def test_yolda_gun_araliklari():
 
 
 @pytest.mark.yavas
-def test_tam_dunya_boyutu(kucuk_dunya):
-    bas = time.perf_counter()
-    w = dunya_kur(Olcek.TAM)
-    sure = time.perf_counter() - bas
-    print(f"\ndunya_kur(TAM): {sure:.1f} s, C={len(w.cesit)}, O={len(w.optionlar)}, S={len(w.urunler)}")
+def test_tam_dunya_boyutu(kucuk_dunya, tam_kosu):
+    """TAM dünyanın boyutu (oturum fixture'ı `tam_kosu`'nun dünyası)."""
+    w = tam_kosu["dunya"]
+    print(f"\nTAM: C={len(w.cesit)}, O={len(w.optionlar)}, S={len(w.urunler)}")
     assert 250_000 <= len(w.cesit) <= 350_000
     assert 1_820 <= len(w.optionlar) <= 1_920
     assert len(w.magazalar) == 85

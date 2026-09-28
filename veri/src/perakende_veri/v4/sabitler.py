@@ -513,14 +513,21 @@ KAT_ERKEK_CARPANI = 0.9         # çok katlı mağazada erkek ürünleri üst ka
 YEREL_GURULTU_SIGMA = 0.15      # mağaza × alt kategori lognormal
 
 # Online payı (ulusal talebin kategoriye göre payı); Basic/NOS online'da güçlü.
+# KALİBRASYON (Görev 17): bant ONL'nin NET ciro payı %15–20 (TAM ölçü
+# 2023–25: 0,168 / 0,173 / 0,166). ONL iadesi ~%29 (mağaza ~%6) ve depo
+# stoksuzluğu yüzünden λ payı net ciro payının ~5 puan üstünde olmalı.
 ONLINE_PAY = {
-    "Üst Giyim": 0.18, "Alt Giyim": 0.17, "Elbise & Tulum": 0.20,
-    "Dış Giyim": 0.12, "Aksesuar": 0.21,
+    "Üst Giyim": 0.22, "Alt Giyim": 0.21, "Elbise & Tulum": 0.235,
+    "Dış Giyim": 0.155, "Aksesuar": 0.235,
 }
 ONLINE_BASIC_CARPANI = 1.25
 
 # Ürün sürprizi (lognormal medyan 1); v3'ten küçük (spec §3.3).
-SURPRIZ_SIGMA = {"Collection": 0.40, "Outlet": 0.30, "Basic": 0.15, "NOS": 0.08}
+# KALİBRASYON (Görev 17): Collection σ option plan hatası bandını (MAPE
+# %40–55) taşır (0,40 → 0,397; 0,45 → 0,458; 0,50 → 0,520). Büyük σ
+# option eşleşmesini bozar: Collection bulunabilirliği ve tam fiyat STR
+# düşer (bkz. HEDEF_TAM_FIYAT_STR).
+SURPRIZ_SIGMA = {"Collection": 0.45, "Outlet": 0.30, "Basic": 0.15, "NOS": 0.08}
 
 # Yaşam eğrisi (v3 formülü): (h+1)^a · exp(−h/τ), tepe 1'e ölçekli.
 YASAM_A = 1.0
@@ -534,7 +541,12 @@ SURUKLENME_SIGMA = 0.10
 # Öznitelik etkisi: başlangıç katsayısı N(0, OZNITELIK_TABAN_SIGMA) (segment
 # × "alan:değer"), sezondan sezona TREND + N(0, OZNITELIK_YURUYUS_SIGMA).
 OZNITELIK_TABAN_SIGMA = 0.10    # KALİBRASYON: öğrenilebilirlik (spec §8.3)
-OZNITELIK_YURUYUS_SIGMA = 0.03
+# KALİBRASYON (Görev 17'de eklendi): kategori × ay plan hatası bandının
+# (%10–20, SS24 ve AW24) kendi düğmesi — plan bir önceki aynı tip sezonun
+# katsayısını kullanır, yürüyüş kategoriye tutarlı bir sapma verir
+# (σ 0,45'te 0,03 → AW24 0,0997; 0,06 → 0,113). Sürpriz σ tek başına
+# option MAPE'sini de büyütür.
+OZNITELIK_YURUYUS_SIGMA = 0.06
 # Önceden yazılmış trend hikâyesi (log katsayı):
 #   "birikimli": her sezon eklenir; "birikimli_SS": yalnız SS sezonlarında
 #   eklenir; "duzey_SS_AW": SS'de +x, AW'de −x (birikmez);
@@ -579,9 +591,10 @@ MEVSIM_LINE_USSU = {"Collection": 1.0, "Outlet": 1.0, "Basic": 0.6, "NOS": 0.4} 
 # Görev 13 fix: liste fiyatında değil, outlet hattının indirimli fiyatında
 # (çıkışta %50, 28 günde bir kademe, en çok %70; outlet esnekliğiyle ~×10)
 # kalibre, TAM ölçekte (yayımlanan veri): pencerelerdeki fiyat etkili outlet
-# akışı talebi ≈ outlet_akisi ile gelen adet (0,069 → oran 0,99;
+# akışı talebi ≈ outlet_akisi ile gelen adet (Görev 13: 0,069 → oran 0,99;
+# Görev 17: ilk alım küçülünce artık azaldı, 0,032 → oran 0,96;
 # test_talep.test_outlet_akisi_tam, yavas, 0,8–1,2; KÜÇÜK yalnız 0,5–3,0).
-OUTLET_AKISI_TALEP = 0.069      # KALİBRASYON
+OUTLET_AKISI_TALEP = 0.032      # KALİBRASYON
 OUTLET_AKISI_DUSUS = 0.6
 
 # Mağaza-gün çarpanları.
@@ -637,7 +650,16 @@ ISLEM_INDIRIM_ORANI = 0.30
 # iklim kaymasını, mağaza × alt kategori gürültüsünü, olay kaymalarını ve
 # bu sezonun öznitelik etkisini bilmez (bir önceki aynı tip sezonunkini
 # kullanır), gerçek esnekliği bilmez (sabit PLAN_ESNEKLIK varsayar).
-HEDEF_TAM_FIYAT_STR = 0.80      # ilk alım = sezon planı (lansman → indirim) ÷ hedef STR
+# KALİBRASYON (Görev 17): ilk alım = sezon planı (lansman → indirim) ÷
+# HEDEF_TAM_FIYAT_STR. Ad Görev 10'dan kalır; 1'in üstü, Lumoda'nın
+# planın ~%83'ünü önden alıp kalanını RPT ve ertesi sezona bırakması
+# demektir. Plan talebi kampanya ve işlem indirimli günleri de içerdiği
+# için "tam fiyat" satış planın belirgin altındadır. Tek başına
+# Collection tam fiyat STR'si (%55–70) ile Collection bulunabilirliği
+# (%70–85) arasında çatışan düğme: 0,80 → STR 0,47 / bul. 0,84;
+# 1,00 → 0,52 / 0,77; 1,15 → 0,54 / 0,71; 1,20 → 0,549 / 0,699;
+# 1,25 → 0,553 / 0,678 (Görev 17 raporu).
+HEDEF_TAM_FIYAT_STR = 1.20
 YUVARLAMA_ADET = 10             # sipariş adedi 10'un katı (v3)
 PLANLANAN_TESLIM_ONCE_GUN = 7   # ilk siparişin planlanan teslimi = lansman − 7 gün
 
@@ -661,10 +683,11 @@ MFP_STOK_KAPSAMA_AY = 1.0       # dönem sonu stok hedefi = sonraki ayın satı�
 # --- Motor (Görev 12) --------------------------------------------------------
 # İlk dağıtım: ilk alımın bu payı paketle mağazalara gider (magaza_plan
 # payıyla), kalanı depoda (online + replenishment) kalır.
-ILK_DAGITIM_PAYI = 0.60
+ILK_DAGITIM_PAYI = 0.70         # KALİBRASYON (Görev 17: 0,60 → 0,70)
 
-# Replenishment (v3 kuralı, v3 değerleri kopyalanmıştır).
-REPL_HEDEF_GUN = 28             # hedef: önümüzdeki 4 haftanın plan talebi
+# Replenishment (v3 kuralı; hedef ufku Görev 17'de kalibre edildi, diğerleri
+# v3 değerleri).
+REPL_HEDEF_GUN = 42             # KALİBRASYON: hedef = önümüzdeki 6 haftanın plan talebi (v3: 28)
 OLU_STOK_PENCERESI_GUN = 28     # hız penceresi ve yeni hücre muafiyeti
 OLU_STOK_HEDEF_HAFTA = 4        # hızla kaç haftalık stok "yeter" sayılır
 

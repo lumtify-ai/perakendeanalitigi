@@ -143,7 +143,7 @@ def lumoda_ilk_dagitim(g, o: int) -> np.ndarray:
 def lumoda_replenishment(g) -> np.ndarray:
     """[C] haftalık replenishment isteği (v3 `mevcut_dagitim` kuralı).
 
-    Hedef    önümüzdeki 28 günün PLAN talebi (sürprizi, yerel sapmayı
+    Hedef    önümüzdeki REPL_HEDEF_GUN (42) günün PLAN talebi (sürprizi, yerel sapmayı
              bilmez; planlı indirimin talep artışını bilir)
     İstek    max(hedef − mağaza stoğu − yolda, 0) (v4: yoldaki mal sayılır)
     Kapı     hücre yeni değilse (max(option'ın ilk dağıtımı, mağazanın
@@ -153,7 +153,7 @@ def lumoda_replenishment(g) -> np.ndarray:
     Sıfır    ONL hücreleri (online depodan satar) ve bugün kapalı mağazalar.
     Kapanış  kapanış kararı verilmiş mağazaya kapanış gününe dek gönderir ve
              hedefi kararı yok sayar: o mağazanın hücrelerinde hedef, karar
-             gününden önceki son pazartesinin 28 günlük plan hedefinde sabit
+             gününden önceki son pazartesinin REPL_HEDEF_GUN günlük plan hedefinde sabit
              kalır (plan kapanışı bilir ve daralır; kimse replenishment
              listesini düzeltmez — kasıtlı kusur). Mağaza anlamlı stokla
              kapanır, stok kapanış transferiyle depoya döner.
@@ -421,7 +421,7 @@ def lumoda_acilis(g, m: int) -> Transferler:
               option'lar (lansman < açılış: dalga dağıtıldığında mağaza
               henüz yoktu; devamlılar dahil). Lansmanı açılışta ya da sonra
               olan option'lar ilk dağıtımdan pay alır.
-    Hedef     açılış gününden itibaren 28 günlük plan talebi (Lumoda planı
+    Hedef     açılış gününden itibaren REPL_HEDEF_GUN günlük plan talebi (Lumoda planı
               mağazanın açılışını ve olgunlaşmasını bilir)
     İstek     max(hedef − raf − yolda, 0)
     Kaynak    yalnız depo; depo neyi karşılıyorsa (SKU başına min(istek,

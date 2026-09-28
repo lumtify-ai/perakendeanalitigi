@@ -275,7 +275,13 @@ def _yillik(dw, yil: str = "2024"):
 
 
 def test_online_payi_kategori(dw):
-    """Her üst kategoride ONL'nin yıllık λ payı %12–25."""
+    """Her üst kategoride ONL'nin yıllık λ payı %12–30.
+
+    Görev 17: üst sınır %25'ten %30'a. Bağlayıcı bant TAM'da ONL'nin NET
+    ciro payıdır (%15–20, `test_kalibrasyon.test_online_payi`); ONL iadesi
+    ~%29 (mağaza ~%6) olduğu için λ payı net ciro payının belirgin üstünde
+    olmalı — kalibre `ONLINE_PAY` ile KÜÇÜK'te Aksesuar/Elbise λ payı
+    ~%26–27'ye çıkar."""
     lam, hucre, optionlar = dw["lam"], dw["hucre"], dw["optionlar"]
     onl = (hucre.magaza_idx == len(dw["magazalar"]) - 1).to_numpy()
     ust = optionlar.ust_kategori.to_numpy()[hucre.option_idx.to_numpy()]
@@ -287,7 +293,7 @@ def test_online_payi_kategori(dw):
         top += np.bincount(kod, weights=v, minlength=len(kategoriler))
         onl_top += np.bincount(kod[onl], weights=v[onl], minlength=len(kategoriler))
     pay = dict(zip(kategoriler, onl_top / top))
-    assert all(0.12 <= p <= 0.25 for p in pay.values()), pay
+    assert all(0.12 <= p <= 0.30 for p in pay.values()), pay
 
 
 def outlet_akisi_talebi(w, D: int) -> tuple[float, np.ndarray]:
@@ -337,22 +343,12 @@ def test_outlet_akisi_canli(kucuk_dunya, kucuk_kosu):
     assert 0.5 <= talep / gelen <= 3.0, (talep, gelen)
 
 
-@pytest.fixture(scope="module")
-def tam_kosu():
-    """TAM dünya ve Lumoda koşusu (modül başına bir kez; Görev 17 TAM
-    fixture'larını birleştirecek)."""
-    from perakende_veri.v4.dunya import dunya_kur
-    from perakende_veri.v4.motor import simule_et
-
-    w = dunya_kur(Olcek.TAM)
-    return w, simule_et(w)
-
-
 @pytest.mark.yavas
 def test_outlet_akisi_tam(tam_kosu):
     """Bağlayıcı kalibrasyon: TAM'da fiyat etkili outlet akışı talebi ÷
-    `outlet_akisi` ile gelen adet 0,8–1,2."""
-    w, k = tam_kosu
+    `outlet_akisi` ile gelen adet 0,8–1,2 (oturum fixture'ı `tam_kosu`,
+    conftest)."""
+    w, k = tam_kosu["dunya"], tam_kosu["ham"]
     talep, gelen = _outlet_orani(w, k)
     assert 0.8 <= talep / gelen <= 1.2, (talep, gelen)
 
@@ -483,15 +479,15 @@ def test_surpriz_bir_kez_sayilir(dw, monkeypatch):
 
 
 @pytest.mark.yavas
-def test_gun_hizi_tam():
-    """`gun(d)` tam ölçek hücre sayısında 50 gün ortalaması < 15 ms."""
-    tam = _dunya(Olcek.TAM)
-    lam = tam["lam"]
+def test_gun_hizi_tam(tam_kosu):
+    """`gun(d)` tam ölçek hücre sayısında 50 gün ortalaması < 15 ms (TAM
+    dünyası oturum fixture'ı `tam_kosu`'dan)."""
+    lam = tam_kosu["dunya"].lam
     gunler = list(range(gun_indisi("2024-03-01"), gun_indisi("2024-03-01") + 50))
     lam.gun(gunler[0] - 1)  # ısınma
     bas = time.perf_counter()
     for d in gunler:
         lam.gun(d)
     ort_ms = (time.perf_counter() - bas) / len(gunler) * 1000
-    print(f"\nC={len(tam['hucre'])}, gun(d) ort {ort_ms:.2f} ms")
+    print(f"\nC={len(tam_kosu['dunya'].cesit)}, gun(d) ort {ort_ms:.2f} ms")
     assert ort_ms < 15.0
