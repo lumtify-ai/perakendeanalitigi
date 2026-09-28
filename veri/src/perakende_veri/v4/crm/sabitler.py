@@ -283,3 +283,22 @@ IADE_BEDEN_AGIRLIK = 4.0
 # olasılığı (kalanı fişsiz boş ziyaretçiye). Fişsiz ziyaretçi sayısı mağaza
 # başına max(1, round(birim / sepet hedefi)).
 BOS_FISLI_PAY = 0.5
+
+# --- Online liste, sıralama, tıklama, olay kaydı (Görev 9, spec §5) ------------
+LISTE_UZUNLUGU = 48              # liste başına gösterilen sıra (2 × 24)
+SATIS_PENCERE_GUN = 7            # Lumoda kategori sıralaması: son 7 günün ONL satışı
+YENI_GELEN_GUN = 28              # "yeni_gelenler": son 28 günde lansman
+BAKILMA_US = 0.8                 # gizli bakılma eğrisi 1 / (1 + sıra)^0,8
+ILGI_INDIRIM = 0.5               # gizli ilgi: + 0,5 × arketip indirim duyarlılığı ort. × oran
+GORUNTULEME_FIS = 30.0           # KALİBRASYON günlük liste görüntüleme = ONL satış fişi × 30
+LISTE_TRAFIK_PAYI = {            # KALİBRASYON görüntülemelerin liste türlerine payı
+    "kategori": 0.55, "arama": 0.25, "yeni_gelenler": 0.10, "indirim": 0.10,
+}
+TIKLAMA_GORUNTULEME = 0.8       # KALİBRASYON liste görüntüleme başına beklenen tıklama (sıra × ilgiyle paylaşılır)
+TIKLAMA_UST = 0.9                # hücre tıklama olasılığı üst sınırı
+SEPET_ORANI = 0.25               # sepete ekleme ≈ tıklama × 0,25
+ARAMA_EK_TIKLAMA = 3.0           # KALİBRASYON listede olmayan option: tıklama = alım + Poisson(3 × alım)
+OTURUM_GORUNTULEME = 3.0         # KALİBRASYON günlük oturum = görüntüleme / 3
+OTURUM_EN_COK = 6                # oturum başına 1–6 liste görüntüleme
+GIRIS_PAYI = 0.60                # oturumların giriş yapmış payı
+OLAY_ARALIK_SN = 40.0            # KALİBRASYON oturum içi ardışık olaylar arası ortalama (üstel) saniye
