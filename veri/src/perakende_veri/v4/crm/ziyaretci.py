@@ -18,9 +18,9 @@ olduğundan fiziksel mağaza için iki listenin karışımından çekilir: ilin
 bütün müşterileri (ağırlık 0,15 × taban) ve m'nin ev müşterileri (0,85 ×
 taban). Her liste yalnız sona eklenen bir (müşteri, ağırlık, kümülatif)
 tamponudur: yeni müşteri eklenince (`nufus.ekle`) listelerin sonuna eklenir.
-Ölen müşteri ret ile elenir. Ev mağazası ya da online payı değişen
-(ev kapanışı) müşteri görülünce, ya da `ADAY_YENIDEN_KUR_GUN` günde bir,
-listeler baştan kurulur (ölüler atılır).
+Ölen müşteri ret ile elenir. Ev mağazası ya da online payı değişince
+(`nufus.degisim_sayaci` arttığında; `yasam.ev_kapanisi` artırır), ya da
+`ADAY_YENIDEN_KUR_GUN` günde bir, listeler baştan kurulur (ölüler atılır).
 
 **Örnekleme.** Kümülatiften yerine koyarak çek, ölüyü ve tekrarı reddet,
 ilk k farklı hayattaki aday: ağırlıkla ardışık örnekleme, Gumbel-top-k ile
@@ -143,27 +143,20 @@ class Adaylar:
         self._ekle(nufus, np.flatnonzero(nufus.hayatta))
         self.K = nufus.K
         self.kurulus_gun = d
-        self.ev_kopya = nufus.ev_magaza.copy()
-        self.onl_kopya = nufus.online_payi.copy()
+        self.surum = nufus.degisim_sayaci
         self.kurulus_sayisi = getattr(self, "kurulus_sayisi", 0) + 1
 
     def guncelle(self, nufus, d: int) -> None:
         """Gün d öncesi: değişen ev/online payı ya da süre dolduysa baştan
         kur; değilse yalnız yeni müşterileri sona ekle."""
         K0 = self.K
-        degisti = (
-            not np.array_equal(nufus.ev_magaza[:K0], self.ev_kopya)
-            or not np.array_equal(nufus.online_payi[:K0], self.onl_kopya)
-        )
-        if degisti or d - self.kurulus_gun >= S.ADAY_YENIDEN_KUR_GUN:
+        if nufus.degisim_sayaci != self.surum or d - self.kurulus_gun >= S.ADAY_YENIDEN_KUR_GUN:
             self.kur(nufus, d)
             return
         if nufus.K > K0:
             yeni = np.arange(K0, nufus.K)
             yeni = yeni[nufus.hayatta[yeni]]
             self._ekle(nufus, yeni)
-            self.ev_kopya = np.concatenate([self.ev_kopya, nufus.ev_magaza[K0:]])
-            self.onl_kopya = np.concatenate([self.onl_kopya, nufus.online_payi[K0:]])
             self.K = nufus.K
 
     # --- örnekleme -------------------------------------------------------------
@@ -214,7 +207,14 @@ class Adaylar:
         return aday, L.w[: L.n] * np.where(ev, 1.0, S.IL_ICI_AGIRLIK)
 
     def sec(self, nufus, m: int, k: int, rng, sayac: dict | None = None) -> np.ndarray:
-        """Mağaza m için en çok k farklı hayattaki müşteri (eksikse daha az)."""
+        """Mağaza m için en çok k farklı hayattaki müşteri (eksikse daha az).
+
+        Not: ret örneklemesi ve Gumbel-top-k yedeği ayrı ayrı hedef dağılımı
+        (ağırlıkla ardışık örnekleme) verir, ama yedek ret çekilişi
+        başarısız olduğunda devreye girdiğinden karışımları tam hedef
+        dağılım değildir (başarısızlığa koşullanma küçük bir sapma yaratır).
+        Yedek TAM'da hiç (0 mağaza-gün) çalışmadı; yalnız k > aday/2
+        durumunda (küçük/yeni il) ve aday yetmezken önemlidir."""
         hayatta = nufus.hayatta
         c = self._cekici(nufus, m, rng)
         sec = None

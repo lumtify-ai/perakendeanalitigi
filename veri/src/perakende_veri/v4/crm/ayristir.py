@@ -27,9 +27,11 @@ ziyaret Görev 6'dadır.
      bir turda fiş başına en çok `TAMAMLAYICI_DALGA` (1) birim, en yüksek
      değerli istek kabul edilir, diğerleri sonraki tura; böylece sonraki
      birimler sepete yeni girenlerle tamamlayıcılığı görür (hepsi aynı
-     turda yerleşseydi yalnız çapayı görürdü). En çok `TAMAMLAYICI_TUR`
-     (8) tur, sonuncusunda kapasite sınırı; sonra kalan kapasiteye
-     rastgele. Her tur yalnız bekleyen birimler × kapasiteli fişler; sepet
+     turda yerleşseydi yalnız çapayı görürdü). `TAMAMLAYICI_TUR` (8)
+     dalga turunun sonuncusu ve ardından `TAMAMLAYICI_ARTIK_TUR` (3) artık
+     tur yalnız fiş kapasitesiyle sınırlı; artık turlarda fiş seçimine
+     log(kalan kapasite) eklenir (birim kapasite yuvaları üzerinden
+     Gumbel-max gibi). Rastgele yerleşim yalnız son çare. Her tur yalnız bekleyen birimler × kapasiteli fişler; sepet
      ve tamamlayıcılık her turda güncel. Tamamlayıcılık = sepet sayımı @
      `tamamlayici_matris()` (= `tercih.tamamlayicilik`).
    - Turlar arasında Gumbel yeniden çekilir (birim başına sabit Gumbel'li
@@ -52,8 +54,9 @@ ziyaret Görev 6'dadır.
 
 Durum (`AyristirDurum`: ürün dizileri, aday yapısı, tekrar tamponu)
 `kayit.durum`'da yaşar, ilk çağrıda kurulur. Rastgelelik:
-`crm_uretici(d, "ziyaret")` ziyaretçi + yeni müşteri, `crm_uretici(d,
-"atama")` fiş boyutu, eşleştirme ve saat.
+`crm_uretici(d, "ziyaret")` ziyaretçi + yeni müşteri; `"atama"` akışının
+adım başına alt akışları (`crm_alt_ureticiler`: boyut, asama1, asama2,
+saat) — bir adımın kalibrasyonu diğerlerinin çekilişlerini kaydırmaz.
 """
 
 import time
@@ -67,7 +70,7 @@ from .. import sabitler as a_sabitler
 from ..takvim import gun_indisi
 from . import sabitler as S
 from .girdi import ADET, H, INDIRIM, KAMPANYA, ORAN, SATIR, TUTAR
-from .rastgele import crm_uretici
+from .rastgele import crm_alt_ureticiler, crm_uretici
 from .tercih import (
     BEDEN_YONU, N_TIP, sku_ek_puani_cift, sku_kodlari, tamamlayici_matris, tip_kodu, tip_ozellik,
     tip_puani,
@@ -75,7 +78,9 @@ from .tercih import (
 from .ziyaretci import Adaylar, ziyaretci_sec
 
 TUR = S.ESLESTIRME_TUR
+ATAMA_ADIMLARI = ("boyut", "asama1", "asama2", "saat")   # yeni adım SONA
 TAMAM_TUR = S.TAMAMLAYICI_TUR
+ARTIK_TUR = S.TAMAMLAYICI_ARTIK_TUR
 DALGA = S.TAMAMLAYICI_DALGA
 A_ALT = len(S.ALT_KATEGORILER)
 
@@ -243,7 +248,8 @@ def asama1(fis_m, boyut, g_m, g_alt, n_g, M: int, puan, T, rng, sayac) -> tuple[
     np.add.at(sepet, (np.arange(F), g_alt[capa_g]), 1.0)
     atama_f, atama_g = [np.arange(F)], [capa_g]
     bekleyen = kalan_g
-    for tur in range(TAMAM_TUR):
+    for tur in range(TAMAM_TUR + ARTIK_TUR):
+        artik = tur >= TAMAM_TUR
         gw = np.flatnonzero(bekleyen > 0)
         if not len(gw):
             break
@@ -258,6 +264,8 @@ def asama1(fis_m, boyut, g_m, g_alt, n_g, M: int, puan, T, rng, sayac) -> tuple[
         sayac["cift_tamam"] += len(pf)
         tamam = sepet @ T
         logit = puan(pf, pg) + tamam[pf, g_alt[pg]]
+        if artik:
+            logit = logit + np.log(kap[pf]).astype(np.float32)
         adet_g = bekleyen[gw]
         pos, lse = segment_kategorik(logit, uz, adet_g, rng)
         hedef_f = pf[pos]
@@ -266,7 +274,7 @@ def asama1(fis_m, boyut, g_m, g_alt, n_g, M: int, puan, T, rng, sayac) -> tuple[
         o = np.lexsort((-deger, hedef_f))
         hf = hedef_f[o]
         rutbe = np.arange(len(o)) - np.searchsorted(hf, hf)
-        sinir = kap[hf] if tur == TAMAM_TUR - 1 else np.minimum(kap[hf], DALGA)
+        sinir = kap[hf] if tur >= TAMAM_TUR - 1 else np.minimum(kap[hf], DALGA)
         kabul = o[rutbe < sinir]
         f_k, g_k = hedef_f[kabul], hedef_g[kabul]
         atama_f.append(f_k)
@@ -548,7 +556,7 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     du.adaylar.guncelle(nufus, d)
     adim("0 aday yapisi")
     rng_z = crm_uretici(d, "ziyaret", kayit.tohum)
-    rng = crm_uretici(d, "atama", kayit.tohum)
+    akis = crm_alt_ureticiler(d, "atama", ATAMA_ADIMLARI, kayit.tohum)
     M = du.M
 
     # 1) Hatlar ve (mağaza, tip) grupları
@@ -575,14 +583,14 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     musteri = ziyaretci_sec(du.adaylar, nufus, d, F_m, rng_z, sayac)
     adim("3 ziyaretci")
     du.tekrar_buyut(nufus.K)
-    boyut = fis_boyutlari(rng, fis_m, U_m, nufus.sepet_ort[musteri])
+    boyut = fis_boyutlari(akis["boyut"], fis_m, U_m, nufus.sepet_ort[musteri])
 
     adim("4 boyut")
 
     # 5) Aşama 1
     P = tip_puani(nufus, musteri, np.arange(N_TIP)).astype(np.float32)   # [F, N_TIP]
     adim("5a tip puani")
-    af, ag = asama1(fis_m, boyut, g_m, g_alt, n_g, M, lambda pf, pg: P[pf, g_tip[pg]], du.T, rng, sayac)
+    af, ag = asama1(fis_m, boyut, g_m, g_alt, n_g, M, lambda pf, pg: P[pf, g_tip[pg]], du.T, akis["asama1"], sayac)
     assert len(af) == U_m.sum()
     del P
     adim("5b asama1")
@@ -594,7 +602,7 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
         return (sku_ek_puani_cift(nufus, k, sku, h_oran[h], du.kodlar)
                 + du.tekrar_bonusu(k, du.sku_option[sku]))
 
-    pf, ph, pn = asama2(af, ag, F, g_bas_h, L_g, n_g, h_c, h_g, logit, rng, sayac)
+    pf, ph, pn = asama2(af, ag, F, g_bas_h, L_g, n_g, h_c, h_g, logit, akis["asama2"], sayac)
 
     adim("6 asama2")
 
@@ -622,7 +630,7 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     kayit.ekle("fis", d, {
         "fis_id": fis_id, "gun": np.full(F, d), "magaza": fis_m, "musteri": musteri,
         "kanal": (fis_m == du.onl).astype(np.int8), "tip": np.zeros(F, dtype=np.int8),
-        "saat": fis_saati(rng, d, fis_m == du.onl),
+        "saat": fis_saati(akis["saat"], d, fis_m == du.onl),
     })
     kayit.ekle("fis_satir", d, {
         "satir_id": kayit.satir_sayisi + np.arange(L, dtype=np.int64), "fis_id": fis_id[l_f],

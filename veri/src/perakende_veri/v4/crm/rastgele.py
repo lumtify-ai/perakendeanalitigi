@@ -27,3 +27,15 @@ AMACLAR: dict[str, int] = {
 def crm_uretici(d: int, amac: str, tohum: int = CRM_TOHUM) -> np.random.Generator:
     """d günü, `amac` çekilişi için B'nin sayaç üreteci."""
     return np.random.default_rng(np.random.SeedSequence(tohum, spawn_key=(AMACLAR[amac], int(d))))
+
+
+def crm_alt_ureticiler(d: int, amac: str, adimlar: tuple[str, ...],
+                       tohum: int = CRM_TOHUM) -> dict[str, np.random.Generator]:
+    """(d, amac) akışının adım başına alt akışları: `SeedSequence(tohum,
+    spawn_key=(amac, d, i))`, i = adımın `adimlar` içindeki sırası. Bir
+    adımın çekiliş sayısı değişince (kalibrasyon) diğer adımların akışı
+    kaymaz. Yeni adım listenin SONUNA eklenmelidir."""
+    return {
+        ad: np.random.default_rng(np.random.SeedSequence(tohum, spawn_key=(AMACLAR[amac], int(d), i)))
+        for i, ad in enumerate(adimlar)
+    }

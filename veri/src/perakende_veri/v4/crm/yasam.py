@@ -184,6 +184,7 @@ def ev_kapanisi(rng, nufus: Nufus, tetik: Tetik, girdi, m: int, d: int) -> np.nd
         nufus.ev_magaza[gecen] = hedef
         tetik.ev_gecti[gecen] = True
     nufus.online_payi[kalan] = np.minimum(nufus.online_payi[kalan] * S.EV_KAPANIS_ONLINE_CARPANI, 1.0)
+    nufus.ev_degisti()
     tetik.ev_kapandi[kalan] = True
     return gecen
 

@@ -338,7 +338,14 @@ class Nufus:
     terk_gun: np.ndarray = None
     gorunur_mu: np.ndarray = None
     gorunur_gun: np.ndarray = None
+    #: Var olan satırlarda `ev_magaza` ya da `online_payi` değiştiren her kod
+    #: (`yasam.ev_kapanisi`) `ev_degisti()` çağırır; ziyaretçi aday yapısı
+    #: (`ziyaretci.Adaylar`) bu sayaçla yeniden kurulur. `ekle` saymaz.
+    degisim_sayaci: int = 0
     _tampon: dict = field(default_factory=dict, repr=False)
+
+    def ev_degisti(self) -> None:
+        self.degisim_sayaci += 1
 
     @classmethod
     def bos(cls, magaza: MagazaBilgi, kapasite: int = 1024) -> "Nufus":

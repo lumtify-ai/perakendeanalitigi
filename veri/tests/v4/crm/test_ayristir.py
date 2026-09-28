@@ -252,6 +252,9 @@ def test_aday_yapisi_artimli(kucuk_girdi, _taban):
     # ev mağazası değişince baştan kurulur
     nuf.ev_magaza[yeni[0]] = (m + 1) % mb.onl
     ad.guncelle(nuf, GUN + 2)
+    assert ad.kurulus_sayisi == 1          # sayaç artmadan fark edilmez (kirli bayrak)
+    nuf.ev_degisti()
+    ad.guncelle(nuf, GUN + 2)
     assert ad.kurulus_sayisi == 2
     # süre dolunca baştan kurulur (ölüler atılır)
     ad.guncelle(nuf, GUN + 2 + ADAY_YENIDEN_KUR_GUN)
@@ -365,3 +368,34 @@ def test_determinizm(kucuk_girdi, _taban, tek_gun):
     a, b = kayit.tablo(), tek_gun[1].tablo()
     for ad in a:
         pd.testing.assert_frame_equal(a[ad], b[ad])
+
+
+def test_ev_kapanisi_aday_yapisini_yeniler(kucuk_girdi, _taban):
+    from perakende_veri.v4.crm.yasam import Tetik, ev_kapanisi
+    from perakende_veri.v4.crm.ziyaretci import Adaylar
+
+    nuf = _kopya(_taban)
+    ad = Adaylar(nuf, GUN)
+    m = int(np.bincount(nuf.ev_magaza[nuf.ev_magaza != nuf.magaza.onl]).argmax())
+    ev_kapanisi(np.random.default_rng(0), nuf, Tetik.bos(nuf.K), kucuk_girdi, m, GUN + 1)
+    ad.guncelle(nuf, GUN + 1)
+    assert ad.kurulus_sayisi == 2
+    L = ad.ev_liste[m]
+    assert sorted(L.aday[: L.n].tolist()) == np.flatnonzero((nuf.ev_magaza == m) & nuf.hayatta).tolist()
+
+
+def test_tamamlayici_rastgele_yedek_payi_kucuk(kosu60):
+    """Dalga + artık turlardan sonra rastgele yerleşen birim payı < %0,5."""
+    _, kayit = kosu60
+    pay = kayit.sayac["tur_disi_tamam"] / kayit.sayac["birim"]
+    assert pay < 0.005, pay
+
+
+def test_atama_alt_akislari_bagimsiz():
+    from perakende_veri.v4.crm.rastgele import crm_alt_ureticiler
+
+    a = crm_alt_ureticiler(5, "atama", ("boyut", "asama1", "asama2", "saat"))
+    b = crm_alt_ureticiler(5, "atama", ("boyut", "asama1", "asama2", "saat"))
+    a["boyut"].random(1000)                                   # bir adım daha çok çeker
+    assert np.array_equal(a["asama1"].random(4), b["asama1"].random(4))
+    assert not np.array_equal(a["asama2"].random(4), a["saat"].random(4))

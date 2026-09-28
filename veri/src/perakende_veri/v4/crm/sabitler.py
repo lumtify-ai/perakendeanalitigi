@@ -269,3 +269,7 @@ SAAT_ONLINE = (21.0, 3.0, 0.60)      # KALİBRASYON
 # edilir (son tur hariç), böylece sonraki birimler sepete eklenenleri görür.
 TAMAMLAYICI_TUR = 8
 TAMAMLAYICI_DALGA = 1
+# Dalgalardan sonra yalnız fiş kapasitesiyle sınırlı artık turlar (kalan
+# birimler × kapasiteli fişler yeniden çekilir, fiş seçimine log(kalan
+# kapasite) eklenir); rastgele yerleşim yalnız son çare.
+TAMAMLAYICI_ARTIK_TUR = 3
