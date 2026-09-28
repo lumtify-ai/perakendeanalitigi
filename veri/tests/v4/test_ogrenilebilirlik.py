@@ -60,7 +60,9 @@ trend
     (sezon × alt kategori × fiyat segmenti × line) satırındaki `derinlik`
     (option başına planlanan ilk alım). "Plan-üstü satış oranı" = option
     satışı ÷ derinlik — planın kaçırdığı. Tek yanlı Welch t-testi
-    log(oran): oversize > slim, p < 0,05.
+    log(oran): oversize > slim, p < 0,05. Kayma (§8.3): aynı ölçünün
+    oversize − slim farkı SS23'ten SS25'e büyür (trend birikir, plan geriden
+    gelir).
 
 tedarikçi
     `siparis` (sipariş başına bir kez: gerçekleşen − planlanan teslim, gün;
@@ -102,6 +104,7 @@ from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
 
 from perakende_veri.v4 import sabitler
+from perakende_veri.v4.magaza import haversine_km
 from perakende_veri.v4.takvim import gun_indisi
 
 pytestmark = pytest.mark.yavas
@@ -384,12 +387,6 @@ def tedarikci(t: dict, gizli: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _haversine(lat1, lon1, lat2, lon2) -> np.ndarray:
-    r = np.radians
-    a = np.sin(r(lat2 - lat1) / 2) ** 2 + np.cos(r(lat1)) * np.cos(r(lat2)) * np.sin(r(lon2 - lon1) / 2) ** 2
-    return 6371.0 * 2 * np.arcsin(np.sqrt(a))
-
-
 def acilis(t: dict, s: pd.DataFrame, gizli: dict, plan28: dict, lansmanlar: set) -> dict:
     """`plan28`: magaza_id → yeni mağazanın açılıştan itibaren 28 günlük plan
     toplamı (Lumoda plan λ'sı). {magaza_id: {...}}."""
@@ -407,7 +404,7 @@ def acilis(t: dict, s: pd.DataFrame, gizli: dict, plan28: dict, lansmanlar: set)
                     & (pd.to_datetime(m["acilis_tarihi"]) <= karar - pd.Timedelta(days=28)).to_numpy()
                     & (pd.to_datetime(m["kapanis_tarihi"]).fillna(pd.Timestamp("2100-01-01")) > karar).to_numpy()]
         adaylar = adaylar.drop(index=mid, errors="ignore")
-        uz = _haversine(m.at[mid, "enlem"], m.at[mid, "boylam"], adaylar["enlem"].to_numpy(), adaylar["boylam"].to_numpy())
+        uz = haversine_km(m.at[mid, "enlem"], m.at[mid, "boylam"], adaylar["enlem"].to_numpy(), adaylar["boylam"].to_numpy())
         ikiz = adaylar.index[int(np.argmin(uz))]
         pen = s[(s["magaza_id"] == ikiz) & (s["tarih"] >= karar - pd.Timedelta(days=28)) & (s["tarih"] < karar)]
         karisim = pen.groupby("urun_id")["adet"].sum()
@@ -454,6 +451,7 @@ def olcumler(t: dict, gizli: dict, plan28: dict, lansmanlar: set) -> dict:
         "saf": esneklik_saf(t, s, gizli),
         "kampanya": esneklik_kampanya(t, s, gizli),
         "trend": trend(t, s),
+        "trend_ss23": trend(t, s, "SS23"),
         "tedarikci": tedarikci(t, gizli),
         "acilis": acilis(t, s, gizli, plan28, lansmanlar),
     }
@@ -473,6 +471,9 @@ def yazdir(o: dict) -> None:
     tr = o["trend"]
     print(f"  trend SS25 oversize − slim log fark {tr['fark']:.3f}  t {tr['t']:.2f}  p {tr['p']:.2e}"
           f"  (n {tr['n_oversize']} / {tr['n_slim']})")
+    t23 = o["trend_ss23"]
+    print(f"  trend SS23 oversize − slim log fark {t23['fark']:.3f}  t {t23['t']:.2f}  p {t23['p']:.2e}"
+          f"  (n {t23['n_oversize']} / {t23['n_slim']})")
     td = o["tedarikci"]
     print(f"  tedarikçi Spearman {td['spearman']:.3f} (gecikme {td['spearman_gecikme']:.3f},"
           f" hatalı {td['spearman_hatali']:.3f}; {td['tedarikci']} tedarikçi)")
@@ -510,6 +511,11 @@ def test_esneklik_tuzagi(olcum):
 
 def test_trend_gorunur(olcum):
     assert olcum["trend"]["p"] < 0.05, olcum["trend"]
+
+
+def test_trend_kayar(olcum):
+    """Kayma: plan-üstü oversize − slim farkı SS23'ten SS25'e büyür."""
+    assert olcum["trend"]["fark"] > olcum["trend_ss23"]["fark"], (olcum["trend_ss23"], olcum["trend"])
 
 
 def test_acilis_depo_yetersiz(olcum):

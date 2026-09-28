@@ -106,6 +106,8 @@ def test_liste_fiyati_saf():
     sonuc = liste_fiyati(alis, segment)
     assert np.allclose((sonuc + 0.01) % 10, 0)
     assert (sonuc > alis * 2).all()
+    with pytest.raises(ValueError, match="bilinmeyen"):
+        liste_fiyati(alis, np.array(["giris", "lux", "premium"]))
 
 
 def test_tedarikci_bos(u):

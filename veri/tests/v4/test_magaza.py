@@ -9,19 +9,8 @@ import pandas as pd
 import pytest
 
 from perakende_veri.v4 import sabitler
-from perakende_veri.v4.magaza import Olcek, alt_kume, magazalari_uret, olaylari_uret
+from perakende_veri.v4.magaza import Olcek, alt_kume, haversine_km, magazalari_uret, olaylari_uret
 from perakende_veri.v4.rastgele import dunya_akisi
-
-
-def _haversine_km(lat1, lon1, lat2, lon2):
-    r = 6371.0
-    lat1r, lon1r = np.radians(float(lat1)), np.radians(float(lon1))
-    lat2r = np.radians(np.asarray(lat2, dtype=float))
-    lon2r = np.radians(np.asarray(lon2, dtype=float))
-    dphi = lat2r - lat1r
-    dl = lon2r - lon1r
-    a = np.sin(dphi / 2) ** 2 + np.cos(lat1r) * np.cos(lat2r) * np.sin(dl / 2) ** 2
-    return 2 * r * np.arcsin(np.sqrt(a))
 
 
 @pytest.fixture(scope="module")
@@ -73,12 +62,12 @@ def test_kapanis_profilleri(m, olay):
     def en_yakin_diger_uzaklik(mid):
         lat0, lon0 = magazalar.loc[mid, ["enlem", "boylam"]]
         digerleri = fiziksel[fiziksel.magaza_id != mid]
-        d = _haversine_km(lat0, lon0, digerleri.enlem.to_numpy(), digerleri.boylam.to_numpy())
+        d = haversine_km(lat0, lon0, digerleri.enlem.to_numpy(), digerleri.boylam.to_numpy())
         return d.min() if len(d) else np.inf
 
     def outlete_uzaklik(mid):
         lat0, lon0 = magazalar.loc[mid, ["enlem", "boylam"]]
-        d = _haversine_km(lat0, lon0, outletler.enlem.to_numpy(), outletler.boylam.to_numpy())
+        d = haversine_km(lat0, lon0, outletler.enlem.to_numpy(), outletler.boylam.to_numpy())
         return d.min() if len(d) else np.inf
 
     # (1) çok mağazalı şehir (>= 5 fiziksel mağaza)

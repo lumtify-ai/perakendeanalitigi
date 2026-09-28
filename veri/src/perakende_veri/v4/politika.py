@@ -43,7 +43,9 @@ from .rastgele import sayac_uretici
 class Transferler:
     """Mal hareketi istekleri, satır başına: `kaynak` → `hedef` (mağaza
     satır indisi; −1 = depo), `sku`, `adet`. Motor kaynağın stoğuyla
-    sınırlar, hedefte hücre yoksa satırı atar, yolda süreyi uygular."""
+    sınırlar, hedefte hücre yoksa satırı atar, yolda süreyi uygular. ONL
+    transfer ucu değildir: kaynağı ONL olan satır atılır, hedefi ONL olan
+    satır depoya yönlendirilir (`mesafe_km`'de ONL satır/sütunu inf)."""
 
     kaynak: np.ndarray
     hedef: np.ndarray
@@ -211,6 +213,17 @@ class LumodaRPT:
     STR'nin payı dünkü akşama kadarki satış, paydası bu sabaha kadar
     mağazalara giden (ilk dağıtım + replenishment + depodan outlet akışı;
     mağazadan geri dönüş düşülmez).
+
+    Kasıtlı v3 tuhaflığı: pay ONL satışını da içerir (zincir brüt satışı),
+    payda yalnız fiziksel mağazalara gideni; markdown'ın STR'si ise yalnız
+    fiziksel satışı sayar. RPT v3'ten birebir alındığı için böyle kalır
+    (online payı yüksek option'ın STR'si biraz şişer).
+
+    Motor option başına RPT_SAPMA_SAYISI (4) teslim sapması taşır; Lumoda
+    en fazla bir RPT verir, 4'ten fazla RPT veren enjekte politikada
+    sonrakiler `sapma_rpt[o, 3]`'ü yeniden kullanır. Aynı gün aynı option'a
+    düşen teslimler kalite üretecini (`sayac_uretici_option(d, "kalite",
+    o)`) paylaşır.
     """
 
     def __init__(
@@ -263,6 +276,13 @@ class LumodaMarkdown:
         giden; payla payda aynı kanaldan) < 0,7 × beklenen ise bir kademe
         derinleşir (haftada en fazla bir kademe); d ≥ indirim_gun iken en az
         %30. Kademeler %20 / 30 / 40 / 50 / 70; oran hiç sığlaşmaz.
+    Sezon indirimi takvim olayıdır: motor bu politikayı pazartesiye ek
+    olarak her sezonluk option'ın indirim_gun'ünde de çağırır. Pazartesi
+    olmayan çağrıda yalnız %30 tabanı uygulanır (kademe derinleşmesi ve
+    outlet hattı yalnız pazartesi); böylece yayımlanan
+    `sezon.indirim_baslangic` / `takvim.indirim_donemi_mi` ile markdown
+    aynı gün başlar. Enjekte edilen markdown politikası bu tabanı
+    uygulamak zorunda değildir.
     İçseldir: STR'si düşük option daha erken ve daha derin indirilir (esneklik
     tuzağı). Devamlı (Basic/NOS) option'lar bu kuralla hiç indirilmez.
 
@@ -300,6 +320,13 @@ class LumodaMarkdown:
         yeni = np.array(g.fiyat_orani, dtype=float, copy=True)
         lan, ind, cik = (opt[c].to_numpy() for c in ("lansman_gun", "indirim_gun", "cikis_gun"))
         sezonluk = opt["sezonluk"].to_numpy(dtype=bool)
+
+        if pd.Timestamp(g.tarih).dayofweek != 0:
+            # Pazartesi dışı (sezon indirimi başı): yalnız taban.
+            taban = sezonluk & (d >= lan) & (d >= ind) & (d < cik)
+            for h in (0, 2):
+                yeni[:, h] = np.where(taban, np.maximum(yeni[:, h], self.indirim_tabani), yeni[:, h])
+            return yeni
 
         # Normal ve online hat
         su_an = np.maximum(yeni[:, 0], yeni[:, 2])

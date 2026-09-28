@@ -16,6 +16,9 @@ Brief: .superpowers/sdd/2026-09-27-veri-v4-cekirdek/task-16-brief.md
 
 import numpy as np
 import pandas as pd
+import pytest
+
+from perakende_veri.v4 import sabitler
 
 from perakende_veri.v4.motor import simule_et
 from perakende_veri.v4.motor.satis import hat_indisi
@@ -66,7 +69,21 @@ def _sifirla_magaza_replenishment(magaza_idx: int):
     return pol
 
 
-def test_sayac_bagimsizligi(kucuk_dunya):
+@pytest.fixture(scope="module")
+def sifirlanmis_kosu(kucuk_dunya):
+    """(mağaza, varsayılan koşu, o mağazanın replenishment'ı 0 koşu), ilk
+    GUN_SAYISI gün, talep kayıtlı."""
+    w = kucuk_dunya
+    magaza_idx = int(np.flatnonzero((w.magazalar["tip"] == "AVM").to_numpy())[0])
+    a = simule_et(w, gun_sayisi=GUN_SAYISI, kayit_talep=True)
+    b = simule_et(
+        w, Politikalar(replenishment=_sifirla_magaza_replenishment(magaza_idx)),
+        gun_sayisi=GUN_SAYISI, kayit_talep=True,
+    )
+    return magaza_idx, a, b
+
+
+def test_sayac_bagimsizligi(kucuk_dunya, sifirlanmis_kosu):
     """Bir mağazanın replenishment'ını 0'layan politika BAŞKA mağazaların
     çekilişini (u, λ) değiştirmez — ama zincir düzeyinde STR'ye dayanan
     `LumodaMarkdown`/`LumodaRPT`, o mağazaya gidenin azalmasıyla aynı
@@ -81,13 +98,7 @@ def test_sayac_bagimsizligi(kucuk_dunya):
     w = kucuk_dunya
     D = GUN_SAYISI
     O = len(w.optionlar)
-    magaza_idx = int(np.flatnonzero((w.magazalar["tip"] == "AVM").to_numpy())[0])
-
-    a = simule_et(w, gun_sayisi=D, kayit_talep=True)
-    b = simule_et(
-        w, Politikalar(replenishment=_sifirla_magaza_replenishment(magaza_idx)),
-        gun_sayisi=D, kayit_talep=True,
-    )
+    magaza_idx, a, b = sifirlanmis_kosu
     talep_a, talep_b = a["talep"], b["talep"]
     assert talep_a.shape == talep_b.shape
 
@@ -104,8 +115,9 @@ def test_sayac_bagimsizligi(kucuk_dunya):
 
     maske = diger & fiyat_ayni
     # Fiyatı dolaylı etkilenen başka-mağaza hücresi olup olmaması dünyaya
-    # bağlıdır (Görev 18: OZNITELIK_TABAN_SIGMA 0,30 ile KÜÇÜK 400 günde
-    # hiç yok); iddia yalnız karşılaştırılacak hücre bulunmasını ister.
+    # bağlıdır (Görev 18'de KÜÇÜK 400 günde hiç yoktu; son incelemeden
+    # sonra 1.800 (gün, hücre)); iddia yalnız karşılaştırılacak hücre
+    # bulunmasını ister.
     assert maske.any(), "fiyatı etkilenmeyen başka-mağaza hücre/günü beklenir"
     print(f"\nfiyatı dolaylı etkilenen başka-mağaza (gün, hücre): {int((diger & ~fiyat_ayni).sum())}")
     # Fiyatı değişmeyen (gün, hücre) çiftlerinde talep birebir aynı olmalı
@@ -114,6 +126,41 @@ def test_sayac_bagimsizligi(kucuk_dunya):
         talep_a[maske], talep_b[maske],
         err_msg="fiyatı aynı kalan hücrelerde başka mağazaların talebi de aynı olmalı",
     )
+
+
+def _yogun(satis: pd.DataFrame, D: int, C: int, iade: bool) -> np.ndarray:
+    """[D, C] brüt satış (iade=False) ya da iade adedi (iade=True)."""
+    x = np.zeros((D, C), dtype=np.int64)
+    r = satis[satis["adet"] < 0] if iade else satis[satis["adet"] > 0]
+    np.add.at(x, (r["gun"].to_numpy(dtype=np.int64), r["hucre"].to_numpy(dtype=np.int64)),
+              np.abs(r["adet"].to_numpy(dtype=np.int64)))
+    return x
+
+
+def test_iade_sayac_bagimsizligi(kucuk_dunya, sifirlanmis_kosu):
+    """İnceleme bulgusu M9: iade çekilişi de sayaç tabanlıdır. Bir mağazanın
+    replenishment'ı 0'lansa da BAŞKA mağazaların (ONL dahil) iadesi, iadeye
+    kaynak olan satışı (fiziksel d−7, ONL d−10) iki koşuda aynı kalan her
+    (gün, hücre) çiftinde birebir aynıdır."""
+    w = kucuk_dunya
+    magaza_idx, a, b = sifirlanmis_kosu
+    D, C = GUN_SAYISI, len(w.cesit)
+    sat_a, sat_b = _yogun(a["satis"], D, C, False), _yogun(b["satis"], D, C, False)
+    iade_a, iade_b = _yogun(a["satis"], D, C, True), _yogun(b["satis"], D, C, True)
+    gec = np.where(w.hucre_online, sabitler.IADE_GECIKME_ONLINE, sabitler.IADE_GECIKME_MAGAZA)
+    gun = np.arange(D)[:, None]
+    kaynak = gun - gec[None, :]
+    k0 = np.maximum(kaynak, 0)
+    c_idx = np.broadcast_to(np.arange(C)[None, :], (D, C))
+    ayni_satis = np.where(kaynak >= 0, sat_a[k0, c_idx] == sat_b[k0, c_idx], True)
+    diger = (w.hucre_magaza != magaza_idx)[None, :]
+    maske = ayni_satis & diger
+    # Değişen mağazanın satışı gerçekten değişti ve karşılaştırılacak iade var.
+    assert (sat_a[:, ~diger[0]] != sat_b[:, ~diger[0]]).any()
+    assert iade_a[maske].sum() > 0
+    np.testing.assert_array_equal(iade_a[maske], iade_b[maske])
+    print(f"\nkarşılaştırılan iade adedi {int(iade_a[maske].sum())}; "
+          f"satışı değişen başka-mağaza (gün, hücre) {int((diger & ~ayni_satis).sum())}")
 
 
 # ---------------------------------------------------------------------------

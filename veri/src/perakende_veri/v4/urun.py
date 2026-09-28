@@ -137,7 +137,14 @@ def _model_uret(
     cinsiyet = _cinsiyet_sec(rng, alt_kategori)
     beden_seti, bedenler = _beden_seti(cinsiyet, ust_kategori)
 
-    kumas = str(rng.choice(sabitler.GECERLI_KUMAS[alt_kategori]))
+    kumaslar = sabitler.GECERLI_KUMAS[alt_kategori]
+    genislik = sabitler.KUMAS_AKIS_GENISLIGI.get(alt_kategori)
+    if genislik is None:
+        kumas = str(rng.choice(kumaslar))
+    else:
+        # Daraltılmış havuz: eski genişlikte bir çekiliş tüketilir (bkz.
+        # sabitler.KUMAS_AKIS_GENISLIGI), akışın geri kalanı kaymaz.
+        kumas = str(kumaslar[int(rng.integers(genislik)) % len(kumaslar)])
     kalip = str(rng.choice(sabitler.OZNITELIKLER["kalip"]))
     desen = str(rng.choice(sabitler.OZNITELIKLER["desen"]))
     if alt_kategori in sabitler.DETAY:
@@ -395,6 +402,9 @@ def liste_fiyati(alis: np.ndarray, segment: np.ndarray) -> np.ndarray:
     çarpanı uygulanmış alışla yeniden çağırır."""
     alis = np.asarray(alis, dtype=float)
     segment = np.asarray(segment, dtype=object)
+    bilinmeyen = set(segment.ravel().tolist()) - set(sabitler.LISTE_FIYATI_CARPANI)
+    if bilinmeyen:
+        raise ValueError(f"liste_fiyati: bilinmeyen fiyat segmenti {sorted(map(str, bilinmeyen))}")
     carpan = np.vectorize(sabitler.LISTE_FIYATI_CARPANI.get)(segment).astype(float)
     ham = alis * carpan
     return np.ceil(ham / 10.0) * 10.0 - 0.01

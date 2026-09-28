@@ -58,7 +58,13 @@ def _defter_dogrula(w, k, akis_var: bool = True) -> None:
     if akis_var:
         assert h_satis.sum() > 0 and h_iade.sum() > 0 and h_giris.sum() > 0
     np.testing.assert_array_equal(h_giris - h_cikis - h_satis + h_iade, son["magaza_stok"])
+    # ONL rafı her zaman 0: hiçbir sevk ONL'ye girmez ya da ONL'den çıkmaz,
+    # son durumda ONL hücresinde raf stoğu da yoldaki mal da yok.
+    onl_m = (w.magazalar["tip"] == "Online").to_numpy()
+    assert not onl_m[sev.kaynak[sev.kaynak >= 0].to_numpy()].any(), "ONL sevk kaynağı olamaz"
+    assert not onl_m[sev.hedef[sev.hedef >= 0].to_numpy()].any(), "ONL sevk hedefi olamaz"
     assert son["magaza_stok"][onl].sum() == 0, "ONL hücresinde raf stoğu olmaz"
+    assert son["yolda_hucre"][onl].sum() == 0, "ONL hücresine yolda mal olmaz"
 
     # --- Depo defteri ----------------------------------------------------
     teslim = np.zeros(S, dtype=np.int64)

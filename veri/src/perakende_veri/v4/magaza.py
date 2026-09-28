@@ -56,16 +56,19 @@ Olcek.KUCUK = Olcek(magaza=20, option_carpani=0.15)
 # ---------------------------------------------------------------------------
 
 
-def _haversine_km(lat1, lon1, lat2, lon2) -> np.ndarray:
-    """İki nokta (veya bir nokta ve bir dizi) arası büyük çember uzaklığı, km."""
+def haversine_km(lat1, lon1, lat2, lon2) -> np.ndarray:
+    """Büyük çember uzaklığı, km (yarıçap 6371). Girdiler yayınlanır
+    (broadcast): nokta × dizi ya da `lat1[:, None]`, `lat2[None, :]` ile
+    matris. v4'ün tek haversine'i (mağaza üretimi, dünya mesafeleri, olay
+    kaymaları, testler)."""
     r = 6371.0
-    lat1r, lon1r = np.radians(float(lat1)), np.radians(float(lon1))
+    lat1r, lon1r = np.radians(np.asarray(lat1, dtype=float)), np.radians(np.asarray(lon1, dtype=float))
     lat2r = np.radians(np.asarray(lat2, dtype=float))
     lon2r = np.radians(np.asarray(lon2, dtype=float))
     dphi = lat2r - lat1r
     dl = lon2r - lon1r
     a = np.sin(dphi / 2) ** 2 + np.cos(lat1r) * np.cos(lat2r) * np.sin(dl / 2) ** 2
-    return 2 * r * np.arcsin(np.sqrt(a))
+    return 2 * r * np.arcsin(np.sqrt(np.clip(a, 0.0, 1.0)))
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +167,7 @@ def _profil2_sec(df: pd.DataFrame, kullanilmis: set) -> str:
     lat, lon = df.enlem.to_numpy(), df.boylam.to_numpy()
     en_yakin = np.empty(len(df))
     for i in range(len(df)):
-        d = _haversine_km(lat[i], lon[i], lat, lon)
+        d = haversine_km(lat[i], lon[i], lat, lon)
         d[i] = np.inf
         en_yakin[i] = d.min()
     aday = df[
@@ -179,7 +182,7 @@ def _profil3_sec(df: pd.DataFrame, kullanilmis: set) -> str:
     lat_o, lon_o = outletler.enlem.to_numpy(), outletler.boylam.to_numpy()
 
     def yakin_mi(satir) -> bool:
-        d = _haversine_km(satir.enlem, satir.boylam, lat_o, lon_o)
+        d = haversine_km(satir.enlem, satir.boylam, lat_o, lon_o)
         return bool(d.min() < 100)
 
     maske = df.apply(yakin_mi, axis=1) & (df.tip != "Outlet") & ~df.magaza_id.isin(
@@ -560,7 +563,7 @@ def alt_kume(
     for mid in kapananlar:
         lat0, lon0 = magazalar_idx.loc[mid, ["enlem", "boylam"]]
         digerleri = fiziksel[fiziksel.magaza_id != mid]
-        d = _haversine_km(lat0, lon0, digerleri.enlem.to_numpy(), digerleri.boylam.to_numpy())
+        d = haversine_km(lat0, lon0, digerleri.enlem.to_numpy(), digerleri.boylam.to_numpy())
         en_yakin = digerleri.magaza_id.to_numpy()[np.argmin(d)]
         korumali.add(en_yakin)
 

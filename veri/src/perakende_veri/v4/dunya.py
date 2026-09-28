@@ -64,7 +64,7 @@ import pandas as pd
 from . import sabitler
 from .cesit import cesit_ata, hucreleri_kur
 from .kampanya import esneklik, kampanya_takvimi, kampanyalari_uret
-from .magaza import Olcek, alt_kume, magazalari_uret, olaylari_uret
+from .magaza import Olcek, alt_kume, haversine_km, magazalari_uret, olaylari_uret
 from .plan import (
     LambdaOzeti,
     ilk_alim,
@@ -131,12 +131,10 @@ def akislar(tohum: int = sabitler.TOHUM) -> dict[str, np.random.Generator]:
 
 
 def _haversine_matris(lat1, lon1, lat2, lon2) -> np.ndarray:
-    """`[len(lat1), len(lat2)]` büyük çember uzaklığı, km."""
-    r = 6371.0
-    p1, l1 = np.radians(np.asarray(lat1, float))[:, None], np.radians(np.asarray(lon1, float))[:, None]
-    p2, l2 = np.radians(np.asarray(lat2, float))[None, :], np.radians(np.asarray(lon2, float))[None, :]
-    a = np.sin((p2 - p1) / 2) ** 2 + np.cos(p1) * np.cos(p2) * np.sin((l2 - l1) / 2) ** 2
-    return 2 * r * np.arcsin(np.sqrt(np.clip(a, 0.0, 1.0)))
+    """`[len(lat1), len(lat2)]` büyük çember uzaklığı, km (`magaza.haversine_km`)."""
+    lat1, lon1 = np.asarray(lat1, float)[:, None], np.asarray(lon1, float)[:, None]
+    lat2, lon2 = np.asarray(lat2, float)[None, :], np.asarray(lon2, float)[None, :]
+    return haversine_km(lat1, lon1, lat2, lon2)
 
 
 def yolda_gun(km: np.ndarray, depo: bool = True) -> np.ndarray:
@@ -215,7 +213,7 @@ class Dunya:
     sapma_surekli: np.ndarray       # [O, 128] gün
 
     # --- Coğrafya ------------------------------------------------------------
-    mesafe_km: np.ndarray           # [M, M] haversine
+    mesafe_km: np.ndarray           # [M, M] haversine; ONL satır/sütunu inf (köşegen 0)
     depo_mesafe_km: np.ndarray      # [M] Gebze deposuna (ONL 0)
 
     gun_sayisi: int                 # motorun koştuğu gün sayısı (D)
@@ -423,6 +421,10 @@ def dunya_kur(
     m_c = hucre["magaza_idx"].to_numpy().astype(np.intp)
     o_c = hucre["option_idx"].to_numpy().astype(np.intp)
     s_c = hucre["sku_idx"].to_numpy().astype(np.intp)
+    # Motorun (mağaza, SKU) → hücre araması (`hucre_bul`) tekilliğe dayanır.
+    assert len(np.unique(m_c.astype(np.int64) * len(urunler) + s_c)) == len(m_c), (
+        "(mağaza, SKU) → hücre tekil olmalı"
+    )
     eps = esneklik(gizli, optionlar)
     eps_hucre = eps[m_c, o_c]
 
@@ -436,9 +438,15 @@ def dunya_kur(
     mesafe = _haversine_matris(lat, lon, lat, lon)
     np.fill_diagonal(mesafe, 0.0)
     mesafe = (mesafe + mesafe.T) / 2
+    # ONL'nin transfer için fiziksel yeri yoktur: mağaza ↔ ONL uzaklığı
+    # sonsuz (köşegen 0). Online depodan satar; depoya uzaklığı 0.
+    onl_m = (magazalar["tip"] == "Online").to_numpy()
+    mesafe[onl_m, :] = np.inf
+    mesafe[:, onl_m] = np.inf
+    mesafe[onl_m, onl_m] = 0.0
     depo_lat, depo_lon = sabitler.GEBZE_DEPO
     depo_mesafe = _haversine_matris([depo_lat], [depo_lon], lat, lon)[0]
-    depo_mesafe[(magazalar["tip"] == "Online").to_numpy()] = 0.0
+    depo_mesafe[onl_m] = 0.0
 
     # --- İndis dizileri ------------------------------------------------------
     option_sira = pd.Series(np.arange(len(optionlar)), index=optionlar["option_id"])

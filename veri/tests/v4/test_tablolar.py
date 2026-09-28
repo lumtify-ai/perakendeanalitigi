@@ -131,14 +131,25 @@ def _pencerede(s: pd.Series) -> bool:
 
 def test_pencere(t, kucuk_dunya, kucuk_kosu):
     for ad, sutun in [("satis", "tarih"), ("stok", "tarih"), ("depo_stok", "tarih"),
-                      ("sevkiyat", "tarih"), ("fiyat", "hafta_baslangic"),
-                      ("kalite_kontrol", "teslim_tarihi")]:
+                      ("fiyat", "hafta_baslangic"), ("kalite_kontrol", "teslim_tarihi")]:
         assert len(t[ad]) > 0, ad
         assert _pencerede(t[ad][sutun]), (ad, sutun)
     sv = t["sevkiyat"]
     v = sv["varis_tarihi"].dropna()
     assert _pencerede(v)
     assert (v >= sv.loc[v.index, "tarih"]).all()
+    # sevkiyat: çıkışı ya da varışı pencerede (siparişteki gibi). Pencereden
+    # önce çıkan her satırın varışı pencerede; ham kayıtta öyle olan her
+    # sevk tabloda var (2022-12-29…31 boşluğu yok).
+    assert (sv["tarih"] <= SON).all()
+    once = sv[sv["tarih"] < BAS]
+    # (Son KÜÇÜK ve TAM koşularında o günlerde yola çıkan sevk yok; kural
+    # başka politikalar için: sayı ham kayıtla birebir.)
+    assert once["varis_tarihi"].notna().all() and _pencerede(once["varis_tarihi"])
+    h = kucuk_kosu["sevkiyat"]
+    bas_gun = int((BAS - pd.Timestamp(sabitler.ISINMA_BASLANGIC)).days)
+    h_once = h[(h.gun < bas_gun) & (h.varis_gun >= bas_gun) & (h.tip != "baslangic")]
+    assert len(once) == len(h_once) and int(once["adet"].sum()) == int(h_once["adet"].sum())
 
     sp = t["siparis"]
     assert (sp["siparis_tarihi"] <= SON).all()

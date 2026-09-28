@@ -93,6 +93,33 @@ def test_markdown_indirimde_en_az_otuz(kucuk_dunya, kucuk_kosu):
     assert (adim[~taban] <= 1).all()
 
 
+def test_indirim_tabani_indirim_gunu_baslar(kucuk_dunya, kucuk_kosu):
+    """İnceleme bulgusu M1: sezon indirimi takvim olayıdır; %30 tabanı
+    indirim_gun'ün kendisinde (pazartesi olmasa da) başlar. Her Collection
+    option'da indirim_gun'de normal hat (ve hücresi varsa online) ≥ %30."""
+    w, f = kucuk_dunya, kucuk_kosu["fiyat"]
+    D = kucuk_kosu["gun_sayisi"]
+    opt = w.optionlar
+    lan, ind, cik = (opt[c].to_numpy() for c in ("lansman_gun", "indirim_gun", "cikis_gun"))
+    hat = _hat(w)
+    normal_var = np.zeros(len(opt), dtype=bool)
+    normal_var[w.hucre_option[hat == 0]] = True
+    os_ = np.flatnonzero(
+        (opt["line"].to_numpy() == "Collection") & normal_var
+        & (lan <= ind) & (ind < cik) & (ind >= 0) & (ind < D)
+    )
+    assert len(os_) > 20
+    # Bir kısmının indirim günü pazartesi değil (asıl sınanan durum)
+    assert (ind[os_] % 7 != 0).any()
+    md0 = _gunun_md(f, ind[os_], os_, np.zeros(len(os_), dtype=int))
+    assert (md0 >= 0.30 - 1e-9).all(), np.unique(md0)
+    online_var = np.zeros(len(opt), dtype=bool)
+    online_var[w.hucre_option[hat == 2]] = True
+    oo = os_[online_var[os_]]
+    np.testing.assert_array_equal(_gunun_md(f, ind[oo], oo, np.full(len(oo), 2)),
+                                  _gunun_md(f, ind[oo], oo, np.zeros(len(oo), dtype=int)))
+
+
 def test_outlet_hatti(kucuk_dunya, kucuk_kosu):
     """Outlet hattı: Collection option'da çıkışta %50, 4 hafta sonra %70."""
     w, f = kucuk_dunya, kucuk_kosu["fiyat"]

@@ -6,7 +6,8 @@ yayımlanmayan doğruyu (kayıp satış, ikame, segment, ε, öznitelik etkisi,
 tedarikçi profili) aynı kimliklerle verir.
 
 **Pencere.** Hareket tabloları yalnız 2023-01-01 – 2025-12-31'i taşır:
-`satis`, `stok`, `depo_stok` gününe; `sevkiyat` çıkış gününe; `fiyat`
+`satis`, `stok`, `depo_stok` gününe; `sevkiyat` çıkış ya da varış
+gününe (pencereden önce yola çıkıp pencerede varan sevk dahil); `fiyat`
 hafta başına (pencere içindeki pazartesiler); `kalite_kontrol` teslim
 gününe göre. `siparis`: pencerede verilen ya da pencerede teslim edilen
 sipariş (ısınmada verilip pencerede gelen ilk siparişler dahil); teslimi
@@ -173,10 +174,14 @@ def depo_stok_tablosu(dunya, ham: dict, k: _Kimlik) -> pd.DataFrame:
 
 
 def sevkiyat_tablosu(dunya, ham: dict, k: _Kimlik) -> pd.DataFrame:
-    """Çıkışı pencerede olan, `baslangic` dışı bütün sevkler. Varışı pencere
-    sonrasına kalanın `varis_tarihi` boştur."""
-    _, son = pencere()
-    sv = _pencereli(ham["sevkiyat"])
+    """Çıkışı ya da varışı pencerede olan, `baslangic` dışı bütün sevkler
+    (siparişteki gibi: 2022-12-29…31'de yola çıkıp pencerede varan mal
+    dahil, `tarih`i pencereden önce). Varışı pencere sonrasına kalanın
+    `varis_tarihi` boştur."""
+    bas, son = pencere()
+    sv = ham["sevkiyat"]
+    g, v = sv["gun"].to_numpy(), sv["varis_gun"].to_numpy()
+    sv = sv[((g >= bas) & (g <= son)) | ((g < bas) & (v >= bas) & (v <= son))]
     sv = sv[sv["tip"].isin(YAYIMLANAN_SEVK_TIPLERI)]
     varis = sv["varis_gun"].to_numpy()
     paket_idleri, _, _ = paket_tablosu(dunya.paketler)
@@ -387,10 +392,14 @@ def gizli_gercek(dunya, ham: dict) -> dict[str, pd.DataFrame]:
 
     trend = g["trend_tablosu"].copy()
     etki = np.asarray(g["oznitelik_etkisi"])
-    sezonlar = trend["sezon_kodu"].unique()
-    segmentler = trend["segment"].unique()
+    # Uzun biçim etiketleri `oznitelik_etkisi`'nin eksen sırasından
+    # (talep.SEZON_KODLARI = sabitler.SEZONLAR, sabitler.SEGMENTLER).
+    sezonlar = np.array(list(sabitler.SEZONLAR))
+    segmentler = np.array(list(sabitler.SEGMENTLER))
     S, G, O = etki.shape
     assert (S, G) == (len(sezonlar), len(segmentler))
+    assert list(trend["sezon_kodu"].unique()) == list(sezonlar)
+    assert list(trend["segment"].unique()) == list(segmentler)
     ss, gg, oo = np.meshgrid(np.arange(S), np.arange(G), np.arange(O), indexing="ij")
     oznitelik = pd.DataFrame(
         {

@@ -39,7 +39,6 @@ def kirlet(rng: np.random.Generator, tablolar: dict, dunya) -> dict:
     satis = satis.sort_values(["tarih", "magaza_id", "urun_id"], kind="stable").reset_index(drop=True)
 
     # 3) Hayalet stok: fiziksel mağaza × hiç taşımadığı SKU (red örneklemesi).
-    M = len(dunya.magazalar)
     S = len(dunya.urunler)
     fiziksel = np.flatnonzero((dunya.magazalar["tip"] != "Online").to_numpy())
     tasinan = set((np.asarray(dunya.hucre_magaza, dtype=np.int64) * S
@@ -71,7 +70,7 @@ def kirlet(rng: np.random.Generator, tablolar: dict, dunya) -> dict:
             "stoklu_gun": np.full(n, 7, dtype=stok["stoklu_gun"].dtype),
         }
     )
-    assert M > 0 and hayalet["magaza_id"].notna().all() and hayalet["urun_id"].notna().all()
+    assert hayalet["magaza_id"].notna().all() and hayalet["urun_id"].notna().all()
     stok = pd.concat([stok, hayalet], ignore_index=True)
     stok = stok.sort_values(["tarih", "magaza_id", "urun_id"], kind="stable").reset_index(drop=True)
 

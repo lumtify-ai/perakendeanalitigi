@@ -49,7 +49,7 @@ import pandas as pd
 
 from . import sabitler
 from .cesit import OUTLET_AKISI_GUN, kanibalizasyon_payi
-from .magaza import _haversine_km
+from .magaza import haversine_km
 from .takvim import D, gun_indisi, simulasyon_takvimi
 
 IKLIMLER = ["ılıman", "sicak_sahil", "karasal", "soguk"]
@@ -322,7 +322,7 @@ def kayma_alicilari(magazalar: pd.DataFrame, olaylar: pd.DataFrame) -> dict[str,
         o = gun_indisi(r.olay_tarihi)
         uygun = fiziksel & (acilis <= o) & (kapanis > o)
         uygun[c] = False
-        uzaklik = np.where(uygun, _haversine_km(lat[c], lon[c], lat, lon), np.inf)
+        uzaklik = np.where(uygun, haversine_km(lat[c], lon[c], lat, lon), np.inf)
         yakin = np.argsort(uzaklik, kind="stable")[: sabitler.KAYMA_YAKIN_SAYISI]
         sonuc[r.magaza_id] = [int(y) for y in yakin] + [onl]
     return sonuc

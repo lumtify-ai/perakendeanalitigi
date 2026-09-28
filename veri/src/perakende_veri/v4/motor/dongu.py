@@ -31,7 +31,9 @@ GÜNLÜK SIRA (spec §6.1)
  2. TESLİM. gerceklesen_gun == d siparişleri: kalite kontrol (ilk
     siparişte dünyada önceden çekilmiş `hatali`; RPT/sürekli siparişte
     `sayac_uretici_option(d, "kalite", o)` ile), depoya `adet − hatali`;
-    `kalite` kaydı.
+    `kalite` kaydı. Aynı gün aynı option'a birden çok RPT/sürekli teslim
+    gelirse hepsi o (d, o) üretecini sırayla paylaşır (teslim takvimindeki
+    sıra; sipariş sırası politikadan gelir).
  3. VARIŞLAR. Yolda kuyruğundan bugün varanlar stoğa (depo ya da hücre).
     Hedef mağaza bugün kapalıysa mal aynı gün depoya döner (`sevkiyat` tip
     `geri_yonlendirme`, hücreden depoya, yolda süresiz).
@@ -61,7 +63,8 @@ GÜNLÜK SIRA (spec §6.1)
     Bekleyen sevk günü kapanış kararlı ya da varışta kapalı mağaza düşer.
  6. ÇIKIŞ / OUTLET, STOK DEVRİ. cikis_gun == d option'lar için
     `outlet_akisi(g, os)` transferleri (`sevkiyat` tip `outlet_akisi`,
-    yolda süreyle). Ardından penceresi kapanmış (d ≥ hucre_kapanis)
+    yolda süreyle; ONL kaynak ya da hedef olamaz, bkz. `transfer_uygula`).
+    Ardından penceresi kapanmış (d ≥ hucre_kapanis)
     fiziksel hücrede kalan raf stoğu depoya devredilir (`stok_devri`,
     yolda süreyle): outlet penceresi (çıkış + 84) biten outlet akışı
     hücreleri, çıkışta outlet'e gitmeyen normal hücre stoğu, pencere
@@ -70,7 +73,9 @@ GÜNLÜK SIRA (spec §6.1)
     dağıtmaz, ONL'nin penceresi çıkışta kapanır.
  7. RPT (pazartesi). `rpt(g)` → {option: adet | SKU dizisi}; option'ın
     tedarikçisine, planlanan = d + 7 × rpt_hafta, gerçekleşen = planlanan
-    + sapma_rpt[o, k] (k = option'ın kaçıncı RPT'si); teslimde kalite
+    + sapma_rpt[o, k] (k = option'ın kaçıncı RPT'si; dünyada option başına
+    RPT_SAPMA_SAYISI (4) sapma çekilidir, 4'ten fazla RPT veren politikada
+    sonrakiler sapma_rpt[o, 3]'ü yeniden kullanır); teslimde kalite
     `sayac_uretici_option(d, "kalite", o)`; mal depoya girer ve
     replenishment'la dağılır (v3).
  8. SÜREKLİ TEDARİK (pazartesi, d % 14 == 0). Devamlı option'lar, v3'ün
@@ -79,8 +84,11 @@ GÜNLÜK SIRA (spec §6.1)
     pozisyonu (depo + açık sipariş) (L + emniyet) haftalık planın altındaysa
     her beden (L + 2 + emniyet) haftaya tamamlanır, en az MOQ. Politika
     değildir.
- 9. MARKDOWN (pazartesi). `markdown(g)` → [O, 3] (normal / outlet /
-    online hattı); değişen (option, hat) oranları `fiyat` kaydına. Ayrıca
+ 9. MARKDOWN (pazartesi ve her sezonluk option'ın `indirim_gun`'ü: sezon
+    indirimi takvim olayıdır, taban o gün başlar). `markdown(g)` → [O, 3]
+    (normal / outlet / online hattı); değişen (option, hat) oranları
+    `fiyat` kaydına. Pazartesi olmayan indirim gününde yalnız bu adım
+    koşar (7, 8, 10, 11 yok); politika günü `g.tarih`'ten bilir. Ayrıca
     her option'ın lansman gününde (en erken 0; pazartesi değilse fiyat
     adımından önce) hücresi olan her hat için başlangıç satırı (o anki
     oran). Hücrenin hattı: ONL 2, outlet akışı hücresi 1, diğerleri 0.
@@ -211,6 +219,7 @@ def simule_et(
     tarihler = pd.DatetimeIndex(w.takvim["tarih"])
     option_skulari = [np.flatnonzero(w.sku_option == o) for o in range(O)]
     hucre_pencere = lambda d: (w.hucre_acilis <= d) & (d < w.hucre_kapanis)  # noqa: E731
+    online_m = (w.magazalar["tip"] == "Online").to_numpy()
     # Takvim her zaman dünyanın tam gün sayısı (+ yolda payı) üzerinden
     # kurulur, kısaltılmış D üzerinden değil: ilk n gün, tam koşunun ilk n
     # günüyle birebir aynı kalsın (varış günü D'yi aşabilir).
@@ -322,6 +331,9 @@ def simule_et(
     cikis_gunleri: dict[int, list[int]] = {}
     for o in np.flatnonzero(sezonluk):
         cikis_gunleri.setdefault(int(cikis[o]), []).append(int(o))
+    # Sezon indirimi takvim olayıdır: markdown pazartesiye ek olarak her
+    # sezonluk option'ın indirim_gun'ünde de çağrılır.
+    indirim_gunleri = set(int(x) for x in opt["indirim_gun"].to_numpy()[sezonluk])
     # Fiyat kaydının başlangıç satırları: option'ın lansman günü (en erken
     # 0), option'ın hücresi olan her hat için.
     hat_var = np.zeros((O, 3), dtype=bool)
@@ -369,10 +381,18 @@ def simule_et(
         """Genel transfer (satır sırasıyla): kaynak stoğuyla sınırlı (aynı
         kaynaktan birden çok satır sırayla tüketir), hedefte hücre yoksa
         satır atılır; yolda süre mağaza→mağaza mesafeden, depo↔mağaza
-        mağazanın depo süresinden."""
+        mağazanın depo süresinden.
+
+        ONL transferin ucu olamaz (fiziksel yeri yok, rafı hep 0; online
+        depodan satar): kaynağı ONL olan satır atılır, hedefi ONL olan satır
+        depoya yönlendirilir (hedef −1; aynı tiple kaynak → DEPO satırı,
+        depodan ONL'ye istek depo → depo olup düşer)."""
         k, h, s, a = (np.asarray(x, dtype=np.int64).ravel() for x in (tr.kaynak, tr.hedef, tr.sku, tr.adet))
         if a.size == 0:
             return
+        g = ~((k >= 0) & online_m[np.maximum(k, 0)])
+        k, h, s, a = k[g], h[g], s[g], a[g]
+        h = np.where((h >= 0) & online_m[np.maximum(h, 0)], -1, h)
         kc = np.where(k >= 0, hucre_bul(np.maximum(k, 0), s), -1)
         hc = np.where(h >= 0, hucre_bul(np.maximum(h, 0), s), -1)
         g = (a > 0) & (k != h) & ~((k >= 0) & (kc < 0)) & ~((h >= 0) & (hc < 0))
@@ -407,6 +427,18 @@ def simule_et(
         depodan = ~mk & (h >= 0)
         z.gonderilen_option += topla(w.sku_option[s[depodan]], a[depodan], O)
         kay.sevk(d, d + sure, k, h, kc, hc, s, a, tip)
+
+    def markdown_adimi(d: int, g: Gorunum) -> None:
+        """Lansman başlangıç satırları (bugün lanse olanlar, o anki oran),
+        sonra `markdown(g)`; değişen (option, hat) oranları kayda."""
+        if d in fiyat_baslangic:
+            oo, hh = fiyat_baslangic.pop(d)
+            kay.fiyat.append((d, oo, hh, z.fiyat_orani[oo, hh].copy()))
+        yeni = np.asarray(pol.markdown(g), dtype=float)
+        degisen = np.argwhere(yeni != z.fiyat_orani)
+        if len(degisen):
+            kay.fiyat.append((d, degisen[:, 0], degisen[:, 1], yeni[degisen[:, 0], degisen[:, 1]]))
+            z.fiyat_orani[:] = yeni
 
     # --- Günlük döngü ------------------------------------------------------
     for d in range(D):
@@ -524,14 +556,7 @@ def simule_et(
                 surekli_tedarik(w, z, d, sezonluk, L_o, moq_o, ted, option_skulari, siparis_ekle)
 
             # 9) Markdown
-            if d in fiyat_baslangic:
-                oo, hh = fiyat_baslangic.pop(d)
-                kay.fiyat.append((d, oo, hh, z.fiyat_orani[oo, hh].copy()))
-            yeni = np.asarray(pol.markdown(g), dtype=float)
-            degisen = np.argwhere(yeni != z.fiyat_orani)
-            if len(degisen):
-                kay.fiyat.append((d, degisen[:, 0], degisen[:, 1], yeni[degisen[:, 0], degisen[:, 1]]))
-                z.fiyat_orani[:] = yeni
+            markdown_adimi(d, g)
 
             # 10) Replenishment
             istek = np.asarray(pol.replenishment(g), dtype=np.int64)
@@ -546,6 +571,9 @@ def simule_et(
 
             # 11) Elle transfer
             transfer_uygula(d, pol.elle_transfer(g), "elle_transfer")
+
+        elif d in indirim_gunleri:   # pazartesi olmayan sezon indirimi başı
+            markdown_adimi(d, gorunum(d))
 
         if d in fiyat_baslangic:   # pazartesi olmayan lansman
             oo, hh = fiyat_baslangic.pop(d)

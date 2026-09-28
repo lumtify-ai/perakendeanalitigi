@@ -258,10 +258,16 @@ GECERLI_KUMAS: dict[str, list[str]] = {
     "Mont": ["karışım", "pamuk"],
     "Ceket": ["denim", "karışım", "yün"],
     "Trençkot": ["pamuk", "karışım"],
-    "Çanta": ["karışım", "viskon"],
+    "Çanta": ["karışım"],
     "Şal": ["yün", "viskon", "keten"],
-    "Kemer": ["karışım", "viskon"],
+    "Kemer": ["karışım"],
 }
+# Havuzu sonradan daraltılan alt kategorilerin ilk sürümdeki havuz
+# genişliği: kumaş çekilişi bu genişlikte bir `integers` tüketir (eskiden
+# `rng.choice` aynısını tüketiyordu), böylece daraltma ürün akışının geri
+# kalanını — dolayısıyla bütün dünyanın gerçekleşmesini — kaydırmaz.
+# (Son inceleme: Çanta ve Kemer'den viskon çıktı, ikisi de yalnız karışım.)
+KUMAS_AKIS_GENISLIGI: dict[str, int] = {"Çanta": 2, "Kemer": 2}
 
 # Alt kategori başına kesim/model adı havuzu (v2/v3'ün deseninin devamı,
 # yeni alt kategoriler için genişletilmiş).

@@ -270,6 +270,9 @@ def test_mesafeler(kucuk_dunya):
     assert np.allclose(w.mesafe_km, w.mesafe_km.T)
     assert np.allclose(np.diag(w.mesafe_km), 0.0)
     assert w.depo_mesafe_km[-1] == 0.0  # ONL = depo
+    # ONL'nin transfer için fiziksel yeri yok: mağaza ↔ ONL sonsuz
+    assert np.isinf(w.mesafe_km[-1, :-1]).all() and np.isinf(w.mesafe_km[:-1, -1]).all()
+    assert np.isfinite(w.mesafe_km[:-1, :-1]).all()
     ist = w.magazalar.index[w.magazalar.sehir == "İstanbul"]
     assert (w.depo_mesafe_km[ist] < 100).all()
     assert w.depo_mesafe_km.max() > 300  # Anadolu mağazaları

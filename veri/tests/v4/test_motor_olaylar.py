@@ -375,3 +375,36 @@ def test_olaylarla_defter(kucuk_dunya, kucuk_kosu):
     tipler = set(kucuk_kosu["sevkiyat"].tip)
     assert {"acilis_transferi", "kapanis_transferi", "elle_transfer"} <= tipler
     _defter_dogrula(kucuk_dunya, kucuk_kosu)
+
+
+def test_onl_transfer_ucu_olamaz(kucuk_dunya, kucuk_kosu):
+    """İnceleme bulgusu I2: kapanış politikası stoğu ONL'ye yollarsa (ve ONL
+    rafından mal isterse) motor ONL hedefini depoya yönlendirir, ONL
+    kaynağını atar. Kapanış transferi Lumoda'nınkiyle birebir aynı satırlar
+    olur (hedef DEPO); ONL rafı 0 kalır, defter tutar."""
+    w = kucuk_dunya
+    onl = int(np.flatnonzero((w.magazalar["tip"] == "Online").to_numpy())[0])
+    r = _olaylar(w, "kapanis").sort_values("olay_tarihi").iloc[0]
+    m, kg = _indis(w, r.magaza_id), gun_indisi(r.olay_tarihi)
+    lumoda_kapanis = lumoda_politikalari()["kapanis"]
+    onl_sku = w.hucre_sku[w.hucre_magaza == onl][:5]
+
+    def kapanis_onl(g, mm):
+        t = lumoda_kapanis(g, mm)
+        n = len(t.adet)
+        return type(t)(
+            kaynak=np.concatenate([t.kaynak, np.full(len(onl_sku), onl)]),
+            hedef=np.concatenate([np.full(n, onl), np.full(len(onl_sku), mm)]),
+            sku=np.concatenate([t.sku, onl_sku]),
+            adet=np.concatenate([t.adet, np.full(len(onl_sku), 5)]),
+        )
+
+    k = simule_et(w, Politikalar(kapanis=kapanis_onl), gun_sayisi=kg + 10)
+    sev = k["sevkiyat"]
+    kt = sev[sev.tip == "kapanis_transferi"].reset_index(drop=True)
+    ref = kucuk_kosu["sevkiyat"]
+    ref = ref[(ref.tip == "kapanis_transferi") & (ref.gun <= kg + 9)].reset_index(drop=True)
+    assert len(kt) > 0 and (kt.kaynak == m).any()
+    pd.testing.assert_frame_equal(kt, ref)
+    assert (kt.hedef == -1).all()
+    _defter_dogrula(w, k)

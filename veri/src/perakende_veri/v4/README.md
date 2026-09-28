@@ -26,8 +26,9 @@ pakettir: onları içe aktarmaz, onlara dokunmaz. Yalnız kök
   Outlet ~40 option. Buna ~120 devamlı option (Basic, NOS) eklenir.
   Toplam 1.870 option, 8.506 SKU. Öznitelikler: kumaş, kalıp, desen, detay,
   fiyat segmenti.
-- **Tedarik:** 18 tedarikçi (10 yerli, 8 yurt dışı). Profilleri gizlidir:
-  gecikme, kalite, maliyet, kapasite, uzmanlık.
+- **Tedarik:** 18 tedarikçi (10 yerli, 8 yurt dışı). Profillerin gecikme,
+  kalite, maliyet ve kapasite kısmı gizlidir; uzmanlık `tedarikci`
+  tablosunda yayımlanır.
 - **Fiyat:** markdown Lumoda'nın kuralıdır ve içseldir. Kampanyalar dışsaldır.
   İşlem indirimi rastgeledir. Enflasyon yok.
 - **Talep:** ikame ve kanibalizasyon var. Stoksuz kalan talep veride
@@ -50,17 +51,17 @@ Yayımlanan 18 tablo. Satır sayıları tam koşudan (`python -m perakende_veri.
 | Plan | `mfp_plan` | 595 |
 | | `range_plan` | 383 |
 | | `magaza_plan` | 2.975 |
-| Tedarik | `siparis` | 38.508 |
-| | `kalite_kontrol` | 7.822 |
-| Hareket | `satis` | 17.917.462 |
+| Tedarik | `siparis` | 38.686 |
+| | `kalite_kontrol` | 7.846 |
+| Hareket | `satis` | 17.960.852 |
 | | `fiyat` | 120.850 |
-| | `stok` | 10.324.671 |
-| | `depo_stok` | 4.608.870 |
-| | `sevkiyat` | 3.703.982 |
+| | `stok` | 10.324.750 |
+| | `depo_stok` | 4.579.488 |
+| | `sevkiyat` | 3.735.796 |
 
-Üretim ~5 dakika sürer (son koşu 319 sn: dünya 26, motor 160, tablolar 11,
-yazma 122). Çıktı: CSV 1,63 GB (en büyüğü `satis.csv` 869 MB), Parquet
-131 MB, DuckDB 218 MB. Hacim spec'in tahmininin 3–4 katıdır (spec §11).
+Üretim ~4–5 dakika sürer (son koşu 249 sn: dünya 17, motor 126, tablolar 10,
+yazma 96). Çıktı: CSV 1,63 GB (en büyüğü `satis.csv` 871 MB), Parquet
+131 MB, DuckDB 219 MB. Hacim spec'in tahmininin 3–4 katıdır (spec §11).
 
 Birimler: para TL, iki ondalık. Stok, sevkiyat, sipariş ve plan
 adetleri adettir. **`mfp_plan`'da birimler karışıktır:** `satis_tutari` ve
@@ -106,7 +107,7 @@ bilmez.
 | `fiyat` | hafta_baslangic, option_id, hat (normal / outlet / online), indirim_orani | **Haftalık panel:** option × pazartesi × hat, haftanın sonundaki markdown oranı. Kampanya ve işlem indirimi burada yok. |
 | `stok` | tarih, magaza_id, urun_id, adet, stoklu_gun | Fiziksel mağaza, pazartesi sabahı fotoğrafı. `stoklu_gun`: önceki 7 günde satışa açılırken rafta mal olan gün sayısı (v3 gibi). |
 | `depo_stok` | tarih, urun_id, adet | Depo, **günlük** fotoğraf. |
-| `sevkiyat` | tarih, varis_tarihi, kaynak, hedef, urun_id, adet, tip, paket_id | `tarih` çıkış günü. Kaynak ve hedef `magaza_id` ya da `DEPO`. `paket_id` yalnız `ilk_dagitim`'da dolu, `paket.paket_id` ile birleşir. |
+| `sevkiyat` | tarih, varis_tarihi, kaynak, hedef, urun_id, adet, tip, paket_id | `tarih` çıkış günü. Çıkışı ya da varışı pencerede olan sevkler (2022-12-29…31'de çıkıp pencerede varanlar dahil). Kaynak ve hedef `magaza_id` ya da `DEPO`; `ONL` hiçbir sevkin ucu değildir. `paket_id` yalnız `ilk_dagitim`'da dolu, `paket.paket_id` ile birleşir. |
 
 `sevkiyat.tip` dokuz değer alır:
 
@@ -124,20 +125,32 @@ bilmez.
 
 RPT için ayrı tip yok: RPT depoya girer, replenishment'la dağılır.
 
-### Dikkat edilecek üç yer
+### Dikkat edilecek yerler
 
 - **Boş `varis_tarihi` iki şey olabilir.** (1) Mal 2025-12-31'de hâlâ
-  yolda: çıkışı pencerenin son günlerinde. Son tam koşuda bunlar 4.031
+  yolda: çıkışı pencerenin son günlerinde. Son tam koşuda bunlar 4.140
   `replenishment` satırı, hepsi 2025-12-29 çıkışlı. (2) Kirli kayıt: tek
   taraflı transfer. Bunlar yalnız `elle_transfer` satırlarıdır (40 satır)
-  ve çıkış günleri pencerenin içindedir (2023-01-09 … 2025-12-01). Tip ve
+  ve çıkış günleri pencerenin içindedir (2023-01-16 … 2025-11-24). Tip ve
   çıkış günüyle ayırt edilir.
-- **Pencere başında bir boşluk var.** `sevkiyat` çıkış gününe göre
-  pencerelenir. 2022-12-29…31'de yola çıkıp pencerede varan mal
-  (ilk dağıtım, stok devri, iade) `sevkiyat`'ta yok. Stok korunumunu pencere
-  başından kuran biri bu birkaç günlük girişi bulamaz.
+- **`sevkiyat.tarih` pencereden önce olabilir.** Tablo `siparis` gibi
+  çıkış ya da varış gününe göre pencerelenir: 2022-12-29…31'de yola çıkıp
+  pencerede varan mal (ilk dağıtım, stok devri, iade) tabloda, `tarih`i
+  pencereden önce. Stok korunumu pencere başından kurulabilir. (Son tam
+  koşuda o üç günde yola çıkan sevk yok, 0 satır; başka bir politikada
+  oluşabilir.)
 - **`fiyat`'ta 2023-01-01 yok.** O pazar gününün haftası 2022-12-26'da
   başlar, pencerenin dışındadır.
+- **Sürpriz kırpılmaz.** Option sürprizi lognormaldir; birkaç option planın
+  çok üstünde (aşırı "hit") satar. Aykırı değer değil, dünyanın parçası.
+- **Çıkmış sezonluk stok depoda kalır.** Çıkışta outlet'e gitmeyen ya da
+  outlet penceresi biten mal depoya döner ve orada durur (`depo_stok`'ta
+  görünür). Bir daha satılmaz, 0 TL getirir; imha ya da tasfiye kaydı
+  yok. Batık stok hesabında bu mal alış fiyatıyla sayılmalıdır.
+- **Penceresi kapanmış hücreye gelen iade.** Müşteri iadesi rafa döner;
+  hücrenin penceresi kapandıysa ertesi gün `stok_devri` ile depoya gider.
+  Bu `stok_devri` satırı `sevkiyat`'ta görünür ama o SKU'nun o mağazada
+  `stok` satırı yoktur (fotoğraf yalnız penceresi açık hücreleri çeker).
 
 ## Kirli kayıtlar
 
@@ -214,7 +227,7 @@ tablolar = yayimla(dunya, ham)        # aynı 18 tablo, kirli
 | `paket_secimi` | `(g, o) -> [M]` paket indisi | set başına tek standart paket |
 | `replenishment` | `(g) -> [C]` adet | v3 kuralı: 28 günlük plan hedefi, ölü stok kapısı |
 | `rpt` | `(g) -> {option: adet}` | Banu'nun kuralı (3.–6. hafta, STR ≥ %55, ilk alımın %50'si) |
-| `markdown` | `(g) -> [O, 3]` oran | STR'ye bağlı kademe (%20/30/40/50/70), haftalık |
+| `markdown` | `(g) -> [O, 3]` oran | STR'ye bağlı kademe (%20/30/40/50/70), haftalık; %30 sezon indirimi tabanı `indirim_gun`'de başlar (motor pazartesiye ek o gün de çağırır) |
 | `acilis` | `(g, m) -> Transferler` | yalnız depodan, ne varsa |
 | `kapanis` | `(g, m) -> Transferler` | bütün stok depoya |
 | `elle_transfer` | `(g) -> Transferler` | bölge müdürünün az sayıda transferi |
@@ -222,6 +235,11 @@ tablolar = yayimla(dunya, ham)        # aynı 18 tablo, kirli
 
 Tedarikçi seçimi dünyadadır: `dunya_kur(tedarikci_secimi=…)`. Politika
 gizli profilden yalnız kapasiteyi görür.
+
+`ONL` transferin ucu olamaz (fiziksel yeri yok, rafı hep 0): motor
+kaynağı `ONL` olan transfer satırını atar, hedefi `ONL` olanı depoya
+yönlendirir. `mesafe_km`'de `ONL` satır ve sütunu sonsuzdur;
+`depo_mesafe_km[ONL]` 0.
 
 **Kural: politika yalnız kamuya açık alanları okur.** `g` bir `Gorunum`'dur
 (`motor/durum.py`): bugünün stoğu, yoldaki mal, geçmiş satış, fiyat
@@ -243,15 +261,15 @@ Değerler bu belgenin son güncellemesindeki koşudan.
 
 | Ölçüt | Bant | Değer |
 |---|---|---|
-| Online net ciro payı (yıl yıl) | %15–20 | 2023 0,171 · 2024 0,182 · 2025 0,178 |
+| Online net ciro payı (yıl yıl) | %15–20 | 2023 0,171 · 2024 0,179 · 2025 0,175 |
 | Online iade (adet) | %25–30 | 0,294 |
-| Collection tam fiyat STR (SS23–SS25) | %55–70 | 0,563 |
-| Bulunabilirlik Basic/NOS | %85–95 | 0,862 (Basic 0,866, NOS 0,855) |
-| Bulunabilirlik Collection | %70–85 | 0,740 |
-| Stoksuz talebin ikameyle kurtarılan payı | %20–40 | 0,267 |
+| Collection tam fiyat STR (SS23–SS25) | %55–70 | 0,559 |
+| Bulunabilirlik Basic/NOS | %85–95 | 0,873 (Basic 0,874, NOS 0,870) |
+| Bulunabilirlik Collection | %70–85 | 0,739 |
+| Stoksuz talebin ikameyle kurtarılan payı | %20–40 | 0,266 |
 | Option plan hatası (Collection, MAPE) | %40–55 | 0,461 |
-| Kategori × ay plan hatası (SS24 · AW24) | %10–20 | 0,116 · 0,106 |
-| Üretim süresi (yazma hariç) | < 600 sn | 152 sn |
+| Kategori × ay plan hatası (SS24 · AW24) | %10–20 | 0,121 · 0,104 |
+| Üretim süresi (yazma hariç) | < 600 sn | 149 sn |
 
 Tanımlar `test_kalibrasyon.py`'nin başında. Kısaca: STR'nin payı
 lansmandan çıkışa kadar etiket fiyatından brüt satış (mağaza + online),
@@ -259,8 +277,8 @@ paydası teslim alınan ilk alım + RPT. Bulunabilirlik pazartesi
 fotoğraflarından: Σ `stoklu_gun` ÷ Σ açık gün, fiziksel mağaza. İkame payı
 ikame satışı ÷ (ikame satışı + kayıp satış).
 
-Marjı ince olanlar: kategori × ay AW24 (0,106), Basic/NOS bulunabilirliği
-(0,862). Talebe dokunan her değişiklikten sonra `-m yavas` yeniden koşulur.
+Marjı ince olanlar: kategori × ay AW24 (0,104), Collection tam fiyat STR
+(0,559). Talebe dokunan her değişiklikten sonra `-m yavas` yeniden koşulur.
 
 **Tam fiyatlı satış etiket fiyatıyla sayılır:** o gün option'ın hattında
 markdown ve kampanya yoksa satış tam fiyattır. Rastgele işlem indirimi
@@ -274,19 +292,19 @@ Veri çözülebilir olmalı ama önemsiz olmamalı. `tests/v4/test_ogrenilebilir
 | Test | İddia | Sonuç |
 |---|---|---|
 | Kümeleme | Satış karışımından k-means (6 küme), ARI 0,4–0,8 | ARI 0,564 (81 mağaza). Outlet, soğuk iklim ve metropol premium tam ayrışır; Anadolu aile ve sıcak sahil bölünür. |
-| Esneklik tuzağı | Markdown haftalarıyla saf regresyon belirgin yanlış (göreli hata > 0,4) | ε̂ 0,171, gerçek 1,802, göreli hata 0,905 |
-| Kampanyayla esneklik | Kampanya DiD'si havuzda gerçeğin ±%20'sinde | ε̂ 1,744, gerçek 1,850, göreli hata 0,057 (20 kampanya) |
-| Trend | SS25'te oversize, slim'den plana göre fazla satar (p < 0,05) | log fark 0,611, p 2,7e-14 |
-| Tedarikçi | Sipariş ve kalite verisinden profil sıralaması, Spearman ≥ 0,5 | 0,946 |
-| Açılış | Sezon ortası açılışta depo, benzer mağazanın sezonluk karışımının %60'ından azını karşılar | M033 0,592 · M037 0,446 · M041 0,583 · M044 0,573 |
+| Esneklik tuzağı | Markdown haftalarıyla saf regresyon belirgin yanlış (göreli hata > 0,4) | ε̂ 0,164, gerçek 1,802, göreli hata 0,909 |
+| Kampanyayla esneklik | Kampanya DiD'si havuzda gerçeğin ±%20'sinde | ε̂ 1,746, gerçek 1,850, göreli hata 0,056 (20 kampanya) |
+| Trend | SS25'te oversize, slim'den plana göre fazla satar (p < 0,05); fark SS23'ten SS25'e büyür (kayma) | log fark SS25 0,604 (p 7,4e-14), SS23 0,053 |
+| Tedarikçi | Sipariş ve kalite verisinden profil sıralaması, Spearman ≥ 0,5 | 0,942 |
+| Açılış | Sezon ortası açılışta depo, benzer mağazanın sezonluk karışımının %60'ından azını karşılar | M033 0,594 · M037 0,435 · M041 0,545 · M044 0,564 |
 
 - **Esneklik yalnız havuzda iddia edilir.** Kategori başına: Aksesuar
-  0,238, Dış Giyim 0,076, Elbise & Tulum 0,072, Üst Giyim 0,049 göreli
+  0,225, Dış Giyim 0,076, Elbise & Tulum 0,073, Üst Giyim 0,048 göreli
   hata. Alt Giyim'den süzgeçlerden geçen kampanya kalmıyor.
 - **Açılış ölçüsü yalnız sezonluk SKU'lardır** (Collection + Outlet).
   Basic/NOS sürekli tedarikle depoda hep vardır; bütün line'larla kapsama
-  0,76–0,91. M033'ün marjı ince (0,592). Sezon başı açılışlar (M021 0,580,
-  M027 0,511) sezon ortasından belirgin geniş değil; test bu karşıtlığı
+  0,80–0,95. M033'ün marjı ince (0,594). Sezon başı açılışlar (M021 0,600,
+  M027 0,456) sezon ortasından belirgin geniş değil; test bu karşıtlığı
   iddia etmez.
 - Açılışta "benzer mağaza" gizli segmentle seçilir. Bu testin istisnasıdır:
   öğrenmeyi değil, dünyanın özelliğini sınar.
@@ -299,5 +317,5 @@ cd veri
 .venv/Scripts/python -m pytest -q -m yavas         # tam koşu: bantlar, öğrenilebilirlik
 ```
 
-Son koşu: hızlı takım **383 geçti** (293 sn; v2 ve v3 kilitleri dahil),
-yavaş takım **15 geçti** (218 sn).
+Son koşu: hızlı takım **389 geçti** (232 sn; v2 ve v3 kilitleri dahil),
+yavaş takım **16 geçti** (214 sn).
