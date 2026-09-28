@@ -29,7 +29,8 @@ esneklik tuzağı
     *Saf:* haftalık (pazartesi başlangıçlı) option × mağaza brüt satış
     adedi, yalnız markdown haftalarında (option'ın hattında `fiyat.
     indirim_orani` > 0; fiziksel mağaza → `normal`, ONL → `online`,
-    çıkıştan önceki haftalar) ve satışı olan hücrelerde; havuzlanmış OLS
+    çıkıştan önceki haftalar; outlet mağazaları hariç — outlet akışı
+    satışları `outlet` hattının fiyatındadır) ve satışı olan hücrelerde; havuzlanmış OLS
     log(adet) = a + b · log(1 − oran), sabit etki yok; ε̂ = −b. Markdown
     Lumoda kuralıyla satışı zayıf option'a gelir (içsel) ve yaşam
     eğrisinin sönen ucuna düşer; saf kestirim bu yüzden belirgin
@@ -55,11 +56,11 @@ esneklik tuzağı
 
 trend
     SS25 Collection option'ları, sezon satışı: çıkıştan önceki brüt satış
-    adedi (bütün kanallar). Option düzeyinde yayımlanmış plan yoktur
-    (`range_plan` alt kategori × fiyat segmenti düzeyinde), bu yüzden
-    "plan-üstü satış oranı" = option satışı ÷ aynı alt kategorideki SS25
-    Collection option'larının ortalama satışı (gizli plan λ değil). Tek
-    yanlı Welch t-testi log(oran): oversize > slim, p < 0,05.
+    adedi (bütün kanallar). Plan referansı yayımlanan `range_plan`: option'ın
+    (sezon × alt kategori × fiyat segmenti × line) satırındaki `derinlik`
+    (option başına planlanan ilk alım). "Plan-üstü satış oranı" = option
+    satışı ÷ derinlik — planın kaçırdığı. Tek yanlı Welch t-testi
+    log(oran): oversize > slim, p < 0,05.
 
 tedarikçi
     `siparis` (sipariş başına bir kez: gerçekleşen − planlanan teslim, gün;
@@ -70,11 +71,15 @@ tedarikçi
 
 açılış (§8.3; eski KÜÇÜK xfail testinin tam ölçek yerine geçeni)
     Karar günü = mağazanın `acilis_transferi` sevkinin günü (açılış −
-    yolda süre). İkiz = aynı gizli segmentteki, karar günü açık en yakın
-    (haversine) fiziksel mağaza. İhtiyaç = ikizin karar gününden önceki 28
-    günlük brüt satışının SKU karışımı × yeni mağazanın açılıştan itibaren
-    28 günlük plan toplamı (Lumoda'nın plan λ'sı — şirketin kendi planı,
-    gizli gerçek değil). Kapsama = Σ_sku min(depo_stok[karar günü, sku],
+    yolda süre). İkiz = aynı **gizli** segmentteki, karar günü açık en yakın
+    (haversine) fiziksel mağaza — onaylı istisna: bu test bir öğrenme
+    değil, bir dünya özelliğini ("depo ince") denetler, bu yüzden segment
+    yalnız ikiz seçiminde kullanılır. İhtiyaç = ikizin karar gününden önceki
+    28 günlük brüt satışının SKU karışımı × yeni mağazanın açılıştan
+    itibaren 28 günlük plan toplamı; bu toplam şirketin yayımlanan
+    tablolardan daha ince plan bilgisinden gelir (`w.ileri_plan`, Lumoda'nın
+    plan λ'sı: Lumoda'nın kendi bilgisi, gizli gerçek değil). Sezon başı /
+    ortası ayrımı yayımlanan `sezon` tablosunun dalga 1 lansmanlarıyla. Kapsama = Σ_sku min(depo_stok[karar günü, sku],
     ihtiyaç[sku]) ÷ Σ ihtiyaç, **yalnız sezonluk (Collection + Outlet line)
     SKU'lar üzerinden** (controller kararı): spec §6.3'ün "sezon ortasında
     ilk alımın büyük kısmı dağıtılmış, depo ince" iddiası sezon malı
@@ -197,7 +202,9 @@ def _gizli_eps(gizli: dict) -> pd.Series:
 def esneklik_saf(t: dict, s: pd.DataFrame, gizli: dict) -> dict:
     u = t["urun"].drop_duplicates("option_id").set_index("option_id")
     cikis = pd.to_datetime(u["cikis_tarihi"]).reindex(s["option_id"]).to_numpy()
-    s = s[~pd.isna(cikis) & (s["tarih"].to_numpy() < cikis)].copy()
+    s = s[~pd.isna(cikis) & (s["tarih"].to_numpy() < cikis)]
+    m = t["magaza"]
+    s = s[~s["magaza_id"].isin(m.loc[m["tip"] == "Outlet", "magaza_id"].astype(str))].copy()
     s["hafta"] = _hafta(s["tarih"])
     s["hat"] = np.where(s["magaza_id"] == "ONL", "online", "normal")
     h = s.groupby(["hafta", "option_id", "magaza_id", "hat"], observed=True)["adet"].sum().reset_index()
@@ -332,8 +339,11 @@ def trend(t: dict, s: pd.DataFrame, sezon: str = "SS25") -> dict:
     ss = s[s["option_id"].isin(sec.index)]
     ss = ss[ss["tarih"].to_numpy() < cikis.reindex(ss["option_id"]).to_numpy()]
     satis = ss.groupby("option_id")["adet"].sum().reindex(sec.index).fillna(0.0)
-    ort = satis.groupby(sec["alt_kategori"]).transform("mean")
-    oran = np.log((satis + 1.0) / (ort + 1.0))
+    rp = t["range_plan"].set_index(["sezon_kodu", "alt_kategori", "fiyat_segmenti", "line"])["derinlik"]
+    derinlik = rp.reindex(pd.MultiIndex.from_arrays(
+        [sec["sezon_kodu"], sec["alt_kategori"], sec["fiyat_segmenti"], sec["line"]])).to_numpy(dtype=float)
+    assert np.isfinite(derinlik).all() and (derinlik > 0).all(), "her option'ın range_plan satırı olmalı"
+    oran = pd.Series(np.log((satis.to_numpy() + 1.0) / derinlik), index=sec.index)
     ov = oran[sec["kalip"] == "oversize"].to_numpy()
     sl = oran[sec["kalip"] == "slim"].to_numpy()
     r = stats.ttest_ind(ov, sl, equal_var=False, alternative="greater")
@@ -475,7 +485,8 @@ def yazdir(o: dict) -> None:
 @pytest.fixture(scope="module")
 def olcum(tam_kosu):
     w, t, gizli = tam_kosu["dunya"], tam_kosu["tablolar"], tam_kosu["gizli"]
-    lansmanlar = set(pd.to_datetime(w.sezon.loc[w.sezon.dalga == 1, "lansman_tarihi"]))
+    sz = t["sezon"]
+    lansmanlar = set(pd.to_datetime(sz.loc[sz["dalga"] == 1, "lansman_tarihi"]))
     o = olcumler(t, gizli, plan28_hesapla(w), lansmanlar)
     yazdir(o)
     return o
