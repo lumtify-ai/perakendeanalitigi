@@ -9,7 +9,8 @@ verisi içermez. Lumoda kurgusal bir moda perakende zinciridir.
 | Sürüm | Kapsam | Kim kullanır | Durum |
 |---|---|---|---|
 | **v2** | 2025, 80 model, sonsuz depo | `vakalar/blok-transfer`, `vakalar/replenishment`, yayımlanmış 14 yazı | **Dondurulmuş** |
-| **v3** | 2024–2025, 242 model, sezon/dalga, tedarik, sonlu depo, RPT | `vakalar/rpt` (ve sonraki planlama vakaları) | Yeni — aşağıda |
+| **v3** | 2024–2025, 242 model, sezon/dalga, tedarik, sonlu depo, RPT | `vakalar/rpt`, RPT dizisi | **Dondurulmuş** |
+| **v4** | 2023–2025, 84 mağaza + online, 1.870 option, gizli segment, markdown, kampanya, ikame, açılış/kapanış, 18 tedarikçi, plan tabloları | Henüz yok; vakalar ve yazılar v4'e taşınacak | Yeni — aşağıda |
 
 **v2 dondurulmuştur.** Modülleri (`perakende_veri/*.py`), tohumu ve çıktısı
 bayt bayt aynı kalır; `tests/test_v2_donuk.py` her tablonun satır sayısını
@@ -17,7 +18,13 @@ ve içerik özetini (sıralı satırların sha256'sı) sabit değerlere karşı 
 v3 ayrı bir alt pakettir (`perakende_veri/v3/`); v2'nin mağaza, beden ve
 talep çarpanlarını içe aktarır, değiştirmez.
 
-Aşağıdaki ilk bölüm v2'yi, ikincisi v3'ü anlatır.
+**v3 de dondurulmuştur.** Aynı kilit `tests/test_v3_donuk.py`'de: v3'ün
+modülleri, tohumu ve çıktısı artık değişmez.
+
+v4 ayrı bir alt pakettir (`perakende_veri/v4/`). v2'yi ve v3'ü içe
+aktarmaz; yalnız kökteki dışa aktarma fonksiyonunu kullanır.
+
+Aşağıdaki bölümler sırayla v2'yi, v3'ü ve v4'ü anlatır.
 
 # v2
 
@@ -353,6 +360,52 @@ değiştirince diğer hücrelerin iade ve indirimleri aynen kalır) ve politika 
 
 Testler: `pytest tests/test_v3_*.py` (birim + eşdeğerlik + `test_v3_kalite.py`,
 üretilmiş veriye karşı).
+
+# v4
+
+`python -m perakende_veri.v4.uret` → `veri/cikti/v4/` (DuckDB, Parquet,
+CSV). Tohum `2026`; üretim ~5 dakika (son koşu 319 sn). Tasarım:
+`docs/superpowers/specs/2026-09-27-veri-v4-cekirdek-design.md`. **Tablo
+sözlüğü, gizli gerçek ve politika enjeksiyonu için:
+[`src/perakende_veri/v4/README.md`](src/perakende_veri/v4/README.md).**
+
+84 fiziksel mağaza + online (`ONL`) · 1.870 option → 8.506 SKU ·
+**2023-01-01 … 2025-12-31** (1.096 gün). Simülasyon 2022-07-04'te başlar.
+
+v3'ün üstüne gelenler:
+
+- **Mağazalar arası fark gizli.** Dört eksen (iklim, gelir, müşteri
+  profili, konum) altı segmentte toplanır; tablolarda yok. Satış karışımından
+  kümeleme kısmen bulur.
+- **Fiyat oynar.** Markdown Lumoda'nın STR kuralıyla, içsel. Kampanyalar
+  dışsal. Saf fiyat–talep regresyonu esnekliği yanlış bulur; kampanyalar
+  doğru tahmin verir.
+- **İkame ve kanibalizasyon.** Stoksuz ürünün talebinin bir kısmı komşu
+  option'a geçer; çok option taşıyan mağazada her option daha az satar.
+- **Mağaza açılır, kapanır, tadilata girer.** 6 açılış, 4 kapanış, 2
+  tadilat; transferleri `sevkiyat`'ta.
+- **18 tedarikçi, gizli profil, kalite kontrol.** Gecikme ve hatalı oranı
+  sipariş ve kalite tablosundan kısmen öğrenilir.
+- **Plan tabloları yayımlanır:** MFP, range, mağaza planı. Plan bilerek naif.
+- **Kayıp satış yayımlanmaz.** Gizli gerçekle birlikte ayrıca üretilir.
+- **Politikalar enjekte edilebilir.** Vaka kendi replenishment'ını,
+  markdown'ını, transferini takar, aynı dünyada koşar.
+
+| Tablo | Satır |
+|---|---:|
+| `satis` | 17.917.462 |
+| `stok` | 10.324.671 |
+| `depo_stok` | 4.608.870 |
+| `sevkiyat` | 3.703.982 |
+| `fiyat` | 120.850 |
+| `siparis` | 38.508 |
+| `kalite_kontrol` | 7.822 |
+| boyut ve plan tabloları (11 tablo) | 85 … 8.506 |
+
+Ham CSV 1,63 GB; Parquet 131 MB; DuckDB 218 MB.
+
+Testler: `pytest -m "not yavas"` (hızlı) ve `pytest -m yavas` (tam koşu:
+kalibrasyon bantları, öğrenilebilirlik). Sonuçlar v4 README'sinde.
 
 # Lisans
 
