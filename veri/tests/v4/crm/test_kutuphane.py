@@ -497,7 +497,7 @@ def test_alt_kategori_yanlis_gruptan_hata_id_ile():
     "altın rengi detaylar var", "Altın Rengi toka", "yesil olanı aldim",
     "sari renk", "kirmizi cok guzel", "KIRMIZI", "Kırmızı elbise", "SARI",
     "Lacivert ve bej uyumlu", "kahverengi tonlar", "kahve tonu güzel",
-    "petrol rengi harika", "gri melanj kumaş", "İndigo ton", "füme renk",
+    "petrol rengi harika", "sarı", "sarısı", "sarıya yakın", "sarıydı", "sarımsı ton", "gri melanj kumaş", "İndigo ton", "füme renk",
     "pudra pembesi", "taba rengi sapı", "mor renk", "gümüşi ton",
 ])
 def test_renk_adi_yakalanir(metin):
@@ -511,7 +511,9 @@ def test_renk_adi_yakalanir(metin):
     "hakiki deri gibi", "sarıldım hemen", "tabanı kaymıyor", "tabak gibi",
     "mintan yakası", "zeytinyağı lekesi", "{renk} tonu çok güzel",
     "{renk} rengi tam aradığım gibiydi", "rengi ve tonu çok güzel",
-    "{beden} bedeni oturdu", "Kumaşı kaliteli, kalıbı rahat",
+    "{beden} bedeni oturdu", "Vücudu güzel sarıyor", "Kalıbı sarıyor beni",
+    "belimi sarıp durmuyor", "sarıcı bir kumaş", "sarılmak istedim",
+    "kahve, ton olarak sade", "kahve. Renk güzel", "petrol; ton farklı", "Kumaşı kaliteli, kalıbı rahat",
 ])
 def test_renk_adi_yanlis_pozitif_degil(metin):
     assert renk_adlari_bul(metin) == [], metin

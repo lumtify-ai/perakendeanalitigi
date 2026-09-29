@@ -125,13 +125,19 @@ RENK_ADLARI: frozenset[str] = _renk_adlari_kur()
 # kelime başı): grip, moral/morarmak, hakikat/hakim/hakiki, sarılmak/sarih,
 # taban/tabak, mintan, zeytinyağı, kremi (cilt kremi).
 _RENK_ISTISNA = re.compile(
-    r"^(?:grip|mor(?:al|ar|g|ta|fi|us|it)|haki[km]|saril|sarih|taba[nkl]"
+    r"^(?:grip|mor(?:al|ar|g|ta|fi|us|it)|haki[km]|taba[nkl]"
     r"|mintan|zeytiny|kremi)"
 )
 # Renk dışı anlamı yaygın adlar: yalnız TAM kelime ("altın rengi" evet,
 # "altına/altında" hayır) ya da yalnız ardından renk/ton sözcüğü gelince
 # ("kahve tonu" evet, "kahve içerken" hayır; "petrol rengi" evet, "petrolle" hayır).
 _RENK_TAM_KELIME = {"altin"}
+# "sarı" sarmak fiiliyle çakışır (sarıyor, sarıp, sarıcı, sarılmak, sarih):
+# kelime-başı değil, yalnız isim çekimi (ASCII katlı) kabul edilir.
+_SARI_ISIM_CEKIMI = re.compile(
+    r"^sari(?:si|sini|sina|sinda|sindan|nin|ni|na|nda|ndan|dan|da|ya|yi"
+    r"|yla|ydi|ymis|dir|li|lar\w*|msi\w*|mtirak\w*|sin)?$"
+)
 _RENK_ARDINDAN_RENK_GEREKIR = {"kahve", "petrol"}
 
 
@@ -139,13 +145,15 @@ def renk_adlari_bul(metin: str) -> list[str]:
     """Metindeki (`{renk}`/`{beden}` yer tutucuları dışında) gerçek renk
     adlarını (ASCII katlı sözlük biçimiyle) döner."""
     metin = re.sub(r"\{(?:renk|beden)\}", " ", metin)
-    kelimeler = re.findall(r"\w+", _ascii_katla(metin))
+    kelimeler = re.findall(r"\w+|[^\w\s]+", _ascii_katla(metin))
     bulunan: list[str] = []
     for i, kelime in enumerate(kelimeler):
         if _RENK_ISTISNA.match(kelime):
             continue
         for ad in RENK_ADLARI:
             if not kelime.startswith(ad):
+                continue
+            if ad == "sari" and not _SARI_ISIM_CEKIMI.match(kelime):
                 continue
             if ad in _RENK_TAM_KELIME and kelime != ad:
                 continue
