@@ -497,7 +497,12 @@ def test_alt_kategori_yanlis_gruptan_hata_id_ile():
     "altın rengi detaylar var", "Altın Rengi toka", "yesil olanı aldim",
     "sari renk", "kirmizi cok guzel", "KIRMIZI", "Kırmızı elbise", "SARI",
     "Lacivert ve bej uyumlu", "kahverengi tonlar", "kahve tonu güzel",
-    "petrol rengi harika", "sarı", "sarısı", "sarıya yakın", "sarıydı", "sarımsı ton", "gri melanj kumaş", "İndigo ton", "füme renk",
+    "petrol rengi harika", "zümrüt yeşili", "zumrut gibi", "mercan rengi",
+    "vişne çürüğü tonu", "visne", "kavuniçi", "kavunici ton", "kamel rengi",
+    "şarap rengi", "sarap tonu", "nar çiçeği rengi", "fıstık yeşili",
+    "sapsarı geldi", "masmavi", "kapkara", "yemyeşil", "bembeyaz", "kıpkırmızı",
+    "mosmor", "pespembe", "simsiyah", "sapsari", "kipkirmizi", "yemyesil",
+    "kemerin kahvesi", "koyu kahve", "açık kahve", "kahve, koyu kahve", "sarı", "sarısı", "sarıya yakın", "sarıydı", "sarımsı ton", "gri melanj kumaş", "İndigo ton", "füme renk",
     "pudra pembesi", "taba rengi sapı", "mor renk", "gümüşi ton",
 ])
 def test_renk_adi_yakalanir(metin):
@@ -511,7 +516,10 @@ def test_renk_adi_yakalanir(metin):
     "hakiki deri gibi", "sarıldım hemen", "tabanı kaymıyor", "tabak gibi",
     "mintan yakası", "zeytinyağı lekesi", "{renk} tonu çok güzel",
     "{renk} rengi tam aradığım gibiydi", "rengi ve tonu çok güzel",
-    "{beden} bedeni oturdu", "Vücudu güzel sarıyor", "Kalıbı sarıyor beni",
+    "{beden} bedeni oturdu", "kahve içerken", "kahve molası verdik",
+    "kahvemi döktüm", "kahve lekesi", "şarap lekesi", "nar gibi tatlı bir kumaş",
+    "masa başında", "mesai bitti", "kaprisli kumaş", "yemek yerken giydim",
+    "bembe", "Vücudu güzel sarıyor", "Kalıbı sarıyor beni",
     "belimi sarıp durmuyor", "sarıcı bir kumaş", "sarılmak istedim",
     "kahve, ton olarak sade", "kahve. Renk güzel", "petrol; ton farklı", "Kumaşı kaliteli, kalıbı rahat",
 ])

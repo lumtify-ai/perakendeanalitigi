@@ -99,6 +99,8 @@ _YAYGIN_RENK_ADLARI: list[str] = [
     "taba", "ekru", "krem", "mint", "antrasit", "hardal", "pudra", "vizon",
     "somon", "lila", "turkuaz", "camel", "indigo", "füme", "altın", "gümüş",
     "fuşya", "zeytin", "petrol",
+    "zümrüt", "mercan", "vişne", "kavuniçi", "kamel", "kapkara",
+    "şarap", "nar",
 ]
 _RENK_ADI_ATLA = {"melanj"}  # "Gri Melanj": renk "gri"; melanj kumaş terimi
 
@@ -138,7 +140,25 @@ _SARI_ISIM_CEKIMI = re.compile(
     r"^sari(?:si|sini|sina|sinda|sindan|nin|ni|na|nda|ndan|dan|da|ya|yi"
     r"|yla|ydi|ymis|dir|li|lar\w*|msi\w*|mtirak\w*|sin)?$"
 )
-_RENK_ARDINDAN_RENK_GEREKIR = {"kahve", "petrol"}
+_RENK_RENK_SOZCUGU = ("renk", "reng", "ton")
+_RENK_ARDINDAN_GEREKIR: dict[str, tuple[str, ...]] = {
+    "kahve": _RENK_RENK_SOZCUGU,
+    "petrol": _RENK_RENK_SOZCUGU,
+    "sarap": _RENK_RENK_SOZCUGU,      # "şarap rengi" evet, "şarap lekesi" hayır
+    "nar": ("cice",),                # "nar çiçeği" evet, "nar gibi" hayır
+}
+# "kahve" ayrıca: koyu/açık gibi ton sıfatından sonra ("koyu kahve") ya da
+# 3. tekil iyelik biçiminde ("kemerin kahvesi") renktir; "kahve içerken",
+# "kahve molası", "kahvemi" içecektir ve geçer ("koyu kahve içiyorum" gibi
+# nadir içecek kullanımı bilerek yakalanır — kütüphanede içecek anlatımı yok).
+_KAHVE_TON_SIFATI = {"koyu", "acik", "orta", "sicak", "toprak"}
+_KAHVE_IYELIK = re.compile(r"^kahvesi(?:ni|nin|nde|ndan|ne)?$")
+# Pekiştirmeli biçimler: sapsarı, masmavi, yemyeşil, bembeyaz, kıpkırmızı,
+# mosmor, pespembe, simsiyah (kapkara sözlükte ayrı ad).
+_PEKISTIRME = {
+    "sap": "sari", "mas": "mavi", "yem": "yesil", "bem": "beyaz",
+    "kip": "kirmizi", "mos": "mor", "pes": "pembe", "sim": "siyah",
+}
 
 
 def renk_adlari_bul(metin: str) -> list[str]:
@@ -148,6 +168,10 @@ def renk_adlari_bul(metin: str) -> list[str]:
     kelimeler = re.findall(r"\w+|[^\w\s]+", _ascii_katla(metin))
     bulunan: list[str] = []
     for i, kelime in enumerate(kelimeler):
+        for onek, kok in _PEKISTIRME.items():
+            if kelime.startswith(onek + kok):
+                kelime = kelime[len(onek):]
+                break
         if _RENK_ISTISNA.match(kelime):
             continue
         for ad in RENK_ADLARI:
@@ -157,11 +181,15 @@ def renk_adlari_bul(metin: str) -> list[str]:
                 continue
             if ad in _RENK_TAM_KELIME and kelime != ad:
                 continue
-            if ad in _RENK_ARDINDAN_RENK_GEREKIR:
+            if ad in _RENK_ARDINDAN_GEREKIR:
                 if kelime.startswith("kahvere"):
                     continue
                 sonraki = kelimeler[i + 1] if i + 1 < len(kelimeler) else ""
-                if not sonraki.startswith(("renk", "reng", "ton")):
+                onceki = kelimeler[i - 1] if i > 0 else ""
+                kahve_renk = ad == "kahve" and (
+                    onceki in _KAHVE_TON_SIFATI or _KAHVE_IYELIK.match(kelime)
+                )
+                if not (sonraki.startswith(_RENK_ARDINDAN_GEREKIR[ad]) or kahve_renk):
                     continue
             bulunan.append(ad)
             break
