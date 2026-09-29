@@ -18,6 +18,7 @@ from perakende_veri.v4.crm.kutuphane import (
     YAZAR_YONERGESI,
     RENK_ADLARI,
     denetle,
+    beden_etiketleri_bul,
     renk_adlari_bul,
     ornek_metin_yazdir,
     parti_dosyasi_yaz,
@@ -555,3 +556,46 @@ def test_yonerge_alt_kategori_ve_renk_kurallari():
     assert "alt_kategori" in YAZAR_YONERGESI
     assert "kot" in YAZAR_YONERGESI and "Jean" in YAZAR_YONERGESI
     assert "renk adı" in YAZAR_YONERGESI.lower()
+
+
+# ---------------------------------------------------------------------------
+# Görev 10b tur 3: gerçek beden etiketi
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("metin", [
+    "önce L aldım ama omuzlardan dardı", "M beden tam oldu", "Bedenim S",
+    "XL geldi", "xxl aldım", "XS", "XXXL", "2XL giydim", "3xl", "L'yi aldım",
+    "Large beden aldım", "small geldi", "Medium",
+    "38 beden aldım", "beden 40 tam", "40 numara ayakta", "38 bedeni giydim",
+    "38'i aldım", "Numara 42", "Normalde 38 giyerim", "40 giyiyorum", "l beden", "önce l aldım", "beden m",
+])
+def test_beden_etiketi_yakalanir(metin):
+    assert beden_etiketleri_bul(metin), metin
+
+
+@pytest.mark.parametrize("metin", [
+    "{beden} bedeni tam oldu", "bir beden büyük geldi", "iki beden küçük",
+    "normal bedenim", "bedenime uydu", "3 hafta sonra geldi", "2 gün sürdü",
+    "10 gün bekledim", "40 gün sürdü", "38 TL'ye aldım", "40 tane aldım",
+    "Kumaşı l harfi gibi", "Ali Bey ile konuştum",
+    "1500 TL verdim", "Medyan değil", "mesaj attım", "Lila değil",
+    "beden farkı 10 gün", "Geniş kalıp",
+])
+def test_beden_etiketi_yanlis_pozitif_degil(metin):
+    assert beden_etiketleri_bul(metin) == [], metin
+
+
+def test_denetle_gercek_beden_etiketi_yakalar_id_ile():
+    kayitlar = _cesitli_gecerli_kayitlar(10)
+    kayitlar[6]["metin"] = "Önce L aldım ama omuzlardan dardı, kumaşı gayet kaliteli çıktı."
+    sonuc = denetle(kayitlar)
+    assert sonuc["gecerli"] is False
+    assert any("beden etiketi" in h and "Y0007" in h for h in sonuc["hatalar"])
+
+
+def test_denetle_beden_yer_tutucusu_etiket_sayilmaz():
+    kayit = _kayit(
+        metin="{beden} bedeni tam oturdu, bir beden büyük de alınabilirdi bence.",
+        yer_tutucu=["beden"],
+    )
+    assert not any("beden etiketi" in h for h in denetle([kayit])["hatalar"])

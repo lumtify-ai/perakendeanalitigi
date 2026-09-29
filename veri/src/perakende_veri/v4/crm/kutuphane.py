@@ -196,6 +196,52 @@ def renk_adlari_bul(metin: str) -> list[str]:
     return bulunan
 
 
+# Gerçek beden etiketi yasağı (Görev 10b, tur 3): metin sonradan beden'i
+# farklı olabilen bir SKU'ya atanır; beden yalnız `{beden}` ya da adsız
+# ("bir beden büyük", "normal bedenim") anılır.
+_HARF_BEDENLER_KESIN = {
+    "xs", "xl", "xxl", "xxxl", "2xl", "3xl", "4xl", "small", "medium", "large",
+}
+_TEK_HARF_BEDENLER = {"s", "m", "l"}
+_BEDEN_BAGLAM_FIILLERI = {
+    "aldim", "aldik", "aldi", "geldi", "giydim", "denedim", "istedim", "siparis",
+    "giyerim", "giyiyorum", "giyerdim", "giyiyordum", "alirim",
+}
+_BUYUK_HARF_BEDEN = re.compile(r"(?<![\w{])(?:XXXL|XXL|XL|XS|S|M|L)(?![\w}])")
+
+
+def beden_etiketleri_bul(metin: str) -> list[str]:
+    """Metindeki (`{renk}`/`{beden}` dışında) gerçek beden etiketlerini döner.
+
+    Kararlar: büyük harfli tek başına XS/S/M/L/XL/XXL/XXXL her zaman;
+    xs/xl/xxl/xxxl/2xl/3xl/4xl ve small/medium/large her harf durumunda;
+    küçük harfli tek harf (s/m/l) yalnız beden/numara ya da "aldım/geldi..."
+    fiiliyle bitişikken; 32-54 arası sayı yalnız beden/numara ya da aynı fiillerle
+    bitişikken ("38 beden", "beden 40", "40 numara", "38'i aldım"). "3 hafta",
+    "10 gün", "bedenime", "bir beden büyük" geçer. Yazıyla sayılar ("otuz sekiz")
+    kapsanmaz.
+    """
+    metin = re.sub(r"\{(?:renk|beden)\}", " ", metin)
+    bulunan = set(_BUYUK_HARF_BEDEN.findall(metin))
+    katli = re.sub(r"(?<=\w)['’]\w*", "", _ascii_katla(metin))
+    t = re.findall(r"\w+|[^\w\s]+", katli)
+    for i, kelime in enumerate(t):
+        onceki = t[i - 1] if i > 0 else ""
+        sonraki = t[i + 1] if i + 1 < len(t) else ""
+        bagli = (
+            onceki.startswith(("beden", "numara"))
+            or sonraki.startswith(("beden", "numara"))
+            or sonraki in _BEDEN_BAGLAM_FIILLERI
+        )
+        if kelime in _HARF_BEDENLER_KESIN:
+            bulunan.add(kelime.upper())
+        elif kelime in _TEK_HARF_BEDENLER and bagli:
+            bulunan.add(kelime.upper())
+        elif len(kelime) == 2 and kelime.isdigit() and 32 <= int(kelime) <= 54 and bagli:
+            bulunan.add(kelime)
+    return sorted(bulunan)
+
+
 def _konu_uygulanabilir_mi(kategori: str, konu: str) -> bool:
     return not (kategori == AKSESUAR_GRUBU and konu == AKSESUAR_YASAK_KONU)
 
@@ -494,6 +540,11 @@ def denetle(yol_veya_liste, tam_esik: int = 1000) -> dict:
             renkler = renk_adlari_bul(k["metin"])
             if renkler:
                 hatalar.append(f"kayit {ad}: gercek renk adi {sorted(set(renkler))}")
+
+        if isinstance(k.get("metin"), str):
+            etiketler = beden_etiketleri_bul(k["metin"])
+            if etiketler:
+                hatalar.append(f"kayit {ad}: gercek beden etiketi {etiketler}")
 
         yer_tutucu = k["yer_tutucu"]
         if not isinstance(yer_tutucu, list) or any(
