@@ -101,6 +101,7 @@ _YAYGIN_RENK_ADLARI: list[str] = [
     "fuşya", "zeytin", "petrol",
     "zümrüt", "mercan", "vişne", "kavuniçi", "kamel", "kapkara",
     "şarap", "nar",
+    "taş", "ten",
 ]
 _RENK_ADI_ATLA = {"melanj"}  # "Gri Melanj": renk "gri"; melanj kumaş terimi
 
@@ -133,7 +134,7 @@ _RENK_ISTISNA = re.compile(
 # Renk dışı anlamı yaygın adlar: yalnız TAM kelime ("altın rengi" evet,
 # "altına/altında" hayır) ya da yalnız ardından renk/ton sözcüğü gelince
 # ("kahve tonu" evet, "kahve içerken" hayır; "petrol rengi" evet, "petrolle" hayır).
-_RENK_TAM_KELIME = {"altin"}
+_RENK_TAM_KELIME = {"altin", "tas", "ten"}
 # "sarı" sarmak fiiliyle çakışır (sarıyor, sarıp, sarıcı, sarılmak, sarih):
 # kelime-başı değil, yalnız isim çekimi (ASCII katlı) kabul edilir.
 _SARI_ISIM_CEKIMI = re.compile(
@@ -146,6 +147,15 @@ _RENK_ARDINDAN_GEREKIR: dict[str, tuple[str, ...]] = {
     "petrol": _RENK_RENK_SOZCUGU,
     "sarap": _RENK_RENK_SOZCUGU,      # "şarap rengi" evet, "şarap lekesi" hayır
     "nar": ("cice",),                # "nar çiçeği" evet, "nar gibi" hayır
+    "tas": _RENK_RENK_SOZCUGU,       # "taş rengi" evet, "taş gibi" hayır
+}
+# "ten rengi" ürünün rengi olarak (ten rengi, ten rengini, ten renkli, ten
+# tonunda) yasaktır; ama "ten rengime/rengimle uydu" gibi kişi iyelikli biçim
+# müşterinin cilt tonudur ve serbesttir ("tenime" zaten ayrı kelimedir).
+# Bu yüzden "ten" yalnız ardından iyeliksiz renk/ton biçimi gelince sayılır.
+_TEN_RENK_BICIMLERI = {
+    "renk", "renkli", "renkte", "renkteki", "rengi", "rengini", "renginde",
+    "renginden", "rengiyle", "rengine", "tonu", "tonunu", "tonunda", "tonlu",
 }
 # "kahve" ayrıca: koyu/açık gibi ton sıfatından sonra ("koyu kahve") ya da
 # 3. tekil iyelik biçiminde ("kemerin kahvesi") renktir; "kahve içerken",
@@ -181,6 +191,10 @@ def renk_adlari_bul(metin: str) -> list[str]:
                 continue
             if ad in _RENK_TAM_KELIME and kelime != ad:
                 continue
+            if ad == "ten":
+                sonraki = kelimeler[i + 1] if i + 1 < len(kelimeler) else ""
+                if sonraki not in _TEN_RENK_BICIMLERI:
+                    continue
             if ad in _RENK_ARDINDAN_GEREKIR:
                 if kelime.startswith("kahvere"):
                     continue
@@ -208,6 +222,13 @@ _BEDEN_BAGLAM_FIILLERI = {
     "giyerim", "giyiyorum", "giyerdim", "giyiyordum", "alirim",
 }
 _BUYUK_HARF_BEDEN = re.compile(r"(?<![\w{])(?:XXXL|XXL|XL|XS|S|M|L)(?![\w}])")
+# Sayının hemen ardından gelince beden bağlamı kuran sözcükler (ASCII katlı):
+# "38 büyük geldi", "36 ile değiştirdim", "36'sı tam oldu", "38'i iade ettim".
+# "40 derece", "38 TL", "3 hafta", "10 gün", "2 tane" bunları taşımaz.
+_BEDEN_BAGLAM_SONRAKI = {"buyuk", "kucuk", "iade", "tam", "ile"}
+_BEDEN_BAGLAM_SONRAKI_ONEK = ("degis",)  # değiştir-, değişim, değiştirmek
+# Jean ölçüsü: "30 bel 32 boy", "28 bel" (bel/boy ardından: aralık dışı da sayılır).
+_BEL_BOY = re.compile(r"(?<!\d)(\d{2})\s*(?:bel|boy)(?!\w)")
 
 
 def beden_etiketleri_bul(metin: str) -> list[str]:
@@ -217,13 +238,17 @@ def beden_etiketleri_bul(metin: str) -> list[str]:
     xs/xl/xxl/xxxl/2xl/3xl/4xl ve small/medium/large her harf durumunda;
     küçük harfli tek harf (s/m/l) yalnız beden/numara ya da "aldım/geldi..."
     fiiliyle bitişikken; 32-54 arası sayı yalnız beden/numara ya da aynı fiillerle
-    bitişikken ("38 beden", "beden 40", "40 numara", "38'i aldım"). "3 hafta",
+    bitişikken ("38 beden", "beden 40", "40 numara", "38'i aldım"); sayılar
+    ayrıca ardından büyük/küçük/iade/tam/ile/değiştir- gelince ("38 büyük
+    geldi", "36 ile değiştirdim", "36'sı tam oldu", "38'i iade ettim"); iki
+    haneli sayı + bel/boy her zaman ("30 bel 32 boy"). "40 derece", "38 TL", "3 hafta",
     "10 gün", "bedenime", "bir beden büyük" geçer. Yazıyla sayılar ("otuz sekiz")
     kapsanmaz.
     """
     metin = re.sub(r"\{(?:renk|beden)\}", " ", metin)
     bulunan = set(_BUYUK_HARF_BEDEN.findall(metin))
     katli = re.sub(r"(?<=\w)['’]\w*", "", _ascii_katla(metin))
+    bulunan.update(_BEL_BOY.findall(katli))
     t = re.findall(r"\w+|[^\w\s]+", katli)
     for i, kelime in enumerate(t):
         onceki = t[i - 1] if i > 0 else ""
@@ -233,13 +258,53 @@ def beden_etiketleri_bul(metin: str) -> list[str]:
             or sonraki.startswith(("beden", "numara"))
             or sonraki in _BEDEN_BAGLAM_FIILLERI
         )
+        # Sayılara (yalnız) ek bağlam: büyük/küçük/iade/tam/ile/değiştir-.
+        sayi_bagli = bagli or (
+            sonraki in _BEDEN_BAGLAM_SONRAKI
+            or sonraki.startswith(_BEDEN_BAGLAM_SONRAKI_ONEK)
+        )
         if kelime in _HARF_BEDENLER_KESIN:
             bulunan.add(kelime.upper())
         elif kelime in _TEK_HARF_BEDENLER and bagli:
             bulunan.add(kelime.upper())
-        elif len(kelime) == 2 and kelime.isdigit() and 32 <= int(kelime) <= 54 and bagli:
+        elif len(kelime) == 2 and kelime.isdigit() and 32 <= int(kelime) <= 54 and sayi_bagli:
             bulunan.add(kelime)
     return sorted(bulunan)
+
+
+# Özel gün / bayram adı yasağı (Görev 11, düzeltme turu 1): yorum tarihi
+# atamada belirlenir; metin belirli bir güne bağlanırsa tarihle çelişir.
+# ASCII katlı metinde kelime başından aranır ("Anneler Günü'nde", "bayramlık"
+# da yakalanır). Ay adları burada yok ("nisan"=nişan, "ekim", "aralık" gibi
+# yaygın çakışmalar); onlar yazım kuralıyla ve gözden geçirmeyle denetlenir.
+_OZEL_GUN_DESENLERI: dict[str, str] = {
+    "Öğretmenler Günü": r"ogretmenler gun",
+    "Anneler Günü": r"anneler gun",
+    "Babalar Günü": r"babalar gun",
+    "Sevgililer Günü": r"sevgililer gun",
+    "yılbaşı": r"yilbas",
+    "yeni yıl": r"yeni yil(?!\w)",
+    "bayram": r"bayram",
+    "Ramazan": r"ramazan",
+    "Kurban": r"kurban bayram",
+    "23 Nisan": r"23 nisan",
+    "29 Ekim": r"29 ekim",
+    "19 Mayıs": r"19 mayis",
+    "30 Ağustos": r"30 agustos",
+    "Noel": r"noel",
+    "kandil": r"kandil",
+    "Hıdırellez": r"hidirellez",
+    "karne günü": r"karne",
+}
+_OZEL_GUN_REGEX = {
+    ad: re.compile(r"(?<!\w)" + desen) for ad, desen in _OZEL_GUN_DESENLERI.items()
+}
+
+
+def ozel_gun_adlari_bul(metin: str) -> list[str]:
+    """Metindeki özel gün / bayram adlarını (sözlükteki okunur adlarıyla) döner."""
+    katli = _ascii_katla(metin)
+    return sorted(ad for ad, rx in _OZEL_GUN_REGEX.items() if rx.search(katli))
 
 
 def _konu_uygulanabilir_mi(kategori: str, konu: str) -> bool:
@@ -545,6 +610,9 @@ def denetle(yol_veya_liste, tam_esik: int = 1000) -> dict:
             etiketler = beden_etiketleri_bul(k["metin"])
             if etiketler:
                 hatalar.append(f"kayit {ad}: gercek beden etiketi {etiketler}")
+            gunler = ozel_gun_adlari_bul(k["metin"])
+            if gunler:
+                hatalar.append(f"kayit {ad}: ozel gun adi {gunler}")
 
         yer_tutucu = k["yer_tutucu"]
         if not isinstance(yer_tutucu, list) or any(
@@ -723,8 +791,8 @@ Uymanız gereken kurallar:
    Tişört, Gömlek, Bluz, Kazak, Sweatshirt; Alt Giyim: Pantolon, Jean, Etek,
    Şort; Elbise & Tulum: Elbise, Tulum; Dış Giyim: Mont, Ceket, Trençkot;
    Aksesuar: Çanta, Şal, Kemer) — başka gruptan ürün adı anma. Eş anlamlılar
-   A'nın adına eşlenir (kot→Jean, kaban→Mont, hırka→Kazak) ya da ürün adı
-   verme. Genel metinde (ürün türü anılmıyorsa) `alt_kategori` null olsun.
+   A'nın adına eşlenir (kot→Jean, kaban→Mont); A'da karşılığı olmayan ürün
+   adı (hırka, yelek, atkı...) kullanılmaz, gerekirse ürün adı verme. Genel metinde (ürün türü anılmıyorsa) `alt_kategori` null olsun.
 11. Renk adı yok: gerçek renk adı verme (siyah, haki, bej, lacivert, sarı...).
    Renk ya `{renk}` yer tutucusuyla anılır ya da adı verilmeden ("rengi",
    "tonu") söylenir.

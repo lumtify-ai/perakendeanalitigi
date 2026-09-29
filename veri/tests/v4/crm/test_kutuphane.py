@@ -21,6 +21,7 @@ from perakende_veri.v4.crm.kutuphane import (
     beden_etiketleri_bul,
     renk_adlari_bul,
     ornek_metin_yazdir,
+    ozel_gun_adlari_bul,
     parti_dosyasi_yaz,
     parti_tanimlari,
 )
@@ -632,3 +633,82 @@ def test_depodaki_yorum_kutuphanesi_gecerli_ve_slotlarla_birebir(slotlar):
     for kayit in kayitlar:
         alt = kayit["alt_kategori"]
         assert alt is None or alt in a_sabitler.KATEGORILER[kayit["kategori_grubu"]], kayit["id"]
+
+
+# ---------------------------------------------------------------------------
+# Görev 11 düzeltme turu 1: sıkılaştırılmış beden/renk, özel gün denetimi
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("metin", [
+    "Ucuza aldım, 38 büyük geldi, 36 ile değiştirmek çok kolaydı.",
+    "{renk} eteğin 36'sı tam oldu, 38'i iade ettim, çok memnunum.",
+    "Jean beden tablosuna birebir uyuyor, 30 bel 32 boy aldım, tam oldu.",
+    "40 küçük kaldı", "42'yi değiştirdim", "38 değişimi hızlıydı", "28 bel",
+    "34 boy uzun geldi", "40'ı tam oturdu",
+])
+def test_beden_etiketi_tur1_yakalanir(metin):
+    assert beden_etiketleri_bul(metin), metin
+
+
+@pytest.mark.parametrize("metin", [
+    "3 hafta sonra geldi", "10 gün bekledim", "40 derecede yıkadım",
+    "38 TL iade edildi", "2 tane aldım, biri tam oldu", "fiyatı 45 lira",
+    "kargo 12 gün sürdü", "boyum 1.62", "iki tane iade ettim",
+])
+def test_beden_etiketi_tur1_yanlis_pozitif_degil(metin):
+    assert beden_etiketleri_bul(metin) == [], metin
+
+
+@pytest.mark.parametrize("metin", [
+    "Pantolonun rengi taş rengi, tam olarak görseldeki gibi.",
+    "Taş tonunda bir şal", "ten rengi bir bluz aldım", "Ten renkli kemer",
+    "rengi ten rengine yakın çıktı",
+])
+def test_renk_adi_tur1_yakalanir(metin):
+    assert renk_adlari_bul(metin), metin
+
+
+@pytest.mark.parametrize("metin", [
+    "Tonu ten rengime çok yakıştı", "tenime çok yakıştı", "taş gibi sağlam",
+    "ten rengimle uyumlu", "taşıması kolay", "tasarımın rengi güzel",
+    "tenimi tahriş etmedi",
+])
+def test_renk_adi_tur1_yanlis_pozitif_degil(metin):
+    assert renk_adlari_bul(metin) == [], metin
+
+
+@pytest.mark.parametrize("metin,ad", [
+    ("Öğretmenler Günü hediyesi olarak sipariş ettim", "Öğretmenler Günü"),
+    ("Anneler Günü'nden sonra geldi", "Anneler Günü"),
+    ("babalar gunu icin aldim", "Babalar Günü"),
+    ("Sevgililer Günü sabahı kapıdaydı", "Sevgililer Günü"),
+    ("yılbaşı partisi için", "yılbaşı"), ("yilbasi aksami giydim", "yılbaşı"),
+    ("Bayramda giydim", "bayram"), ("bayramlık aldım", "bayram"),
+    ("Ramazan'da iftara giydim", "Ramazan"), ("Kurban Bayramı'nda", "Kurban"),
+    ("23 Nisan gösterisi", "23 Nisan"), ("29 Ekim töreni", "29 Ekim"),
+    ("kızımın karnesine giydim", "karne günü"), ("yeni yıl hediyesi", "yeni yıl"),
+])
+def test_ozel_gun_adi_yakalanir(metin, ad):
+    assert ad in ozel_gun_adlari_bul(metin), metin
+
+
+@pytest.mark.parametrize("metin", [
+    "Hediye olarak sipariş ettim", "doğum günü için aldım", "nişanımda giydim",
+    "Salı sipariş verdim", "yeni yılan desenli", "kurbağa gibi yeşil değil",
+])
+def test_ozel_gun_adi_yanlis_pozitif_degil(metin):
+    assert ozel_gun_adlari_bul(metin) == [], metin
+
+
+def test_denetle_ozel_gun_adi_yakalar_id_ile():
+    kayitlar = _cesitli_gecerli_kayitlar(10)
+    kayitlar[3]["metin"] = "Öğretmenler Günü hediyesi olarak aldım, kargo ertesi gün geldi."
+    sonuc = denetle(kayitlar)
+    assert sonuc["gecerli"] is False
+    assert any("ozel gun" in h and "Y0004" in h for h in sonuc["hatalar"])
+
+
+def test_yonerge_hirka_eslemesi_yok():
+    assert "hırka→Kazak" not in YAZAR_YONERGESI
+    assert "karşılığı olmayan ürün" in YAZAR_YONERGESI
