@@ -599,3 +599,36 @@ def test_denetle_beden_yer_tutucusu_etiket_sayilmaz():
         yer_tutucu=["beden"],
     )
     assert not any("beden etiketi" in h for h in denetle([kayit])["hatalar"])
+
+
+# ---------------------------------------------------------------------------
+# Görev 11: depodaki dolu kütüphane
+# ---------------------------------------------------------------------------
+
+def test_depodaki_yorum_kutuphanesi_gecerli_ve_slotlarla_birebir(slotlar):
+    from pathlib import Path
+
+    from perakende_veri.v4 import sabitler as a_sabitler
+    from perakende_veri.v4.crm import kutuphane
+
+    yol = Path(kutuphane.__file__).resolve().parent / "yorum_kutuphanesi.jsonl"
+    with open(yol, encoding="utf-8") as f:
+        kayitlar = [json.loads(s) for s in f if s.strip()]
+
+    # (a) 4000 kayıt
+    assert len(kayitlar) == 4000
+
+    # (b) denetle, varsayılan tam_esik ile (denge + kapsama dahil) geçerli
+    sonuc = denetle(kayitlar)
+    assert sonuc["gecerli"] is True, sonuc["hatalar"][:10]
+
+    # (c) etiket alanları parti_tanimlari() slotlarıyla birebir
+    assert [k["id"] for k in kayitlar] == [s["id"] for s in slotlar]
+    for kayit, slot in zip(kayitlar, slotlar):
+        for alan, deger in slot.items():
+            assert kayit[alan] == deger, (kayit["id"], alan)
+
+    # (d) alt_kategori null ya da kayıt grubunun alt kategorisi
+    for kayit in kayitlar:
+        alt = kayit["alt_kategori"]
+        assert alt is None or alt in a_sabitler.KATEGORILER[kayit["kategori_grubu"]], kayit["id"]
