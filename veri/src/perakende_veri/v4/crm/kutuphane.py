@@ -18,6 +18,7 @@ Kayıt şeması (JSONL satırı, Görev 11 çıktısı):
     {"id": "Y0001", "kategori_grubu": "Üst Giyim", "puan": 1..5,
      "duygu": "olumlu"|"olumsuz"|"karisik", "konular": [...],
      "metin": "...", "yer_tutucu": ["renk"|"beden", ...],
+     "alt_kategori": null | "Çanta" | "Jean" | ... (A'nın alt kategorisi),
      "uslup": "kisa"|"uzun"|"yazim_hatali"|"ignelemeli"|"celiskili"|"duz"}
 
 `duygu`, metnin gerçek duygusunu etiketler (yıldız puanını değil): puan
@@ -63,7 +64,7 @@ AKSESUAR_YASAK_YER_TUTUCU = "beden"
 
 REQUIRED_ALANLAR = {
     "id", "kategori_grubu", "puan", "duygu", "konular", "metin",
-    "yer_tutucu", "uslup",
+    "yer_tutucu", "uslup", "alt_kategori",
 }
 
 # ---------------------------------------------------------------------------
@@ -87,6 +88,76 @@ TURKCE_KARAKTER_ALT_ORAN = 0.90  # yazim_hatali dışı metinlerde
 KUTUPHANE_PARTILERI_YOLU = Path(__file__).resolve().parent / "kutuphane_partileri.json"
 
 _TURKCE_DESEN = re.compile("[çğıöşüÇĞİÖŞÜ]")
+
+
+# Gerçek renk adı yasağı (Görev 10b): renk yalnız `{renk}` yer tutucusuyla
+# anılır ya da adı verilmez. Sözlük A'nın renklerini + yaygın renk adlarını
+# içerir; eşleşme ASCII'ye katlanmış, kelime-başı (çekim ekleri yakalansın).
+_YAYGIN_RENK_ADLARI: list[str] = [
+    "siyah", "beyaz", "kırmızı", "mavi", "lacivert", "yeşil", "haki", "bej",
+    "gri", "kahve", "kahverengi", "sarı", "pembe", "mor", "turuncu", "bordo",
+    "taba", "ekru", "krem", "mint", "antrasit", "hardal", "pudra", "vizon",
+    "somon", "lila", "turkuaz", "camel", "indigo", "füme", "altın", "gümüş",
+    "fuşya", "zeytin", "petrol",
+]
+_RENK_ADI_ATLA = {"melanj"}  # "Gri Melanj": renk "gri"; melanj kumaş terimi
+
+
+def _ascii_katla(metin: str) -> str:
+    """Türkçe büyük/küçük harf katlaması (İ→i, I→ı) + ASCII'ye indirgeme
+    (ç→c, ğ→g, ı→i, ö→o, ş→s, ü→u): "Sarı", "SARI", "sari" aynı olur."""
+    metin = metin.replace("İ", "i").replace("I", "ı").lower()
+    return metin.translate(str.maketrans("çğıöşü", "cgiosu"))
+
+
+def _renk_adlari_kur() -> frozenset[str]:
+    adlar = list(_YAYGIN_RENK_ADLARI)
+    for ad in list(_a_sabitler.RENKLER) + list(_a_sabitler.DEVAMLI_RENK_HAVUZU):
+        adlar.extend(ad.split())
+    return frozenset(
+        _ascii_katla(a) for a in adlar if _ascii_katla(a) not in _RENK_ADI_ATLA
+    )
+
+
+RENK_ADLARI: frozenset[str] = _renk_adlari_kur()
+
+# Kelime-başı eşleşmesinin yakaladığı bilinen yanlış pozitifler (ASCII katlı
+# kelime başı): grip, moral/morarmak, hakikat/hakim/hakiki, sarılmak/sarih,
+# taban/tabak, mintan, zeytinyağı, kremi (cilt kremi).
+_RENK_ISTISNA = re.compile(
+    r"^(?:grip|mor(?:al|ar|g|ta|fi|us|it)|haki[km]|saril|sarih|taba[nkl]"
+    r"|mintan|zeytiny|kremi)"
+)
+# Renk dışı anlamı yaygın adlar: yalnız TAM kelime ("altın rengi" evet,
+# "altına/altında" hayır) ya da yalnız ardından renk/ton sözcüğü gelince
+# ("kahve tonu" evet, "kahve içerken" hayır; "petrol rengi" evet, "petrolle" hayır).
+_RENK_TAM_KELIME = {"altin"}
+_RENK_ARDINDAN_RENK_GEREKIR = {"kahve", "petrol"}
+
+
+def renk_adlari_bul(metin: str) -> list[str]:
+    """Metindeki (`{renk}`/`{beden}` yer tutucuları dışında) gerçek renk
+    adlarını (ASCII katlı sözlük biçimiyle) döner."""
+    metin = re.sub(r"\{(?:renk|beden)\}", " ", metin)
+    kelimeler = re.findall(r"\w+", _ascii_katla(metin))
+    bulunan: list[str] = []
+    for i, kelime in enumerate(kelimeler):
+        if _RENK_ISTISNA.match(kelime):
+            continue
+        for ad in RENK_ADLARI:
+            if not kelime.startswith(ad):
+                continue
+            if ad in _RENK_TAM_KELIME and kelime != ad:
+                continue
+            if ad in _RENK_ARDINDAN_RENK_GEREKIR:
+                if kelime.startswith("kahvere"):
+                    continue
+                sonraki = kelimeler[i + 1] if i + 1 < len(kelimeler) else ""
+                if not sonraki.startswith(("renk", "reng", "ton")):
+                    continue
+            bulunan.append(ad)
+            break
+    return bulunan
 
 
 def _konu_uygulanabilir_mi(kategori: str, konu: str) -> bool:
@@ -376,6 +447,18 @@ def denetle(yol_veya_liste, tam_esik: int = 1000) -> dict:
                 f"kayit {ad}: Aksesuar icin yasak konu {AKSESUAR_YASAK_KONU!r}"
             )
 
+        alt = k["alt_kategori"]
+        if alt is not None and alt not in _a_sabitler.KATEGORILER.get(kategori, []):
+            hatalar.append(
+                f"kayit {ad}: alt_kategori {alt!r} kategori_grubu {kategori!r}"
+                " icinde degil"
+            )
+
+        if isinstance(k.get("metin"), str):
+            renkler = renk_adlari_bul(k["metin"])
+            if renkler:
+                hatalar.append(f"kayit {ad}: gercek renk adi {sorted(set(renkler))}")
+
         yer_tutucu = k["yer_tutucu"]
         if not isinstance(yer_tutucu, list) or any(
             y not in YER_TUTUCULAR for y in yer_tutucu
@@ -544,7 +627,18 @@ Uymanız gereken kurallar:
    cümlelerini tekrarlama — kütüphane denetimi (`kutuphane.denetle`) hem tam
    metin tekrarını hem de 5 kelimelik dizilerin örtüştüğü yakın tekrarları
    yakalar; art arda benzer şablonlar reddedilir.
-9. Format: yalnız `metin` alanının içeriğini üret; şemanın diğer alanları
-   (id, kategori_grubu, puan, duygu, konular, uslup, yer_tutucu) sana
-   slotta verilmiştir, değiştirme.
+9. Format: yalnız `metin` ve `alt_kategori` alanlarını üret; şemanın diğer
+   alanları (id, kategori_grubu, puan, duygu, konular, uslup, yer_tutucu)
+   sana slotta verilmiştir, değiştirme.
+10. Alt kategori: metin bir ürün türü anıyorsa (ör. "çantanın sapı", "etek
+   hoş") `alt_kategori`'yi o ürünün A'daki adına ayarla; yalnız slotun
+   `kategori_grubu`'ndaki alt kategorilerden birini anabilirsin (Üst Giyim:
+   Tişört, Gömlek, Bluz, Kazak, Sweatshirt; Alt Giyim: Pantolon, Jean, Etek,
+   Şort; Elbise & Tulum: Elbise, Tulum; Dış Giyim: Mont, Ceket, Trençkot;
+   Aksesuar: Çanta, Şal, Kemer) — başka gruptan ürün adı anma. Eş anlamlılar
+   A'nın adına eşlenir (kot→Jean, kaban→Mont, hırka→Kazak) ya da ürün adı
+   verme. Genel metinde (ürün türü anılmıyorsa) `alt_kategori` null olsun.
+11. Renk adı yok: gerçek renk adı verme (siyah, haki, bej, lacivert, sarı...).
+   Renk ya `{renk}` yer tutucusuyla anılır ya da adı verilmeden ("rengi",
+   "tonu") söylenir.
 """

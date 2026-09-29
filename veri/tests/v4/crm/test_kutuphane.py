@@ -16,7 +16,9 @@ from perakende_veri.v4.crm.kutuphane import (
     USLUP_ORANI,
     USLUPLAR,
     YAZAR_YONERGESI,
+    RENK_ADLARI,
     denetle,
+    renk_adlari_bul,
     ornek_metin_yazdir,
     parti_dosyasi_yaz,
     parti_tanimlari,
@@ -159,6 +161,7 @@ def _kayit(**over):
         "metin": "Kumaşı gerçekten kaliteli, bedeni de tam oturdu, çok memnun kaldım bu üründen.",
         "yer_tutucu": [],
         "uslup": "duz",
+        "alt_kategori": None,
     }
     temel.update(over)
     return temel
@@ -458,3 +461,87 @@ def test_denetle_bozuk_jsonl_satiri_hata_olur_ve_devam_eder(tmp_path):
     assert sonuc["gecerli"] is False
     assert any("satir 5" in h for h in sonuc["hatalar"])
     assert sonuc["olcumler"]["kayit_sayisi"] == 12
+
+
+# ---------------------------------------------------------------------------
+# Görev 10b: alt_kategori ve gerçek renk adı denetimi
+# ---------------------------------------------------------------------------
+
+def test_alt_kategori_zorunlu_anahtar():
+    kayit = _kayit()
+    del kayit["alt_kategori"]
+    sonuc = denetle([kayit])
+    assert any("eksik alan" in h and "alt_kategori" in h for h in sonuc["hatalar"])
+
+
+def test_alt_kategori_null_ve_gecerli_kabul():
+    kayitlar = _cesitli_gecerli_kayitlar(10)
+    kayitlar[0].update(alt_kategori="Gömlek")           # Üst Giyim
+    kayitlar[1].update(kategori_grubu="Aksesuar", alt_kategori="Çanta")
+    sonuc = denetle(kayitlar)
+    assert not any("alt_kategori" in h for h in sonuc["hatalar"])
+
+
+def test_alt_kategori_yanlis_gruptan_hata_id_ile():
+    kayitlar = _cesitli_gecerli_kayitlar(10)
+    kayitlar[2].update(alt_kategori="Çanta")            # Üst Giyim'de Çanta yok
+    kayitlar[3].update(alt_kategori="Bilinmeyen")
+    sonuc = denetle(kayitlar)
+    assert sonuc["gecerli"] is False
+    assert any("alt_kategori" in h and "Y0003" in h for h in sonuc["hatalar"])
+    assert any("alt_kategori" in h and "Y0004" in h for h in sonuc["hatalar"])
+
+
+@pytest.mark.parametrize("metin", [
+    "Haki tonu çok güzel duruyor", "Siyahı çok şık", "Sarısı canlı",
+    "altın rengi detaylar var", "Altın Rengi toka", "yesil olanı aldim",
+    "sari renk", "kirmizi cok guzel", "KIRMIZI", "Kırmızı elbise", "SARI",
+    "Lacivert ve bej uyumlu", "kahverengi tonlar", "kahve tonu güzel",
+    "petrol rengi harika", "gri melanj kumaş", "İndigo ton", "füme renk",
+    "pudra pembesi", "taba rengi sapı", "mor renk", "gümüşi ton",
+])
+def test_renk_adi_yakalanir(metin):
+    assert renk_adlari_bul(metin), metin
+
+
+@pytest.mark.parametrize("metin", [
+    "moralim düzeldi", "Morali yerine geldi", "grip oldum ama kargo geldi",
+    "altına giydim", "altında tişört var",
+    "petrolle lekelendi", "kahve içerken döktüm", "hakikaten rahat",
+    "hakiki deri gibi", "sarıldım hemen", "tabanı kaymıyor", "tabak gibi",
+    "mintan yakası", "zeytinyağı lekesi", "{renk} tonu çok güzel",
+    "{renk} rengi tam aradığım gibiydi", "rengi ve tonu çok güzel",
+    "{beden} bedeni oturdu", "Kumaşı kaliteli, kalıbı rahat",
+])
+def test_renk_adi_yanlis_pozitif_degil(metin):
+    assert renk_adlari_bul(metin) == [], metin
+
+
+def test_renk_adlari_sozlugu_a_renklerini_icerir():
+    for ad in ("siyah", "haki", "bordo", "ekru", "kiremit", "yesil", "indigo",
+               "gri", "lacivert", "pudra", "bej", "beyaz"):
+        assert ad in RENK_ADLARI
+    assert "melanj" not in RENK_ADLARI
+
+
+def test_denetle_gercek_renk_adi_yakalar_id_ile():
+    kayitlar = _cesitli_gecerli_kayitlar(10)
+    kayitlar[5]["metin"] = "Haki tonu çok hoş duruyor, kumaşı da gayet kaliteli çıktı gerçekten."
+    sonuc = denetle(kayitlar)
+    assert sonuc["gecerli"] is False
+    assert any("renk adi" in h and "Y0006" in h for h in sonuc["hatalar"])
+
+
+def test_denetle_renk_yer_tutucusu_renk_adi_sayilmaz():
+    kayit = _kayit(
+        metin="{renk} rengi tam aradığım tondaydı, kumaşı da gayet kaliteli çıktı.",
+        yer_tutucu=["renk"],
+    )
+    sonuc = denetle([kayit])
+    assert not any("renk adi" in h for h in sonuc["hatalar"])
+
+
+def test_yonerge_alt_kategori_ve_renk_kurallari():
+    assert "alt_kategori" in YAZAR_YONERGESI
+    assert "kot" in YAZAR_YONERGESI and "Jean" in YAZAR_YONERGESI
+    assert "renk adı" in YAZAR_YONERGESI.lower()
