@@ -232,14 +232,28 @@ def parti_dosyasi_yaz(
 # Denetim
 # ---------------------------------------------------------------------------
 
-def _kayitlari_oku(yol_veya_liste) -> list[dict]:
+def _kayitlari_oku(yol_veya_liste, hatalar: list[str] | None = None) -> list[dict]:
+    """JSONL yolu ya da kayıt listesi okur. Bozuk bir satır `hatalar`a
+    (satır numarasıyla) eklenir ve atlanır; `hatalar` verilmemişse sessizce
+    atlanır."""
     if isinstance(yol_veya_liste, (str, Path)):
         kayitlar = []
         with open(yol_veya_liste, encoding="utf-8") as f:
-            for satir in f:
+            for no, satir in enumerate(f, start=1):
                 satir = satir.strip()
-                if satir:
-                    kayitlar.append(json.loads(satir))
+                if not satir:
+                    continue
+                try:
+                    kayit = json.loads(satir)
+                except json.JSONDecodeError as e:
+                    if hatalar is not None:
+                        hatalar.append(f"satir {no}: bozuk JSON ({e.msg})")
+                    continue
+                if not isinstance(kayit, dict):
+                    if hatalar is not None:
+                        hatalar.append(f"satir {no}: kayit bir nesne degil")
+                    continue
+                kayitlar.append(kayit)
         return kayitlar
     return list(yol_veya_liste)
 
@@ -257,13 +271,19 @@ def _shingle_kumesi(metin: str, n: int = 5) -> set[str]:
     return {" ".join(kelimeler[i:i + n]) for i in range(len(kelimeler) - n + 1)}
 
 
-def _yakin_tekrar_orani(metinler: list[str]) -> float:
-    """Bir metnin başka bir metinle 5-gram Jaccard > eşik paylaşan çift
-    olma oranı. Ters shingle indeksiyle aday çiftleri sınırlar (tam O(n^2)
-    yerine); çok yaygın shingle'lı büyük gruplar (>500 belge) atlanır."""
+YAYGIN_SHINGLE_SINIRI = 500
+
+
+def _yakin_tekrar_orani(metinler: list[str]) -> tuple[float, int]:
+    """(oran, atlanan_yaygin_shingle). Bir metnin başka bir metinle 5-gram
+    Jaccard > eşik paylaşan çift olma oranı. Ters shingle indeksiyle aday
+    çiftleri sınırlar (tam O(n^2) yerine); `YAYGIN_SHINGLE_SINIRI`'ndan fazla
+    belgede geçen shingle aday üretmez ama sayılıp döndürülür — çağıran bunu
+    hata sayar (yaygın şablon sessizce geçmesin)."""
     n = len(metinler)
     if n < 2:
-        return 0.0
+        return 0.0, 0
+    atlanan = 0
     kumeler = [_shingle_kumesi(m) for m in metinler]
     ters_indeks: dict[str, list[int]] = {}
     for i, kume in enumerate(kumeler):
@@ -272,7 +292,9 @@ def _yakin_tekrar_orani(metinler: list[str]) -> float:
 
     aday_ciftler: set[tuple[int, int]] = set()
     for idxs in ters_indeks.values():
-        if 1 < len(idxs) <= 500:
+        if len(idxs) > YAYGIN_SHINGLE_SINIRI:
+            atlanan += 1
+        elif len(idxs) > 1:
             for a in range(len(idxs)):
                 for b in range(a + 1, len(idxs)):
                     aday_ciftler.add((idxs[a], idxs[b]))
@@ -286,7 +308,7 @@ def _yakin_tekrar_orani(metinler: list[str]) -> float:
         if birlesim and len(a & b) / birlesim > YAKIN_TEKRAR_ESIGI:
             etkilenen.add(i)
             etkilenen.add(j)
-    return len(etkilenen) / n
+    return len(etkilenen) / n, atlanan
 
 
 def denetle(yol_veya_liste, tam_esik: int = 1000) -> dict:
@@ -297,8 +319,8 @@ def denetle(yol_veya_liste, tam_esik: int = 1000) -> dict:
     (kategori, konu) kapsama eşiği denetlenir (bunlar bütün kütüphane
     ölçeğinde anlamlıdır).
     """
-    kayitlar = _kayitlari_oku(yol_veya_liste)
     hatalar: list[str] = []
+    kayitlar = _kayitlari_oku(yol_veya_liste, hatalar)
     olcumler: dict = {}
     n = len(kayitlar)
     olcumler["kayit_sayisi"] = n
@@ -332,6 +354,17 @@ def denetle(yol_veya_liste, tam_esik: int = 1000) -> dict:
 
         if k["uslup"] not in USLUPLAR:
             hatalar.append(f"kayit {ad}: gecersiz uslup {k['uslup']!r}")
+
+        if (
+            isinstance(puan, int) and not isinstance(puan, bool) and 1 <= puan <= 5
+            and k["uslup"] in USLUPLAR and k["duygu"] in DUYGULAR
+        ):
+            beklenen_duygu = _puan_duygu(puan, k["uslup"])
+            if k["duygu"] != beklenen_duygu:
+                hatalar.append(
+                    f"kayit {ad}: duygu {k['duygu']!r} puan/uslup kuralina uymuyor"
+                    f" (beklenen {beklenen_duygu!r})"
+                )
 
         konular = k["konular"]
         if not isinstance(konular, list) or not konular or any(
@@ -384,8 +417,14 @@ def denetle(yol_veya_liste, tam_esik: int = 1000) -> dict:
                 f"tam metin tekrar orani {tam_tekrar_orani:.3f} > {TAM_TEKRAR_UST_ORAN}"
             )
 
-        yakin_orani = _yakin_tekrar_orani(norm_metinler)
+        yakin_orani, atlanan = _yakin_tekrar_orani(norm_metinler)
         olcumler["yakin_tekrar_orani"] = yakin_orani
+        olcumler["atlanan_yaygin_shingle"] = atlanan
+        if atlanan:
+            hatalar.append(
+                f"{atlanan} yaygin shingle {YAYGIN_SHINGLE_SINIRI}+ kayitta geciyor"
+                " (ortak sablon; yakin tekrar taranamadi)"
+            )
         if yakin_orani > YAKIN_TEKRAR_UST_ORAN:
             hatalar.append(
                 f"yakin tekrar orani {yakin_orani:.3f} > {YAKIN_TEKRAR_UST_ORAN}"

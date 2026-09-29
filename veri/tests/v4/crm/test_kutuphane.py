@@ -409,3 +409,52 @@ def test_yazar_yonergesi_turkce_ve_anahtar_kurallari_icerir():
     assert "{renk}" in YAZAR_YONERGESI
     assert "{beden}" in YAZAR_YONERGESI
     assert "Aksesuar" in YAZAR_YONERGESI
+
+
+# ---------------------------------------------------------------------------
+# Fix round 1: yaygin sablon, duygu tutarliligi, bozuk JSONL satiri
+# ---------------------------------------------------------------------------
+
+def test_denetle_yaygin_sablon_sessizce_gecmez():
+    """501+ kayit ayni sablonu paylasiyorsa (shingle sinirini asar) gecerli
+    olmamali; atlanan shingle sayisi olcumlerde raporlanmali."""
+    sablon = "bu urunu aldim ve gercekten cok memnun kaldim tavsiye ederim herkese"
+    kayitlar = []
+    for i in range(600):
+        metin = f"{sablon} benzersiz{i}a benzersiz{i}b"
+        kayitlar.append(_kayit(id=f"Y{i + 1:04d}", metin=metin))
+    sonuc = denetle(kayitlar)
+    assert sonuc["gecerli"] is False
+    assert sonuc["olcumler"]["atlanan_yaygin_shingle"] > 0
+    assert any("yaygin" in h or "yakin tekrar" in h for h in sonuc["hatalar"])
+
+
+def test_denetle_duygu_puan_kuralina_uymuyorsa_yakalar():
+    kayitlar = _cesitli_gecerli_kayitlar(10)
+    kayitlar[3]["puan"] = 1          # kural: olumsuz, kayit olumlu diyor
+    sonuc = denetle(kayitlar)
+    assert sonuc["gecerli"] is False
+    assert any("duygu" in h and "Y0004" in h for h in sonuc["hatalar"])
+
+
+def test_denetle_duygu_kurali_puan3_celiskili_dogru_kabul_eder():
+    kayitlar = _cesitli_gecerli_kayitlar(10)
+    kayitlar[0].update(puan=3, duygu="karisik")
+    kayitlar[1].update(puan=5, duygu="olumsuz", uslup="celiskili")
+    kayitlar[2].update(puan=1, duygu="olumlu", uslup="celiskili")
+    sonuc = denetle(kayitlar)
+    assert not any("duygu" in h for h in sonuc["hatalar"])
+
+
+def test_denetle_bozuk_jsonl_satiri_hata_olur_ve_devam_eder(tmp_path):
+    kayitlar = _cesitli_gecerli_kayitlar(12)
+    yol = tmp_path / "bozuk.jsonl"
+    with open(yol, "w", encoding="utf-8") as f:
+        for i, k in enumerate(kayitlar):
+            if i == 4:
+                f.write("{bozuk json satiri\n")
+            f.write(json.dumps(k, ensure_ascii=False) + "\n")
+    sonuc = denetle(yol)
+    assert sonuc["gecerli"] is False
+    assert any("satir 5" in h for h in sonuc["hatalar"])
+    assert sonuc["olcumler"]["kayit_sayisi"] == 12
