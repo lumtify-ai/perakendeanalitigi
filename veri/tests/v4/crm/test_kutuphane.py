@@ -712,3 +712,182 @@ def test_denetle_ozel_gun_adi_yakalar_id_ile():
 def test_yonerge_hirka_eslemesi_yok():
     assert "hırka→Kazak" not in YAZAR_YONERGESI
     assert "karşılığı olmayan ürün" in YAZAR_YONERGESI
+
+
+# ---------------------------------------------------------------------------
+# Görev 11c: ek parti tanımları (4.000 -> 7.000) ve birleşik denetim
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def ek_partiler():
+    from perakende_veri.v4.crm.kutuphane import ek_parti_tanimlari
+
+    return ek_parti_tanimlari()
+
+
+@pytest.fixture(scope="module")
+def ek_slotlar(ek_partiler):
+    return [s for p in ek_partiler for s in p["slotlar"]]
+
+
+def test_ek_15_parti_200_slot_3000_toplam(ek_partiler, ek_slotlar):
+    assert [p["parti_no"] for p in ek_partiler] == list(range(21, 36))
+    assert all(len(p["slotlar"]) == 200 for p in ek_partiler)
+    assert [s["id"] for s in ek_slotlar] == [f"Y{i:04d}" for i in range(4001, 7001)]
+
+
+def test_ek_dagilimlar_kararla_uyumlu(ek_slotlar):
+    from collections import Counter
+
+    assert Counter(s["kategori_grubu"] for s in ek_slotlar) == {
+        "Üst Giyim": 2073, "Alt Giyim": 891, "Elbise & Tulum": 34, "Dış Giyim": 2,
+    }
+    assert Counter(s["puan"] for s in ek_slotlar) == {
+        1: 190, 2: 201, 3: 213, 4: 350, 5: 2046,
+    }
+    assert Counter(s["uslup"] for s in ek_slotlar) == {
+        "kisa": 1050, "duz": 750, "uzun": 450, "yazim_hatali": 450,
+        "ignelemeli": 150, "celiskili": 150,
+    }
+    assert Counter(tuple(s["yer_tutucu"]) for s in ek_slotlar) == {
+        (): 2400, ("renk",): 276, ("renk", "beden"): 162, ("beden",): 162,
+    }
+    kume = Counter(tuple(s["konular"]) for s in ek_slotlar)
+    assert kume[("genel_begeni",)] <= 500
+    from perakende_veri.v4.crm.kutuphane import EK_GENEL_BEGENI_DAGITIMI
+
+    dagitim = EK_GENEL_BEGENI_DAGITIMI
+    assert sum(dagitim.values()) == 698 and 500 + 698 == 1198
+    assert dagitim["kumas_kalite"] == max(dagitim.values())
+    assert set(dagitim) == {"kumas_kalite", "renk", "beden_kalip", "kargo_teslimat"}
+    # öneride zaten olan kümeler + dağıtılan pay slotlarda görünür
+    assert kume[("genel_begeni", "kumas_kalite")] == dagitim["kumas_kalite"]
+    assert kume[("genel_begeni", "renk")] == 400 + dagitim["renk"]
+    assert kume[("genel_begeni", "beden_kalip")] == 399 + dagitim["beden_kalip"]
+    assert kume[("genel_begeni", "kargo_teslimat")] == dagitim["kargo_teslimat"]
+    assert kume[("genel_begeni", "fiyat_deger")] == 399
+    assert sum(kume.values()) == 3000
+
+
+def test_ek_alt_kategori_hedefi_ve_grup_puan(ek_slotlar):
+    from collections import Counter
+
+    from perakende_veri.v4 import sabitler as a_sabitler
+
+    hedef = Counter((s["kategori_grubu"], s["alt_kategori_hedef"]) for s in ek_slotlar)
+    assert hedef[("Üst Giyim", None)] == 1245
+    assert hedef[("Üst Giyim", "Tişört")] == 275
+    assert hedef[("Alt Giyim", "Jean")] == 225
+    assert hedef[("Elbise & Tulum", "Tulum")] == 5
+    assert hedef[("Dış Giyim", None)] == 2
+    assert sum(hedef.values()) == 3000
+    for s in ek_slotlar:
+        alt = s["alt_kategori_hedef"]
+        assert alt is None or alt in a_sabitler.KATEGORILER[s["kategori_grubu"]]
+    gp = Counter((s["kategori_grubu"], s["puan"]) for s in ek_slotlar)
+    assert gp[("Üst Giyim", 5)] == 1421 and gp[("Alt Giyim", 1)] == 57
+
+
+def test_ek_duygu_ve_aksesuar_kurallari(ek_slotlar):
+    from perakende_veri.v4.crm.kutuphane import _puan_duygu
+
+    for s in ek_slotlar:
+        assert s["duygu"] == _puan_duygu(s["puan"], s["uslup"]), s["id"]
+        assert set(s["konular"]) <= set(KONULAR)
+        if s["kategori_grubu"] == AKSESUAR_GRUBU:
+            assert AKSESUAR_YASAK_KONU not in s["konular"]
+            assert AKSESUAR_YASAK_YER_TUTUCU not in s["yer_tutucu"]
+
+
+def test_ek_deterministik(ek_partiler):
+    from perakende_veri.v4.crm.kutuphane import ek_parti_tanimlari
+
+    assert ek_parti_tanimlari() == ek_partiler
+
+
+def test_ek_parti_dosyasi_depoda_ve_uretimle_ayni(ek_partiler, tmp_path):
+    from perakende_veri.v4.crm.kutuphane import (
+        EK_KUTUPHANE_PARTILERI_YOLU,
+        ek_parti_dosyasi_yaz,
+    )
+
+    assert EK_KUTUPHANE_PARTILERI_YOLU.name == "kutuphane_ek_partileri.json"
+    with open(EK_KUTUPHANE_PARTILERI_YOLU, encoding="utf-8") as f:
+        assert json.load(f) == ek_partiler
+    hedef = ek_parti_dosyasi_yaz(yol=tmp_path / "ek.json")
+    with open(hedef, encoding="utf-8") as f:
+        assert json.load(f) == ek_partiler
+
+
+def _slot_kayitlari(slotlar):
+    """Slotlardan, denge/kapsama dışındaki denetimleri geçen benzersiz kayıtlar."""
+    kayitlar = []
+    for i, s in enumerate(slotlar):
+        metin = "Ürün hakkında düşünceler şöyle özet %d %d %d yorum tamam sonuç" % (
+            i, i * 7 + 3, i * 13 + 5,
+        )
+        metin += " " + " ".join(s["yer_tutucu"] and ["{%s}" % y for y in s["yer_tutucu"]] or [])
+        kayitlar.append({
+            "id": s["id"], "kategori_grubu": s["kategori_grubu"], "puan": s["puan"],
+            "duygu": s["duygu"], "konular": list(s["konular"]), "uslup": s["uslup"],
+            "yer_tutucu": list(s["yer_tutucu"]), "metin": metin, "alt_kategori": None,
+        })
+    return kayitlar
+
+
+def _denge_hatalari(sonuc):
+    return [
+        h for h in sonuc["hatalar"]
+        if "dagilimi hedeften sapiyor" in h or "cifti icin yalniz" in h
+    ]
+
+
+def test_denetle_birlesik_7000_dagilimini_slotlardan_turetir(slotlar, ek_slotlar):
+    kayitlar = _slot_kayitlari(slotlar + ek_slotlar)
+    assert len(kayitlar) == 7000
+    sonuc = denetle(kayitlar)
+    assert _denge_hatalari(sonuc) == []
+    assert sonuc["olcumler"]["beklenen_kaynak"] == "slot"
+
+
+def test_denetle_birlesik_dagilim_sabit_oranla_gecmezdi(slotlar, ek_slotlar):
+    """Karar belgesi: birleşik 7.000'in puan dağılımı ana 4.000 oranlarından
+    (%45 beş yıldız) sapar; bu yüzden hedefler slot dosyalarından türetilir."""
+    from collections import Counter
+
+    sayim = Counter(s["puan"] for s in slotlar + ek_slotlar)
+    beklenen = PUAN_ORANI[5] * 7000
+    assert abs(sayim[5] - beklenen) / beklenen > 0.20
+
+
+def test_denetle_slot_hedefinden_sapan_dagilim_yakalanir(slotlar, ek_slotlar):
+    kayitlar = _slot_kayitlari(slotlar + ek_slotlar)
+    for k in kayitlar:
+        k["puan"] = 5
+        k["duygu"] = "olumlu" if k["uslup"] != "celiskili" else "olumsuz"
+    assert any("puan 1 dagilimi" in h for h in denetle(kayitlar)["hatalar"])
+
+
+def test_denetle_ek_kapsama_slot_asgarisine_gore(slotlar, ek_slotlar):
+    """Dış Giyim ek slotta yalnız 2 kayıt: kapsama asgarisi slot sayısıyla
+    sınırlı olduğundan ek-yalnız alt küme sabit 25 eşiğine takılmaz; ama
+    slotta olup kayıtta hiç olmayan çift yine yakalanır."""
+    kayitlar = _slot_kayitlari(slotlar + ek_slotlar)
+    for k in kayitlar:
+        if k["kategori_grubu"] == "Dış Giyim" and "kargo_teslimat" in k["konular"]:
+            k["konular"] = ["genel_begeni"]
+    sonuc = denetle(kayitlar)
+    assert any("(Dış Giyim, kargo_teslimat)" in h for h in sonuc["hatalar"])
+
+
+def test_denetle_bilinmeyen_id_sabit_orana_duser():
+    kayitlar = _cesitli_gecerli_kayitlar(30)
+    for i, k in enumerate(kayitlar):
+        k["id"] = f"Z{i:04d}"
+    sonuc = denetle(kayitlar, tam_esik=10)
+    assert sonuc["olcumler"]["beklenen_kaynak"] == "sabit_oran"
+
+
+def test_yonerge_fiyat_deger_indirim_yasagi():
+    assert "indirim" in YAZAR_YONERGESI and "kampanya" in YAZAR_YONERGESI
+    assert "alt_kategori_hedef" in YAZAR_YONERGESI

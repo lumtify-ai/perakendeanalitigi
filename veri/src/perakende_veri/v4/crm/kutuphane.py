@@ -33,6 +33,7 @@ slotu/kaydı "beden_kalip" konusunu ya da "beden" yer tutucusunu içeremez.
 
 from __future__ import annotations
 
+import functools
 import json
 import re
 from collections import Counter
@@ -447,6 +448,161 @@ def parti_dosyasi_yaz(
 
 
 # ---------------------------------------------------------------------------
+# Ek parti tanımları (Görev 11c): 4.000 -> 7.000
+# ---------------------------------------------------------------------------
+# Görev 12 TAM ölçümü (talep %62 Üst Giyim) ek talep önerisi çıkardı
+# (`.superpowers/.../ek-kutuphane-talep.json`, git dışı). Önerinin hedef
+# sayıları burada sabit olarak durur; tek karar farkı konu kümeleridir:
+# yalnız ["genel_begeni"] en fazla 500 slot, kalan 698 slot genel_begeni +
+# (kumas_kalite, renk, beden_kalip, kargo_teslimat) ikililerine dağıtılır.
+
+EK_ILK_ID = 4001
+EK_PARTI_SAYISI = 15
+EK_ILK_PARTI_NO = 21
+EK_KUTUPHANE_PARTILERI_YOLU = (
+    Path(__file__).resolve().parent / "kutuphane_ek_partileri.json"
+)
+
+# (kategori_grubu, puan) -> slot sayısı (toplam 3.000)
+EK_GRUP_PUAN: dict[tuple[str, int], int] = {
+    ("Alt Giyim", 1): 57, ("Alt Giyim", 2): 61, ("Alt Giyim", 3): 78,
+    ("Alt Giyim", 4): 101, ("Alt Giyim", 5): 594,
+    ("Dış Giyim", 2): 1, ("Dış Giyim", 3): 1,
+    ("Elbise & Tulum", 4): 3, ("Elbise & Tulum", 5): 31,
+    ("Üst Giyim", 1): 133, ("Üst Giyim", 2): 139, ("Üst Giyim", 3): 134,
+    ("Üst Giyim", 4): 246, ("Üst Giyim", 5): 1421,
+}
+# konu kümesi -> slot sayısı; yalnız genel_begeni <= 500 (EK_GENEL_BEGENI_UST)
+EK_GENEL_BEGENI_UST = 500
+# Önerideki 1.198 yalnız-genel_begeni slotundan 698'i ikili kümelere dağıtılır
+# (kumas_kalite en büyük pay); öneride zaten olan kümeler aynen kalır.
+EK_GENEL_BEGENI_DAGITIMI: dict[str, int] = {
+    "kumas_kalite": 278, "renk": 140, "beden_kalip": 140, "kargo_teslimat": 140,
+}
+EK_KONU_KUMELERI: list[tuple[tuple[str, ...], int]] = [
+    (("genel_begeni",), EK_GENEL_BEGENI_UST),
+    (("genel_begeni", "kumas_kalite"), EK_GENEL_BEGENI_DAGITIMI["kumas_kalite"]),
+    (("genel_begeni", "renk"), 400 + EK_GENEL_BEGENI_DAGITIMI["renk"]),
+    (("genel_begeni", "beden_kalip"), 399 + EK_GENEL_BEGENI_DAGITIMI["beden_kalip"]),
+    (("genel_begeni", "kargo_teslimat"), EK_GENEL_BEGENI_DAGITIMI["kargo_teslimat"]),
+    (("genel_begeni", "fiyat_deger"), 399),
+    (("kumas_kalite",), 259),
+    (("kumas_kalite", "genel_begeni"), 110),
+    (("beden_kalip", "iade_sureci"), 90),
+    (("kargo_teslimat",), 89),
+    (("beden_kalip",), 56),
+]
+EK_USLUP_SAYILARI: dict[str, int] = {
+    "kisa": 1050, "duz": 750, "uzun": 450, "yazim_hatali": 450,
+    "ignelemeli": 150, "celiskili": 150,
+}
+EK_YER_TUTUCU_SAYILARI: dict[tuple[str, ...], int] = {
+    (): 2400, ("renk",): 276, ("renk", "beden"): 162, ("beden",): 162,
+}
+# (kategori_grubu, alt kategori | None = genel) -> slot sayısı
+EK_ALT_KATEGORI_HEDEFI: dict[tuple[str, str | None], int] = {
+    ("Alt Giyim", None): 533, ("Alt Giyim", "Etek"): 12,
+    ("Alt Giyim", "Jean"): 225, ("Alt Giyim", "Pantolon"): 77,
+    ("Alt Giyim", "Şort"): 44,
+    ("Dış Giyim", None): 2,
+    ("Elbise & Tulum", None): 21, ("Elbise & Tulum", "Elbise"): 8,
+    ("Elbise & Tulum", "Tulum"): 5,
+    ("Üst Giyim", None): 1245, ("Üst Giyim", "Bluz"): 91,
+    ("Üst Giyim", "Gömlek"): 247, ("Üst Giyim", "Kazak"): 56,
+    ("Üst Giyim", "Sweatshirt"): 159, ("Üst Giyim", "Tişört"): 275,
+}
+
+
+def _sayilardan_dizi(sayilar: dict, rng: np.random.Generator) -> list:
+    dizi: list = []
+    for k, c in sayilar.items():
+        dizi.extend([k] * c)
+    rng.shuffle(dizi)
+    return dizi
+
+
+def ek_parti_tanimlari() -> list[dict]:
+    """15 × 200 = 3.000 ek slot (id Y4001–Y7000, parti_no 21–35).
+
+    Hedef sayılar modül sabitlerindedir (`EK_*`); her boyut (grup×puan,
+    konu kümesi, üslup, yer tutucu) kendi bağımsız `CRM_TOHUM` akışıyla
+    karıştırılır, yani sonuç deterministiktir. `duygu` `_puan_duygu`dan
+    gelir. Her slotta yazara yol gösteren `alt_kategori_hedef` vardır
+    (belirli alt kategori ya da None = genel); bu alan kütüphane kaydına
+    girmez.
+    """
+    toplam = EK_PARTI_SAYISI * 200
+    ana_ss = np.random.SeedSequence(CRM_TOHUM, spawn_key=(91,))
+    (gp_ss, konu_ss, uslup_ss, yer_ss, alt_ss) = ana_ss.spawn(5)
+
+    grup_puan = _sayilardan_dizi(EK_GRUP_PUAN, np.random.default_rng(gp_ss))
+    konu_kumeleri = _sayilardan_dizi(
+        {kume: c for kume, c in EK_KONU_KUMELERI}, np.random.default_rng(konu_ss),
+    )
+    usluplar = _sayilardan_dizi(EK_USLUP_SAYILARI, np.random.default_rng(uslup_ss))
+    yer_tutucular = _sayilardan_dizi(
+        EK_YER_TUTUCU_SAYILARI, np.random.default_rng(yer_ss),
+    )
+    rng_alt = np.random.default_rng(alt_ss)
+    alt_hedefleri: dict[str, list] = {}
+    for kat in KATEGORI_GRUPLARI:
+        alt_hedefleri[kat] = _sayilardan_dizi(
+            {alt: c for (g, alt), c in EK_ALT_KATEGORI_HEDEFI.items() if g == kat},
+            rng_alt,
+        )
+    alt_sayac = {kat: 0 for kat in KATEGORI_GRUPLARI}
+
+    slotlar = []
+    for i in range(toplam):
+        kat, puan = grup_puan[i]
+        uslup = usluplar[i]
+        konular = list(konu_kumeleri[i])
+        yer_tutucu = list(yer_tutucular[i])
+        if kat == AKSESUAR_GRUBU:
+            konular = [k for k in konular if _konu_uygulanabilir_mi(kat, k)]
+            yer_tutucu = [y for y in yer_tutucu if y != AKSESUAR_YASAK_YER_TUTUCU]
+        alt = alt_hedefleri[kat][alt_sayac[kat]]
+        alt_sayac[kat] += 1
+        slotlar.append({
+            "id": f"Y{EK_ILK_ID + i:04d}",
+            "kategori_grubu": kat,
+            "puan": int(puan),
+            "duygu": _puan_duygu(int(puan), uslup),
+            "konular": konular,
+            "uslup": uslup,
+            "yer_tutucu": yer_tutucu,
+            "alt_kategori_hedef": alt,
+        })
+
+    return [
+        {"parti_no": EK_ILK_PARTI_NO + p, "slotlar": slotlar[p * 200:(p + 1) * 200]}
+        for p in range(EK_PARTI_SAYISI)
+    ]
+
+
+def ek_parti_dosyasi_yaz(
+    partiler: list[dict] | None = None, yol: str | Path | None = None,
+) -> Path:
+    """`ek_parti_tanimlari()` sonucunu `kutuphane_ek_partileri.json` olarak yazar."""
+    if partiler is None:
+        partiler = ek_parti_tanimlari()
+    hedef = Path(yol) if yol is not None else EK_KUTUPHANE_PARTILERI_YOLU
+    hedef.write_text(json.dumps(partiler, ensure_ascii=False, indent=2), encoding="utf-8")
+    return hedef
+
+
+@functools.lru_cache(maxsize=1)
+def _slot_haritasi() -> dict[str, dict]:
+    """id -> slot (ana 4.000 + ek 3.000 slot dosyası)."""
+    harita: dict[str, dict] = {}
+    for kaynak in (parti_tanimlari(), ek_parti_tanimlari()):
+        for parti in kaynak:
+            for slot in parti["slotlar"]:
+                harita[slot["id"]] = slot
+    return harita
+
+
+# ---------------------------------------------------------------------------
 # Denetim
 # ---------------------------------------------------------------------------
 
@@ -691,17 +847,38 @@ def denetle(yol_veya_liste, tam_esik: int = 1000) -> dict:
                 )
 
     if n >= tam_esik:
+        # Beklenen dağılımlar: kayıtların hepsi bilinen bir slota (ana ya da ek
+        # slot dosyası) ait ise hedefler o slotların gerçek dağılımından
+        # türetilir (7.000'lik birleşik kütüphane ana 4.000 oranlarından
+        # farklıdır); aksi halde (bilinmeyen id'li deneme girdisi) sabit oran
+        # hedefleri kullanılır.
+        harita = _slot_haritasi()
+        slotlar = [harita.get(k.get("id")) for k in kayitlar]
+        slot_bilinir = all(sl is not None for sl in slotlar)
+        if slot_bilinir:
+            puan_beklenen = Counter(sl["puan"] for sl in slotlar)
+            uslup_beklenen = Counter(sl["uslup"] for sl in slotlar)
+            slot_cift: Counter | None = Counter()
+            for sl in slotlar:
+                for konu in sl["konular"]:
+                    slot_cift[(sl["kategori_grubu"], konu)] += 1
+        else:
+            puan_beklenen = {p: o * n for p, o in PUAN_ORANI.items()}
+            uslup_beklenen = {u: o * n for u, o in USLUP_ORANI.items()}
+            slot_cift = None
+        olcumler["beklenen_kaynak"] = "slot" if slot_bilinir else "sabit_oran"
+
         puan_sayim = Counter(k.get("puan") for k in kayitlar)
-        for puan, oran in PUAN_ORANI.items():
-            beklenen = oran * n
+        for puan in PUAN_ORANI:
+            beklenen = puan_beklenen.get(puan, 0)
             gercek = puan_sayim.get(puan, 0)
             if beklenen > 0 and abs(gercek - beklenen) / beklenen > DENGE_TOLERANSI:
                 hatalar.append(
                     f"puan {puan} dagilimi hedeften sapiyor: {gercek} (beklenen ~{beklenen:.0f})"
                 )
         uslup_sayim = Counter(k.get("uslup") for k in kayitlar)
-        for uslup, oran in USLUP_ORANI.items():
-            beklenen = oran * n
+        for uslup in USLUP_ORANI:
+            beklenen = uslup_beklenen.get(uslup, 0)
             gercek = uslup_sayim.get(uslup, 0)
             if beklenen > 0 and abs(gercek - beklenen) / beklenen > DENGE_TOLERANSI:
                 hatalar.append(
@@ -715,10 +892,13 @@ def denetle(yol_veya_liste, tam_esik: int = 1000) -> dict:
         for kategori in KATEGORI_GRUPLARI:
             for konu in _uygulanabilir_konular(kategori):
                 sayi = cift_sayim.get((kategori, konu), 0)
-                if sayi < MIN_KATEGORI_KONU:
+                asgari = MIN_KATEGORI_KONU
+                if slot_cift is not None:
+                    asgari = min(MIN_KATEGORI_KONU, slot_cift.get((kategori, konu), 0))
+                if sayi < asgari:
                     hatalar.append(
                         f"({kategori}, {konu}) cifti icin yalniz {sayi} yorum"
-                        f" (< {MIN_KATEGORI_KONU})"
+                        f" (< {asgari})"
                     )
 
         olcumler["puan_dagilimi"] = dict(puan_sayim)
@@ -796,4 +976,12 @@ Uymanız gereken kurallar:
 11. Renk adı yok: gerçek renk adı verme (siyah, haki, bej, lacivert, sarı...).
    Renk ya `{renk}` yer tutucusuyla anılır ya da adı verilmeden ("rengi",
    "tonu") söylenir.
+12. Fiyat/değer: `fiyat_deger` konulu slotlarda ürünün indirimle, kampanyayla
+   ya da yarı fiyatına alındığını söyleme (indirim anlatan metin yalnız
+   indirimli satırlara atanabildiği için kullanılmaz kalır). Fiyatı ödenen
+   bedele göre değerlendir: "bu fiyata değer", "pahalı", "uygun" gibi.
+13. Ek parti slotlarında (Y4001–Y7000) `alt_kategori_hedef` alanı yol
+   göstericidir: belirli bir alt kategoriyse metin o ürün türünü anar ve
+   `alt_kategori` buna göre doldurulur; null ise ürün türü anılmaz
+   (`alt_kategori` null). Bu alan kütüphane kaydına yazılmaz.
 """
