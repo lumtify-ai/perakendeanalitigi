@@ -164,6 +164,8 @@ def _kayit(**over):
         "yer_tutucu": [],
         "uslup": "duz",
         "alt_kategori": None,
+        "cinsiyet_ipucu": None,
+        "yas_ipucu": None,
     }
     temel.update(over)
     return temel
@@ -606,33 +608,54 @@ def test_denetle_beden_yer_tutucusu_etiket_sayilmaz():
 # Görev 11: depodaki dolu kütüphane
 # ---------------------------------------------------------------------------
 
-def test_depodaki_yorum_kutuphanesi_gecerli_ve_slotlarla_birebir(slotlar):
+def test_depodaki_yorum_kutuphanesi_gecerli_ve_slotlarla_birebir(slotlar, ek_slotlar):
     from pathlib import Path
 
     from perakende_veri.v4 import sabitler as a_sabitler
     from perakende_veri.v4.crm import kutuphane
+    from perakende_veri.v4.crm.sabitler import CINSIYETLER, YAS_GRUPLARI
 
     yol = Path(kutuphane.__file__).resolve().parent / "yorum_kutuphanesi.jsonl"
     with open(yol, encoding="utf-8") as f:
         kayitlar = [json.loads(s) for s in f if s.strip()]
 
-    # (a) 4000 kayıt
-    assert len(kayitlar) == 4000
+    # (a) 7000 kayıt (ana 4.000 + ek 3.000), anahtar sırası sabit
+    assert len(kayitlar) == 7000
+    sira = ["id", "kategori_grubu", "alt_kategori", "cinsiyet_ipucu", "yas_ipucu",
+            "puan", "duygu", "konular", "uslup", "yer_tutucu", "metin"]
+    assert all(list(k) == sira for k in kayitlar)
 
     # (b) denetle, varsayılan tam_esik ile (denge + kapsama dahil) geçerli
     sonuc = denetle(kayitlar)
     assert sonuc["gecerli"] is True, sonuc["hatalar"][:10]
+    assert sonuc["olcumler"]["slot_tamlik"] == {"kayit": 7000, "slot": 7000}
 
-    # (c) etiket alanları parti_tanimlari() slotlarıyla birebir
-    assert [k["id"] for k in kayitlar] == [s["id"] for s in slotlar]
-    for kayit, slot in zip(kayitlar, slotlar):
+    # (c) etiket alanları ana + ek slotlarla birebir
+    tum_slotlar = slotlar + ek_slotlar
+    assert [k["id"] for k in kayitlar] == [s["id"] for s in tum_slotlar]
+    for kayit, slot in zip(kayitlar, tum_slotlar):
         for alan, deger in slot.items():
+            if alan == "alt_kategori_hedef":
+                continue
             assert kayit[alan] == deger, (kayit["id"], alan)
 
-    # (d) alt_kategori null ya da kayıt grubunun alt kategorisi
+    # (d) alt_kategori null ya da kayıt grubunun alt kategorisi; ek slotlarda
+    # alt_kategori_hedef'e eşit
     for kayit in kayitlar:
         alt = kayit["alt_kategori"]
         assert alt is None or alt in a_sabitler.KATEGORILER[kayit["kategori_grubu"]], kayit["id"]
+    for kayit, slot in zip(kayitlar[4000:], ek_slotlar):
+        assert kayit["alt_kategori"] == slot["alt_kategori_hedef"], kayit["id"]
+
+    # (e) demografik ipuçları geçerli ve bir kısmı dolu
+    for kayit in kayitlar:
+        assert kayit["cinsiyet_ipucu"] in (None, *CINSIYETLER), kayit["id"]
+        yas = kayit["yas_ipucu"]
+        assert yas is None or (
+            yas and len(set(yas)) == len(yas) and set(yas) <= set(YAS_GRUPLARI)
+        ), kayit["id"]
+    assert sum(k["cinsiyet_ipucu"] is not None for k in kayitlar) > 0
+    assert sum(k["yas_ipucu"] is not None for k in kayitlar) > 0
 
 
 # ---------------------------------------------------------------------------
@@ -831,6 +854,7 @@ def _slot_kayitlari(slotlar):
             "id": s["id"], "kategori_grubu": s["kategori_grubu"], "puan": s["puan"],
             "duygu": s["duygu"], "konular": list(s["konular"]), "uslup": s["uslup"],
             "yer_tutucu": list(s["yer_tutucu"]), "metin": metin, "alt_kategori": None,
+            "cinsiyet_ipucu": None, "yas_ipucu": None,
         })
     return kayitlar
 
@@ -932,3 +956,55 @@ def test_denetle_kismi_parti_yolu_degismez(slotlar):
     sonuc = denetle(kayitlar)
     assert sonuc["gecerli"] is True, sonuc["hatalar"]
     assert "slot_tamlik" not in sonuc["olcumler"]
+
+
+# ---------------------------------------------------------------------------
+# Görev 11d: demografik ipuçları (cinsiyet_ipucu, yas_ipucu)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("alan", ["cinsiyet_ipucu", "yas_ipucu"])
+def test_ipucu_alanlari_zorunlu_anahtar(alan):
+    kayit = _kayit()
+    del kayit[alan]
+    sonuc = denetle([kayit])
+    assert any("eksik alan" in h and alan in h for h in sonuc["hatalar"])
+
+
+@pytest.mark.parametrize("cins, yas", [
+    (None, None), ("Kadın", None), ("Erkek", ["55+"]),
+    (None, ["18-24"]), (None, ["45-54", "55+"]),
+    ("Kadın", ["25-34", "35-44", "45-54"]),
+])
+def test_ipucu_gecerli_degerler_kabul(cins, yas):
+    kayitlar = _cesitli_gecerli_kayitlar(10)
+    kayitlar[4].update(cinsiyet_ipucu=cins, yas_ipucu=yas)
+    sonuc = denetle(kayitlar)
+    assert sonuc["gecerli"] is True, sonuc["hatalar"]
+
+
+@pytest.mark.parametrize("cins", ["K", "kadın", "Unisex", "", 0, ["Kadın"]])
+def test_gecersiz_cinsiyet_ipucu_hata_id_ile(cins):
+    kayitlar = _cesitli_gecerli_kayitlar(10)
+    kayitlar[3].update(cinsiyet_ipucu=cins)
+    sonuc = denetle(kayitlar)
+    assert sonuc["gecerli"] is False
+    assert any("cinsiyet_ipucu" in h and "Y0004" in h for h in sonuc["hatalar"])
+
+
+@pytest.mark.parametrize("yas", [
+    [], "55+", ["55"], ["18-24", "18-24"], ["65+"], [None], ("55+",), [55],
+])
+def test_gecersiz_yas_ipucu_hata_id_ile(yas):
+    kayitlar = _cesitli_gecerli_kayitlar(10)
+    kayitlar[7].update(yas_ipucu=yas)
+    sonuc = denetle(kayitlar)
+    assert sonuc["gecerli"] is False
+    assert any("yas_ipucu" in h and "Y0008" in h for h in sonuc["hatalar"])
+
+
+def test_ipucu_sozlukleri_crm_sabitleriyle_ayni():
+    from perakende_veri.v4.crm import kutuphane
+    from perakende_veri.v4.crm.sabitler import CINSIYETLER, YAS_GRUPLARI
+
+    assert kutuphane.IPUCU_CINSIYETLER == CINSIYETLER
+    assert kutuphane.IPUCU_YAS_GRUPLARI == YAS_GRUPLARI

@@ -19,7 +19,14 @@ Kayıt şeması (JSONL satırı, Görev 11 çıktısı):
      "duygu": "olumlu"|"olumsuz"|"karisik", "konular": [...],
      "metin": "...", "yer_tutucu": ["renk"|"beden", ...],
      "alt_kategori": null | "Çanta" | "Jean" | ... (A'nın alt kategorisi),
-     "uslup": "kisa"|"uzun"|"yazim_hatali"|"ignelemeli"|"celiskili"|"duz"}
+     "uslup": "kisa"|"uzun"|"yazim_hatali"|"ignelemeli"|"celiskili"|"duz",
+     "cinsiyet_ipucu": null | "Kadın" | "Erkek",
+     "yas_ipucu": null | ["18-24", ...] (crm YAS_GRUPLARI alt kümesi)}
+
+`cinsiyet_ipucu` / `yas_ipucu` gizli demografik ipuçlarıdır (Görev 11d): metin
+yazarın cinsiyetini ("kocama aldım", "hanımım") ya da yaş grubunu
+("emekliyim", "torunum", "yurtta") açıkça ele veriyorsa doludur; yorum
+müşteriye bağlanırken bunlarla çelişmemelidir.
 
 `duygu`, metnin gerçek duygusunu etiketler (yıldız puanını değil): puan
 4–5 → "olumlu", puan 1–2 → "olumsuz", puan 3 → her zaman "karisik".
@@ -42,7 +49,7 @@ from pathlib import Path
 import numpy as np
 
 from .. import sabitler as _a_sabitler
-from .sabitler import CRM_TOHUM
+from .sabitler import CINSIYETLER, CRM_TOHUM, YAS_GRUPLARI
 
 # ---------------------------------------------------------------------------
 # Şema sözlükleri
@@ -65,8 +72,16 @@ AKSESUAR_YASAK_YER_TUTUCU = "beden"
 
 REQUIRED_ALANLAR = {
     "id", "kategori_grubu", "puan", "duygu", "konular", "metin",
-    "yer_tutucu", "uslup", "alt_kategori",
+    "yer_tutucu", "uslup", "alt_kategori", "cinsiyet_ipucu", "yas_ipucu",
 }
+
+# Gizli demografik ipuçları (Görev 11d): metin yazarın cinsiyetini ya da yaş
+# grubunu ele veriyorsa ("kocama aldım", "emekliyim", "yurtta"), yorum bu
+# değerlerle çelişmeyen bir müşteriye bağlanmalı. `cinsiyet_ipucu`: null ya
+# da `CINSIYETLER`'den biri; `yas_ipucu`: null (kısıt yok) ya da metnin
+# uyduğu `YAS_GRUPLARI` değerlerinin boş olmayan, tekrarsız listesi.
+IPUCU_CINSIYETLER: list[str] = list(CINSIYETLER)
+IPUCU_YAS_GRUPLARI: list[str] = list(YAS_GRUPLARI)
 
 # ---------------------------------------------------------------------------
 # Hedef dağılımlar (Görev 10 brief'i)
@@ -764,6 +779,17 @@ def denetle(yol_veya_liste, tam_esik: int = 1000) -> dict:
                 f"kayit {ad}: alt_kategori {alt!r} kategori_grubu {kategori!r}"
                 " icinde degil"
             )
+
+        cins_ip = k["cinsiyet_ipucu"]
+        if cins_ip is not None and cins_ip not in IPUCU_CINSIYETLER:
+            hatalar.append(f"kayit {ad}: gecersiz cinsiyet_ipucu {cins_ip!r}")
+        yas_ip = k["yas_ipucu"]
+        if yas_ip is not None and (
+            not isinstance(yas_ip, list) or not yas_ip
+            or any(not isinstance(y, str) or y not in IPUCU_YAS_GRUPLARI for y in yas_ip)
+            or len(set(yas_ip)) != len(yas_ip)
+        ):
+            hatalar.append(f"kayit {ad}: gecersiz yas_ipucu {yas_ip!r}")
 
         if isinstance(k.get("metin"), str):
             renkler = renk_adlari_bul(k["metin"])
