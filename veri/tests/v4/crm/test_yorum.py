@@ -244,3 +244,14 @@ def test_temel_olasilik_kapasiteye_gore_kuculur():
     t = temel_olasilik(cok)
     assert t < TEMEL_OLASILIK
     assert t * cok.sum() == pytest.approx(HEDEF_YORUM_UST)
+
+
+def test_hatali_tedarikci_ust_ceyrek(sonuc, kucuk_girdi):
+    from perakende_veri.v4.crm.yorum import KALITE_ESIK_CEYREK
+
+    w = kucuk_girdi.dunya
+    h = w.gizli_tedarikci["hatali_orani"]
+    ust = set(w.gizli_tedarikci.loc[h > h.quantile(KALITE_ESIK_CEYREK), "tedarikci_id"])
+    assert 0 < len(ust) <= len(h) // 4 + 1
+    tid = w.urunler["tedarikci_id"].to_numpy()[sonuc.aday["sku"].to_numpy()]
+    assert (sonuc.aday["hatali_tedarikci"].to_numpy() == np.isin(tid, list(ust))).all()

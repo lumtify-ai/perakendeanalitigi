@@ -7,7 +7,9 @@ kütüphane kapasitesini tüketmesinler diye aday değildir.
 **Kim yazar.** Satır başına olasılık `TEMEL_OLASILIK` × etkin nedenlerin
 çarpanı (`CARPANLAR`). Gizli nedenler (satır bayrakları):
 
-    kalite  ürünün tedarikçisinin `hatali_orani` > tedarikçi medyanı   ×1,5
+    kalite  tedarikçinin `hatali_orani` tedarikçilerin üst çeyreğinde     ×1,5
+            (> `KALITE_ESIK_CEYREK` = 0,75 çeyreği; kontrolcü kararı: medyan
+            satırların ~%54'ünü işaretliyor, olumsuz yorum payını şişiriyordu)
     beden   satır beden uyumsuz (`beden_uyumsuz_adet` > 0; Aksesuar yok) ×2
     kargo   teslimat gecikti (Görev 8, `kargo_tablosu` `gecikme`)        ×1,8
     fiyat   satırın indirim oranı ≥ %50                                    ×1,2
@@ -87,12 +89,14 @@ NEDEN_KONUSU = {"kalite": "kumas_kalite", "beden": "beden_kalip", "kargo": "karg
 OLUMSUZ_NEDENLER = ("kalite", "beden", "kargo")
 DERIN_INDIRIM = 0.50
 AZAMI_KULLANIM = 25
+# Hatalı tedarikçi eşiği: tedarikçi `hatali_orani` dağılımının bu çeyreği.
+KALITE_ESIK_CEYREK = 0.75
 # Beklenen yazar sayısının üst sınırı (temel olasılık bunu aşmayacak kadar
-# küçülür). 4.000 × 25 = 100 bin kapasitenin kategori/alt kategori/konu/puan
-# kısıtlarıyla kullanılabilen kısmı çok daha azdır: TAM'da talebin %62'si Üst
-# Giyim, kütüphanenin %20'si. 30 bin'de kapasiteden düşen pay ~%3, hatalı
-# tedarikçi kalite sinyali > 2×; 50 bin'de düşen %22, sinyal 1,7×. KALİBRASYON
-HEDEF_YORUM_UST = 30_000
+# küçülür). Kontrolcü kararı: hacim hedefi 60–80 bin yorum (TAM'da oran
+# ~%1–1,3; spec'in %4–8 bandı 6,4 M online satırda kütüphaneyle
+# karşılanamaz). 4.000 metinlik kütüphane bu hacmi taşımaz (talebin %62'si
+# Üst Giyim, kütüphanenin %20'si); kütüphane 3.000 metinle genişletilecek.
+HEDEF_YORUM_UST = 75_000
 TARIH_EK_ALT, TARIH_EK_UST = 1, 10          # teslimattan sonra, ikisi de dahil
 BEDENSIZ_ETIKET = "STD"
 AKSESUAR_GRUBU = "Aksesuar"
@@ -227,8 +231,8 @@ def bayraklari_ekle(a: pd.DataFrame, u: pd.DataFrame, gted: pd.DataFrame) -> pd.
     a = a.copy()
     sku = a["sku"].to_numpy(dtype=np.int64)
     hatali = gted.set_index("tedarikci_id")["hatali_orani"]
-    medyan = float(gted["hatali_orani"].median())
-    sku_hatali = hatali.reindex(u["tedarikci_id"]).to_numpy(dtype=float) > medyan
+    esik = float(gted["hatali_orani"].quantile(KALITE_ESIK_CEYREK))
+    sku_hatali = hatali.reindex(u["tedarikci_id"]).to_numpy(dtype=float) > esik
     a["hatali_tedarikci"] = sku_hatali[sku]
     liste = u["liste_fiyati"].to_numpy(dtype=float)[sku] * a["adet"].to_numpy()
     oran = a["indirim_tutari"].to_numpy(dtype=float) / liste
@@ -320,6 +324,7 @@ class YorumSonucu:
     aday_sayisi: int
     yazar_sayisi: int
     temel: float
+    yazarlar: pd.DataFrame      # yazar başına: satir_id, nedenler, hedef_puan, tarihte, gevseme (−1 düştü)
     dusen_tarih: int
     dusen_kapasite: int
     gevseme_sayilari: list[int]
@@ -474,7 +479,12 @@ def yorumlari_ata(rng, a: pd.DataFrame, u_df: pd.DataFrame, kutuphane: pd.DataFr
     gizli.insert(0, "yorum_id", yorum["yorum_id"].to_numpy())
 
     sayilar = np.bincount(basamak[v], minlength=len(GEVSEME_BASAMAKLARI)).tolist()
+    yazarlar = pd.DataFrame({
+        "satir_id": a["satir_id"].to_numpy()[yazar], "nedenler": neden_adi[neden_kod],
+        "hedef_puan": puan.astype(np.int8), "tarihte": tarihte, "gevseme": basamak.astype(np.int8),
+    })
     return YorumSonucu(yorum=yorum, gizli=gizli, aday=a, aday_sayisi=N, yazar_sayisi=Y, temel=temel,
+                       yazarlar=yazarlar,
                        dusen_tarih=dusen_tarih, dusen_kapasite=dusen_kapasite, gevseme_sayilari=sayilar)
 
 
