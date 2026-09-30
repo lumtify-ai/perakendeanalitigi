@@ -602,6 +602,14 @@ def _slot_haritasi() -> dict[str, dict]:
     return harita
 
 
+def _slot_dosyasi_boyutu(slot_id: str) -> tuple[str, int]:
+    """Slot id'nin ait olduğu dosya (ana/ek) ve o dosyadaki slot sayısı."""
+    numara = int(slot_id[1:])
+    if numara >= EK_ILK_ID:
+        return "ek", EK_PARTI_SAYISI * 200
+    return "ana", 20 * 200
+
+
 # ---------------------------------------------------------------------------
 # Denetim
 # ---------------------------------------------------------------------------
@@ -853,9 +861,33 @@ def denetle(yol_veya_liste, tam_esik: int = 1000) -> dict:
         # farklıdır); aksi halde (bilinmeyen id'li deneme girdisi) sabit oran
         # hedefleri kullanılır.
         harita = _slot_haritasi()
-        slotlar = [harita.get(k.get("id")) for k in kayitlar]
+        slotlar = [
+            harita.get(k["id"]) if isinstance(k.get("id"), str) else None
+            for k in kayitlar
+        ]
         slot_bilinir = all(sl is not None for sl in slotlar)
+        bilinmeyen = [k.get("id") for k, sl in zip(kayitlar, slotlar) if sl is None]
+        if bilinmeyen:
+            hatalar.append(
+                f"{len(bilinmeyen)} kayit bilinmeyen id"
+                f" (ilk birkaci: {bilinmeyen[:5]!r}); dagilim hedefleri"
+                " sabit oranlara dustu"
+            )
         if slot_bilinir:
+            # kayit-slot esitligi: etiketler kayitin kendi slotuyla ayni olmali
+            for k, sl in zip(kayitlar, slotlar):
+                for alan in ("kategori_grubu", "puan", "duygu", "konular",
+                             "uslup", "yer_tutucu"):
+                    if k.get(alan) != sl[alan]:
+                        hatalar.append(
+                            f"kayit {k.get('id')}: {alan} slotla ayni degil"
+                            f" ({k.get(alan)!r} != {sl[alan]!r})"
+                        )
+            dosyalar = {_slot_dosyasi_boyutu(sl["id"]) for sl in slotlar}
+            olcumler["slot_tamlik"] = {
+                "kayit": len({sl["id"] for sl in slotlar}),
+                "slot": sum(b for _, b in dosyalar),
+            }
             puan_beklenen = Counter(sl["puan"] for sl in slotlar)
             uslup_beklenen = Counter(sl["uslup"] for sl in slotlar)
             slot_cift: Counter | None = Counter()

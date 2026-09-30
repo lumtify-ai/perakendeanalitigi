@@ -891,3 +891,44 @@ def test_denetle_bilinmeyen_id_sabit_orana_duser():
 def test_yonerge_fiyat_deger_indirim_yasagi():
     assert "indirim" in YAZAR_YONERGESI and "kampanya" in YAZAR_YONERGESI
     assert "alt_kategori_hedef" in YAZAR_YONERGESI
+
+
+# ---------------------------------------------------------------------------
+# Görev 11c düzeltme turu 1: bilinmeyen id ve kayıt-slot eşitliği
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("kotu_id", ["y0001", "Y0001 ", None, "Y9999", 7])
+def test_denetle_bilinmeyen_id_acik_hata_verir(slotlar, ek_slotlar, kotu_id):
+    kayitlar = _slot_kayitlari(slotlar + ek_slotlar)
+    kayitlar[10]["id"] = kotu_id
+    sonuc = denetle(kayitlar)
+    assert any("1 kayit bilinmeyen id" in h for h in sonuc["hatalar"]), sonuc["hatalar"][:5]
+    assert sonuc["olcumler"]["beklenen_kaynak"] == "sabit_oran"
+
+
+def test_denetle_kayit_slot_esitligi_yakalar_id_ile(slotlar, ek_slotlar):
+    kayitlar = _slot_kayitlari(slotlar + ek_slotlar)
+    assert not any("slotla ayni degil" in h for h in denetle(kayitlar)["hatalar"])
+    kayitlar[5000]["konular"] = ["iade_sureci"]
+    kayitlar[10]["yer_tutucu"] = ["renk"] if kayitlar[10]["yer_tutucu"] != ["renk"] else []
+    hatalar = denetle(kayitlar)["hatalar"]
+    assert any(f"kayit {kayitlar[5000]['id']}: konular slotla ayni degil" in h for h in hatalar)
+    assert any(f"kayit {kayitlar[10]['id']}: yer_tutucu slotla ayni degil" in h for h in hatalar)
+
+
+def test_denetle_slot_tamlik_olcumu(slotlar, ek_slotlar):
+    tam = denetle(_slot_kayitlari(slotlar + ek_slotlar))
+    assert tam["olcumler"]["slot_tamlik"] == {"kayit": 7000, "slot": 7000}
+    ana = denetle(_slot_kayitlari(slotlar))
+    assert ana["olcumler"]["slot_tamlik"] == {"kayit": 4000, "slot": 4000}
+    eksik = denetle(_slot_kayitlari(slotlar + ek_slotlar)[:6000])
+    assert eksik["olcumler"]["slot_tamlik"] == {"kayit": 6000, "slot": 7000}
+
+
+def test_denetle_kismi_parti_yolu_degismez(slotlar):
+    """tam_esik altı: bilinmeyen id / slot eşitliği denetimi çalışmaz."""
+    kayitlar = _cesitli_gecerli_kayitlar(30)
+    kayitlar[0]["id"] = "zzz"
+    sonuc = denetle(kayitlar)
+    assert sonuc["gecerli"] is True, sonuc["hatalar"]
+    assert "slot_tamlik" not in sonuc["olcumler"]
