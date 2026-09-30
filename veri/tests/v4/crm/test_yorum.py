@@ -84,9 +84,9 @@ def test_oran_kucukte_bantta(sonuc):
 
 
 def test_ortalama_puan_kucukte(sonuc):
-    # Spec bandı 4,0–4,4; brief'in neden çarpanlarıyla ulaşılamıyor (rapor),
-    # burada yalnız akıl sağlığı sınırı.
-    assert 3.7 <= sonuc.yorum["puan"].mean() <= 4.6
+    # Spec bandı 4,0–4,4 (Görev 12b: 7.000 metin, hediye süzgeci; KUCUK 5
+    # tohumda 4,01–4,04).
+    assert 4.0 <= sonuc.yorum["puan"].mean() <= 4.4
 
 
 def test_puan_nedenden(birlesik):
@@ -267,6 +267,102 @@ def test_aday_satirlari_kargo_verilince_ayni(kucuk_girdi, kucuk_crm, sonuc):
 
     a = aday_satirlari(kucuk_crm, kucuk_girdi, kargo=kargo_tablosu(kucuk_crm, kucuk_girdi))
     pd.testing.assert_frame_equal(a, sonuc.aday)
+
+
+# ---------------------------------------------------------------------------
+# Demografi (Görev 12b)
+# ---------------------------------------------------------------------------
+
+
+def test_hediye_satiri_yorum_yazmaz(sonuc, kucuk_girdi, kucuk_crm):
+    """Müşteri ≠ ürün cinsiyeti (Unisex ve Aksesuar hariç) hediye sayılır ve
+    yorum almaz."""
+    from perakende_veri.v4.crm.sabitler import CINSIYETLER
+
+    a = sonuc.aday
+    u = kucuk_girdi.dunya.urunler
+    sku = a["sku"].to_numpy()
+    mus = a["musteri"].to_numpy()
+    assert (a["musteri_cins"].to_numpy() == kucuk_crm.nufus.cinsiyet[mus]).all()
+    assert (a["musteri_yas"].to_numpy() == kucuk_crm.nufus.yas_grubu[mus]).all()
+    uc = u["cinsiyet"].to_numpy()[sku]
+    mc = np.array(CINSIYETLER)[a["musteri_cins"].to_numpy()]
+    aks = u["ust_kategori"].to_numpy()[sku] == "Aksesuar"
+    beklenen = (uc != "Unisex") & ~aks & (mc != uc)
+    assert (a["hediye"].to_numpy() == beklenen).all()
+    assert 0.03 < a["hediye"].mean() < 0.30, a["hediye"].mean()
+    yazilan = a.set_index("satir_id").loc[sonuc.yorum["fis_satir_id"], "hediye"]
+    assert not yazilan.any()
+
+
+def test_musteri_ve_urun_cinsiyeti_esit(birlesik, kucuk_crm, kucuk_girdi):
+    from perakende_veri.v4.crm.sabitler import CINSIYETLER
+
+    u = kucuk_girdi.dunya.urunler
+    sku = birlesik["sku"].to_numpy()
+    uc = u["cinsiyet"].to_numpy()[sku]
+    mc = np.array(CINSIYETLER)[kucuk_crm.nufus.cinsiyet[birlesik["musteri_id"].to_numpy()]]
+    serbest = (uc == "Unisex") | (u["ust_kategori"].to_numpy()[sku] == "Aksesuar")
+    assert (mc[~serbest] == uc[~serbest]).all()
+    assert (~serbest).sum() > 0.5 * len(birlesik)
+
+
+def test_demografik_ipucu_celismez(birlesik, kutuphane, kucuk_crm):
+    """cinsiyet_ipucu doluysa müşteri cinsiyeti, yas_ipucu doluysa müşterinin
+    yaş grubu tutar (her yorum için)."""
+    from perakende_veri.v4.crm.sabitler import CINSIYETLER, YAS_GRUPLARI
+
+    kut = kutuphane.set_index("id").loc[birlesik["kutuphane_id"]]
+    mus = birlesik["musteri_id"].to_numpy()
+    mc = np.array(CINSIYETLER)[kucuk_crm.nufus.cinsiyet[mus]]
+    my = np.array(YAS_GRUPLARI)[kucuk_crm.nufus.yas_grubu[mus]]
+    kullanilan = 0
+    for ci, yi, c, y in zip(kut["cinsiyet_ipucu"], kut["yas_ipucu"], mc, my):
+        if isinstance(ci, str):
+            assert ci == c
+            kullanilan += 1
+        if isinstance(yi, list):
+            assert y in yi
+            kullanilan += 1
+    assert kullanilan > 0
+
+
+def _sentetik(n, cins, yas, kutuphane_kayitlari):
+    """Tek SKU'lu (Üst Giyim, Kadın) sentetik aday tablosu ve kütüphane."""
+    u = pd.DataFrame({"urun_id": ["U0"], "ust_kategori": ["Üst Giyim"], "alt_kategori": ["Tişört"],
+                      "beden": ["M"], "renk": ["Mavi"], "cinsiyet": ["Unisex"]})
+    a = pd.DataFrame({
+        "satir_id": np.arange(n), "fis_id": np.arange(n), "gun": np.full(n, 1100), "musteri": np.arange(n),
+        "sku": np.zeros(n, dtype=np.int64), "teslim_gun": np.full(n, 2), "iade": False,
+        "beden_uyumsuz": False, "gecikme": False, "hatali_tedarikci": False, "derin_indirim": False,
+        "indirimli": False, "musteri_cins": np.full(n, cins, dtype=np.int8),
+        "musteri_yas": np.full(n, yas, dtype=np.int8), "hediye": False,
+    })
+    taban = {"kategori_grubu": "Üst Giyim", "alt_kategori": None, "duygu": "olumlu",
+             "konular": ["genel_begeni"], "uslup": "duz", "yer_tutucu": []}
+    kut = pd.DataFrame([{**taban, **k} for k in kutuphane_kayitlari])
+    return a, u, kut
+
+
+@pytest.mark.parametrize("cins, yas, beklenen", [
+    (1, 0, {"E"}), (0, 0, {"G"}), (0, 4, {"Y"}), (1, 4, {"E", "Y"}),
+])
+def test_demografi_suzgeci_gevsemez(cins, yas, beklenen):
+    """İpucu tutmayan metin hiçbir gevşeme basamağında seçilmez."""
+    from perakende_veri.v4.crm.yorum import yorumlari_ata
+
+    kayitlar = [
+        {"id": "E", "puan": 5, "cinsiyet_ipucu": "Erkek", "yas_ipucu": None, "metin": "e"},
+        {"id": "Y", "puan": 4, "cinsiyet_ipucu": None, "yas_ipucu": ["55+"], "metin": "y"},
+        {"id": "G", "puan": 5, "cinsiyet_ipucu": None, "yas_ipucu": ["18-24"], "metin": "g"},
+    ]
+    if cins == 1:      # erkek müşteri: genç ipucu yalnız 18-24'e
+        kayitlar[2]["cinsiyet_ipucu"] = "Kadın"
+    a, u, kut = _sentetik(3000, cins, yas, kayitlar)
+    s = yorumlari_ata(np.random.default_rng(0), a, u, kut, son_gun=2000)
+    assert s.yazar_sayisi > 50
+    assert set(s.gizli["kutuphane_id"]) <= beklenen
+    assert len(s.yorum) == min(s.yazar_sayisi - s.dusen_tarih, 25 * len(beklenen))
 
 
 def test_eksik_tedarikci_sessiz_gecmez(kucuk_girdi):
