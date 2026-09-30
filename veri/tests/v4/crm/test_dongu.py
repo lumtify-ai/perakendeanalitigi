@@ -266,3 +266,22 @@ def test_satissiz_gunde_aday_yapisi_guncellenir(kucuk_girdi):
     bos = dataclasses.replace(kucuk_girdi, satis_gun=satis)
     gun_ayristir(d0 + 1, bos, nuf, tetik, kayit)
     assert kayit.durum.adaylar.K == nuf.K
+
+
+def test_musteri_urun_cinsiyet_uyumu(kucuk_girdi, kucuk_crm, fis):
+    """Görev 5b: cinsiyeti belli giyim birimlerinde çapraz (hediye) payı
+    %8–15 (kartlı); kadın müşterinin kadın ürün payı erkeğinkinden belirgin
+    yüksek; anonim (kartsız) fişlerin gizli sahipleri aynı modelle alır."""
+    from perakende_veri.v4.crm.tercih import cinsiyet_ozeti
+
+    sat = kucuk_crm.kayit.tablo("fis_satir")
+    u = kucuk_girdi.dunya.urunler
+    kartli = cinsiyet_ozeti(kucuk_crm.nufus, fis, sat, u, yalniz_kartli=True)
+    assert 0.08 <= kartli["capraz"] <= 0.15, kartli
+    assert kartli["kadin_urun_kadin"] - kartli["kadin_urun_erkek"] > 0.6, kartli
+    # aksesuarda ceza yarım: çapraz pay giyimden yüksek ama sınırlı
+    assert kartli["capraz"] < kartli["capraz_aksesuar"] < 0.35, kartli
+    # kartsız fişler (gizli sahip) aynı model
+    kartsiz = fis.assign(kart=~fis["kart"].to_numpy())
+    anonim = cinsiyet_ozeti(kucuk_crm.nufus, kartsiz, sat, u, yalniz_kartli=True)
+    assert abs(anonim["capraz"] - kartli["capraz"]) < 0.03, (anonim, kartli)

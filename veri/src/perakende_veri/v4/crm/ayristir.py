@@ -4,19 +4,26 @@ ziyaret `iade.py`'dedir (Görev 6).
 
 **Akış** (bütün mağazalar birlikte; birimler hiç açılmaz, sayımla çalışılır):
 
-1. Satış satırı = (mağaza, SKU) hattı, `c` adet. Grup = (mağaza, tip); tip
-   `tercih.tip_kodu` (alt kategori × fiyat segmenti × beden sırası; aksesuar
-   STD; 306 tip).
+1. Satış satırı = (mağaza, SKU) hattı, `c` adet. Grup = (mağaza, tip, ürün
+   cinsiyeti); tip `tercih.tip_kodu` (alt kategori × fiyat segmenti × beden
+   sırası; aksesuar STD; 306 tip), ürün cinsiyeti `tercih.urun_cinsiyet`
+   (Kadın, Erkek, Unisex; Görev 5b).
 2. Fiş sayısı `F_m = max(1, round(U_m / sepet_hedef_m), ⌈U_m / 8⌉)`
    (mağaza 2,2, ONL 1,8; Black Friday günlerinde hedef ×1,3), `F_m ≤ U_m`.
 3. Ziyaretçi: `ziyaretci.ziyaretci_sec` (artımlı aday yapısı, ağırlıkla
-   ardışık örnekleme; eksikse yeni müşteri).
+   ardışık örnekleme; eksikse yeni müşteri), mağaza başına kadın ziyaretçi
+   kotasıyla (`kadin_hedefi`: günün o mağazadaki Kadın / (Kadın + Erkek)
+   birim payı + `KADIN_HEDIYE_DUZELTME`, rastgele yuvarlama; Görev 5b).
 4. Fiş boyutu: her fiş ≥ 1; ek `U_m − F_m` adet ağırlık `(sepet_ort − 1) ×
    Gamma(1, 1)` (üstel, çarpık; müşterinin sepetine bağlı) ile en büyük kalanla
    dağıtılır, 8'i aşan fazla kapasitesi olan fişlere yeniden dağıtılır.
-5. **Aşama 1, tip düzeyinde kesin** (`asama1`): puan birimde yalnız tipe
-   bağlı (`tercih.tip_puani`: alt kategori, fiyat segmenti, beden uyumu);
-   aynı tipteki n boş birimin Gumbel-max'ı = tip puanı + log n + tek Gumbel.
+5. **Aşama 1, grup düzeyinde kesin** (`asama1`): puan birimde yalnız gruba
+   bağlı (`tercih.tip_puani`: alt kategori, fiyat segmenti, beden uyumu; +
+   `tercih.cinsiyet_terimi`: müşteri × ürün cinsiyeti); aynı gruptaki n boş
+   birimin Gumbel-max'ı = grup puanı + log n + tek Gumbel. Tip puanı [F ×
+   306] cinsiyetsiz hesaplanır, cinsiyet terimi çift başına bir tablo
+   okuması (Görev 5b: cinsiyet tipe katılsaydı tip puanı matrisi üç kat
+   büyürdü; grup anahtarına katmak aşama 2'yi cinsiyet-saf bırakır).
    - Çapa: açık fiş × mağazasının grupları, puan + log(kalan) + Gumbel; her
      fiş en iyi grubunu ister, çakışmada grubun kalanı kadar en yüksek fiş
      kazanır; 2.–5. turlar yalnız açık fişler, sonra mağazanın boş
@@ -72,8 +79,8 @@ from . import sabitler as S
 from .girdi import ADET, H, INDIRIM, KAMPANYA, ORAN, SATIR, TUTAR
 from .rastgele import crm_alt_ureticiler, crm_uretici
 from .tercih import (
-    BEDEN_YONU, N_TIP, sku_ek_puani_cift, sku_kodlari, tamamlayici_matris, tip_kodu, tip_ozellik,
-    tip_puani,
+    BEDEN_YONU, N_TIP, URUN_CINSIYET_SAYISI, cinsiyet_ceza_tablosu, sku_ek_puani_cift, sku_kodlari,
+    tamamlayici_matris, tip_kodu, tip_ozellik, tip_puani, urun_cinsiyet,
 )
 from .ziyaretci import Adaylar, ziyaretci_sec
 
@@ -83,6 +90,7 @@ TAMAM_TUR = S.TAMAMLAYICI_TUR
 ARTIK_TUR = S.TAMAMLAYICI_ARTIK_TUR
 DALGA = S.TAMAMLAYICI_DALGA
 A_ALT = len(S.ALT_KATEGORILER)
+N_TC = N_TIP * URUN_CINSIYET_SAYISI      # grup anahtarının mağaza-içi kısmı: tip × ürün cinsiyeti
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +196,20 @@ def fis_boyutlari(rng, fis_m: np.ndarray, U_m: np.ndarray, sepet_f: np.ndarray) 
     assert (boyut >= 1).all() and (boyut <= S.FIS_EN_COK).all()
     assert (np.bincount(fis_m, boyut, minlength=M) == U_m).all()
     return boyut
+
+
+def kadin_hedefi(F_m: np.ndarray, kadin_m: np.ndarray, erkek_m: np.ndarray, varsayilan: np.ndarray,
+                 rng) -> np.ndarray:
+    """[M] mağaza-gün kadın ziyaretçi kotası: `F_m × q_m` rastgele
+    yuvarlanmış (beklentisi kesin), q_m = kadın / (kadın + erkek) birim +
+    `KADIN_HEDIYE_DUZELTME` ([0, 1]); cinsiyeti belli birim yoksa
+    `varsayilan` (nüfusun mağaza kadın payı)."""
+    F_m = np.asarray(F_m, dtype=np.int64)
+    top = kadin_m + erkek_m
+    with np.errstate(invalid="ignore", divide="ignore"):
+        q = np.where(top > 0, kadin_m / top + S.KADIN_HEDIYE_DUZELTME, varsayilan)
+    x = F_m * np.clip(q, 0.0, 1.0)
+    return np.minimum(np.floor(x + rng.random(len(F_m))), F_m).astype(np.int64)
 
 
 # ---------------------------------------------------------------------------
@@ -461,6 +483,11 @@ class AyristirDurum:
         self.tip_alt = tip_ozellik()[0]
         self.sku_alt = self.tip_alt[self.sku_tip]
         self.sku_yon = BEDEN_YONU[self.sku_alt]
+        self.sku_cins = urun_cinsiyet(u)
+        # [N_TC, 2 müşteri cinsiyeti] cinsiyet log-terimi (aksesuar tipte yarım ceza)
+        tc = np.arange(N_TC)
+        aks = (BEDEN_YONU[self.tip_alt[tc // URUN_CINSIYET_SAYISI]] < 0).astype(np.int64)
+        self.tc_ceza = cinsiyet_ceza_tablosu()[aks, :, tc % URUN_CINSIYET_SAYISI].astype(np.float32)
         self.sku_beden = u["beden_sira"].to_numpy(dtype=np.int64)
         self.kodlar = sku_kodlari(u)
         self.sku_option = np.asarray(w.sku_option, dtype=np.int64)
@@ -564,7 +591,8 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
 
     # 1) Hatlar ve (mağaza, tip) grupları
     hucre = s[:, H].astype(np.int64)
-    anahtar = du.hm[hucre] * N_TIP + du.sku_tip[du.hs[hucre]]
+    sku_h = du.hs[hucre]
+    anahtar = du.hm[hucre] * N_TC + du.sku_tip[sku_h] * URUN_CINSIYET_SAYISI + du.sku_cins[sku_h]
     sira = np.argsort(anahtar, kind="stable")
     s, hucre, anahtar = s[sira], hucre[sira], anahtar[sira]
     h_s = du.hs[hucre]
@@ -574,7 +602,8 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     gk, g_bas_h, L_g = np.unique(anahtar, return_index=True, return_counts=True)
     h_g = np.repeat(np.arange(len(gk)), L_g)
     n_g = np.add.reduceat(h_c, g_bas_h)
-    g_m, g_tip = gk // N_TIP, gk % N_TIP
+    g_m, g_tc = gk // N_TC, gk % N_TC
+    g_tip = g_tc // URUN_CINSIYET_SAYISI
     g_alt = du.tip_alt[g_tip]
     U_m = np.bincount(g_m, n_g, minlength=M).astype(np.int64)
 
@@ -583,7 +612,11 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     fis_m = np.repeat(np.arange(M), F_m)
     F = len(fis_m)
     adim("1 hat/grup")
-    musteri = ziyaretci_sec(du.adaylar, nufus, d, F_m, rng_z, sayac)
+    h_cins = du.sku_cins[h_s]
+    kotalar = kadin_hedefi(F_m, np.bincount(g_m[h_g], h_c * (h_cins == 0), minlength=M),
+                           np.bincount(g_m[h_g], h_c * (h_cins == 1), minlength=M),
+                           nufus.magaza.kadin_payi, rng_z)
+    musteri = ziyaretci_sec(du.adaylar, nufus, d, F_m, rng_z, sayac, kadin_hedef=kotalar)
     adim("3 ziyaretci")
     du.tekrar_buyut(nufus.K)
     boyut = fis_boyutlari(akis["boyut"], fis_m, U_m, nufus.sepet_ort[musteri])
@@ -593,7 +626,14 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     # 5) Aşama 1
     P = tip_puani(nufus, musteri, np.arange(N_TIP)).astype(np.float32)   # [F, N_TIP]
     adim("5a tip puani")
-    af, ag = asama1(fis_m, boyut, g_m, g_alt, n_g, M, lambda pf, pg: P[pf, g_tip[pg]], du.T, akis["asama1"], sayac)
+    # cinsiyet terimi: grup × müşteri cinsiyeti düz tablosu
+    g_ceza = du.tc_ceza[g_tc].ravel()                                     # [G × 2]
+    m_cins = nufus.cinsiyet[musteri].astype(np.int64)
+
+    def puan(pf, pg):
+        return P[pf, g_tip[pg]] + g_ceza[pg * 2 + m_cins[pf]]
+
+    af, ag = asama1(fis_m, boyut, g_m, g_alt, n_g, M, puan, du.T, akis["asama1"], sayac)
     assert len(af) == U_m.sum()
     del P
     adim("5b asama1")

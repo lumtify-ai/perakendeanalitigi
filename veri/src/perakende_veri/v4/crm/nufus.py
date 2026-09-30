@@ -183,6 +183,35 @@ def magaza_gunluk_adet(girdi: Girdi) -> np.ndarray:
     return out
 
 
+def magaza_kadin_payi(girdi: Girdi) -> np.ndarray:
+    """[M] mağazanın kadın müşteri payı (Görev 5b): A'nın o mağazadaki bütün
+    pozitif satışında Kadın / (Kadın + Erkek) birim payı (Unisex hariç) +
+    `KADIN_HEDIYE_DUZELTME`, [0, 1]'e kırpılmış. Eşleştirme çapraz cinsiyete
+    ceza verdiğinden (`tercih.cinsiyet_terimi`) müşteri karışımı satılan
+    ürün karışımına uymalı; yoksa ceza kaçınılmaz çapraz atamaya döner.
+    Hiç satışı olmayan mağazada A'nın gizli `kadin_payi` değeri."""
+    w = girdi.dunya
+    M = len(w.magazalar)
+    hm = np.asarray(w.hucre_magaza, dtype=np.int64)
+    hs = np.asarray(w.hucre_sku, dtype=np.int64)
+    cins = w.urunler["cinsiyet"].to_numpy()
+    kadin_s = (cins == "Kadın").astype(np.float64)
+    erkek_s = (cins == "Erkek").astype(np.float64)
+    kad = np.zeros(M)
+    erk = np.zeros(M)
+    for s in girdi.satis_gun:
+        if len(s):
+            c = s[:, H].astype(np.int64)
+            m, sku, adet = hm[c], hs[c], s[:, ADET]
+            kad += np.bincount(m, weights=adet * kadin_s[sku], minlength=M)
+            erk += np.bincount(m, weights=adet * erkek_s[sku], minlength=M)
+    gm = w.gizli_magaza.set_index("magaza_id").loc[w.magazalar["magaza_id"]]
+    pay = gm["kadin_payi"].to_numpy(dtype=float).copy()
+    satan = kad + erk > 0
+    pay[satan] = kad[satan] / (kad[satan] + erk[satan]) + S.KADIN_HEDIYE_DUZELTME
+    return np.clip(pay, 0.0, 1.0)
+
+
 def _gun(tarih, bos: int) -> int:
     return bos if pd.isna(tarih) else gun_indisi(tarih)
 
@@ -247,8 +276,7 @@ def magaza_bilgisi(girdi: Girdi) -> MagazaBilgi:
     il_adlari = tuple(sorted(set(sehir[~online])))
     il = np.array([il_adlari.index(s) if not o else -1 for s, o in zip(sehir, online)], dtype=np.int64)
     sayi = np.bincount(il[~online], minlength=len(il_adlari)).astype(float)
-    kadin = gm["kadin_payi"].to_numpy(dtype=float).copy()
-    kadin[online] = S.ONL_KADIN_PAYI
+    kadin = magaza_kadin_payi(girdi)
     acilis = np.array([_gun(t, -10**6) for t in mag["acilis_tarihi"]], dtype=np.int64)
     kapanis = np.array([_gun(t, 10**6) for t in mag["kapanis_tarihi"]], dtype=np.int64)
     adet = magaza_gunluk_adet(girdi)

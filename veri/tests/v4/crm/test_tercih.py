@@ -135,7 +135,12 @@ def test_tip_puani_aksesuar_beden_cezasiz(n):
 
 
 def test_urun_puani_esittir_tip_artı_sku(kucuk_girdi, n):
-    from perakende_veri.v4.crm.tercih import sku_ek_puani, tip_kodu, tip_puani, urun_puani
+    """urun_puani = tip + SKU eki + cinsiyet terimi (Görev 5b: cinsiyet
+    terimi eklendi)."""
+    from perakende_veri.v4 import sabitler as a_sabitler
+    from perakende_veri.v4.crm.tercih import (
+        cinsiyet_terimi, sku_ek_puani, tip_kodu, tip_puani, urun_cinsiyet, urun_puani,
+    )
 
     urunler = kucuk_girdi.dunya.urunler
     sku_idx = np.arange(min(50, len(urunler)))
@@ -144,7 +149,10 @@ def test_urun_puani_esittir_tip_artı_sku(kucuk_girdi, n):
 
     toplam = urun_puani(n, k_idx, sku_idx, kucuk_girdi, oran=oran)
     tip = tip_kodu(urunler)[sku_idx]
-    beklenen = tip_puani(n, k_idx, tip) + sku_ek_puani(n, k_idx, sku_idx, oran, urunler)
+    aks = urunler["alt_kategori"].isin(a_sabitler.AKSESUAR).to_numpy()[sku_idx]
+    cins = cinsiyet_terimi(np.asarray(n.cinsiyet)[k_idx][:, None], urun_cinsiyet(urunler)[sku_idx][None, :],
+                           aks[None, :])
+    beklenen = tip_puani(n, k_idx, tip) + sku_ek_puani(n, k_idx, sku_idx, oran, urunler) + cins
     assert np.allclose(toplam, beklenen)
     assert toplam.shape == (len(k_idx), len(sku_idx))
 
@@ -177,3 +185,52 @@ def test_sku_ek_puani_cift_kosegenle_ayni(kucuk_girdi, n):
     yogun = sku_ek_puani(n, k, s, oran, u)
     cift = sku_ek_puani_cift(n, k, s, oran, sku_kodlari(u))
     assert np.allclose(cift, np.diag(yogun), atol=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# Görev 5b: müşteri × ürün cinsiyeti
+# ---------------------------------------------------------------------------
+
+
+def test_cinsiyet_terimi_degerleri():
+    """Aynı cinsiyet ve Unisex 0; çapraz `CAPRAZ_CINSIYET_CEZA`; aksesuarda
+    ceza × `CAPRAZ_CINSIYET_AKSESUAR_KAT`."""
+    from perakende_veri.v4.crm import sabitler as S
+    from perakende_veri.v4.crm.tercih import cinsiyet_terimi
+
+    c = S.CAPRAZ_CINSIYET_CEZA
+    assert c < 0
+    mus = np.array([0, 0, 0, 1, 1, 1, 0, 1])          # 0 kadın, 1 erkek
+    urun = np.array([0, 1, 2, 0, 1, 2, 1, 0])         # 0 Kadın, 1 Erkek, 2 Unisex
+    aks = np.array([0, 0, 0, 0, 0, 0, 1, 1], dtype=bool)
+    beklenen = [0, c, 0, c, 0, 0, c * S.CAPRAZ_CINSIYET_AKSESUAR_KAT, c * S.CAPRAZ_CINSIYET_AKSESUAR_KAT]
+    assert np.allclose(cinsiyet_terimi(mus, urun, aks), beklenen)
+
+
+def test_urun_cinsiyet_kodu(kucuk_girdi):
+    from perakende_veri.v4 import sabitler as a_sabitler
+    from perakende_veri.v4.crm.tercih import urun_cinsiyet
+
+    u = kucuk_girdi.dunya.urunler
+    kod = urun_cinsiyet(u)
+    assert (np.asarray(a_sabitler.CINSIYETLER)[kod] == u["cinsiyet"].to_numpy()).all()
+    # yalnız-kadın alt kategoriler hep Kadın
+    assert (kod[u["alt_kategori"].isin(a_sabitler.YALNIZ_KADIN).to_numpy()] == 0).all()
+
+
+def test_urun_puani_cinsiyet_capraz_dusuk(kucuk_girdi, n):
+    """Aynı müşteri için, tip ve SKU eki eşitken çapraz cinsiyet ürünü
+    `CAPRAZ_CINSIYET_CEZA` kadar düşük puan alır."""
+    from perakende_veri.v4.crm import sabitler as S
+    from perakende_veri.v4.crm.tercih import sku_ek_puani, tip_kodu, tip_puani, urun_cinsiyet, urun_puani
+
+    u = kucuk_girdi.dunya.urunler
+    giyim = ~u["alt_kategori"].isin(["Çanta", "Şal", "Kemer"]).to_numpy()
+    kod = urun_cinsiyet(u)
+    sku = np.r_[np.flatnonzero(giyim & (kod == 0))[:20], np.flatnonzero(giyim & (kod == 1))[:20]]
+    k_idx = np.arange(40)
+    fark = urun_puani(n, k_idx, sku, kucuk_girdi) - (
+        tip_puani(n, k_idx, tip_kodu(u)[sku]) + sku_ek_puani(n, k_idx, sku, np.zeros(len(sku)), u))
+    capraz = np.asarray(n.cinsiyet)[k_idx][:, None] != kod[sku][None, :]
+    assert np.allclose(fark[capraz], S.CAPRAZ_CINSIYET_CEZA) and np.allclose(fark[~capraz], 0.0)
+    assert capraz.any() and (~capraz).any()

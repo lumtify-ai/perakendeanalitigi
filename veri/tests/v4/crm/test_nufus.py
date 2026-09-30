@@ -172,3 +172,26 @@ def test_gozlemlenebilir_alanlar():
     gizli |= {a for a in Nufus.SUTUNLAR if a.startswith(("tercih_", "beden_"))}
     assert {"tercih_kat", "beden_ust", "beden_dagin"} <= gizli
     assert not gizli & gozlem
+
+
+def test_kadin_payi_a_satisindan(kucuk_girdi):
+    """Görev 5b: mağazanın kadın müşteri payı = A'nın o mağazadaki satışında
+    Kadın / (Kadın + Erkek) birim payı + `KADIN_HEDIYE_DUZELTME`."""
+    from perakende_veri.v4.crm import sabitler as S
+    from perakende_veri.v4.crm.girdi import ADET, H
+    from perakende_veri.v4.crm.nufus import magaza_bilgisi
+
+    w = kucuk_girdi.dunya
+    mb = magaza_bilgisi(kucuk_girdi)
+    cins = w.urunler["cinsiyet"].to_numpy()
+    hm, hs = np.asarray(w.hucre_magaza), np.asarray(w.hucre_sku)
+    kad = np.zeros(mb.M)
+    erk = np.zeros(mb.M)
+    for s in kucuk_girdi.satis_gun:
+        c = s[:, H].astype(np.int64)
+        np.add.at(kad, hm[c], s[:, ADET] * (cins[hs[c]] == "Kadın"))
+        np.add.at(erk, hm[c], s[:, ADET] * (cins[hs[c]] == "Erkek"))
+    satan = kad + erk > 0
+    beklenen = np.clip(kad[satan] / (kad[satan] + erk[satan]) + S.KADIN_HEDIYE_DUZELTME, 0.0, 1.0)
+    assert np.allclose(mb.kadin_payi[satan], beklenen)
+    assert ((mb.kadin_payi >= 0) & (mb.kadin_payi <= 1)).all()

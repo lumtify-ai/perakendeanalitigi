@@ -189,7 +189,27 @@ BEDEN_DAGIN_SIGMA = 0.25   # KALİBRASYON bireysel beden_dagin lognormal σ
 ALT_BEDEN_KAYMA = [0.2, 0.6, 0.2]  # KALİBRASYON alt beden = üst + (−1, 0, +1)
 ONLINE_SEPET_CARPANI = 0.82  # KALİBRASYON online fiş ≈ mağaza sepeti × 0,82 (2,2 → 1,8)
 ERKEK_KADIN_KAT_CARPANI = 0.1  # KALİBRASYON erkek müşteride yalnız-kadın alt kategoriler (hediye)
-ONL_KADIN_PAYI = 0.58      # KALİBRASYON ONL üyelerinde kadın payı (zincirin kadın ürün payına yakın)
+# Müşteri × ürün cinsiyeti (Görev 5b). Eşleştirme puanında çapraz cinsiyet
+# (kadın müşteri × Erkek ürün ya da tersi; Unisex cezasız) log-cezası;
+# aksesuarda (A'da cinsiyeti var, beden yok) yarısı. KALİBRASYON hedef:
+# cinsiyeti belli giyim birimlerinde çapraz (hediye) payı %8–15. Kartlı,
+# kotayla: KUCUK −2,5 → %14,2 (4 B tohumu %14,15–14,19), −3,0 → %11,8,
+# −3,5 → %10,0; TAM −2,5 → %9,7, −3,0 → %7,4 (TAM'da kadın ürün payı daha
+# yüksek, çapraz erkek ürün arzıyla sınırlı). Kotasız KUCUK −3,5 → %14,3,
+# −8 → %10,4: taban ziyaretçi cinsiyeti gürültüsüydü.
+CAPRAZ_CINSIYET_CEZA = -2.5
+CAPRAZ_CINSIYET_AKSESUAR_KAT = 0.5
+# Nüfusun kadın payı mağaza başına A'nın o mağazadaki satışından: Kadın /
+# (Kadın + Erkek) birim payı + bu düzeltme; günlük ziyaretçi kotası da aynı
+# düzeltmeyi alır. 0: "bir cinsiyet daha çok hediye alır" varsayımı yok;
+# KUCUK'ta çapraz birimler iki yöne kabaca eşit bölünür (kadın → Erkek ürün
+# %6,5, erkek → Kadın ürün %5,3 (−3,0'da); hepsinin payı olarak). KALİBRASYON
+KADIN_HEDIYE_DUZELTME = 0.0
+# Ziyaretçi cinsiyet kotası: mağaza-gün başına k fiş için ceil(KOTA_FAZLA ×
+# k) + KOTA_EK aday çekilir, kotaya göre k'sı alınır (ziyaretci.py). KUCUK:
+# kotadan sapan fiş %0,35.
+KOTA_FAZLA = 1.5
+KOTA_EK = 8
 
 # Mağaza segmenti (A §2.3) + online → arketip olasılıkları (ARKETIPLER
 # sırası). İlişkili ama birebir değil: her segmentin baskın tipi ayrı, hiçbiri

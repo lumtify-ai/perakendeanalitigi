@@ -653,7 +653,7 @@ def ayristir_kos(gun_sayisi: int | None = None, kucuk: bool = False, iade: bool 
 def dongu_ozeti(ham, girdi) -> None:
     """Görev 7 ölçümleri (kalibrasyon değil): yıllara göre nüfus, katılış,
     terk; görünür/kartlı pay; mağazada kart okutma payı; sepet; kartlı
-    müşteri başına yıllık ziyaret."""
+    müşteri başına yıllık ziyaret; müşteri × ürün cinsiyeti (Görev 5b)."""
     from perakende_veri.v4.crm.nufus import SEGMENT_ADLARI
     from perakende_veri.v4.takvim import gun_indisi
 
@@ -703,6 +703,15 @@ def dongu_ozeti(ham, girdi) -> None:
           f"yeni (eksik) müşteri {bz['yeni']:,}; boş ziyaret yeni müşteri {bz['bos_yeni_musteri']:,}")
     print(f"LTV: hayatta {int(ham.ltv['hayatta_olasiligi'].sum()):,}, geri gelecek "
           f"%{100 * ham.ltv['geri_gelecek_2026'].mean():.1f} (tümü), fiyat_ort medyan {np.median(ham.fiyat_ort):.1f}")
+    # Görev 5b: müşteri × ürün cinsiyeti (kartlı satış birimleri)
+    from perakende_veri.v4.crm.tercih import cinsiyet_ozeti
+
+    c = cinsiyet_ozeti(nuf, fis, ham.kayit.tablo("fis_satir"), girdi.dunya.urunler)
+    print(f"Cinsiyet (kartlı): çapraz giyim %{100 * c['capraz']:.1f}, aksesuar %{100 * c['capraz_aksesuar']:.1f}; "
+          f"kadın ürün payı kadın müşteride %{100 * c['kadin_urun_kadin']:.1f}, erkekte "
+          f"%{100 * c['kadin_urun_erkek']:.1f}; kadın müşteri birim payı %{100 * c['musteri_kadin']:.1f}; "
+          f"ürün K/E/U %{100 * c['urun_pay']['Kadın']:.1f}/%{100 * c['urun_pay']['Erkek']:.1f}/"
+          f"%{100 * c['urun_pay']['Unisex']:.1f}; kota sapması {bz.get('kota_sapma', 0):,} / {bz.get('kota_fis', 0):,} fiş")
 
 
 def dongu_kos(gun_sayisi: int | None = None, kucuk: bool = False) -> None:

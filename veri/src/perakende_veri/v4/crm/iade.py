@@ -38,8 +38,9 @@ ziyaretçiye yazılır (o gün fişli müşteri yoksa hepsi fişsiz). Fişsiz
 ziyaretçiler Görev 5'in aday yapısından (`Adaylar.sec`, ziyaret ağırlığı)
 mağaza başına `max(1, round(birim / sepet hedefi))` kişi çekilir, o gün m'de
 fişi olanlar atılır; aday yoksa yeni müşteri eklenir. Her iki havuzda birim
-sahibi, birimin tipine tercih (`tercih.tip_puani`) softmax'ıyla çekilir
-(yalnız havuz × mağazanın kayıp tipleri). Hepsine `stoksuzluk(k, d)`.
+sahibi, birimin tipine tercih (`tercih.tip_puani` + müşteri × ürün
+cinsiyeti terimi, Görev 5b) softmax'ıyla çekilir (yalnız havuz × mağazanın
+kayıp (tip, cinsiyet) grupları). Hepsine `stoksuzluk(k, d)`.
 Satırlar `kayit` `bos_ziyaret` (gun, magaza, musteri, sku, adet; gizli).
 
 Rastgelelik: `crm_alt_ureticiler(d, "iade", ADIMLAR)`.
@@ -51,10 +52,10 @@ import numpy as np
 
 from .. import sabitler as a_sabitler
 from . import sabitler as S
-from .ayristir import AyristirDurum, fis_saati, grup_en_buyuk_kalan, segment_kategorik
+from .ayristir import N_TC, AyristirDurum, fis_saati, grup_en_buyuk_kalan, segment_kategorik
 from .girdi import ADET, H, INDIRIM, ISLEM, KAMPANYA, SATIR, TUTAR
 from .rastgele import crm_alt_ureticiler
-from .tercih import N_TIP, tip_puani
+from .tercih import URUN_CINSIYET_SAYISI, tip_puani
 
 ADIMLAR = ("iade", "iade_saat", "bos_bol", "bos_yeni", "bos_ata")   # yeni adım SONA
 GECIKME_MAGAZA = a_sabitler.IADE_GECIKME_MAGAZA
@@ -222,28 +223,31 @@ def iade_bagla(d: int, girdi, nufus, tetik, kayit) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _birimleri_ata(nufus, havuz_k, havuz_m, b_m, b_t, b_n, rng):
-    """Mağaza içi havuzdan (havuz_m'ye göre sıralı) birim sahibi: (m, tip)
-    grubunun her birimi havuzun softmax(tip_puani)'ından bağımsız çekilir.
-    `b_*` birim satırları (mağaza, tip, adet); satır sırasıyla birim başına
-    müşteri [Σ b_n] döner (satır içi birimler bitişik)."""
-    anahtar = b_m * N_TIP + b_t
+def _birimleri_ata(nufus, havuz_k, havuz_m, b_m, b_tc, b_n, tc_ceza, rng):
+    """Mağaza içi havuzdan (havuz_m'ye göre sıralı) birim sahibi: (m, tip,
+    ürün cinsiyeti) grubunun her birimi havuzun softmax(tip_puani +
+    cinsiyet terimi)'nden bağımsız çekilir. `b_*` birim satırları (mağaza,
+    tip × `URUN_CINSIYET_SAYISI` + ürün cinsiyeti, adet); `tc_ceza`
+    `AyristirDurum.tc_ceza`. Satır sırasıyla birim başına müşteri [Σ b_n]
+    döner (satır içi birimler bitişik)."""
+    anahtar = b_m * N_TC + b_tc
     sira = np.argsort(anahtar, kind="stable")
     gk, g_ters = np.unique(anahtar, return_inverse=True)
     g_ters = g_ters.ravel()
     g_n = np.bincount(g_ters, b_n, minlength=len(gk)).astype(np.int64)
-    g_m, g_t = gk // N_TIP, gk % N_TIP
+    g_m, g_tc = gk // N_TC, gk % N_TC
     h_bas = np.searchsorted(havuz_m, np.arange(nufus.magaza.M))
     h_son = np.searchsorted(havuz_m, np.arange(nufus.magaza.M), side="right")
     logit, aday, uz = [], [], []
     for m in np.unique(g_m):
         k_m = havuz_k[h_bas[m]:h_son[m]]
         assert len(k_m), m
-        t_m = g_t[g_m == m]
-        P = tip_puani(nufus, k_m, t_m)          # [nk, nt]
+        tc_m = g_tc[g_m == m]
+        P = (tip_puani(nufus, k_m, tc_m // URUN_CINSIYET_SAYISI)                  # [nk, nt]
+             + tc_ceza[tc_m][:, nufus.cinsiyet[k_m].astype(np.int64)].T)
         logit.append(P.T.ravel())
-        aday.append(np.tile(k_m, len(t_m)))
-        uz.append(np.full(len(t_m), len(k_m)))
+        aday.append(np.tile(k_m, len(tc_m)))
+        uz.append(np.full(len(tc_m), len(k_m)))
     pos, _ = segment_kategorik(np.concatenate(logit), np.concatenate(uz), g_n, rng)
     cekilen = np.concatenate(aday)[pos]        # grup sırasıyla, grup içinde g_n
     # birimleri (grup sırasıyla açılmış) çekilişlerle eşle; çekilişler iid
@@ -270,7 +274,7 @@ def bos_ziyaret(d: int, girdi, nufus, tetik, kayit) -> None:
     b_n = kay[:, 1].astype(np.int64)
     b_m = du.hm[c]
     b_s = du.hs[c]
-    b_t = du.sku_tip[b_s]
+    b_tc = du.sku_tip[b_s] * URUN_CINSIYET_SAYISI + du.sku_cins[b_s]
 
     # Fişli havuz: gün d, satış fişi olan (mağaza, müşteri)
     fis = _birlestir(kayit.gun_parcalari("fis", d), ("magaza", "musteri", "tip"))
@@ -307,7 +311,7 @@ def bos_ziyaret(d: int, girdi, nufus, tetik, kayit) -> None:
         if not v.any():
             continue
         k_birim = _birimleri_ata(nufus, h_k.astype(np.int64), h_m.astype(np.int64),
-                                 b_m[v], b_t[v], n_yol[v], rng_a)
+                                 b_m[v], b_tc[v], n_yol[v], du.tc_ceza, rng_a)
         idx = np.repeat(np.flatnonzero(v), n_yol[v])
         satirlar.append((b_m[idx], k_birim, b_s[idx]))
     m_u = np.concatenate([x[0] for x in satirlar])

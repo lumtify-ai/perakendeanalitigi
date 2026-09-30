@@ -12,6 +12,11 @@ düzeyinde ucuza puanlayıp yalnız kazanan tipler için SKU düzeyine insin;
 `urun_puani` ikisinin toplamı olarak SKU düzeyinde tek adımda da
 kullanılabilir (küçük ölçek, test, doğrulama).
 
+Müşteri × ürün cinsiyeti (Görev 5b): `cinsiyet_terimi` aynı cinsiyet ve
+Unisex için 0, çapraz için `CAPRAZ_CINSIYET_CEZA` (aksesuarda yarısı).
+Tip kodu cinsiyetsiz kalır; eşleştirici terimi aşama 1'in grup anahtarına
+(mağaza, tip, ürün cinsiyeti) katar. `urun_puani` üç terimin toplamıdır.
+
 Gizli tamamlayıcılık matrisi (`tamamlayici_matris`) hiçbir yayımlanan
 tabloya ya da `Nufus` sütununa girmez; yalnız günlük ayrıştırmanın (Görev
 5) sepet-içi eşleştirme puanında kullanılır.
@@ -115,6 +120,43 @@ def tip_puani(nufus, k_idx, tip_idx) -> np.ndarray:
     return kat + fiyat + beden_terim
 
 
+# ---------------------------------------------------------------------------
+# Müşteri × ürün cinsiyeti (Görev 5b)
+# ---------------------------------------------------------------------------
+
+#: Ürün cinsiyet kodu: A'nın `CINSIYETLER` sırası (0 Kadın, 1 Erkek, 2 Unisex).
+#: Müşteri `cinsiyet`i B'nin `CINSIYETLER` sırası (0 Kadın, 1 Erkek); iki
+#: sıralama Kadın/Erkek'te aynı.
+URUN_CINSIYET_SAYISI = len(a_sabitler.CINSIYETLER)
+assert list(a_sabitler.CINSIYETLER[:2]) == list(S.CINSIYETLER)
+_URUN_CINS_IDX = {c: i for i, c in enumerate(a_sabitler.CINSIYETLER)}
+
+
+def urun_cinsiyet(urunler) -> np.ndarray:
+    """SKU başına ürün cinsiyet kodu (0 Kadın, 1 Erkek, 2 Unisex)."""
+    return pd.Series(urunler["cinsiyet"].to_numpy()).map(_URUN_CINS_IDX).to_numpy(dtype=np.int64)
+
+
+def cinsiyet_ceza_tablosu() -> np.ndarray:
+    """`[2 aksesuar mı, 2 müşteri cinsiyeti, 3 ürün cinsiyeti]` log-terim:
+    aynı cinsiyet ve Unisex 0, çapraz `CAPRAZ_CINSIYET_CEZA` (aksesuarda ×
+    `CAPRAZ_CINSIYET_AKSESUAR_KAT`: A'da aksesuarın cinsiyeti var ama beden
+    yok; çanta/şal/kemer hediyesi giyimden olağan)."""
+    t = np.zeros((2, 2, URUN_CINSIYET_SAYISI), dtype=np.float64)
+    for mus in (0, 1):
+        t[0, mus, 1 - mus] = S.CAPRAZ_CINSIYET_CEZA
+        t[1, mus, 1 - mus] = S.CAPRAZ_CINSIYET_CEZA * S.CAPRAZ_CINSIYET_AKSESUAR_KAT
+    return t
+
+
+def cinsiyet_terimi(musteri_cins, urun_cins, aksesuar) -> np.ndarray:
+    """Müşteri × ürün cinsiyet uyumu log-terimi (yayınlanan biçimlerle):
+    `cinsiyet_ceza_tablosu()[aksesuar, musteri_cins, urun_cins]`."""
+    t = cinsiyet_ceza_tablosu()
+    return t[np.asarray(aksesuar, dtype=np.int64), np.asarray(musteri_cins, dtype=np.int64),
+             np.asarray(urun_cins, dtype=np.int64)]
+
+
 def sku_kodlari(urunler) -> tuple[np.ndarray, np.ndarray]:
     """SKU başına (kalıp indisi `KALIPLAR`, desen indisi `DESENLER`); günlük
     eşleştirici bir kez hesaplayıp `sku_ek_puani_cift`'e verir."""
@@ -155,13 +197,19 @@ def sku_ek_puani(nufus, k_idx, sku_idx, oran, urunler) -> np.ndarray:
 
 def urun_puani(nufus, k_idx, sku_idx, girdi, oran=None) -> np.ndarray:
     """`[len(k_idx), len(sku_idx)]` log-puan = `tip_puani` (SKU'nun tipi
-    için) + `sku_ek_puani`. `oran` verilmezse 0 (indirimsiz)."""
+    için) + `sku_ek_puani` + `cinsiyet_terimi` (müşteri × ürün cinsiyeti).
+    `oran` verilmezse 0 (indirimsiz). Eşleştirici (Görev 5) cinsiyet
+    terimini aşama 1'de uygular: grup = (mağaza, tip, ürün cinsiyeti)."""
     urunler = girdi.dunya.urunler
+    k_idx = np.asarray(k_idx, dtype=np.int64)
     sku_idx = np.asarray(sku_idx, dtype=np.int64)
     if oran is None:
         oran = np.zeros(len(sku_idx))
     tip = tip_kodu(urunler)[sku_idx]
-    return tip_puani(nufus, k_idx, tip) + sku_ek_puani(nufus, k_idx, sku_idx, oran, urunler)
+    aks = np.isin(urunler["alt_kategori"].to_numpy()[sku_idx], list(a_sabitler.AKSESUAR))
+    cins = cinsiyet_terimi(np.asarray(nufus.cinsiyet)[k_idx][:, None],
+                           urun_cinsiyet(urunler)[sku_idx][None, :], aks[None, :])
+    return tip_puani(nufus, k_idx, tip) + sku_ek_puani(nufus, k_idx, sku_idx, oran, urunler) + cins
 
 
 # ---------------------------------------------------------------------------
@@ -220,3 +268,53 @@ def tamamlayicilik(sepet_alt: np.ndarray, aday_alt: np.ndarray) -> np.ndarray:
         return np.zeros(len(aday_alt))
     m = tamamlayici_matris()
     return m[sepet_alt][:, aday_alt].sum(axis=0)
+
+
+# ---------------------------------------------------------------------------
+# Ölçüm: müşteri cinsiyeti × ürün cinsiyeti (Görev 5b)
+# ---------------------------------------------------------------------------
+
+
+def cinsiyet_ozeti(nufus, fis: pd.DataFrame, fis_satir: pd.DataFrame, urunler,
+                   yalniz_kartli: bool = True) -> dict:
+    """Satış satırlarında (adet > 0) müşteri × ürün cinsiyeti ölçüleri.
+    `fis` en az fis_id, musteri (ve `yalniz_kartli` ise kart) sütunlarını
+    taşır. Cinsiyeti belli ürün = Kadın ya da Erkek (Unisex hariç).
+    Döner: `capraz` (cinsiyeti belli, aksesuar hariç birimlerde müşteri ≠
+    ürün payı), `capraz_aksesuar` (yalnız aksesuar), `kadin_urun_kadin`
+    / `kadin_urun_erkek` (kadın / erkek müşterinin cinsiyeti belli giyim
+    birimlerinde kadın ürün payı), `urun_pay` (Kadın, Erkek, Unisex birim
+    payı), `musteri_kadin` (birim ağırlıklı kadın müşteri payı)."""
+    sat = fis_satir[fis_satir["adet"] > 0]
+    fis_id = sat["fis_id"].to_numpy(np.int64)
+    fis_ix = fis.set_index("fis_id")
+    k = fis_ix["musteri"].to_numpy(np.int64)[np.searchsorted(fis_ix.index.to_numpy(), fis_id)]
+    adet = sat["adet"].to_numpy(np.int64)
+    if yalniz_kartli:
+        kart = fis_ix["kart"].to_numpy(bool)[np.searchsorted(fis_ix.index.to_numpy(), fis_id)]
+        k, adet, sku = k[kart], adet[kart], sat["sku"].to_numpy(np.int64)[kart]
+    else:
+        sku = sat["sku"].to_numpy(np.int64)
+    ucins = urunler["cinsiyet"].to_numpy()[sku]
+    aks = np.isin(urunler["alt_kategori"].to_numpy()[sku], list(a_sabitler.AKSESUAR))
+    mk = np.asarray(nufus.cinsiyet)[k] == 0            # kadın müşteri
+    uk, ue = ucins == "Kadın", ucins == "Erkek"
+    belli = uk | ue
+    capraz = (mk & ue) | (~mk & uk)
+
+    def pay(maske, pay_maske):
+        n = adet[maske].sum()
+        return float(adet[maske & pay_maske].sum() / n) if n else float("nan")
+
+    giyim = belli & ~aks
+    toplam = adet.sum()
+    return {
+        "capraz": pay(giyim, capraz),
+        "capraz_aksesuar": pay(belli & aks, capraz),
+        "capraz_tumu": pay(belli, capraz),
+        "kadin_urun_kadin": pay(giyim & mk, uk),
+        "kadin_urun_erkek": pay(giyim & ~mk, uk),
+        "urun_pay": {c: float(adet[ucins == c].sum() / toplam) for c in ("Kadın", "Erkek", "Unisex")},
+        "musteri_kadin": float(adet[mk].sum() / toplam),
+        "birim": int(toplam),
+    }

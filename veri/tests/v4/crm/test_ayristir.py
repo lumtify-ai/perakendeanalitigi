@@ -399,3 +399,69 @@ def test_atama_alt_akislari_bagimsiz():
     a["boyut"].random(1000)                                   # bir adım daha çok çeker
     assert np.array_equal(a["asama1"].random(4), b["asama1"].random(4))
     assert not np.array_equal(a["asama2"].random(4), a["saat"].random(4))
+
+
+# ---------------------------------------------------------------------------
+# Görev 5b: ziyaretçi cinsiyet kotası
+# ---------------------------------------------------------------------------
+
+
+def test_cinsiyet_kotasi_sirayi_korur():
+    from perakende_veri.v4.crm.ziyaretci import cinsiyet_kotasi
+
+    aday = np.arange(10)
+    kadin = np.array([1, 1, 0, 1, 0, 0, 1, 0, 1, 1], dtype=bool)
+    # 3 kadın + 2 erkek: sıradaki ilk üç kadın (0, 1, 3), ilk iki erkek (2, 4)
+    assert cinsiyet_kotasi(aday, kadin, 5, 3).tolist() == [0, 1, 2, 3, 4]
+    # erkek yetmez (4 erkek var, 6 istendi): eksik kadınla tamamlanır
+    sec = cinsiyet_kotasi(aday, kadin, 8, 2)
+    assert len(sec) == 8 and (~kadin[sec]).sum() == 4
+    # aday k'dan az: hepsi
+    assert len(cinsiyet_kotasi(aday[:3], kadin[:3], 5, 2)) == 3
+
+
+def test_kadin_hedefi_beklentisi():
+    from perakende_veri.v4.crm import sabitler as S
+    from perakende_veri.v4.crm.ayristir import kadin_hedefi
+
+    rng = np.random.default_rng(0)
+    F = np.array([10, 7, 0, 5])
+    kad = np.array([30.0, 0.0, 4.0, 0.0])
+    erk = np.array([10.0, 5.0, 4.0, 0.0])
+    ort = np.mean([kadin_hedefi(F, kad, erk, np.full(4, 0.4), rng) for _ in range(4000)], axis=0)
+    q0 = min(0.75 + S.KADIN_HEDIYE_DUZELTME, 1.0)
+    q1 = max(0.0 + S.KADIN_HEDIYE_DUZELTME, 0.0)
+    assert np.allclose(ort, [10 * q0, 7 * q1, 0, 5 * 0.4], atol=0.05)
+
+
+def test_ziyaretci_kotasi_gunluk(kucuk_girdi, tek_gun):
+    """Gün içinde mağaza başına kadın fiş sayısı kotaya (satılan kadın ürün
+    payı × fiş) yakın: rastgele yuvarlama (< 1) + nadir kota sapması."""
+    from perakende_veri.v4.crm.girdi import ADET, H
+
+    nuf, kayit = tek_gun
+    fis = kayit.tablo("fis")
+    w = kucuk_girdi.dunya
+    s = kucuk_girdi.satis_gun[GUN]
+    c = s[:, H].astype(np.int64)
+    cins = w.urunler["cinsiyet"].to_numpy()[np.asarray(w.hucre_sku)[c]]
+    m = np.asarray(w.hucre_magaza)[c]
+    M = nuf.magaza.M
+    kad = np.bincount(m, s[:, ADET] * (cins == "Kadın"), minlength=M)
+    erk = np.bincount(m, s[:, ADET] * (cins == "Erkek"), minlength=M)
+    F_m = np.bincount(fis["magaza"].to_numpy(), minlength=M)
+    kf = np.bincount(fis["magaza"].to_numpy(), nuf.cinsiyet[fis["musteri"].to_numpy()] == 0, minlength=M)
+    belli = (kad + erk > 0) & (F_m >= 5)
+    from perakende_veri.v4.crm import sabitler as S
+
+    q = np.clip(kad[belli] / (kad[belli] + erk[belli]) + S.KADIN_HEDIYE_DUZELTME, 0, 1)
+    fark = np.abs(kf[belli] - F_m[belli] * q)
+    assert belli.sum() >= 10 and (fark <= 2.0).all(), fark
+
+
+def test_ziyaretci_kotasi_sapmasi_kucuk(kosu60):
+    """60 günde kotadan sapan fiş (bir cinsiyetin çekilen adayı yetmedi)
+    payı < %1."""
+    _, kayit = kosu60
+    sy = kayit.sayac
+    assert sy["kota_fis"] > 0 and sy["kota_sapma"] / sy["kota_fis"] < 0.01, (sy["kota_sapma"], sy["kota_fis"])

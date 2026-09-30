@@ -28,6 +28,19 @@ aynı dağılım (O(k log n)). Çekiliş sınırı aşılırsa ya da k adayları
 yarısından fazlaysa Gumbel-top-k (üstel yarış, bütün il listesi üzerinde
 kesin ağırlıkla). Hayatta aday k'dan azsa eksik kadar yeni müşteri
 (`nufus.ekle`, ev mağazası m, kayıt günü d; Review Focus 1).
+
+**Cinsiyet kotası (Görev 5b).** `ziyaretci_sec`'e mağaza başına kadın
+ziyaretçi hedefi verilirse (gün d'nin o mağazadaki satışının Kadın /
+(Kadın + Erkek) birim payından, `ayristir.kadin_hedefi`) mağaza için
+`ceil(KOTA_FAZLA × k) + KOTA_EK` aday çekilir (çekiliş sırasıyla, yani
+ağırlıkla ardışık örnekleme) ve sıradaki ilk hedef kadar kadın ile ilk
+k − hedef erkek alınır; bir cinsiyet yetmezse eksik öbüründen tamamlanır.
+Ağırlıkla ardışık bir örneklemin cinsiyete göre ilk-n'i, o cinsiyet
+içinde yine ağırlıkla ardışık örneklemdir: seçim cinsiyet sayıları
+koşullu doğru dağılımdır. Kotasız seçimde mağaza-gün ziyaretçilerinin
+cinsiyeti satılan ürünlerin cinsiyetinden bağımsız dalgalanır (küçük
+mağazada binom gürültüsü) ve eşleştirme bu farkı çapraz cinsiyet alımına
+zorlanarak kapatır (KUCUK: cezadan bağımsız ~%10 taban).
 """
 
 import numpy as np
@@ -81,6 +94,7 @@ def _gumbel_top_k(aday: np.ndarray, w: np.ndarray, hayatta: np.ndarray, k: int, 
     if k_al == 0:
         return np.zeros(0, dtype=np.int64)
     sec = np.argpartition(anahtar, k_al - 1)[:k_al]
+    sec = sec[np.argsort(anahtar[sec], kind="stable")]   # yarış sırası = ardışık örnekleme sırası
     return aday[sec].astype(np.int64)
 
 
@@ -207,7 +221,8 @@ class Adaylar:
         return aday, L.w[: L.n] * np.where(ev, 1.0, S.IL_ICI_AGIRLIK)
 
     def sec(self, nufus, m: int, k: int, rng, sayac: dict | None = None) -> np.ndarray:
-        """Mağaza m için en çok k farklı hayattaki müşteri (eksikse daha az).
+        """Mağaza m için en çok k farklı hayattaki müşteri (eksikse daha az),
+        çekiliş sırasıyla (ağırlıkla ardışık örnekleme sırası).
 
         Not: ret örneklemesi ve Gumbel-top-k yedeği ayrı ayrı hedef dağılımı
         (ağırlıkla ardışık örnekleme) verir, ama yedek ret çekilişi
@@ -228,19 +243,45 @@ class Adaylar:
         return sec
 
 
+def cinsiyet_kotasi(aday: np.ndarray, kadin: np.ndarray, k: int, hedef: int) -> np.ndarray:
+    """Çekiliş sırasıyla `aday`dan (kadın bayrağı `kadin`) ilk `hedef` kadın
+    ve ilk `k − hedef` erkek; bir cinsiyet yetmezse eksik öbür cinsiyetin
+    sıradakilerinden. En çok k aday, çekiliş sırası korunur."""
+    k = min(k, len(aday))
+    hedef = min(max(hedef, 0), k)
+    kad_sira = np.cumsum(kadin)            # adayın kendi cinsiyetindeki sırası (1'den)
+    erk_sira = np.cumsum(~kadin)
+    kf = min(hedef, int(kadin.sum()))
+    ke = min(k - kf, int((~kadin).sum()))
+    kf = k - ke                            # erkek yetmediyse kadınla tamamla
+    al = np.where(kadin, kad_sira <= kf, erk_sira <= ke)
+    return aday[al]
+
+
 def ziyaretci_sec(adaylar: Adaylar, nufus, d: int, F_m: np.ndarray, rng,
-                  sayac: dict | None = None) -> np.ndarray:
+                  sayac: dict | None = None, kadin_hedef: np.ndarray | None = None) -> np.ndarray:
     """Mağaza sırasıyla fiş başına müşteri `[Σ F_m]` (mağaza m'nin fişleri
     bitişik). Hayatta aday yetmezse eksik kadar yeni müşteri eklenir (ev
-    mağazası m, kayıt günü d); `sayac["yeni"]` sayısı. `nufus.ekle`'den
-    sonra çağıran sütun referanslarını yeniden okumalıdır."""
+    mağazası m, kayıt günü d); `sayac["yeni"]` sayısı. `kadin_hedef` [M]
+    verilirse mağaza başına kadın ziyaretçi kotası (modül docstring'i).
+    `nufus.ekle`'den sonra çağıran sütun referanslarını yeniden
+    okumalıdır."""
     F_m = np.asarray(F_m, dtype=np.int64)
     f_bas = np.cumsum(F_m) - F_m
     musteri = np.full(int(F_m.sum()), -1, dtype=np.int64)
     eksik_m, eksik_n = [], []
     for m in np.flatnonzero(F_m > 0):
         k = int(F_m[m])
-        sec = adaylar.sec(nufus, int(m), k, rng, sayac)
+        if kadin_hedef is None:
+            sec = adaylar.sec(nufus, int(m), k, rng, sayac)
+        else:
+            genis = adaylar.sec(nufus, int(m), int(np.ceil(S.KOTA_FAZLA * k)) + S.KOTA_EK, rng, sayac)
+            kadin = nufus.cinsiyet[genis] == 0
+            sec = cinsiyet_kotasi(genis, kadin, k, int(kadin_hedef[m]))
+            if sayac is not None:   # kotadan sapan fiş (bir cinsiyetin adayı yetmedi)
+                sayac["kota_sapma"] = sayac.get("kota_sapma", 0) + abs(
+                    int((nufus.cinsiyet[sec] == 0).sum()) - min(int(kadin_hedef[m]), len(sec)))
+                sayac["kota_fis"] = sayac.get("kota_fis", 0) + len(sec)
         musteri[f_bas[m]:f_bas[m] + len(sec)] = sec
         if len(sec) < k:
             eksik_m.append(int(m))
