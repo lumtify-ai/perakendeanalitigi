@@ -85,7 +85,7 @@ def teslim_gunu(rng, fis_gun: np.ndarray, il: np.ndarray,
 def kargo_tablosu(crm_ham, girdi) -> pd.DataFrame:
     """ONL satış fişleri için `(fis_id, teslim_gun, gecikme)`. `gecikme`
     gizlidir (Görev 13 yayımlanan tablodan çıkarır); burada teşhis/test
-    amaçlı üretilir. Çekiliş gün başına `crm_uretici(d, "kargo")`."""
+    amaçlı üretilir. Çekiliş gün başına `crm_uretici(d, "kargo", crm_ham.tohum)`."""
     fis = crm_ham.tablo("fis")
     mb = crm_ham.nufus.magaza
     onl_satis = (fis["magaza"].to_numpy() == mb.onl) & (fis["tip"].to_numpy() == 0)
@@ -113,7 +113,7 @@ def kargo_tablosu(crm_ham, girdi) -> pd.DataFrame:
         if not len(parca):
             continue
         d = int(gun[parca[0]])
-        rng = crm_uretici(d, "kargo")
+        rng = crm_uretici(d, "kargo", crm_ham.tohum)
         t, g = teslim_gunu(rng, gun[parca], il[parca], il_km)
         teslim[parca] = t
         gecikme[parca] = g
