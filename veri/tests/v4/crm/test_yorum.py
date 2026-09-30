@@ -176,10 +176,14 @@ def test_kategori_ve_alt_kategori_uyumu(birlesik, kutuphane, kucuk_girdi):
 
 
 def test_celiski_yok(birlesik):
-    """İade konusu yalnız iade edilmiş satırda; olumsuz kargo yalnız gecikmede."""
+    """İade konusu yalnız iade edilmiş satırda; olumsuz kargo yalnız gecikmede,
+    olumlu kargo yalnız gecikmeyen satırda."""
     assert birlesik.loc[birlesik["konular"].str.contains("iade_sureci"), "iade"].all()
     olumsuz_kargo = birlesik["konular"].str.contains("kargo_teslimat") & (birlesik["duygu"] != "olumlu")
     assert birlesik.loc[olumsuz_kargo, "gecikme"].all()
+    olumlu_kargo = birlesik["konular"].str.contains("kargo_teslimat") & (birlesik["duygu"] == "olumlu")
+    assert olumlu_kargo.any()
+    assert not birlesik.loc[olumlu_kargo, "gecikme"].any()
 
 
 def test_ayni_metin_en_fazla_25(sonuc):
@@ -255,3 +259,22 @@ def test_hatali_tedarikci_ust_ceyrek(sonuc, kucuk_girdi):
     assert 0 < len(ust) <= len(h) // 4 + 1
     tid = w.urunler["tedarikci_id"].to_numpy()[sonuc.aday["sku"].to_numpy()]
     assert (sonuc.aday["hatali_tedarikci"].to_numpy() == np.isin(tid, list(ust))).all()
+
+
+def test_aday_satirlari_kargo_verilince_ayni(kucuk_girdi, kucuk_crm, sonuc):
+    from perakende_veri.v4.crm.kargo import kargo_tablosu
+    from perakende_veri.v4.crm.yorum import aday_satirlari
+
+    a = aday_satirlari(kucuk_crm, kucuk_girdi, kargo=kargo_tablosu(kucuk_crm, kucuk_girdi))
+    pd.testing.assert_frame_equal(a, sonuc.aday)
+
+
+def test_eksik_tedarikci_sessiz_gecmez(kucuk_girdi):
+    from perakende_veri.v4.crm.yorum import bayraklari_ekle
+
+    u = kucuk_girdi.dunya.urunler
+    gted = kucuk_girdi.dunya.gizli_tedarikci
+    a = pd.DataFrame({"sku": [0], "adet": [1], "indirim_tutari": [0.0], "beden_uyumsuz": [False]})
+    eksik = gted[gted["tedarikci_id"] != u["tedarikci_id"].iloc[0]]
+    with pytest.raises(AssertionError):
+        bayraklari_ekle(a, u, eksik)

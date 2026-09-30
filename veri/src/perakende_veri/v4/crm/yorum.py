@@ -31,7 +31,8 @@ fiyat_deger. İzinli küme = neden konuları ∪ {genel_begeni}.
 `alt_kategori` doluysa yalnız o alt kategoriye; `{beden}`'li kayıt beden
 etiketi olan (STD olmayan) SKU'ya. Çelişki süzgeci (hiç gevşemez): iade_sureci
 konulu metin yalnız iade edilmiş satıra, olumsuz/karışık kargo metni yalnız
-geciken satıra, indirimle aldığını anlatan metin (`INDIRIM_IDDIASI`) yalnız
+geciken satıra, olumlu kargo metni ("ertesi gün kapıdaydı") yalnız
+gecikmeyen satıra, indirimle aldığını anlatan metin (`INDIRIM_IDDIASI`) yalnız
 indirimli satıra. Gevşetme basamakları (`GEVSEME_BASAMAKLARI`, sırayla ilk
 boş olmayan):
 
@@ -61,7 +62,9 @@ sonunu aşan yorum düşer (`dusen_tarih`).
 (virgülle; nedensizde boş), kütüphane kimliği, üslup, gevşeme basamağı.
 
 Rastgelelik: verilen `rng`'nin `ADIMLAR` sırasıyla `spawn` edilmiş alt
-akışları (bir adımın çekiliş sayısı değişince diğerleri kaymaz).
+akışları (bir adımın çekiliş sayısı değişince diğerleri kaymaz). `spawn`
+üst üretecin spawn sayacını ilerletir: aynı `rng` ikinci kez verilirse farklı
+alt akışlar çıkar; her çağrıya taze `crm_uretici(D, "yorum")` verilmelidir.
 """
 
 from __future__ import annotations
@@ -74,8 +77,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .. import sabitler as a_sabitler
-from ..tablolar import pencere
+from ..tablolar import _gun_tarihi, pencere
 from .kargo import kargo_tablosu
 from .kutuphane import KATEGORI_GRUPLARI, KONULAR
 
@@ -88,6 +90,11 @@ NEDEN_KONUSU = {"kalite": "kumas_kalite", "beden": "beden_kalip", "kargo": "karg
                 "fiyat": "fiyat_deger"}
 OLUMSUZ_NEDENLER = ("kalite", "beden", "kargo")
 DERIN_INDIRIM = 0.50
+# Satırın indirim oranı (indirim_tutari / (liste × adet)) bu eşiği aşarsa
+# "indirimli" (indirim iddiası taşıyan metin alabilir); kuruş yuvarlamasını
+# indirim saymamak için > 0 değil.
+INDIRIMLI_ESIK = 0.005
+ORAN_TOLERANSI = 1e-9      # %50'yi tam veren satır kayan noktada kaçmasın
 AZAMI_KULLANIM = 25
 # Hatalı tedarikçi eşiği: tedarikçi `hatali_orani` dağılımının bu çeyreği.
 KALITE_ESIK_CEYREK = 0.75
@@ -148,6 +155,7 @@ class _Kut:
     konu: np.ndarray        # bit maskesi
     beden_yt: np.ndarray    # {beden} yer tutucusu var
     olumsuz_kargo: np.ndarray
+    olumlu_kargo: np.ndarray
     indirim_iddiasi: np.ndarray
 
 
@@ -162,6 +170,7 @@ def _kutuphane_dizileri(kut: pd.DataFrame) -> _Kut:
         konu=konu,
         beden_yt=np.array(["beden" in y for y in kut["yer_tutucu"]]),
         olumsuz_kargo=kargo & (kut["duygu"].to_numpy() != "olumlu"),
+        olumlu_kargo=kargo & (kut["duygu"].to_numpy() == "olumlu"),
         indirim_iddiasi=kut["metin"].map(lambda m: bool(INDIRIM_IDDIASI.search(m))).to_numpy(),
     )
 
@@ -176,10 +185,12 @@ def _birlestir(parcalar, sutunlar):
             for k in sutunlar}
 
 
-def aday_satirlari(crm_ham, girdi) -> pd.DataFrame:
+def aday_satirlari(crm_ham, girdi, kargo: pd.DataFrame | None = None) -> pd.DataFrame:
     """Pencere içi ONL satış satırları ve gizli neden bayrakları:
     satir_id, fis_id, gun, musteri, sku, teslim_gun, iade, beden_uyumsuz,
-    gecikme, hatali_tedarikci, derin_indirim, indirimli."""
+    gecikme, hatali_tedarikci, derin_indirim, indirimli. `kargo` verilirse
+    (`kargo_tablosu(crm_ham, girdi)`, en az ONL satış fişleri) yeniden
+    hesaplanmaz."""
     kayit = crm_ham.kayit
     onl = crm_ham.nufus.magaza.onl
     bas, son = pencere()
@@ -214,7 +225,8 @@ def aday_satirlari(crm_ham, girdi) -> pd.DataFrame:
     iade_orj = np.unique(np.concatenate(iade_orj)) if iade_orj else np.zeros(0, dtype=np.int64)
     a["iade"] = np.isin(a["satir_id"].to_numpy(), iade_orj)
 
-    kargo = kargo_tablosu(crm_ham, girdi)
+    if kargo is None:
+        kargo = kargo_tablosu(crm_ham, girdi)
     k_o = np.argsort(kargo["fis_id"].to_numpy())
     k_fid = kargo["fis_id"].to_numpy()[k_o]
     j = k_o[np.searchsorted(k_fid, a["fis_id"].to_numpy())]
@@ -232,12 +244,14 @@ def bayraklari_ekle(a: pd.DataFrame, u: pd.DataFrame, gted: pd.DataFrame) -> pd.
     sku = a["sku"].to_numpy(dtype=np.int64)
     hatali = gted.set_index("tedarikci_id")["hatali_orani"]
     esik = float(gted["hatali_orani"].quantile(KALITE_ESIK_CEYREK))
-    sku_hatali = hatali.reindex(u["tedarikci_id"]).to_numpy(dtype=float) > esik
+    sku_oran = hatali.reindex(u["tedarikci_id"]).to_numpy(dtype=float)
+    assert not np.isnan(sku_oran).any(), "SKU'nun tedarikçisi gizli profilde yok"
+    sku_hatali = sku_oran > esik
     a["hatali_tedarikci"] = sku_hatali[sku]
     liste = u["liste_fiyati"].to_numpy(dtype=float)[sku] * a["adet"].to_numpy()
     oran = a["indirim_tutari"].to_numpy(dtype=float) / liste
-    a["indirimli"] = oran > 0.005
-    a["derin_indirim"] = oran >= DERIN_INDIRIM - 1e-9
+    a["indirimli"] = oran > INDIRIMLI_ESIK
+    a["derin_indirim"] = oran >= DERIN_INDIRIM - ORAN_TOLERANSI
     aksesuar = u["ust_kategori"].to_numpy()[sku] == AKSESUAR_GRUBU
     a["beden_uyumsuz"] = a["beden_uyumsuz"].to_numpy() & ~aksesuar
     return a.drop(columns=["adet", "indirim_tutari"])
@@ -409,8 +423,7 @@ def yorumlari_ata(rng, a: pd.DataFrame, u_df: pd.DataFrame, kutuphane: pd.DataFr
             m &= ~K.beden_yt
         if not iad:
             m &= (K.konu & _IADE_KONU) == 0
-        if not gc:
-            m &= ~K.olumsuz_kargo
+        m &= ~(K.olumlu_kargo if gc else K.olumsuz_kargo)
         if not idl:
             m &= ~K.indirim_iddiasi
         m &= (K.puan == pu) if puan_f == 0 else (np.abs(K.puan - pu) == 1)
@@ -452,8 +465,7 @@ def yorumlari_ata(rng, a: pd.DataFrame, u_df: pd.DataFrame, kutuphane: pd.DataFr
         for t, s in zip(s_v, sku_v)
     ]
     satir = yazar[v]
-    bas_tarih = np.datetime64(a_sabitler.ISINMA_BASLANGIC, "D")
-    tarih = (bas_tarih + gun_y[v].astype("timedelta64[D]")).astype("datetime64[ns]")
+    tarih = _gun_tarihi(gun_y[v])
     yorum = pd.DataFrame({
         "fis_satir_id": a["satir_id"].to_numpy()[satir].astype(np.int64),
         "musteri_id": a["musteri"].to_numpy()[satir].astype(np.int64),
