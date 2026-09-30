@@ -205,6 +205,9 @@ CAPRAZ_CINSIYET_AKSESUAR_KAT = 0.5
 # KUCUK'ta çapraz birimler iki yöne kabaca eşit bölünür (kadın → Erkek ürün
 # %6,5, erkek → Kadın ürün %5,3 (−3,0'da); hepsinin payı olarak). KALİBRASYON
 KADIN_HEDIYE_DUZELTME = 0.0
+# Mağaza kadın payının zincir payına büzülmesi: (kad + α·p_zincir) /
+# (kad + erk + α), α birim (nufus.kadin_payi_buzul). KALİBRASYON
+KADIN_PAYI_BUZULME = 200.0
 # Ziyaretçi cinsiyet kotası: mağaza-gün başına k fiş için ceil(KOTA_FAZLA ×
 # k) + KOTA_EK aday çekilir, kotaya göre k'sı alınır (ziyaretci.py). KUCUK:
 # kotadan sapan fiş %0,35.

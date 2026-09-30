@@ -185,8 +185,9 @@ def magaza_gunluk_adet(girdi: Girdi) -> np.ndarray:
 
 def magaza_kadin_payi(girdi: Girdi) -> np.ndarray:
     """[M] mağazanın kadın müşteri payı (Görev 5b): A'nın o mağazadaki bütün
-    pozitif satışında Kadın / (Kadın + Erkek) birim payı (Unisex hariç) +
-    `KADIN_HEDIYE_DUZELTME`, [0, 1]'e kırpılmış. Eşleştirme çapraz cinsiyete
+    pozitif satışında Kadın / (Kadın + Erkek) birim payı (Unisex hariç),
+    zincir payına büzülmüş (`kadin_payi_buzul`, α = `KADIN_PAYI_BUZULME`
+    birim), + `KADIN_HEDIYE_DUZELTME`, [0, 1]'e kırpılmış. Eşleştirme çapraz cinsiyete
     ceza verdiğinden (`tercih.cinsiyet_terimi`) müşteri karışımı satılan
     ürün karışımına uymalı; yoksa ceza kaçınılmaz çapraz atamaya döner.
     Hiç satışı olmayan mağazada A'nın gizli `kadin_payi` değeri."""
@@ -208,8 +209,17 @@ def magaza_kadin_payi(girdi: Girdi) -> np.ndarray:
     gm = w.gizli_magaza.set_index("magaza_id").loc[w.magazalar["magaza_id"]]
     pay = gm["kadin_payi"].to_numpy(dtype=float).copy()
     satan = kad + erk > 0
-    pay[satan] = kad[satan] / (kad[satan] + erk[satan]) + S.KADIN_HEDIYE_DUZELTME
+    pay[satan] = kadin_payi_buzul(kad, erk)[satan] + S.KADIN_HEDIYE_DUZELTME
     return np.clip(pay, 0.0, 1.0)
+
+
+def kadin_payi_buzul(kad: np.ndarray, erk: np.ndarray, alfa: float = S.KADIN_PAYI_BUZULME) -> np.ndarray:
+    """(kad + α·p_zincir) / (kad + erk + α); p_zincir = Σkad / Σ(kad + erk).
+    Az satışlı (yeni, kısa ömürlü) mağazanın payı zincire yakın kalır."""
+    kad = np.asarray(kad, dtype=float)
+    erk = np.asarray(erk, dtype=float)
+    p = kad.sum() / (kad.sum() + erk.sum())
+    return (kad + alfa * p) / (kad + erk + alfa)
 
 
 def _gun(tarih, bos: int) -> int:
@@ -404,6 +414,8 @@ class Nufus:
         `kayit_kanali` skaler ya da uzunluk-n. Arketip ev mağazasının
         segment karışımından (ONL: "online"), parametreler arketipten; il
         fiziksel ev mağazasının şehri, ONL üyesinde il dağılımından.
+        Cinsiyet ev mağazasının `magaza.kadin_payi`'sinden
+        (`magaza_kadin_payi`: A satışından, zincire büzülmüş; Görev 5b).
         `kayit_kanali` verilmezse ev mağazası ONL ise 1. Yeni satırların
         indislerini döndürür."""
         n = int(n)

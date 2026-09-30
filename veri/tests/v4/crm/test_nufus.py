@@ -176,10 +176,11 @@ def test_gozlemlenebilir_alanlar():
 
 def test_kadin_payi_a_satisindan(kucuk_girdi):
     """Görev 5b: mağazanın kadın müşteri payı = A'nın o mağazadaki satışında
-    Kadın / (Kadın + Erkek) birim payı + `KADIN_HEDIYE_DUZELTME`."""
+    Kadın / (Kadın + Erkek) birim payı (zincire büzülmüş) +
+    `KADIN_HEDIYE_DUZELTME`."""
     from perakende_veri.v4.crm import sabitler as S
     from perakende_veri.v4.crm.girdi import ADET, H
-    from perakende_veri.v4.crm.nufus import magaza_bilgisi
+    from perakende_veri.v4.crm.nufus import kadin_payi_buzul, magaza_bilgisi
 
     w = kucuk_girdi.dunya
     mb = magaza_bilgisi(kucuk_girdi)
@@ -192,6 +193,23 @@ def test_kadin_payi_a_satisindan(kucuk_girdi):
         np.add.at(kad, hm[c], s[:, ADET] * (cins[hs[c]] == "Kadın"))
         np.add.at(erk, hm[c], s[:, ADET] * (cins[hs[c]] == "Erkek"))
     satan = kad + erk > 0
-    beklenen = np.clip(kad[satan] / (kad[satan] + erk[satan]) + S.KADIN_HEDIYE_DUZELTME, 0.0, 1.0)
+    p = kad.sum() / (kad.sum() + erk.sum())
+    a = S.KADIN_PAYI_BUZULME
+    buz = (kad + a * p) / (kad + erk + a)
+    assert np.allclose(kadin_payi_buzul(kad, erk), buz)
+    beklenen = np.clip(buz[satan] + S.KADIN_HEDIYE_DUZELTME, 0.0, 1.0)
     assert np.allclose(mb.kadin_payi[satan], beklenen)
     assert ((mb.kadin_payi >= 0) & (mb.kadin_payi <= 1)).all()
+
+
+def test_kadin_payi_kucuk_magaza_zincire_yakin():
+    """Görev 5b düzeltme: 10 birimlik (hepsi Erkek) mağazanın payı zincir
+    payına yakın; çok satışlı mağaza kendi payında."""
+    from perakende_veri.v4.crm.nufus import kadin_payi_buzul
+
+    kad = np.array([60000.0, 0.0, 30000.0])
+    erk = np.array([40000.0, 10.0, 70000.0])
+    p = kad.sum() / (kad.sum() + erk.sum())          # 0,45
+    q = kadin_payi_buzul(kad, erk)
+    assert abs(q[1] - p) < 0.03, (q[1], p)            # ham pay 0 olurdu
+    assert abs(q[0] - 0.6) < 0.002 and abs(q[2] - 0.3) < 0.002

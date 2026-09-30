@@ -59,6 +59,8 @@ _BEDEN_YONU = np.array(
     dtype=np.int8,
 )
 BEDEN_YONU = _BEDEN_YONU  # [17] alt kategori → 0 üst beden, 1 alt beden, −1 aksesuar
+# cinsiyet cezası aksesuarı BEDEN_YONU == −1 ile tanır (ayristir.tc_ceza)
+assert {a for a, y in zip(S.ALT_KATEGORILER, _BEDEN_YONU) if y == -1} == set(a_sabitler.AKSESUAR)
 
 # Beden sırası farkının log-ceza tabanı (`beden_dagin` ile bölünerek
 # yumuşatılır); fark 0 → 0. KALİBRASYON (Görev 5): −1,2 / −3,0 ile KUCUK'ta
@@ -288,6 +290,8 @@ def cinsiyet_ozeti(nufus, fis: pd.DataFrame, fis_satir: pd.DataFrame, urunler,
     sat = fis_satir[fis_satir["adet"] > 0]
     fis_id = sat["fis_id"].to_numpy(np.int64)
     fis_ix = fis.set_index("fis_id")
+    f_id = fis_ix.index.to_numpy()
+    assert (np.diff(f_id) > 0).all(), "fis_id sıralı ve tekil olmalı (searchsorted)"
     k = fis_ix["musteri"].to_numpy(np.int64)[np.searchsorted(fis_ix.index.to_numpy(), fis_id)]
     adet = sat["adet"].to_numpy(np.int64)
     if yalniz_kartli:

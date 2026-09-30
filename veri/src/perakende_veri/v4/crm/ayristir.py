@@ -90,6 +90,9 @@ TAMAM_TUR = S.TAMAMLAYICI_TUR
 ARTIK_TUR = S.TAMAMLAYICI_ARTIK_TUR
 DALGA = S.TAMAMLAYICI_DALGA
 A_ALT = len(S.ALT_KATEGORILER)
+#: Ziyaretçi cinsiyet kotası açık mı (Görev 5b). YALNIZ ÖLÇÜM içindir
+#: (kotasız karşılaştırma, araclar/v4_crm_hiz.py --kotasiz); üretim hep True.
+ZIYARETCI_KOTASI = True
 N_TC = N_TIP * URUN_CINSIYET_SAYISI      # grup anahtarının mağaza-içi kısmı: tip × ürün cinsiyeti
 
 
@@ -612,10 +615,12 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     fis_m = np.repeat(np.arange(M), F_m)
     F = len(fis_m)
     adim("1 hat/grup")
-    h_cins = du.sku_cins[h_s]
-    kotalar = kadin_hedefi(F_m, np.bincount(g_m[h_g], h_c * (h_cins == 0), minlength=M),
-                           np.bincount(g_m[h_g], h_c * (h_cins == 1), minlength=M),
-                           nufus.magaza.kadin_payi, rng_z)
+    kotalar = None
+    if ZIYARETCI_KOTASI:
+        h_cins = du.sku_cins[h_s]
+        kotalar = kadin_hedefi(F_m, np.bincount(g_m[h_g], h_c * (h_cins == 0), minlength=M),
+                               np.bincount(g_m[h_g], h_c * (h_cins == 1), minlength=M),
+                               nufus.magaza.kadin_payi, rng_z)
     musteri = ziyaretci_sec(du.adaylar, nufus, d, F_m, rng_z, sayac, kadin_hedef=kotalar)
     adim("3 ziyaretci")
     du.tekrar_buyut(nufus.K)

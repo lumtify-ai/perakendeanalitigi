@@ -225,7 +225,9 @@ def test_urun_puani_cinsiyet_capraz_dusuk(kucuk_girdi, n):
     from perakende_veri.v4.crm.tercih import sku_ek_puani, tip_kodu, tip_puani, urun_cinsiyet, urun_puani
 
     u = kucuk_girdi.dunya.urunler
-    giyim = ~u["alt_kategori"].isin(["Çanta", "Şal", "Kemer"]).to_numpy()
+    from perakende_veri.v4 import sabitler as a_sabitler
+
+    giyim = ~u["alt_kategori"].isin(a_sabitler.AKSESUAR).to_numpy()
     kod = urun_cinsiyet(u)
     sku = np.r_[np.flatnonzero(giyim & (kod == 0))[:20], np.flatnonzero(giyim & (kod == 1))[:20]]
     k_idx = np.arange(40)

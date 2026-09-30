@@ -650,6 +650,37 @@ def ayristir_kos(gun_sayisi: int | None = None, kucuk: bool = False, iade: bool 
     print(f"Kapı (gun_ayristir ≤ {KAPI_SN // 60} dk): {'GEÇTİ' if t_esle <= KAPI_SN else 'AŞTI'}")
 
 
+def cinsiyet_ziyaret_ozeti(nuf, fis) -> None:
+    """Görev 5b düzeltme 1: cinsiyete göre ziyaret davranışı (satış fişleri,
+    gizli sahip): yıllık ziyaret / kartlı müşteri; ONL fiş payı ve fişli
+    müşterilerin beklenen online payı Σhız·op / Σhız; mağaza fişlerinde ev
+    mağazası dışı pay (şimdiki ev_magaza)."""
+    from perakende_veri.v4.takvim import gun_indisi
+
+    onl = nuf.magaza.onl
+    tip = fis["tip"].to_numpy()
+    s = tip == 0
+    g = fis["gun"].to_numpy(np.int64)[s]
+    m = fis["magaza"].to_numpy(np.int64)[s]
+    k = fis["musteri"].to_numpy(np.int64)[s]
+    kart = fis["kart"].to_numpy()[s]
+    cins = nuf.cinsiyet[k]
+    print("cinsiyet | ziyaret/kartlı 2023 2024 2025 | ONL fiş payı | beklenen online payı | ev dışı mağaza fişi")
+    for c, ad in ((0, "Kadın"), (1, "Erkek")):
+        mc = cins == c
+        z = []
+        for yil in (2023, 2024, 2025):
+            b, e = gun_indisi(f"{yil}-01-01"), gun_indisi(f"{yil}-12-31")
+            sec = mc & kart & (g >= b) & (g <= e)
+            z.append(sec.sum() / max(len(np.unique(k[sec])), 1))
+        ku = np.unique(k[mc])
+        hz, op = nuf.ziyaret_hizi[ku], nuf.online_payi[ku]
+        fiz = mc & (m != onl)
+        ev_disi = (nuf.ev_magaza[k[fiz]] != m[fiz]).mean()
+        print(f"{ad:8s} | {z[0]:.3f} {z[1]:.3f} {z[2]:.3f}          | %{100 * (mc & (m == onl)).sum() / mc.sum():5.2f}       "
+              f"| %{100 * (hz * op).sum() / hz.sum():5.2f}               | %{100 * ev_disi:5.2f}")
+
+
 def dongu_ozeti(ham, girdi) -> None:
     """Görev 7 ölçümleri (kalibrasyon değil): yıllara göre nüfus, katılış,
     terk; görünür/kartlı pay; mağazada kart okutma payı; sepet; kartlı
@@ -703,9 +734,12 @@ def dongu_ozeti(ham, girdi) -> None:
           f"yeni (eksik) müşteri {bz['yeni']:,}; boş ziyaret yeni müşteri {bz['bos_yeni_musteri']:,}")
     print(f"LTV: hayatta {int(ham.ltv['hayatta_olasiligi'].sum()):,}, geri gelecek "
           f"%{100 * ham.ltv['geri_gelecek_2026'].mean():.1f} (tümü), fiyat_ort medyan {np.median(ham.fiyat_ort):.1f}")
+    cinsiyet_ziyaret_ozeti(nuf, fis)
     # Görev 5b: müşteri × ürün cinsiyeti (kartlı satış birimleri)
-    from perakende_veri.v4.crm.tercih import cinsiyet_ozeti
-
+    try:
+        from perakende_veri.v4.crm.tercih import cinsiyet_ozeti
+    except ImportError:   # Görev 5b öncesi kod
+        return
     c = cinsiyet_ozeti(nuf, fis, ham.kayit.tablo("fis_satir"), girdi.dunya.urunler)
     print(f"Cinsiyet (kartlı): çapraz giyim %{100 * c['capraz']:.1f}, aksesuar %{100 * c['capraz_aksesuar']:.1f}; "
           f"kadın ürün payı kadın müşteride %{100 * c['kadin_urun_kadin']:.1f}, erkekte "
