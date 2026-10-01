@@ -244,14 +244,17 @@ def test_urun_puani_cinsiyet_capraz_dusuk(kucuk_girdi, n):
 
 
 def test_indirim_terimi_degerleri():
-    """`INDIRIM_AGIRLIGI × indirim_duyarlilik × indirimli`; indirimsiz 0."""
+    """`INDIRIM_AGIRLIGI × (indirim_duyarlilik − INDIRIM_MERKEZ) ×
+    indirimli`; indirimsiz 0; merkezin altındaki müşteri indirimliden kaçar."""
     from perakende_veri.v4.crm import sabitler as S
     from perakende_veri.v4.crm.tercih import indirim_terimi
 
     assert S.INDIRIM_AGIRLIGI > 0
     d = np.array([0.0, 0.2, 0.8, 1.0, 0.8])
     ind = np.array([1, 1, 1, 1, 0], dtype=bool)
-    assert np.allclose(indirim_terimi(d, ind), S.INDIRIM_AGIRLIGI * d * ind)
+    t = indirim_terimi(d, ind)
+    assert np.allclose(t, S.INDIRIM_AGIRLIGI * (d - S.INDIRIM_MERKEZ) * ind)
+    assert t[0] < 0 < t[3] and t[4] == 0
 
 
 def test_urun_puani_indirimli_satir_terimi(kucuk_girdi, n):
@@ -264,5 +267,5 @@ def test_urun_puani_indirimli_satir_terimi(kucuk_girdi, n):
     k_idx = np.arange(30)
     ind = np.arange(10) % 2 == 0
     fark = urun_puani(n, k_idx, sku, kucuk_girdi, indirimli=ind) - urun_puani(n, k_idx, sku, kucuk_girdi)
-    beklenen = S.INDIRIM_AGIRLIGI * np.asarray(n.indirim_duyarlilik)[k_idx][:, None] * ind[None, :]
+    beklenen = S.INDIRIM_AGIRLIGI * (np.asarray(n.indirim_duyarlilik)[k_idx][:, None] - S.INDIRIM_MERKEZ) * ind[None, :]
     assert np.allclose(fark, beklenen)

@@ -22,8 +22,8 @@ ziyaret `iade.py`'dedir (Görev 6).
 5. **Aşama 1, grup düzeyinde kesin** (`asama1`): puan birimde yalnız gruba
    bağlı (`tercih.tip_puani`: alt kategori, fiyat segmenti, beden uyumu; +
    `tercih.cinsiyet_terimi`: müşteri × ürün cinsiyeti; +
-   `tercih.indirim_terimi`: `INDIRIM_AGIRLIGI` × müşterinin indirim
-   duyarlılığı, grup indirimliyse; Görev 5c); aynı gruptaki n boş
+   `tercih.indirim_terimi`: `INDIRIM_AGIRLIGI` × (müşterinin indirim
+   duyarlılığı − `INDIRIM_MERKEZ`), grup indirimliyse; Görev 5c); aynı gruptaki n boş
    birimin Gumbel-max'ı = grup puanı + log n + tek Gumbel. Tip puanı [F ×
    306] cinsiyetsiz hesaplanır, cinsiyet terimi çift başına bir tablo
    okuması (Görev 5b: cinsiyet tipe katılsaydı tip puanı matrisi üç kat
@@ -714,7 +714,7 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     # cinsiyet terimi: üst grup × müşteri cinsiyeti düz tablosu
     s_ceza = du.tc_ceza[s_tc].ravel()                                     # [S × 2]
     m_cins = nufus.cinsiyet[musteri].astype(np.int64)
-    # indirim terimi: alt grup indirimliyse müşterinin INDIRIM_AGIRLIGI × duyarlılığı (Görev 5c)
+    # indirim terimi: alt grup indirimliyse INDIRIM_AGIRLIGI × (duyarlılık − merkez) (Görev 5c)
     m_ind = indirim_terimi(nufus.indirim_duyarlilik[musteri], True)
 
     P_duz = P.ravel()

@@ -18,7 +18,7 @@ Tip kodu cinsiyetsiz kalır; eşleştirici terimi aşama 1'in grup anahtarına
 (mağaza, tip, ürün cinsiyeti) katar.
 
 Müşteri × indirimli satır (Görev 5c): `indirim_terimi` = `INDIRIM_AGIRLIGI
-× indirim_duyarlilik × indirimli`; eşleştirici satırın indirim durumunu da
+× (indirim_duyarlilik − INDIRIM_MERKEZ) × indirimli`; eşleştirici satırın indirim durumunu da
 grup anahtarına katar. `urun_puani` dört terimin toplamıdır.
 
 Gizli tamamlayıcılık matrisi (`tamamlayici_matris`) hiçbir yayımlanan
@@ -203,10 +203,11 @@ def sku_ek_puani(nufus, k_idx, sku_idx, oran, urunler) -> np.ndarray:
 
 def indirim_terimi(duyarlilik, indirimli) -> np.ndarray:
     """Müşteri × indirimli SKU-gün satırı log-terimi (Görev 5c):
-    `INDIRIM_AGIRLIGI × indirim_duyarlilik × indirimli` (indirimsiz satır
-    0). Eşleştirici aşama 1'in grup anahtarına satırın indirim durumunu
-    katar; terim grup içinde sabittir."""
-    return (S.INDIRIM_AGIRLIGI * np.asarray(duyarlilik, dtype=np.float64)
+    `INDIRIM_AGIRLIGI × (indirim_duyarlilik − INDIRIM_MERKEZ) × indirimli`
+    (indirimsiz satır 0; merkezin gerekçesi sabitlerde). Eşleştirici aşama
+    1'in grup anahtarına satırın indirim durumunu katar; terim grup içinde
+    sabittir."""
+    return (S.INDIRIM_AGIRLIGI * (np.asarray(duyarlilik, dtype=np.float64) - S.INDIRIM_MERKEZ)
             * np.asarray(indirimli, dtype=bool))
 
 

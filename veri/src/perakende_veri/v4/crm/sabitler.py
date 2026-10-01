@@ -227,11 +227,20 @@ KOTA_EK = 8
 # Müşteri × indirimli SKU-gün satırı (Görev 5c). Aşama 1'in grup anahtarı
 # (mağaza, tip, ürün cinsiyeti, indirimli); indirimli = A satırının
 # `indirim_tutari > 0` (markdown, kampanya ya da işlem indirimi). Müşteri
-# başına log-terim INDIRIM_AGIRLIGI × indirim_duyarlilik × indirimli (grup
-# içinde sabit; Gumbel-max + log n kesin kalır). Önce indirim duyarlılığı
-# yalnız aşama 2'de (tip içinde SKU) etkiliydi: indirimli satır payıyla
-# korelasyon 0,01 (Görev 15). KALİBRASYON
+# başına log-terim INDIRIM_AGIRLIGI × (indirim_duyarlilik − INDIRIM_MERKEZ)
+# × indirimli (grup içinde sabit; Gumbel-max + log n kesin kalır). Önce
+# indirim duyarlılığı yalnız aşama 2'de (tip içinde SKU) etkiliydi:
+# indirimli satır payıyla korelasyon 0,01 (Görev 15). KALİBRASYON
 INDIRIM_AGIRLIGI = 15.0
+# Merkez: −AĞIRLIK × MERKEZ bütün müşterilerde aynı, indirimli grup başına
+# sabit bir terimdir. A'nın satışı sabit olduğundan indirimli birim arzı
+# sabittir; merkezsiz terimde düşük duyarlılıklı müşteri de indirimli grubu
+# ister, çapada çakışma ve tur artar (TAM 100 gün çapa çifti 1,60 M → 2,13 M
+# / gün) ve indirimli birimin bir kısmı rastgele kazanana gider. Nüfus
+# ortalamasına yakın merkez talebi arza yaklaştırır: çift sayısı merkezsiz
+# β = 0 düzeyinde, duyarlılığın üst / alt üçte birinin indirimli birim payı
+# 0,323 / 0,166 → 0,361 / 0,153 (TAM 100 gün). KALİBRASYON
+INDIRIM_MERKEZ = 0.45
 
 # Mağaza segmenti (A §2.3) + online → arketip olasılıkları (ARKETIPLER
 # sırası). İlişkili ama birebir değil: her segmentin baskın tipi ayrı, hiçbiri
