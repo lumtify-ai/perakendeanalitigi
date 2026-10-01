@@ -89,12 +89,14 @@ def test_tercihler_olasilik_vektoru(n):
 
 
 def test_karisim_hedefleri():
-    """Nüfus karışımında yıllık ziyaret ~3, mağaza sepeti ~2,2 (ziyaret
+    """Nüfus karışımında gizli yıllık ziyaret hızı ~4,1 (anonim ziyaretler
+    dahil; Görev 14 kalibrasyonu: gerçekleşen kartlı müşteri yıllık ziyareti
+    ~3 TAM'da `test_crm_kalibrasyon`'da), mağaza sepeti ~2,2 (ziyaret
     ağırlıklı), kart payı mağaza ziyaretinde %50–60 (spec §2, §8)."""
     from perakende_veri.v4.crm import nufus as N
 
     o = N.karisim_ozeti()
-    assert 2.5 <= o["ziyaret"] <= 3.8
+    assert 3.5 <= o["ziyaret"] <= 4.8
     assert 2.0 <= o["sepet_magaza"] <= 2.5
     assert 1.6 <= o["sepet_online"] <= 2.2
     assert 0.50 <= o["kart_magaza"] <= 0.60

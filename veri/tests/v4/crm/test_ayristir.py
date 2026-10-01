@@ -436,7 +436,10 @@ def test_kadin_hedefi_beklentisi():
 
 def test_ziyaretci_kotasi_gunluk(kucuk_girdi, tek_gun):
     """Gün içinde mağaza başına kadın fiş sayısı kotaya (satılan kadın ürün
-    payı × fiş) yakın: rastgele yuvarlama (< 1) + nadir kota sapması."""
+    payı × fiş) yakın: rastgele yuvarlama (< 1) + nadir kota sapması
+    (o gün bir cinsiyetin `KOTA_FAZLA × k + KOTA_EK` çekilişte yetmemesi;
+    Görev 14'ün küçük nüfusunda bu günde bir mağaza, 60 günlük sapma payı
+    `test_ziyaretci_kotasi_sapmasi_kucuk`'ta)."""
     from perakende_veri.v4.crm.girdi import ADET, H
 
     nuf, kayit = tek_gun
@@ -456,7 +459,7 @@ def test_ziyaretci_kotasi_gunluk(kucuk_girdi, tek_gun):
 
     q = np.clip(kad[belli] / (kad[belli] + erk[belli]) + S.KADIN_HEDIYE_DUZELTME, 0, 1)
     fark = np.abs(kf[belli] - F_m[belli] * q)
-    assert belli.sum() >= 10 and (fark <= 2.0).all(), fark
+    assert belli.sum() >= 10 and (fark > 2.0).sum() <= 1 and np.median(fark) <= 1.0, fark
 
 
 def test_ziyaretci_kotasi_sapmasi_kucuk(kosu60):
