@@ -460,6 +460,8 @@ def test_ziyaretci_kotasi_gunluk(kucuk_girdi, tek_gun):
     q = np.clip(kad[belli] / (kad[belli] + erk[belli]) + S.KADIN_HEDIYE_DUZELTME, 0, 1)
     fark = np.abs(kf[belli] - F_m[belli] * q)
     assert belli.sum() >= 10 and (fark > 2.0).sum() <= 1 and np.median(fark) <= 1.0, fark
+    # o tek mağazanın sapması da sınırlı (Görev 14: 5,4)
+    assert fark.max() <= 8, fark
 
 
 def test_ziyaretci_kotasi_sapmasi_kucuk(kosu60):
