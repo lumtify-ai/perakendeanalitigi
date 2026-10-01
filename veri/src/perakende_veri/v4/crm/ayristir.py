@@ -146,6 +146,19 @@ def segment_kategorik(logit: np.ndarray, uzunluk: np.ndarray, tekrar: np.ndarray
     return pos, mx + np.log(toplam)
 
 
+def gumbel32(rng, n: int) -> np.ndarray:
+    """[n] standart Gumbel, float32 (−log(−log U), U float32; U = 0 en küçük
+    pozitif float32'ye kırpılır). Çift başına float64 `rng.gumbel`'den ~3
+    kat ucuz; puanlar zaten float32."""
+    u = rng.random(n, dtype=np.float32)
+    np.maximum(u, np.finfo(np.float32).tiny, out=u)
+    np.log(u, out=u)
+    np.negative(u, out=u)
+    np.log(u, out=u)
+    np.negative(u, out=u)
+    return u
+
+
 def grup_en_buyuk_kalan(agirlik: np.ndarray, grup: np.ndarray, hedef: np.ndarray) -> np.ndarray:
     """Grup içinde `hedef[g]` (tam sayı) ağırlıkla orantılı tam sayılara
     böler (en büyük kalan). Toplam ağırlığı 0 olan grubun hedefi 0 olmalı."""
@@ -229,15 +242,47 @@ def kadin_hedefi(F_m: np.ndarray, kadin_m: np.ndarray, erkek_m: np.ndarray, vars
 # ---------------------------------------------------------------------------
 
 
-def asama1(fis_m, boyut, g_m, g_alt, n_g, M: int, puan, T, rng, sayac) -> tuple[np.ndarray, np.ndarray]:
+def asama1(fis_m, boyut, g_m, g_alt, n_g, M: int, puan, T, rng, sayac,
+           g_ust=None, g_ind=None, w_f=None) -> tuple[np.ndarray, np.ndarray]:
     """Tip düzeyinde çapa + tamamlayıcı (modül docstring'i, adım 5). Gruplar
-    (mağaza, tip) sırasıyla bitişik; `puan(pf, pg)` fiş × grup log-puanı
-    (float32), `T` [17, 17] log-tamamlayıcılık. Birim başına (fiş, grup)
-    atamaları döner (uzunluk Σ n_g)."""
+    (mağaza, tip, …) sırasıyla bitişik; `T` [17, 17] log-tamamlayıcılık.
+    Birim başına (fiş, grup) atamaları döner (uzunluk Σ n_g).
+
+    **Üst grup** (Görev 5c): `g_ust[g]` grubun üst grubu (aynı mağaza,
+    bitişik, en çok iki alt grup), `g_ind[g]` ∈ {0, 1} alt grup terimi
+    göstergesi, `w_f[f]` fişin alt grup terimi; grup puanı = `puan(pf, ps)`
+    (fiş × üst grup, float32) + `g_ind × w_f`. Çiftler fiş × üst grup
+    düzeyinde kurulur (indirim durumu çift sayısını büyütmez) ve kesindir:
+    çapada üst grubun iki alt grubunun Gumbel-max'ı = puan + log(k₀ +
+    k₁·e^w) + tek Gumbel, alt grup P(1) = k₁e^w / (k₀ + k₁e^w) ile seçilir
+    (en büyük değer seçimden bağımsız, düz sürümle aynı ortak dağılım);
+    tamamlayıcıda üst grubun taban logiti bir kez hesaplanır, her alt grubun
+    birimleri kendi logitiyle (taban + g_ind × w_f) çekilir. Verilmezse her
+    grup kendi üst grubudur (Görev 5b davranışı)."""
     F = len(fis_m)
     Gn = len(n_g)
-    G_m = np.bincount(g_m, minlength=M)
-    gm_bas = np.cumsum(G_m) - G_m
+    if g_ust is None:
+        g_ust, g_ind, w_f = np.arange(Gn), np.zeros(Gn, dtype=np.int64), np.zeros(F)
+    g_ust = np.asarray(g_ust, dtype=np.int64)
+    g_ind = np.asarray(g_ind, dtype=np.int64)
+    w_f = np.asarray(w_f, dtype=np.float64)
+    Sn = int(g_ust[-1]) + 1 if Gn else 0
+    assert (np.diff(g_ust) >= 0).all() and (np.diff(g_ust) <= 1).all()
+    s_g = np.full((Sn, 2), -1, dtype=np.int64)          # üst grup → alt grup (indirim 0 / 1)
+    s_g[g_ust, g_ind] = np.arange(Gn)
+    assert (np.bincount(g_ust, minlength=Sn) == (s_g >= 0).sum(axis=1)).all()
+    s_ilk = np.flatnonzero(np.r_[True, np.diff(g_ust) > 0]) if Gn else np.zeros(0, np.int64)
+    s_m, s_alt = g_m[s_ilk], g_alt[s_ilk]                # üst grubun mağazası, alt kategorisi
+    S_m = np.bincount(s_m, minlength=M)
+    sm_bas = np.cumsum(S_m) - S_m
+    ew_f = np.exp(w_f).astype(np.float32)
+    var0, var1 = s_g[:, 0] >= 0, s_g[:, 1] >= 0
+    g0, g1 = np.maximum(s_g[:, 0], 0), np.maximum(s_g[:, 1], 0)
+
+    def alt_kalan(kalan_g):
+        """[S] üst grup başına (indirimsiz, indirimli) kalan, float32."""
+        return (np.where(var0, kalan_g[g0], 0).astype(np.float32),
+                np.where(var1, kalan_g[g1], 0).astype(np.float32))
 
     # Çapa
     kalan_g = n_g.astype(np.int64).copy()
@@ -246,16 +291,23 @@ def asama1(fis_m, boyut, g_m, g_alt, n_g, M: int, puan, T, rng, sayac) -> tuple[
     for _ in range(TUR):
         if not len(acik):
             break
-        uz = G_m[fis_m[acik]]
+        uz = S_m[fis_m[acik]]
         pi, ic = segment_ici(uz)
         pf = acik[pi]
-        pg = gm_bas[fis_m[pf]] + ic
+        ps = sm_bas[fis_m[pf]] + ic
         sayac["cift_capa"] += len(pf)
+        k0_s, k1_s = alt_kalan(kalan_g)
+        k0 = k0_s[ps]
+        k1 = k1_s[ps] * ew_f[pf]
         with np.errstate(divide="ignore"):
-            skor = puan(pf, pg) + np.log(kalan_g[pg]).astype(np.float32)
-        skor += rng.gumbel(size=len(pf)).astype(np.float32)
+            skor = puan(pf, ps) + np.log(k0 + k1)
+        skor += gumbel32(rng, len(pf))
         yer, enb = segment_argmax(skor, uz)
-        g_sec = pg[yer]
+        t0, t1 = k0[yer], k1[yer]
+        with np.errstate(invalid="ignore"):
+            bir = rng.random(len(yer)) * (t0 + t1) < t1
+        g_sec = s_g[ps[yer], bir.astype(np.int64)]
+        g_sec = np.where(g_sec >= 0, g_sec, s_g[ps[yer]].max(axis=1))   # tükenmiş üst grup (kabul edilmez)
         o = np.lexsort((-enb, g_sec))
         gs = g_sec[o]
         rutbe = np.arange(len(o)) - np.searchsorted(gs, gs)
@@ -282,29 +334,40 @@ def asama1(fis_m, boyut, g_m, g_alt, n_g, M: int, puan, T, rng, sayac) -> tuple[
     np.add.at(sepet, (np.arange(F), g_alt[capa_g]), 1.0)
     atama_f, atama_g = [np.arange(F)], [capa_g]
     bekleyen = kalan_g
+    w32 = w_f.astype(np.float32)
     for tur in range(TAMAM_TUR + ARTIK_TUR):
         artik = tur >= TAMAM_TUR
         gw = np.flatnonzero(bekleyen > 0)
         if not len(gw):
             break
+        sw = np.unique(g_ust[gw])
         fo = np.flatnonzero(kap > 0)
         Fo_m = np.bincount(fis_m[fo], minlength=M)
         fo_bas = np.cumsum(Fo_m) - Fo_m
-        uz = Fo_m[g_m[gw]]
+        uz = Fo_m[s_m[sw]]
         assert (uz > 0).all()
         pi, ic = segment_ici(uz)
-        pg = gw[pi]
-        pf = fo[fo_bas[g_m[pg]] + ic]
+        ps = sw[pi]
+        pf = fo[fo_bas[s_m[ps]] + ic]
         sayac["cift_tamam"] += len(pf)
         tamam = sepet @ T
-        logit = puan(pf, pg) + tamam[pf, g_alt[pg]]
+        taban = puan(pf, ps) + tamam[pf, s_alt[ps]]
         if artik:
-            logit = logit + np.log(kap[pf]).astype(np.float32)
-        adet_g = bekleyen[gw]
-        pos, lse = segment_kategorik(logit, uz, adet_g, rng)
-        hedef_f = pf[pos]
-        hedef_g = np.repeat(gw, adet_g)
-        deger = np.repeat(lse, adet_g) + rng.gumbel(size=len(pos))
+            taban = taban + np.log(kap[pf]).astype(np.float32)
+        hf_l, hg_l, dg_l = [], [], []
+        for b in (0, 1):
+            gb = s_g[sw, b]
+            adet = np.where(gb >= 0, bekleyen[np.maximum(gb, 0)], 0)
+            var = adet > 0
+            if not var.any():
+                continue
+            maske = np.repeat(var, uz)
+            logit = taban[maske] + w32[pf[maske]] if b else taban[maske]
+            pos, lse = segment_kategorik(logit, uz[var], adet[var], rng)
+            hf_l.append(pf[maske][pos])
+            hg_l.append(np.repeat(gb[var], adet[var]))
+            dg_l.append(np.repeat(lse, adet[var]) + rng.gumbel(size=len(pos)))
+        hedef_f, hedef_g, deger = np.concatenate(hf_l), np.concatenate(hg_l), np.concatenate(dg_l)
         o = np.lexsort((-deger, hedef_f))
         hf = hedef_f[o]
         rutbe = np.arange(len(o)) - np.searchsorted(hf, hf)
@@ -617,9 +680,14 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     h_g = np.repeat(np.arange(len(gk)), L_g)
     n_g = np.add.reduceat(h_c, g_bas_h)
     g_m, g_tci = gk // N_TCI, gk % N_TCI
-    g_tc, g_ind = g_tci // 2, (g_tci % 2).astype(np.float32)
+    g_tc, g_ind = g_tci // 2, g_tci % 2
     g_tip = g_tc // URUN_CINSIYET_SAYISI
     g_alt = du.tip_alt[g_tip]
+    # üst grup (mağaza, tip, ürün cinsiyeti): aşama 1 çiftleri bu düzeyde (Görev 5c)
+    s_ilk = np.flatnonzero(np.r_[True, np.diff(gk // 2) > 0])
+    g_ust = np.repeat(np.arange(len(s_ilk)), np.diff(np.r_[s_ilk, len(gk)]))
+    s_tc = g_tc[s_ilk]
+    s_tip = s_tc // URUN_CINSIYET_SAYISI
     U_m = np.bincount(g_m, n_g, minlength=M).astype(np.int64)
 
     # 2–4) Fiş sayısı, ziyaretçi, boyut
@@ -643,16 +711,19 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     # 5) Aşama 1
     P = tip_puani(nufus, musteri, np.arange(N_TIP)).astype(np.float32)   # [F, N_TIP]
     adim("5a tip puani")
-    # cinsiyet terimi: grup × müşteri cinsiyeti düz tablosu
-    g_ceza = du.tc_ceza[g_tc].ravel()                                     # [G × 2]
+    # cinsiyet terimi: üst grup × müşteri cinsiyeti düz tablosu
+    s_ceza = du.tc_ceza[s_tc].ravel()                                     # [S × 2]
     m_cins = nufus.cinsiyet[musteri].astype(np.int64)
-    # indirim terimi: grup indirimliyse müşterinin INDIRIM_AGIRLIGI × duyarlılığı (Görev 5c)
-    m_ind = indirim_terimi(nufus.indirim_duyarlilik[musteri], True).astype(np.float32)
+    # indirim terimi: alt grup indirimliyse müşterinin INDIRIM_AGIRLIGI × duyarlılığı (Görev 5c)
+    m_ind = indirim_terimi(nufus.indirim_duyarlilik[musteri], True)
 
-    def puan(pf, pg):
-        return P[pf, g_tip[pg]] + g_ceza[pg * 2 + m_cins[pf]] + g_ind[pg] * m_ind[pf]
+    P_duz = P.ravel()
 
-    af, ag = asama1(fis_m, boyut, g_m, g_alt, n_g, M, puan, du.T, akis["asama1"], sayac)
+    def puan(pf, ps):
+        return P_duz[pf * N_TIP + s_tip[ps]] + s_ceza[ps * 2 + m_cins[pf]]
+
+    af, ag = asama1(fis_m, boyut, g_m, g_alt, n_g, M, puan, du.T, akis["asama1"], sayac,
+                    g_ust=g_ust, g_ind=g_ind, w_f=m_ind)
     assert len(af) == U_m.sum()
     del P
     adim("5b asama1")

@@ -151,10 +151,12 @@ def _birlikte(sat, alt_birim, a, b, rng=None):
 
 
 def test_tamamlayici_birlikte_gorunur(kosu60):
-    """(Elbise, Çanta) birlikte görünme / bağımsız beklenti > 1,5. Bağımsız
+    """(Elbise, Çanta) birlikte görünme / bağımsız beklenti > 1,3. Bağımsız
     beklenti: fiş boyutları ve (gün, mağaza) satışı sabit, birimler fişlere
     rastgele (küçük fişlerde p_a × p_b beklentinin altında kalır: 1 birimlik
-    fişte birlikte görünme olanaksız)."""
+    fişte birlikte görünme olanaksız). Görev 5c: arketip kategori eğimleri
+    sertleşince müşteri tercihi tamamlayıcılığa göre ağırlaştı; 5 B tohumu
+    1,42–1,67 (önce 1,76–2,09), eşik 1,5 → 1,3."""
     from perakende_veri.v4.crm.sabitler import ALT_KATEGORILER
 
     _, kayit = kosu60
@@ -164,7 +166,7 @@ def test_tamamlayici_birlikte_gorunur(kosu60):
     gercek = _birlikte(sat, alt, e, c)
     rng = np.random.default_rng(0)
     bagimsiz = np.mean([_birlikte(sat, alt, e, c, rng) for _ in range(5)])
-    assert gercek > 0 and gercek / bagimsiz > 1.5, (gercek, bagimsiz)
+    assert gercek > 0 and gercek / bagimsiz > 1.3, (gercek, bagimsiz)
 
 
 def test_beden_uyumu_cogunlukta(kosu60):
@@ -495,3 +497,26 @@ def test_indirim_duyarli_musteri_indirimli_satiri_secer(kosu60):
     assert 0.05 < genel < 0.95, genel
     assert ust - alt >= 0.10, (alt, ust, genel)
 
+
+
+def test_asama1_ust_grup_kesin():
+    """Görev 5c: üst grup (iki alt grup, indirim terimi w) çapası düz Gumbel-
+    max ile aynı dağılım: alt grup seçimi ∝ n · e^(g_ind · w). Kapasite bol,
+    puan 0: olasılıklar 100 : 100·2 : 200 → 0,2 / 0,4 / 0,4."""
+    from collections import defaultdict
+
+    from perakende_veri.v4.crm.ayristir import asama1
+
+    F = 20_000
+    n_g = np.array([100_000, 100_000, 200_000])
+    sayac = defaultdict(int)
+    boyut = np.ones(F, dtype=np.int64)
+    boyut[-1] += n_g.sum() - F            # kalan birimler son fişe (yalnız çapa ölçülür)
+    af, ag = asama1(np.zeros(F, dtype=np.int64), boyut, np.zeros(3, dtype=np.int64),
+                    np.array([0, 0, 1]), n_g, 1, lambda pf, ps: np.zeros(len(pf), dtype=np.float32),
+                    np.zeros((17, 17), dtype=np.float32), np.random.default_rng(5), sayac,
+                    g_ust=np.array([0, 0, 1]), g_ind=np.array([0, 1, 0]), w_f=np.full(F, np.log(2.0)))
+    pay = np.bincount(ag[:F], minlength=3) / F       # ilk F atama = çapalar (fiş sırasıyla)
+    assert (af[:F] == np.arange(F)).all()
+    assert np.allclose(pay, [0.2, 0.4, 0.4], atol=0.015), pay
+    assert np.bincount(ag, minlength=3).tolist() == n_g.tolist() and sayac["tur_disi_capa"] == 0
