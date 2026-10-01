@@ -5,9 +5,11 @@ ziyaret `iade.py`'dedir (Görev 6).
 **Akış** (bütün mağazalar birlikte; birimler hiç açılmaz, sayımla çalışılır):
 
 1. Satış satırı = (mağaza, SKU) hattı, `c` adet. Grup = (mağaza, tip, ürün
-   cinsiyeti); tip `tercih.tip_kodu` (alt kategori × fiyat segmenti × beden
-   sırası; aksesuar STD; 306 tip), ürün cinsiyeti `tercih.urun_cinsiyet`
-   (Kadın, Erkek, Unisex; Görev 5b).
+   cinsiyeti, indirimli); tip `tercih.tip_kodu` (alt kategori × fiyat
+   segmenti × beden sırası; aksesuar STD; 306 tip), ürün cinsiyeti
+   `tercih.urun_cinsiyet` (Kadın, Erkek, Unisex; Görev 5b), indirimli = A
+   satırının `indirim_tutari > 0` (markdown, kampanya ya da işlem; A'da
+   hücre-gün başına tek durum; Görev 5c).
 2. Fiş sayısı `F_m = max(1, round(U_m / sepet_hedef_m), ⌈U_m / 8⌉)`
    (mağaza 2,2, ONL 1,8; Black Friday günlerinde hedef ×1,3), `F_m ≤ U_m`.
 3. Ziyaretçi: `ziyaretci.ziyaretci_sec` (artımlı aday yapısı, ağırlıkla
@@ -19,11 +21,15 @@ ziyaret `iade.py`'dedir (Görev 6).
    dağıtılır, 8'i aşan fazla kapasitesi olan fişlere yeniden dağıtılır.
 5. **Aşama 1, grup düzeyinde kesin** (`asama1`): puan birimde yalnız gruba
    bağlı (`tercih.tip_puani`: alt kategori, fiyat segmenti, beden uyumu; +
-   `tercih.cinsiyet_terimi`: müşteri × ürün cinsiyeti); aynı gruptaki n boş
+   `tercih.cinsiyet_terimi`: müşteri × ürün cinsiyeti; +
+   `tercih.indirim_terimi`: `INDIRIM_AGIRLIGI` × müşterinin indirim
+   duyarlılığı, grup indirimliyse; Görev 5c); aynı gruptaki n boş
    birimin Gumbel-max'ı = grup puanı + log n + tek Gumbel. Tip puanı [F ×
    306] cinsiyetsiz hesaplanır, cinsiyet terimi çift başına bir tablo
    okuması (Görev 5b: cinsiyet tipe katılsaydı tip puanı matrisi üç kat
    büyürdü; grup anahtarına katmak aşama 2'yi cinsiyet-saf bırakır).
+   İndirim durumu da aynı yolla anahtardadır (tip puanı değişmez; çift
+   başına bir çarpım).
    - Çapa: açık fiş × mağazasının grupları, puan + log(kalan) + Gumbel; her
      fiş en iyi grubunu ister, çakışmada grubun kalanı kadar en yüksek fiş
      kazanır; 2.–5. turlar yalnız açık fişler, sonra mağazanın boş
@@ -35,7 +41,7 @@ ziyaret `iade.py`'dedir (Görev 6).
      değerli istek kabul edilir, diğerleri sonraki tura; böylece sonraki
      birimler sepete yeni girenlerle tamamlayıcılığı görür (hepsi aynı
      turda yerleşseydi yalnız çapayı görürdü). `TAMAMLAYICI_TUR` (8)
-     dalga turunun sonuncusu ve ardından `TAMAMLAYICI_ARTIK_TUR` (3) artık
+     dalga turunun sonuncusu ve ardından `TAMAMLAYICI_ARTIK_TUR` (4) artık
      tur yalnız fiş kapasitesiyle sınırlı; artık turlarda fiş seçimine
      log(kalan kapasite) eklenir (birim kapasite yuvaları üzerinden
      Gumbel-max gibi). Rastgele yerleşim yalnız son çare. Her tur yalnız bekleyen birimler × kapasiteli fişler; sepet
@@ -46,7 +52,9 @@ ziyaret `iade.py`'dedir (Görev 6).
      Görev 1 raporu).
 6. **Aşama 2, tip içinde SKU** (`asama2`): (fiş, grup) başına k birim
    grubun hatlarından kategorik çekilir, logit = `tercih.sku_ek_puani`
-   (kalıp, desen, indirim duyarlılığı × SKU-gün oranı) + tekrar alım bonusu
+   (kalıp, desen, indirim duyarlılığı × SKU-gün oranı — grup indirim
+   durumunda saf olduğundan indirimli grupta derinlik tercihi olarak kalır)
+   + tekrar alım bonusu
    (müşterinin son 8 option'ında: +0,8, Basic/NOS +1,2) + log(kalan c).
    Hatta kalandan fazla istek düşerse değeri (lse + Gumbel) en yüksek
    istekler kazanır; ≤ 5 tur, sonra grup içinde rastgele.
@@ -79,8 +87,8 @@ from . import sabitler as S
 from .girdi import ADET, H, INDIRIM, KAMPANYA, ORAN, SATIR, TUTAR
 from .rastgele import crm_alt_ureticiler, crm_uretici
 from .tercih import (
-    BEDEN_YONU, N_TIP, URUN_CINSIYET_SAYISI, cinsiyet_ceza_tablosu, sku_ek_puani_cift, sku_kodlari,
-    tamamlayici_matris, tip_kodu, tip_ozellik, tip_puani, urun_cinsiyet,
+    BEDEN_YONU, N_TIP, URUN_CINSIYET_SAYISI, cinsiyet_ceza_tablosu, indirim_terimi, sku_ek_puani_cift,
+    sku_kodlari, tamamlayici_matris, tip_kodu, tip_ozellik, tip_puani, urun_cinsiyet,
 )
 from .ziyaretci import Adaylar, ziyaretci_sec
 
@@ -93,7 +101,8 @@ A_ALT = len(S.ALT_KATEGORILER)
 #: Ziyaretçi cinsiyet kotası açık mı (Görev 5b). YALNIZ ÖLÇÜM içindir
 #: (kotasız karşılaştırma, araclar/v4_crm_hiz.py --kotasiz); üretim hep True.
 ZIYARETCI_KOTASI = True
-N_TC = N_TIP * URUN_CINSIYET_SAYISI      # grup anahtarının mağaza-içi kısmı: tip × ürün cinsiyeti
+N_TC = N_TIP * URUN_CINSIYET_SAYISI      # tip × ürün cinsiyeti (boş ziyaret grubu, iade.py)
+N_TCI = N_TC * 2                         # aşama 1 grup anahtarının mağaza-içi kısmı: × indirimli (Görev 5c)
 
 
 # ---------------------------------------------------------------------------
@@ -595,7 +604,9 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     # 1) Hatlar ve (mağaza, tip) grupları
     hucre = s[:, H].astype(np.int64)
     sku_h = du.hs[hucre]
-    anahtar = du.hm[hucre] * N_TC + du.sku_tip[sku_h] * URUN_CINSIYET_SAYISI + du.sku_cins[sku_h]
+    indirimli = (s[:, INDIRIM] > 0).astype(np.int64)     # A satırı indirimli (hücre-gün başına tek durum)
+    anahtar = (du.hm[hucre] * N_TCI + (du.sku_tip[sku_h] * URUN_CINSIYET_SAYISI + du.sku_cins[sku_h]) * 2
+               + indirimli)
     sira = np.argsort(anahtar, kind="stable")
     s, hucre, anahtar = s[sira], hucre[sira], anahtar[sira]
     h_s = du.hs[hucre]
@@ -605,7 +616,8 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     gk, g_bas_h, L_g = np.unique(anahtar, return_index=True, return_counts=True)
     h_g = np.repeat(np.arange(len(gk)), L_g)
     n_g = np.add.reduceat(h_c, g_bas_h)
-    g_m, g_tc = gk // N_TC, gk % N_TC
+    g_m, g_tci = gk // N_TCI, gk % N_TCI
+    g_tc, g_ind = g_tci // 2, (g_tci % 2).astype(np.float32)
     g_tip = g_tc // URUN_CINSIYET_SAYISI
     g_alt = du.tip_alt[g_tip]
     U_m = np.bincount(g_m, n_g, minlength=M).astype(np.int64)
@@ -634,9 +646,11 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     # cinsiyet terimi: grup × müşteri cinsiyeti düz tablosu
     g_ceza = du.tc_ceza[g_tc].ravel()                                     # [G × 2]
     m_cins = nufus.cinsiyet[musteri].astype(np.int64)
+    # indirim terimi: grup indirimliyse müşterinin INDIRIM_AGIRLIGI × duyarlılığı (Görev 5c)
+    m_ind = indirim_terimi(nufus.indirim_duyarlilik[musteri], True).astype(np.float32)
 
     def puan(pf, pg):
-        return P[pf, g_tip[pg]] + g_ceza[pg * 2 + m_cins[pf]]
+        return P[pf, g_tip[pg]] + g_ceza[pg * 2 + m_cins[pf]] + g_ind[pg] * m_ind[pf]
 
     af, ag = asama1(fis_m, boyut, g_m, g_alt, n_g, M, puan, du.T, akis["asama1"], sayac)
     assert len(af) == U_m.sum()

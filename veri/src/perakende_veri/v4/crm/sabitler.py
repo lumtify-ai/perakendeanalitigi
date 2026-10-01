@@ -75,15 +75,15 @@ ARKETIP_PARAMETRE: dict[str, dict] = {
     # Genç, sık gelen, yeniliğe duyarlı; baskılı/oversize, bluz, elbise,
     # sweatshirt, jean. Online'a yatkın, terki orta.
     "trend_avcisi": {
-        "ziyaret_gamma": (2.0, 2.8),        # KALİBRASYON ort. 5,6/yıl
-        "sepet_ort": 2.2,                   # KALİBRASYON
+        "ziyaret_gamma": (2.0, 3.23),       # KALİBRASYON ort. 6,5/yıl
+        "sepet_ort": 2.17,                  # KALİBRASYON
         "kart_beta": (5.0, 4.5),            # KALİBRASYON ort. 0,53
-        "online_beta": (3.0, 5.0),          # KALİBRASYON ort. 0,38
+        "online_beta": (2.12, 5.88),        # KALİBRASYON ort. 0,27
         "terk_beta": (2.0, 32.4),           # KALİBRASYON ort. 0,058/ay
-        "indirim_beta": (2.0, 5.0),         # KALİBRASYON ort. 0,29
-        "fiyat_segment": [0.25, 0.50, 0.25],  # KALİBRASYON
-        "kategori": _kat(Bluz=1.5, Elbise=1.6, Sweatshirt=1.5, Jean=1.3, Tulum=1.8,
-                         Şort=1.4, Gömlek=0.7, Pantolon=0.7, Trençkot=0.7),  # KALİBRASYON
+        "indirim_beta": (0.97, 6.03),       # KALİBRASYON ort. 0,14
+        "fiyat_segment": [0.10, 0.80, 0.10],  # KALİBRASYON
+        "kategori": _kat(Bluz=3.4, Elbise=4.1, Sweatshirt=3.4, Jean=2.2, Tulum=5.8,
+                         Şort=2.7, Gömlek=0.34, Pantolon=0.34, Trençkot=0.34),  # KALİBRASYON
         "kalip": [0.25, 0.15, 0.20, 0.40],  # KALİBRASYON oversize/slim
         "desen": [0.20, 0.15, 0.10, 0.35, 0.20],  # KALİBRASYON baskılı
         "beden_dagin": 0.35,                # KALİBRASYON
@@ -92,14 +92,14 @@ ARKETIP_PARAMETRE: dict[str, dict] = {
     # Kampanya ve outlet peşinde; büyük sepet, giriş segmenti; kartı
     # okutur (sadakat indirimi).
     "indirim_avcisi": {
-        "ziyaret_gamma": (1.5, 2.52),       # KALİBRASYON ort. 3,8/yıl
-        "sepet_ort": 2.4,                   # KALİBRASYON
+        "ziyaret_gamma": (1.5, 1.96),       # KALİBRASYON ort. 2,9/yıl
+        "sepet_ort": 2.6,                   # KALİBRASYON
         "kart_beta": (6.0, 4.0),            # KALİBRASYON ort. 0,60
-        "online_beta": (2.0, 7.0),          # KALİBRASYON ort. 0,22
+        "online_beta": (0.68, 8.32),        # KALİBRASYON ort. 0,08
         "terk_beta": (2.0, 26.9),           # KALİBRASYON ort. 0,069/ay
-        "indirim_beta": (8.0, 2.0),         # KALİBRASYON ort. 0,80
-        "fiyat_segment": [0.55, 0.37, 0.08],  # KALİBRASYON
-        "kategori": _kat(Tişört=1.2, Jean=1.2, Mont=1.3, Kazak=1.2, Trençkot=0.6),  # KALİBRASYON
+        "indirim_beta": (9.41, 0.59),       # KALİBRASYON ort. 0,94
+        "fiyat_segment": [0.76, 0.23, 0.01],  # KALİBRASYON
+        "kategori": _kat(Tişört=1.73, Jean=1.73, Mont=2.2, Kazak=1.73, Trençkot=0.22),  # KALİBRASYON
         "kalip": [0.20, 0.40, 0.25, 0.15],  # KALİBRASYON
         "desen": [0.35, 0.20, 0.15, 0.18, 0.12],  # KALİBRASYON
         "beden_dagin": 0.45,                # KALİBRASYON
@@ -108,15 +108,15 @@ ARKETIP_PARAMETRE: dict[str, dict] = {
     # Temel parçalar: tişört, gömlek, pantolon, jean, kazak; düz, regular;
     # sadık ama seyrek, düşük terk; mağazacı.
     "klasik_temelci": {
-        "ziyaret_gamma": (3.0, 1.26),       # KALİBRASYON ort. 3,8/yıl
-        "sepet_ort": 2.0,                   # KALİBRASYON
+        "ziyaret_gamma": (3.0, 0.98),       # KALİBRASYON ort. 2,9/yıl
+        "sepet_ort": 1.82,                  # KALİBRASYON
         "kart_beta": (5.0, 5.0),            # KALİBRASYON ort. 0,50
-        "online_beta": (1.5, 9.0),          # KALİBRASYON ort. 0,14
+        "online_beta": (0.28, 10.22),       # KALİBRASYON ort. 0,03
         "terk_beta": (2.0, 49.1),           # KALİBRASYON ort. 0,039/ay
-        "indirim_beta": (3.0, 5.0),         # KALİBRASYON ort. 0,38
-        "fiyat_segment": [0.30, 0.55, 0.15],  # KALİBRASYON
-        "kategori": _kat(Tişört=1.3, Gömlek=1.6, Pantolon=1.5, Jean=1.2, Kazak=1.3,
-                         Kemer=1.5, Bluz=0.6, Elbise=0.5, Tulum=0.3, Şort=0.7),  # KALİBRASYON
+        "indirim_beta": (2.12, 5.88),       # KALİBRASYON ort. 0,27
+        "fiyat_segment": [0.14, 0.84, 0.02],  # KALİBRASYON
+        "kategori": _kat(Tişört=2.2, Gömlek=4.1, Pantolon=3.4, Jean=1.73, Kazak=2.2,
+                         Kemer=3.4, Bluz=0.22, Elbise=0.125, Tulum=0.027, Şort=0.34),  # KALİBRASYON
         "kalip": [0.15, 0.55, 0.22, 0.08],  # KALİBRASYON regular
         "desen": [0.55, 0.18, 0.15, 0.07, 0.05],  # KALİBRASYON düz
         "beden_dagin": 0.30,                # KALİBRASYON
@@ -125,15 +125,15 @@ ARKETIP_PARAMETRE: dict[str, dict] = {
     # Aile için alır: büyük sepet, dağınık beden, giriş/orta segment,
     # geniş kategori; indirime orta-yüksek duyarlı.
     "aile_alisverisci": {
-        "ziyaret_gamma": (2.0, 1.96),       # KALİBRASYON ort. 3,9/yıl
-        "sepet_ort": 2.7,                   # KALİBRASYON
+        "ziyaret_gamma": (2.0, 1.58),       # KALİBRASYON ort. 3,2/yıl
+        "sepet_ort": 3.36,                  # KALİBRASYON
         "kart_beta": (6.0, 4.5),            # KALİBRASYON ort. 0,57
-        "online_beta": (2.0, 8.0),          # KALİBRASYON ort. 0,20
+        "online_beta": (0.59, 9.41),        # KALİBRASYON ort. 0,06
         "terk_beta": (2.0, 43.6),           # KALİBRASYON ort. 0,044/ay
-        "indirim_beta": (5.0, 4.0),         # KALİBRASYON ort. 0,56
-        "fiyat_segment": [0.48, 0.44, 0.08],  # KALİBRASYON
-        "kategori": _kat(Tişört=1.3, Sweatshirt=1.3, Şort=1.3, Pantolon=1.2, Mont=1.2,
-                         Trençkot=0.5, Şal=0.7),  # KALİBRASYON
+        "indirim_beta": (5.49, 3.51),       # KALİBRASYON ort. 0,61
+        "fiyat_segment": [0.56, 0.43, 0.01],  # KALİBRASYON
+        "kategori": _kat(Tişört=2.2, Sweatshirt=2.2, Şort=2.2, Pantolon=1.73, Mont=1.73,
+                         Trençkot=0.125, Şal=0.34),  # KALİBRASYON
         "kalip": [0.12, 0.45, 0.33, 0.10],  # KALİBRASYON
         "desen": [0.35, 0.20, 0.15, 0.20, 0.10],  # KALİBRASYON
         "beden_dagin": 1.40,                # KALİBRASYON yüksek (spec §2)
@@ -142,15 +142,15 @@ ARKETIP_PARAMETRE: dict[str, dict] = {
     # Yüksek gelirli, sık gelen, sadık; premium segment, ceket/trençkot/
     # gömlek/çanta; kartı hemen hep okutur, indirime duyarsız, terk düşük.
     "premium_sadik": {
-        "ziyaret_gamma": (3.0, 2.1),        # KALİBRASYON ort. 6,3/yıl
-        "sepet_ort": 2.0,                   # KALİBRASYON
+        "ziyaret_gamma": (3.0, 2.73),       # KALİBRASYON ort. 8,2/yıl
+        "sepet_ort": 1.82,                  # KALİBRASYON
         "kart_beta": (7.0, 3.0),            # KALİBRASYON ort. 0,70
-        "online_beta": (3.0, 6.0),          # KALİBRASYON ort. 0,33
+        "online_beta": (1.8, 7.2),          # KALİBRASYON ort. 0,20
         "terk_beta": (1.5, 60.4),           # KALİBRASYON ort. 0,024/ay
-        "indirim_beta": (2.0, 8.0),         # KALİBRASYON ort. 0,20
-        "fiyat_segment": [0.05, 0.35, 0.60],  # KALİBRASYON
-        "kategori": _kat(Ceket=2.0, Trençkot=2.5, Gömlek=1.4, Çanta=1.8, Şal=1.6,
-                         Elbise=1.2, Tişört=0.7, Sweatshirt=0.5, Şort=0.6),  # KALİBRASYON
+        "indirim_beta": (0.59, 9.41),       # KALİBRASYON ort. 0,06
+        "fiyat_segment": [0.01, 0.17, 0.82],  # KALİBRASYON
+        "kategori": _kat(Ceket=8.0, Trençkot=15.6, Gömlek=2.74, Çanta=5.8, Şal=4.1,
+                         Elbise=1.73, Tişört=0.34, Sweatshirt=0.125, Şort=0.22),  # KALİBRASYON
         "kalip": [0.40, 0.40, 0.15, 0.05],  # KALİBRASYON slim/regular
         "desen": [0.50, 0.20, 0.15, 0.05, 0.10],  # KALİBRASYON
         "beden_dagin": 0.30,                # KALİBRASYON
@@ -159,14 +159,14 @@ ARKETIP_PARAMETRE: dict[str, dict] = {
     # Ağırlıkla online; küçük sepet (online fiş ~1,8), sık ziyaret, kartı
     # mağazada seyrek okutur; terki görece yüksek.
     "online_tutkunu": {
-        "ziyaret_gamma": (2.0, 2.8),        # KALİBRASYON ort. 5,6/yıl
-        "sepet_ort": 2.0,                   # KALİBRASYON
+        "ziyaret_gamma": (2.0, 3.23),       # KALİBRASYON ort. 6,5/yıl
+        "sepet_ort": 1.82,                  # KALİBRASYON
         "kart_beta": (4.0, 4.0),            # KALİBRASYON ort. 0,50
-        "online_beta": (8.0, 2.0),          # KALİBRASYON ort. 0,80
+        "online_beta": (9.41, 0.59),        # KALİBRASYON ort. 0,94
         "terk_beta": (2.0, 29.7),           # KALİBRASYON ort. 0,063/ay
         "indirim_beta": (4.0, 4.0),         # KALİBRASYON ort. 0,50
-        "fiyat_segment": [0.30, 0.50, 0.20],  # KALİBRASYON
-        "kategori": _kat(Elbise=1.3, Bluz=1.2, Tişört=1.2, Çanta=1.3, Mont=0.8),  # KALİBRASYON
+        "fiyat_segment": [0.17, 0.78, 0.05],  # KALİBRASYON
+        "kategori": _kat(Elbise=2.2, Bluz=1.73, Tişört=1.73, Çanta=2.2, Mont=0.51),  # KALİBRASYON
         "kalip": [0.25, 0.30, 0.25, 0.20],  # KALİBRASYON
         "desen": [0.25, 0.15, 0.10, 0.25, 0.25],  # KALİBRASYON
         "beden_dagin": 0.40,                # KALİBRASYON
@@ -175,14 +175,14 @@ ARKETIP_PARAMETRE: dict[str, dict] = {
     # Bir iki kez gelir (turist, hediye, tesadüf): düşük hız, yüksek terk,
     # kartı az okutur; tercihleri tabana yakın.
     "gelip_gecen": {
-        "ziyaret_gamma": (1.2, 1.68),       # KALİBRASYON ort. 2,0/yıl
-        "sepet_ort": 1.8,                   # KALİBRASYON
+        "ziyaret_gamma": (1.2, 0.70),       # KALİBRASYON ort. 0,84/yıl
+        "sepet_ort": 1.52,                  # KALİBRASYON
         "kart_beta": (3.0, 5.0),            # KALİBRASYON ort. 0,38
-        "online_beta": (1.5, 7.0),          # KALİBRASYON ort. 0,18
+        "online_beta": (0.37, 8.13),        # KALİBRASYON ort. 0,04
         "terk_beta": (2.0, 8.0),            # KALİBRASYON ort. 0,20/ay
-        "indirim_beta": (3.0, 4.0),         # KALİBRASYON ort. 0,43
-        "fiyat_segment": [0.38, 0.45, 0.17],  # KALİBRASYON
-        "kategori": _kat(Şal=1.5, Çanta=1.3, Tişört=1.2, Şort=1.3),  # KALİBRASYON
+        "indirim_beta": (2.52, 4.48),       # KALİBRASYON ort. 0,36
+        "fiyat_segment": [0.36, 0.60, 0.04],  # KALİBRASYON
+        "kategori": _kat(Şal=3.4, Çanta=2.2, Tişört=1.73, Şort=2.2),  # KALİBRASYON
         "kalip": [0.25, 0.35, 0.25, 0.15],  # KALİBRASYON
         "desen": [0.30, 0.18, 0.14, 0.20, 0.18],  # KALİBRASYON
         "beden_dagin": 0.45,                # KALİBRASYON
@@ -191,9 +191,9 @@ ARKETIP_PARAMETRE: dict[str, dict] = {
 }
 
 # Bireysel heterojenlik (Dirichlet toplam yoğunluğu: küçük = dağınık).
-KATEGORI_YOGUNLUK = 10.0   # KALİBRASYON 17 kategori; tipler ayrışsın ama bireyler dağınık
+KATEGORI_YOGUNLUK = 100.0  # KALİBRASYON 17 kategori (Görev 5c: 10 → 100, arketip farkı bireysel dağınıklıkta kaybolmasın)
 OZNITELIK_YOGUNLUK = 8.0   # KALİBRASYON kalıp, desen
-FIYAT_YOGUNLUK = 10.0      # KALİBRASYON
+FIYAT_YOGUNLUK = 50.0      # KALİBRASYON (Görev 5c: 10 → 50)
 SEPET_SEKIL = 4.0          # KALİBRASYON sepet_ort − 1 ~ Gamma(4, ·): CV 0,5
 BEDEN_DAGIN_SIGMA = 0.25   # KALİBRASYON bireysel beden_dagin lognormal σ
 ALT_BEDEN_KAYMA = [0.2, 0.6, 0.2]  # KALİBRASYON alt beden = üst + (−1, 0, +1)
@@ -206,8 +206,9 @@ ERKEK_KADIN_KAT_CARPANI = 0.1  # KALİBRASYON erkek müşteride yalnız-kadın a
 # kotayla: KUCUK −2,5 → %14,2 (4 B tohumu %14,15–14,19), −3,0 → %11,8,
 # −3,5 → %10,0; TAM −2,5 → %9,7, −3,0 → %7,4 (TAM'da kadın ürün payı daha
 # yüksek, çapraz erkek ürün arzıyla sınırlı). Kotasız KUCUK −3,5 → %14,3,
-# −8 → %10,4: taban ziyaretçi cinsiyeti gürültüsüydü.
-CAPRAZ_CINSIYET_CEZA = -2.5
+# −8 → %10,4: taban ziyaretçi cinsiyeti gürültüsüydü. Görev 5c (sivri arketip
+# kategori eğimleri + indirim terimi) −2,5'te KUCUK'u %15,06'ya çıkardı; −2,7.
+CAPRAZ_CINSIYET_CEZA = -2.7
 CAPRAZ_CINSIYET_AKSESUAR_KAT = 0.5
 # Nüfusun kadın payı mağaza başına A'nın o mağazadaki satışından: Kadın /
 # (Kadın + Erkek) birim payı + bu düzeltme; günlük ziyaretçi kotası da aynı
@@ -223,6 +224,14 @@ KADIN_PAYI_BUZULME = 200.0
 # kotadan sapan fiş %0,35.
 KOTA_FAZLA = 1.5
 KOTA_EK = 8
+# Müşteri × indirimli SKU-gün satırı (Görev 5c). Aşama 1'in grup anahtarı
+# (mağaza, tip, ürün cinsiyeti, indirimli); indirimli = A satırının
+# `indirim_tutari > 0` (markdown, kampanya ya da işlem indirimi). Müşteri
+# başına log-terim INDIRIM_AGIRLIGI × indirim_duyarlilik × indirimli (grup
+# içinde sabit; Gumbel-max + log n kesin kalır). Önce indirim duyarlılığı
+# yalnız aşama 2'de (tip içinde SKU) etkiliydi: indirimli satır payıyla
+# korelasyon 0,01 (Görev 15). KALİBRASYON
+INDIRIM_AGIRLIGI = 15.0
 
 # Mağaza segmenti (A §2.3) + online → arketip olasılıkları (ARKETIPLER
 # sırası). İlişkili ama birebir değil: her segmentin baskın tipi ayrı, hiçbiri
@@ -306,8 +315,10 @@ TAMAMLAYICI_TUR = 8
 TAMAMLAYICI_DALGA = 1
 # Dalgalardan sonra yalnız fiş kapasitesiyle sınırlı artık turlar (kalan
 # birimler × kapasiteli fişler yeniden çekilir, fiş seçimine log(kalan
-# kapasite) eklenir); rastgele yerleşim yalnız son çare.
-TAMAMLAYICI_ARTIK_TUR = 3
+# kapasite) eklenir); rastgele yerleşim yalnız son çare. Görev 5c: 3 → 4
+# (indirim durumu grup anahtarına girince gruplar küçüldü, KUCUK 60 günde
+# rastgele yerleşen pay %0,59'a çıkmıştı; 4 turla < %0,5).
+TAMAMLAYICI_ARTIK_TUR = 4
 
 # --- İade, işlem indirimi, boş ziyaret (Görev 6, spec §3.4–3.5, §4) ------------
 # İade birimi, iade gününden 7 (ONL 10) gün önceki aynı hücrenin satış

@@ -15,7 +15,11 @@ kullanılabilir (küçük ölçek, test, doğrulama).
 Müşteri × ürün cinsiyeti (Görev 5b): `cinsiyet_terimi` aynı cinsiyet ve
 Unisex için 0, çapraz için `CAPRAZ_CINSIYET_CEZA` (aksesuarda yarısı).
 Tip kodu cinsiyetsiz kalır; eşleştirici terimi aşama 1'in grup anahtarına
-(mağaza, tip, ürün cinsiyeti) katar. `urun_puani` üç terimin toplamıdır.
+(mağaza, tip, ürün cinsiyeti) katar.
+
+Müşteri × indirimli satır (Görev 5c): `indirim_terimi` = `INDIRIM_AGIRLIGI
+× indirim_duyarlilik × indirimli`; eşleştirici satırın indirim durumunu da
+grup anahtarına katar. `urun_puani` dört terimin toplamıdır.
 
 Gizli tamamlayıcılık matrisi (`tamamlayici_matris`) hiçbir yayımlanan
 tabloya ya da `Nufus` sütununa girmez; yalnız günlük ayrıştırmanın (Görev
@@ -197,21 +201,35 @@ def sku_ek_puani(nufus, k_idx, sku_idx, oran, urunler) -> np.ndarray:
     return kalip_p + desen_p + indirim
 
 
-def urun_puani(nufus, k_idx, sku_idx, girdi, oran=None) -> np.ndarray:
+def indirim_terimi(duyarlilik, indirimli) -> np.ndarray:
+    """Müşteri × indirimli SKU-gün satırı log-terimi (Görev 5c):
+    `INDIRIM_AGIRLIGI × indirim_duyarlilik × indirimli` (indirimsiz satır
+    0). Eşleştirici aşama 1'in grup anahtarına satırın indirim durumunu
+    katar; terim grup içinde sabittir."""
+    return (S.INDIRIM_AGIRLIGI * np.asarray(duyarlilik, dtype=np.float64)
+            * np.asarray(indirimli, dtype=bool))
+
+
+def urun_puani(nufus, k_idx, sku_idx, girdi, oran=None, indirimli=None) -> np.ndarray:
     """`[len(k_idx), len(sku_idx)]` log-puan = `tip_puani` (SKU'nun tipi
-    için) + `sku_ek_puani` + `cinsiyet_terimi` (müşteri × ürün cinsiyeti).
-    `oran` verilmezse 0 (indirimsiz). Eşleştirici (Görev 5) cinsiyet
-    terimini aşama 1'de uygular: grup = (mağaza, tip, ürün cinsiyeti)."""
+    için) + `sku_ek_puani` + `cinsiyet_terimi` (müşteri × ürün cinsiyeti)
+    + `indirim_terimi` (satır indirimliyse). `oran` verilmezse 0,
+    `indirimli` verilmezse hepsi indirimsiz. Eşleştirici (Görev 5) cinsiyet
+    ve indirim terimlerini aşama 1'de uygular: grup = (mağaza, tip, ürün
+    cinsiyeti, indirimli)."""
     urunler = girdi.dunya.urunler
     k_idx = np.asarray(k_idx, dtype=np.int64)
     sku_idx = np.asarray(sku_idx, dtype=np.int64)
     if oran is None:
         oran = np.zeros(len(sku_idx))
+    if indirimli is None:
+        indirimli = np.zeros(len(sku_idx), dtype=bool)
     tip = tip_kodu(urunler)[sku_idx]
     aks = np.isin(urunler["alt_kategori"].to_numpy()[sku_idx], list(a_sabitler.AKSESUAR))
     cins = cinsiyet_terimi(np.asarray(nufus.cinsiyet)[k_idx][:, None],
                            urun_cinsiyet(urunler)[sku_idx][None, :], aks[None, :])
-    return tip_puani(nufus, k_idx, tip) + sku_ek_puani(nufus, k_idx, sku_idx, oran, urunler) + cins
+    ind = indirim_terimi(np.asarray(nufus.indirim_duyarlilik)[k_idx][:, None], np.asarray(indirimli)[None, :])
+    return tip_puani(nufus, k_idx, tip) + sku_ek_puani(nufus, k_idx, sku_idx, oran, urunler) + cins + ind
 
 
 # ---------------------------------------------------------------------------

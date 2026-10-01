@@ -470,3 +470,28 @@ def test_ziyaretci_kotasi_sapmasi_kucuk(kosu60):
     _, kayit = kosu60
     sy = kayit.sayac
     assert sy["kota_fis"] > 0 and sy["kota_sapma"] / sy["kota_fis"] < 0.01, (sy["kota_sapma"], sy["kota_fis"])
+
+
+def _indirim_pay_uclu(nuf, sat):
+    """Satış birimlerinde (adet > 0) indirimli (`indirim_tutari > 0`) birim
+    payı: indirim duyarlılığının alt ve üst üçte birindeki müşteriler."""
+    sat = sat[sat["adet"] > 0]
+    k = sat["musteri"].to_numpy(np.int64)
+    adet = sat["adet"].to_numpy(np.int64)
+    ind = sat["indirim_tutari"].to_numpy() > 0
+    d = np.asarray(nuf.indirim_duyarlilik)[k]
+    alt, ust = np.quantile(d, [1 / 3, 2 / 3])
+    pay = [adet[m & ind].sum() / adet[m].sum() for m in (d <= alt, d >= ust)]
+    return pay, adet[ind].sum() / adet.sum()
+
+
+def test_indirim_duyarli_musteri_indirimli_satiri_secer(kosu60):
+    """Görev 5c: SKU-gün satırının indirim durumu aşama 1 grup anahtarında;
+    indirim duyarlılığı yüksek müşterilerin indirimli birim payı düşüklerden
+    belirgin yüksek (önce yalnız aşama 2'de, fark ~1 puan)."""
+    nuf, kayit = kosu60
+    _, sat = _satirlar(kayit)
+    (alt, ust), genel = _indirim_pay_uclu(nuf, sat)
+    assert 0.05 < genel < 0.95, genel
+    assert ust - alt >= 0.10, (alt, ust, genel)
+

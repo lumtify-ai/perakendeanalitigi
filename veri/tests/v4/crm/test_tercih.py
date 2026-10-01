@@ -236,3 +236,33 @@ def test_urun_puani_cinsiyet_capraz_dusuk(kucuk_girdi, n):
     capraz = np.asarray(n.cinsiyet)[k_idx][:, None] != kod[sku][None, :]
     assert np.allclose(fark[capraz], S.CAPRAZ_CINSIYET_CEZA) and np.allclose(fark[~capraz], 0.0)
     assert capraz.any() and (~capraz).any()
+
+
+# ---------------------------------------------------------------------------
+# Görev 5c: indirim tercihi aşama 1'de
+# ---------------------------------------------------------------------------
+
+
+def test_indirim_terimi_degerleri():
+    """`INDIRIM_AGIRLIGI × indirim_duyarlilik × indirimli`; indirimsiz 0."""
+    from perakende_veri.v4.crm import sabitler as S
+    from perakende_veri.v4.crm.tercih import indirim_terimi
+
+    assert S.INDIRIM_AGIRLIGI > 0
+    d = np.array([0.0, 0.2, 0.8, 1.0, 0.8])
+    ind = np.array([1, 1, 1, 1, 0], dtype=bool)
+    assert np.allclose(indirim_terimi(d, ind), S.INDIRIM_AGIRLIGI * d * ind)
+
+
+def test_urun_puani_indirimli_satir_terimi(kucuk_girdi, n):
+    """`urun_puani(..., indirimli=)` indirimli SKU-gün satırına müşterinin
+    `indirim_terimi`'ni ekler; verilmezse 0 (indirimsiz)."""
+    from perakende_veri.v4.crm import sabitler as S
+    from perakende_veri.v4.crm.tercih import urun_puani
+
+    sku = np.arange(10)
+    k_idx = np.arange(30)
+    ind = np.arange(10) % 2 == 0
+    fark = urun_puani(n, k_idx, sku, kucuk_girdi, indirimli=ind) - urun_puani(n, k_idx, sku, kucuk_girdi)
+    beklenen = S.INDIRIM_AGIRLIGI * np.asarray(n.indirim_duyarlilik)[k_idx][:, None] * ind[None, :]
+    assert np.allclose(fark, beklenen)

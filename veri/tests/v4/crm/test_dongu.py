@@ -285,3 +285,29 @@ def test_musteri_urun_cinsiyet_uyumu(kucuk_girdi, kucuk_crm, fis):
     kartsiz = fis.assign(kart=~fis["kart"].to_numpy())
     anonim = cinsiyet_ozeti(kucuk_crm.nufus, kartsiz, sat, u, yalniz_kartli=True)
     assert abs(anonim["capraz"] - kartli["capraz"]) < 0.03, (anonim, kartli)
+
+
+def test_indirim_duyarliligi_davranista(kucuk_crm, satir):
+    """Görev 5c: pencerede ≥ 3 kartlı satış fişi olan müşterilerde gizli
+    indirim duyarlılığı ile indirimli satır payı (`indirim_tutari > 0`;
+    Görev 15 öğreneninin özelliği) belirgin ilişkili; indirim avcısının
+    payı diğer arketiplerin hepsinden yüksek."""
+    from perakende_veri.v4.crm.sabitler import ARKETIPLER
+    from perakende_veri.v4.tablolar import pencere
+
+    bas, son = pencere()
+    s = satir[(satir["tip"] == 0) & satir["kart"] & (satir["adet"] > 0)
+              & (satir["gun"] >= bas) & (satir["gun"] <= son)]
+    k = s["musteri"].to_numpy(np.int64)
+    fis_say = s.groupby("musteri")["fis_id"].nunique()
+    sec = fis_say.index.to_numpy()[fis_say.to_numpy() >= 3]
+    m = np.isin(k, sec)
+    ku, ters = np.unique(k[m], return_inverse=True)
+    pay = np.bincount(ters, (s["indirim_tutari"].to_numpy() > 0)[m]) / np.bincount(ters)
+    d = np.asarray(kucuk_crm.nufus.indirim_duyarlilik)[ku]
+    kor = np.corrcoef(d, pay)[0, 1]
+    assert kor >= 0.4, kor
+    ark = np.asarray(kucuk_crm.nufus.arketip)[ku]
+    ort = np.array([pay[ark == a].mean() for a in range(len(ARKETIPLER))])
+    i = ARKETIPLER.index("indirim_avcisi")
+    assert ort[i] == ort.max() and ort[i] - np.delete(ort, i).max() > 0.03, ort
