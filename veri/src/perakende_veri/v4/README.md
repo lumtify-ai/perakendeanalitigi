@@ -10,6 +10,9 @@ pakettir: onları içe aktarmaz, onlara dokunmaz. Yalnız kök
 - Üretim: `python -m perakende_veri.v4.uret` → `veri/cikti/v4/` (CSV,
   Parquet, DuckDB).
 - Tohum `2026`. Aynı komut her zaman aynı veriyi üretir.
+- **B katmanı (CRM):** müşteri, fiş, online davranış ve yorum bu
+  çekirdeğin üstünde ayrı bir alt pakettir (`perakende_veri.v4.crm`).
+  A'nın verisini değiştirmez. Belge: [`crm/README.md`](crm/README.md).
 
 ## Kısaca dünya
 

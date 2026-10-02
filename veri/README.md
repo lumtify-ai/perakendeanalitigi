@@ -10,7 +10,7 @@ verisi içermez. Lumoda kurgusal bir moda perakende zinciridir.
 |---|---|---|---|
 | **v2** | 2025, 80 model, sonsuz depo | `vakalar/blok-transfer`, `vakalar/replenishment`, yayımlanmış 14 yazı | **Dondurulmuş** |
 | **v3** | 2024–2025, 242 model, sezon/dalga, tedarik, sonlu depo, RPT | `vakalar/rpt`, RPT dizisi | **Dondurulmuş** |
-| **v4** | 2023–2025, 84 mağaza + online, 1.870 option, gizli segment, markdown, kampanya, ikame, açılış/kapanış, 18 tedarikçi, plan tabloları | Henüz yok; vakalar ve yazılar v4'e taşınacak | Yeni — aşağıda |
+| **v4** | 2023–2025, 84 mağaza + online, 1.870 option, gizli segment, markdown, kampanya, ikame, açılış/kapanış, 18 tedarikçi, plan tabloları; B katmanı: müşteri, fiş, online davranış, yorum | Henüz yok; vakalar ve yazılar v4'e taşınacak | Yeni — aşağıda |
 
 **v2 dondurulmuştur.** Modülleri (`perakende_veri/*.py`), tohumu ve çıktısı
 bayt bayt aynı kalır; `tests/test_v2_donuk.py` her tablonun satır sayısını
@@ -406,6 +406,44 @@ Ham CSV 1,63 GB; Parquet 131 MB; DuckDB 218 MB.
 
 Testler: `pytest -m "not yavas"` (hızlı) ve `pytest -m yavas` (tam koşu:
 kalibrasyon bantları, öğrenilebilirlik). Sonuçlar v4 README'sinde.
+
+## v4 B katmanı: CRM
+
+`python -m perakende_veri.v4.crm.uret` → `veri/cikti/v4_crm/` (DuckDB,
+Parquet, CSV). A'nın satışını (tohum 2026) fişlere ve müşterilere ayrıştırır;
+B'nin tohumu `4242`. Tasarım:
+`docs/superpowers/specs/2026-09-28-veri-v4-crm-design.md`. **Tablo
+sözlüğü, tutarlılık sözleşmesi, gizli gerçek ve bantlar için:
+[`src/perakende_veri/v4/crm/README.md`](src/perakende_veri/v4/crm/README.md).**
+
+- **Müşteri nüfusu.** Yedi gizli arketip, gizli tercihler, beden, ziyaret
+  hızı, sepet, kart okutma, terk. Mağazada fişlerin ~%58'i kartlı
+  (kimlikli), online'ın hepsi.
+- **Fişler satışı birebir verir.** `fis_satir`'ın gün × mağaza × SKU
+  toplamı A'nın temiz satışına kuruşu kuruşuna eşit; iadeler orijinal fiş
+  satırına bağlı.
+- **Terk ve LTV gizli.** Stoksuzluk, iade, beden uyumsuzluğu ve ev
+  mağazasının kapanması terki artırır. "2026'da gelecek mi" ve 2026
+  harcaması gizli gerçekte.
+- **Online liste özeti ve 13 haftalık olay kaydı.** Sıralama enjekte
+  edilebilir bir politika; tıklamada konum yanlılığı var.
+- **Yorumlar** 7.000 metinlik etiketli Türkçe kütüphaneden; kim ve neden
+  yazar gizli.
+
+| Tablo | Satır |
+|---|---:|
+| `fis_satir` | 31.923.447 |
+| `online_olay` (yalnız Parquet) | 23.901.935 |
+| `fis` (iadeler dahil) | 16.764.655 |
+| `musteri` | 2.106.860 |
+| `online_liste_gunluk` | 609.905 |
+| `yorum` | 74.394 |
+
+Ham CSV 3.146 MB (olay kaydı hariç); Parquet 888 MB; DuckDB 1.216 MB. Üretim
+A dahil ~19 dakika ve ~20 GB boş bellek ister.
+
+Testler: `pytest tests/v4/crm -m "not yavas"` ve `-m yavas` (bantlar,
+öğrenilebilirlik). Sonuçlar CRM README'sinde.
 
 # Lisans
 
