@@ -407,6 +407,36 @@ Ham CSV 1,63 GB; Parquet 131 MB; DuckDB 218 MB.
 Testler: `pytest -m "not yavas"` (hızlı) ve `pytest -m yavas` (tam koşu:
 kalibrasyon bantları, öğrenilebilirlik). Sonuçlar v4 README'sinde.
 
+## İndirme
+
+v4'ün hazır dosyaları [`veri-v4` release'inde](https://github.com/lumtify-ai/perakendeanalitigi/releases/tag/veri-v4).
+İki ayrı set var; tam veri için ikisi birlikte kullanılır (anahtarlar
+`urun_id`, `magaza_id`, `kampanya_id`).
+
+**A katmanı: perakende verisi** (mağaza, ürün, takvim, fiyat, kampanya,
+günlük satış, stok, depo stoku, sevkiyat, sipariş, tedarikçi, planlar; 18 tablo):
+
+| Varlık | Boyut |
+|---|---:|
+| [`lumoda-v4.duckdb`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4.duckdb) | 209 MB |
+| [`lumoda-v4-parquet.zip`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-parquet.zip) | 86 MB |
+| [`lumoda-v4-csv.zip`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-csv.zip) | 176 MB |
+
+**B katmanı: CRM** (müşteri, fiş, fiş satırı, online liste özeti, online
+olay kaydı, yorum; 6 tablo):
+
+| Varlık | Boyut |
+|---|---:|
+| [`lumoda-v4-crm.duckdb`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-crm.duckdb) | 1.216 MB |
+| [`lumoda-v4-crm-parquet.zip`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-crm-parquet.zip) | 347 MB |
+| [`lumoda-v4-crm-csv.zip`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-crm-csv.zip) | 572 MB |
+| [`lumoda-v4-olay-parquet.zip`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-olay-parquet.zip) | 163 MB |
+
+B'nin Parquet ve CSV zip'leri olay kaydını içermez; o yalnız Parquet olarak
+kendi zip'indedir. B'nin DuckDB dosyası olay kaydı dahil altı tabloyu taşır.
+Dosyalar A ve B bölümlerindeki `uret` komutlarıyla yerelde de üretilebilir
+(aynı tohum; bit düzeyinde aynılık aynı makine ve numpy sürümünde).
+
 ## v4 B katmanı: CRM
 
 `python -m perakende_veri.v4.crm.uret` → `veri/cikti/v4_crm/` (DuckDB,

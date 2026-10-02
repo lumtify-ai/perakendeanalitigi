@@ -432,17 +432,25 @@ edin.
 
 ## Dağıtım
 
-Mevcut `veri-v4` release'ine eklenecek dört varlık (A'nınkiler değişmez):
+B'nin dört varlığı [`veri-v4` release'inde](https://github.com/lumtify-ai/perakendeanalitigi/releases/tag/veri-v4),
+A'nın varlıklarının yanında:
 
 | Varlık | İçerik | Boyut |
 |---|---|---:|
-| `lumoda-v4-crm.duckdb` | Altı tablo (olay kaydı dahil) | 1.216 MB |
-| `lumoda-v4-crm-parquet.zip` | Beş tablo, Parquet (olay kaydı hariç) | 347 MB |
-| `lumoda-v4-crm-csv.zip` | Beş tablo, CSV (olay kaydı hariç) | 572 MB |
-| `lumoda-v4-olay-parquet.zip` | `online_olay.parquet` | 163 MB |
+| [`lumoda-v4-crm.duckdb`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-crm.duckdb) | Altı tablo (olay kaydı dahil) | 1.216 MB |
+| [`lumoda-v4-crm-parquet.zip`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-crm-parquet.zip) | Beş tablo, Parquet (olay kaydı hariç) | 347 MB |
+| [`lumoda-v4-crm-csv.zip`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-crm-csv.zip) | Beş tablo, CSV (olay kaydı hariç) | 572 MB |
+| [`lumoda-v4-olay-parquet.zip`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-olay-parquet.zip) | `online_olay.parquet` | 163 MB |
 
 Zip'ler klasörsüz. Olay kaydı yalnız Parquet'tir ve kendi zip'indedir; CSV
 zip'i onu içermez. DuckDB dosyası olay kaydı dahil altı tabloyu taşır.
+
+**B tek başına yetmez.** Bu dosyalar yalnız B'nin altı tablosunu taşır;
+ürün, mağaza, kampanya, fiyat, stok ve satış A'nın dosyalarındadır
+(`lumoda-v4.duckdb`, `lumoda-v4-parquet.zip`, `lumoda-v4-csv.zip`; aynı
+release). Birleştirme anahtarları `urun_id`, `magaza_id`, `kampanya_id`;
+`fis_satir`'ın gün × mağaza × SKU toplamı A'nın `satis` tablosuna eşittir.
+Bütün indirme bağlantıları: [`veri/README.md`](../../../../README.md#indirme).
 
 ## Testler
 
