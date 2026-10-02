@@ -469,7 +469,7 @@ sözlüğü, tutarlılık sözleşmesi, gizli gerçek ve bantlar için:
 | `online_liste_gunluk` | 609.905 |
 | `yorum` | 74.394 |
 
-Ham CSV 3.146 MB (olay kaydı hariç); Parquet 888 MB; DuckDB 1.217 MB. Üretim
+Ham CSV 3.146 MB (olay kaydı hariç); Parquet 890 MB; DuckDB 1.217 MB. Üretim
 A dahil ~19 dakika ve ~20 GB boş bellek ister.
 
 Testler: `pytest tests/v4/crm -m "not yavas"` ve `-m yavas` (bantlar,
