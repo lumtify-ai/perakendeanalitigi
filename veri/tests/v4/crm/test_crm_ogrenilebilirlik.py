@@ -16,7 +16,10 @@ segmentasyon
     üçü de log1p — çarpık dağılım), 17 alt kategori adet payı, indirimli
     satır payı (`indirim_tutari > 0`), online fiş payı. Standardize,
     `KMeans(7, n_init=20, random_state=0)`; gizli arketipe ARI, bant
-    0,3–0,7. İkincil satırlar: RFM log'suz; brief'in özellikleri + fiş
+    (kontrolcü kararı, Görev 5c) ≥ 0,08 — spec'in 0,3–0,7'si ulaşılamaz:
+    gözlenen kategori payları A'nın sabit mağaza-gün satışıyla ve müşteri
+    başına ~7–10 birimle sınırlı; gizli parametre tavanı 0,94, TAM
+    0,092–0,095. İkincil satırlar: RFM log'suz; brief'in özellikleri + fiş
     başına ortalama adet + ortalama ödenen birim fiyat. Tanı satırları
     (öğrenen değil, gizli parametreler yalnız yorum için): aynı müşterilerde
     gizli tercih/parametrelerle k-means ARI tavanı; indirim duyarlılığı ile
@@ -100,7 +103,10 @@ SIRALAMA_PBM_TUR = 100
 
 # (anahtar, spec §8 satırı, bant metni, geçer mi)
 OGRENILEBILIRLIK = [
-    ("seg_ari", "Segmentasyon: k-means ARI", "0,3–0,7", _aralik(0.3, 0.7)),
+    # Kontrolcü kararı (Görev 5c): spec'in 0,3–0,7 bandı yerine ≥ 0,08 —
+    # gözlenen kategori payları A'nın sabit mağaza-gün satışı ve müşteri başına
+    # ~7–10 birimle sınırlı; gizli parametre tavanı 0,94, TAM 0,092–0,095.
+    ("seg_ari", "Segmentasyon: k-means ARI", "≥ 0,08 (karar)", lambda x: x >= 0.08),
     ("terk_auc", "Terk: lojistik AUC (5 kat)", "0,70–0,85", _aralik(0.70, 0.85)),
     ("ltv_spearman", "LTV: Spearman (gerçekleşen 2026)", "0,4–0,7", _aralik(0.4, 0.7)),
     ("oneri_oran", "Öneri: recall@10 / popülerlik", "≥ 1,2", lambda x: x >= ONERI_KAT),

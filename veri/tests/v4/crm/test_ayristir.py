@@ -498,7 +498,6 @@ def test_indirim_duyarli_musteri_indirimli_satiri_secer(kosu60):
     assert ust - alt >= 0.10, (alt, ust, genel)
 
 
-
 def test_asama1_ust_grup_kesin():
     """Görev 5c: üst grup (iki alt grup, indirim terimi w) çapası düz Gumbel-
     max ile aynı dağılım: alt grup seçimi ∝ n · e^(g_ind · w). Kapasite bol,
@@ -520,3 +519,16 @@ def test_asama1_ust_grup_kesin():
     assert (af[:F] == np.arange(F)).all()
     assert np.allclose(pay, [0.2, 0.4, 0.4], atol=0.015), pay
     assert np.bincount(ag, minlength=3).tolist() == n_g.tolist() and sayac["tur_disi_capa"] == 0
+
+
+def test_asama1_ust_grup_tasma_korumasi():
+    """|w| ≥ 80 float32'de k₀ + k₁·eʷ taşırır: açık hata (INDIRIM_AGIRLIGI)."""
+    from collections import defaultdict
+
+    from perakende_veri.v4.crm.ayristir import asama1
+
+    with pytest.raises(AssertionError, match="INDIRIM_AGIRLIGI"):
+        asama1(np.zeros(2, dtype=np.int64), np.ones(2, dtype=np.int64), np.zeros(2, dtype=np.int64),
+               np.array([0, 0]), np.array([1, 1]), 1, lambda pf, ps: np.zeros(len(pf), dtype=np.float32),
+               np.zeros((17, 17), dtype=np.float32), np.random.default_rng(0), defaultdict(int),
+               g_ust=np.array([0, 0]), g_ind=np.array([0, 1]), w_f=np.array([100.0, 0.0]))

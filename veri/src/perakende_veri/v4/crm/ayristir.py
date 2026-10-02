@@ -275,6 +275,9 @@ def asama1(fis_m, boyut, g_m, g_alt, n_g, M: int, puan, T, rng, sayac,
     s_m, s_alt = g_m[s_ilk], g_alt[s_ilk]                # üst grubun mağazası, alt kategorisi
     S_m = np.bincount(s_m, minlength=M)
     sm_bas = np.cumsum(S_m) - S_m
+    # k₀ + k₁·eʷ float32'de: |w| < 80 (e^80 ≈ 5,5e34 < float32 üst sınırı 3,4e38 / kalan)
+    assert not len(w_f) or np.abs(w_f).max() < 80, (
+        f"alt grup terimi |w| = {np.abs(w_f).max():.1f} ≥ 80: float32 taşar (INDIRIM_AGIRLIGI çok büyük)")
     ew_f = np.exp(w_f).astype(np.float32)
     var0, var1 = s_g[:, 0] >= 0, s_g[:, 1] >= 0
     g0, g1 = np.maximum(s_g[:, 0], 0), np.maximum(s_g[:, 1], 0)
