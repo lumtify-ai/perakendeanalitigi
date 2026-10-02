@@ -9,7 +9,10 @@ tahmini, LTV, ürün önerisi, ürün sıralama, yorum sınıflandırma.
 - Üretim: `python -m perakende_veri.v4.crm.uret` → `veri/cikti/v4_crm/`
   (Parquet, CSV, DuckDB).
 - Tohumlar: A `2026` (değişmez), B `4242` (`crm/sabitler.py`,
-  `CRM_TOHUM`). Aynı komut her zaman aynı veriyi üretir.
+  `CRM_TOHUM`). Aynı komut aynı makinede ve aynı numpy sürümünde her
+  zaman aynı veriyi üretir. Eşleştirme float32 vektör (SIMD) toplamları
+  kullanır; başka bir işlemcide ya da numpy sürümünde bit bit aynılık
+  garanti değildir (bantlar tohum gürültüsünden çok geniş).
 - A'nın verisi bu katmandan etkilenmez. B, A'yı aynı tohumla bellekte
   yeniden kurar; A'nın yayımlanan 18 tablosu bayt bayt aynı kalır.
 
@@ -57,7 +60,7 @@ Yayımlanan altı tablo. Satır sayıları tam koşudan
 | `fis_satir` | Fiş satırları | 31.923.447 |
 | `online_liste_gunluk` | Gün × liste × sıra × option özeti | 609.905 |
 | `online_olay` | 13 haftalık olay kaydı (yalnız Parquet) | 23.901.935 |
-| `yorum` | Ürün yorumları | 74.394 |
+| `yorum` | Ürün yorumları | 78.071 |
 
 Satır sayıları spec'in tahminlerinin üstünde (spec: musteri ~1–1,5M, fis
 ~10M, fis_satir ~22M). Bu bir bant değil; nüfus ve sepet kalibrasyonunun
@@ -73,12 +76,25 @@ Birimler: para TL, iki ondalık. Adetler adet. Tarihler gün, `fis.saat`
 
 | Tablo | Sütunlar | Not |
 |---|---|---|
-| `musteri` | musteri_id, kayit_tarihi, kayit_kanali (magaza / online), ev_magaza_id, il, yas_grubu, cinsiyet | Anonim müşteri yok. `ev_magaza_id` mağaza kapanışlarından sonraki son durum. |
+| `musteri` | musteri_id, kayit_tarihi, kayit_kanali (magaza / online), ev_magaza_id, il, yas_grubu, cinsiyet | Anonim müşteri yok. `ev_magaza_id` mağaza kapanışlarından sonraki son durum. `kayit_tarihi` / `kayit_kanali` için aşağıdaki nota bakın. |
 | `fis` | fis_id, tarih, saat, magaza_id, musteri_id, kanal (magaza / online), fis_tipi (satis / iade), adet, tutar, teslim_tarihi | Online fişlerde `magaza_id` `ONL`. `musteri_id` anonim fişte boş. `adet` ve `tutar` satırların işaretli toplamı. |
 | `fis_satir` | fis_satir_id, fis_id, satir_no, urun_id, adet, birim_fiyat, tutar, indirim_tutari, kampanya_id, orijinal_fis_satir_id | İadede adet, tutar ve indirim negatif (A gibi). `orijinal_fis_satir_id` yalnız iadede dolu. |
 | `online_liste_gunluk` | tarih, liste, sira, option_id, gosterim, tiklama, sepete_ekleme, satin_alma | Anahtar (tarih, liste, sira, option_id); aşağıya bakın. |
 | `online_olay` | oturum_id, musteri_id, zaman, olay_tipi, liste, sira, option_id, fis_id | `olay_tipi`: liste_goruntuleme / tiklama / sepete_ekleme / siparis. `fis_id` yalnız siparişte. |
 | `yorum` | yorum_id, fis_satir_id, musteri_id, urun_id, tarih, puan, metin | Yalnız online satış satırlarına. Puan 1–5. |
+
+**`kayit_tarihi` ve `kayit_kanali`.** Simülasyon sırasında (2022-07-04'ten
+sonra) katılan müşteride `kayit_tarihi` ilk kimlikli fişin günüdür (ilk
+kart okutma ya da ilk online sipariş; CRM'in "üye oldu" anı), `kayit_kanali`
+o fişin kanalıdır (aynı gün iki kimlikli fiş varsa saatçe ilki). Başlangıç
+tabanı, yani 2022-07-04'te zaten müşteri olanlar, simülasyon öncesine
+uzanan kıdem tarihini ve kanalını taşır: bu tarih ilk kimlikli fişten
+önce, çoğu 2022 ortasından da eskidir ("eski üye"). Müşterinin nüfusa gizli
+katılış günü `musteri_gizli`'dedir. Simülasyonda katılan 1.254.366
+müşteride yayımlanan kayıt tarihi gizli katılıştan medyan 63 gün (ortalama
+112, çeyrekler 23–146) sonradır. Gizli kanalı online olan katılanların
+%31'inin ilk kimlikli fişi mağazadadır; yayımlanan kanal o fişi gösterir
+(tohum 4242).
 
 `birim_fiyat` = |tutar| ÷ |adet|, iki ondalık: ödenen net birim fiyat,
 iadede de pozitif. Esas olan `tutar`dır; adet × birim_fiyat bir kuruş
@@ -140,6 +156,9 @@ dersidir: aynı satışı iki sistem iki farklı biçimde kaydetmiş olur.
 
 Kimlik biçimleri: müşteri `K0000001`, fiş `F00000001` (tarih, saat
 sırasıyla), satır `FS000000001`, yorum `Y0000001`. `oturum_id` tam sayı.
+**`musteri_id` sırası kronolojik değildir:** kimlikler gizli nüfus
+sırasıyla verilir (önce başlangıç tabanı, mağaza mağaza; sonra
+katılanlar). Kayıt sırası için `kayit_tarihi`'ni kullanın.
 
 ## Dikkat edilecek yerler
 
@@ -173,7 +192,9 @@ sırasıyla), satır `FS000000001`, yorum `Y0000001`. `oturum_id` tam sayı.
   olsa bile).
 - **Hediye alımı.** Kartlı giyim birimlerinin ~%9'u müşterinin kendi
   cinsiyetinin dışında bir ürün (aksesuarda ~%25). Giyimde bunlar hediye
-  sayılır ve yorum yazmaz (Unisex ve aksesuar bu kuralın dışında).
+  sayılır (Unisex ve aksesuar bu kuralın dışında). Hediye satırı yalnız
+  "babama aldım", "eşime aldım" gibi alıcısı ürünle uyan bir metinle yorum
+  alır; kendi üstünde anlatan metin almaz.
 - **2026 LTV kısıtsız.** Gizli 2026 LTV, 2025 sonu nüfusunu kendi gizli
   hızıyla bir yıl ileri simüle eder; arkasında A'nın satışı yok. Bu yüzden
   2026 ziyareti 2025'te gerçekleşenden yüksektir. Sıralamaya dayalı
@@ -185,7 +206,16 @@ Kütüphane 7.000 etiketli Türkçe metin. Etiketler: üst kategori grubu,
 puan, duygu, konular (beden/kalıp, kumaş/kalite, renk, kargo/teslimat,
 fiyat/değer, iade süreci, genel beğeni). Gizli alanlar: `alt_kategori`
 (metin ürün türünü adıyla anıyorsa yalnız o türe gider), `cinsiyet_ipucu`,
-`yas_ipucu` (yalnız uyan müşteriye gider).
+`yas_ipucu` (yalnız uyan müşteriye gider), `alici_cinsiyeti` (metin ürünü
+başkası için aldığını söylüyorsa: "babama", "kızıma" → Erkek / Kadın,
+"eşime", "sevgilime" → `es`, müşterinin karşı cinsi; ürünün cinsiyeti buna
+uymalı, Unisex ve aksesuar serbest).
+
+**Uyarı: kütüphane depoda açık.** `crm/yorum_kutuphanesi.jsonl` her metnin
+konu, duygu ve puan etiketini taşır ve yayımlanan yorum metinleri ondan
+gelir (yer tutucular doldurulmuş). Konu sınıflandırma alıştırmasında
+kütüphaneye bakmak (metni eşleyip etiketini okumak) öğrenme değildir;
+öğrenen yalnız `yorum` tablosunu kullanmalı.
 
 - İlk 4.000 metin için kullanıcı 20 örnekle üslup onayı verdi. Sonra
   talebe göre ağırlıklı 3.000 metin eklendi (kategori, alt kategori, puan,
@@ -200,10 +230,12 @@ fiyat/değer, iade süreci, genel beğeni). Gizli alanlar: `alt_kategori`
   kargo; indirim ≥ %50 ×1,2 → fiyat/değer.
 - Olumsuz nedenli yorum 1–3 puan alır; nedensiz ya da yalnız fiyat
   nedenli yorum 4–5. Uyan metin kalmazsa puan ±1 kayabilir.
-- Yorum tarihi teslimden 1–10 gün sonra.
+- Yorum tarihi teslimden 1–10 gün sonra; iade edilmiş satırda en erken
+  son iade fişinden 1–10 gün sonra (ürün iade edildikten sonra yazılır).
+  2025-12-31'i aşan yorum düşer.
 - Çelişki süzgeci: iade anlatan metin yalnız iade edilmiş satıra, olumsuz
   kargo metni yalnız geciken satıra, "indirimde aldım" diyen metin yalnız
-  indirimli satıra gider.
+  indirimli satıra gider. Demografi ve alıcı süzgeci de hiç gevşemez.
 
 ## Gizli gerçek
 
@@ -233,7 +265,7 @@ gizli = ham.gizli_gercek()        # crm_gizli_gercek(...)
 Gizli tablolarda `musteri` nüfus indisidir (her müşteri). `musteri_id`
 yayımlanan kimliktir, hiç görünür olmamış müşteride boştur.
 
-Tam koşu ~20 GB bellek ister. Denemeler için `Olcek.KUCUK` var; bantlar
+Tam koşu ~20–23 GB bellek ister (tepe, birikimli ölçüm). Denemeler için `Olcek.KUCUK` var; bantlar
 yalnız TAM'da anlamlıdır.
 
 ## Sıralama politikası enjeksiyonu
@@ -280,7 +312,8 @@ Depoda stoğu biten option listeden kalkar.
 Tam koşuda, yayımlanan tablolardan ölçülür
 (`tests/v4/crm/test_crm_kalibrasyon.py`, `-m yavas`). Yayımlanan tohum
 4242 ve dört tohum daha (1, 2, 3, 4); A hep 2026. Kaynak:
-`veri/araclar/v4_crm_cok_tohum.py` (commit 1fc8a2a).
+`veri/araclar/v4_crm_cok_tohum.py --etiket son` (commit d1b042f;
+`veri/cikti/v4_crm_cok_tohum_son.md`).
 
 | Ölçüt | Bant | Tohum 4242 | 5 tohumda aralık | Geçen |
 |---|---|---|---|---|
@@ -289,13 +322,13 @@ Tam koşuda, yayımlanan tablolardan ölçülür
 | Fiş başına adet: online | 1,6–2,0 | 1,809 | 1,809 | 5/5 |
 | Kartlı müşteri yıllık ziyaret | 2,5–4 | 3,170 | 3,164–3,170 | 5/5 |
 | Ertesi yıl dönme oranı | %45–65 | 0,5557 | 0,5556–0,5562 | 5/5 |
-| Yeni müşterinin yıllık aktif payı | %25–40 | 0,2780 | 0,2776–0,2781 | 5/5 |
-| Online satırlarda yorum oranı | %0,9–1,5 (karar; spec %4–8) | 0,0117 | 0,0117 | 5/5 |
-| Yorum ortalama puanı | 4,0–4,4 | 4,179 | 4,171–4,187 | 5/5 |
+| Yeni müşterinin yıllık aktif payı | %25–40 | 0,3948 | 0,3946–0,3952 | 5/5 |
+| Online satırlarda yorum oranı | %0,9–1,5 (karar; spec %4–8) | 0,0122 | 0,0122–0,0123 | 5/5 |
+| Yorum ortalama puanı | 4,0–4,4 | 4,183 | 4,182–4,187 | 5/5 |
 | Giriş yapmış oturum payı | %55–65 | 0,6000 | 0,6000 | 5/5 |
 
-İzleme satırları (bant değil, 4242): yorum sayısı 74.394 (hedef 60–80 bin) ·
-hatalı tedarikçide kalite konulu yorum katı 2,5 (≥ 2) · çapraz cinsiyet
+İzleme satırları (bant değil, 4242): yorum sayısı 78.071 (hedef 60–80 bin) ·
+hatalı tedarikçide kalite konulu yorum katı 2,37 (≥ 2) · çapraz cinsiyet
 payı giyimde %9,3 (%8–15), aksesuarda %24,7 · tutarlılık sözleşmesi 5/5.
 
 Tanımlar kısaca. "Aktif": o yıl en az bir kartlı satış fişi olan müşteri
@@ -306,7 +339,16 @@ aktiflerinde `kayit_tarihi` Y içinde olanların payı. Yorum oranı: yorum ÷
 penceredeki online satış satırı.
 
 Yıl yıl (4242): ziyaret 3,011 / 3,161 / 3,321 · dönme 2023→24 0,542,
-2024→25 0,569 · yeni payı 0,260 / 0,270 / 0,302.
+2024→25 0,569 · yeni payı 0,346 / 0,403 / 0,431.
+
+Yeni payı üst sınıra yakın (0,395; bant 0,40). Nedeni `kayit_tarihi`'nin
+anlamı: simülasyonda katılan müşteri, ilk kimlikli fişinin yılında "yeni"
+sayılır (gizli katılış yılında değil; önceki tanımla 0,278).
+
+Yorum izleme (4242): 24.694 yorum iade edilmiş satırda; 3.762 yorum hediye
+satırında (5.625 hediye yazarının 1.827'si uyan alıcılı metin bulamayıp
+düştü; kapasite düşüşünün tamamı bu); 613 yorum tarihi 2025-12-31'i aştığı
+için düştü (99'u iade tarihi kuralından).
 
 ## Öğrenilebilirlik
 
@@ -320,7 +362,7 @@ B'nin altı tablosunu ve A'nın `urun`'unu okur; gizli gerçek yalnız puanlar.
 | LTV | 2025 harcaması × P(geri gelir) | gerçekleşen 2026 harcamasıyla Spearman | 0,4–0,7 | 0,6363 | 0,6353–0,6363 | 5/5 |
 | Öneri | ürün–ürün birlikte alım (kosinüs) | son sepette recall@10 ÷ popülerlik | ≥ 1,2 | 1,892 | 1,863–1,892 | 5/5 |
 | Sıralama | konum yanlılığı düzeltmeli (IPS) tıklama oranı | gerçek ilgiyle Spearman, IPS − saf | ≥ 0,1 | 0,1546 | 0,1534–0,1546 | 5/5 |
-| Yorum konuları | TF-IDF + lojistik, metin grubuna göre bölme | makro F1 | ≥ 0,60 (karar; spec 0,60–0,85) | 0,9560 | 0,9465–0,9696 | 5/5 |
+| Yorum konuları | TF-IDF + lojistik, metin grubuna göre bölme | makro F1 | ≥ 0,60 (karar; spec 0,60–0,85) | 0,9463 | 0,9402–0,9595 | 5/5 |
 
 - **Segmentasyon zor.** Gizli parametrelerle k-means ARI'si 0,94'tür:
   arketipler iyi tanımlı. Gözlenen davranıştan ise 0,09 çıkar. Nedeni
@@ -333,9 +375,9 @@ B'nin altı tablosunu ve A'nın `urun`'unu okur; gizli gerçek yalnız puanlar.
 - **Arketipler belirgin.** Örnek ortalamalar: online tutkununun online payı
   0,94, klasiğin 0,03; premium yılda 8,2 ziyaret, gelip geçen 0,84;
   indirim avcısının indirim duyarlılığı 0,94, premium'un 0,06.
-- **Yorum konuları kolay.** Kütüphane konuları açık yazar, F1 ~0,95–0,97
+- **Yorum konuları kolay.** Kütüphane konuları açık yazar, F1 ~0,94–0,96
   bu tasarımın sonucu. Aynı metin farklı müşterilerde tekrarlandığından
-  müşteriye göre bölmek ezberi ödüllendirir (F1 0,998). Bu yüzden birincil
+  müşteriye göre bölmek ezberi ödüllendirir (F1 0,997–0,999). Bu yüzden birincil
   bölme metin grubuna göredir: yer tutucular geri çevrilip aynı kütüphane
   metninden gelen yorumlar aynı tarafa düşer.
 - **Sıralama.** Saf tıklama oranının gerçek ilgiyle Spearman'ı 0,83, IPS
@@ -347,7 +389,7 @@ B'nin altı tablosunu ve A'nın `urun`'unu okur; gizli gerçek yalnız puanlar.
 
 B'nin bütün ölçütleri beş tohumda üçüncü ondalıkta ayrılır; tohum
 gürültüsü bantların genişliğinin çok altındadır. En geniş aralık yorum F1'de
-(0,9465–0,9696) ve segmentasyonun ikincil "+ sepet ve birim fiyat"
+(0,9402–0,9595) ve segmentasyonun ikincil "+ sepet ve birim fiyat"
 satırında (0,169–0,233). Yazılardaki sayılar yayımlanan tohumdan (4242)
 gelir.
 
@@ -360,22 +402,33 @@ Ayrıntı ve gerekçeler spec §11'de. Kısaca:
 - Yorum oranı bandı %4–8 yerine %0,9–1,5; kütüphane ~4.000 yerine 7.000.
 - Segmentasyon bandı 0,3–0,7 yerine ARI ≥ 0,08; yorum F1 bandı ≥ 0,60.
 - Müşteri–ürün cinsiyet uyumu ve hediye alımı eklendi.
+- Hediye satırı yalnız alıcısı ürünle uyan metinle yorum alır; yorum tarihi
+  iade edilmiş satırda son iade fişinden sonra.
+- `musteri.kayit_tarihi` / `kayit_kanali`: simülasyonda katılanda ilk
+  kimlikli fiş (yukarıda).
 - `fis.teslim_tarihi` ve `fis_satir.fis_satir_id` yayımlanır.
 - Satır sayıları spec tahminlerinin üstünde.
 
 ## Üretim süresi ve bellek
 
-Son tam koşu (tohum 4242, boş makine): A kurulumu 168 sn (B'ye sayılmaz),
-B 898 sn yazma hariç (simülasyon 834, online 27, kargo + yorum 10, tablolar
-25), yazma 98 sn (Parquet 27, DuckDB 57, CSV 14); B toplam 997 sn = 16,6 dk.
-Beş tohumluk koşuda B 832–911 sn (yazma hariç), eşleştirme 10,7–11,8 dk.
+Beş tohumluk koşu (commit d1b042f): B 856–949 sn yazma hariç dört tohumda
+(boş makine); beşinci tohum (4) makine kullanılırken 1.977 sn sürdü. Son
+üretim koşusu (tohum 4242) da bellek baskısı altında koştu: A kurulumu
+222 sn (B'ye sayılmaz), B 1.648 sn yazma hariç (simülasyon 1.530, online
+41, kargo + yorum 25, tablolar 51), yazma 115 sn (Parquet 41, DuckDB 58,
+CSV 15). Önceki boş makine ölçümü (Görev 16, aynı satır sayıları) B 898
+sn yazma hariç, 997 sn = 16,6 dk yazma dahil.
 
-**Bellek:** tohum başına süreç tepesi ~20 GB. **~20 GB boş bellek gerekir.**
-Başka uygulamalar ~10 GB tutarken sayfalama başlıyor ve B 20 dakikayı
-aşabiliyor (ölçülen en kötü 2.186 sn, ~36 dk).
+**Bellek:** tohum başına süreç tepesi ~20–23 GB (birikimli ölçüm; beş
+tohumda 21,1–22,8 GB). **~20–23 GB boş bellek gerekir.** Başka uygulamalar
+~10 GB tutarken sayfalama başlıyor ve B 20 dakikayı aşabiliyor (ölçülen en
+kötü 2.186 sn, ~36 dk; eski kod, yüklü makine, Görev 15).
 
-Çıktı (`veri/cikti/v4_crm/`): Parquet 888 MB (en büyüğü `fis_satir` 437 MB, `online_olay` 211 MB), CSV
-3.146 MB (`online_olay` hariç; `fis_satir.csv` 1,97 GB), DuckDB 1.216 MB.
+Çıktı (`veri/cikti/v4_crm/`): Parquet 890 MB (en büyüğü `fis_satir` 437
+MB, `online_olay` 211 MB), CSV 3.146 MB (`online_olay` hariç), DuckDB
+1.216 MB. `fis_satir.csv` açılmış hâliyle ~1,97 GB, 2 GB'a yakın: bazı
+araçların tek dosya sınırına takılabilir; Parquet ya da DuckDB tercih
+edin.
 
 ## Dağıtım
 
@@ -384,8 +437,8 @@ Mevcut `veri-v4` release'ine eklenecek dört varlık (A'nınkiler değişmez):
 | Varlık | İçerik | Boyut |
 |---|---|---:|
 | `lumoda-v4-crm.duckdb` | Altı tablo (olay kaydı dahil) | 1.216 MB |
-| `lumoda-v4-crm-parquet.zip` | Beş tablo, Parquet (olay kaydı hariç) | 345 MB |
-| `lumoda-v4-crm-csv.zip` | Beş tablo, CSV (olay kaydı hariç) | 569 MB |
+| `lumoda-v4-crm-parquet.zip` | Beş tablo, Parquet (olay kaydı hariç) | 347 MB |
+| `lumoda-v4-crm-csv.zip` | Beş tablo, CSV (olay kaydı hariç) | 572 MB |
 | `lumoda-v4-olay-parquet.zip` | `online_olay.parquet` | 163 MB |
 
 Zip'ler klasörsüz. Olay kaydı yalnız Parquet'tir ve kendi zip'indedir; CSV
