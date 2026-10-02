@@ -4,15 +4,17 @@
 satırları (sonradan iade edilenler dahil). Isınmadaki satırlar yayımlanmaz,
 kütüphane kapasitesini tüketmesinler diye aday değildir.
 
-**Hediye alımı yazmaz.** Müşteri cinsiyeti ürün cinsiyetinden farklıysa
-(ürün Unisex ya da Aksesuar değilse) satır hediye alımı sayılır (`hediye`
-bayrağı; Görev 5b'nin çapraz alımları, ~%8–15) ve yorum yazmaz. Kontrolcü
-kararı: kütüphane metinleri ürünü kendi üstünde anlatır ya da cinsiyetli bir
-alıcı ağzından yazılmıştır; yalnız cinsiyeti uyan alıcıya bağlanınca hep
-tutarlı olur. Hediye satırları adaydır (oranın paydası) ama olasılıkları 0.
+**Hediye alımı.** Müşteri cinsiyeti ürün cinsiyetinden farklıysa (ürün
+Unisex ya da Aksesuar değilse) satır hediye alımı sayılır (`hediye` bayrağı;
+Görev 5b'nin çapraz alımları, ~%8–15). Kontrolcü kararı (son inceleme):
+hediye satırı yalnız alıcı cinsiyeti (`alici_cinsiyeti`) ürünle uyan
+metinle yorum yazar ("babama aldım", "eşime aldım"); öz-giyim ve alıcısız
+metin almaz, uyan metin kalmazsa yorum düşer (`dusen_hediye`).
 
-**Kim yazar.** Hediye olmayan satır başına olasılık `TEMEL_OLASILIK` ×
-etkin nedenlerin çarpanı (`CARPANLAR`). Gizli nedenler (satır bayrakları):
+**Kim yazar.** Satır başına olasılık `TEMEL_OLASILIK` × etkin nedenlerin
+çarpanı (`CARPANLAR`); temel olasılığın kapasite küçültmesi yalnız hediye
+olmayan satırlardan hesaplanır (hediye yazarları hacmin üstüne eklenir).
+Gizli nedenler (satır bayrakları):
 
     kalite  tedarikçinin `hatali_orani` tedarikçilerin üst çeyreğinde     ×1,5
             (> `KALITE_ESIK_CEYREK` = 0,75 çeyreği; kontrolcü kararı: medyan
@@ -42,7 +44,10 @@ geciken satıra, olumlu kargo metni ("ertesi gün kapıdaydı") yalnız
 gecikmeyen satıra, indirimle aldığını anlatan metin (`INDIRIM_IDDIASI`) yalnız
 indirimli satıra. Demografi süzgeci (hiç gevşemez, alt_kategori gibi):
 `cinsiyet_ipucu` doluysa müşteri cinsiyetine eşit, `yas_ipucu` doluysa
-müşterinin yaş grubu listede. Gevşetme basamakları (`GEVSEME_BASAMAKLARI`,
+müşterinin yaş grubu listede. Alıcı süzgeci (hiç gevşemez): `alici_cinsiyeti`
+doluysa ürün cinsiyeti ona eşit ("es": müşterinin karşı cinsi) ya da ürün
+Unisex / Aksesuar; hediye satırı yalnız alıcılı metin alır. Gevşetme
+basamakları (`GEVSEME_BASAMAKLARI`,
 sırayla ilk boş olmayan):
 
     konu 0  konular ⊆ izinli ve (nedenliyse) en az bir neden konusu
@@ -64,8 +69,10 @@ puanı ve duygusu kütüphanedendir (gevşetmede puan ±1 kayar).
 etiketi; metin başında (ya da cümle sonundan sonra) gelen değer büyük harfle
 başlar (`yazim_hatali` üslupta değil).
 
-**Tarih.** Fiş günü + teslim günü (Görev 8) + 1–10 gün (uniform); pencere
-sonunu aşan yorum düşer (`dusen_tarih`).
+**Tarih.** Fiş günü + teslim günü (Görev 8) + 1–10 gün (uniform); iade
+edilmiş satırda (son inceleme) en az son iade fişinin günü + 1–10 gün
+(`iade_gun`; yorum iade edildikten sonra yazılır). Pencere sonunu aşan yorum
+düşer (`dusen_tarih`).
 
 **Gizli.** `gizli_df`: gerçek konular (kütüphane etiketi), duygu, nedenler
 (virgülle; nedensizde boş), kütüphane kimliği, üslup, gevşeme basamağı.
@@ -88,7 +95,7 @@ import pandas as pd
 
 from ..tablolar import _gun_tarihi, pencere
 from .kargo import kargo_tablosu
-from .kutuphane import KATEGORI_GRUPLARI, KONULAR
+from .kutuphane import ALICI_CINSIYETLERI, KATEGORI_GRUPLARI, KONULAR
 from .sabitler import CINSIYETLER, YAS_GRUPLARI
 from .tercih import urun_cinsiyet
 
@@ -109,11 +116,10 @@ ORAN_TOLERANSI = 1e-9      # %50'yi tam veren satır kayan noktada kaçmasın
 AZAMI_KULLANIM = 25
 # Hatalı tedarikçi eşiği: tedarikçi `hatali_orani` dağılımının bu çeyreği.
 KALITE_ESIK_CEYREK = 0.75
-# Beklenen yazar sayısının üst sınırı (temel olasılık bunu aşmayacak kadar
-# küçülür). Kontrolcü kararı: hacim hedefi 60–80 bin yorum (TAM'da oran
-# ~%1–1,3; spec'in %4–8 bandı 6,4 M online satırda kütüphaneyle
-# karşılanamaz). 7.000 metinlik kütüphaneyle (Görev 12b, tohum 4242) TAM'da
-# ~74,6 bin yorum, oran %1,17, kapasite düşüşü 0.
+# Hediye olmayan satırlarda beklenen yazar sayısının üst sınırı (temel
+# olasılık bunu aşmayacak kadar küçülür). Kontrolcü kararı: hacim hedefi
+# 60–80 bin yorum (TAM'da oran ~%1–1,3; spec'in %4–8 bandı 6,4 M online
+# satırda kütüphaneyle karşılanamaz). Güncel TAM sayıları README'de.
 HEDEF_YORUM_UST = 75_000
 TARIH_EK_ALT, TARIH_EK_UST = 1, 10          # teslimattan sonra, ikisi de dahil
 BEDENSIZ_ETIKET = "STD"
@@ -121,8 +127,8 @@ AKSESUAR_GRUBU = "Aksesuar"
 UNISEX_KODU = 2      # `tercih.urun_cinsiyet`: 0 Kadın, 1 Erkek, 2 Unisex
 
 # Puan ağırlıkları (neden aralığı içinde). KALİBRASYON: hedef ortalama
-# 4,0–4,4; 7.000 metinle TAM'da 4,11–4,13, KUCUK'ta 4,01–4,04 (Görev 12b,
-# 5 tohum). Olumsuzda J biçimi korunur (1 ≥ 2, 3).
+# 4,0–4,4 (güncel TAM ölçümü README'de). Olumsuzda J biçimi korunur
+# (1 ≥ 2, 3).
 PUAN_AGIRLIKLARI = {
     "nedensiz": {4: 0.15, 5: 0.85},
     "fiyat": {4: 0.35, 5: 0.65},
@@ -138,11 +144,12 @@ INDIRIM_IDDIASI = re.compile(r"indirim|yar[ıi] fiyat|kampanya", re.IGNORECASE)
 YORUM_SUTUNLARI = ("yorum_id", "fis_satir_id", "musteri_id", "urun_id", "tarih", "puan", "metin")
 GIZLI_SUTUNLARI = ("yorum_id", "kutuphane_id", "konular", "duygu", "nedenler", "uslup", "gevseme")
 
-ADIMLAR = ("yazar", "neden", "puan", "tarih", "sira", "secim")   # yeni adım SONA
+ADIMLAR = ("yazar", "neden", "puan", "tarih", "sira", "secim", "iade_tarih")   # yeni adım SONA
 
 _KONU_BIT = {k: 1 << i for i, k in enumerate(KONULAR)}
 _GENEL = _KONU_BIT["genel_begeni"]
 _IADE_KONU = _KONU_BIT["iade_sureci"]
+_ALICI_ES = ALICI_CINSIYETLERI.index("es")
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +177,7 @@ class _Kut:
     indirim_iddiasi: np.ndarray
     cins_ip: np.ndarray     # CINSIYETLER indisi, −1 = ipucu yok
     yas_ip: np.ndarray      # YAS_GRUPLARI bit maskesi, 0 = ipucu yok
+    alici: np.ndarray       # ALICI_CINSIYETLERI indisi (0 Kadın, 1 Erkek, 2 es), −1 = yok
 
 
 def _kutuphane_dizileri(kut: pd.DataFrame) -> _Kut:
@@ -189,6 +197,8 @@ def _kutuphane_dizileri(kut: pd.DataFrame) -> _Kut:
                           for c in _sutun(kut, "cinsiyet_ipucu")], dtype=np.int64),
         yas_ip=np.array([sum(1 << YAS_GRUPLARI.index(g) for g in y) if isinstance(y, list) else 0
                          for y in _sutun(kut, "yas_ipucu")], dtype=np.int64),
+        alici=np.array([ALICI_CINSIYETLERI.index(c) if isinstance(c, str) else -1
+                        for c in _sutun(kut, "alici_cinsiyeti")], dtype=np.int64),
     )
 
 
@@ -204,15 +214,11 @@ def _sutun(kut: pd.DataFrame, ad: str) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 
-def _birlestir(parcalar, sutunlar):
-    return {k: np.concatenate([p[k] for p in parcalar]) if parcalar else np.zeros(0, dtype=np.int64)
-            for k in sutunlar}
-
-
 def aday_satirlari(crm_ham, girdi, kargo: pd.DataFrame | None = None) -> pd.DataFrame:
     """Pencere içi ONL satış satırları ve gizli neden bayrakları:
     satir_id, fis_id, gun, musteri, sku, teslim_gun, iade, beden_uyumsuz,
-    gecikme, hatali_tedarikci, derin_indirim, indirimli; müşteri demografisi
+    gecikme, hatali_tedarikci, derin_indirim, indirimli, iade_gun (son iade
+    fişinin günü, iadesizde −1); müşteri demografisi
     musteri_cins (`CINSIYETLER`), musteri_yas (`YAS_GRUPLARI`) ve `hediye`
     (`hediye_bayragi`). `kargo` verilirse
     (`kargo_tablosu(crm_ham, girdi)`, en az ONL satış fişleri) yeniden
@@ -221,18 +227,19 @@ def aday_satirlari(crm_ham, girdi, kargo: pd.DataFrame | None = None) -> pd.Data
     onl = crm_ham.nufus.magaza.onl
     bas, son = pencere()
     son = min(son, crm_ham.D - 1)
-    parca, iade_orj = [], []
+    parca, iade_orj, iade_g = [], [], []
     for d in range(max(bas, 0), crm_ham.D):
-        sat = _birlestir(kayit.gun_parcalari("fis_satir", d),
-                         ("satir_id", "fis_id", "sku", "adet", "tutar", "indirim_tutari",
-                          "beden_uyumsuz_adet", "orijinal_satir"))
+        sat = kayit.gun_dizileri("fis_satir", d,
+                                 ("satir_id", "fis_id", "sku", "adet", "tutar", "indirim_tutari",
+                                  "beden_uyumsuz_adet", "orijinal_satir"))
         if not len(sat["satir_id"]):
             continue
         negatif = sat["adet"] < 0
         iade_orj.append(sat["orijinal_satir"][negatif])
+        iade_g.append(np.full(int(negatif.sum()), d, dtype=np.int64))
         if d > son:
             continue
-        fis = _birlestir(kayit.gun_parcalari("fis", d), ("fis_id", "magaza", "musteri", "tip"))
+        fis = kayit.gun_dizileri("fis", d, ("fis_id", "magaza", "musteri", "tip"))
         o = np.argsort(fis["fis_id"])
         fid = fis["fis_id"][o]
         i = o[np.searchsorted(fid, sat["fis_id"])]
@@ -248,8 +255,8 @@ def aday_satirlari(crm_ham, girdi, kargo: pd.DataFrame | None = None) -> pd.Data
     a = pd.DataFrame({k: np.concatenate([p[k] for p in parca]) for k in parca[0]}) if parca else None
     if a is None:
         raise ValueError("pencerede ONL satış satırı yok")
-    iade_orj = np.unique(np.concatenate(iade_orj)) if iade_orj else np.zeros(0, dtype=np.int64)
-    a["iade"] = np.isin(a["satir_id"].to_numpy(), iade_orj)
+    a["iade_gun"] = son_iade_gunu(a["satir_id"].to_numpy(), iade_orj, iade_g)
+    a["iade"] = a["iade_gun"].to_numpy() >= 0
 
     if kargo is None:
         kargo = kargo_tablosu(crm_ham, girdi)
@@ -267,9 +274,28 @@ def aday_satirlari(crm_ham, girdi, kargo: pd.DataFrame | None = None) -> pd.Data
     return a
 
 
+def son_iade_gunu(satir_id: np.ndarray, iade_orj: list, iade_g: list) -> np.ndarray:
+    """Satır başına son iade fişinin günü (iade edilmemişse −1); `iade_orj`
+    / `iade_g` gün gün iade satırlarının orijinal satırı ve günü."""
+    out = np.full(len(satir_id), -1, dtype=np.int64)
+    orj = np.concatenate(iade_orj).astype(np.int64) if iade_orj else np.zeros(0, dtype=np.int64)
+    if not len(orj):
+        return out
+    g = np.concatenate(iade_g)
+    o = np.lexsort((g, orj))
+    orj, g = orj[o], g[o]
+    son = np.r_[orj[1:] != orj[:-1], True]       # her orijinalin en geç iadesi
+    orj, g = orj[son], g[son]
+    i = np.minimum(np.searchsorted(orj, satir_id), len(orj) - 1)
+    var = orj[i] == satir_id
+    out[var] = g[i[var]]
+    return out
+
+
 def hediye_bayragi(a: pd.DataFrame, u: pd.DataFrame) -> np.ndarray:
     """Müşteri cinsiyeti (`musteri_cins`) ≠ ürün cinsiyeti, ürün Unisex ya da
-    Aksesuar değilse: hediye alımı, yorum yazmaz (modül docstring'i)."""
+    Aksesuar değilse: hediye alımı, yalnız alıcılı metin alır (modül
+    docstring'i)."""
     sku = a["sku"].to_numpy(dtype=np.int64)
     uc = urun_cinsiyet(u)[sku]
     aksesuar = u["ust_kategori"].to_numpy()[sku] == AKSESUAR_GRUBU
@@ -385,12 +411,15 @@ class YorumSonucu:
     # Tarihteki yazarların basamak-0 havuzundan (kapasite öncesi) demografi
     # süzgecinin elediği metin payı (yazar ağırlıklı; ölçüm için).
     demografi_elenen: float = 0.0
+    hediye_yazar: int = 0       # hediye satırındaki yazarlar
+    dusen_hediye: int = 0       # tarihteki hediye yazarlarından metin bulamayan
+    dusen_tarih_iade: int = 0   # dusen_tarih'in iade kuralı yüzünden düşen kısmı (ölçüm)
 
 
 def temel_olasilik(carpim: np.ndarray) -> float:
-    """`TEMEL_OLASILIK`; beklenen yazar sayısı (Σ temel × çarpım)
-    `HEDEF_YORUM_UST`'ü aşarsa temel orantılı küçülür (kütüphane kapasitesi,
-    modül docstring'i)."""
+    """`TEMEL_OLASILIK`; beklenen yazar sayısı (Σ temel × çarpım; çağıran
+    hediye satırlarını 0 verir) `HEDEF_YORUM_UST`'ü aşarsa temel orantılı
+    küçülür (kütüphane kapasitesi, modül docstring'i)."""
     beklenen = TEMEL_OLASILIK * float(carpim.sum())
     return TEMEL_OLASILIK * min(1.0, HEDEF_YORUM_UST / beklenen) if beklenen > 0 else TEMEL_OLASILIK
 
@@ -417,11 +446,12 @@ def yorumlari_ata(rng, a: pd.DataFrame, u_df: pd.DataFrame, kutuphane: pd.DataFr
     K = _kutuphane_dizileri(kut)
     N = len(a)
 
-    # 1. kim yazar (hediye satırı yazmaz), nedenler
+    # 1. kim yazar (temel hediye olmayan satırlardan), nedenler
     bayrak = np.column_stack([a["hatali_tedarikci"], a["beden_uyumsuz"], a["gecikme"], a["derin_indirim"]])
     carpan = np.array([CARPANLAR[n] for n in NEDENLER])
-    carpim = np.prod(np.where(bayrak, carpan, 1.0), axis=1) * ~a["hediye"].to_numpy()
-    temel = temel_olasilik(carpim)
+    carpim = np.prod(np.where(bayrak, carpan, 1.0), axis=1)
+    hediye_a = a["hediye"].to_numpy(dtype=bool)
+    temel = temel_olasilik(carpim * ~hediye_a)
     p = temel * carpim
     yazar = np.flatnonzero(akis["yazar"].random(N) < p)
     Y = len(yazar)
@@ -438,9 +468,14 @@ def yorumlari_ata(rng, a: pd.DataFrame, u_df: pd.DataFrame, kutuphane: pd.DataFr
     for maske, ad in ((sadece_fiyat, "fiyat"), (olumsuz, "olumsuz"), (iade_beden, "iade_beden")):
         puan = np.where(maske, _agirlikli_puan(r_p, PUAN_AGIRLIKLARI[ad], Y), puan)
 
-    # 3. tarih (pencere dışı düşer)
+    # 3. tarih: teslimattan sonra; iade edilmişse son iade fişinden de sonra
+    # (pencere dışı düşer)
     gun_y = a["gun"].to_numpy()[yazar] + a["teslim_gun"].to_numpy()[yazar] \
         + akis["tarih"].integers(TARIH_EK_ALT, TARIH_EK_UST + 1, size=Y)
+    iade_gun = a["iade_gun"].to_numpy()[yazar]
+    gun_iade = iade_gun + akis["iade_tarih"].integers(TARIH_EK_ALT, TARIH_EK_UST + 1, size=Y)
+    dusen_tarih_iade = int(((gun_y <= son_gun) & (iade_gun >= 0) & (gun_iade > son_gun)).sum())
+    gun_y = np.where(iade_gun >= 0, np.maximum(gun_y, gun_iade), gun_y)
     tarihte = gun_y <= son_gun
     dusen_tarih = int((~tarihte).sum())
 
@@ -450,23 +485,33 @@ def yorumlari_ata(rng, a: pd.DataFrame, u_df: pd.DataFrame, kutuphane: pd.DataFr
     alt_adlar = sorted(u_df["alt_kategori"].unique())
     sku_alt = np.searchsorted(alt_adlar, u_df["alt_kategori"].to_numpy())
     sku_bedenli = u_df["beden"].to_numpy() != BEDENSIZ_ETIKET
+    # alıcı süzgecinin hedefi: Unisex / Aksesuar → −1 (serbest), değilse ürün cinsiyeti
+    sku_cins = urun_cinsiyet(u_df)
+    sku_alici = np.where((sku_cins == UNISEX_KODU) | (u_df["ust_kategori"].to_numpy() == AKSESUAR_GRUBU),
+                         -1, sku_cins)
+    hed = hediye_a[yazar]
     neden_kod = (neden * (1 << np.arange(len(NEDENLER)))).sum(axis=1)
     gec = a["gecikme"].to_numpy()[yazar]
     ind = a["indirimli"].to_numpy()[yazar]
     mc = a["musteri_cins"].to_numpy()[yazar]
     my = a["musteri_yas"].to_numpy()[yazar]
     alanlar = np.column_stack([sku_grup[sku], sku_alt[sku], sku_bedenli[sku], neden_kod,
-                               iade, gec, ind, puan, mc, my])
+                               iade, gec, ind, puan, mc, my, sku_alici[sku], hed])
     tekil, anahtar = np.unique(alanlar, axis=0, return_inverse=True)
     anahtar = anahtar.ravel()
 
     def adaylar(k: int, b: int, demografi: bool = True) -> np.ndarray:
-        g, al, bedenli, nk, iad, gc, idl, pu, cins, yas = (int(x) for x in tekil[k])
+        g, al, bedenli, nk, iad, gc, idl, pu, cins, yas, ualici, hd = (int(x) for x in tekil[k])
         konu_b, puan_f = GEVSEME_BASAMAKLARI[b]
         m = (K.grup == g) & (K.alt_bos | (K.alt == alt_adlar[al]))
         if demografi:
             m &= (K.cins_ip < 0) | (K.cins_ip == cins)
             m &= (K.yas_ip == 0) | (((K.yas_ip >> yas) & 1) == 1)
+        # alıcı süzgeci (hiç gevşemez): "es" müşterinin karşı cinsi
+        if ualici >= 0:
+            m &= (K.alici < 0) | (K.alici == ualici) | ((K.alici == _ALICI_ES) & (ualici == 1 - cins))
+        if hd:
+            m &= K.alici >= 0
         if not bedenli:
             m &= ~K.beden_yt
         if not iad:
@@ -498,6 +543,7 @@ def yorumlari_ata(rng, a: pd.DataFrame, u_df: pd.DataFrame, kutuphane: pd.DataFr
     u_sec = akis["secim"].random(Y)
     secim, basamak = metin_sec(adaylar, anahtar, sira, u_sec, n_metin=len(kut))
     dusen_kapasite = int(((secim < 0) & tarihte).sum())
+    dusen_hediye = int(((secim < 0) & tarihte & hed).sum())
 
     # demografi süzgecinin payı (ölçüm): basamak-0 havuzu, kapasite öncesi
     k_say = np.bincount(anahtar[aday_y], minlength=len(tekil))
@@ -555,7 +601,8 @@ def yorumlari_ata(rng, a: pd.DataFrame, u_df: pd.DataFrame, kutuphane: pd.DataFr
     return YorumSonucu(yorum=yorum, gizli=gizli, aday=a, aday_sayisi=N, yazar_sayisi=Y, temel=temel,
                        yazarlar=yazarlar,
                        dusen_tarih=dusen_tarih, dusen_kapasite=dusen_kapasite, gevseme_sayilari=sayilar,
-                       demografi_elenen=demografi_elenen)
+                       demografi_elenen=demografi_elenen, hediye_yazar=int(hed.sum()),
+                       dusen_hediye=dusen_hediye, dusen_tarih_iade=dusen_tarih_iade)
 
 
 def yorumlari_uret(rng, crm_ham, girdi, kutuphane: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:

@@ -244,6 +244,48 @@ def test_musteri_gorunur_ve_fisli(tablolar, uretim, gizli):
     assert (mg["musteri_id"].dropna().to_numpy() == tablolar["musteri"]["musteri_id"].to_numpy()).all()
 
 
+def test_musteri_kayit_ilk_kimlikli_olay(tablolar, uretim, gizli):
+    """Son inceleme (Önemli 3): simülasyonda katılan müşterinin yayımlanan
+    `kayit_tarihi` ilk kimlikli fişinin günü (`gorunur_gun`), `kayit_kanali`
+    o fişin kanalı; başlangıç tabanı (katılış günü < 0) eski anlamını korur.
+    Gizli gerçekte katılış günü ve kanalı değişmez."""
+    ham = uretim[1]
+    n = ham.crm.nufus
+    fis = ham.hazir.fis
+    kart = fis["kart"].to_numpy()
+    mus = fis["musteri"].to_numpy()[kart]
+    gun = fis["gun"].to_numpy()[kart]
+    mag = fis["magaza"].to_numpy()[kart]
+    o = np.lexsort((fis["fis_id"].to_numpy()[kart], fis["saat"].to_numpy()[kart], gun, mus))
+    ilk = o[np.r_[True, np.diff(mus[o]) > 0]]
+    ilk_gun = dict(zip(mus[ilk], gun[ilk]))
+    ilk_onl = dict(zip(mus[ilk], mag[ilk] == n.magaza.onl))
+
+    mg = gizli["musteri_gizli"]
+    k = np.flatnonzero(mg["musteri_id"].notna().to_numpy())
+    m = tablolar["musteri"]
+    assert len(m) == len(k)
+    taban = n.kayit_gun[k] < 0
+    assert taban.any() and (~taban).any()
+    beklenen_gun = np.where(taban, n.kayit_gun[k], [ilk_gun[i] for i in k])
+    assert (beklenen_gun[~taban] == n.gorunur_gun[k][~taban]).all()
+    from perakende_veri.v4.tablolar import _gun_tarihi
+
+    assert (m["kayit_tarihi"].to_numpy() == _gun_tarihi(beklenen_gun)).all()
+    onl = np.array([ilk_onl[i] for i in k])
+    beklenen_kanal = np.where(taban, np.array(["magaza", "online"])[n.kayit_kanali[k]],
+                              np.where(onl, "online", "magaza"))
+    assert (m["kayit_kanali"].astype(str).to_numpy() == beklenen_kanal).all()
+    # simülasyonda katılan: kayıt tarihi pencere içi ya da ısınmada, ilk fişten önce değil
+    yeni = ~taban
+    assert (m["kayit_tarihi"].to_numpy()[yeni] <= SON.to_datetime64()).all()
+    # gizli gerçek katılış gününü taşır (yayımlanandan önce ya da aynı gün)
+    gk = mg["kayit_tarihi"].to_numpy()[k]
+    assert (gk == _gun_tarihi(n.kayit_gun[k])).all()
+    assert (gk[yeni] <= m["kayit_tarihi"].to_numpy()[yeni]).all()
+    assert (gk[yeni] < m["kayit_tarihi"].to_numpy()[yeni]).any()
+
+
 def test_yorum_tutarli(tablolar):
     y = tablolar["yorum"].merge(tablolar["fis_satir"][["fis_satir_id", "fis_id", "urun_id"]],
                                 on="fis_satir_id", suffixes=("", "_s"))

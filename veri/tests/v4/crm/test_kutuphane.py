@@ -166,6 +166,7 @@ def _kayit(**over):
         "alt_kategori": None,
         "cinsiyet_ipucu": None,
         "yas_ipucu": None,
+        "alici_cinsiyeti": None,
     }
     temel.update(over)
     return temel
@@ -621,7 +622,7 @@ def test_depodaki_yorum_kutuphanesi_gecerli_ve_slotlarla_birebir(slotlar, ek_slo
 
     # (a) 7000 kayıt (ana 4.000 + ek 3.000), anahtar sırası sabit
     assert len(kayitlar) == 7000
-    sira = ["id", "kategori_grubu", "alt_kategori", "cinsiyet_ipucu", "yas_ipucu",
+    sira = ["id", "kategori_grubu", "alt_kategori", "cinsiyet_ipucu", "yas_ipucu", "alici_cinsiyeti",
             "puan", "duygu", "konular", "uslup", "yer_tutucu", "metin"]
     assert all(list(k) == sira for k in kayitlar)
 
@@ -656,6 +657,12 @@ def test_depodaki_yorum_kutuphanesi_gecerli_ve_slotlarla_birebir(slotlar, ek_slo
         ), kayit["id"]
     assert sum(k["cinsiyet_ipucu"] is not None for k in kayitlar) > 0
     assert sum(k["yas_ipucu"] is not None for k in kayitlar) > 0
+
+    # (f) alıcı cinsiyeti (son inceleme): geçerli, ~yüzlerce dolu, her üç değer var
+    alici = [k["alici_cinsiyeti"] for k in kayitlar]
+    assert set(alici) <= {None, *CINSIYETLER, "es"}
+    assert {"Kadın", "Erkek", "es"} <= set(alici)
+    assert 90 <= sum(a is not None for a in alici) <= 600
 
 
 # ---------------------------------------------------------------------------
@@ -854,7 +861,7 @@ def _slot_kayitlari(slotlar):
             "id": s["id"], "kategori_grubu": s["kategori_grubu"], "puan": s["puan"],
             "duygu": s["duygu"], "konular": list(s["konular"]), "uslup": s["uslup"],
             "yer_tutucu": list(s["yer_tutucu"]), "metin": metin, "alt_kategori": None,
-            "cinsiyet_ipucu": None, "yas_ipucu": None,
+            "cinsiyet_ipucu": None, "yas_ipucu": None, "alici_cinsiyeti": None,
         })
     return kayitlar
 
@@ -962,7 +969,7 @@ def test_denetle_kismi_parti_yolu_degismez(slotlar):
 # Görev 11d: demografik ipuçları (cinsiyet_ipucu, yas_ipucu)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("alan", ["cinsiyet_ipucu", "yas_ipucu"])
+@pytest.mark.parametrize("alan", ["cinsiyet_ipucu", "yas_ipucu", "alici_cinsiyeti"])
 def test_ipucu_alanlari_zorunlu_anahtar(alan):
     kayit = _kayit()
     del kayit[alan]
@@ -1008,3 +1015,31 @@ def test_ipucu_sozlukleri_crm_sabitleriyle_ayni():
 
     assert kutuphane.IPUCU_CINSIYETLER == CINSIYETLER
     assert kutuphane.IPUCU_YAS_GRUPLARI == YAS_GRUPLARI
+
+
+# ---------------------------------------------------------------------------
+# Son inceleme: alıcı cinsiyeti (gizli; "babama / kızıma / eşime aldım")
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("alici", [None, "Kadın", "Erkek", "es"])
+def test_alici_cinsiyeti_gecerli_degerler_kabul(alici):
+    kayitlar = _cesitli_gecerli_kayitlar(10)
+    kayitlar[2].update(alici_cinsiyeti=alici)
+    sonuc = denetle(kayitlar)
+    assert sonuc["gecerli"] is True, sonuc["hatalar"]
+
+
+@pytest.mark.parametrize("alici", ["K", "kadın", "Unisex", "eş", "ES", "", 0, ["Kadın"]])
+def test_gecersiz_alici_cinsiyeti_hata_id_ile(alici):
+    kayitlar = _cesitli_gecerli_kayitlar(10)
+    kayitlar[5].update(alici_cinsiyeti=alici)
+    sonuc = denetle(kayitlar)
+    assert sonuc["gecerli"] is False
+    assert any("alici_cinsiyeti" in h and "Y0006" in h for h in sonuc["hatalar"])
+
+
+def test_alici_sozlugu():
+    from perakende_veri.v4.crm import kutuphane
+    from perakende_veri.v4.crm.sabitler import CINSIYETLER
+
+    assert kutuphane.ALICI_CINSIYETLERI == [*CINSIYETLER, "es"]

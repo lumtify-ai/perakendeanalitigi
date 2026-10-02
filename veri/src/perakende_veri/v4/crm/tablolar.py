@@ -34,6 +34,12 @@ fiyat; tutar esastır, adet × birim_fiyat kuruş farkı verebilir).
   (A'nın yayımlanan satış satırlarıyla tutarlı).
 - Terk eden müşterinin terkten önceki alışverişinin iadesi terk gününden
   sonra gelebilir; iade o müşteride kalır.
+- `musteri.kayit_tarihi` / `kayit_kanali` (son inceleme): simülasyonda
+  katılan müşteride ilk kimlikli fişin günü (`gorunur_gun`) ve o fişin
+  kanalı (aynı gün birden çok kimlikli fişte saatçe ilki); CRM'in "üye
+  oldu" anı budur. Başlangıç tabanı (ısınma öncesi geçmişli, katılış günü
+  < 0) ısınma öncesi kıdem tarihini ve kanalını korur. Gizli
+  `musteri_gizli` popülasyona katılış gününü ve kanalını taşır.
 - `musteri` yalnız kimlikli (kart okutmuş ya da online sipariş vermiş)
   müşterileri taşır: ilk kimlikli olayı pencere sonuna kadar olanlar
   (ısınmada görünür olup pencereden önce terk edenler dahil; müşteri
@@ -215,13 +221,34 @@ def _yorum_ciftini_ac(yorumlar):
 # ---------------------------------------------------------------------------
 
 
+def ilk_kimlikli_fis(fis: pd.DataFrame, K: int) -> tuple[np.ndarray, np.ndarray]:
+    """[K] müşterinin ilk kimlikli (`kart`) fişinin günü ve kanalı (0 mağaza,
+    1 online); (gün, saat, fis_id) sırasıyla ilki. Kimlikli fişi yoksa −1."""
+    kart = fis["kart"].to_numpy()
+    mus = fis["musteri"].to_numpy()[kart].astype(np.int64)
+    gun = fis["gun"].to_numpy()[kart].astype(np.int64)
+    o = np.lexsort((fis["fis_id"].to_numpy()[kart], fis["saat"].to_numpy()[kart], gun, mus))
+    ilk = o[np.r_[True, mus[o][1:] != mus[o][:-1]]] if len(o) else o
+    g = np.full(K, -1, dtype=np.int64)
+    kanal = np.full(K, -1, dtype=np.int64)
+    g[mus[ilk]] = gun[ilk]
+    kanal[mus[ilk]] = fis["kanal"].to_numpy()[kart][ilk]
+    return g, kanal
+
+
 def _musteri(crm_ham, h: CrmHazir) -> pd.DataFrame:
     n = crm_ham.nufus
     k = np.flatnonzero(h.musteri_no >= 0)
+    ilk_gun, ilk_kanal = ilk_kimlikli_fis(h.fis, n.K)
+    taban = n.kayit_gun[k] < 0                   # başlangıç tabanı: eski anlam
+    assert (ilk_gun[k] >= 0).all(), "yayımlanan müşterinin kimlikli fişi olmalı"
+    assert (ilk_gun[k] == n.gorunur_gun[k]).all()
+    kayit_gun = np.where(taban, n.kayit_gun[k], ilk_gun[k])
+    kayit_kanal = np.where(taban, n.kayit_kanali[k], ilk_kanal[k])
     return pd.DataFrame({
         "musteri_id": _al(h.musteri_id, k),
-        "kayit_tarihi": _gun_tarihi(n.kayit_gun[k]),
-        "kayit_kanali": _kategori(n.kayit_kanali[k], S.KAYIT_KANALLARI),
+        "kayit_tarihi": _gun_tarihi(kayit_gun),
+        "kayit_kanali": _kategori(kayit_kanal, S.KAYIT_KANALLARI),
         "ev_magaza_id": h.boyut.magaza(n.ev_magaza[k]),
         "il": _kategori(n.il[k], n.il_adlari),
         "yas_grubu": _kategori(n.yas_grubu[k], S.YAS_GRUPLARI),

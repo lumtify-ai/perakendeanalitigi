@@ -98,9 +98,6 @@ TAMAM_TUR = S.TAMAMLAYICI_TUR
 ARTIK_TUR = S.TAMAMLAYICI_ARTIK_TUR
 DALGA = S.TAMAMLAYICI_DALGA
 A_ALT = len(S.ALT_KATEGORILER)
-#: Ziyaretçi cinsiyet kotası açık mı (Görev 5b). YALNIZ ÖLÇÜM içindir
-#: (kotasız karşılaştırma, araclar/v4_crm_hiz.py --kotasiz); üretim hep True.
-ZIYARETCI_KOTASI = True
 N_TC = N_TIP * URUN_CINSIYET_SAYISI      # tip × ürün cinsiyeti (boş ziyaret grubu, iade.py)
 N_TCI = N_TC * 2                         # aşama 1 grup anahtarının mağaza-içi kısmı: × indirimli (Görev 5c)
 
@@ -467,6 +464,13 @@ def asama2(af, ag, F: int, g_bas_h, L_g, n_g, h_c, h_g, logit, rng, sayac):
 # ---------------------------------------------------------------------------
 
 
+def birlestir(parcalar: list[dict], sutunlar, sema: dict | None = None) -> dict:
+    """Parça listesinin (`Kayit.gun_parcalari`) `sutunlar`'ını birleştirir;
+    parça yoksa boş diziler (türü `sema`'dan, verilmezse int64)."""
+    return {k: np.concatenate([p[k] for p in parcalar]) if parcalar
+            else np.zeros(0, dtype=sema[k] if sema else np.int64) for k in sutunlar}
+
+
 class Kayit:
     """B'nin ham kayıtları: gün gün eklenen sütun parçaları. `tablo(ad)`
     DataFrame'e çevirir (`ad` None ise üçü birden, sözlük).
@@ -521,6 +525,11 @@ class Kayit:
 
     def gun_parcalari(self, ad: str, gun: int) -> list[dict]:
         return [self._parca[ad][i] for i in self._gun[ad].get(int(gun), [])]
+
+    def gun_dizileri(self, ad: str, gun: int, sutunlar) -> dict:
+        """Gün `gun`'ün `sutunlar`'ı birleşik (`birlestir`; boş günde şema
+        türünde boş diziler)."""
+        return birlestir(self.gun_parcalari(ad, gun), sutunlar, self.SEMA[ad])
 
     def tablo(self, ad: str | None = None):
         if ad is None:
@@ -698,12 +707,11 @@ def gun_ayristir(d: int, girdi, nufus, tetik, kayit: Kayit) -> None:
     fis_m = np.repeat(np.arange(M), F_m)
     F = len(fis_m)
     adim("1 hat/grup")
-    kotalar = None
-    if ZIYARETCI_KOTASI:
-        h_cins = du.sku_cins[h_s]
-        kotalar = kadin_hedefi(F_m, np.bincount(g_m[h_g], h_c * (h_cins == 0), minlength=M),
-                               np.bincount(g_m[h_g], h_c * (h_cins == 1), minlength=M),
-                               nufus.magaza.kadin_payi, rng_z)
+    # ziyaretçi cinsiyet kotası (Görev 5b)
+    h_cins = du.sku_cins[h_s]
+    kotalar = kadin_hedefi(F_m, np.bincount(g_m[h_g], h_c * (h_cins == 0), minlength=M),
+                           np.bincount(g_m[h_g], h_c * (h_cins == 1), minlength=M),
+                           nufus.magaza.kadin_payi, rng_z)
     musteri = ziyaretci_sec(du.adaylar, nufus, d, F_m, rng_z, sayac, kadin_hedef=kotalar)
     adim("3 ziyaretci")
     du.tekrar_buyut(nufus.K)

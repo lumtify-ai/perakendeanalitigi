@@ -21,12 +21,17 @@ Kayıt şeması (JSONL satırı, Görev 11 çıktısı):
      "alt_kategori": null | "Çanta" | "Jean" | ... (A'nın alt kategorisi),
      "uslup": "kisa"|"uzun"|"yazim_hatali"|"ignelemeli"|"celiskili"|"duz",
      "cinsiyet_ipucu": null | "Kadın" | "Erkek",
-     "yas_ipucu": null | ["18-24", ...] (crm YAS_GRUPLARI alt kümesi)}
+     "yas_ipucu": null | ["18-24", ...] (crm YAS_GRUPLARI alt kümesi),
+     "alici_cinsiyeti": null | "Kadın" | "Erkek" | "es"}
 
 `cinsiyet_ipucu` / `yas_ipucu` gizli demografik ipuçlarıdır (Görev 11d): metin
 yazarın cinsiyetini ("kocama aldım", "hanımım") ya da yaş grubunu
 ("emekliyim", "torunum", "yurtta") açıkça ele veriyorsa doludur; yorum
-müşteriye bağlanırken bunlarla çelişmemelidir.
+müşteriye bağlanırken bunlarla çelişmemelidir. `alici_cinsiyeti` (son
+inceleme) metin ürünü başkası için aldığını ya da başkasının giydiğini
+söylüyorsa o kişinin cinsiyetidir ("babama", "kızıma" → Erkek / Kadın; "eşime",
+"sevgilime" → "es", müşterinin karşı cinsi); ürünün cinsiyeti buna uymalıdır
+(Unisex ve Aksesuar serbest).
 
 `duygu`, metnin gerçek duygusunu etiketler (yıldız puanını değil): puan
 4–5 → "olumlu", puan 1–2 → "olumsuz", puan 3 → her zaman "karisik".
@@ -73,6 +78,7 @@ AKSESUAR_YASAK_YER_TUTUCU = "beden"
 REQUIRED_ALANLAR = {
     "id", "kategori_grubu", "puan", "duygu", "konular", "metin",
     "yer_tutucu", "uslup", "alt_kategori", "cinsiyet_ipucu", "yas_ipucu",
+    "alici_cinsiyeti",
 }
 
 # Gizli demografik ipuçları (Görev 11d): metin yazarın cinsiyetini ya da yaş
@@ -82,6 +88,10 @@ REQUIRED_ALANLAR = {
 # uyduğu `YAS_GRUPLARI` değerlerinin boş olmayan, tekrarsız listesi.
 IPUCU_CINSIYETLER: list[str] = list(CINSIYETLER)
 IPUCU_YAS_GRUPLARI: list[str] = list(YAS_GRUPLARI)
+# Alıcı cinsiyeti (son inceleme): ürünü kimin için aldığı ("babama aldım");
+# "es" = eş / sevgili, müşterinin karşı cinsi. Elle etiketlenir.
+ALICI_ES = "es"
+ALICI_CINSIYETLERI: list[str] = [*CINSIYETLER, ALICI_ES]
 
 # ---------------------------------------------------------------------------
 # Hedef dağılımlar (Görev 10 brief'i)
@@ -790,6 +800,9 @@ def denetle(yol_veya_liste, tam_esik: int = 1000) -> dict:
             or len(set(yas_ip)) != len(yas_ip)
         ):
             hatalar.append(f"kayit {ad}: gecersiz yas_ipucu {yas_ip!r}")
+        alici = k["alici_cinsiyeti"]
+        if alici is not None and (not isinstance(alici, str) or alici not in ALICI_CINSIYETLERI):
+            hatalar.append(f"kayit {ad}: gecersiz alici_cinsiyeti {alici!r}")
 
         if isinstance(k.get("metin"), str):
             renkler = renk_adlari_bul(k["metin"])

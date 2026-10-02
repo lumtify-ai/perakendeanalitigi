@@ -259,11 +259,6 @@ class _Hazir:
     olay_fis: dict = field(default_factory=dict)     # gün → ONL satış fişleri
 
 
-def _birlestir(parcalar, sutunlar):
-    return {k: np.concatenate([p[k] for p in parcalar]) if parcalar else np.zeros(0, dtype=np.int64)
-            for k in sutunlar}
-
-
 def _hazirla(girdi, crm_ham, olay_gunleri: set) -> _Hazir:
     dunya, ham = girdi.dunya, girdi.ham
     opt = dunya.optionlar
@@ -281,7 +276,7 @@ def _hazirla(girdi, crm_ham, olay_gunleri: set) -> _Hazir:
     kayit = crm_ham.kayit
     olay_satir, olay_fis = {}, {}
     for d in range(crm_ham.D):
-        fis = _birlestir(kayit.gun_parcalari("fis", d), ("fis_id", "magaza", "musteri", "tip", "saat"))
+        fis = kayit.gun_dizileri("fis", d, ("fis_id", "magaza", "musteri", "tip", "saat"))
         s = (fis["magaza"] == onl) & (fis["tip"] == 0)
         if not s.any():
             continue
@@ -289,7 +284,7 @@ def _hazirla(girdi, crm_ham, olay_gunleri: set) -> _Hazir:
         o = np.argsort(fid)
         fid = fid[o]
         fis_sayisi[d] = len(fid)
-        sat = _birlestir(kayit.gun_parcalari("fis_satir", d), ("fis_id", "sku", "adet"))
+        sat = kayit.gun_dizileri("fis_satir", d, ("fis_id", "sku", "adet"))
         sf = sat["fis_id"].astype(np.int64)
         p = np.minimum(np.searchsorted(fid, sf), len(fid) - 1)
         m = (fid[p] == sf) & (sat["adet"] > 0)

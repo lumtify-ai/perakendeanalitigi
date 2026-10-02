@@ -90,7 +90,7 @@ ARKETIP_PARAMETRE: dict[str, dict] = {
         "yas": [0.40, 0.38, 0.14, 0.06, 0.02],
     },
     # Kampanya ve outlet peşinde; büyük sepet, giriş segmenti; kartı
-    # okutur (sadakat indirimi).
+    # okutur.
     "indirim_avcisi": {
         "ziyaret_gamma": (1.5, 1.96),       # KALİBRASYON ort. 2,9/yıl
         "sepet_ort": 2.6,                   # KALİBRASYON

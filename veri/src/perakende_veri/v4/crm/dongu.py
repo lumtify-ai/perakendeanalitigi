@@ -59,7 +59,7 @@ import pandas as pd
 from .. import sabitler as a_sabitler
 from ..takvim import gun_indisi
 from . import sabitler as S
-from .ayristir import Kayit, gun_ayristir
+from .ayristir import Kayit, birlestir, gun_ayristir
 from .iade import bos_ziyaret, iade_bagla, islem_indirimi_yerlestir
 from .girdi import Girdi
 from .nufus import Nufus, katilis_sayisi, nufus_baslat
@@ -124,14 +124,9 @@ class _KartTampon:
         return self.a[: self.n].copy()
 
 
-def _birlestir(parcalar: list[dict], sutunlar) -> dict:
-    return {k: np.concatenate([p[k] for p in parcalar]) if parcalar else np.zeros(0, dtype=np.int64)
-            for k in sutunlar}
-
-
 def kart_okut(d: int, nufus: Nufus, kayit: Kayit, kart: _KartTampon, onl: int) -> None:
     """Gün d'nin fişlerine kart bayrağı (modül docstring'i); `gorunur_*`."""
-    fis = _birlestir(kayit.gun_parcalari("fis", d), ("fis_id", "magaza", "musteri", "tip"))
+    fis = kayit.gun_dizileri("fis", d, ("fis_id", "magaza", "musteri", "tip"))
     if not len(fis["fis_id"]):
         return
     fid = fis["fis_id"].astype(np.int64)
@@ -152,7 +147,7 @@ def kart_okut(d: int, nufus: Nufus, kayit: Kayit, kart: _KartTampon, onl: int) -
     deger[iade & (mag == onl)] = True
     im = iade & (mag != onl)
     if im.any():
-        sat = _birlestir(kayit.gun_parcalari("fis_satir", d), ("fis_id", "orijinal_satir", "adet"))
+        sat = kayit.gun_dizileri("fis_satir", d, ("fis_id", "orijinal_satir", "adet"))
         r = sat["adet"] < 0
         r_fis = sat["fis_id"][r].astype(np.int64)
         r_orj = sat["orijinal_satir"][r].astype(np.int64)
@@ -160,7 +155,7 @@ def kart_okut(d: int, nufus: Nufus, kayit: Kayit, kart: _KartTampon, onl: int) -
         for g in sorted({d - GECIKME_MAGAZA, d - GECIKME_ONLINE}):
             if g >= 0:
                 orj_parca += kayit.gun_parcalari("fis_satir", g)
-        orj = _birlestir(orj_parca, ("satir_id", "fis_id"))
+        orj = birlestir(orj_parca, ("satir_id", "fis_id"), Kayit.SEMA["fis_satir"])
         o = np.argsort(orj["satir_id"], kind="stable")
         sid, ofis = orj["satir_id"][o], orj["fis_id"][o].astype(np.int64)
         p = np.minimum(np.searchsorted(sid, r_orj), max(len(sid) - 1, 0))
@@ -200,7 +195,7 @@ def fiyat_ortalamasi(nufus: Nufus, kayit: Kayit, D: int) -> np.ndarray:
     tutar = np.zeros(K)
     adet = np.zeros(K)
     for d in gunler:
-        fis = _birlestir(kayit.gun_parcalari("fis", d), ("fis_id", "musteri"))
+        fis = kayit.gun_dizileri("fis", d, ("fis_id", "musteri"))
         if not len(fis["fis_id"]):
             continue
         o = np.argsort(fis["fis_id"])

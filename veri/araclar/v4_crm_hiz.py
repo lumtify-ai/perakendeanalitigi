@@ -736,10 +736,8 @@ def dongu_ozeti(ham, girdi) -> None:
           f"%{100 * ham.ltv['geri_gelecek_2026'].mean():.1f} (tümü), fiyat_ort medyan {np.median(ham.fiyat_ort):.1f}")
     cinsiyet_ziyaret_ozeti(nuf, fis)
     # Görev 5b: müşteri × ürün cinsiyeti (kartlı satış birimleri)
-    try:
-        from perakende_veri.v4.crm.tercih import cinsiyet_ozeti
-    except ImportError:   # Görev 5b öncesi kod
-        return
+    from perakende_veri.v4.crm.tercih import cinsiyet_ozeti
+
     c = cinsiyet_ozeti(nuf, fis, ham.kayit.tablo("fis_satir"), girdi.dunya.urunler)
     print(f"Cinsiyet (kartlı): çapraz giyim %{100 * c['capraz']:.1f}, aksesuar %{100 * c['capraz_aksesuar']:.1f}; "
           f"kadın ürün payı kadın müşteride %{100 * c['kadin_urun_kadin']:.1f}, erkekte "

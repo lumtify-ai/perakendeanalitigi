@@ -258,11 +258,13 @@ AYNI_ALT_CARPANI = 0.6
 
 #: Açık çiftlerin etkin çarpanı `TAMAMLAYICI[çift] ** TAMAMLAYICI_GUC`
 #: (log-uzayda ×GUC; köşegen ve nötr çiftler değişmez). KALİBRASYON (Görev
-#: 5): müşteri kategori tercihleri sivri (Dirichlet yoğunluğu 10) olduğundan
-#: fişler kategoriye göre ayrışır; tamamlayıcılıksız (Elbise, Çanta) birlikte
-#: görünmesi bağımsız beklentinin ~0,7'si, GUC 1'de ~1,0 (yalnız ayrışmayı
-#: dengeler), GUC 3'te 1,5–1,8, GUC 4'te 1,76–2,09 (KUCUK, 60 gün, 5 B
-#: tohumu; bağımsız beklenti fiş boyutları sabit permütasyon; test_ayristir).
+#: 5): müşteri kategori tercihleri sivri olduğundan fişler kategoriye göre
+#: ayrışır; Görev 5'te (Dirichlet yoğunluğu 10) tamamlayıcılıksız (Elbise,
+#: Çanta) birlikte görünmesi bağımsız beklentinin ~0,7'si, GUC 4'te
+#: 1,76–2,09. Görev 5c'den sonra (`KATEGORI_YOGUNLUK` 100, keskin
+#: arketipler) GUC 4'te kaldıraç 1,42–1,67 (KUCUK, 60 gün, 5 B tohumu;
+#: bağımsız beklenti fiş boyutları sabit permütasyon; test_ayristir eşiği
+#: 1,3).
 TAMAMLAYICI_GUC = 4.0
 
 

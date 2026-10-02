@@ -68,10 +68,6 @@ def _durum(girdi, nufus, kayit, d: int) -> AyristirDurum:
     return kayit.durum
 
 
-def _birlestir(parcalar: list[dict], sutunlar) -> dict:
-    return {k: np.concatenate([p[k] for p in parcalar]) if parcalar else np.zeros(0) for k in sutunlar}
-
-
 # ---------------------------------------------------------------------------
 # İşlem indirimi
 # ---------------------------------------------------------------------------
@@ -112,9 +108,9 @@ def _a_satis_satiri(girdi, g: int, hucre: np.ndarray) -> tuple[np.ndarray, np.nd
 def _satis_satirlari(kayit, g: int, a_satirlar: np.ndarray) -> dict:
     """Gün g'nin B satış satırlarından A satırı `a_satirlar` içinde olanlar,
     fişin müşterisi ve mağazasıyla."""
-    sat = _birlestir(kayit.gun_parcalari("fis_satir", g),
-                     ("satir_id", "fis_id", "sku", "adet", "beden_uyumsuz_adet", "a_satir"))
-    fis = _birlestir(kayit.gun_parcalari("fis", g), ("fis_id", "musteri", "magaza"))
+    sat = kayit.gun_dizileri("fis_satir", g,
+                             ("satir_id", "fis_id", "sku", "adet", "beden_uyumsuz_adet", "a_satir"))
+    fis = kayit.gun_dizileri("fis", g, ("fis_id", "musteri", "magaza"))
     sec = (sat["adet"] > 0) & np.isin(sat["a_satir"], a_satirlar)
     sat = {k: v[sec] for k, v in sat.items()}
     assert (np.diff(fis["fis_id"]) > 0).all()
@@ -277,7 +273,7 @@ def bos_ziyaret(d: int, girdi, nufus, tetik, kayit) -> None:
     b_tc = du.sku_tip[b_s] * URUN_CINSIYET_SAYISI + du.sku_cins[b_s]
 
     # Fişli havuz: gün d, satış fişi olan (mağaza, müşteri)
-    fis = _birlestir(kayit.gun_parcalari("fis", d), ("magaza", "musteri", "tip"))
+    fis = kayit.gun_dizileri("fis", d, ("magaza", "musteri", "tip"))
     sf = fis["tip"] == 0
     fk = np.unique(fis["magaza"][sf].astype(np.int64) * (nufus.K + 1) + fis["musteri"][sf])
     fisli_m, fisli_k = fk // (nufus.K + 1), fk % (nufus.K + 1)

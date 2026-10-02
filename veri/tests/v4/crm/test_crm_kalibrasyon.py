@@ -79,6 +79,13 @@ IZLEME = [
     ("katilis_2024", "Katılış 2024", "(bilgi)", None),
     ("terk_2024", "Terk 2024", "(bilgi)", None),
     ("eksik_musteri", "Eksik (ziyaretçi yetmedi) yeni müşteri", "(bilgi)", None),
+    ("yorum_iadeli", "Yorum: iade edilmiş satırda", "(bilgi)", None),
+    ("yorum_hediye", "Yorum: hediye satırında (alıcılı metin)", "(bilgi)", None),
+    ("yorum_hediye_yazar", "Yorum yazarı: hediye satırında", "(bilgi)", None),
+    ("yorum_dusen_hediye", "Yorum düşen: hediye, uyan metin yok", "(bilgi)", None),
+    ("yorum_dusen_kapasite", "Yorum düşen: kapasite (hediye dahil)", "(bilgi)", None),
+    ("yorum_dusen_tarih", "Yorum düşen: pencere sonrası tarih", "(bilgi)", None),
+    ("yorum_dusen_tarih_iade", "  bunun iade tarihi kuralından gelen kısmı", "(bilgi)", None),
 ]
 
 
@@ -244,6 +251,14 @@ def ham_olcutler(ham) -> dict:
     kalite = b["konular"].astype(str).str.contains("kumas_kalite").to_numpy()
     h = b["hatali_tedarikci"].to_numpy(bool)
     o["kalite_sinyali"] = float(kalite[h].mean() / kalite[~h].mean())
+    yaz = y.aday.set_index("satir_id").loc[y.yorum["fis_satir_id"], ["iade", "hediye"]]
+    o["yorum_iadeli"] = int(yaz["iade"].sum())
+    o["yorum_hediye"] = int(yaz["hediye"].sum())
+    o["yorum_hediye_yazar"] = int(y.hediye_yazar)
+    o["yorum_dusen_hediye"] = int(y.dusen_hediye)
+    o["yorum_dusen_kapasite"] = int(y.dusen_kapasite)
+    o["yorum_dusen_tarih"] = int(y.dusen_tarih)
+    o["yorum_dusen_tarih_iade"] = int(y.dusen_tarih_iade)
 
     n = crm.nufus
     kg, tg = n.kayit_gun.astype(np.int64), n.terk_gun.astype(np.int64)

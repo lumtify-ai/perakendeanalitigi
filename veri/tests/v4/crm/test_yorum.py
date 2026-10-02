@@ -201,9 +201,53 @@ def test_tarih_teslimattan_sonra(birlesik):
 
     gun = np.array([gun_indisi(t) for t in birlesik["tarih"].dt.date])
     teslim = birlesik["gun"].to_numpy() + birlesik["teslim_gun"].to_numpy()
-    assert (gun >= teslim + 1).all() and (gun <= teslim + 10).all()
+    iade_gun = birlesik["iade_gun"].to_numpy()
+    # iade edilmiş satırda tarih iade fişinden de sonra (son inceleme, Önemli 1)
+    taban = np.maximum(teslim, iade_gun)
+    assert (gun >= teslim + 1).all() and (gun <= taban + 10).all()
     bas, son = pencere()
     assert (birlesik["gun"] >= bas).all() and (gun <= son).all()
+
+
+def test_iade_yorumu_iade_fisinden_sonra(sonuc, birlesik, kucuk_crm):
+    """Son inceleme (Önemli 1): iade edilmiş satırdaki her yorum iade
+    fişinin gününden sonra; `iade_gun` iade fişlerinin en geç günü."""
+    from perakende_veri.v4.takvim import gun_indisi
+
+    a = sonuc.aday
+    assert ((a["iade_gun"] >= 0) == a["iade"]).all()
+    fs = kucuk_crm.tablo("fis_satir")
+    fis = kucuk_crm.tablo("fis")
+    r = fs[fs["adet"] < 0].merge(fis[["fis_id", "gun"]], on="fis_id")
+    son_iade = r.groupby("orijinal_satir")["gun"].max()
+    ia = a[a["iade"]]
+    assert (son_iade.reindex(ia["satir_id"]).to_numpy() == ia["iade_gun"].to_numpy()).all()
+    b = birlesik[birlesik["iade"]]
+    assert len(b) > 0
+    gun = np.array([gun_indisi(t) for t in b["tarih"].dt.date])
+    assert (gun >= b["iade_gun"].to_numpy() + 1).all()
+    iade_konulu = birlesik["konular"].str.contains("iade_sureci")
+    assert birlesik.loc[iade_konulu, "iade"].all()
+
+
+def test_iade_tarihi_sentetik():
+    """İade günü teslimattan çok sonraysa yorum iade gününden 1–10 gün
+    sonra; iadesiz satırda eski kural (teslim + 1–10)."""
+    from perakende_veri.v4.crm.yorum import yorumlari_ata
+    from perakende_veri.v4.takvim import gun_indisi
+
+    kayitlar = [{"id": f"T{i}", "puan": p, "cinsiyet_ipucu": None, "yas_ipucu": None, "metin": "t"}
+                for i, p in enumerate((4, 5, 5, 5))]
+    a, u, kut = _sentetik(4000, 0, 1, kayitlar)
+    a["iade"] = np.arange(len(a)) % 2 == 0
+    a["iade_gun"] = np.where(a["iade"], 1100 + 40, -1)
+    s = yorumlari_ata(np.random.default_rng(3), a, u, kut, son_gun=2000)
+    y = s.yorum.merge(a, left_on="fis_satir_id", right_on="satir_id")
+    gun = np.array([gun_indisi(t) for t in y["tarih"].dt.date])
+    i = y["iade"].to_numpy()
+    assert i.any() and (~i).any()
+    assert ((gun[i] >= 1141) & (gun[i] <= 1150)).all()
+    assert ((gun[~i] >= 1103) & (gun[~i] <= 1112)).all()
 
 
 # ---------------------------------------------------------------------------
@@ -274,9 +318,10 @@ def test_aday_satirlari_kargo_verilince_ayni(kucuk_girdi, kucuk_crm, sonuc):
 # ---------------------------------------------------------------------------
 
 
-def test_hediye_satiri_yorum_yazmaz(sonuc, kucuk_girdi, kucuk_crm):
-    """Müşteri ≠ ürün cinsiyeti (Unisex ve Aksesuar hariç) hediye sayılır ve
-    yorum almaz."""
+def test_hediye_satiri_yalniz_alici_metniyle(sonuc, kucuk_girdi, kucuk_crm, birlesik, kutuphane):
+    """Müşteri ≠ ürün cinsiyeti (Unisex ve Aksesuar hariç) hediye sayılır;
+    hediye satırı yalnız alıcı cinsiyeti ürünle uyan metinle yorum alır
+    (son inceleme, kontrolcü kararı)."""
     from perakende_veri.v4.crm.sabitler import CINSIYETLER
 
     a = sonuc.aday
@@ -291,20 +336,43 @@ def test_hediye_satiri_yorum_yazmaz(sonuc, kucuk_girdi, kucuk_crm):
     beklenen = (uc != "Unisex") & ~aks & (mc != uc)
     assert (a["hediye"].to_numpy() == beklenen).all()
     assert 0.03 < a["hediye"].mean() < 0.30, a["hediye"].mean()
-    yazilan = a.set_index("satir_id").loc[sonuc.yorum["fis_satir_id"], "hediye"]
-    assert not yazilan.any()
+    h = birlesik[birlesik["hediye"]]
+    assert len(h) > 0
+    alici = kutuphane.set_index("id").loc[h["kutuphane_id"], "alici_cinsiyeti"]
+    assert alici.notna().all()
+    assert sonuc.hediye_yazar > 0 and sonuc.dusen_hediye >= 0
 
 
 def test_musteri_ve_urun_cinsiyeti_esit(birlesik, kucuk_crm, kucuk_girdi):
+    """Hediye olmayan yorumlarda müşteri cinsiyeti = ürün cinsiyeti."""
     from perakende_veri.v4.crm.sabitler import CINSIYETLER
 
+    b = birlesik[~birlesik["hediye"]]
+    u = kucuk_girdi.dunya.urunler
+    sku = b["sku"].to_numpy()
+    uc = u["cinsiyet"].to_numpy()[sku]
+    mc = np.array(CINSIYETLER)[kucuk_crm.nufus.cinsiyet[b["musteri_id"].to_numpy()]]
+    serbest = (uc == "Unisex") | (u["ust_kategori"].to_numpy()[sku] == "Aksesuar")
+    assert (mc[~serbest] == uc[~serbest]).all()
+    assert (~serbest).sum() > 0.5 * len(b)
+
+
+def test_alici_cinsiyeti_celismez(birlesik, kutuphane, kucuk_crm, kucuk_girdi):
+    """Son inceleme (Önemli 2): `alici_cinsiyeti` doluysa ürün cinsiyeti
+    ona eşit ("es": müşterinin karşı cinsi) ya da ürün Unisex/Aksesuar."""
+    from perakende_veri.v4.crm.sabitler import CINSIYETLER
+
+    kut = kutuphane.set_index("id").loc[birlesik["kutuphane_id"]]
     u = kucuk_girdi.dunya.urunler
     sku = birlesik["sku"].to_numpy()
     uc = u["cinsiyet"].to_numpy()[sku]
-    mc = np.array(CINSIYETLER)[kucuk_crm.nufus.cinsiyet[birlesik["musteri_id"].to_numpy()]]
     serbest = (uc == "Unisex") | (u["ust_kategori"].to_numpy()[sku] == "Aksesuar")
-    assert (mc[~serbest] == uc[~serbest]).all()
-    assert (~serbest).sum() > 0.5 * len(birlesik)
+    mc = kucuk_crm.nufus.cinsiyet[birlesik["musteri_id"].to_numpy()]
+    alici = kut["alici_cinsiyeti"].to_numpy()
+    dolu = np.array([isinstance(x, str) for x in alici])
+    assert dolu.sum() > 0
+    hedef = np.array([CINSIYETLER[1 - c] if x == "es" else x for x, c in zip(alici, mc)], dtype=object)
+    assert (serbest | (hedef == uc))[dolu].all()
 
 
 def test_demografik_ipucu_celismez(birlesik, kutuphane, kucuk_crm):
@@ -336,7 +404,7 @@ def _sentetik(n, cins, yas, kutuphane_kayitlari):
         "sku": np.zeros(n, dtype=np.int64), "teslim_gun": np.full(n, 2), "iade": False,
         "beden_uyumsuz": False, "gecikme": False, "hatali_tedarikci": False, "derin_indirim": False,
         "indirimli": False, "musteri_cins": np.full(n, cins, dtype=np.int8),
-        "musteri_yas": np.full(n, yas, dtype=np.int8), "hediye": False,
+        "musteri_yas": np.full(n, yas, dtype=np.int8), "hediye": False, "iade_gun": -1,
     })
     taban = {"kategori_grubu": "Üst Giyim", "alt_kategori": None, "duygu": "olumlu",
              "konular": ["genel_begeni"], "uslup": "duz", "yer_tutucu": []}
@@ -363,6 +431,57 @@ def test_demografi_suzgeci_gevsemez(cins, yas, beklenen):
     assert s.yazar_sayisi > 50
     assert set(s.gizli["kutuphane_id"]) <= beklenen
     assert len(s.yorum) == min(s.yazar_sayisi - s.dusen_tarih, 25 * len(beklenen))
+
+
+def _sentetik_urunler():
+    """Üç SKU: Kadın, Erkek, Unisex (Üst Giyim / Tişört)."""
+    return pd.DataFrame({"urun_id": ["UK", "UE", "UU"], "ust_kategori": ["Üst Giyim"] * 3,
+                         "alt_kategori": ["Tişört"] * 3, "beden": ["M"] * 3, "renk": ["Mavi"] * 3,
+                         "cinsiyet": ["Kadın", "Erkek", "Unisex"]})
+
+
+@pytest.mark.parametrize("cins, sku, hediye, beklenen", [
+    (0, 0, False, {"N", "AK"}),               # kadın, kadın ürünü: "eşime" (Erkek) olmaz
+    (1, 1, False, {"N", "AE"}),               # erkek, erkek ürünü
+    (0, 1, True, {"AE", "AES"}),              # kadın, erkek ürünü (hediye): yalnız alıcılı, uyan
+    (1, 0, True, {"AK", "AES"}),              # erkek, kadın ürünü (hediye)
+    (0, 2, False, {"N", "AK", "AE", "AES"}),  # Unisex: hepsi
+])
+def test_alici_suzgeci_gevsemez(cins, sku, hediye, beklenen):
+    """Alıcı süzgeci hiçbir gevşeme basamağında gevşemez; hediye satırı
+    alıcısız metin almaz."""
+    from perakende_veri.v4.crm.yorum import yorumlari_ata
+
+    kayitlar = [
+        {"id": "N", "puan": 5, "cinsiyet_ipucu": None, "yas_ipucu": None, "alici_cinsiyeti": None, "metin": "n"},
+        {"id": "AK", "puan": 5, "cinsiyet_ipucu": None, "yas_ipucu": None, "alici_cinsiyeti": "Kadın",
+         "metin": "k"},
+        {"id": "AE", "puan": 4, "cinsiyet_ipucu": None, "yas_ipucu": None, "alici_cinsiyeti": "Erkek",
+         "metin": "e"},
+        {"id": "AES", "puan": 5, "cinsiyet_ipucu": None, "yas_ipucu": None, "alici_cinsiyeti": "es",
+         "metin": "s"},
+    ]
+    a, _, kut = _sentetik(3000, cins, 1, kayitlar)
+    a["sku"] = sku
+    a["hediye"] = hediye
+    s = yorumlari_ata(np.random.default_rng(0), a, _sentetik_urunler(), kut, son_gun=2000)
+    assert s.yazar_sayisi > 50
+    assert set(s.gizli["kutuphane_id"]) == beklenen
+    assert len(s.yorum) == min(s.yazar_sayisi - s.dusen_tarih, 25 * len(beklenen))
+    if hediye:
+        assert s.hediye_yazar == s.yazar_sayisi
+
+
+def test_hediye_alicisiz_kutuphanede_yazmaz():
+    from perakende_veri.v4.crm.yorum import yorumlari_ata
+
+    kayitlar = [{"id": "N", "puan": 5, "cinsiyet_ipucu": None, "yas_ipucu": None, "metin": "n"}]
+    a, _, kut = _sentetik(2000, 0, 1, kayitlar)
+    a["sku"] = 1
+    a["hediye"] = True
+    s = yorumlari_ata(np.random.default_rng(0), a, _sentetik_urunler(), kut, son_gun=2000)
+    assert s.yazar_sayisi > 20 and len(s.yorum) == 0
+    assert s.dusen_hediye == s.yazar_sayisi - s.dusen_tarih
 
 
 def test_eksik_tedarikci_sessiz_gecmez(kucuk_girdi):
