@@ -96,6 +96,15 @@ müşteride yayımlanan kayıt tarihi gizli katılıştan medyan 63 gün (ortala
 %31'inin ilk kimlikli fişi mağazadadır; yayımlanan kanal o fişi gösterir
 (tohum 4242).
 
+İade fişi kayıt anı olamaz: mağaza iadesi yalnız orijinal satışlardan
+biri kimlikliyse kimlikli olur, online satış her zaman kimliklidir; yani
+kimlikli bir iadeden önce hep kimlikli bir satış vardır. Yayımlanan
+tablolarda 11.528 müşterinin (%0,55) penceredeki ilk kimlikli fişi bir
+iade fişidir. Bunların hepsi Ocak 2023'tedir ve orijinal satışları
+ısınmadadır, yayımlanmaz. Kayıt tarihleri o iadeden en az 7 gün önce
+gelir. Kayıt tarihi bir iade fişinin gününe denk gelen müşteri yoktur
+(tohum 4242).
+
 `birim_fiyat` = |tutar| ÷ |adet|, iki ondalık: ödenen net birim fiyat,
 iadede de pozitif. Esas olan `tutar`dır; adet × birim_fiyat bir kuruş
 sapabilir.
@@ -345,6 +354,14 @@ Yeni payı üst sınıra yakın (0,395; bant 0,40). Nedeni `kayit_tarihi`'nin
 anlamı: simülasyonda katılan müşteri, ilk kimlikli fişinin yılında "yeni"
 sayılır (gizli katılış yılında değil; önceki tanımla 0,278).
 
+**Bant havuzlanmış tanımla geçer, yıllık seyir yükselir.** Yıllara
+ayrılınca yeni payı 0,346 / 0,403 / 0,431 olur (aktif 956.774 / 971.753 /
+1.067.721, yeni 331.220 / 391.494 / 460.227). 2024 ve 2025 tek başına
+0,40'ın üstündedir; beş tohumda da öyle (2025: 0,4305–0,4315). Nedeni iki
+şey. Birincisi, `kayit_tarihi` artık ilk kimlikli olaydır. İkincisi, nüfus
+pencerede büyür: yıl sonu hayatta 1.202.464 (2022) → 1.256.095 (2025).
+Yeni payını yıl yıl kullanan biri bandı 2023'te tutturur, sonra aşar.
+
 Yorum izleme (4242): 24.694 yorum iade edilmiş satırda; 3.762 yorum hediye
 satırında (5.625 hediye yazarının 1.827'si uyan alıcılı metin bulamayıp
 düştü; kapasite düşüşünün tamamı bu); 613 yorum tarihi 2025-12-31'i aştığı
@@ -362,7 +379,7 @@ B'nin altı tablosunu ve A'nın `urun`'unu okur; gizli gerçek yalnız puanlar.
 | LTV | 2025 harcaması × P(geri gelir) | gerçekleşen 2026 harcamasıyla Spearman | 0,4–0,7 | 0,6363 | 0,6353–0,6363 | 5/5 |
 | Öneri | ürün–ürün birlikte alım (kosinüs) | son sepette recall@10 ÷ popülerlik | ≥ 1,2 | 1,892 | 1,863–1,892 | 5/5 |
 | Sıralama | konum yanlılığı düzeltmeli (IPS) tıklama oranı | gerçek ilgiyle Spearman, IPS − saf | ≥ 0,1 | 0,1546 | 0,1534–0,1546 | 5/5 |
-| Yorum konuları | TF-IDF + lojistik, metin grubuna göre bölme | makro F1 | ≥ 0,60 (karar; spec 0,60–0,85) | 0,9463 | 0,9402–0,9595 | 5/5 |
+| Yorum konuları | TF-IDF + lojistik, metin grubuna göre bölme | makro F1 | ≥ 0,60 (karar; spec 0,60–0,85) | 0,9464 | 0,9402–0,9595 (4242 yeniden ölçüldü) | 5/5 |
 
 - **Segmentasyon zor.** Gizli parametrelerle k-means ARI'si 0,94'tür:
   arketipler iyi tanımlı. Gözlenen davranıştan ise 0,09 çıkar. Nedeni
@@ -413,10 +430,10 @@ Ayrıntı ve gerekçeler spec §11'de. Kısaca:
 
 Beş tohumluk koşu (commit d1b042f): B 856–949 sn yazma hariç dört tohumda
 (boş makine); beşinci tohum (4) makine kullanılırken 1.977 sn sürdü. Son
-üretim koşusu (tohum 4242) da bellek baskısı altında koştu: A kurulumu
-222 sn (B'ye sayılmaz), B 1.648 sn yazma hariç (simülasyon 1.530, online
-41, kargo + yorum 25, tablolar 51), yazma 115 sn (Parquet 41, DuckDB 58,
-CSV 15). Önceki boş makine ölçümü (Görev 16, aynı satır sayıları) B 898
+üretim koşusu (tohum 4242, park düzeltmesi) da bellek baskısı altında
+koştu (başlarken ~15 GB boş): A kurulumu 266 sn (B'ye sayılmaz), B 1.472
+sn yazma hariç (simülasyon 1.355, online 39, kargo + yorum 23, tablolar
+50), yazma 132 sn (Parquet 43, DuckDB 67, CSV 21). Önceki boş makine ölçümü (Görev 16, aynı satır sayıları) B 898
 sn yazma hariç, 997 sn = 16,6 dk yazma dahil.
 
 **Bellek:** tohum başına süreç tepesi ~20–23 GB (birikimli ölçüm; beş
@@ -426,7 +443,7 @@ kötü 2.186 sn, ~36 dk; eski kod, yüklü makine, Görev 15).
 
 Çıktı (`veri/cikti/v4_crm/`): Parquet 890 MB (en büyüğü `fis_satir` 437
 MB, `online_olay` 211 MB), CSV 3.146 MB (`online_olay` hariç), DuckDB
-1.216 MB. `fis_satir.csv` açılmış hâliyle ~1,97 GB, 2 GB'a yakın: bazı
+1.217 MB. `fis_satir.csv` açılmış hâliyle ~1,97 GB, 2 GB'a yakın: bazı
 araçların tek dosya sınırına takılabilir; Parquet ya da DuckDB tercih
 edin.
 
@@ -437,7 +454,7 @@ A'nın varlıklarının yanında:
 
 | Varlık | İçerik | Boyut |
 |---|---|---:|
-| [`lumoda-v4-crm.duckdb`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-crm.duckdb) | Altı tablo (olay kaydı dahil) | 1.216 MB |
+| [`lumoda-v4-crm.duckdb`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-crm.duckdb) | Altı tablo (olay kaydı dahil) | 1.217 MB |
 | [`lumoda-v4-crm-parquet.zip`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-crm-parquet.zip) | Beş tablo, Parquet (olay kaydı hariç) | 347 MB |
 | [`lumoda-v4-crm-csv.zip`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-crm-csv.zip) | Beş tablo, CSV (olay kaydı hariç) | 572 MB |
 | [`lumoda-v4-olay-parquet.zip`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-olay-parquet.zip) | `online_olay.parquet` | 163 MB |

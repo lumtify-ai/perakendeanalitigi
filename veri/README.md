@@ -427,7 +427,7 @@ olay kaydı, yorum; 6 tablo):
 
 | Varlık | Boyut |
 |---|---:|
-| [`lumoda-v4-crm.duckdb`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-crm.duckdb) | 1.216 MB |
+| [`lumoda-v4-crm.duckdb`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-crm.duckdb) | 1.217 MB |
 | [`lumoda-v4-crm-parquet.zip`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-crm-parquet.zip) | 347 MB |
 | [`lumoda-v4-crm-csv.zip`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-crm-csv.zip) | 572 MB |
 | [`lumoda-v4-olay-parquet.zip`](https://github.com/lumtify-ai/perakendeanalitigi/releases/download/veri-v4/lumoda-v4-olay-parquet.zip) | 163 MB |
@@ -469,7 +469,7 @@ sözlüğü, tutarlılık sözleşmesi, gizli gerçek ve bantlar için:
 | `online_liste_gunluk` | 609.905 |
 | `yorum` | 74.394 |
 
-Ham CSV 3.146 MB (olay kaydı hariç); Parquet 888 MB; DuckDB 1.216 MB. Üretim
+Ham CSV 3.146 MB (olay kaydı hariç); Parquet 888 MB; DuckDB 1.217 MB. Üretim
 A dahil ~19 dakika ve ~20 GB boş bellek ister.
 
 Testler: `pytest tests/v4/crm -m "not yavas"` ve `-m yavas` (bantlar,
