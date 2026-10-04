@@ -64,6 +64,15 @@ def ag_con():
     _depo(t, "AG-ELLE", {}, 0)
     ekle(t, "sevkiyat", [("2025-01-10", None, "M002", "M001", "AG-ELLE", 2,
                           "elle_transfer", None)])
+    # rota M002 -> M001 her zaman 3 gün sürer (3 sevk); AG-R5 sevki bir kez 5 gün sürer.
+    # Mağazalar arası rotanın beklenen süresi o rotanın en sık değeridir (R19), depo yolu değil
+    for u in ("AG-R3", "AG-R3B", "AG-R3C", "AG-R5"):
+        _depo(t, u, {}, 20)
+    ekle(t, "sevkiyat", [
+        ("2025-01-08", "2025-01-11", "M002", "M001", "AG-R3", 1, "elle_transfer", None),
+        ("2025-01-08", "2025-01-11", "M002", "M001", "AG-R3B", 1, "elle_transfer", None),
+        ("2025-01-08", "2025-01-11", "M002", "M001", "AG-R3C", 1, "elle_transfer", None),
+        ("2025-01-08", "2025-01-13", "M002", "M001", "AG-R5", 1, "elle_transfer", None)])
     # online
     _depo(t, "AG-ONL", {}, 20)
     _depo(t, "AG-ONLT", {}, 0)
@@ -155,6 +164,20 @@ def test_lojistik_gec_varan_sevk(ag_con):
 def test_lojistik_allocation_ve_tedarikten_once(ag_con):
     # AG-LOJ depoda mal var (allocation olurdu); lojistik önce tutar
     assert kaynak_of(ag_con, "2025-01-13", "M001", "AG-LOJ") == "lojistik"
+
+
+def test_magazalar_arasi_rota_hep_ayni_surede_gelirse_lojistik_degil(ag_con):
+    # M002 -> M001 rotası her zaman 3 gün: depo yolu (1) ile kıyaslanırsa "geç" görünürdü
+    for d in ("2025-01-08", "2025-01-09", "2025-01-10", "2025-01-11", "2025-01-12"):
+        assert kaynak_of(ag_con, d, "M001", "AG-R3") == "allocation", d
+
+
+def test_magazalar_arasi_rota_bir_kez_uzarsa_lojistik(ag_con):
+    # aynı rota bir kez 5 gün sürdü (en sık değer 3): 01-08 + 3 = 01-11 <= d < 01-13
+    for d in ("2025-01-11", "2025-01-12"):
+        assert kaynak_of(ag_con, d, "M001", "AG-R5") == "lojistik", d
+    for d in ("2025-01-08", "2025-01-10", "2025-01-13"):
+        assert kaynak_of(ag_con, d, "M001", "AG-R5") == "allocation", d
 
 
 def test_tek_tarafli_transfer_lojistik_degil(ag_con):
@@ -275,12 +298,19 @@ def _referans(con, d, m, u) -> tuple[str, pd.Timestamp | None]:
     """Spec §4.6'nın satır satır, düz Python karşılığı."""
     yol = ozellikler.yol_suresi(con)
     ay = sorted(yol.values())[len(yol) // 2]
-    sevk = con.execute("select tarih, varis_tarihi from sevkiyat where hedef = ? and urun_id = ?",
-                       [m, u]).fetchall()
+    sevk = con.execute("select tarih, varis_tarihi, kaynak from sevkiyat where hedef = ? "
+                       "and urun_id = ?", [m, u]).fetchall()
     y = yol.get(m, ay)
     if m != "ONL":
-        for tarih, varis in sevk:
-            if varis is not None and tarih + pd.Timedelta(days=y) <= d < varis:
+        for tarih, varis, kay in sevk:
+            if varis is None:
+                continue
+            sureler = con.execute(
+                "select date_diff('day', tarih::date, varis_tarihi::date) g from sevkiyat "
+                "where kaynak = ? and hedef = ? and varis_tarihi is not null "
+                "group by g order by count(*) desc, g", [kay, m]).fetchone()
+            beklenen = sureler[0] if sureler else y
+            if tarih + pd.Timedelta(days=beklenen) <= d < varis:
                 return "lojistik", None
     x = d if m == "ONL" else d - pd.Timedelta(days=y)
     f = x if m == "ONL" else x - pd.Timedelta(days=x.weekday())
@@ -303,7 +333,7 @@ def test_rastgele_satirlar_referansla_ayni(ag_con):
     rng = np.random.default_rng(7)
     magazalar = ["M001", "M002", "M008", "ONL"]
     urunler = ["AG-TED", "AG-ALL", "AG-AYNI", "AG-PLN", "AG-NULL", "AG-SONRA", "AG-ONCE",
-               "AG-LOJ", "AG-ELLE", "AG-ONL", "AG-ONLT"]
+               "AG-LOJ", "AG-ELLE", "AG-ONL", "AG-ONLT", "AG-R3", "AG-R5"]
     gunler = list(pd.date_range("2025-01-06", "2025-01-26")) + [T("2023-01-01"), T("2023-01-03")]
     girdiler = [(gunler[rng.integers(len(gunler))], magazalar[rng.integers(4)],
                  urunler[rng.integers(len(urunler))]) for _ in range(600)]

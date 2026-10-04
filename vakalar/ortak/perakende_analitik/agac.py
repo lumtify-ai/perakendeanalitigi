@@ -7,8 +7,10 @@ bütün girdi sütunları korunur; girdi değişmez.
 
 Kurallar, bu sırayla, ilk tutan kazanır:
 
-    1. lojistik     hücreye giden bir sevk için `tarih + yol_suresi[m] <= d <
-                    varis_tarihi` (varış beklenenden geç). `varis_tarihi` boş
+    1. lojistik     hücreye giden bir sevk için `tarih + beklenen(kaynak, m) <= d <
+                    varis_tarihi` (varış beklenenden geç). Beklenen süre rotanın
+                    (kaynak, hedef) en sık `varis - tarih` değeridir (beraberlikte
+                    küçük); rotanın geçmişi yoksa `yol_suresi[m]` (R19). `varis_tarihi` boş
                     sevk (kirli tek taraflı transfer) lojistik DEĞİLDİR. `ONL`
                     sevkin ucu olmadığı için online'da hiç tutmaz
     2. magaza       mal mağaza deposunda; v4'te ölçülemez, hiçbir satır buraya
@@ -68,19 +70,33 @@ def _yol_tablosu(con: duckdb.DuckDBPyConnection) -> tuple[dict[str, int], int]:
 
 def _gec_sevkler(con, yol: dict[str, int], yedek: int) -> pd.DataFrame:
     """Beklenenden geç varan sevkler: magaza_id, urun_id, lo (beklenen varış gün sayısı),
-    hi (gerçek varış). Boş `varis_tarihi` hiç gelmez (NULL karşılaştırması tutmaz)."""
+    hi (gerçek varış). Boş `varis_tarihi` hiç gelmez (NULL karşılaştırması tutmaz).
+
+    Beklenen süre rotaya (kaynak, hedef) özgüdür: o rotanın dolu `varis_tarihi`li
+    sevklerindeki en sık `varis - tarih` (beraberlikte küçük). Rotanın hiç geçmişi
+    yoksa hedef mağazanın depo yolu kullanılır (R19)."""
     tablo = pd.DataFrame({"magaza_id": list(yol), "yol": np.asarray(list(yol.values()),
                                                                       dtype=np.int32)})
     con.register("_yol_tablosu", tablo)
     try:
         return con.execute(f"""
-            with s as (
-                select s.hedef::varchar as magaza_id, s.urun_id::varchar as urun_id,
-                       date_diff('day', date '1970-01-01', s.tarih::date)
-                           + coalesce(y.yol, {yedek}) as lo,
-                       date_diff('day', date '1970-01-01', s.varis_tarihi::date) as hi
-                from sevkiyat s left join _yol_tablosu y on y.magaza_id = s.hedef::varchar
-                where s.varis_tarihi is not null and s.hedef::varchar not in ('{_ONLINE}', 'DEPO'))
+            with g as (
+                select kaynak::varchar as kaynak, hedef::varchar as hedef,
+                       urun_id::varchar as urun_id,
+                       date_diff('day', date '1970-01-01', tarih::date) as t0,
+                       date_diff('day', date '1970-01-01', varis_tarihi::date) as hi
+                from sevkiyat where varis_tarihi is not null),
+            rota as (
+                select kaynak, hedef, hi - t0 as sure from g
+                group by kaynak, hedef, hi - t0
+                qualify row_number() over (partition by kaynak, hedef
+                                           order by count(*) desc, hi - t0) = 1),
+            s as (
+                select g.hedef as magaza_id, g.urun_id,
+                       g.t0 + coalesce(r.sure, y.yol, {yedek}) as lo, g.hi
+                from g left join rota r on r.kaynak = g.kaynak and r.hedef = g.hedef
+                       left join _yol_tablosu y on y.magaza_id = g.hedef
+                where g.hedef not in ('{_ONLINE}', 'DEPO'))
             select magaza_id, urun_id, lo::int as lo, hi::int as hi from s where lo < hi
         """).fetchdf()
     finally:
