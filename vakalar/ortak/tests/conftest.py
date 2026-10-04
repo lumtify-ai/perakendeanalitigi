@@ -74,6 +74,8 @@ _SEMA: dict[str, dict[str, str]] = {
              "tedarikci_id": _S},
     "takvim": {"tarih": _T, "hafta": "int64", "ay": "int32", "yil": "int32", "sezon": _S,
                "sezon_kodu": _S, "tatil_mi": "bool", "indirim_donemi_mi": "bool"},
+    "sezon": {"sezon_kodu": _S, "dalga": "int64", "lansman_tarihi": _T,
+              "indirim_baslangic": _T, "cikis_tarihi": _T},
     "kampanya": {"kampanya_id": _S, "tip": _S, "baslangic": _T, "bitis": _T,
                  "kapsam_ust_kategori": _S, "kapsam_line": _S, "kapsam_bolge": _S,
                  "oran": "float64"},
