@@ -58,7 +58,7 @@ basit 81, ml 283), tepe 12,3 GB (ML adımı); ayrıntı `cikti/sure.json`.
     .venv/Scripts/python -m yok_satma.hikaye_sec         # ilk 10 aday + seçilen
 
 `hazirla` çıktılarından (`gunluk.parquet`, `kayip_basit.parquet`) yazı 1'in
-açılış hikâyesinin ürününü seçer: Erkek/Unisex, İstanbul'da fiziksel mağaza,
+açılış hikâyesinin ürününü seçer: Erkek/Unisex, Veli'nin bölgesinde (İstanbul dışı) fiziksel mağaza,
 aynı gün iki bedeni `bos`, önceki gece geç teslim edilmiş siparişle depoya
 girmiş, kaybı `tedarik`e yazılmış, option'ın bu stoksuzluk dönemindeki (depoda
 son stoklu günden `tarih - 1`e) zincir kaybı ≥ 1 adet; dönem kaybı azalan sıralanır.

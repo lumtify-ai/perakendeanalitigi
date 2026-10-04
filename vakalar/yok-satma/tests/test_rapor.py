@@ -115,6 +115,7 @@ def test_rapor_basliklari(cikti, oyuncak_db, sahte_hakem, capsys):
     assert "bu veride yok" in metin
     assert "kullanıcının seçimi, kurgu kapısı (R25); sıkı arama: tutmayan ölçütler:" in metin
     assert "merkez depo, Ali MDL0001-SYH-M:" in metin and "operasyonel" in metin
+    assert "yeniden stok (seçilen mağaza" in metin and "Dal × operasyonel / son tükeniş" in metin
 
 
 def test_hikaye_arama(cikti, oyuncak_db, sahte_hakem, capsys):

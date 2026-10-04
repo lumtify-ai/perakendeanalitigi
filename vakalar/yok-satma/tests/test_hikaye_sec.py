@@ -36,7 +36,8 @@ def _ortak_fikstur():
 FIKSTUR = _ortak_fikstur()
 
 # magaza_id -> (sehir, tip)
-MAGAZALAR = {"M1": ("İstanbul", "AVM"), "M3": ("İstanbul", "Cadde"), "M2": ("Ankara", "AVM"),
+# M1, M3 Veli'nin bölgesinde (İstanbul dışı); M2 İstanbul'da (Ali'nin bölgesi, ölçüt 2 tutmaz)
+MAGAZALAR = {"M1": ("Ankara", "AVM"), "M3": ("İzmir", "Cadde"), "M2": ("İstanbul", "AVM"),
              "ONL": ("İstanbul", "Online")}
 BEDENLER = (("S", 1), ("M", 2), ("L", 3))
 
@@ -69,8 +70,8 @@ OA = _secenek("OA", line="Collection")
 OB = _secenek("OB", cinsiyet="Unisex", magaza="M3", onceki=2.0)
 # Yalnız tek ölçüt tutmayanlar
 KADIN = _secenek("KADIN", cinsiyet="Kadın")                         # 1
-ANKARA = _secenek("ANKARA", magaza="M2")                            # 2
-ONLINE = _secenek("ONLINE", magaza="ONL")                           # 2 (ONL'in şehri İstanbul)
+IST = _secenek("IST", magaza="M2")                                  # 2 (Ali'nin bölgesi)
+ONLINE = _secenek("ONLINE", magaza="ONL")                           # 2 (online fiziksel değil)
 TEK = _secenek("TEK", bos=("S",))                                   # 3
 GEC_ESKI = _secenek("GECESKI", siparis="gecen_gun")                 # 4
 ZAMANINDA = _secenek("ZAMANINDA", siparis="zamaninda")              # 4
@@ -78,7 +79,7 @@ PLANLAMA = _secenek("PLANLAMA", kaynak="planlama")                  # 5
 SIFIR = _secenek("SIFIR", kayip_t=0.0)                              # 5 (kayıp yok)
 BIRIKMEMIS = _secenek("BIRIKMEMIS", onceki=0.4, kayip_t=50.0)       # 6 (T günü sayılmaz)
 ESKI_BUYUK = _secenek("ESKIBUYUK", onceki=0.4, eski=5000.0)         # 6 (eski kayıp sayılmaz)
-TUM_ISKALAMALAR = [KADIN, ANKARA, ONLINE, TEK, GEC_ESKI, ZAMANINDA, PLANLAMA, SIFIR,
+TUM_ISKALAMALAR = [KADIN, IST, ONLINE, TEK, GEC_ESKI, ZAMANINDA, PLANLAMA, SIFIR,
                    BIRIKMEMIS, ESKI_BUYUK]
 
 
@@ -207,7 +208,7 @@ def test_her_iskalama_tek_olcutte_dusuyor(kur, iskalama):
 
 
 @pytest.mark.parametrize("iskalama, dusen", [
-    (KADIN, 1), (ANKARA, 2), (ONLINE, 2), (TEK, 3), (GEC_ESKI, 4), (ZAMANINDA, 4),
+    (KADIN, 1), (IST, 2), (ONLINE, 2), (TEK, 3), (GEC_ESKI, 4), (ZAMANINDA, 4),
     (PLANLAMA, 5), (SIFIR, 5), (BIRIKMEMIS, 6), (ESKI_BUYUK, 6)], ids=lambda x: x["ad"] if isinstance(x, dict) else x)
 def test_iskalama_yalniz_kendi_olcutu_gevsetilince_aday(kur, iskalama, dusen):
     con, gunluk, kayip = kur([iskalama])
@@ -284,16 +285,16 @@ def test_iki_beden_gevsetilince_tek_sku_ali_veli(kur):
 # ----------------------------------------------------------------- gevşetme
 
 def test_gevsetme_basilir(kur):
-    """İstanbul'da tutan yoksa yalnız 'istanbul' gevşer."""
-    con, gunluk, kayip = kur([ANKARA, KADIN])      # Kadın iki ölçüt düşürür; Ankara tek
+    """Veli'nin bölgesinde tutan yoksa yalnız 'veli_bolgesi' gevşer."""
+    con, gunluk, kayip = kur([IST, KADIN])         # Kadın iki ölçüt düşürür; IST tek
     aday, gevsetilen = hikaye_sec.ara(con, gunluk, kayip)
-    assert gevsetilen == ["istanbul"]
-    assert list(aday["option_id"]) == ["ANKARA"]
+    assert gevsetilen == ["veli_bolgesi"]
+    assert list(aday["option_id"]) == ["IST"]
 
 
 def test_gevsetme_sirasi_sondan_basa(kur):
     """6 ile 2 ikisi de tek düşürmeyle aday verir; önce 6 (sondan başa)."""
-    con, gunluk, kayip = kur([BIRIKMEMIS, ANKARA, KADIN])
+    con, gunluk, kayip = kur([BIRIKMEMIS, IST, KADIN])
     aday, gevsetilen = hikaye_sec.ara(con, gunluk, kayip)
     assert gevsetilen == ["donem_kayip"]
     assert list(aday["option_id"]) == ["BIRIKMEMIS"]
@@ -308,13 +309,13 @@ def test_gevsetme_sikisinca_ikili(kur):
 
 
 def test_gevsetme_yok_sikiyken_bos_liste(kur):
-    con, gunluk, kayip = kur([OA, ANKARA])
+    con, gunluk, kayip = kur([OA, IST])
     aday, gevsetilen = hikaye_sec.ara(con, gunluk, kayip)
     assert gevsetilen == [] and list(aday["option_id"]) == ["OA"]
 
 
 def test_hicbir_gevsetme_aday_vermezse_hata(tmp_path):
-    # Kadın + Ankara + sipariş yok: üç ölçüt düşmeli; ikili gevşetmede de aday yok
+    # Kadın + İstanbul (M2) + sipariş yok: üç ölçüt düşmeli; ikili gevşetmede de aday yok
     cikti, db = _dosyalar(tmp_path, [_secenek("UCLU", cinsiyet="Kadın", magaza="M2",
                                               siparis="yok")])
     with pytest.raises(LookupError, match="aday"):
@@ -324,7 +325,7 @@ def test_hicbir_gevsetme_aday_vermezse_hata(tmp_path):
 # -------------------------------------------------------------------- secim
 
 def test_secim_sozlugu(tmp_path):
-    cikti, db = _dosyalar(tmp_path, [OB, OA, ANKARA])
+    cikti, db = _dosyalar(tmp_path, [OB, OA, IST])
     s = hikaye_sec.secim(cikti=cikti, db=db)
     assert s == {
         "option_id": "OA", "urun_id_ali": "OA-S", "urun_id_veli": "OA-M", "magaza_id": "M1",
@@ -382,7 +383,7 @@ def test_secim_ve_adaylar_secimle_ayni(tmp_path):
 
 
 @pytest.mark.parametrize("secenek, tutmayan", [
-    (OA, []), (ANKARA, ["istanbul"]), (KADIN, ["cinsiyet"]), (PLANLAMA, ["tedarik"]),
+    (OA, []), (IST, ["veli_bolgesi"]), (KADIN, ["cinsiyet"]), (PLANLAMA, ["tedarik"]),
     (_secenek("IKILI", kaynak="planlama", onceki=0.4), ["tedarik", "donem_kayip"])],
     ids=lambda x: x["ad"] if isinstance(x, dict) else str(x))
 def test_denetle_tutmayan_olcutleri_soyler(kur, secenek, tutmayan):
@@ -399,9 +400,9 @@ def test_denetle_bos_bedeni_yoksa_hata(kur):
 
 
 def test_secim_ve_adaylar_elle_hikaye(tmp_path):
-    cikti, db = _dosyalar(tmp_path, [OA, ANKARA])
+    cikti, db = _dosyalar(tmp_path, [OA, IST])
     sec, aday, gevsetilen = hikaye_sec.secim_ve_adaylar(cikti=cikti, db=db,
-                                                        hikaye=("ANKARA", "M2", T))
-    assert sec["option_id"] == "ANKARA" and sec["magaza_id"] == "M2"
-    assert sec["gevsetilen"] == ["istanbul"] and sec["elle"] is True
+                                                        hikaye=("IST", "M2", T))
+    assert sec["option_id"] == "IST" and sec["magaza_id"] == "M2"
+    assert sec["gevsetilen"] == ["veli_bolgesi"] and sec["elle"] is True
     assert list(aday["option_id"]) == ["OA"] and gevsetilen == []

@@ -8,8 +8,10 @@ siparişi). Yani kayıp allocation'ın değil tedarikin / buying'in.
 Ölçütler (numaraları gevşetme sırasında ve `gevsetilen`de kullanılır):
 
     1 cinsiyet                 ürünün `cinsiyet`i Erkek ya da Unisex
-    2 istanbul                 `magaza.sehir == "İstanbul"` ve fiziksel mağaza
-                               (ONL'in şehri de İstanbul'dur; `tip == Online` elenir)
+    2 veli_bolgesi             Veli'nin bölgesi: fiziksel mağaza, `magaza.sehir != "İstanbul"`
+                               (R27: hikâye mağazası Veli'nin; Veli raporluyken mağazalarını
+                               Ali yönetti; depodan-mağazaya dizisinde İstanbul Ali'de,
+                               Anadolu Veli'de). `tip == Online` elenir
     3 iki_beden                aynı option'ın iki ayrı bedeni (SKU) o mağazada o gün `bos`
     4 onceki_gece_gec_teslim   iki SKU'nun da bir siparişi `tarih - 1 gün` teslim
                                edilmiş ve planlanandan geç (`gerceklesen_teslim >
@@ -64,11 +66,11 @@ from perakende_analitik import kaynak
 
 VARSAYILAN_CIKTI = Path(__file__).resolve().parents[1] / "cikti"
 
-OLCUTLER = {1: "cinsiyet", 2: "istanbul", 3: "iki_beden", 4: "onceki_gece_gec_teslim",
+OLCUTLER = {1: "cinsiyet", 2: "veli_bolgesi", 3: "iki_beden", 4: "onceki_gece_gec_teslim",
             5: "tedarik", 6: "donem_kayip"}
 GEVSETME_SIRASI = (6, 5, 4, 3, 2, 1)        # sondan başa
 CINSIYETLER = ("Erkek", "Unisex")
-SEHIR = "İstanbul"
+ALI_SEHRI = "İstanbul"                       # Ali'nin bölgesi; Veli'ninki dışı
 EN_AZ_DONEM_KAYBI = 1.0                      # adet
 HATLAR = ("Collection", "Basic", "NOS", "Outlet")
 _K = 1 << 20                                 # (id, gün) tamsayı anahtarı için gün çarpanı
@@ -126,7 +128,7 @@ class _Hazir:
         ilk = con.execute("select min(tarih) from depo_stok").fetchone()[0]
         self.depo_ilk = int(_gun(pd.Series([ilk]))[0]) if ilk is not None else 0
         self.sku_erkek = urun["cinsiyet"].isin(CINSIYETLER).to_numpy()
-        self.magaza_istanbul = ((magaza["sehir"] == SEHIR) & (magaza["tip"] != "Online")).to_numpy()
+        self.magaza_veli = ((magaza["sehir"] != ALI_SEHRI) & (magaza["tip"] != "Online")).to_numpy()
         nu, nm = len(self.urunler), len(self.magazalar)
         self._nu, self._nm = nu, nm
 
@@ -227,7 +229,7 @@ def _adaylar(h: _Hazir, gevset: frozenset[int]) -> pd.DataFrame:
     if 1 not in gevset:
         maske &= h.sku_erkek[h.sku]
     if 2 not in gevset:
-        maske &= h.magaza_istanbul[h.mag]
+        maske &= h.magaza_veli[h.mag]
     if 4 not in gevset:
         maske &= h.f4
     if 5 not in gevset:
