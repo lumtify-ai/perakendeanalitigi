@@ -312,21 +312,31 @@ describe('veri seti sayfası', () => {
     expect(oku('veri-seti/index.html')).toContain('"@type":"Dataset"')
   })
 
-  it("v3'ün on bir tablosunu da listeler", () => {
+  it("v4'ün tablolarını listeler", () => {
     const html = oku('veri-seti/index.html')
     for (const tablo of [
-      'magaza', 'urun', 'takvim', 'sezon', 'tedarikci', 'siparis',
-      'satis', 'stok', 'depo_stok', 'sevkiyat', 'kayip_satis',
+      'magaza', 'magaza_olay', 'urun', 'paket', 'tedarikci', 'sezon', 'takvim',
+      'kampanya', 'mfp_plan', 'range_plan', 'magaza_plan', 'siparis',
+      'kalite_kontrol', 'satis', 'fiyat', 'stok', 'depo_stok', 'sevkiyat',
+      'musteri', 'fis', 'fis_satir', 'online_liste_gunluk', 'online_olay', 'yorum',
     ]) {
-      expect(html).toContain(tablo)
+      expect(html, tablo).toContain(`<code>${tablo}</code>`)
     }
   })
 
-  it("eski dizilerin v2 kullandığını söyler ve v2 release'ine bağlanır", () => {
+  it('kayıp satışı tablo olarak listelemez', () => {
+    // v4 kayıp satışı yayımlamaz; kestirmek yok-satma dizisinin işidir
+    expect(oku('veri-seti/index.html')).not.toContain('kayip_satis')
+  })
+
+  it("v4 release'ine bağlanır; v3 ve v2 bağlantıları yerinde kalır", () => {
     const html = oku('veri-seti/index.html')
+    expect(html).toContain('releases/tag/veri-v4')
     expect(html).toContain('releases/tag/veri-v3')
     expect(html).toContain('releases/tag/veri-v2')
-    expect(html).toContain('Transfer ve replenishment')
+    expect(html).toContain('releases/tag/veri-v1')
+    expect(html).toContain('python -m perakende_veri.v4.uret')
+    expect(html).toContain('python -m perakende_veri.v4.crm.uret')
   })
 
   it('üç formatı da duyurur', () => {
@@ -334,6 +344,22 @@ describe('veri seti sayfası', () => {
     expect(html).toContain('CSV')
     expect(html).toContain('Parquet')
     expect(html).toContain('DuckDB')
+  })
+})
+
+describe('13. aşama adı', () => {
+  it("harita 13. aşamayı 'İş Zekası ve Analitik' diye adlandırır, adres aynı kalır", () => {
+    const asama = HARITA.flatMap((faz) => faz.asamalar).find((a) => a.no === 13)!
+    expect(asama.ad).toBe('İş Zekası ve Analitik')
+    expect(asama.slug).toBe('is-zekasi')
+  })
+
+  it('ana sayfa ve faz sayfası yeni adı basar, eskisini basmaz', () => {
+    for (const yol of ['index.html', 'diger-surecler/index.html']) {
+      const html = oku(yol)
+      expect(html, yol).toContain('İş Zekası ve Analitik')
+      expect(html, yol).not.toContain('İş zekası<')
+    }
   })
 })
 

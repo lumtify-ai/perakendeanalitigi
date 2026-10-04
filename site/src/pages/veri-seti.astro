@@ -3,29 +3,63 @@
 import Temel from '../layouts/Temel.astro'
 import KirintiYolu from '../components/KirintiYolu.astro'
 
-const SURUM = 'v3'
+const SURUM = 'v4'
 const DEPO = 'https://github.com/lumtify-ai/perakendeanalitigi'
 const INDIRME = `${DEPO}/releases/tag/veri-${SURUM}`
+const DOSYA = `${DEPO}/releases/download/veri-${SURUM}`
 
 // Türkçe kesme işareti yüzünden çift tırnak: 'master'ı' tek tırnakta kırılır
-const TABLOLAR = [
-  { ad: "magaza", satir: "25", aciklama: "Mağaza master'ı: şehir, tip, metrekare, kapasite" },
-  { ad: "urun", satir: "3.600", aciklama: "SKU master'ı, ürün hiyerarşisi, sezon, dalga, lansman ve tedarikçi" },
-  { ad: "takvim", satir: "731", aciklama: "Tarih boyutu: hafta, ay, sezon kodu, tatil, indirim dönemi" },
-  { ad: "sezon", satir: "15", aciklama: "Sezon ve teslimat dalgası takvimi: lansman, indirim başı, çıkış" },
-  { ad: "tedarikci", satir: "8", aciklama: "Tedarikçiler: menşe, ilk sipariş ve RPT süresi, MOQ" },
-  { ad: "siparis", satir: "~15 bin", aciklama: "Tedarikçi siparişleri: ilk alım, RPT, sürekli tedarik" },
-  { ad: "satis", satir: "~978 bin", aciklama: "Günlük satış; negatif adet iadedir" },
-  { ad: "stok", satir: "~1,05 milyon", aciklama: "Haftalık mağaza stok fotoğrafı ve stoklu gün sayısı" },
-  { ad: "depo_stok", satir: "~109 bin", aciklama: "Haftalık depo stok fotoğrafı" },
-  { ad: "sevkiyat", satir: "~319 bin", aciklama: "İlk dağıtım, replenishment ve sezon sonu geri toplama" },
-  { ad: "kayip_satis", satir: "~119 bin", aciklama: "Stoksuzluk yüzünden karşılanamayan talep" },
+// A katmanı: perakende verisi. Satır sayıları veri/src/perakende_veri/v4/README.md'den.
+// Kayıp satış kasıtlı olarak yok: v4 stoksuz talebi yayımlamaz.
+const TABLOLAR_A = [
+  { ad: "magaza", satir: "85", aciklama: "Mağaza master'ı: 84 fiziksel mağaza ve online (ONL)" },
+  { ad: "magaza_olay", satir: "12", aciklama: "Mağaza açılış, kapanış ve tadilat olayları" },
+  { ad: "urun", satir: "8.506", aciklama: "SKU master'ı, ürün hiyerarşisi, sezon, dalga, lansman ve tedarikçi" },
+  { ad: "paket", satir: "31", aciklama: "Beden seti başına standart ilk dağıtım paketi" },
+  { ad: "tedarikci", satir: "18", aciklama: "Tedarikçiler: menşe, ilk sipariş ve RPT süresi, MOQ" },
+  { ad: "sezon", satir: "21", aciklama: "Sezon ve teslimat dalgası takvimi: lansman, indirim başı, çıkış" },
+  { ad: "takvim", satir: "1.096", aciklama: "Tarih boyutu: hafta, ay, sezon kodu, tatil, indirim dönemi" },
+  { ad: "kampanya", satir: "53", aciklama: "Kategori, ikinci ürün ve Black Friday kampanyaları" },
+  { ad: "mfp_plan", satir: "595", aciklama: "Sezon, ay ve kategori düzeyinde mali plan" },
+  { ad: "range_plan", satir: "383", aciklama: "Çeşit planı: alt kategori, fiyat segmenti, option sayısı, derinlik" },
+  { ad: "magaza_plan", satir: "2.975", aciklama: "Mağaza ve kategori bazında satış hedefi; ilk dağıtım payı buradan" },
+  { ad: "siparis", satir: "~38,7 bin", aciklama: "Tedarikçi siparişleri: ilk alım, RPT, sürekli tedarik; planlanan ve gerçekleşen teslim" },
+  { ad: "kalite_kontrol", satir: "~7,8 bin", aciklama: "Teslim başına numune ve hatalı adet" },
+  { ad: "satis", satir: "~17,96 milyon", aciklama: "Günlük satış; negatif adet iadedir" },
+  { ad: "fiyat", satir: "~121 bin", aciklama: "Haftalık option × hat fiyat paneli: normal, outlet, online indirim oranı" },
+  { ad: "stok", satir: "~10,32 milyon", aciklama: "Pazartesi sabahı mağaza stok fotoğrafı ve stoklu gün sayısı" },
+  { ad: "depo_stok", satir: "~4,58 milyon", aciklama: "Günlük depo stok fotoğrafı" },
+  { ad: "sevkiyat", satir: "~3,74 milyon", aciklama: "İlk dağıtım, replenishment, transferler ve sezon sonu akışları" },
+]
+
+// B katmanı: CRM. Satır sayıları v4/crm/README.md'den.
+const TABLOLAR_B = [
+  { ad: "musteri", satir: "~2,11 milyon", aciklama: "Kimlikli müşteriler: kart okutmuş ya da online sipariş vermiş" },
+  { ad: "fis", satir: "~16,76 milyon", aciklama: "Satış ve iade fişleri, mağaza ve online" },
+  { ad: "fis_satir", satir: "~31,92 milyon", aciklama: "Fiş satırları; iade satırı kendi orijinal satırına bağlı" },
+  { ad: "online_liste_gunluk", satir: "~610 bin", aciklama: "Online listelerde gün × liste × sıra × option özeti: gösterim, tıklama, sepet, satın alma" },
+  { ad: "online_olay", satir: "~23,90 milyon", aciklama: "13 haftalık online olay kaydı; yalnız Parquet olarak da yayımlanır" },
+  { ad: "yorum", satir: "~78 bin", aciklama: "Online satışlara yazılan ürün yorumları ve puanları" },
+]
+
+// Boyutlar veri/README.md "İndirme" bölümünden.
+const VARLIKLAR_A = [
+  { dosya: "lumoda-v4.duckdb", boyut: "209 MB", aciklama: "DuckDB, tek dosya" },
+  { dosya: "lumoda-v4-parquet.zip", boyut: "86 MB", aciklama: "Parquet" },
+  { dosya: "lumoda-v4-csv.zip", boyut: "176 MB", aciklama: "CSV" },
+]
+const VARLIKLAR_B = [
+  { dosya: "lumoda-v4-crm.duckdb", boyut: "1.217 MB", aciklama: "DuckDB, olay kaydı dahil altı tablo" },
+  { dosya: "lumoda-v4-crm-parquet.zip", boyut: "347 MB", aciklama: "Parquet, olay kaydı hariç beş tablo" },
+  { dosya: "lumoda-v4-crm-csv.zip", boyut: "572 MB", aciklama: "CSV, olay kaydı hariç beş tablo" },
+  { dosya: "lumoda-v4-olay-parquet.zip", boyut: "163 MB", aciklama: "Yalnız olay kaydı, Parquet" },
 ]
 
 const ACIKLAMA =
-  "Lumoda, perakendeanalitigi.com'daki bütün vakaların kullandığı sentetik " +
-  "moda perakende veri setidir: 25 mağaza, 3.600 SKU, iki yıl, beş sezon, sekiz " +
-  "tedarikçi ve sonlu bir depo. " +
+  "Lumoda, perakendeanalitigi.com'daki vakaların kullandığı sentetik moda " +
+  "perakende veri setidir: 84 mağaza ve online kanal, 2023–2025, 8.506 SKU, " +
+  "18 tedarikçi ve sonlu bir depo. Perakende katmanının üstünde bir CRM " +
+  "katmanı da vardır: müşteri, fiş, online davranış ve yorum. " +
   "CSV, Parquet ve tek dosya DuckDB olarak indirilebilir."
 
 const isaretleme = {
@@ -58,13 +92,43 @@ const isaretleme = {
   </p>
 
   <h2>Tablolar</h2>
+  <p>
+    Veri iki katmandır ve anahtarları ortaktır (<code>urun_id</code>,
+    <code>magaza_id</code>, <code>kampanya_id</code>): tam veri için ikisi
+    birlikte kullanılır.
+  </p>
+  <p>
+    Stoksuzluk yüzünden karşılanamayan talep veride yoktur. Hiçbir perakendeci
+    onu göremez; bu veri de göstermez. Onu kestirmek Satış Kaybı dizisinin
+    işidir.
+  </p>
+
+  <h3>A katmanı: perakende verisi</h3>
   <table>
     <thead>
       <tr><th>Tablo</th><th>Satır</th><th>Açıklama</th></tr>
     </thead>
     <tbody>
       {
-        TABLOLAR.map((tablo) => (
+        TABLOLAR_A.map((tablo) => (
+          <tr>
+            <td><code>{tablo.ad}</code></td>
+            <td>{tablo.satir}</td>
+            <td>{tablo.aciklama}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  <h3>B katmanı: CRM</h3>
+  <table>
+    <thead>
+      <tr><th>Tablo</th><th>Satır</th><th>Açıklama</th></tr>
+    </thead>
+    <tbody>
+      {
+        TABLOLAR_B.map((tablo) => (
           <tr>
             <td><code>{tablo.ad}</code></td>
             <td>{tablo.satir}</td>
@@ -82,13 +146,35 @@ const isaretleme = {
     <li><strong>Parquet</strong> — büyük sorgular ve pandas için</li>
     <li><strong>DuckDB</strong> — tek dosya; indirip saniyeler içinde SQL çalıştırırsınız</li>
   </ul>
-  <p><a href={INDIRME}>Veri setini indir ({SURUM})</a></p>
+  <p>Dosyaların hepsi <a href={INDIRME}>{SURUM} sürümünde</a> durur.</p>
+
+  <h3>A katmanı</h3>
+  <ul>
+    {
+      VARLIKLAR_A.map((v) => (
+        <li><a href={`${DOSYA}/${v.dosya}`}><code>{v.dosya}</code></a> ({v.boyut}) · {v.aciklama}</li>
+      ))
+    }
+  </ul>
+
+  <h3>B katmanı (CRM)</h3>
+  <ul>
+    {
+      VARLIKLAR_B.map((v) => (
+        <li><a href={`${DOSYA}/${v.dosya}`}><code>{v.dosya}</code></a> ({v.boyut}) · {v.aciklama}</li>
+      ))
+    }
+  </ul>
+
   <h2>Önceki sürümler</h2>
   <p>
-    Yayımlanmış bir sürüm geri çekilmez. <strong>Transfer ve replenishment
-    dizilerinin sayıları <a href={`${DEPO}/releases/tag/veri-v2`}>v2</a>'den
-    türetilmiştir</strong>; o dizileri kendiniz koşturacaksanız v2'yi indirin.
-    v2 tek yıllık, depo kısıtı ve tedarik tarafı olmayan önceki sürümdür.
+    Yayımlanmış bir sürüm geri çekilmez. Bazı diziler henüz v4'e taşınmadı:
+    <strong>Blok Transfer ve Depodan Mağazaya dizilerinin sayıları
+    <a href={`${DEPO}/releases/tag/veri-v2`}>v2</a>'den, RPT dizisinin
+    sayıları <a href={`${DEPO}/releases/tag/veri-v3`}>v3</a>'ten
+    türetilmiştir</strong>. Taşınana kadar o dizileri kendiniz koşturacaksanız
+    ilgili sürümü indirin. v2 tek yıllık, depo kısıtı ve tedarik tarafı olmayan
+    sürümdür; v3 ikinci yılı, sonlu depoyu ve tedariği getirir.
     <a href={`${DEPO}/releases/tag/veri-v1`}>v1</a> de indirilebilir durumda
     kalıyor.
   </p>
@@ -96,12 +182,13 @@ const isaretleme = {
   <h2>Yeniden üretim</h2>
   <p>
     Üretici script depoda açıktır ve tohum sabittir: aynı komut her zaman aynı
-    veriyi üretir.
+    veriyi üretir. A katmanı ve CRM katmanı ayrı komutlarla üretilir.
   </p>
   <pre><code>git clone {DEPO}
 cd perakendeanalitigi/veri
 pip install -e ".[dev]"
-python -m perakende_veri.v3.uret</code></pre>
+python -m perakende_veri.v4.uret
+python -m perakende_veri.v4.crm.uret</code></pre>
 
   <p>
     Şemanın tamamı, verinin kasten bırakılmış kusurları ve yetmediği yerler:

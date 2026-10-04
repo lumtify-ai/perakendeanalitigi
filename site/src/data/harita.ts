@@ -143,7 +143,7 @@ export const HARITA: Faz[] = [
       {
         no: 13,
         slug: 'is-zekasi',
-        ad: 'İş zekası',
+        ad: 'İş Zekası ve Analitik',
         algoritmalar: [
           { id: 'yok-satma', ad: 'Yok satma ve satış kaybı hesaplama' },
           { id: 'kiriklik-atil-stok', ad: 'Kırıklık ve atıl stok analizi' },
