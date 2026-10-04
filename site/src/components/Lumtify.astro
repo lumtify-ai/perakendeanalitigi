@@ -8,18 +8,26 @@
 // deposunun açıklamasında birebir aynı geçer (ana spec §9, varlık
 // tutarlılığı). Değiştirilecekse üçü birden değişir.
 //
-// İlk paragraf dizi başına değiştirilebilir (R29): bileşenin içine yazılan
-// içerik (varsayılan slot) ilk paragrafın yerine geçer. İçerik verilmezse
-// aşağıdaki varsayılan paragraf basılır; o metin blok-transfer için
-// yazıldı ve içerik vermeyen dizilerin sayfaları değişmesin diye aynen
-// kalır. Kanonik tanım cümlesi her durumda aynıdır.
+// İlk ve son paragraf dizi başına değiştirilebilir (R29). Bileşenin içine
+// yazılan içerik (varsayılan slot) ilk paragrafın, `slot="son"` taşıyan
+// öğe son paragrafın yerine geçer. Verilmeyen paragraf için aşağıdaki
+// varsayılan metin basılır; o metinler blok-transfer için yazıldı ve
+// içerik vermeyen dizilerin sayfaları değişmesin diye aynen kalır. Başlık
+// ve kanonik tanım cümlesi her durumda aynıdır.
 //
 //   <Lumtify>
 //
 //   Bu dizinin hesabı ... (dizinin kendi giriş paragrafı)
 //
+//   <Fragment slot="son">
+//
+//   ... (dizinin kendi son paragrafı)
+//
+//   </Fragment>
+//
 //   </Lumtify>
 const diziGirisi = Astro.slots.has('default')
+const diziSonu = Astro.slots.has('son')
 ---
 
 <aside class="lumtify-koprusu">
@@ -40,12 +48,18 @@ const diziGirisi = Astro.slots.has('default')
     <strong>
       <a href="https://lumtify.com">Lumtify</a>, iş zekâsı ve optimizasyonla
       perakendede işleri akıllı hale getirir.
-    </strong>
+    </strong>{' '}
     Adı da oradan geliyor: <em>Let Us Make Trade Intelligent For You</em>.
   </p>
-  <p>
-    Maliyet kalemlerinizi kendi tarifenizle kurar, satma ihtimallerini sizin
-    geçmiş verinizden tahmin eder ve başabaş eşiğini kendi mağaza sayınızla
-    hesaplar.
-  </p>
+  {
+    diziSonu ? (
+      <slot name="son" />
+    ) : (
+      <p>
+        Maliyet kalemlerinizi kendi tarifenizle kurar, satma ihtimallerini sizin
+        geçmiş verinizden tahmin eder ve başabaş eşiğini kendi mağaza sayınızla
+        hesaplar.
+      </p>
+    )
+  }
 </aside>

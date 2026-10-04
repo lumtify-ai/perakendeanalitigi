@@ -542,7 +542,17 @@ describe('site geneli vaatler', () => {
     expect(kopru).not.toContain('kargo tarifesi')
     expect(kopru).toContain('iş zekâsı ve optimizasyonla')
     expect(kopru).toContain('Let Us Make Trade Intelligent For You')
-    expect(oku('rpt/tekrar-siparis/rpt-geldi/index.html')).toContain('kargo tarifesi')
+    expect(kopru).toContain('hangi kaybın hangi masaya ait olduğunu')
+    expect(kopru).not.toContain('başabaş eşiğini')
+    const rpt = oku('rpt/tekrar-siparis/rpt-geldi/index.html')
+    expect(rpt).toContain('kargo tarifesi')
+    expect(rpt).toContain('başabaş eşiğini')
+  })
+
+  it('köprüde kalın cümle ile sonraki cümle arasında boşluk var', () => {
+    for (const { yol, html } of tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))) {
+      expect(html, yol).toContain('</strong> Adı da oradan geliyor')
+    }
   })
 })
 
