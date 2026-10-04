@@ -64,3 +64,21 @@ girmiş, kaybı `tedarik`e yazılmış, option'ın bu stoksuzluk dönemindeki (d
 son stoklu günden `tarih - 1`e) zincir kaybı ≥ 1 adet; dönem kaybı azalan sıralanır.
 CLI ayrıca her `line` için en iyi 3 option'ı basar. Aday yoksa tek ölçüt (6, 5, 4, 3, 2, 1 sırasıyla), sonra ikili
 gevşetilir; hangi ölçütlerin gevştiği basılır. Ayrıntı modül açıklamasında.
+
+## Rapor ve sayı denetimi
+
+    PYTHONIOENCODING=utf-8 .venv/Scripts/python rapor.py > cikti/rapor.txt
+    .venv/Scripts/python sayi_denetimi.py
+
+`rapor.py` yazıların alıntılayabileceği bütün sayıları Türkçe biçimde basar;
+bölümler `=== VERİ ===`, `=== HİKÂYE ===`, `=== ÇARPANLAR ===`,
+`=== KESTİRİM ===`, `=== AYRIŞIM ===`, `=== LUMODA ===`, `=== AĞAÇ ===`.
+`hazirla` çıktıları ve hakem önbelleği (`cd ../ortak && .venv/Scripts/python -m
+perakende_analitik.hakem`) gerekir; eksikse hangi komutun koşulacağını söyler
+(çıkış kodu 2). Her kırılımın toplamı bütünün toplamıyla karşılaştırılır,
+tutmazsa rapor durur (`KorunumHatasi`). Ölçülen: ~90 sn, tepe 3,6 GB.
+
+`sayi_denetimi.py`, `site/src/content/yazi/is-zekasi/satis-kaybi/*.mdx`
+içindeki her sayının (frontmatter `sira`, kod blokları ve 10'dan büyük olmayan
+tam sayılar hariç) `cikti/rapor.txt`'te geçtiğini denetler; eksik varsa
+dosya:satır listesi ve çıkış kodu 1.
