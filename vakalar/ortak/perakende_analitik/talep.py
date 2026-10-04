@@ -53,6 +53,19 @@ yakın 28 zincir option-günü), Naif'te geçmiş 28 gün (yoksa son 28 option-g
 **Son yedek** (option havuzda hiç yok): mağaza × alt kategorinin stoklu
 SKU-gün ortalama satışı; yoksa alt kategorinin; yoksa havuzun.
 
+**ML** (`ornek=4_000_000`, `tohum=20261004`): LightGBM Poisson, sabit
+hiperparametreler (ayar araması yok). Eğitim satırları 2023–2024'ün stoklu
+SKU-günlerinden tohumla `ornek` tanedir (az ise hepsi); havuz bütün pencerenin
+stoklu günleridir ve yalnız özellik hesabı içindir. Özellikler: `ozellikler`'in
+sayısal ve bayrak sütunları; kategorikler `line, alt_kategori, fiyat_segmenti,
+magaza_tipi, sehir, kanal`; `komsu_hizlar`'ın hücre ve mağaza × option
+sütunları (±14, hedef günü hariç: eğitim satırı kendi gününün satışını ve
+kardeş bedenlerinin o günkü satışını görmez); beden payı (Basit'le aynı,
+havuzdan); bunlardan türeyen üç özellik (`hucre_hiz`, `opsiyon_hiz` = satış ÷
+gün, `opsiyon_pay` = option komşu satışı × beden payı ÷ 28). Hedef `brut_satis`. Yalnız gözlenebilir sütunları okur (`hakem` ve
+`kayip` değil). Tahmin parça parça yapılır; bellek float32 özellik matrisiyle
+sınırlıdır.
+
 **Vektörel.** Havuz (mağaza × SKU × gün, mağaza × option × gün, option × gün)
 sıralı int64 anahtarlara ve kümülatif toplamlara indirgenir; her hedefin
 penceresi `searchsorted` ile O(log n), en yakın 28 gün ikili aramayla.
@@ -61,6 +74,7 @@ Satır başına Python yok.
 
 from typing import Protocol
 
+import lightgbm as lgb
 import numpy as np
 import pandas as pd
 
@@ -206,6 +220,34 @@ KOMSU_SUTUNLARI = ["komsu_hucre_satis", "komsu_hucre_gun", "komsu_opsiyon_satis"
                    "komsu_opsiyon_gun"]
 
 
+class _Komsu:
+    """Havuzun mağaza × SKU ve mağaza × option dizinleri; komşu toplamları.
+
+    Bir kez kurulur, her hedef kümesi için `hesapla` çağrılır (ML parça parça
+    tahmin eder, dizinler yeniden kurulmaz)."""
+
+    def __init__(self, k: _Kodlar, s: np.ndarray, komsu_gun: int):
+        self.k, self.komsu_gun = k, komsu_gun
+        bir = np.ones(len(s))
+        self.hucre = _Dizin(k.hucre(k.m, k.u), k.gun, s=s, n=bir)
+        self.opsiyon = _Dizin(k.mo(k.m, k.o), k.gun, s=s, n=bir)
+
+    def hesapla(self, hedef: pd.DataFrame) -> dict[str, np.ndarray]:
+        m, u, o, _, gun = self.k.hedef(hedef, alt=False)
+        cikti = {}
+        for ad, dizin, grup in (("hucre", self.hucre, self.k.hucre(m, u)),
+                                ("opsiyon", self.opsiyon, self.k.mo(m, o))):
+            toplam = {"satis": 0.0, "gun": 0.0}
+            for alt, ust in ((gun - self.komsu_gun, gun - 1), (gun + 1, gun + self.komsu_gun)):
+                lo, hi = dizin.aralik(grup, alt, ust)
+                toplam["satis"] = toplam["satis"] + dizin.toplam("s", lo, hi)
+                toplam["gun"] = toplam["gun"] + dizin.toplam("n", lo, hi)
+            for b, v in toplam.items():
+                cikti[f"komsu_{ad}_{b}"] = np.rint(
+                    np.broadcast_to(v, (len(hedef),))).astype(np.int32)
+        return cikti
+
+
 def komsu_hizlar(gunluk: pd.DataFrame, komsu_gun: int,
                  hedef: pd.DataFrame | None = None) -> pd.DataFrame:
     """Her hücre-gün için iki yanlı (gün hariç) stoklu satış toplamı ve stoklu gün sayısı.
@@ -218,22 +260,8 @@ def komsu_hizlar(gunluk: pd.DataFrame, komsu_gun: int,
     için; verilirse onun satırları için (sıra ve indeks hedefinki)."""
     havuz = yalniz_stoklu(gunluk)
     hedef = gunluk if hedef is None else hedef
-    k = _Kodlar(havuz, alt=False)
-    s = havuz["brut_satis"].to_numpy(np.float64)
-    bir = np.ones(len(s))
-    hucre = _Dizin(k.hucre(k.m, k.u), k.gun, s=s, n=bir)
-    opsiyon = _Dizin(k.mo(k.m, k.o), k.gun, s=s, n=bir)
-    m, u, o, _, gun = k.hedef(hedef, alt=False)
-    cikti = {}
-    for ad, dizin, grup in (("hucre", hucre, k.hucre(m, u)), ("opsiyon", opsiyon, k.mo(m, o))):
-        toplam = {"satis": 0.0, "gun": 0.0}
-        for alt, ust in ((gun - komsu_gun, gun - 1), (gun + 1, gun + komsu_gun)):
-            lo, hi = dizin.aralik(grup, alt, ust)
-            toplam["satis"] = toplam["satis"] + dizin.toplam("s", lo, hi)
-            toplam["gun"] = toplam["gun"] + dizin.toplam("n", lo, hi)
-        for b, v in toplam.items():
-            cikti[f"komsu_{ad}_{b}"] = np.rint(np.broadcast_to(v, (len(hedef),))).astype(np.int32)
-    return pd.DataFrame(cikti, index=hedef.index)[KOMSU_SUTUNLARI]
+    komsu = _Komsu(_Kodlar(havuz, alt=False), havuz["brut_satis"].to_numpy(np.float64), komsu_gun)
+    return pd.DataFrame(komsu.hesapla(hedef), index=hedef.index)[KOMSU_SUTUNLARI]
 
 
 # ------------------------------------------------------------------ havuz
@@ -474,3 +502,79 @@ class Basit:
         kalan = np.isnan(tahmin)
         tahmin[kalan] = h.son_yedek(m[kalan], a[kalan])
         return _seri(tahmin, hucre_gunler)
+
+
+# --------------------------------------------------------------------- ML
+
+ML_SAYISAL = ["hafta_gunu", "tatil", "black_friday", "indirim_baslangici", "markdown_orani",
+              "kampanya_orani", "oran", "yas_gun", "beden_sira", "metrekare", "liste_fiyati",
+              "alis_fiyati"]
+ML_KATEGORIK = ["line", "alt_kategori", "fiyat_segmenti", "magaza_tipi", "sehir", "kanal"]
+ML_EGITIM_YILLARI = (pd.Timestamp("2023-01-01"), pd.Timestamp("2024-12-31"))
+ML_PARCA = 2_000_000    # tahmin parçası (satır): float32 matris + komşu dizilerini sınırlar
+
+
+class ML:
+    """LightGBM (Poisson): 2023–2024 stoklu SKU-günlerinden öğrenir, her günü kestirir."""
+
+    def __init__(self, ornek: int = 4_000_000, tohum: int = 20261004, komsu_gun: int = 14):
+        self.ornek, self.tohum, self.komsu_gun = ornek, tohum, komsu_gun
+
+    def egit(self, gozlem: pd.DataFrame) -> None:
+        df = yalniz_stoklu(gozlem)
+        h = self._havuz = _Havuz(df)
+        k = h.k
+        gun = k.gun
+        bas, bit = (int(gun_sayisi(pd.Series([t]))[0]) for t in ML_EGITIM_YILLARI)
+        aday = np.flatnonzero((gun >= bas) & (gun <= bit))
+        if len(aday) == 0:
+            raise ValueError("ML: 2023–2024 stoklu satır yok (eğitim yalnız bu dönemde yapılır)")
+        if len(aday) > self.ornek:
+            aday = np.sort(np.random.default_rng(self.tohum).choice(aday, self.ornek, replace=False))
+        self._komsu = _Komsu(k, h.s, self.komsu_gun)
+        h.birak()
+        egitim = df.iloc[aday]
+        self._kategoriler = {c: pd.Index(egitim[c].astype("category").cat.remove_unused_categories()
+                                         .cat.categories) for c in ML_KATEGORIK}
+        x = self._matris(egitim)
+        self._sutunlar = list(x.columns)
+        self._egitim_satir = len(x)
+        y = egitim["brut_satis"].to_numpy(np.float64)
+        self._model = None
+        if y.sum() == 0:                  # Poisson hedefi sıfır toplamı kabul etmez: talep 0
+            return
+        self._model = lgb.LGBMRegressor(
+            objective="poisson", num_leaves=63, learning_rate=0.05, n_estimators=400,
+            min_child_samples=100, subsample=0.8, subsample_freq=1, colsample_bytree=0.8,
+            random_state=self.tohum, n_jobs=-1, verbose=-1)
+        self._model.fit(x, y)
+
+    def _matris(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Satırların özellik matrisi (float32 + kategorik); komşu özellikleri havuzdan,
+        hedefin kendi günü hariç; beden payı havuzdan."""
+        h = self._havuz
+        m, u, o, _, _ = h.k.hedef(df, alt=False)
+        sutun = self._komsu.hesapla(df)
+        sutun["beden_payi"] = h.pay(m, u, o).astype(np.float32)
+        # türev özellikler: Poisson ağacı oranı ve çarpımı kendi bulamaz (gün sayısı 0: NaN)
+        for ad in ("hucre", "opsiyon"):
+            satis = sutun[f"komsu_{ad}_satis"].astype(np.float32)
+            gun = sutun[f"komsu_{ad}_gun"].astype(np.float32)
+            sutun[f"{ad}_hiz"] = np.divide(satis, gun, out=np.full(len(df), np.nan, np.float32),
+                                           where=gun > 0)
+        sutun["opsiyon_pay"] = (sutun["komsu_opsiyon_satis"].astype(np.float32)
+                                * sutun["beden_payi"] / np.float32(2 * self.komsu_gun))
+        for c in ML_SAYISAL:
+            sutun[c] = df[c].to_numpy().astype(np.float32)
+        for c in ML_KATEGORIK:
+            sutun[c] = pd.Categorical(df[c], categories=self._kategoriler[c])
+        return pd.DataFrame(sutun)
+
+    def tahmin(self, hucre_gunler: pd.DataFrame) -> pd.Series:
+        sonuc = np.zeros(len(hucre_gunler))
+        if self._model is None:
+            return _seri(sonuc, hucre_gunler)
+        for i in range(0, len(hucre_gunler), ML_PARCA):
+            x = self._matris(hucre_gunler.iloc[i:i + ML_PARCA])
+            sonuc[i:i + ML_PARCA] = self._model.predict(x[self._sutunlar])
+        return _seri(sonuc, hucre_gunler)

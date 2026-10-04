@@ -233,6 +233,86 @@ def test_komsu_hizlar_iki_yanli_gun_haric():
     assert h.iloc[0]["komsu_hucre_satis"] == 20
 
 
+# --------------------------------------------------------------------- ML
+
+def _ml_serisi(gun: int = 280, hafta_sonu: float = 20.0, hafta_ici: float = 10.0) -> pd.DataFrame:
+    """İki mağaza × dört SKU, günlük satış hafta içi 10, cumartesi ve pazar 20."""
+    gunler = np.arange(gun)
+    satis = np.where(((BAS + pd.to_timedelta(gunler, unit="D")).dayofweek >= 5), hafta_sonu, hafta_ici)
+    return birlestir(*[_seri(m, u, gunler, satis) for m in ("M1", "M2")
+                       for u in ("A-S", "A-M", "B-S", "B-M")])
+
+
+def test_ml_deterministik():
+    df = _ml_serisi()
+    hedef = df[df["tarih"] >= BAS + pd.Timedelta(days=250)]
+    sonuc = []
+    for _ in range(2):
+        k = talep.ML(ornek=2000)
+        k.egit(df)
+        sonuc.append(k.tahmin(hedef))
+    pd.testing.assert_series_equal(sonuc[0], sonuc[1])
+    assert list(sonuc[0].index) == list(hedef.index)
+
+
+def test_ml_hafta_sonunu_ogrenir():
+    """Cumartesi 20, salı 10 satılan seride aynı hücrenin cumartesi tahmini salıdan yüksek."""
+    df = _ml_serisi()
+    k = talep.ML()
+    k.egit(df)
+    h = df[(df["magaza_id"] == "M1") & (df["urun_id"] == "A-S")]
+    cumartesi = h[h["hafta_gunu"] == 5].iloc[20:25]
+    sali = h[h["hafta_gunu"] == 1].iloc[20:25]
+    c, s = k.tahmin(cumartesi), k.tahmin(sali)
+    assert (c.to_numpy() > s.to_numpy()).all()
+    assert c.mean() == pytest.approx(20, rel=0.15)
+    assert s.mean() == pytest.approx(10, rel=0.15)
+
+
+def test_ml_negatif_tahmin_yok():
+    """Sıfır satışlı, bilinmeyen kimlikli ve boş özellikli satırlarda da tahmin sonlu ve >= 0."""
+    df = _ml_serisi(gun=200, hafta_sonu=0, hafta_ici=0)
+    k = talep.ML(ornek=1000)
+    k.egit(df)
+    yeni = _seri("M9", "Z-S", range(30), 0, durum="bos", sehir="Yeni", line="Yeni")
+    yeni.loc[3, "markdown_orani"] = np.nan
+    t = k.tahmin(birlestir(df.iloc[:50], yeni))
+    assert np.isfinite(t.to_numpy()).all() and (t.to_numpy() >= 0).all()
+
+
+def test_ml_komsu_ozelligi_kendi_gununu_gormez():
+    """Eğitim satırının komşu özellikleri kendi gününü (hücre ve option'ın bütün bedenleri)
+    içermez: 100. günün satışı 1000 olsa da özellik 28 komşu günden gelir."""
+    df = birlestir(_seri("M1", "A-S", range(200), 1), _seri("M1", "A-M", range(200), 1),
+                   _seri("M2", "A-S", range(200), 1))
+    gun100 = (df["tarih"] == BAS + pd.Timedelta(days=100)) & (df["urun_id"] == "A-S")
+    df.loc[gun100 & (df["magaza_id"] == "M1"), "brut_satis"] = 1000
+    df.loc[(df["tarih"] == BAS + pd.Timedelta(days=100)) & (df["urun_id"] == "A-M"), "brut_satis"] = 500
+    k = talep.ML(ornek=10 ** 6)
+    k.egit(df)
+    satir = df[gun100 & (df["magaza_id"] == "M1")]
+    x = k._matris(satir)
+    assert x["komsu_hucre_satis"].iloc[0] == 28 and x["komsu_hucre_gun"].iloc[0] == 28
+    assert x["komsu_opsiyon_satis"].iloc[0] == 56 and x["komsu_opsiyon_gun"].iloc[0] == 56
+
+
+def test_ml_yalniz_2023_2024_ogrenir_ve_tukeneni_havuza_almaz():
+    """Model yalnız 2023–2024 satırlarıyla eğitilir (2025 satışı model girdisi olmaz) ve
+    `tukenen` satır havuza girmez."""
+    df = birlestir(_seri("M1", "A-S", range(30), 2), _seri("M1", "A-S", [40], 99, durum="tukenen"))
+    k = talep.ML()
+    k.egit(df)
+    assert k._model.n_features_in_ == len(k._sutunlar)
+    assert k._egitim_satir == 30
+    ileri = df.iloc[:5].copy()
+    ileri["tarih"] = pd.Timestamp("2025-03-01") + pd.to_timedelta(np.arange(5), unit="D")
+    k2 = talep.ML()
+    k2.egit(birlestir(df, ileri))
+    assert k2._egitim_satir == 30
+    with pytest.raises(ValueError, match="2023"):
+        talep.ML().egit(ileri)
+
+
 # --------------------------------------------------------------- gerçek veri
 
 @pytest.mark.veri
@@ -246,7 +326,7 @@ def test_gercek_v4_naif_basit_bir_ay(v4_con):
     eylul = (g["tarih"] >= "2024-09-01") & (g["tarih"] <= "2024-09-30")
     hedef = g[eylul & (g["durum"] != "stoklu")]
     c = carpanlar.ogren(gozlem)
-    for k in (talep.Naif(), talep.Basit(carpanlar=c)):
+    for k in (talep.Naif(), talep.Basit(carpanlar=c), talep.ML(ornek=300_000)):
         k.egit(gozlem)
         t = k.tahmin(hedef)
         assert t.index.equals(hedef.index)
