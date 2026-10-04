@@ -26,9 +26,11 @@ koyun ya da `PERAKENDE_V4_DB` ortam değişkeniyle gösterin; indirme:
 | Modül | İş |
 |---|---|
 | `kaynak` | v4'e salt okunur bağlantı; `temiz_satis` (mükerrer satış ayıklanır), `cesit_hucreleri` (mağaza × SKU çeşidi; hayalet stok düşer) |
+| `carpanlar` | Basit'in gün karakteri, 2023–2024 stoklu günlerinden: hafta günü (kanal), özel gün, ε̂ kampanya (fark-içinde-fark; karakterde) ve ε̂ markdown (yalnız rapor), yaşam eğrisi, beden payı |
+| `talep` | kestiriciler (`egit(gozlem)`, `tahmin(hucre_gunler)`): `Naif` (son 28 gün), `Basit` (±14 gün, karakterle); `komsu_hizlar` |
 | `hakem` | gizli gerçeğin tek kapısı: v4'ü yeniden koşar, hücre-gün başına karşılanmayan talebi (`kendi_satis`, `karsilanmayan`, `ikameye_giden`, `kalici_kayip`) çıkarır, yayımlanan veriyle birebir doğrular, `cikti/hakem/`e yazar. `python -m perakende_analitik.hakem` (~dakikalar, GB'lar); `hakem.oku()` |
 
-Sonraki görevlerde `talep` gibi modüller eklenir.
+Sonraki görevlerde başka modüller eklenir.
 
 ## Sızıntı kuralı
 
