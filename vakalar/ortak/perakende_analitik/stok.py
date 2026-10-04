@@ -18,7 +18,7 @@ inebilir; `satis_oncesi ≤ 0` hepsi `bos` sayılır.
 
 `brut_satis` günün pozitif satış satırlarının toplamı, `net_satis` iadeler
 dahil toplamıdır. Satış, `kaynak.temiz_satis` üzerinden okunur (mükerrer
-satır tek sayılır). `ONL` bu fonksiyonda yoktur (çevrimiçi ayrı fonksiyon).
+satır tek sayılır). `ONL` bu fonksiyonda yoktur (çevrimiçi: `gunluk_online`).
 
 Uygun hücre-gün (yalnız bunlar döner):
 
@@ -54,6 +54,34 @@ def _gun(g) -> date:
     return pd.Timestamp(g).date()
 
 
+def _kategoriler(con: duckdb.DuckDBPyConnection) -> tuple[list[str], list[str], list[str]]:
+    """(magaza, urun, option) kategori evreni: boyut tablolarının tamamı, sıralı.
+    SQL'in ürettiği tamsayı kodlar bu listelere indeks olur; böylece mağaza ve
+    online tabloları `pd.concat`te kategori türünü korur."""
+    magazalar = [r[0] for r in con.execute(
+        "select magaza_id::varchar from magaza order by 1").fetchall()]
+    urunler = [r[0] for r in con.execute(
+        "select urun_id::varchar from urun order by 1").fetchall()]
+    opsiyonlar = [r[0] for r in con.execute(
+        "select distinct option_id::varchar from urun order by 1").fetchall()]
+    return magazalar, urunler, opsiyonlar
+
+
+def _tablo(ham: dict, kategoriler: tuple[list[str], list[str], list[str]]) -> pd.DataFrame:
+    """SQL'in kod sütunlarından günlük tablo (R9 türleri, R10 durum kategorisi)."""
+    magazalar, urunler, opsiyonlar = kategoriler
+    return pd.DataFrame({
+        "tarih": ham["gun"].astype("int64").astype("datetime64[D]").astype("datetime64[ns]"),
+        "magaza_id": pd.Categorical.from_codes(ham["magaza"], categories=magazalar),
+        "urun_id": pd.Categorical.from_codes(ham["urun"], categories=urunler),
+        "option_id": pd.Categorical.from_codes(ham["opsiyon"], categories=opsiyonlar),
+        "satis_oncesi": ham["satis_oncesi"].astype("int32"),
+        "brut_satis": ham["brut_satis"].astype("int32"),
+        "net_satis": ham["net_satis"].astype("int32"),
+        "durum": pd.Categorical.from_codes(ham["durum"], categories=DURUMLAR),
+    })
+
+
 def gunluk_magaza(con: duckdb.DuckDBPyConnection, bas: date, bit: date) -> pd.DataFrame:
     """[bas, bit] aralığındaki uygun mağaza hücre-günlerinin günlük tablosu.
 
@@ -63,12 +91,7 @@ def gunluk_magaza(con: duckdb.DuckDBPyConnection, bas: date, bit: date) -> pd.Da
     satis = kaynak.temiz_satis(con)
     cesit = kaynak.cesit_hucreleri(con)
 
-    magazalar = [r[0] for r in con.execute(
-        "select magaza_id::varchar from magaza order by 1").fetchall()]
-    urunler = [r[0] for r in con.execute(
-        "select urun_id::varchar from urun order by 1").fetchall()]
-    opsiyonlar = [r[0] for r in con.execute(
-        "select distinct option_id::varchar from urun order by 1").fetchall()]
+    kategoriler = _kategoriler(con)
 
     ham = con.execute(f"""
         with
@@ -156,13 +179,105 @@ def gunluk_magaza(con: duckdb.DuckDBPyConnection, bas: date, bit: date) -> pd.Da
         order by kur.d, mk.kod, uk.kod
     """).fetchnumpy()
 
-    return pd.DataFrame({
-        "tarih": ham["gun"].astype("int64").astype("datetime64[D]").astype("datetime64[ns]"),
-        "magaza_id": pd.Categorical.from_codes(ham["magaza"], categories=magazalar),
-        "urun_id": pd.Categorical.from_codes(ham["urun"], categories=urunler),
-        "option_id": pd.Categorical.from_codes(ham["opsiyon"], categories=opsiyonlar),
-        "satis_oncesi": ham["satis_oncesi"].astype("int32"),
-        "brut_satis": ham["brut_satis"].astype("int32"),
-        "net_satis": ham["net_satis"].astype("int32"),
-        "durum": pd.Categorical.from_codes(ham["durum"], categories=DURUMLAR),
-    })
+    return _tablo(ham, kategoriler)
+
+
+def gunluk_online(con: duckdb.DuckDBPyConnection, bas: date, bit: date) -> pd.DataFrame:
+    """[bas, bit] aralığındaki uygun online (`ONL`) SKU-günlerinin günlük tablosu.
+
+    Online, merkez depodan satar. Motorun günlük sırası: önce günün depo
+    hareketleri (tedarikçi teslimi, DEPO'ya varışlar, DEPO'dan çıkışlar;
+    replenishment dahil), sonra online satış, en son online iadeler depoya
+    döner. `depo_stok(d)` her günün hareketlerinden ÖNCE çekilen sabah
+    fotoğrafıdır. Dolayısıyla satışa açık stok bir sonraki sabah fotoğrafından
+    geriye doğru kurulur:
+
+        satis_oncesi(d) = depo_stok(d+1) + net_satis_ONL(d)
+
+    Teslim günlerinde depo zinciri (`depo_stok(d+1) = depo_stok(d) + varış −
+    çıkış − net_satis`) tutmaz: fark yayımlanmayan hatalı mal adedidir (hatalı
+    mal depoya girmez). d+1 formülü bunu kendiliğinden doğru yakalar.
+
+    Son gün (`depo_stok`un son tarihi, v4'te pencere sonu 2025-12-31) için
+    d+1 fotoğrafı yoktur; ileri kurulum kullanılır:
+
+        satis_oncesi(d) = depo_stok(d) + Σ siparis.adet (gerceklesen_teslim = d)
+                          + Σ varış(hedef DEPO, d) − Σ çıkış(kaynak DEPO, d)
+
+    İleri kurulum teslim günündeki hatalı adedi bilmez (yayımlanmıyor); o
+    günün `satis_oncesi`sini en çok hatalı adet kadar fazla verebilir. Bu
+    yalnız son gün için geçerlidir. `depo_stok`un son tarihinden sonraki
+    günler döndürülmez (kurmaya dayanak yok).
+
+    Bir SKU-günün `depo_stok` satırı yoksa depo stoğu 0 sayılır (uygun
+    pencerede olmayan SKU zaten dönmez). Durum kuralı mağazadakiyle aynı:
+    `satis_oncesi <= 0` bos; `brut_satis >= satis_oncesi` tukenen; diğeri stoklu.
+
+    Uygun gün: `lansman_tarihi <= d < cikis_tarihi` (çıkış boşsa pencere
+    sonuna dek). Satış `kaynak.temiz_satis` üzerinden okunur. Sütunlar ve
+    sıra `gunluk_magaza`yla aynı (`magaza_id` hep `ONL`); kategori evreni de
+    aynı olduğundan iki tablo `pd.concat` ile kategori türünü korur."""
+    bas, bit = _gun(bas), _gun(bit)
+    satis = kaynak.temiz_satis(con)
+    kategoriler = _kategoriler(con)
+
+    ham = con.execute(f"""
+        with
+        mk as (select kod from (
+                   select magaza_id::varchar as m,
+                          row_number() over (order by magaza_id::varchar) - 1 as kod
+                   from magaza) where m = 'ONL'),
+        uk as (select urun_id::varchar as u, option_id::varchar as o,
+                      row_number() over (order by urun_id::varchar) - 1 as kod,
+                      lansman_tarihi::date as lansman, cikis_tarihi::date as cikis
+               from urun),
+        ok as (select o, row_number() over (order by o) - 1 as kod
+               from (select distinct option_id::varchar as o from urun)),
+        son as (select max(tarih::date) as g from depo_stok),
+        gun as (select unnest(generate_series(date '{bas}', date '{bit}',
+                                              interval 1 day))::date as d),
+        depo as (select urun_id::varchar as u, tarih::date as g, adet from depo_stok),
+        sat as (
+            select urun_id::varchar as u, tarih::date as g,
+                   sum(adet) as net, sum(adet) filter (where adet > 0) as brut
+            from {satis} where magaza_id::varchar = 'ONL' group by 1, 2),
+        teslim as (
+            select urun_id::varchar as u, gerceklesen_teslim::date as g, sum(adet) as n
+            from siparis where gerceklesen_teslim is not null group by 1, 2),
+        varis as (
+            select urun_id::varchar as u, varis_tarihi::date as g, sum(adet) as n
+            from sevkiyat where hedef::varchar = 'DEPO' and varis_tarihi is not null
+            group by 1, 2),
+        cikis as (
+            select urun_id::varchar as u, tarih::date as g, sum(adet) as n
+            from sevkiyat where kaynak::varchar = 'DEPO' group by 1, 2),
+        kur as (
+            select g.d, uk.kod as urun, uk.o,
+                   coalesce(a.net, 0) as net, coalesce(a.brut, 0) as brut,
+                   case when g.d < son.g
+                        then coalesce(dn.adet, 0) + coalesce(a.net, 0)
+                        else coalesce(db.adet, 0) + coalesce(t.n, 0)
+                             + coalesce(v.n, 0) - coalesce(c.n, 0) end as satis_oncesi
+            from gun g
+            cross join son
+            join uk on uk.lansman <= g.d and (uk.cikis is null or g.d < uk.cikis)
+            left join depo dn on dn.u = uk.u and dn.g = g.d + 1
+            left join depo db on db.u = uk.u and db.g = g.d
+            left join sat a on a.u = uk.u and a.g = g.d
+            left join teslim t on t.u = uk.u and t.g = g.d
+            left join varis v on v.u = uk.u and v.g = g.d
+            left join cikis c on c.u = uk.u and c.g = g.d
+            where g.d <= son.g)
+        select (kur.d - date '1970-01-01')::int as gun,
+               mk.kod as magaza, kur.urun as urun, ok.kod as opsiyon,
+               kur.satis_oncesi::int as satis_oncesi,
+               kur.brut::int as brut_satis,
+               kur.net::int as net_satis,
+               case when kur.satis_oncesi <= 0 then 2
+                    when kur.brut >= kur.satis_oncesi then 1 else 0 end::tinyint as durum
+        from kur cross join mk
+        join ok on ok.o = kur.o
+        order by kur.d, kur.urun
+    """).fetchnumpy()
+
+    return _tablo(ham, kategoriler)
