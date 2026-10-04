@@ -165,3 +165,14 @@ def test_elle_hikaye(cikti, oyuncak_db, sahte_hakem, capsys):
     # o gün o mağazada bos bedeni yok: açık hata
     assert rapor.main(argv + ["--hikaye", "MDL0001-SYH,M002,2025-01-20"]) == 2
     assert "bos bedeni yok" in capsys.readouterr().err
+
+
+def test_son_tukenis_hic_stoklanmamis_hucre_dahil():
+    # A: son stoklu açılış 01-05 -> 01-04 operasyonel, 01-06 son; B: hiç stoklu açılmadı -> son (R26)
+    df = pd.DataFrame({"tarih": pd.to_datetime(["2025-01-04", "2025-01-06", "2025-01-03"]),
+                       "magaza_id": pd.Categorical(["M1", "M1", "M1"]),
+                       "urun_id": pd.Categorical(["A", "A", "B"])})
+    son = pd.DataFrame({"m": ["M1", "M1"], "u": ["A", "B"],
+                        "son": pd.to_datetime(["2025-01-05", None])})
+    son_mu, hic = rapor._son_tukenis_mi(df, son)
+    assert son_mu.tolist() == [False, True, True] and hic.tolist() == [False, False, True]

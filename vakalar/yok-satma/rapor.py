@@ -904,7 +904,7 @@ def _son_tukenis(con, cikti: Path, kars25: pd.DataFrame) -> tuple[float, int]:
     alt(f"Son tükeniş ({OLCUM_YILI}, line başına): Basit kaybı ve hakemin karşılanmayanı yan yana")
     print("  son tükeniş: hücrenin (mağaza × SKU) pencere içindeki son stoklu açılışından (durum ≠ bos)"
           " SONRAKİ günler; mal bitti ve hücrenin uygun penceresi kapanana (ya da 2025 sonuna) dek"
-          " yeniden gelmedi")
+          " yeniden gelmedi; pencerede hiç stoklu açılmamış hücreler de son tükeniştir (R26)")
     print("  diğer: aynı hücre sonradan yeniden stoklandı · ikisi de kayıp tablosunun 2025 hücre-günleri"
           " (bos + tukenen), hakemle eşleşmiş (AYRIŞIM'la aynı küme)")
     e = degerlendir.eslestir(_kayip_2025(cikti, "basit"), kars25)[
@@ -941,15 +941,16 @@ def _son_tukenis(con, cikti: Path, kars25: pd.DataFrame) -> tuple[float, int]:
     sirali = [h for h in hikaye_sec.HATLAR if h in tablo.index] + sorted(
         set(tablo.index) - set(hikaye_sec.HATLAR))
     for h, r in list(tablo.loc[sirali].iterrows()) + [("toplam", tablo.sum())]:
-        ks, kd = r[("kayip", "son")], r[("kayip", "diger")] + r[("kayip", "hic")]
-        hs, hd = r[("kars", "son")], r[("kars", "diger")] + r[("kars", "hic")]
+        ks, kd = r[("kayip", "son")] + r[("kayip", "hic")], r[("kayip", "diger")]
+        hs, hd = r[("kars", "son")] + r[("kars", "hic")], r[("kars", "diger")]
         print(f"    {h:11s} | {s(ks):>10s} {s(kd):>10s} {y(ks / (ks + kd) if ks + kd else np.nan):>8s} |"
               f" {s(hs):>10s} {s(hd):>10s} {y(hs / (hs + hd) if hs + hd else np.nan):>8s}")
     hic = tablo.sum()
     if hic[("kayip", "hic")] or hic[("kars", "hic")]:
-        print(f"    (diğer içinde, pencerede hiç stoklu açılışı olmayan hücreler: Basit "
+        print(f"    (son tükeniş içinde, pencerede hiç stoklu açılışı olmayan hücreler: Basit "
               f"{s(hic[('kayip', 'hic')])}, hakem {s(hic[('kars', 'hic')])})")
-    return float(hic[("kayip", "son")]), int(hic[("kars", "son")])
+    return (float(hic[("kayip", "son")] + hic[("kayip", "hic")]),
+            int(hic[("kars", "son")] + hic[("kars", "hic")]))
 
 
 _YOK = np.iinfo(np.int64).max      # hücre günlük tabloda yok (olmamalı)
@@ -967,8 +968,8 @@ def _son_stoklu_gunler(con, cikti: Path) -> pd.DataFrame:
 def _son_tukenis_mi(df: pd.DataFrame, son: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     """Satır başına (son tükeniş mi, hücrenin hiç stoklu açılışı yok mu).
 
-    Son tükeniş: gün, hücrenin son stoklu açılışından sonra. Hiç stoklu açılmamış hücre
-    son tükeniş SAYILMAZ (operasyonel tarafta kalır; `_son_tukenis` tablosundaki "diğer"le aynı)."""
+    Son tükeniş: gün, hücrenin son stoklu açılışından sonra; pencerede hiç stoklu açılmamış
+    hücre de son tükeniştir (R26: pencere içinde hiç yeniden stoklanmadı)."""
     mk, mev = df["magaza_id"].cat.codes.to_numpy(), pd.Index(df["magaza_id"].cat.categories.astype(str))
     uk, uev = df["urun_id"].cat.codes.to_numpy(), pd.Index(df["urun_id"].cat.categories.astype(str))
     mi, ui = mev.get_indexer(son["m"].astype(str)), uev.get_indexer(son["u"].astype(str))
@@ -980,7 +981,7 @@ def _son_tukenis_mi(df: pd.DataFrame, son: pd.DataFrame) -> tuple[np.ndarray, np
     if (satir == _YOK).any():
         raise KorunumHatasi(f"son tükeniş: {int((satir == _YOK).sum())} satırın hücresi günlük tabloda yok")
     hic = satir == _HIC
-    return (_gun_no(df["tarih"]) > satir) & ~hic, hic
+    return (_gun_no(df["tarih"]) > satir) | hic, hic
 
 
 def _turlu(df: pd.DataFrame, son: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
@@ -997,8 +998,8 @@ def _operasyonel_son(con, cikti: Path, kb: pd.DataFrame, zincir: pd.DataFrame, t
     alt("Kayıp ikiye bölünmüş: operasyonel ve son tükeniş (Basit; yıl × kanal)")
     print("  operasyonel: hücre o günden sonra pencerede yeniden stoklandı (geçici stoksuzluk) ·"
           " son tükeniş: hücrenin son stoklu açılışından sonraki günler (potansiyel kayıp)")
-    print("  hiç stoklu açılmamış hücreler operasyonel tarafta (yukarıdaki son tükeniş tablosunun"
-          " 'diğer'iyle aynı); ÷ ciro: aynı yıl × kanalın net cirosuna oranı")
+    print("  pencerede hiç stoklu açılmamış hücreler son tükeniş tarafında (R26); ÷ ciro: aynı yıl ×"
+          " kanalın net cirosuna oranı")
     print("  2025'in son tükenişi, pencereden (2025-12-31) sonra yeniden stoklanacak hücreleri de"
           " içerir: veri orada biter")
     son = _son_stoklu_gunler(con, cikti)
@@ -1030,7 +1031,7 @@ def _operasyonel_son(con, cikti: Path, kb: pd.DataFrame, zincir: pd.DataFrame, t
             bas(etiket, "toplam", pa, ca.sum())
 
     tablo(o, [(y_, (y_,)) for y_ in YILLAR] + [("hepsi", YILLAR)])
-    print(f"  (operasyonel içinde, pencerede hiç stoklu açılışı olmayan hücreler: "
+    print(f"  (son tükeniş içinde, pencerede hiç stoklu açılışı olmayan hücreler: "
           f"{s(kb.loc[hic, 'kayip'].to_numpy(np.float64).sum())} adet)")
 
     alt(f"Aynı bölünme hakem tarafında ({OLCUM_YILI}, karşılanmayan; kayıp tablosunun hücre-günleri)")
