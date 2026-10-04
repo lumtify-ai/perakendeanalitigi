@@ -1,0 +1,171 @@
+---
+baslik: Kaybın Sahibi
+tip: anlatici
+sira: 5
+ozet: Her kayıp gününe tek bir adres. Lojistik, mağaza, allocation, tedarik, planlama. Pazar günkü hikâyenin suçlusu zincirin genelinde en küçük dal çıkıyor; transfer ise bilerek ağaçta yok.
+yazar: Sabri Suyunu
+durum: hazirlaniyor
+---
+
+import Lumtify from '../../../../components/Lumtify.astro'
+import T from '../../../../components/T.astro'
+
+İlk yazıda Pelin bir cümle kurmuştu: "Siparişi ben planladım." Ali
+rahatlamış, Veli gülmüştü. O sahnede herkesin aklından aynı soru geçiyordu:
+bu kayıp kimin?
+
+Bu dizinin son yazısı o soruya bakıyor. Ama önce Pars'ın bir uyarısı.
+
+— Kaybın sahibi bir suçlu değil, diyor. Bir adres. Kaybı kimin
+düzeltebileceğini söyler. Suçlu aramaya başlarsanız herkes kendi dalını
+küçültmeye uğraşır ve sayı yine yanlış çıkar.
+
+## Beş soru, tek adres
+
+Pars tahtaya beş soru yazıyor. Her kayıp günü için sırayla sorulacak. İlk
+"evet" kaybın adresi.
+
+1. **Lojistik.** Mal yola çıkmış ama varması gereken günde varmamış mı?
+2. **Mağaza.** Mal mağazanın deposunda duruyor ama rafa çıkmamış mı?
+3. **Allocation.** Malın o güne yetişebileceği son sevkiyat fırsatında
+   merkez depoda o beden var mıydı?
+4. **Tedarik.** Depo boştu, ama zamanında gelseydi o fırsatta depoda
+   olacak bir sipariş gecikti mi?
+5. **Planlama.** Hiçbiri değilse: mal yeterince alınmamış ya da tekrar
+   sipariş verilmemiş.
+
+— Sıra neden böyle? diyor Veli.
+
+— Çünkü her soru bir öncekinin cevabına bakıyor, diyor Pars. Mal mağazanın
+deposundaysa merkez depoda olup olmaması önemli değil. Kaybı en yakın
+düzeltebilecek kişiye yazıyoruz.
+
+Pazar günkü iki bedene uygulayalım. Mal yolda değildi. Mağazanın deposunda
+da yoktu; danışman bakmıştı. Merkez depoda vardı, ama son sevkiyat
+fırsatında değil, önceki gece geldi. Sipariş pazartesi gelecekti,
+cumartesi geldi. Adres: tedarik.
+
+Sweatshirt'ün bütün haftasına bakınca tablo biraz değişiyor. O haftanın
+kaybının %64,6'sı tedarike yazılıyor, %17,3'ü allocation'a, %18,1'i
+planlamaya. Ağaç her güne ve her bedene ayrı bakıyor; bazı günlerde, o
+güne yetişecek son sevkiyat fırsatında depoda o beden vardı.
+
+— Allocation benim, diyor Ali.
+
+— Bir kısmı, diyor Pars. Pazar günkü iki beden değil.
+
+## Zincirin ağacı
+
+Şimdi bütün Lumoda, son yıl. Kayıp adedin dallara dağılımı:
+
+| Dal | Mağaza | Online |
+|---|---:|---:|
+| Lojistik | bu veride yok | bu veride yok |
+| Mağaza | bu veride yok | bu veride yok |
+| Allocation | %54,3 | dal yok |
+| Tedarik | %4,6 | %17,8 |
+| Planlama | %41,1 | %82,2 |
+
+Online'da allocation dalı yok, çünkü online'ın stoğu merkez deponun
+kendisi. Depoda mal varsa online'da da vardır; online'ın kaybı depoya mal
+gelmemesinden doğar.
+
+Tablonun en ilginç satırı tedarik. Pazar günkü hikâyenin suçlusu, mağazada
+kaybın yalnız %4,6'sı. Akılda kalan olay tipik olan değil. Bir tedarikçi
+gecikmesi herkesin konuştuğu, toplantıda adı geçen şeydir. Ama mağazadaki
+kaybın yarısından fazlası, merkez depoda mal varken mağazaya
+yetiştirilemeyen günlerden geliyor. Son yıl mağazada allocation dalının
+kaybı etiket fiyatıyla 1.241.526.227 TL, mağaza kaybının %56,7'si.
+
+Ali bu satıra uzun süre bakıyor.
+
+— Yani asıl kayıp benim masamda.
+
+— Senin masanda düzeltilebilir olan, diyor Pars. Bu iyi haber. Tedarikçinin
+gecikmesini sen düzeltemezsin. Depodaki malın mağazaya ne zaman ve ne
+kadar gideceğini düzeltebilirsin.
+
+## Boş iki dal
+
+Lojistik ve mağaza dalları bu veride boş. Lumoda'da depodan mağazaya yol
+süresi sabit, sevkiyat gecikmiyor. Rafla mağaza deposu da ayrı kaydedilmiyor.
+
+Gerçek bir şirkette en çok tartışılan dallar bunlardır. "Mal yoldaydı" ve
+"mal arkadaydı, rafa çıkmadı" cümlelerini her toplantıda duyarsınız. Bu iki
+dalı doldurmak için sevkiyatın gerçek varış saatine ve mağazanın kendi
+deposunun ayrı kaydına ihtiyaç var.
+
+## Transfer neden dal değil
+
+Veli bir itiraz getiriyor.
+
+— Pazar günü o sweatshirt'ün M bedeni başka bir mağazada duruyordur. Oradan
+transfer edilseydi satılırdı. Bu da bir dal değil mi?
+
+— Değil, diyor Pars. O mal orada da satılabilirdi. Her mağazanın kendi
+satış ihtimali var. Transferle bir mağazanın kaybını kapatırsın, öbüründe
+yeni bir kayıp açarsın. Hangisinin daha büyük olduğu ayrı bir hesap. Kaybı
+bir mağazadan alıp ötekine yazan bir dalı da kimse kabul etmez.
+
+Transfer gerçek bir araç ve haritada kendi aşaması var. Ama kaybın adresi
+değil. Adres, malın o mağazaya baştan neden yetmediği.
+
+## Dalın arkasındaki dizi
+
+Önceki yazıda kaybı ikiye bölmüştük: operasyonel ve son tükeniş. Ağaç başka
+bir kesit. Bölme kaybın gerçek mi potansiyel mi olduğunu soruyor; ağaç kimin
+düzeltebileceğini. İkisi birlikte okunur.
+
+**Allocation** dalı, depodaki malın mağazaya zamanında yetişmemesi.
+<T k="replenishment">Replenishment</T> kararının konusu; [Depodan Mağazaya
+dizisi](/replenishment/depodan-magazaya/) bu kararı baştan kuruyor.
+
+**Planlama** dalı, yeterince alınmamış ürün ve verilmemiş tekrar sipariş.
+<T k="rpt">RPT</T> kararının konusu; [Tekrar Sipariş
+dizisi](/rpt/tekrar-siparis/) beklenenden hızlı satan bir ürünün yeniden
+ürettirilip ürettirilmeyeceğini soruyor.
+
+**Tedarik** dalı, tedarikçinin gecikmesi. Haritada kendi aşaması var:
+tedarikçi performansını ölçmek ve tedarikçi seçmek.
+
+## Bu verinin göstermedikleri
+
+**Gün içinde saat yok.** Lumoda'da bir gün ya boş açılır ya içinde biter.
+Öğleden sonra biten bir bedenin kaybı günlük talepten tahmin ediliyor;
+hangi saatte bittiğini bilmiyoruz.
+
+**Bekleyen müşteri yok.** Lumoda'da rafı boş bulan müşteri ya başka bir şey
+alır ya gider. "Haftaya gelirim" diyen müşteri yok. Pelin pazar günü tam
+bunu sormuştu: bekleyecek misiniz? Gerçek bir zincirde bu müşterilerin bir
+kısmı geri gelir ve kaybın bir parçası ertelenmiş satış olur.
+
+**Lojistik ve mağaza dalları boş.** Yukarıda anlattık. Gerçek bir şirkette
+ağacın şekli bu yüzden başka çıkar.
+
+**Tek zincir, üç yıl, tek hakem yılı.** Yöntemleri ilk iki yılda kurduk,
+üçüncü yılda sınadık. Başka bir zincirin ürün karması, mağaza ağı ve
+tedarikçileri başka oranlar verir.
+
+## Baştaki soru
+
+Ali mi, Veli mi? Pazar günü ikisi aynı sweatshirt'ü istemişti ve ikisi de
+bulamamıştı. Veli'ninki gerçek bir satış kaybıydı, adresi tedarikti.
+Ali'ninki ikameydi; şirket satışı kaçırmadı.
+
+Beş yazı sonra o sahnenin bir zinciri ne kadar iyi özetlediğini, ne kadar
+yanılttığını da görüyoruz. Rafı boş bulan müşterilerin çoğu gerçekten Veli
+gibi davranıyor. Ama Veli'nin hikâyesindeki suçlu, tedarik, zincirin
+genelinde en küçük dal. Asıl kayıp, depoda duran malın mağazaya
+yetişmediği günlerde ve yeterince alınmamış malın yokluğunda.
+
+Satış kaybını ölçmek bir sayı bulmak değil. Sayıyı doğru masaya koymak.
+
+Sizin verinizde zor olan da bu son adım. Ağacın her dalı bir kural ister:
+son sevkiyat fırsatı hangi gündür, yol süresi kaçtır, siparişin teslim
+tarihi sistemde doğru mu yazılı, mağaza deposu raftan ayrı kaydediliyor mu.
+Bu kuralların çoğu teknik bir soru değil. Hepsi şirketin içinde kimin neye
+sorumlu olduğunu birlikte kabul etmesini gerektiriyor. Bizim veride bunu
+bir kod dosyasında kararlaştırdık. Sizde bir toplantı odasında
+kararlaştırılacak, ve muhtemelen birden fazla toplantıda. 🙂
+
+<Lumtify />

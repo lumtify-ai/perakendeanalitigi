@@ -1,0 +1,145 @@
+---
+baslik: Satış Kaybı Nasıl Hesaplanır
+tip: anlatici
+sira: 2
+ozet: Üç adım. Stoksuz günü bul, stoklu günlerin hızını ölç, her stoksuz güne bir kayıp yaz. Her adımın içinde bir tuzak var ve ilki, en az konuşulanı, en zorudur.
+yazar: Sabri Suyunu
+durum: hazirlaniyor
+---
+
+import T from '../../../../components/T.astro'
+
+Pazartesi sabahı. Pelin, Banu'yla konuşmuş; tedarikçiye gecikmenin
+hesabını soracaklar. Toplantı odasında bir soru kalmış.
+
+— Pazar günü o sweatshirt'ten kaç satış kaçırdık? diyor Pelin. Bunu bir
+sayıyla söyleyebilir miyiz?
+
+Pars tahtaya üç satır yazıyor:
+
+1. Stoksuz günü bul.
+2. Stoklu günlerin hızını ölç.
+3. Her stoksuz güne bir kayıp yaz.
+
+— Bu kadar mı? diyor Veli.
+
+— Bu kadar. Ama her adımın içinde bir tuzak var.
+
+## Birinci adım: stoksuz gün
+
+Kayıp yalnız <T k="stoksuz-gun">stoksuz gün</T>de oluşur. Ürünün o mağazada
+satışta olması gereken, ama rafta bulunmadığı gün. İki türü var. Gün
+baştan boş açılır, ya da sabah stokla açılır ve gün içinde biter.
+
+— Bunu bulmak zor mu? diyor Ali. Stok raporuna bakarız.
+
+— Hangi stok raporuna? diyor Pars. Lumoda mağaza stoğunu haftada bir kez,
+pazartesi sabahı veriyor. Arada sevkiyat geliyor, satış oluyor, iade
+dönüyor. Günlük stoğu biz kuruyoruz.
+
+Pazartesi fotoğrafına haftanın hareketleri sırayla eklenip çıkarılınca
+her günün sabah stoğu ortaya çıkıyor. Hesabın doğru olduğunu bir sonraki
+pazartesinin fotoğrafı söylüyor: o fotoğraf, her mağaza ve beden için
+geçen haftanın kaç gününde rafta mal olduğunu da yazıyor. Kurduğumuz
+günlük stok bu sayıyı 9.667.974 hücre-haftanın 9.667.961'inde tutturuyor.
+%99,9999.
+
+Lumoda'nın üç yılında kayıp yazılabilecek 69.380.499 hücre-gün var. Hücre,
+bir mağazada (ya da online'da) bir beden demek. Bunların 11.827.814'ü boş açılmış, 803.908'i
+gün içinde tükenmiş. Toplamda günlerin %18,2'si stoksuz. Son yıl mağazada
+%21,0, online'da %39,8.
+
+"Kayıp yazılabilecek" kelimesi önemli. Ürünün o mağazanın çeşidinde
+olmadığı, mağazanın kapalı olduğu, ürünün henüz satışa çıkmadığı ya da
+çoktan çıktığı günler sayılmıyor. Rafta olmaması gereken bir ürünün
+yokluğu kayıp değildir.
+
+— Bizde bu adım kısa sürdü, diyor Pars. Gerçek bir şirkette en uzun süren
+adım budur. Çoğu sistem günlük stok tutmaz. Tutsa da sayım farkı olur, bir
+tarafı girilmiş bir transfer olur, geç kaydedilmiş bir sevkiyat olur.
+Stoksuz günü yanlış bulursanız sonraki iki adım ne kadar iyi olursa olsun
+sayı yanlış çıkar.
+
+## İkinci adım: stoklu günün hızı
+
+— İkinci adım kolay, diyor Pelin. Stoklu günlerin satışının ortalamasını
+alırız.
+
+— Hangi stoklu günlerin? diyor Pars.
+
+Her gün aynı satmaz. Pars tahtaya günün karakterini yazıyor.
+
+**Haftanın günü.** Lumoda'nın mağazalarında hafta sonu, hafta içinin 1,54
+katı satıyor. Online'da fark yok: 0,99.
+
+**Özel gün.** Black Friday cuması, indirimin etkisi çıkarıldıktan sonra
+bile sıradan bir günün 1,843 katı satıyor. Resmî tatilde satış sıradan
+günün 0,70'i kadar.
+
+**Fiyat.** Kampanya günü daha çok satılır. Fiyat etkisini ölçmek göründüğü
+kadar kolay değil; üçüncü yazının bir bölümü bu.
+
+**Ürünün yaşı.** Sezonluk bir ürün ilk haftalarında hızlı satar, sonra
+yavaşlar. Bu, ürünün <T k="yasam-egrisi">yaşam eğrisi</T>. Sürekli ürünün
+eğrisi düzdür, sezonluk ürününki değil.
+
+— Yani stoklu bir cumartesiyle stoksuz bir salıyı aynı kefeye
+koyamazsınız, diyor Pars. Her stoklu günü önce kendi karakterinden
+arındırırsınız. Sonra stoksuz günün karakterine taşırsınız.
+
+Bu karakterleri Lumoda'nın ilk iki yılının 38.484.293 stoklu hücre-gününden
+öğrendik. Üçüncü yılı ölçmek için ayırdık.
+
+Bir tuzak daha var. Bir beden haftalardır yoksa, o bedenin kendi stoklu
+günü de yoktur. O zaman ürünün öteki bedenlerinin hızına ve o bedenin
+ürün içindeki payına bakılır. Ali'nin S bedeni yoksa, M ve L'nin satışı S
+hakkında bir şey söyler.
+
+## Neden iki yana bakılır
+
+Veli bir şeye takılıyor.
+
+— Tahmin geleceğe bakar. Biz geçmişe bakıyoruz, değil mi?
+
+— Satış kaybı tahmin değil, diyor Pars. Olaydan sonra yapılan bir ölçü.
+Stoksuz günün hem öncesi hem sonrası elimizde. İkisine birden bakarız.
+
+Bunun bir sebebi yaşam eğrisi. Ürün yavaşlıyorsa yalnız geriye bakan hesap
+stoksuz günün talebini fazla görür. Yalnız ileriye bakan eksik görür.
+İki yanın ortası en iyi tanıktır.
+
+— Peki mal bir daha hiç gelmediyse? diyor Ali.
+
+— O zaman yalnız geriye bakarız ve yaşam eğrisiyle uzatırız. Bu durumun
+kendine ait bir adı var; dördüncü yazıda ona döneceğiz.
+
+## Üçüncü adım: kaybı yazmak
+
+Boş açılan günde iş kolay: o günün beklenen talebinin tamamı kayıptır.
+İstanbul 5'te o pazar, Ali'nin bedeni için beklenen talep 1,32 adet,
+Veli'ninki 2,24 adet. Gün boş açıldı, kayıp da bu kadar.
+
+— 1,32 sweatshirt satılmaz ki, diyor Ali.
+
+— Tek bir günde satılmaz. Ama bu küçük sayıları bütün günler, bütün
+bedenler, bütün mağazalar için toplarsın. Sweatshirt'ün o haftasında,
+online da dahil, 1.530 adet ediyor.
+
+Gün içinde tükenen gün daha ince. Sabah üç adetle açılmış, üçü de
+satılmış. Talebin en az üç olduğunu biliyoruz. Daha fazla olduğunu da
+tahmin ediyoruz, çünkü raf erkenden boşaldı. Ama ne kadar fazla? Bunu
+hesaplamanın kâğıt üstünde doğru bir yolu var. Üçüncü yazıda o doğru yolun
+neden fazla yazdığını anlatacağız.
+
+## Sizin verinizde zor olan
+
+Bu yazının üç adımından en çok konuşulanı ikincisi. Hız nasıl ölçülür,
+hangi model daha iyi, makine öğrenmesi kullanalım mı. Bir sonraki yazı da
+onu anlatıyor.
+
+Ama sizin verinizde zor olan büyük ihtimalle birinci adım. Lumoda'da
+günlük stoğu kurmak kısa bir işti, çünkü her hareket kayıtlı ve neredeyse
+her kayıt tutarlı. Gerçek bir zincirde bu adım haftalar alır ve sonunda bile
+"bu mağazada bu gün raf gerçekten boş muydu" sorusuna her zaman emin bir
+cevap veremezsiniz. Stoksuz günü bulamadığınız yerde satış kaybı
+hesaplanmaz. Ancak tahmin edilir. 🙂

@@ -522,6 +522,7 @@ describe('site geneli vaatler', () => {
       'transfer/blok-transfer/basari-nasil-olculur/index.html',
       'replenishment/depodan-magazaya/basari-nasil-olculur/index.html',
       'rpt/tekrar-siparis/rpt-geldi/index.html',
+      'is-zekasi/satis-kaybi/kaybin-sahibi/index.html',
     ]
 
     const gecenler = tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))
