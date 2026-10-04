@@ -50,18 +50,26 @@ def test_cesit_gercek_hucreler_ve_online(oyuncak_con):
     assert not any(m == "DEPO" for m, _ in hucre)
 
 
-def test_cesit_pencere_oncesi_hucreler_hayalet_degil(oyuncak_con):
-    # sevkiyatı pencerede görünmeyen ama satan (ya da birden çok pazartesi
-    # fotoğrafı olan) hücre gerçektir; yalnız tek fotoğraflı, satmayan hücre hayalet
+def test_cesit_varissiz_satissiz_hucreler(oyuncak_con):
+    """Varışı ve satışı olmayan hücreler: yalnız tek fotoğraflı, adet > 0 olan
+    hayalettir. Hücreler M003'te (temel senaryoya dokunmaz)."""
     oyuncak_con.execute("""
-        insert into stok values ('2025-01-06', 'M002', 'MDL0001-SYH-S', 2, 7);
-        insert into satis values ('2025-01-08', 'M002', 'MDL0001-SYH-M', 1, 250, 0, NULL);
-        delete from sevkiyat where hedef = 'M002'""")
+        insert into stok values
+          ('2025-01-06', 'M003', 'MDL0001-SYH-S', 2, 7),   -- (a) iki ayrı pazartesi, adet > 0
+          ('2025-01-13', 'M003', 'MDL0001-SYH-S', 2, 7),
+          ('2025-01-06', 'M003', 'MDL0001-SYH-M', 0, 0),   -- (b) tek fotoğraf, adet 0
+          ('2025-01-06', 'M003', 'MDL0001-SYH-L', 3, 7),   -- (c) tek fotoğraf, adet > 0 + satış
+          ('2025-01-06', 'M003', 'MDL0001-SYH-XL', 3, 7);  -- (d) hayalet: tek fotoğraf, adet > 0
+        insert into satis values ('2025-01-08', 'M003', 'MDL0001-SYH-L', 1, 250, 0, NULL)""")
+    assert oyuncak_con.execute(
+        "select count(*) from sevkiyat where hedef = 'M003'").fetchone()[0] == 0
     ad = kaynak.cesit_hucreleri(oyuncak_con)
     hucre = set(oyuncak_con.execute(f"select magaza_id, urun_id from {ad}").fetchall())
-    assert ("M002", "MDL0001-SYH-M") in hucre       # satışı var
-    assert ("M002", "MDL0001-SYH-S") in hucre       # 5 pazartesi fotoğrafı
-    assert ("M002", "MDL0001-SYH-L") not in hucre   # hayalet: tek fotoğraf
+    assert ("M003", "MDL0001-SYH-S") in hucre        # (a) çok fotoğraflı: gerçek
+    assert ("M003", "MDL0001-SYH-M") in hucre        # (b) adet 0: hayalet olamaz
+    assert ("M003", "MDL0001-SYH-L") in hucre        # (c) satışı var: gerçek
+    assert ("M003", "MDL0001-SYH-XL") not in hucre   # (d) hayalet
+    assert ("M002", "MDL0001-SYH-L") not in hucre    # temel senaryonun hayaleti
 
 
 def test_cesit_varmayan_sevk_saymaz(oyuncak_con):

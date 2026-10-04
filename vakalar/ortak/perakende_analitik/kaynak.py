@@ -9,8 +9,10 @@ ortam değişkeni `PERAKENDE_V4_DB` ile geçersiz kılınabilir). Gizli gerçeğ
     temiz_satis     mükerrer satış satırı (aynı satırın ikinci kopyası düşer;
                     motor bir hücrenin bir gününe tek satış satırı yazar)
     cesit_hucreleri hayalet stok (mağazanın çeşidinde olmayan SKU'da pazartesi
-                    stoğu): çeşit, hedefi o mağaza olan bir sevkiyatın gerçekten
-                    VARDIĞI hücrelerdir; hayalet stokun hiç sevkiyatı yoktur
+                    stoğu): çeşit = varışlı sevkiyat hedefleri + satışı olan
+                    hücreler + `stok` hücreleri − hayalet + her SKU için `ONL`;
+                    hayalet = varışsız, satışsız, tek pazartesi fotoğraflı,
+                    adet > 0 hücre (ayrıntı `cesit_hucreleri` açıklamasında)
 
 Bedelsiz satış (`tutar` 0) bu modülde elenmez: adet gerçektir, yalnız fiyat
 analizinde dikkat ister.
@@ -92,8 +94,9 @@ def cesit_hucreleri(con: duckdb.DuckDBPyConnection) -> str:
                               where s.magaza_id = f.magaza_id and s.urun_id = f.urun_id))
         select magaza_id, urun_id from varis
         union select magaza_id, urun_id from satisli
-        union select magaza_id, urun_id from fotolu
-              where (magaza_id, urun_id) not in (select magaza_id, urun_id from hayalet)
+        union select f.magaza_id, f.urun_id from fotolu f
+              where not exists (select 1 from hayalet h
+                                where h.magaza_id = f.magaza_id and h.urun_id = f.urun_id)
         union select 'ONL', urun_id::varchar from urun
     """)
     return "cesit"
