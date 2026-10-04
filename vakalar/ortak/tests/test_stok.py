@@ -19,12 +19,12 @@ def _gun(g: pd.DataFrame, magaza: str, urun: str) -> pd.DataFrame:
     return h.set_index("tarih").sort_index()
 
 
-def _gunler(g: pd.DataFrame, magaza: str, urun: str) -> list[date]:
+def _gunler(g: pd.DataFrame, magaza: str, urun: str) -> list[pd.Timestamp]:
     return list(_gun(g, magaza, urun).index)
 
 
-def _ayni_hafta(gunler: list[int]) -> list[date]:
-    return [date(2025, 1, d) for d in gunler]
+def _ayni_hafta(gunler) -> list[pd.Timestamp]:
+    return [pd.Timestamp(2025, 1, d) for d in gunler]
 
 
 # ------------------------------------------------------------ ek senaryolar
@@ -102,10 +102,10 @@ def test_yeniden_kurma_elle(oyuncak_con):
     g = stok.gunluk_magaza(oyuncak_con, date(2025, 1, 6), date(2025, 1, 12)).set_index(
         ["tarih", "magaza_id", "urun_id"])
     # M001 × -M: pzt 3 adet; salı 2 satış; çarşamba 1 satış → perşembe boş; cuma 4 varış
-    assert g.loc[(date(2025, 1, 7), "M001", M), "satis_oncesi"] == 3
-    assert g.loc[(date(2025, 1, 8), "M001", M), "durum"] == "tukenen"
-    assert g.loc[(date(2025, 1, 9), "M001", M), "durum"] == "bos"
-    assert g.loc[(date(2025, 1, 10), "M001", M), "durum"] == "stoklu"
+    assert g.loc[(pd.Timestamp(2025, 1, 7), "M001", M), "satis_oncesi"] == 3
+    assert g.loc[(pd.Timestamp(2025, 1, 8), "M001", M), "durum"] == "tukenen"
+    assert g.loc[(pd.Timestamp(2025, 1, 9), "M001", M), "durum"] == "bos"
+    assert g.loc[(pd.Timestamp(2025, 1, 10), "M001", M), "durum"] == "stoklu"
 
 
 def test_yeniden_kurma_butun_hafta(oyuncak_con):
@@ -126,7 +126,7 @@ def test_sema(oyuncak_con):
         assert isinstance(g[s].dtype, pd.CategoricalDtype), s
     for s in ("satis_oncesi", "brut_satis", "net_satis"):
         assert str(g[s].dtype) == "int32", s
-    assert isinstance(g["tarih"].iloc[0], date)
+    assert str(g["tarih"].dtype) == "datetime64[ns]"
     # tarih, magaza_id, urun_id sırası
     anahtar = list(zip(g["tarih"], g["magaza_id"].astype(str), g["urun_id"].astype(str)))
     assert anahtar == sorted(anahtar)
@@ -143,7 +143,7 @@ def test_online_ve_hayalet_yok(oyuncak_con):
 def test_pencere_yarim_hafta_ayni_degerler(oyuncak_con):
     tam = stok.gunluk_magaza(oyuncak_con, date(2025, 1, 6), date(2025, 1, 12))
     kis = stok.gunluk_magaza(oyuncak_con, date(2025, 1, 8), date(2025, 1, 10))
-    assert set(kis["tarih"]) == {date(2025, 1, 8), date(2025, 1, 9), date(2025, 1, 10)}
+    assert set(kis["tarih"]) == {pd.Timestamp(2025, 1, 8), pd.Timestamp(2025, 1, 9), pd.Timestamp(2025, 1, 10)}
     a = tam[tam["tarih"].isin(set(kis["tarih"]))].reset_index(drop=True)
     pd.testing.assert_frame_equal(a, kis.reset_index(drop=True))
 
@@ -154,24 +154,24 @@ def test_iade_satistan_sonra(ek):
     h = _gun(ek, "M003", "MDL0002-SYH-S")
     assert list(h.index) == _ayni_hafta(range(6, 13))
     # 01-07: 2 satış (brüt 2), 1 iade (net 1); iade aynı günün satis_oncesi'ne girmez
-    assert h.loc[date(2025, 1, 7), ["satis_oncesi", "brut_satis", "net_satis"]].tolist() == [2, 2, 1]
-    assert h.loc[date(2025, 1, 7), "durum"] == "tukenen"
+    assert h.loc[pd.Timestamp(2025, 1, 7), ["satis_oncesi", "brut_satis", "net_satis"]].tolist() == [2, 2, 1]
+    assert h.loc[pd.Timestamp(2025, 1, 7), "durum"] == "tukenen"
     # ertesi gün raf stoğu 2 - 1 = 1, iade rafa döndü
-    assert h.loc[date(2025, 1, 8), "satis_oncesi"] == 1
-    assert h.loc[date(2025, 1, 8), "durum"] == "stoklu"
+    assert h.loc[pd.Timestamp(2025, 1, 8), "satis_oncesi"] == 1
+    assert h.loc[pd.Timestamp(2025, 1, 8), "durum"] == "stoklu"
 
 
 def test_kenar_haftasi_uygun_degil(ek):
     # ertesi pazartesi fotoğrafı (01-27) olmayan hafta (01-20..01-26) yok;
     # o haftanın hücreleri başka haftalarda var
-    assert ek["tarih"].max() == date(2025, 1, 26)
+    assert ek["tarih"].max() == pd.Timestamp(2025, 1, 26)
     # B hücresi: 01-06 fotoğrafı yok (hafta 1 yok), 01-13..01-19 tam, 01-20 haftasının
     # ertesi pazartesisi yok
     assert _gunler(ek, "M003", "MDL0002-SYH-M") == _ayni_hafta(range(13, 20))
     # temel hücre: üç tam hafta
     assert len(_gunler(ek, "M001", M)) == 21
     # 01-27 pazartesisinde başlayan hafta (ertesi fotoğraf yok): hiç satır yok
-    assert not (ek["tarih"] >= date(2025, 1, 27)).any()
+    assert not (ek["tarih"] >= pd.Timestamp(2025, 1, 27)).any()
 
 
 def test_kapali_gun_uygun_degil(ek):
@@ -189,10 +189,10 @@ def test_lansmandan_once_uygun_degil(ek):
 
 def test_negatif_stok_bos_sayilir(ek):
     h = _gun(ek, "M003", "MDL0003-SYH-M")
-    assert h.loc[date(2025, 1, 6), "durum"] == "stoklu"
+    assert h.loc[pd.Timestamp(2025, 1, 6), "durum"] == "stoklu"
     # 01-07: 1 adet - 2 adet çıkış (varışı hiç gelmeyen tek taraflı transfer) = -1
-    assert h.loc[date(2025, 1, 7), "satis_oncesi"] == -1
-    assert set(h.loc[date(2025, 1, 7):, "durum"].astype(str)) == {"bos"}
+    assert h.loc[pd.Timestamp(2025, 1, 7), "satis_oncesi"] == -1
+    assert set(h.loc[pd.Timestamp(2025, 1, 7):, "durum"].astype(str)) == {"bos"}
     # hedefte (M004) hücre doğmaz
     assert _gunler(ek, "M004", "MDL0003-SYH-M") == []
 

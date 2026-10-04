@@ -34,8 +34,8 @@ Uygun hücre-gün (yalnız bunlar döner):
        kural `bas`, `bit`ten bağımsız, bütün tabloya bakar.
 
 Bellek: sonuç ~22 M hücre-gün/yıl (2025); kimlikler `category` (int32 kod), sayılar
-`int32`, `tarih` Arrow `date32` (4 bayt, değerleri `datetime.date`). Satır
-başına ~22 bayt; üç yıllık bütün pencere (67,7 M satır) 1,5 GB, 2025 yalnız 0,5 GB.
+`int32`, `tarih` `datetime64[ns]` (8 bayt). Satır
+başına ~26 bayt; üç yıllık bütün pencere (67,7 M satır) ~1,8 GB, 2025 yalnız 0,58 GB (ölçüldü).
 Kimlikleri düz metin olarak çekmemek için SQL kodları üretir, kategoriler
 ayrıca okunur.
 """
@@ -44,7 +44,6 @@ from datetime import date
 
 import duckdb
 import pandas as pd
-import pyarrow as pa
 
 from perakende_analitik import kaynak
 
@@ -158,8 +157,7 @@ def gunluk_magaza(con: duckdb.DuckDBPyConnection, bas: date, bit: date) -> pd.Da
     """).fetchnumpy()
 
     return pd.DataFrame({
-        "tarih": pd.Series(pd.arrays.ArrowExtensionArray(
-            pa.array(ham["gun"].astype("int32"), type=pa.int32()).cast(pa.date32()))),
+        "tarih": ham["gun"].astype("int64").astype("datetime64[D]").astype("datetime64[ns]"),
         "magaza_id": pd.Categorical.from_codes(ham["magaza"], categories=magazalar),
         "urun_id": pd.Categorical.from_codes(ham["urun"], categories=urunler),
         "option_id": pd.Categorical.from_codes(ham["opsiyon"], categories=opsiyonlar),
