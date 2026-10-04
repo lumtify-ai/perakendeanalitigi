@@ -82,6 +82,13 @@ def sahte_hakem(cikti, tmp_path_factory) -> Path:
     return dizin
 
 
+@pytest.fixture(autouse=True)
+def oyuncak_hikaye(monkeypatch):
+    """Kullanıcının seçimi gerçek veridedir; oyuncakta varsayılan seçim oyuncak bir hücre-gün
+    (M001 × MDL0001-SYH-M 2025-01-09'da bos, temel senaryo)."""
+    monkeypatch.setattr(rapor, "HIKAYE_SECIMI", ("MDL0001-SYH", "M001", "2025-01-09"))
+
+
 def _argv(cikti, db, hakem_dizini):
     return ["--cikti", str(cikti), "--db", str(db), "--hakem", str(hakem_dizini)]
 
@@ -106,6 +113,13 @@ def test_rapor_basliklari(cikti, oyuncak_db, sahte_hakem, capsys):
     assert "hakemin 2025 karşılanmayanı: 8 adet" in metin
     assert "kayıp tablosundaki hücre-günlerde (yukarıdaki Σ karşılanmayan): 6 adet" in metin
     assert "bu veride yok" in metin
+    assert "kullanıcının seçimi, kurgu kapısı (R25); sıkı arama: tutmayan ölçütler:" in metin
+    assert "merkez depo, Ali MDL0001-SYH-M:" in metin and "operasyonel" in metin
+
+
+def test_hikaye_arama(cikti, oyuncak_db, sahte_hakem, capsys):
+    assert rapor.main(_argv(cikti, oyuncak_db, sahte_hakem) + ["--hikaye", "arama"]) == 0
+    assert "hikâye adayı yok" in capsys.readouterr().out
 
 
 def test_korunum_denetimi():
@@ -146,7 +160,7 @@ def test_elle_hikaye(cikti, oyuncak_db, sahte_hakem, capsys):
     argv = _argv(cikti, oyuncak_db, sahte_hakem)
     assert rapor.main(argv + ["--hikaye", "MDL0001-SYH,M001,2025-01-09"]) == 0
     metin = capsys.readouterr().out
-    assert "elle seçildi (--hikaye); tutmayan ölçütler:" in metin
+    assert "elle seçildi (--hikaye); sıkı arama: tutmayan ölçütler:" in metin
     assert "kayıp tablosu dışında kalan" in metin
     # o gün o mağazada bos bedeni yok: açık hata
     assert rapor.main(argv + ["--hikaye", "MDL0001-SYH,M002,2025-01-20"]) == 2
