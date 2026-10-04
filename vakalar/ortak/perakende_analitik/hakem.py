@@ -1,8 +1,9 @@
 """Hakem: gizli gerçeğin (karşılanmayan talep) tek kapısı.
 
 `perakende_veri` (v4 üreteci) yalnız bu modülde içe aktarılır; bu modülü de
-yalnız `degerlendir.py` içe aktarır (`tests/test_sizinti.py` kilitler).
-Kestiriciler hakemin yazdığı dosyaları da okumaz.
+paketin hiçbir modülü içe aktarmaz (`tests/test_sizinti.py` kilitler):
+önbelleği `oku()` ile vakanın raporu okur (`vakalar/yok-satma/rapor.py`) ve tabloyu
+`degerlendir`e argüman olarak verir. Kestiriciler hakemin yazdığı dosyaları da okumaz.
 
 Tam v4 koşusu bir kez yeniden üretilir (`python -m perakende_analitik.hakem`,
 varsayılan politikalar, yayımlanan veriyle aynı tohum; `tests/v4/

@@ -1,8 +1,9 @@
 """Sızıntı kilidi: gizli gerçek yalnız hakemde, hakem yalnız değerlendirmede.
 
 `perakende_veri` (gizli gerçeği üreten paket) yalnız `hakem.py`'de içe
-aktarılır; `hakem` yalnız `degerlendir.py`'de. Kestiriciler bu yüzden talebin
-gerçeğini göremez. Paket henüz boşken de geçer (küme ⊆ izin verilen)."""
+aktarılır; paketin hiçbir modülü `hakem`i içe aktarmaz (`degerlendir` hakem
+tablosunu argüman alır, onu vakanın raporu okur). Kestiriciler bu yüzden talebin
+gerçeğini göremez."""
 
 import ast
 from pathlib import Path
@@ -33,8 +34,8 @@ def test_perakende_veri_yalniz_hakemde():
     assert _icerenler("perakende_veri") <= {"hakem.py"}
 
 
-def test_hakem_yalniz_degerlendirmede():
-    assert _icerenler("hakem") <= {"degerlendir.py"}
+def test_hakemi_paketten_kimse_ice_aktarmaz():
+    assert _icerenler("hakem") == set()
 
 
 def test_kilit_ihlali_yakalanir(tmp_path, monkeypatch):

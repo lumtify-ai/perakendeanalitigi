@@ -13,7 +13,7 @@ Naif ve Basit parametre öğrenmez; Basit'in çarpanları (`carpanlar.ogren`,
 2023–2024) kurucuya verilir. Beden payı ürüne özgüdür ve 2025'in yeni
 option'ları 2023–2024'te olmadığından kestirici onu kendi havuzundan kurar
 (`carpanlar.beden_payi_kod`; mağaza × option'da < 30 stoklu SKU-gün ise zincir);
-`Carpanlar.beden_payi` kestiricilerde hiç okunmaz (yalnız rapor ve ML için).
+`Carpanlar.beden_payi` hiçbir kestiricide okunmaz (ML de payı kendi havuzundan kurar).
 Mağazada hiç stoklanmamış bir SKU zincir payını alır ve aynı mağaza × option'ın
 payları yeniden 1'e ölçeklenir (kardeşlerin payı 1 iken toplam 1'i aşmasın).
 

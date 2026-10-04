@@ -177,3 +177,27 @@ def test_son_tukenis_hic_stoklanmamis_hucre_dahil():
                         "son": pd.to_datetime(["2025-01-05", None])})
     son_mu, hic = rapor._son_tukenis_mi(df, son)
     assert son_mu.tolist() == [False, True, True] and hic.tolist() == [False, False, True]
+
+
+def test_son_stoklu_gunu_tukenen_ise_o_gunun_kaybi_son():
+    # A'nın son stoklu açılışı 01-05 ve o gün tükendi (kayıp satırı var): o günün kaybı son
+    # tükeniştir; 01-04'teki tükenen gün sonradan yeniden stoklandığı için operasyonel
+    df = pd.DataFrame({"tarih": pd.to_datetime(["2025-01-04", "2025-01-05"]),
+                       "magaza_id": pd.Categorical(["M1", "M1"]),
+                       "urun_id": pd.Categorical(["A", "A"])})
+    son = pd.DataFrame({"m": ["M1"], "u": ["A"], "son": pd.to_datetime(["2025-01-05"])})
+    son_mu, _ = rapor._son_tukenis_mi(df, son)
+    assert son_mu.tolist() == [False, True]
+
+
+def test_kaynak_json_uyusmazsa_durur(cikti, oyuncak_db, sahte_hakem, tmp_path, capsys):
+    import shutil
+    kopya = tmp_path / "cikti"
+    shutil.copytree(cikti, kopya)
+    iz = json.loads((kopya / "kaynak.json").read_text(encoding="utf-8"))
+    (kopya / "kaynak.json").write_text(json.dumps({**iz, "boyut": iz["boyut"] + 1}), encoding="utf-8")
+    assert rapor.main(_argv(kopya, oyuncak_db, sahte_hakem)) == 2
+    assert "baska bir v4 dosyasindan" in capsys.readouterr().err
+    (kopya / "kaynak.json").unlink()
+    assert rapor.main(_argv(kopya, oyuncak_db, sahte_hakem)) == 2
+    assert "kaynak.json yok" in capsys.readouterr().err

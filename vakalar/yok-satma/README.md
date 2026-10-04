@@ -76,7 +76,8 @@ bölümler `=== VERİ ===`, `=== HİKÂYE ===`, `=== ÇARPANLAR ===`,
 `hazirla` çıktıları ve hakem önbelleği (`cd ../ortak && .venv/Scripts/python -m
 perakende_analitik.hakem`) gerekir; eksikse hangi komutun koşulacağını söyler
 (çıkış kodu 2). Her kırılımın toplamı bütünün toplamıyla karşılaştırılır,
-tutmazsa rapor durur (`KorunumHatasi`). Ölçülen: ~2,5 dk, tepe 3,9 GB.
+tutmazsa rapor durur (`KorunumHatasi`). `cikti/kaynak.json` raporun v4 dosyasını tutmazsa
+da durur (çıkış kodu 2). Ölçülen: ~2,5 dk, tepe 4,0 GB.
 Hikâye ürünü varsayılan olarak kullanıcının seçimidir (`rapor.HIKAYE_SECIMI`);
 `--hikaye OPTION,MAGAZA,YYYY-MM-DD` başka bir adayı, `--hikaye arama` `hikaye_sec`in
 ilk adayını basar.

@@ -92,8 +92,6 @@ def test_oran_markdown_ve_kampanyanin_buyugu(oz_con):
     assert b["kampanya_id"] == "KAT_B"
     assert (c["markdown_orani"], c["kampanya_orani"], c["oran"]) == (0.0, 0.0, 0.0)
     assert pd.isna(c["kampanya_id"])
-    assert ozellikler.etiket_fiyati(s).tolist() == pytest.approx(
-        [PANEL * 0.70, PANEL * 0.60, PANEL])
 
 
 def test_bolgeli_kampanya_online_kapsamaz(oz_con):

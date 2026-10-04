@@ -16,8 +16,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Hakem (gizli gercek) yalniz degerlendirmede kullanilir; kestiriciler almaz.
-hakem = ["perakende-veri"]
+# Hakem (gizli gercek) icin perakende-veri PyPI'da yok: README'deki gibi yolla kurulur
+# (pip install -e ../../veri); kestiriciler onu almaz.
 dev = ["pytest>=8.0"]
 
 [tool.setuptools.packages.find]

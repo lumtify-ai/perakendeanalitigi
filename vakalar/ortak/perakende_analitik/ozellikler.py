@@ -24,7 +24,8 @@ gerçeğe dokunmaz; kayıp satışı bilmez.
     oran                max(markdown_orani, kampanya_orani): etiket indirimi
     yas_gun             gün - ürünün lansman tarihi (gün); devamlıda -1
     line, ust_kategori, alt_kategori, fiyat_segmenti, beden_sira,
-    liste_fiyati, alis_fiyati        ürün öznitelikleri
+    liste_fiyati, alis_fiyati        ürün öznitelikleri (float32, yalnız model özelliği;
+                                     TL toplamları `kayip.ozet`te `urun`dan float64 okunur)
     magaza_tipi, sehir, metrekare    mağaza öznitelikleri (ONL: tip Online)
     kanal               "online" (ONL) ya da "magaza"
 
@@ -324,11 +325,6 @@ def ekle(con: duckdb.DuckDBPyConnection, hucre_gunler: pd.DataFrame,
     for ad in istenen:
         cikti[ad] = uretici[ad]()
     return cikti
-
-
-def etiket_fiyati(df: pd.DataFrame) -> pd.Series:
-    """Etiket fiyatı: `liste_fiyati × (1 − oran)` (float64, df'nin indeksiyle)."""
-    return df["liste_fiyati"].astype("float64") * (1.0 - df["oran"].astype("float64"))
 
 
 def yol_suresi(con: duckdb.DuckDBPyConnection) -> dict[str, int]:

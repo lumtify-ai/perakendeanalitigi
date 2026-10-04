@@ -18,7 +18,7 @@ Veri: `veri/cikti/v4/perakende.duckdb` (yayımlanan `lumoda-v4.duckdb`'yi bu adl
 koyun ya da `PERAKENDE_V4_DB` ortam değişkeniyle gösterin; indirme:
 <https://github.com/lumtify-ai/perakendeanalitigi/releases/tag/veri-v4>). Yoksa
 `veri` işaretli testler atlanır. Hakem için ek bağımlılık `perakende-veri`
-(üreteç, `veri/`); PyPI'da olmadığı için `hakem` ekstrasıyla değil yol ile kurulur:
+(üreteç, `veri/`); PyPI'da olmadığı için yol ile kurulur:
 `.venv/Scripts/pip install -e ../../veri` (vakalar/ortak içinden).
 
 ## Modüller
@@ -26,15 +26,20 @@ koyun ya da `PERAKENDE_V4_DB` ortam değişkeniyle gösterin; indirme:
 | Modül | İş |
 |---|---|
 | `kaynak` | v4'e salt okunur bağlantı; `temiz_satis` (mükerrer satış ayıklanır), `cesit_hucreleri` (mağaza × SKU çeşidi; hayalet stok düşer) |
+| `stok` | günlük stok ve gün durumu (`stoklu` / `tukenen` / `bos`): `gunluk_magaza` (pazartesi fotoğrafına çapalı yeniden kurma), `gunluk_online` (depo stoğundan); yalnız uygun hücre-günler |
+| `ozellikler` | hücre-gün başına gözlenebilir özellikler (`ekle`): takvim, özel gün, markdown ve kampanya oranı, ürün yaşı, ürün ve mağaza öznitelikleri, kanal; `yol_suresi` |
 | `carpanlar` | Basit'in gün karakteri, 2023–2024 stoklu günlerinden: hafta günü (kanal), özel gün, ε̂ kampanya (fark-içinde-fark; karakterde) ve ε̂ markdown (yalnız rapor), yaşam eğrisi, beden payı |
-| `talep` | kestiriciler (`egit(gozlem)`, `tahmin(hucre_gunler)`): `Naif` (son 28 gün), `Basit` (±14 gün, karakterle); `komsu_hizlar` |
+| `talep` | kestiriciler (`egit(gozlem)`, `tahmin(hucre_gunler)`): `Naif` (son 28 gün), `Basit` (±14 gün, karakterle), `ML` (LightGBM, Poisson, 2023–2024'ten 4 M stoklu SKU-gün); `komsu_hizlar` |
+| `kayip` | kayıp yazımı (`kayip_yaz`: `bos` λ̂, `tukenen` Poisson koşullu fazla, `kayip_saf` karşılaştırma) ve toplama (`ozet`: adet, etiket fiyatıyla TL, brüt marj) |
+| `agac` | kaynak ağacı (`kaynak_ata`): her kayıp hücre-gününe tek dal (lojistik, mağaza, allocation, tedarik, planlama, bilinmiyor) |
 | `hakem` | gizli gerçeğin tek kapısı: v4'ü yeniden koşar, hücre-gün başına karşılanmayan talebi (`kendi_satis`, `karsilanmayan`, `ikameye_giden`, `kalici_kayip`) çıkarır, yayımlanan veriyle birebir doğrular, `cikti/hakem/`e yazar. `python -m perakende_analitik.hakem` (~dakikalar, GB'lar); `hakem.oku()` |
-
-Sonraki görevlerde başka modüller eklenir.
+| `degerlendir` | kestirim ↔ hakem (2025): `eslestir`, `olcutler` (WAPE, yanlılık), `kirilimlar`, `ayrisim`, `cesit_disi`; hakem tablosunu argüman alır, `hakem`i içe aktarmaz |
 
 ## Sızıntı kuralı
 
 Kestiriciler yalnız yayımlanan tabloları okur, gizli gerçeği görmez.
-`perakende_veri` (gizli gerçeği üreten paket) yalnız `hakem.py`'de, `hakem`
-yalnız `degerlendir.py`'de içe aktarılır. `tests/test_sizinti.py` paketteki
-her dosyayı `ast` ile tarar ve bu kuralı kilitler.
+`perakende_veri` (gizli gerçeği üreten paket) yalnız `hakem.py`'de içe
+aktarılır; paketin hiçbir modülü `hakem`i içe aktarmaz. `degerlendir` hakem
+tablosunu argüman olarak alır; tabloyu `hakem.oku()` ile okuyup veren vakanın
+raporudur (`vakalar/yok-satma/rapor.py`). `tests/test_sizinti.py` paketteki her
+dosyayı `ast` ile tarar ve bu kuralı kilitler.

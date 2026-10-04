@@ -187,6 +187,23 @@ def eksikler(cikti: Path, hakem_dizini: Path) -> list[str]:
     return mesaj
 
 
+def kaynak_uyusmazligi(cikti: Path, db: Path | None) -> str | None:
+    """`cikti/kaynak.json` (hazirla'nın v4 parmak izi) raporun DB'siyle tutmuyorsa açıklama."""
+    yol = cikti / "kaynak.json"
+    db = Path(db) if db is not None else kaynak.VARSAYILAN_YOL
+    if not yol.exists():
+        return f"{yol} yok: ciktilarin hangi v4 dosyasindan kuruldugu bilinmiyor. Once: {HAZIRLA_KOMUTU}"
+    try:
+        eski = json.loads(yol.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return f"{yol} okunamadi. Once: {HAZIRLA_KOMUTU}"
+    iz = hazirla._parmak_izi(db)
+    if eski != iz:
+        return (f"cikti/ baska bir v4 dosyasindan kurulmus: kaynak.json {eski}, rapor DB'si {iz}. "
+                f"Ya ayni --db ile raporlayin ya da ciktilari yeniden kurun: {HAZIRLA_KOMUTU}")
+    return None
+
+
 def _parquet(yol: Path) -> str:
     """DuckDB içinde parquet okuma ifadesi."""
     return "read_parquet('" + Path(yol).resolve().as_posix().replace("'", "''") + "')"
@@ -590,16 +607,17 @@ def _hikaye_kaybi(con, cikti: Path, kars: pd.DataFrame, sec: dict, urun: pd.Data
                   f" = ikameye giden {s(r['ikameye_giden'])} + kalıcı {s(r['kalici_kayip'])}")
 
 
-def _hat_tablosu(cikti: Path, aday: pd.DataFrame) -> None:
-    """Her line'ın ilk üç option'ı + dönem kaybının tedarik payı ve iki SKU'nun o günkü λ̂'sı."""
+def _hat_tablosu(cikti: Path, aday: pd.DataFrame, sec: dict, urun: pd.DataFrame) -> None:
+    """Her line'ın ilk üç option'ı + dönem kaybının tedarik payı ve iki SKU'nun o günkü λ̂'sı.
+
+    Seçilen hikâye tablodaki bir satırsa o satır işaretlenir; değilse (elle seçim) ayrı bir
+    satır olarak eklenir."""
     tablo = hikaye_sec.hatta_gore(aday)
-    if tablo.empty:
-        print("  (aday yok)")
-        return
+    secenekler = sorted(set(tablo["option_id"].astype(str)) | {sec["option_id"]})
     k = pd.read_parquet(cikti / hazirla.DOSYALAR["basit"],
                         columns=["tarih", "magaza_id", "urun_id", "option_id", "kayip", "kaynak",
                                  "tahmini_talep"],
-                        filters=[("option_id", "in", list(tablo["option_id"].astype(str)))])
+                        filters=[("option_id", "in", secenekler)])
     for c in ("magaza_id", "urun_id", "option_id", "kaynak"):
         k[c] = k[c].astype(str)
     print("  tedarik payı: dönem kaybının (Basit) kaynağı `tedarik` olan kısmı · λ̂: Ali'nin /"
@@ -607,18 +625,43 @@ def _hat_tablosu(cikti: Path, aday: pd.DataFrame) -> None:
     print(f"  {'line':10s} {'option':12s} {'model':24s} {'renk':10s} {'mağaza':6s} {'gün':10s}"
           f" {'planlanan':10s} {'gerçekleşen':11s} {'dönem':>5s} {'dönem kaybı':>11s}"
           f" {'birikmiş':>9s} {'tedarik payı':>12s} {'λ̂ Ali':>7s} {'λ̂ Veli':>7s}")
-    for r in tablo.itertuples():
-        o = k[k["option_id"] == str(r.option_id)]
-        d = o[(o["tarih"] >= r.donem_baslangic) & (o["tarih"] < r.tarih)]
+
+    def satir(line, option, model, renk, magaza, tarih, planlanan, gerceklesen, donem_bas,
+              donem_gun, donem_kayip, birikmis, ali, veli, ek=""):
+        o = k[k["option_id"] == str(option)]
+        tarih, donem_bas = pd.Timestamp(tarih), pd.Timestamp(donem_bas)
+        d = o[(o["tarih"] >= donem_bas) & (o["tarih"] < tarih)]
         top = d["kayip"].sum()
         pay = d.loc[d["kaynak"] == "tedarik", "kayip"].sum() / top if top > 0 else np.nan
-        o_gun = o[(o["tarih"] == r.tarih) & (o["magaza_id"] == str(r.magaza_id))].set_index("urun_id")
-        lam = [o_gun["tahmini_talep"].get(str(u), np.nan) for u in (r.urun_id_ali, r.urun_id_veli)]
-        print(f"  {str(r.line):10s} {str(r.option_id):12s} {str(r.model_adi)[:24]:24s}"
-              f" {str(r.renk)[:10]:10s} {str(r.magaza_id):6s} {t_(r.tarih):10s}"
-              f" {t_(r.planlanan_teslim_ali):10s} {t_(r.gerceklesen_teslim_ali):11s}"
-              f" {s(r.donem_gun):>5s} {s(r.donem_kayip):>11s} {s(r.birikmis_kayip):>9s}"
-              f" {y(pay):>12s} {s(lam[0], 2):>7s} {s(lam[1], 2):>7s}")
+        o_gun = o[(o["tarih"] == tarih) & (o["magaza_id"] == str(magaza))].set_index("urun_id")
+        lam = [o_gun["tahmini_talep"].get(str(u), np.nan) for u in (ali, veli)]
+        print(f"  {str(line):10s} {str(option):12s} {str(model)[:24]:24s}"
+              f" {str(renk)[:10]:10s} {str(magaza):6s} {t_(tarih):10s}"
+              f" {t_(planlanan):10s} {t_(gerceklesen):11s}"
+              f" {s(donem_gun):>5s} {s(donem_kayip):>11s} {s(birikmis):>9s}"
+              f" {y(pay):>12s} {s(lam[0], 2):>7s} {s(lam[1], 2):>7s}{ek}")
+
+    hikaye_tabloda = False
+    for r in tablo.itertuples():
+        bu = (str(r.option_id), str(r.magaza_id), pd.Timestamp(r.tarih)) == (
+            sec["option_id"], sec["magaza_id"], pd.Timestamp(sec["tarih"]))
+        hikaye_tabloda |= bu
+        satir(r.line, r.option_id, r.model_adi, r.renk, r.magaza_id, r.tarih,
+              r.planlanan_teslim_ali, r.gerceklesen_teslim_ali, r.donem_baslangic, r.donem_gun,
+              r.donem_kayip, r.birikmis_kayip, r.urun_id_ali, r.urun_id_veli,
+              "  ← hikâye" if bu else "")
+    if tablo.empty:
+        print("  (aday yok)")
+    if not hikaye_tabloda:
+        ilk = urun.iloc[0]
+        ayni = sec["option_id"] in set(tablo["option_id"].astype(str))
+        print(f"  hikâye satırı: {sec.get('etiket', 'seçilen')}"
+              + (f"; tablodaki {sec['option_id']} satırı aramanın bu option için en üst adayı"
+                 if ayni else "") + ":")
+        satir(ilk["line"], sec["option_id"], ilk["model_adi"], ilk["renk"], sec["magaza_id"],
+              sec["tarih"], sec["planlanan_teslim"], sec["gerceklesen_teslim"],
+              sec["donem_baslangic"], sec["donem_gun"], sec["donem_kayip"], np.nan,
+              sec["urun_id_ali"], sec["urun_id_veli"], "  ← hikâye")
 
 
 def hikaye_bolumu(con, cikti: Path, kars: pd.DataFrame, db=None, hikaye=None,
@@ -639,7 +682,7 @@ def hikaye_bolumu(con, cikti: Path, kars: pd.DataFrame, db=None, hikaye=None,
     urun = _secim_yazdir(con, sec, aday, gevsetilen)
 
     alt("Her line için en iyi 3 option (dönem kaybı azalan; option başına en üst satır)")
-    _hat_tablosu(cikti, aday)
+    _hat_tablosu(cikti, aday, sec, urun)
 
     alt("Hikâye günü (zincir)")
     _hikaye_gunu(con, cikti, sec)
@@ -838,8 +881,23 @@ def ayrisim_bolumu(cikti: Path, kars25: pd.DataFrame, olcum: dict) -> None:
             olcum["basit"]["ayrisim"]["karsilanmayan"])
     top = c["toplam_adet"]
     print(f"  hakemin {OLCUM_YILI} karşılanmayanı: {s(top)} adet ({s(c['toplam_satir'])} hücre-gün)")
-    print(f"    uygun olmayan hücre-günlerde (çeşit dışı, kapalı mağaza, lansman öncesi, çıkmış ürün):"
-          f" {s(c['disi_adet'])} adet ({y(c['disi_pay'], 2)}), {s(c['disi_satir'])} hücre-gün")
+    print(f"    uygun olmayan hücre-günlerde (çeşit dışı, kapalı mağaza, lansman öncesi, çıkmış ürün"
+          f" ve pencerenin son günleri): {s(c['disi_adet'])} adet ({y(c['disi_pay'], 2)}),"
+          f" {s(c['disi_satir'])} hücre-gün")
+    # mağazada son tam haftadan sonraki günler: ertesi pazartesi fotoğrafı yok (tam hafta kuralı)
+    son_gun = pd.Timestamp(pq.read_table(cikti / "gunluk.parquet", columns=["tarih", "magaza_id"],
+                                         filters=[("magaza_id", "!=", "ONL")])
+                           .column("tarih").to_pandas().max())
+    kuyruk = kars25[(kars25["tarih"] > son_gun).to_numpy()
+                    & (kars25["magaza_id"].astype(str) != "ONL").to_numpy()]
+    if len(kuyruk):
+        bas_k = son_gun + timedelta(days=1)
+        print(f"      bunun {s(kuyruk['karsilanmayan'].sum())} adedi pencerenin son "
+              f"{s((pd.Timestamp(f'{OLCUM_YILI}-12-31') - son_gun).days)} günü ({t_(bas_k)} .. "
+              f"{OLCUM_YILI}-12-31, mağaza; {s(len(kuyruk))} hücre-gün): ertesi pazartesi fotoğrafı"
+              f" yok, tam hafta kuralı; kalan {s(c['disi_adet'] - kuyruk['karsilanmayan'].sum())} adet"
+              f" ({y((c['disi_adet'] - kuyruk['karsilanmayan'].sum()) / top if top else np.nan, 2)})"
+              f" çeşit dışı, kapalı mağaza, lansman öncesi ya da çıkmış ürün")
     print(f"    uygun ama stoklu günlerde (kayıp tablosunda yok): {s(c['stoklu_adet'])} adet "
           f"({y(c['stoklu_pay'], 2)}), {s(c['stoklu_satir'])} hücre-gün")
     print(f"    kayıp tablosundaki hücre-günlerde (yukarıdaki Σ karşılanmayan): {s(icinde)} adet "
@@ -945,8 +1003,9 @@ def _hat_kirilimi(con, kb: pd.DataFrame, zincir: pd.DataFrame) -> None:
 
 def _son_tukenis(con, cikti: Path, kars25: pd.DataFrame) -> tuple[float, int]:
     alt(f"Son tükeniş ({OLCUM_YILI}, line başına): Basit kaybı ve hakemin karşılanmayanı yan yana")
-    print("  son tükeniş: hücrenin (mağaza × SKU) pencere içindeki son stoklu açılışından (durum ≠ bos)"
-          " SONRAKİ günler; mal bitti ve hücrenin uygun penceresi kapanana (ya da 2025 sonuna) dek"
+    print("  son tükeniş: hücrenin (mağaza × SKU) pencere içindeki son stoklu açılış günü (durum ≠ bos;"
+          " kayıp satırı varsa o gün tükenmiştir) ve SONRAKİ günler; mal bitti ve hücrenin uygun"
+          " penceresi kapanana (ya da 2025 sonuna) dek"
           " yeniden gelmedi; pencerede hiç stoklu açılmamış hücreler de son tükeniştir (R26)")
     print("  diğer: aynı hücre sonradan yeniden stoklandı · ikisi de kayıp tablosunun 2025 hücre-günleri"
           " (bos + tukenen), hakemle eşleşmiş (AYRIŞIM'la aynı küme)")
@@ -960,7 +1019,7 @@ def _son_tukenis(con, cikti: Path, kars25: pd.DataFrame) -> tuple[float, int]:
                        max(tarih) filter (where durum <> 'bos') as son
                 from {_parquet(cikti / 'gunluk.parquet')} group by 1, 2)
             select u.line::varchar as line,
-                   case when son.son is null then 'hic' when e.tarih > son.son then 'son'
+                   case when son.son is null then 'hic' when e.tarih >= son.son then 'son'
                         else 'diger' end as tur,
                    sum(e.kayip) as kayip, sum(e.karsilanmayan)::bigint as kars
             from _son_tukenis e
@@ -1011,7 +1070,8 @@ def _son_stoklu_gunler(con, cikti: Path) -> pd.DataFrame:
 def _son_tukenis_mi(df: pd.DataFrame, son: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     """Satır başına (son tükeniş mi, hücrenin hiç stoklu açılışı yok mu).
 
-    Son tükeniş: gün, hücrenin son stoklu açılışından sonra; pencerede hiç stoklu açılmamış
+    Son tükeniş: gün, hücrenin son stoklu açılış günü ya da sonrası (o gün `tukenen` ise hücre
+    bir daha stoklanmadı; stoklu günün kayıp satırı yoktur); pencerede hiç stoklu açılmamış
     hücre de son tükeniştir (R26: pencere içinde hiç yeniden stoklanmadı)."""
     mk, mev = df["magaza_id"].cat.codes.to_numpy(), pd.Index(df["magaza_id"].cat.categories.astype(str))
     uk, uev = df["urun_id"].cat.codes.to_numpy(), pd.Index(df["urun_id"].cat.categories.astype(str))
@@ -1024,7 +1084,7 @@ def _son_tukenis_mi(df: pd.DataFrame, son: pd.DataFrame) -> tuple[np.ndarray, np
     if (satir == _YOK).any():
         raise KorunumHatasi(f"son tükeniş: {int((satir == _YOK).sum())} satırın hücresi günlük tabloda yok")
     hic = satir == _HIC
-    return (_gun_no(df["tarih"]) > satir) | hic, hic
+    return (_gun_no(df["tarih"]) >= satir) | hic, hic
 
 
 def _turlu(df: pd.DataFrame, son: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
@@ -1040,7 +1100,7 @@ def _operasyonel_son(con, cikti: Path, kb: pd.DataFrame, zincir: pd.DataFrame, t
                      kars25: pd.DataFrame, line_toplam: tuple[float, int]) -> pd.DataFrame:
     alt("Kayıp ikiye bölünmüş: operasyonel ve son tükeniş (Basit; yıl × kanal)")
     print("  operasyonel: hücre o günden sonra pencerede yeniden stoklandı (geçici stoksuzluk) ·"
-          " son tükeniş: hücrenin son stoklu açılışından sonraki günler (potansiyel kayıp)")
+          " son tükeniş: hücrenin son stoklu açılış günü (o gün tükendi) ve sonrası (potansiyel kayıp)")
     print("  pencerede hiç stoklu açılmamış hücreler son tükeniş tarafında (R26); ÷ ciro: aynı yıl ×"
           " kanalın net cirosuna oranı")
     print("  2025'in son tükenişi, pencereden (2025-12-31) sonra yeniden stoklanacak hücreleri de"
@@ -1107,7 +1167,7 @@ def _agac_tur(con, kt: pd.DataFrame, zincir: pd.DataFrame, ak: pd.DataFrame) -> 
     """R28: dal × (operasyonel / son tükeniş), Basit; 2025 ve 2023–2025."""
     alt("Dal × operasyonel / son tükeniş (Basit)")
     print("  operasyonel: hücre sonradan pencerede yeniden stoklandı · son tükeniş: son stoklu"
-          " açılıştan sonraki günler ve hiç stoklu açılmamış hücreler (LUMODA'daki bölünme)")
+          " açılış günü ve sonrası, hiç stoklu açılmamış hücreler (LUMODA'daki bölünme)")
     print("  pay: dönemin bütün kayıp TL'sinde · son tükeniş payı (dal içinde): dalın adedinde")
     o = _ozet_denetimli(kt, ["yil", "kaynak", "tur"], con, zincir, "AĞAÇ dal × tur")
     o["kaynak"], o["tur"] = o["kaynak"].astype(str), o["tur"].astype(str)
@@ -1219,6 +1279,11 @@ def main(argv: list[str] | None = None) -> int:
         con = kaynak.baglan(a.db)
     except FileNotFoundError as e:
         print(e, file=sys.stderr)
+        return 2
+    uyusmaz = kaynak_uyusmazligi(Path(a.cikti), a.db)
+    if uyusmaz:
+        con.close()
+        print(uyusmaz, file=sys.stderr)
         return 2
     bas = time.perf_counter()
     try:

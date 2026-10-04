@@ -1,10 +1,11 @@
 """Değerlendirme: kestirimi gizli gerçekle (hakem) karşılaştıran tek modül (spec §4.8).
 
-`hakem`i içe aktarabilen tek modül burasıdır (`tests/test_sizinti.py` kilitler);
-buradan kestiricilere hiçbir şey geri beslenmez (R15): ölçüt bir okumadır,
-ayar düğmesi değil. Fonksiyonlar hakem tablosunu parametre alır
-(`hakem.oku()["karsilanmayan"]`); modül `perakende_veri` kurulu olmadan da
-içe aktarılabilir.
+Gizli gerçekle karşılaştırma yalnız buradadır, ama modül `hakem`i içe AKTARMAZ:
+fonksiyonlar hakem tablosunu parametre alır (`hakem.oku()["karsilanmayan"]`, onu
+vakanın raporu okur); bu yüzden modül `perakende_veri` kurulu olmadan da içe
+aktarılabilir (`tests/test_sizinti.py` paketin hiçbir modülünün `hakem`i içe
+aktarmadığını kilitler). Buradan kestiricilere hiçbir şey geri beslenmez (R15):
+ölçüt bir okumadır, ayar düğmesi değil.
 
 Karşılaştırma kuralı: tahmin, Kayıp tablosunun `kayip` (ya da `kayip_saf`)
 sütunudur; gerçek, hakemin `karsilanmayan`ıdır. Hakemde olmayan hücre-gün,
