@@ -96,8 +96,9 @@ def test_basit_karakteri_kullanir():
 
 
 def test_hic_stoklu_gunu_olmayan_hucre():
-    """M2 × X hiç stoklu olmadı (bütün günler boş): zincir yedeği. Zincirde X'in
-    hızı (M1'de 4/gün, M1'in alt kategori payı 0,75) × M2'nin payı (0,25) = 4/3.
+    """M2 × X hiç stoklu olmadı (bütün günler boş): zincir yedeği. Göreli hızlar
+    (option-günü başına satış ÷ zincirinki): M1 (4+2)/2 = 3, M2 2/1 = 2, zincir 8/3
+    -> r_M1 = 9/8, r_M2 = 3/4. Zincir hızı 4 / (9/8), M2'nin tahmini × 3/4 = 8/3.
     Pencerenin ilk günü Naif için zincirde de geçmiş yok: son yedek sonlu ve > 0."""
     df = birlestir(_seri("M1", "X-STD", range(60), 4), _seri("M1", "Y-STD", range(60), 2),
                    _seri("M2", "Y-STD", range(60), 2),
@@ -106,9 +107,78 @@ def test_hic_stoklu_gunu_olmayan_hucre():
     n, b = _iki(_gozlem(df), hedef)
     for s in (n, b):
         assert np.isfinite(s.to_numpy()).all() and (s.to_numpy() > 0).all()
-    assert b.to_numpy() == pytest.approx(np.full(60, 4 / 3))
-    assert n.iloc[30] == pytest.approx(4 / 3)
+    assert b.to_numpy() == pytest.approx(np.full(60, 8 / 3))
+    assert n.iloc[30] == pytest.approx(8 / 3)
     assert n.iloc[0] == pytest.approx(2.0)          # M2'nin alt kategorideki SKU-gün hızı
+
+
+def test_zincir_yedegi_option_hizina_gore():
+    """X'i 10 mağazadan yalnız ikisi taşır (3/gün); ONL 20 option taşır (her biri
+    1/gün, alt kategori satışının en büyük payı) ama X'i hiç stoklamaz. ONL'nin X
+    tahmini option-günü başına hızdan gelir (≤ 3), satış payından değil (payla
+    7,5 çıkıyordu): r_M0 = (8/6)/(76/72), r_ONL = 1/(76/72); tahmin 3 / r_M0 × r_ONL."""
+    gun = range(60)
+    parcalar = [_seri(f"M{i}", f"Y{j}-STD", gun, 1) for i in range(10) for j in range(5)]
+    parcalar += [_seri(f"M{i}", "X-STD", gun, 3) for i in range(2)]
+    parcalar += [_seri("ONL", f"Y{j}-STD", gun, 1) for j in range(20)]
+    parcalar += [_seri("ONL", "X-STD", gun, 0, durum="bos")]
+    df = birlestir(*parcalar)
+    hedef = df[(df["magaza_id"] == "ONL") & (df["urun_id"] == "X-STD")]
+    n, b = _iki(_gozlem(df), hedef)
+    zincir = 76 / 72
+    beklenen = 3 / ((8 / 6) / zincir) * (1 / zincir)
+    assert b.to_numpy() == pytest.approx(np.full(60, beklenen))
+    assert n.iloc[30] == pytest.approx(beklenen)
+    assert (b.to_numpy() <= 3).all()
+
+
+def test_naif_eski_kendi_gecmisine_bakar():
+    """Hücre 0–29. günler 3/gün, sonra boş. 80. günün son 28 gününde ne hücre ne
+    option stoklu; Naif zincire (M2'de 10/gün) atlamaz, kendi son 28 stoklu
+    option-gününe bakar: 3."""
+    df = birlestir(_seri("M1", "X-STD", range(30), 3),
+                   _seri("M1", "X-STD", range(30, 100), 0, durum="bos"),
+                   _seri("M2", "X-STD", range(100), 10))
+    n, _ = _iki(_gozlem(df), _hedef(df, "M1", "X-STD", 80))
+    assert n.iloc[0] == pytest.approx(3.0)
+
+
+def test_tukenen_gun_havuza_girmez():
+    """`gozlem`e `tukenen` (sansürlü) satır karışsa da sonuç değişmez."""
+    df = birlestir(_seri("M1", "OPT-STD", range(30), 2),
+                   _seri("M1", "OPT-STD", range(30, 33), 0, durum="bos"),
+                   _seri("M1", "OPT-STD", range(33, 60), 6))
+    kirli = birlestir(df, _seri("M1", "OPT-STD", [32], 100, durum="tukenen"))
+    hedef = _hedef(df, "M1", "OPT-STD", 31)
+    temiz = _iki(_gozlem(df), hedef)
+    karisik = _iki(kirli, hedef)
+    for a, b in zip(temiz, karisik):
+        pd.testing.assert_series_equal(a, b)
+
+
+def test_sonlu_olmayan_karakter_hata():
+    df = _seri("M1", "OPT-STD", range(30), 2)
+    df["oran"] = df["oran"].astype("float32")
+    df.loc[5, "oran"] = np.nan
+    with pytest.raises(ValueError, match="karakter"):
+        talep.Basit(carpanlar=carpanlar.Carpanlar(esneklik_kampanya={"*": 1.0})).egit(df)
+
+
+def test_magazada_olmayan_beden_payi_yeniden_olceklenir():
+    """M1 yalnız S ve M taşır (payları 1/3, 2/3); L'yi hiç stoklamadı, zincir payını
+    alır. M1'in S, M, L payları toplamı 1; S'nin tahmini (λ × pay) değişmez."""
+    df = birlestir(_seri("M1", "OPT-S", range(40), 1), _seri("M1", "OPT-M", range(40), 2),
+                   _seri("M2", "OPT-S", range(40), 1), _seri("M2", "OPT-M", range(40), 1),
+                   _seri("M2", "OPT-L", range(40), 2),
+                   _seri("M1", "OPT-L", range(40), 0, durum="bos"),
+                   _seri("M1", "OPT-S", [40], 0, durum="bos"))
+    b = talep.Basit(carpanlar=carpanlar.Carpanlar())
+    b.egit(_gozlem(df))
+    h = b._havuz
+    satir = df[(df["magaza_id"] == "M1") & (df["tarih"] == BAS)]
+    m, u, o, _, _ = h.k.hedef(satir)
+    assert h.pay(m, u, o).sum() == pytest.approx(1.0)
+    assert b.tahmin(_hedef(df, "M1", "OPT-S", 40)).iloc[0] == pytest.approx(1.0)
 
 
 def test_tahmin_sadece_gozlenen_sutunlari_okur():
