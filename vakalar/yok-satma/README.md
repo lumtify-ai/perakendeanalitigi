@@ -37,12 +37,17 @@ gösterin; indirme:
 Kestiricilerin `egit`'i bütün pencerenin stoklu günlerini görür (ML yine
 yalnız 2023–2024'ten eğitim örneği çeker); tahmin bütün pencerenin stoksuz
 günleri içindir. Her adım kendi dosyasına yazılır ve dosya varsa atlanır.
+Bağımlılıklar: `carpanlar`, `naif`, `ml` ← `gunluk`; `basit` ← `gunluk` +
+`carpanlar`. Bir adım yeniden koşunca bağımlıları da koşar; `--adim` seçiminin
+dışında kalan bağımlıların dosyası silinir (sonraki çağrı yeniden kurar).
+`cikti/kaynak.json` v4 dosyasının yolunu, boyutunu ve mtime'ını tutar; başka bir
+`--db` (ya da değişmiş dosya) bütün çıktıları geçersiz kılar.
 
     --cikti DIR     çıktı dizini (varsayılan vakalar/yok-satma/cikti)
     --db PATH       v4 DuckDB dosyası
     --yeniden       var olanları da yeniden hesapla
     --adim AD       yalnız bu adımı yeniden koş (gunluk, carpanlar, naif, basit, ml;
-                    tekrarlanabilir)
+                    tekrarlanabilir; seçim dışındaki bağımlıların dosyası silinir)
 
 Bütçe: tam koşu ≤ 45 dk, tepe bellek ≤ 20 GB (32 GB makine). Ölçülen
 (gerçek v4, 12 çekirdek): ~17 dk (gunluk 564 sn, carpanlar 44, naif 67,
