@@ -52,3 +52,14 @@ dışında kalan bağımlıların dosyası silinir (sonraki çağrı yeniden kur
 Bütçe: tam koşu ≤ 45 dk, tepe bellek ≤ 20 GB (32 GB makine). Ölçülen
 (gerçek v4, 12 çekirdek): ~17 dk (gunluk 564 sn, carpanlar 44, naif 67,
 basit 81, ml 283), tepe 12,3 GB (ML adımı); ayrıntı `cikti/sure.json`.
+
+## Hikâye ürünü: `hikaye_sec`
+
+    .venv/Scripts/python -m yok_satma.hikaye_sec         # ilk 10 aday + seçilen
+
+`hazirla` çıktılarından (`gunluk.parquet`, `kayip_basit.parquet`) yazı 1'in
+açılış hikâyesinin ürününü seçer: Erkek/Unisex, İstanbul'da fiziksel mağaza,
+aynı gün iki bedeni `bos`, önceki gece geç teslim edilmiş siparişle depoya
+girmiş, kaybı `tedarik`e yazılmış, o güne kadar zincirde ≥ 1 adet birikmiş
+kayıp. Aday yoksa tek ölçüt (6, 5, 4, 3, 2, 1 sırasıyla), sonra ikili
+gevşetilir; hangi ölçütlerin gevştiği basılır. Ayrıntı modül açıklamasında.
