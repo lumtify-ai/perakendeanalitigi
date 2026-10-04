@@ -41,12 +41,18 @@ Gevşetme (R21): sıkı aramada aday yoksa TEK ölçüt düşürülür, sırayla
 `bos` SKU yeter ve `urun_id_ali == urun_id_veli` olur. `gevsetilen` kısa
 adların listesidir (ölçüt numarası artan sırada).
 
+Elle seçim (R24): `denetle` verilen bir (option, mağaza, gün) adayının hangi
+ölçütleri tutmadığını söyler (adayı veren en küçük gevşetme kümesi);
+`secim_ve_adaylar(..., hikaye=...)` seçimi o adaya çevirir. `rapor.py --hikaye`
+bunu kullanır.
+
 Bellek: günlük tablodan yalnız `bos` satırları ve dört sütun, kayıp
 tablosundan yedi sütun okunur (pyarrow süzgeci); içeride kimlikler tamsayı
 koda çevrilir. Gizli gerçeğe (`hakem`) dokunulmaz.
 """
 
 import argparse
+import copy
 from datetime import date
 from itertools import combinations
 from pathlib import Path
@@ -158,6 +164,19 @@ class _Hazir:
         gunluk_kayip = pd.Series(toplam).groupby(opt_k * _K + gun_k).sum().sort_index()
         self.birikim_anahtar = gunluk_kayip.index.to_numpy("int64")
         self.birikim = gunluk_kayip.groupby(self.birikim_anahtar // _K).cumsum().to_numpy()
+
+    def daralt(self, option_id: str, magaza_id: str, tarih) -> "_Hazir":
+        """Yalnız tek (option, mağaza, gün) `bos` satırlarını taşıyan kopya (`denetle` için)."""
+        o = self.opsiyonlar.get_indexer([str(option_id)])[0]
+        m = self.magazalar.get_indexer([str(magaza_id)])[0]
+        if o < 0 or m < 0:
+            raise LookupError(f"bilinmeyen option ya da magaza: {option_id}, {magaza_id}")
+        g = int(_gun(pd.Series([pd.Timestamp(tarih)]))[0])
+        maske = (self.opt == o) & (self.mag == m) & (self.gun == g)
+        dar = copy.copy(self)
+        for ad in ("gun", "mag", "sku", "opt", "f4", "f5"):
+            setattr(dar, ad, getattr(self, ad)[maske])
+        return dar
 
     def _anahtar(self, gun, mag, sku):
         return (gun * self._nm + mag) * self._nu + sku
@@ -291,13 +310,39 @@ def ara(con, gunluk: pd.DataFrame, kayip: pd.DataFrame) -> tuple[pd.DataFrame, l
     """İlk aday veren gevşetmenin aday tablosu ve `gevsetilen` kısa adları.
 
     En çok iki ölçüt gevşetilse de aday çıkmazsa `LookupError`."""
-    h = _Hazir(con, gunluk, kayip)
+    return _ara(_Hazir(con, gunluk, kayip))
+
+
+def _ara(h: _Hazir) -> tuple[pd.DataFrame, list[str]]:
     for gevset in gevsetme_sirasi():
         a = _adaylar(h, frozenset(gevset))
         if len(a):
             return a, [OLCUTLER[n] for n in sorted(gevset)]
     raise LookupError("hikaye icin aday yok: en cok iki olcut gevsetilse de hicbir "
                       "option-magaza-gun olcutleri tutmuyor")
+
+
+def _denetle(h: _Hazir, option_id: str, magaza_id: str, tarih) -> tuple[pd.DataFrame, list[str]]:
+    dar = h.daralt(option_id, magaza_id, tarih)
+    for n in range(len(OLCUTLER) + 1):
+        for gevset in combinations(GEVSETME_SIRASI, n):
+            a = _adaylar(dar, frozenset(gevset))
+            if len(a):
+                return a.head(1).reset_index(drop=True), [OLCUTLER[k] for k in sorted(gevset)]
+    raise LookupError(f"{option_id}, {magaza_id}, {pd.Timestamp(tarih).date()}: o gun o magazada "
+                      "option'in bos bedeni yok (hicbir gevsetmeyle aday degil)")
+
+
+def denetle(con, gunluk: pd.DataFrame, kayip: pd.DataFrame, option_id: str, magaza_id: str,
+            tarih) -> tuple[pd.DataFrame, list[str]]:
+    """Verilen (option, mağaza, gün) adayının tutmadığı ölçütler.
+
+    Dönüş: o adayın satırı (`ADAY_SUTUNLARI`, tek satır) ve tutmadığı ölçütlerin kısa
+    adları (boş: sıkı aramanın adayıdır). Tutmayanlar, adayı veren EN KÜÇÜK gevşetme
+    kümesidir (boyut artan; aynı boyutta `GEVSETME_SIRASI` önceliği). Ölçüt 3 düşerse
+    Ali ve Veli aynı SKU olabilir. Option'ın o gün o mağazada hiç `bos` bedeni yoksa
+    `LookupError`."""
+    return _denetle(_Hazir(con, gunluk, kayip), option_id, magaza_id, tarih)
 
 
 # ----------------------------------------------------------------------- seçim
@@ -310,11 +355,29 @@ def _oku(cikti: Path):
     return g, k
 
 
-def _ara_dosyadan(cikti: Path, db: Path | str | None) -> tuple[pd.DataFrame, list[str]]:
+def secim_ve_adaylar(cikti: Path | str = VARSAYILAN_CIKTI, db: Path | str | None = None,
+                     hikaye: tuple[str, str, object] | None = None
+                     ) -> tuple[dict, pd.DataFrame, list[str] | None]:
+    """(seçim, aday tablosu, aramanın gevşettiği ölçütler); arama bir kez koşar.
+
+    Aday tablosu ve gevşetilenler `ara`nınkidir. Seçim, `hikaye` yoksa tablonun ilk
+    adayıdır (`secim()` ile aynı sözlük). `hikaye = (option_id, magaza_id, tarih)`
+    verilirse seçim o adaydır (`denetle`); sözlüğün `gevsetilen`i o adayın TUTMADIĞI
+    ölçütlerdir ve `elle: True` eklenir. Elle seçimde arama hiç aday vermezse tablo boş,
+    gevşetilenler None döner; seçimsiz aramada `LookupError`."""
     con = kaynak.baglan(db)
     try:
-        g, k = _oku(Path(cikti))
-        return ara(con, g, k)
+        h = _Hazir(con, *_oku(Path(cikti)))
+        try:
+            aday, gevsetilen = _ara(h)
+        except LookupError:
+            if hikaye is None:
+                raise
+            aday, gevsetilen = pd.DataFrame(columns=ADAY_SUTUNLARI), None
+        if hikaye is None:
+            return _sozluk(aday, gevsetilen), aday, gevsetilen
+        satir, tutmayan = _denetle(h, *hikaye)
+        return {**_sozluk(satir, tutmayan), "elle": True}, aday, gevsetilen
     finally:
         con.close()
 
@@ -335,7 +398,7 @@ def secim(cikti: Path | str = VARSAYILAN_CIKTI, db: Path | str | None = None) ->
     günü teslim edilen geç siparişidir (ölçüt 4 gevşemişse None olabilir).
     Veli'nin SKU'sununki farklıysa (ya da yalnız birinde varsa) ayrıca
     `planlanan_teslim_veli` ve `gerceklesen_teslim_veli` eklenir."""
-    return _sozluk(*_ara_dosyadan(Path(cikti), db))
+    return secim_ve_adaylar(cikti, db)[0]
 
 
 def _sozluk(aday: pd.DataFrame, gevsetilen: list[str]) -> dict:
@@ -380,14 +443,13 @@ def main(argv: list[str] | None = None) -> dict:
     p.add_argument("--db", type=Path, default=None,
                    help=f"v4 DuckDB dosyasi (varsayilan {kaynak.VARSAYILAN_YOL})")
     a = p.parse_args(argv)
-    aday, gevsetilen = _ara_dosyadan(a.cikti, a.db)
+    sec, aday, gevsetilen = secim_ve_adaylar(a.cikti, a.db)
     print(f"gevsetilen: {gevsetilen if gevsetilen else 'yok (tum olcutler saglandi)'}")
     with pd.option_context("display.width", 250, "display.max_columns", 30):
         print(f"aday sayisi: {len(aday)}; ilk 10:")
         print(aday.head(10)[GOSTER].to_string())
         print("her line icin en iyi 3 option (option basina en ust satir):")
         print(hatta_gore(aday)[GOSTER].to_string())
-    sec = _sozluk(aday, gevsetilen)
     print("secilen:")
     for ad, deger in sec.items():
         print(f"  {ad}: {deger}")

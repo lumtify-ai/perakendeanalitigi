@@ -133,3 +133,21 @@ def test_eksik_cikti_komutu_soyler(cikti, oyuncak_db, sahte_hakem, tmp_path, cap
     assert "python -m yok_satma.hazirla" in capsys.readouterr().err
     assert rapor.main(_argv(cikti, oyuncak_db, tmp_path / "hakem_yok")) != 0
     assert "python -m perakende_analitik.hakem" in capsys.readouterr().err
+
+
+def test_bulunma_eki():
+    assert [rapor.bulunma(n) for n in (1, 2, 3, 6, 9, 10, 20, 24, 40, 60, 90, 100, 1000)] == [
+        "1'inde", "2'sinde", "3'ünde", "6'sında", "9'unda", "10'unda", "20'sinde", "24'ünde",
+        "40'ında", "60'ında", "90'ında", "100'ünde", "1.000'inde"]
+
+
+def test_elle_hikaye(cikti, oyuncak_db, sahte_hakem, capsys):
+    # M001 × MDL0001-SYH-M 2025-01-09'da bos (oyuncak dünyanın temel senaryosu)
+    argv = _argv(cikti, oyuncak_db, sahte_hakem)
+    assert rapor.main(argv + ["--hikaye", "MDL0001-SYH,M001,2025-01-09"]) == 0
+    metin = capsys.readouterr().out
+    assert "elle seçildi (--hikaye); tutmayan ölçütler:" in metin
+    assert "kayıp tablosu dışında kalan" in metin
+    # o gün o mağazada bos bedeni yok: açık hata
+    assert rapor.main(argv + ["--hikaye", "MDL0001-SYH,M002,2025-01-20"]) == 2
+    assert "bos bedeni yok" in capsys.readouterr().err

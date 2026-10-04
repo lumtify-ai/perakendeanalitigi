@@ -38,7 +38,8 @@ def test_denetim_eksik_sayiyi_yakalar(tmp_path, capsys):
                           "Bir gün 12.345 adet, hafta sonu 1,54 kat; 3 mağaza, 10 gün.\n"
                           "Sapma yüzde 3,2.\n")
     eksik = sayi_denetimi.bul(yazi, _rapor(tmp_path))
-    assert [(p.name, satir, sayi) for p, satir, sayi in eksik] == [("bir.mdx", 7, "12.345")]
+    assert [(b.dosya.name, b.satir, b.sayi, b.neden) for b in eksik] == [
+        ("bir.mdx", 7, "12.345", "eksik")]
     assert sayi_denetimi.main(_argv(yazi, tmp_path / "rapor.txt")) == 1
     assert "bir.mdx:7" in capsys.readouterr().out
 
@@ -52,9 +53,25 @@ def test_denetim_kod_blogunu_atlar(tmp_path):
     assert sayi_denetimi.main(_argv(yazi, tmp_path / "rapor.txt")) == 0
 
 
-def test_yazi_yoksa_gecer(tmp_path, capsys):
-    assert sayi_denetimi.main(_argv(tmp_path / "yok", _rapor(tmp_path))) == 0
-    assert "yazı yok" in capsys.readouterr().out
+def test_yazi_yoksa_uyarir(tmp_path, capsys, monkeypatch):
+    # varsayılan dizin yoksa uyarı + 0; elle verilen dizin yoksa uyarı + hata kodu
+    monkeypatch.setattr(sayi_denetimi, "YAZI_DIZINI", tmp_path / "yok")
+    assert sayi_denetimi.main(["--rapor", str(_rapor(tmp_path))]) == 0
+    assert "yazı yok" in capsys.readouterr().err
+    assert sayi_denetimi.main(_argv(tmp_path / "yok", _rapor(tmp_path))) != 0
+    assert "yazı yok" in capsys.readouterr().err
+
+
+def test_bicimsiz_sayi_kirpilmaz_hata(tmp_path, capsys):
+    yazi = tmp_path / "yazi"
+    _yaz(yazi, "uc.mdx", "Oran 1.5, sonra 12.34 ve 38.1; dizi 1.234.56.\n"
+                         "Geçerli: 1.234.567 ve 0,55. Cümle sonu 12.345.\n")
+    bulgular = sayi_denetimi.bul(yazi, _rapor(tmp_path))
+    assert [(b.satir, b.sayi, b.neden) for b in bulgular] == [
+        (1, "1.5", "biçim"), (1, "12.34", "biçim"), (1, "38.1", "biçim"),
+        (1, "1.234.56", "biçim"), (2, "12.345", "eksik")]
+    assert sayi_denetimi.main(_argv(yazi, tmp_path / "rapor.txt")) == 1
+    assert "uc.mdx:1: 1.5 (Türkçe biçimde değil)" in capsys.readouterr().out
 
 
 def test_rapor_yoksa_komutu_soyler(tmp_path, capsys):

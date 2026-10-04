@@ -363,3 +363,45 @@ def test_adaylar_ayni_girdide_ayni_tablo(kur):
     a2 = hikaye_sec.adaylar(con, gunluk.sample(frac=1.0, random_state=1),
                             kayip.sample(frac=1.0, random_state=2))
     pd.testing.assert_frame_equal(a1, a2)
+
+
+# ------------------------------------------------------- seçim + adaylar, denetle
+
+def test_secim_ve_adaylar_secimle_ayni(tmp_path):
+    cikti, db = _dosyalar(tmp_path, [OB, *TUM_ISKALAMALAR, OA])
+    sec, aday, gevsetilen = hikaye_sec.secim_ve_adaylar(cikti=cikti, db=db)
+    assert sec == hikaye_sec.secim(cikti=cikti, db=db)
+    assert gevsetilen == []
+    tablolar, gunluk, kayip = dunya([OB, *TUM_ISKALAMALAR, OA])
+    con = FIKSTUR.oyuncak_baglan(tablolar)
+    try:
+        beklenen, _ = hikaye_sec.ara(con, gunluk, kayip)
+    finally:
+        con.close()
+    pd.testing.assert_frame_equal(aday, beklenen)
+
+
+@pytest.mark.parametrize("secenek, tutmayan", [
+    (OA, []), (ANKARA, ["istanbul"]), (KADIN, ["cinsiyet"]), (PLANLAMA, ["tedarik"]),
+    (_secenek("IKILI", kaynak="planlama", onceki=0.4), ["tedarik", "donem_kayip"])],
+    ids=lambda x: x["ad"] if isinstance(x, dict) else str(x))
+def test_denetle_tutmayan_olcutleri_soyler(kur, secenek, tutmayan):
+    con, gunluk, kayip = kur([OA, secenek] if secenek is not OA else [OA])
+    satir, gevsetilen = hikaye_sec.denetle(con, gunluk, kayip, secenek["ad"], secenek["magaza"], T)
+    assert gevsetilen == tutmayan
+    assert len(satir) == 1 and satir.iloc[0]["option_id"] == secenek["ad"]
+
+
+def test_denetle_bos_bedeni_yoksa_hata(kur):
+    con, gunluk, kayip = kur([OA])
+    with pytest.raises(LookupError, match="bos bedeni yok"):
+        hikaye_sec.denetle(con, gunluk, kayip, "OA", "M3", T)
+
+
+def test_secim_ve_adaylar_elle_hikaye(tmp_path):
+    cikti, db = _dosyalar(tmp_path, [OA, ANKARA])
+    sec, aday, gevsetilen = hikaye_sec.secim_ve_adaylar(cikti=cikti, db=db,
+                                                        hikaye=("ANKARA", "M2", T))
+    assert sec["option_id"] == "ANKARA" and sec["magaza_id"] == "M2"
+    assert sec["gevsetilen"] == ["istanbul"] and sec["elle"] is True
+    assert list(aday["option_id"]) == ["OA"] and gevsetilen == []

@@ -8,6 +8,10 @@ frontmatter'ın `sira` satırı, çitli kod blokları (``` ya da ~~~ ile açıla
 `SS24`). Sayı Türkçe yazılır: binlik `.` (yalnız üçlü gruplarla, `1.234.567`),
 ondalık `,` (`12,3`). İşaret ve `%` sayının parçası değildir (`−%3,2` → 3,2).
 
+Rakam, nokta ve virgülden oluşan en uzun dizi tek sayı sayılır (sondaki noktalama
+hariç). Türkçe biçime uymayan dizi (`1.5`, `12.34`, `38.1`, `1.234.56`) kırpılmaz,
+"biçim" hatası olarak listelenir (eşiğin altında olsa da).
+
 Normalize: binlik noktalar düşer, ondalık virgül noktaya döner, sondaki
 sıfırlar atılır (`12,30` → 12.3; `1.000` ve `1000` → 1000). Aynı kural
 `rapor.txt`'e uygulanır; yazıdaki sayının normal biçimi raporun sayıları
@@ -20,6 +24,7 @@ import re
 import sys
 from decimal import Decimal
 from pathlib import Path
+from typing import NamedTuple
 
 KOK = Path(__file__).resolve().parent
 YAZI_DIZINI = KOK.parents[1] / "site" / "src" / "content" / "yazi" / "is-zekasi" / "satis-kaybi"
@@ -27,7 +32,8 @@ RAPOR = KOK / "cikti" / "rapor.txt"
 RAPOR_KOMUTU = "PYTHONIOENCODING=utf-8 .venv/Scripts/python rapor.py > cikti/rapor.txt"
 ESIK = 10                          # bundan büyük olmayan tam sayılar denetlenmez
 
-SAYI = re.compile(r"(?<![\w.,])(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?)(?!\w)")
+SAYI = re.compile(r"(?<![\w.,])(\d[\d.,]*\d|\d)(?!\w)(?![.,]\d)")    # en uzun dizi
+GECERLI = re.compile(r"\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?")      # Türkçe biçim
 _CIT = re.compile(r"^\s*(```|~~~)")
 
 
@@ -67,39 +73,57 @@ def satirlar(metin: str):
             yield no, satir
 
 
+class Bulgu(NamedTuple):
+    dosya: Path
+    satir: int
+    sayi: str
+    neden: str           # "eksik" (rapor.txt'te yok) | "biçim" (Türkçe biçime uymuyor)
+
+
+def gecerli(metin: str) -> bool:
+    return GECERLI.fullmatch(metin) is not None
+
+
 def rapor_sayilari(metin: str) -> set[str]:
-    return {normalize(m.group(1)) for m in SAYI.finditer(metin)}
+    """Rapor'daki Türkçe biçimli sayıların normal biçimleri (biçimsiz diziler atlanır)."""
+    return {normalize(m.group(1)) for m in SAYI.finditer(metin) if gecerli(m.group(1))}
 
 
-def bul(yazi_dizini: Path, rapor: Path) -> list[tuple[Path, int, str]]:
-    """Rapor'da geçmeyen sayılar: (dosya, satır no, yazıdaki biçim), dosya ve satır sırasıyla."""
+def bul(yazi_dizini: Path, rapor: Path) -> list[Bulgu]:
+    """Biçimsiz sayılar ve rapor'da geçmeyen sayılar, dosya ve satır sırasıyla."""
     bilinen = rapor_sayilari(Path(rapor).read_text(encoding="utf-8"))
-    eksik = []
+    bulgular = []
     for dosya in sorted(Path(yazi_dizini).glob("*.mdx")):
         for no, satir in satirlar(dosya.read_text(encoding="utf-8")):
             for m in SAYI.finditer(satir):
                 sayi = m.group(1)
-                if _denetlenir(sayi) and normalize(sayi) not in bilinen:
-                    eksik.append((dosya, no, sayi))
-    return eksik
+                if not gecerli(sayi):
+                    bulgular.append(Bulgu(dosya, no, sayi, "biçim"))
+                elif _denetlenir(sayi) and normalize(sayi) not in bilinen:
+                    bulgular.append(Bulgu(dosya, no, sayi, "eksik"))
+    return bulgular
 
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="python sayi_denetimi.py", description=__doc__.split("\n")[0])
-    p.add_argument("--yazi", type=Path, default=YAZI_DIZINI, help=f"yazı dizini ({YAZI_DIZINI})")
+    p.add_argument("--yazi", type=Path, default=None, help=f"yazı dizini ({YAZI_DIZINI})")
     p.add_argument("--rapor", type=Path, default=RAPOR, help=f"rapor dosyası ({RAPOR})")
     a = p.parse_args(argv)
-    if not a.yazi.is_dir() or not any(a.yazi.glob("*.mdx")):
-        print(f"yazı yok ({a.yazi})")
-        return 0
+    yazi = a.yazi if a.yazi is not None else YAZI_DIZINI
+    if not yazi.is_dir() or not any(yazi.glob("*.mdx")):
+        print(f"uyarı: yazı yok ({yazi}); denetlenecek sayı yok", file=sys.stderr)
+        # varsayılan dizin henüz yoksa geçer; elle verilen dizin yoksa hata
+        return 0 if a.yazi is None else 2
     if not a.rapor.exists():
         print(f"{a.rapor} yok. Önce raporu üretin: {RAPOR_KOMUTU}")
         return 2
-    eksik = bul(a.yazi, a.rapor)
-    for dosya, no, sayi in eksik:
-        print(f"{dosya.name}:{no}: {sayi}")
-    if eksik:
-        print(f"{len(eksik)} sayı rapor.txt'te yok")
+    bulgular = bul(yazi, a.rapor)
+    for b in bulgular:
+        aciklama = "rapor.txt'te yok" if b.neden == "eksik" else "Türkçe biçimde değil"
+        print(f"{b.dosya.name}:{b.satir}: {b.sayi} ({aciklama})")
+    if bulgular:
+        eksik = sum(b.neden == "eksik" for b in bulgular)
+        print(f"{eksik} sayı rapor.txt'te yok, {len(bulgular) - eksik} sayı biçimsiz")
         return 1
     print("bütün sayılar rapor.txt'te var")
     return 0
