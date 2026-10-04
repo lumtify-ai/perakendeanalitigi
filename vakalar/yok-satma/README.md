@@ -60,6 +60,7 @@ basit 81, ml 283), tepe 12,3 GB (ML adımı); ayrıntı `cikti/sure.json`.
 `hazirla` çıktılarından (`gunluk.parquet`, `kayip_basit.parquet`) yazı 1'in
 açılış hikâyesinin ürününü seçer: Erkek/Unisex, İstanbul'da fiziksel mağaza,
 aynı gün iki bedeni `bos`, önceki gece geç teslim edilmiş siparişle depoya
-girmiş, kaybı `tedarik`e yazılmış, o güne kadar zincirde ≥ 1 adet birikmiş
-kayıp. Aday yoksa tek ölçüt (6, 5, 4, 3, 2, 1 sırasıyla), sonra ikili
+girmiş, kaybı `tedarik`e yazılmış, option'ın bu stoksuzluk dönemindeki (depoda
+son stoklu günden `tarih - 1`e) zincir kaybı ≥ 1 adet; dönem kaybı azalan sıralanır.
+CLI ayrıca her `line` için en iyi 3 option'ı basar. Aday yoksa tek ölçüt (6, 5, 4, 3, 2, 1 sırasıyla), sonra ikili
 gevşetilir; hangi ölçütlerin gevştiği basılır. Ayrıntı modül açıklamasında.

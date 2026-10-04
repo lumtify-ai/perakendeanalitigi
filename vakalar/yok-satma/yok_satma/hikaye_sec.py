@@ -18,13 +18,22 @@ siparişi). Yani kayıp allocation'ın değil tedarikin / buying'in.
                                `kaynak == "tedarik"`; kaybı 0 olan bir satırın
                                tedarike yazılması hikâyeyi taşımaz, o yüzden
                                `kayip > 0` ölçütün parçasıdır
-    6 birikmis_kayip           `tarih`ten ÖNCE zincirde (bütün mağazalar ve ONL)
-                               o option için birikmiş kayıp (Basit, `kayip`,
-                               `bos` ve `tukenen` günleri) >= 1 adet
+    6 donem_kayip              option'ın BU stoksuzluk dönemindeki zincir kaybı
+                               (Basit `kayip`, bütün mağazalar ve ONL, `bos` ve
+                               `tukenen` günleri) >= 1 adet (R23)
+
+Dönem (R23): iki SKU'dan birinin depoda (`depo_stok.adet > 0`) son stoklu
+olduğu gün d* (en geç `tarih - 1`); dönem d* + 1 .. `tarih - 1` (uçlar dahil).
+İkisinin de depoda hiç stoklu günü yoksa dönem `depo_stok` kaydının ilk
+gününde başlar. `donem_gun` = `tarih - baslangıç` (gün sayısı), `donem_kayip`
+= option'ın (iki SKU değil, bütün bedenleri) o aralıktaki kaybı. Eski ölçüt
+(tarihe kadar bütün birikim) yalnız bağlam için `birikmis_kayip` sütununda
+durur: çok eski, çok satan bir option'ın ömür boyu kaybı hikâyenin "kayıp
+oluşmaya başlamıştır"ını anlatmaz.
 
 Aday = (option, mağaza, gün). Bir grupta ölçütleri tutan SKU'lardan
 `beden_sira`sı en küçük iki tanesi seçilir: küçük olan Ali, büyük olan Veli.
-Sıralama: birikmiş kayıp azalan, sonra option_id, tarih, magaza_id.
+Sıralama: dönem kaybı azalan, sonra option_id, tarih, magaza_id.
 
 Gevşetme (R21): sıkı aramada aday yoksa TEK ölçüt düşürülür, sırayla 6, 5, 4,
 3, 2, 1; ilk aday veren seçilir. Hiçbiri vermezse ikili kombinasyonlar aynı
@@ -50,15 +59,17 @@ from perakende_analitik import kaynak
 VARSAYILAN_CIKTI = Path(__file__).resolve().parents[1] / "cikti"
 
 OLCUTLER = {1: "cinsiyet", 2: "istanbul", 3: "iki_beden", 4: "onceki_gece_gec_teslim",
-            5: "tedarik", 6: "birikmis_kayip"}
+            5: "tedarik", 6: "donem_kayip"}
 GEVSETME_SIRASI = (6, 5, 4, 3, 2, 1)        # sondan başa
 CINSIYETLER = ("Erkek", "Unisex")
 SEHIR = "İstanbul"
-EN_AZ_BIRIKMIS = 1.0                         # adet
+EN_AZ_DONEM_KAYBI = 1.0                      # adet
+HATLAR = ("Collection", "Basic", "NOS", "Outlet")
 _K = 1 << 20                                 # (id, gün) tamsayı anahtarı için gün çarpanı
 
-ADAY_SUTUNLARI = ["option_id", "magaza_id", "tarih", "urun_id_ali", "urun_id_veli",
-                  "birikmis_kayip", "depoya_giris", "planlanan_teslim_ali",
+ADAY_SUTUNLARI = ["option_id", "model_adi", "renk", "line", "magaza_id", "tarih",
+                  "urun_id_ali", "urun_id_veli", "donem_baslangic", "donem_gun",
+                  "donem_kayip", "birikmis_kayip", "depoya_giris", "planlanan_teslim_ali",
                   "gerceklesen_teslim_ali", "planlanan_teslim_veli", "gerceklesen_teslim_veli"]
 
 
@@ -91,7 +102,8 @@ class _Hazir:
     ölçüt 4 ve 5 anahtarları, birikmiş kayıp tablosu."""
 
     def __init__(self, con, gunluk: pd.DataFrame, kayip: pd.DataFrame):
-        urun = con.execute("select urun_id, option_id, cinsiyet, beden_sira from urun "
+        urun = con.execute("select urun_id, option_id, cinsiyet, beden_sira, model_adi, renk, "
+                           "line from urun "
                            "order by urun_id").df()
         magaza = con.execute("select magaza_id, sehir, tip from magaza order by magaza_id").df()
         late = con.execute("select siparis_id, urun_id, planlanan_teslim, gerceklesen_teslim "
@@ -101,7 +113,12 @@ class _Hazir:
         self.magazalar = pd.Index(magaza["magaza_id"].astype(str))
         self.opsiyonlar = pd.Index(np.unique(urun["option_id"].astype(str)))
         self.sku_option = self.opsiyonlar.get_indexer(urun["option_id"].astype(str))
+        self.con = con
         self.sku_sira = urun["beden_sira"].to_numpy("int64")
+        self.sku_bilgi = urun[["model_adi", "renk", "line"]].reset_index(drop=True)
+        # depo kaydının ilk günü: hiç stoklu günü olmayan SKU'nun dönemi buradan başlar
+        ilk = con.execute("select min(tarih) from depo_stok").fetchone()[0]
+        self.depo_ilk = int(_gun(pd.Series([ilk]))[0]) if ilk is not None else 0
         self.sku_erkek = urun["cinsiyet"].isin(CINSIYETLER).to_numpy()
         self.magaza_istanbul = ((magaza["sehir"] == SEHIR) & (magaza["tip"] != "Online")).to_numpy()
         nu, nm = len(self.urunler), len(self.magazalar)
@@ -151,6 +168,22 @@ class _Hazir:
         gecerli = (yer >= 0) & (self.birikim_anahtar[np.maximum(yer, 0)] // _K == opt)
         return np.where(gecerli, self.birikim[np.maximum(yer, 0)], 0.0)
 
+    def son_stoklu_gun(self, sku: np.ndarray, gun: np.ndarray) -> np.ndarray:
+        """Her (SKU, gün) için `gun`den önceki en son depo-stoklu gün (adet > 0);
+        yoksa depo kaydının ilk gününden bir önceki gün."""
+        girdi = pd.DataFrame({"urun_id": self.urunler[sku].to_numpy(), "tarih": _tarih(gun)})
+        self.con.register("_aday_depo", girdi.drop_duplicates())
+        try:
+            son = self.con.execute(
+                "select c.urun_id, c.tarih, max(d.tarih) as son from _aday_depo c "
+                "left join depo_stok d on d.urun_id = c.urun_id and d.tarih < c.tarih "
+                "and d.adet > 0 group by c.urun_id, c.tarih").df()
+        finally:
+            self.con.unregister("_aday_depo")
+        son = girdi.merge(son, on=["urun_id", "tarih"], how="left")["son"]
+        return np.where(son.notna(), _gun(son.fillna(pd.Timestamp("1970-01-01"))),
+                        self.depo_ilk - 1)
+
     def teslim(self, sku: np.ndarray, gun: np.ndarray) -> tuple[pd.Series, pd.Series]:
         """`gun - 1` günü teslim edilen (geç) siparişin planlanan ve gerçekleşen tarihi (NaT olabilir)."""
         anahtar = self.late["anahtar"].to_numpy()
@@ -194,9 +227,19 @@ def _adaylar(h: _Hazir, gevset: frozenset[int]) -> pd.DataFrame:
         a = a[a["sku_veli"].notna()]
     a["sku_veli"] = a["sku_veli"].fillna(a["sku_ali"]).astype("int64")
 
-    a["birikmis_kayip"] = h.onceki_birikim(a["opt"].to_numpy(), a["gun"].to_numpy())
+    a = a.reset_index(drop=True)
+    opt, gun = a["opt"].to_numpy(), a["gun"].to_numpy()
+    if len(a):
+        son = np.maximum(h.son_stoklu_gun(a["sku_ali"].to_numpy(), gun),
+                         h.son_stoklu_gun(a["sku_veli"].to_numpy(), gun))
+    else:
+        son = np.zeros(0, "int64")
+    baslangic = son + 1
+    a["baslangic"] = baslangic
+    a["birikmis_kayip"] = h.onceki_birikim(opt, gun)
+    a["donem_kayip"] = a["birikmis_kayip"] - h.onceki_birikim(opt, baslangic)
     if 6 not in gevset:
-        a = a[a["birikmis_kayip"] >= EN_AZ_BIRIKMIS]
+        a = a[a["donem_kayip"] >= EN_AZ_DONEM_KAYBI - 1e-9]
     a = a.reset_index(drop=True)
 
     gun = a["gun"].to_numpy()
@@ -204,21 +247,26 @@ def _adaylar(h: _Hazir, gevset: frozenset[int]) -> pd.DataFrame:
     pl_v, ge_v = h.teslim(a["sku_veli"].to_numpy(), gun)
     # depoya giriş: ikisinden biri önceki gece geç teslim aldıysa o gece
     depoya = _tarih(gun - 1).where(ge_a.notna() | ge_v.notna())
+    bilgi = h.sku_bilgi.iloc[a["sku_ali"].to_numpy()].reset_index(drop=True)
     sonuc = pd.DataFrame({
         "option_id": h.opsiyonlar[a["opt"]].to_numpy(),
+        "model_adi": bilgi["model_adi"], "renk": bilgi["renk"], "line": bilgi["line"],
         "magaza_id": h.magazalar[a["mag"]].to_numpy(),
         "tarih": _tarih(gun),
         "urun_id_ali": h.urunler[a["sku_ali"]].to_numpy(),
         "urun_id_veli": h.urunler[a["sku_veli"]].to_numpy(),
+        "donem_baslangic": _tarih(a["baslangic"].to_numpy()),
+        "donem_gun": (gun - a["baslangic"].to_numpy()).astype("int32"),
+        "donem_kayip": a["donem_kayip"].to_numpy(),
         "birikmis_kayip": a["birikmis_kayip"].to_numpy(),
         "depoya_giris": depoya,
         "planlanan_teslim_ali": pl_a, "gerceklesen_teslim_ali": ge_a,
         "planlanan_teslim_veli": pl_v, "gerceklesen_teslim_veli": ge_v})
-    sonuc = sonuc.sort_values(["birikmis_kayip", "option_id", "tarih", "magaza_id",
+    sonuc = sonuc.sort_values(["donem_kayip", "option_id", "tarih", "magaza_id",
                                "urun_id_ali"],
                               ascending=[False, True, True, True, True], kind="stable")
     sonuc = sonuc.reset_index(drop=True)[ADAY_SUTUNLARI]
-    for c in ("option_id", "magaza_id", "urun_id_ali", "urun_id_veli"):
+    for c in ("option_id", "magaza_id", "urun_id_ali", "urun_id_veli", "line"):
         sonuc[c] = sonuc[c].astype("category")
     return sonuc
 
@@ -280,6 +328,7 @@ def secim(cikti: Path | str = VARSAYILAN_CIKTI, db: Path | str | None = None) ->
 
     Anahtarlar: option_id, urun_id_ali (küçük beden_sira), urun_id_veli (büyük),
     magaza_id, tarih, depoya_giris, planlanan_teslim, gerceklesen_teslim,
+    donem_baslangic, donem_gun, donem_kayip (R23 dönemi, bkz. modül açıklaması),
     gevsetilen (kısa ad listesi; sıkı aramada boş). Tarihler `datetime.date`.
 
     `planlanan_teslim` / `gerceklesen_teslim` Ali'nin SKU'sunun `tarih - 1`
@@ -297,7 +346,8 @@ def _sozluk(aday: pd.DataFrame, gevsetilen: list[str]) -> dict:
              "tarih": _gunu(s["tarih"]), "depoya_giris": _gunu(s["depoya_giris"]),
              "planlanan_teslim": _gunu(s["planlanan_teslim_ali"]),
              "gerceklesen_teslim": _gunu(s["gerceklesen_teslim_ali"]),
-             "gevsetilen": gevsetilen}
+             "donem_baslangic": _gunu(s["donem_baslangic"]), "donem_gun": int(s["donem_gun"]),
+             "donem_kayip": float(s["donem_kayip"]), "gevsetilen": gevsetilen}
     veli = (_gunu(s["planlanan_teslim_veli"]), _gunu(s["gerceklesen_teslim_veli"]))
     if veli != (sonuc["planlanan_teslim"], sonuc["gerceklesen_teslim"]):
         sonuc["planlanan_teslim_veli"], sonuc["gerceklesen_teslim_veli"] = veli
@@ -305,6 +355,22 @@ def _sozluk(aday: pd.DataFrame, gevsetilen: list[str]) -> dict:
 
 
 # ------------------------------------------------------------------------- CLI
+
+GOSTER = ["option_id", "model_adi", "renk", "line", "magaza_id", "tarih", "planlanan_teslim_ali",
+          "gerceklesen_teslim_ali", "donem_gun", "donem_kayip", "birikmis_kayip"]
+
+
+def hatta_gore(aday: pd.DataFrame, n: int = 3) -> pd.DataFrame:
+    """Her `line` için en iyi `n` option (option başına en üst sıradaki satır).
+
+    Aday tablosunun sırası korunur; hatlar `HATLAR` sırasında, ardından
+    tabloda görünen diğer hatlar alfabetik. Kullanıcı bu tablodan seçer."""
+    ilk = aday.drop_duplicates("option_id", keep="first")
+    hatlar = [h for h in HATLAR if h in set(ilk["line"].astype(str))]
+    hatlar += sorted(set(ilk["line"].astype(str)) - set(hatlar))
+    parcalar = [ilk[ilk["line"].astype(str) == h].head(n) for h in hatlar]
+    return pd.concat(parcalar, ignore_index=True) if parcalar else ilk.head(0)
+
 
 def main(argv: list[str] | None = None) -> dict:
     p = argparse.ArgumentParser(prog="python -m yok_satma.hikaye_sec",
@@ -316,9 +382,11 @@ def main(argv: list[str] | None = None) -> dict:
     a = p.parse_args(argv)
     aday, gevsetilen = _ara_dosyadan(a.cikti, a.db)
     print(f"gevsetilen: {gevsetilen if gevsetilen else 'yok (tum olcutler saglandi)'}")
-    print(f"aday sayisi: {len(aday)}; ilk 10:")
-    with pd.option_context("display.width", 250, "display.max_columns", 20):
-        print(aday.head(10).to_string())
+    with pd.option_context("display.width", 250, "display.max_columns", 30):
+        print(f"aday sayisi: {len(aday)}; ilk 10:")
+        print(aday.head(10)[GOSTER].to_string())
+        print("her line icin en iyi 3 option (option basina en ust satir):")
+        print(hatta_gore(aday)[GOSTER].to_string())
     sec = _sozluk(aday, gevsetilen)
     print("secilen:")
     for ad, deger in sec.items():
