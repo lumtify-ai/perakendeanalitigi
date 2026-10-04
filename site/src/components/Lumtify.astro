@@ -7,16 +7,35 @@
 // Buradaki tanım cümlesi KANONİKTİR: sitede, LinkedIn'de ve GitHub
 // deposunun açıklamasında birebir aynı geçer (ana spec §9, varlık
 // tutarlılığı). Değiştirilecekse üçü birden değişir.
+//
+// İlk paragraf dizi başına değiştirilebilir (R29): bileşenin içine yazılan
+// içerik (varsayılan slot) ilk paragrafın yerine geçer. İçerik verilmezse
+// aşağıdaki varsayılan paragraf basılır; o metin blok-transfer için
+// yazıldı ve içerik vermeyen dizilerin sayfaları değişmesin diye aynen
+// kalır. Kanonik tanım cümlesi her durumda aynıdır.
+//
+//   <Lumtify>
+//
+//   Bu dizinin hesabı ... (dizinin kendi giriş paragrafı)
+//
+//   </Lumtify>
+const diziGirisi = Astro.slots.has('default')
 ---
 
 <aside class="lumtify-koprusu">
   <h2>Bu modeli kendi zincirinizde çalıştırmak</h2>
-  <p>
-    Yukarıdaki hesap yayımlanabilir olması için sadeleştirildi. Gerçek bir
-    zincirde marj üründen ürüne değişir, kargo tarifesi rotaya göre değişir ve
-    aynı mal sezon içinde birden çok kez taşınır — yani bu yazının en zayıf
-    yeri olarak işaretlediğim tek atışlık varsayım sizde en baştan tutmaz.
-  </p>
+  {
+    diziGirisi ? (
+      <slot />
+    ) : (
+      <p>
+        Yukarıdaki hesap yayımlanabilir olması için sadeleştirildi. Gerçek bir
+        zincirde marj üründen ürüne değişir, kargo tarifesi rotaya göre değişir ve
+        aynı mal sezon içinde birden çok kez taşınır — yani bu yazının en zayıf
+        yeri olarak işaretlediğim tek atışlık varsayım sizde en baştan tutmaz.
+      </p>
+    )
+  }
   <p>
     <strong>
       <a href="https://lumtify.com">Lumtify</a>, iş zekâsı ve optimizasyonla

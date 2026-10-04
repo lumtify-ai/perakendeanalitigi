@@ -2,7 +2,7 @@
 baslik: Ali mi, Veli mi?
 tip: sonuc
 sira: 4
-ozet: Rafı boş bulan müşterinin ne kadarı başka bir ürün aldı, ne kadarı çıkıp gitti? Lumoda'nın gerçek kaybı, kestirimin onu ne kadar büyük gösterdiği, ve kaybı operasyonel ile son tükeniş diye ikiye ayırınca değişen tablo.
+ozet: Rafı boş bulan müşterinin ne kadarı başka bir ürün aldı, ne kadarı çıkıp gitti? Lumoda'nın gerçek kaybı, kestirimin onu ne kadar büyük gösterdiği ve kaybı operasyonel ile son tükeniş diye ikiye ayırınca değişen tablo.
 yazar: Sabri Suyunu
 durum: hazirlaniyor
 ---
@@ -11,24 +11,25 @@ import T from '../../../../components/T.astro'
 
 İlk yazıda Pars, Ali'nin gri sweatshirt'üne <T k="ikame">ikame</T>,
 Veli'nin eli boş çıkmasına <T k="satis-kaybi">satış kaybı</T> demişti.
-Sonra da bir uyarı yapmıştı: raporda ikisi aynı görünür, ama aynı şey
-değiller. Bu yazının sorusu şu: Lumoda'da rafı boş bulan müşterilerin ne
+Sonra da bir uyarı yapmıştı: satış kaybı hesabında ikisi aynı görünür,
+ama aynı şey değiller. Bu yazının sorusu şu: Lumoda'da karşılanmayan talebin ne
 kadarı Ali, ne kadarı Veli?
 
 ## Sweatshirt'ün haftası
 
 Önce hikâyenin ürünü. Depo boşaldıktan sonraki yedi günde indigo
 sweatshirt'te hakemin saydığı karşılanmayan talep 1.762 adet. Bunun 671'i,
-yani %38,1'i, başka bir ürüne gitti. 1.091'i, %61,9'u, şirketten çıktı
-gitti.
+yani %38,1'i, başka bir ürüne gitti. 1.091'i, %61,9'u, hiçbir şey almadan
+çıktı gitti.
 
 Basit aynı hafta için 1.530 adet kayıp yazmıştı. Karşılanmayan talebin
 0,87'si. Bu üründe eksik kalmış. Ama şirketin gerçekten kaybettiği 1.091
 adede göre fazla.
 
-O pazar İstanbul 5'te M bedeni için Basit 2,24 adet yazmıştı. Hakem dört
-müşteri sayıyor: biri başka bir şey aldı, üçü gitti. Tek bir günde kestirim
-böyle sapar. Önceki yazıda gördük; günler toplanınca hata küçülür.
+O pazar Ankara 4'te Basit, Ali'nin bedeni için 0,75, Veli'nin bedeni için
+2,76 adet yazmıştı. Hakem S bedeninde üç, M bedeninde dört müşteri sayıyor.
+S'dekilerin ikisi, M'dekilerin ikisi başka bir şey aldı; S'de biri, M'de
+ikisi hiçbir şey almadan gitti. Tek bir günde kestirim böyle sapar. Önceki yazıda gördük; günler toplanınca hata küçülür.
 
 ## Bütün zincir, son yıl
 
@@ -39,11 +40,11 @@ son yılda:
 |---|---:|---:|
 | Karşılanmayan talep (hakem) | 2.833.153 | |
 | Başka bir ürüne giden (ikame) | 773.421 | %27,3 |
-| Şirketten çıkıp giden (kalıcı kayıp) | 2.059.732 | %72,7 |
+| Hiçbir şey almadan giden (kalıcı kayıp) | 2.059.732 | %72,7 |
 | Basit'in kestirimi | 3.097.930 | |
 
-Rafı boş bulan müşterilerin %27,3'ü Ali gibi davranıyor, %72,7'si Veli
-gibi.
+Karşılanmayan talebin %27,3'ü Ali gibi bir ikameye dönüşüyor, %72,7'si
+Veli gibi kayboluyor.
 
 Şimdi Basit'in sayısına bakın. Karşılanmayan talebin 1,093 katı; üçüncü
 yazıda gördüğümüz +%9,3. Ama şirketin gerçek kaybına göre, yani kalıcı
@@ -71,14 +72,15 @@ karşılanmayan talep 3.066.269 adet. Bunun 233.023'ü, %7,60'ı, kayıp
 yazmadığımız günlerde: ürünün o mağazanın çeşidinde olmadığı, mağazanın
 kapalı olduğu, ürünün henüz satışa çıkmadığı ya da çoktan çıktığı günler.
 
-Bu müşteriler de bir şey istedi ve bulamadı. Ama bulamamalarının sebebi
-stok değil, çeşit. İlk yazının sonunda saydığımız öbür kayıplardan biri.
+Bu müşteriler de bir şey istedi ve bulamadı. Ama ürün o gün o mağazada zaten
+satışta değildi. İlk yazının sonunda saydığımız öbür kayıplardan biri.
 Ayrı bir sorunun konusu.
 
 ## Kaybı ikiye ayırmak
 
-Şimdi Lumoda'nın kaybını cironun yanına koyalım. Basit'in kestirimi,
-etiket fiyatıyla, aynı yılın net cirosuna oranla:
+Şimdi Lumoda'nın kaybını cironun yanına koyalım. Bundan sonraki
+tablolarda "kayıp", Basit'in kestirimi: ikame dahil karşılanmayan talep.
+Etiket fiyatıyla, aynı yılın net cirosuna oranla:
 
 | Yıl | Kayıp ÷ ciro |
 |---|---:|
@@ -94,13 +96,15 @@ Pelin bu tabloyu görünce yüzünü buruşturuyor.
 anlam kazanıyor.
 
 **Operasyonel kayıp.** Hücre bir süre boş kaldı, sonra yeniden stoklandı.
-Mal vardı ya da yoldaydı; zamanında doğru yerde değildi. Bu kayıp gerçekten
-masada kalmış paradır. İlk yazının sweatshirt'ü bu türe benziyor: mal
-gecikti ama geldi.
+Mal vardı ya da yoldaydı; zamanında doğru yerde değildi. Kaçırılmış satışa
+en yakın taraf bu: mal yerinde olsaydı satılacaktı. Ama bu sayının da bir
+kısmı ikameyle zaten şirkette kalmıştı. İlk yazının sweatshirt'ü bu türden: mal gecikti,
+ama üç gün sonra Ankara 4'e vardı.
 
-**Son tükeniş.** Mal o mağazada bitti ve bir daha gelmedi. Buradaki kayıp
+**Son tükeniş.** Mal o mağazada bitti ve bir daha gelmedi. İkinci yazıda
+Pars'ın "kendine ait bir adı var" dediği durum bu. Buradaki kayıp
 potansiyeldir: "daha çok alsaydık ne satardık" sorusunun cevabı. Bu bir
-planlama sorusu, ve cevabı tek başına bir kazanç değildir; daha çok almanın
+planlama sorusu ve cevabı tek başına bir kazanç değildir; daha çok almanın
 da bir bedeli var. Fazla mal indirime kalır.
 
 | Yıl | Operasyonel ÷ ciro | Son tükeniş ÷ ciro |
@@ -125,9 +129,10 @@ fazla.
 
 Mağaza ile online bu bölmede birbirinin tersi. Üçüncü yılda mağazada
 operasyonel kayıp cironun %9,55'i, son tükeniş %28,48'i. Online'da
-operasyonel %28,02, son tükeniş %10,47. Online'ın stoğu merkez depodur;
-depo boşalır, sonraki teslimle dolar ve kayıp çoğu zaman geçici kalır. Mağazada bir
-beden bittiğinde o mağazaya bir daha mal gitmeyebilir.
+operasyonel %28,02, son tükeniş %10,47. Bir açıklaması: online'ın stoğu merkez
+depodur; depo boşalır, sonraki teslimle dolar ve kayıp çoğu zaman geçici
+kalır. Mağazada ise bir beden bittiğinde o mağazaya bir daha mal
+gitmeyebilir.
 
 Ürün tipine göre de fark büyük. Kaybın son tükeniş payı Collection'da
 %69,3, Outlet'te %84,4, Basic'te %48,5, NOS'ta %54,8. Collection bir
@@ -155,12 +160,12 @@ görünürlük kazanmanın yolları var:
 
 ## Sizin verinizde zor olan
 
-Sizin verinizde zor olan ikame payı. Bizim veride rafı boş bulan
-müşterilerin %27,3'ü başka bir ürün aldı. Sizin zincirinizde bu oran
-başka olacak; ürüne, kategoriye, mağazanın kalabalığına göre değişecek.
-Bilmediğiniz sürece elinizdeki kestirim kaybın üst sınırıdır, kendisi
-değil.
+Sizin verinizde zor olan ikame payı. Bizim veride karşılanmayan talebin
+%27,3'ü başka bir ürüne gitti. Sizin zincirinizde bu oran başka olacak;
+ürüne, kategoriye, mağazanın kalabalığına göre değişecek. Kestiriminiz iyi
+yapılmış olsa bile karşılanmayan talebi ölçer; şirketin kaybı onun bir
+parçasıdır.
 
-Pars'ın pazar günkü cümlesi de buraya çıkıyor. Ali'yi Veli'den
+Pars'ın pazar günü söylediği de buraya bağlanıyor. Ali'yi Veli'den
 ayıramıyorsanız kaybı ya fazla sayarsınız ya eksik. Biz fazla saydık,
 bir buçuk katı. Veli'ye sorarsanız bu bile az. 🙂

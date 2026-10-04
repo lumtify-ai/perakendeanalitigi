@@ -531,6 +531,19 @@ describe('site geneli vaatler', () => {
     }
     expect(gecenler.map(({ yol }) => yol).sort()).toEqual([...BEKLENEN_KOPRU_SAYFALARI].sort())
   })
+
+  it('satış kaybı köprüsü kendi giriş paragrafını basar, kanonik cümle aynı kalır (R29)', () => {
+    // Lumtify bileşeni dizi başına ilk paragraf alabilir; içerik verilmezse
+    // varsayılan (blok-transfer) paragrafı basılır ve öbür dizilerin
+    // sayfaları değişmez.
+    const html = oku('is-zekasi/satis-kaybi/kaybin-sahibi/index.html')
+    const kopru = html.slice(html.indexOf('lumtify-koprusu'), html.indexOf('</aside>', html.indexOf('lumtify-koprusu')))
+    expect(kopru).toContain('ikameyi kalıcı kayıptan ayıracak bir hakem')
+    expect(kopru).not.toContain('kargo tarifesi')
+    expect(kopru).toContain('iş zekâsı ve optimizasyonla')
+    expect(kopru).toContain('Let Us Make Trade Intelligent For You')
+    expect(oku('rpt/tekrar-siparis/rpt-geldi/index.html')).toContain('kargo tarifesi')
+  })
 })
 
 describe('üst menü', () => {

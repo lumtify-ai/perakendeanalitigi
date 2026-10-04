@@ -9,7 +9,8 @@ durum: hazirlaniyor
 
 import T from '../../../../components/T.astro'
 
-Pazartesi sabahı. Pelin, Banu'yla konuşmuş; tedarikçiye gecikmenin
+Pazartesi sabahı, Ankara'daki bölge toplantısından önce. Pelin, Banu'yla
+telefonda konuşmuş; tedarikçiye gecikmenin
 hesabını soracaklar. Toplantı odasında bir soru kalmış.
 
 — Pazar günü o sweatshirt'ten kaç satış kaçırdık? diyor Pelin. Bunu bir
@@ -17,7 +18,7 @@ sayıyla söyleyebilir miyiz?
 
 Pars tahtaya üç satır yazıyor:
 
-1. Stoksuz günü bul.
+1. <T k="stoksuz-gun">Stoksuz günü</T> bul.
 2. Stoklu günlerin hızını ölç.
 3. Her stoksuz güne bir kayıp yaz.
 
@@ -27,7 +28,7 @@ Pars tahtaya üç satır yazıyor:
 
 ## Birinci adım: stoksuz gün
 
-Kayıp yalnız <T k="stoksuz-gun">stoksuz gün</T>de oluşur. Ürünün o mağazada
+Kayıp yalnız stoksuz günde oluşur. Ürünün o mağazada
 satışta olması gereken, ama rafta bulunmadığı gün. İki türü var. Gün
 baştan boş açılır, ya da sabah stokla açılır ve gün içinde biter.
 
@@ -84,24 +85,26 @@ yavaşlar. Bu, ürünün <T k="yasam-egrisi">yaşam eğrisi</T>. Sürekli ürün
 eğrisi düzdür, sezonluk ürününki değil.
 
 — Yani stoklu bir cumartesiyle stoksuz bir salıyı aynı kefeye
-koyamazsınız, diyor Pars. Her stoklu günü önce kendi karakterinden
-arındırırsınız. Sonra stoksuz günün karakterine taşırsınız.
+koyamazsınız, diyor Pars. Her stoklu günün satışını önce sıradan bir güne
+çevirirsiniz, sonra stoksuz günün koşullarına göre büyütür ya da
+küçültürsünüz.
 
 Bu karakterleri Lumoda'nın ilk iki yılının 38.484.293 stoklu hücre-gününden
 öğrendik. Üçüncü yılı ölçmek için ayırdık.
 
 Bir tuzak daha var. Bir beden haftalardır yoksa, o bedenin kendi stoklu
 günü de yoktur. O zaman ürünün öteki bedenlerinin hızına ve o bedenin
-ürün içindeki payına bakılır. Ali'nin S bedeni yoksa, M ve L'nin satışı S
-hakkında bir şey söyler.
+ürün içindeki payına bakılır. Ali'nin S bedeni yoksa, öteki bedenlerin geçmiş
+satışı S hakkında bir şey söyler.
 
 ## Neden iki yana bakılır
 
 Veli bir şeye takılıyor.
 
-— Tahmin geleceğe bakar. Biz geçmişe bakıyoruz, değil mi?
+— Kestirim dediğin geleceğe bakar. Biz geçmişe bakıyoruz, değil mi?
 
-— Satış kaybı tahmin değil, diyor Pars. Olaydan sonra yapılan bir ölçü.
+— Satış kaybı geleceğin kestirimi değil, diyor Pars. Olaydan sonra yapılan
+bir ölçü.
 Stoksuz günün hem öncesi hem sonrası elimizde. İkisine birden bakarız.
 
 Bunun bir sebebi yaşam eğrisi. Ürün yavaşlıyorsa yalnız geriye bakan hesap
@@ -116,18 +119,18 @@ kendine ait bir adı var; dördüncü yazıda ona döneceğiz.
 ## Üçüncü adım: kaybı yazmak
 
 Boş açılan günde iş kolay: o günün beklenen talebinin tamamı kayıptır.
-İstanbul 5'te o pazar, Ali'nin bedeni için beklenen talep 1,32 adet,
-Veli'ninki 2,24 adet. Gün boş açıldı, kayıp da bu kadar.
+Ankara 4'te o pazar, Ali'nin bedeni için beklenen talep 0,75 adet,
+Veli'ninki 2,76 adet. Gün boş açıldı, kayıp da bu kadar.
 
-— 1,32 sweatshirt satılmaz ki, diyor Ali.
+— 0,75 sweatshirt satılmaz ki, diyor Ali.
 
 — Tek bir günde satılmaz. Ama bu küçük sayıları bütün günler, bütün
 bedenler, bütün mağazalar için toplarsın. Sweatshirt'ün o haftasında,
 online da dahil, 1.530 adet ediyor.
 
 Gün içinde tükenen gün daha ince. Sabah üç adetle açılmış, üçü de
-satılmış. Talebin en az üç olduğunu biliyoruz. Daha fazla olduğunu da
-tahmin ediyoruz, çünkü raf erkenden boşaldı. Ama ne kadar fazla? Bunu
+satılmış. Talebin en az üç olduğunu biliyoruz. Daha fazla olduğundan da
+şüpheleniyoruz, çünkü raf erkenden boşaldı. Ama ne kadar fazla? Bunu
 hesaplamanın kâğıt üstünde doğru bir yolu var. Üçüncü yazıda o doğru yolun
 neden fazla yazdığını anlatacağız.
 
@@ -142,4 +145,4 @@ günlük stoğu kurmak kısa bir işti, çünkü her hareket kayıtlı ve nerede
 her kayıt tutarlı. Gerçek bir zincirde bu adım haftalar alır ve sonunda bile
 "bu mağazada bu gün raf gerçekten boş muydu" sorusuna her zaman emin bir
 cevap veremezsiniz. Stoksuz günü bulamadığınız yerde satış kaybı
-hesaplanmaz. Ancak tahmin edilir. 🙂
+hesaplanmaz. Ancak kestirilir. 🙂

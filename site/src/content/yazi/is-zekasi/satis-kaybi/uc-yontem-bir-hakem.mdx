@@ -2,7 +2,7 @@
 baslik: Üç Yöntem, Bir Hakem
 tip: teknik
 sira: 3
-ozet: Stoksuz günün talebini üç yolla kestirdik ve gizli gerçeğe karşı sınadık. Hangisi kazandı, makine öğrenmesi hitlerde neden yanıldı, fiyat esnekliği nerede tuzak kurar ve teoride doğru olan formül neden fazla yazdı?
+ozet: Stoksuz günün talebini üç yolla kestirdik ve gizli gerçeğe karşı sınadık. Hangisi kazandı, makine öğrenmesi hitlerde nerede yanıldı, fiyat esnekliği nerede tuzak kurar ve teoride doğru olan formül neden fazla yazdı?
 yazar: Sabri Suyunu
 durum: hazirlaniyor
 ---
@@ -20,9 +20,11 @@ bedende, her gün kaç müşterinin geldiğini, kaçının istediğini bulamadı
 ve bulamayanların ne yaptığını biliyoruz. Kestiriciler bu bilgiyi hiç
 görmüyor. Hakem yalnız sınav kâğıdını okumak için var.
 
-Kural basit. Yöntemler Lumoda'nın ilk iki yılından öğreniyor. Sınav
-üçüncü yıl. Hakemin o yıl için söylediği: kayıp yazılabilecek günlerde
-karşılanmayan talep 2.833.153 adet.
+Kural basit. Basit'in gün çarpanları ve makine öğrenmesi modeli Lumoda'nın
+ilk iki yılından öğreniyor. Naif ile Basit ayrıca sınav yılında stoksuz
+günün komşu stoklu günlerini okuyor; hakemi hiçbiri görmüyor. Sınav
+üçüncü yıl. Hakemin o yıl için söylediği: kayıp yazılabilecek stoksuz
+günlerde karşılanmayan talep 2.833.153 adet.
 
 ## Üç yöntem
 
@@ -30,9 +32,9 @@ karşılanmayan talep 2.833.153 adet.
 Yalnız geriye bakar. Sahadaki ilk refleks budur ve bir kıyas tabanı olarak
 burada.
 
-**Basit.** Stoksuz günün iki yanındaki stoklu günler. Her gün önce kendi
-karakterinden (haftanın günü, özel gün, fiyat, ürünün yaşı) arındırılır,
-sonra stoksuz günün karakterine taşınır. Önceki yazıda Pars'ın tahtaya
+**Basit.** Stoksuz günün iki yanındaki stoklu günler. Her günün satışı önce
+sıradan bir güne çevrilir (haftanın günü, özel gün, fiyat, ürünün yaşı),
+sonra stoksuz günün koşullarına taşınır. Önceki yazıda Pars'ın tahtaya
 yazdığı şey. Adı basit, çünkü her sayının nereden geldiğini bir cümleyle
 söyleyebilirsiniz.
 
@@ -46,7 +48,7 @@ kodda. Bu yazı ne bulduklarına bakıyor.
 
 Yanlılık, toplam kestirimin hakemin toplamından ne kadar saptığı; artı
 fazla, eksi eksik demek. WAPE, mutlak hataların toplamının hakemin toplamına
-oranı. İki düzeyde ölçtük: her mağazada her ürün için her hafta, ve bütün
+oranı. İki düzeyde ölçtük: her mağazada her ürün için her hafta ve bütün
 zincir için her hafta.
 
 | Yöntem | Toplam yanlılık | WAPE, mağaza × ürün × hafta | WAPE, zincir × hafta |
@@ -57,11 +59,14 @@ zincir için her hafta.
 
 Basit üç ölçüde de önde. Tablodan dört şey okunuyor.
 
-**Naif, sezonluk üründe yanılıyor.** Geriye bakan hesap ürünün yavaşladığını
-görmez. Collection ürünlerinde Naif'in yanlılığı +%68,9, Outlet'te +%113,1.
-Sürekli satılan NOS ürünlerinde ise fena değil: −%5,1. Ürün yıl boyunca aynı
-hızda satıyorsa geriye bakmak yeter. Yavaşlıyorsa yetmez. Önceki yazıda
-"iki yana bak" dememizin sebebi bu.
+**Naif, yavaşlayan üründe yanılıyor.** Geriye bakan hesap ürünün
+yavaşladığını görmez. Collection ürünlerinde Naif'in yanlılığı +%68,9,
+Outlet'te +%113,1. Sürekli satılan NOS ürünlerinde ise fena değil: −%5,1.
+
+— Ben de hep son haftalara bakarım, diyor Ali.
+
+— NOS'ta haklısın, diyor Pars. Ürün yıl boyunca aynı hızda satıyorsa geriye
+bakmak yeter. Yavaşlıyorsa yetmez. "İki yana bak" dememin sebebi bu.
 
 **Hücre düzeyindeki hata büyük, zincir düzeyindeki küçük.** Basit bir
 mağazada bir ürünün bir haftasını %47,1 yanılıyor, bütün zincirin bir
@@ -71,18 +76,21 @@ hiç mi gelmeyecek, kimse bilemez. Hatalar toplanınca birbirini götürür.
 Kısa stoksuzluklar da zor: en çok üç gün süren boşluklarda Basit'in
 WAPE'si %79,2.
 
-**Makine öğrenmesi eksik yazıyor, en çok da hitlerde.** Sezonluk ürünlerin
-içinde, alınan malın en büyük kısmını satan onda birlik dilimde, yani
-hitlerde, makine öğrenmesinin yanlılığı −%45,1. Hit
-ürün en sık stoksuz kalan üründür. Stoklu günlerden öğrenen bir model, hiti
-en az gördüğü yerden öğrenir ve bütün ürünlerden öğrendiği tek bir kalıpta
-onu ortalamaya çeker. Basit'te bu sorun yok, çünkü her hücrenin kendi
-komşu günlerine bakıyor; hitlerde yanlılığı ters yönde, +%16,8.
+**Makine öğrenmesi hitlerde eksik yazıyor.** Sezonluk ürünlerin içinde,
+alınan malın en büyük kısmını satan onda birlik dilimde, yani hitlerde,
+makine öğrenmesinin yanlılığı −%45,1. Nedenini ölçmedik; bir tahminimiz
+var: makine öğrenmesi bütün ürünler için tek bir kalıp öğreniyor ve hit
+gibi uç bir ürünü o kalıbın ortalamasına çekiyor olabilir. Basit her
+hücrenin kendi komşu günlerine bakıyor; hitlerde o da şaşıyor, ama ters
+yöne: +%16,8. Naif'te +%64,9.
 
-**Daha karmaşık olan daha iyi değil.** Burada makine öğrenmesini
-küçümsemiyoruz. Daha fazla özellik, daha iyi bir kurgu ile aradaki fark
-kapanabilir. Ama ilk denemede açıklanabilir yöntem kazandı, ve
-açıklanabilir yöntemin hatası nerede yaptığını da söylüyor.
+**Daha karmaşık olan daha iyi değil.**
+
+— Makine öğrenmesi kaybetti mi yani? diyor Veli.
+
+— Bu sınavda kaybetti, diyor Pars. Daha fazla bilgiyle, daha iyi bir kurguyla aradaki
+fark kapanabilir. Ama ilk denemede açıklanabilir yöntem kazandı. Üstelik
+hatasını nerede yaptığını da söylüyor.
 
 ## Esneklik tuzağı
 
@@ -110,8 +118,8 @@ Gün içinde tükenen bir günü düşünün. Raf sabah birkaç adetle açılmı
 akşama boşalmış. Talebin en az stok kadar olduğunu biliyoruz. Kaybı nasıl
 yazacağız?
 
-**Saf hesap:** tahmini talepten stoğu çıkar, sıfırın altına inme. Kaba bir
-hesap; talebin stoğu aştığı bilgisini kullanmıyor.
+**Saf hesap:** kestirilen talepten stoğu çıkar, sıfırın altına inme. Kaba
+bir hesap; talebin stoğu aştığı bilgisini kullanmıyor.
 
 **Teoride doğru hesap:** talebin stoğu aştığını biliyorsak, "talep stoğu
 aştığına göre ortalamada ne kadar aşmıştır" diye sorarız. Bu bilgiyi
@@ -127,23 +135,30 @@ Hakem tükenen günlerde karşılanmayan talebi 251.386 adet sayıyor.
 
 Teoride doğru olan fazla yazıyor. Üç yöntemde de aynı şey oluyor: Naif'te
 +%19,3'e karşı −%4,2, makine öğrenmesinde +%1,8'e karşı −%24,3. Makine
-öğrenmesinde neredeyse tutması bir tesadüf; genel eksik yazması ile
-formülün fazlası birbirini götürüyor.
+öğrenmesinde neredeyse tutması büyük ihtimalle tesadüf: genel eksik
+yazması ile formülün fazlası birbirini götürüyor.
 
-Neden? Formül iki şey varsayıyor: tahmini talebin doğru olduğunu ve günlük
-talebin belli bir rastlantı kalıbına uyduğunu. Fazla yazması, bu günlerde
-varsayımlardan en az birinin tutmadığını söylüyor. Hangisinin ne kadar
-payı olduğunu ayrıca ölçmedik.
+Neden? Formül iki şey varsayıyor: kestirilen talebin doğru olduğunu ve
+günlük talebin belli bir rastlantı kalıbına uyduğunu. Fazla yazması, bu
+günlerde varsayımlardan en az birinin tutmadığını söylüyor. Hangisinin ne
+kadar payı olduğunu ayrıca ölçmedik.
 
-Peki formülü neden değiştirmedik? Saf hesap daha az hata yapıyor, ortada.
+Pelin tabloyu görünce hemen soruyor.
 
-Çünkü bunu hakemi gördükten sonra öğrendik. Hakeme bakıp formül seçmek,
-sınav kâğıdına bakarak çalışmaktır. Sahada hakem yok. Orada formülü
-teoriden ve sağduyudan seçersiniz; biz de dizinin başında öyle seçtik.
-Seçimi sonuca göre değiştirirsek bu yazıdaki bütün sayılar sizin
-kullanamayacağınız bir bilgiyle düzeltilmiş olur. Formülü değiştirmiyoruz,
-sapmasını olduğu gibi yazıyoruz. Tükenen günler toplam kaybın küçük bir
-kısmı; Basit'in genel yanlılığı bu sapma da içindeyken +%9,3.
+— Saf hesap daha az hata yapıyor, ortada. Neden ona geçmiyoruz?
+
+— Çünkü bunu hakemi gördükten sonra öğrendik, diyor Pars. Hakeme bakıp
+formül seçmek, sınav kâğıdına bakarak çalışmaktır. Sahada hakem yok. Orada
+formülü teoriden ve sağduyudan seçersin; biz de baştan öyle seçtik.
+
+— Ama burada doğrusunu biliyoruz.
+
+— Burada biliyoruz. Seçimi sonuca göre değiştirirsek bu yazıdaki bütün
+sayılar sahada kimsenin kullanamayacağı bir bilgiyle düzeltilmiş olur.
+Formülü değiştirmiyoruz, sapmasını olduğu gibi yazıyoruz.
+
+Tükenen günler toplam kaybın küçük bir kısmı. Basit'in genel yanlılığı bu
+sapma da içindeyken +%9,3.
 
 ## Sizin verinizde zor olan
 
@@ -151,9 +166,9 @@ Bu yazının bütün sayıları bir hakeme dayanıyor. Sizin verinizde hakem yok
 Üç yöntemi yan yana koyduğunuzda üç farklı sayı göreceksiniz ve hangisinin
 doğru olduğunu söyleyecek bir sınav kâğıdı olmayacak.
 
-Yapabileceğiniz şeyler var. Stoklu günlerin bir kısmını saklayıp
-tahmin ettirmek ilk akla gelen. Ama o günler stoksuz günlere benzemez;
-stoksuz kalan ürün daha çok hittir, ve saklanan stoklu gün size hitte
-nasıl yanıldığınızı söylemez. Asıl zor olan, sınav kâğıdı olmadan hangi
-yönteme güveneceğinize karar vermek. Bizim tavsiyemiz: hatasının nereden
-geldiğini açıklayabildiğiniz yöntemi seçin. 🙂
+Yapabileceğiniz şeyler var. Stoklu günlerin bir kısmını saklayıp yeniden
+kestirmek ilk akla gelen. Ama saklanan stoklu gün stoksuz günlere benzemez;
+size stoksuz günde nasıl yanıldığınızı söylemez. Asıl zor olan, sınav
+kâğıdı olmadan hangi yönteme güveneceğinize karar vermek. Bizim
+tavsiyemiz: hatasının nereden geldiğini açıklayabildiğiniz yöntemi
+seçin. 🙂
