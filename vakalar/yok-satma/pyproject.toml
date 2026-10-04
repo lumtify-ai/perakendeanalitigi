@@ -1,0 +1,23 @@
+[project]
+name = "yok-satma"
+version = "0.1.0"
+description = "Yok satma vakasi: stoksuz gunlerin kayip satisi, uc kestirici ve kaynak agaci (v4 verisi)"
+requires-python = ">=3.11"
+# Kestiriciler ve sinirlari ortak pakette (vakalar/ortak/pyproject.toml).
+# psutil: hazirla'nin adim basina tepe bellek olcumu.
+dependencies = ["perakende-analitik", "psutil>=5.9"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+include = ["yok_satma*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+markers = ["veri: gercek v4 verisi gerektirir (yavas)"]
+filterwarnings = ["ignore:.*generic.*unit:DeprecationWarning", "ignore:.*force_all_finite:FutureWarning"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

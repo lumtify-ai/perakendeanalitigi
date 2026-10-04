@@ -4,11 +4,15 @@ veri/cikti/
 # Hakem önbelleği (ortak paket; python -m perakende_analitik.hakem ile kurulur)
 vakalar/ortak/cikti/
 
+# Yok satma vakasının ara çıktıları (python -m yok_satma.hazirla ile kurulur)
+vakalar/yok-satma/cikti/
+
 # Python
 __pycache__/
 *.pyc
 .venv/
 vakalar/blok-transfer/.venv/
+vakalar/yok-satma/.venv/
 *.egg-info/
 .pytest_cache/
 
