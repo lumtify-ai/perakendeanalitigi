@@ -269,20 +269,36 @@ def test_ml_hafta_sonunu_ogrenir():
     assert s.mean() == pytest.approx(10, rel=0.15)
 
 
-def test_ml_negatif_tahmin_yok():
-    """Sıfır satışlı, bilinmeyen kimlikli ve boş özellikli satırlarda da tahmin sonlu ve >= 0."""
+def test_ml_hepsi_sifir_satis_sifir_tahmin():
+    """Eğitim satışlarının toplamı 0 ise (Poisson kurulamaz) model yok, tahmin 0."""
     df = _ml_serisi(gun=200, hafta_sonu=0, hafta_ici=0)
     k = talep.ML(ornek=1000)
     k.egit(df)
+    assert k._model is None
+    t = k.tahmin(df.iloc[:50])
+    assert (t.to_numpy() == 0).all() and list(t.index) == list(df.index[:50])
+
+
+def test_ml_negatif_tahmin_yok():
+    """Eğitilmiş modelden bilinmeyen mağaza / SKU / şehir / line ve NaN özellikli satırlar da
+    sonlu ve >= 0 tahmin alır."""
+    df = _ml_serisi()
+    k = talep.ML(ornek=3000)
+    k.egit(df)
+    assert k._model is not None
     yeni = _seri("M9", "Z-S", range(30), 0, durum="bos", sehir="Yeni", line="Yeni")
     yeni.loc[3, "markdown_orani"] = np.nan
+    yeni.loc[4, "oran"] = np.nan
     t = k.tahmin(birlestir(df.iloc[:50], yeni))
+    assert len(t) == 80
     assert np.isfinite(t.to_numpy()).all() and (t.to_numpy() >= 0).all()
+    assert (t.to_numpy()[50:] > 0).all()           # model gerçekten çalıştı (sıfır dalı değil)
 
 
 def test_ml_komsu_ozelligi_kendi_gununu_gormez():
-    """Eğitim satırının komşu özellikleri kendi gününü (hücre ve option'ın bütün bedenleri)
-    içermez: 100. günün satışı 1000 olsa da özellik 28 komşu günden gelir."""
+    """Eğitim satırı kendi SKU-gününü görmez (100. günün 1000 satışı özellikte yok), ama aynı
+    gün stoklu kardeş bedenin satışını görür (500): option penceresi 28 + 500 + 28 satış,
+    28 + 29 gün; hücre penceresi hedef günü hariç tutar."""
     df = birlestir(_seri("M1", "A-S", range(200), 1), _seri("M1", "A-M", range(200), 1),
                    _seri("M2", "A-S", range(200), 1))
     gun100 = (df["tarih"] == BAS + pd.Timedelta(days=100)) & (df["urun_id"] == "A-S")
@@ -293,7 +309,30 @@ def test_ml_komsu_ozelligi_kendi_gununu_gormez():
     satir = df[gun100 & (df["magaza_id"] == "M1")]
     x = k._matris(satir)
     assert x["komsu_hucre_satis"].iloc[0] == 28 and x["komsu_hucre_gun"].iloc[0] == 28
-    assert x["komsu_opsiyon_satis"].iloc[0] == 56 and x["komsu_opsiyon_gun"].iloc[0] == 56
+    assert x["komsu_opsiyon_satis"].iloc[0] == 28 + 500 + 28 and x["komsu_opsiyon_gun"].iloc[0] == 57
+    assert x["opsiyon_hiz"].iloc[0] == pytest.approx(556 / 57)
+
+
+def test_ml_tahmin_aninda_stoklu_kardesi_gorur():
+    """Stoksuz (bos) hedef günde stoklu kardeş bedenin o günkü satışı (500) option özelliğine
+    girer; hedefin kendisi havuzda olmadığından hiçbir şey düşülmez. Aynı satır `stoklu`
+    olarak verilirse (geri test) kendi SKU-günü düşülür."""
+    df = birlestir(_seri("M1", "A-S", [*range(100), *range(101, 200)], 1),
+                   _seri("M1", "A-S", [100], 0, durum="bos"),
+                   _seri("M1", "A-M", range(200), 1))
+    df.loc[(df["tarih"] == BAS + pd.Timedelta(days=100)) & (df["urun_id"] == "A-M"), "brut_satis"] = 500
+    k = talep.ML(ornek=10 ** 6)
+    k.egit(_gozlem(df))
+    hedef = df[(df["urun_id"] == "A-S") & (df["tarih"] == BAS + pd.Timedelta(days=100))]
+    x = k._matris(hedef)
+    assert x["komsu_opsiyon_satis"].iloc[0] == 28 + 500 + 28 and x["komsu_opsiyon_gun"].iloc[0] == 57
+    assert x["komsu_hucre_satis"].iloc[0] == 28 and x["komsu_hucre_gun"].iloc[0] == 28
+    # stoklu satır (A-S, 101. gün) havuzdadır: kendi SKU-günü düşer
+    # A-S 29 günün 28'i stoklu, kendisi çıkınca 27; A-M 29 gün (28 + 500 satış)
+    stoklu = df[(df["urun_id"] == "A-S") & (df["tarih"] == BAS + pd.Timedelta(days=101))]
+    y = k._matris(stoklu)
+    assert y["komsu_opsiyon_gun"].iloc[0] == 27 + 29
+    assert y["komsu_opsiyon_satis"].iloc[0] == 27 + 28 + 500
 
 
 def test_ml_yalniz_2023_2024_ogrenir_ve_tukeneni_havuza_almaz():

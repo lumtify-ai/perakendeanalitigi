@@ -58,13 +58,20 @@ hiperparametreler (ayar araması yok). Eğitim satırları 2023–2024'ün stokl
 SKU-günlerinden tohumla `ornek` tanedir (az ise hepsi); havuz bütün pencerenin
 stoklu günleridir ve yalnız özellik hesabı içindir. Özellikler: `ozellikler`'in
 sayısal ve bayrak sütunları; kategorikler `line, alt_kategori, fiyat_segmenti,
-magaza_tipi, sehir, kanal`; `komsu_hizlar`'ın hücre ve mağaza × option
-sütunları (±14, hedef günü hariç: eğitim satırı kendi gününün satışını ve
-kardeş bedenlerinin o günkü satışını görmez); beden payı (Basit'le aynı,
-havuzdan); bunlardan türeyen üç özellik (`hucre_hiz`, `opsiyon_hiz` = satış ÷
-gün, `opsiyon_pay` = option komşu satışı × beden payı ÷ 28). Hedef `brut_satis`. Yalnız gözlenebilir sütunları okur (`hakem` ve
-`kayip` değil). Tahmin parça parça yapılır; bellek float32 özellik matrisiyle
-sınırlıdır.
+magaza_tipi, sehir, kanal`; komşu özellikleri `komsu_hizlar` düzeyinde ±14
+gündür: hücre sütunları hedef günü hariç; mağaza × option sütunları hedef günü
+DAHİL eder (aynı gün stoklu kardeş bedenler görünür, Basit'le aynı bilgi) ve
+havuzdaki satırın (`durum == "stoklu"`, eğitim satırları dahil) kendi SKU-gününün
+satışını ve gününü düşer, bu yüzden hedefin kendi satışı sızmaz; stoksuz hedef
+satırı havuzda olmadığından bir şey düşülmez. Havuz bütün pencerenin simetrik
+havuzudur (Basit'le aynı): 2024 sonu eğitim satırlarının ±14 komşuları 2025
+başı günlerini de içerir (hedef sızıntısı değil, komşu bilgisi). Beden payı
+(Basit'le aynı, havuzdan); bunlardan türeyen üç özellik (`hucre_hiz`,
+`opsiyon_hiz` = satış ÷ gün, `opsiyon_pay` = option komşu satışı × beden payı ÷
+28). Hedef `brut_satis`. Yalnız gözlenebilir sütunları okur (`hakem` ve
+`kayip` değil; stoklu satırın kendi `brut_satis`'ı yalnız havuzdan düşülmek
+için okunur). Tahmin parça parça yapılır; bellek float32 özellik matrisiyle
+sınırlıdır. LightGBM `deterministic` ve `force_row_wise` ile tekrarlanabilir.
 
 **Vektörel.** Havuz (mağaza × SKU × gün, mağaza × option × gün, option × gün)
 sıralı int64 anahtarlara ve kümülatif toplamlara indirgenir; her hedefin
@@ -232,16 +239,29 @@ class _Komsu:
         self.hucre = _Dizin(k.hucre(k.m, k.u), k.gun, s=s, n=bir)
         self.opsiyon = _Dizin(k.mo(k.m, k.o), k.gun, s=s, n=bir)
 
-    def hesapla(self, hedef: pd.DataFrame) -> dict[str, np.ndarray]:
+    def hesapla(self, hedef: pd.DataFrame, havuzda: np.ndarray | None = None) -> dict[str, np.ndarray]:
+        """Komşu toplamları (int32). `havuzda` verilmezse iki düzey de d günü hariç
+        (`komsu_hizlar`). Verilirse (bool, hedef satırı havuzun stoklu satırı mı):
+        hücre d hariç; mağaza × option penceresi [d − k, d + k] d DAHİL, havuzdaki
+        satırların kendi SKU-günü (satışı ve 1 gün) düşülür. Böylece aynı gün stoklu
+        kardeş bedenler görünür (Basit'le aynı bilgi); havuzda olmayan stoksuz hedef
+        satırından bir şey düşülmez."""
         m, u, o, _, gun = self.k.hedef(hedef, alt=False)
         cikti = {}
         for ad, dizin, grup in (("hucre", self.hucre, self.k.hucre(m, u)),
                                 ("opsiyon", self.opsiyon, self.k.mo(m, o))):
             toplam = {"satis": 0.0, "gun": 0.0}
-            for alt, ust in ((gun - self.komsu_gun, gun - 1), (gun + 1, gun + self.komsu_gun)):
-                lo, hi = dizin.aralik(grup, alt, ust)
-                toplam["satis"] = toplam["satis"] + dizin.toplam("s", lo, hi)
-                toplam["gun"] = toplam["gun"] + dizin.toplam("n", lo, hi)
+            if ad == "opsiyon" and havuzda is not None:
+                lo, hi = dizin.aralik(grup, gun - self.komsu_gun, gun + self.komsu_gun)
+                kendi = havuzda.astype(np.float64)
+                toplam["satis"] = (dizin.toplam("s", lo, hi)
+                                   - kendi * hedef["brut_satis"].to_numpy(np.float64))
+                toplam["gun"] = dizin.toplam("n", lo, hi) - kendi
+            else:
+                for alt, ust in ((gun - self.komsu_gun, gun - 1), (gun + 1, gun + self.komsu_gun)):
+                    lo, hi = dizin.aralik(grup, alt, ust)
+                    toplam["satis"] = toplam["satis"] + dizin.toplam("s", lo, hi)
+                    toplam["gun"] = toplam["gun"] + dizin.toplam("n", lo, hi)
             for b, v in toplam.items():
                 cikti[f"komsu_{ad}_{b}"] = np.rint(
                     np.broadcast_to(v, (len(hedef),))).astype(np.int32)
@@ -527,6 +547,7 @@ class ML:
         gun = k.gun
         bas, bit = (int(gun_sayisi(pd.Series([t]))[0]) for t in ML_EGITIM_YILLARI)
         aday = np.flatnonzero((gun >= bas) & (gun <= bit))
+        del gun
         if len(aday) == 0:
             raise ValueError("ML: 2023–2024 stoklu satır yok (eğitim yalnız bu dönemde yapılır)")
         if len(aday) > self.ornek:
@@ -546,15 +567,18 @@ class ML:
         self._model = lgb.LGBMRegressor(
             objective="poisson", num_leaves=63, learning_rate=0.05, n_estimators=400,
             min_child_samples=100, subsample=0.8, subsample_freq=1, colsample_bytree=0.8,
-            random_state=self.tohum, n_jobs=-1, verbose=-1)
+            random_state=self.tohum, n_jobs=-1, verbose=-1,
+            deterministic=True, force_row_wise=True)
         self._model.fit(x, y)
 
     def _matris(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Satırların özellik matrisi (float32 + kategorik); komşu özellikleri havuzdan,
-        hedefin kendi günü hariç; beden payı havuzdan."""
+        """Satırların özellik matrisi (float32 + kategorik); komşu özellikleri ve beden payı
+        havuzdan. Stoklu satır havuzdadır (kendi SKU-günü komşu option toplamından
+        düşülür); üyelik `durum == "stoklu"` ile belirlenir (sütun yoksa hepsi stoklu)."""
         h = self._havuz
         m, u, o, _, _ = h.k.hedef(df, alt=False)
-        sutun = self._komsu.hesapla(df)
+        havuzda = (df["durum"] == "stoklu").to_numpy() if "durum" in df.columns else np.ones(len(df), bool)
+        sutun = self._komsu.hesapla(df, havuzda)
         sutun["beden_payi"] = h.pay(m, u, o).astype(np.float32)
         # türev özellikler: Poisson ağacı oranı ve çarpımı kendi bulamaz (gün sayısı 0: NaN)
         for ad in ("hucre", "opsiyon"):
