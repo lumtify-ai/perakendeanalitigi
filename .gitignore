@@ -1,6 +1,9 @@
 # Üretilen veri seti — GitHub Releases ile dağıtılır, repoya girmez
 veri/cikti/
 
+# Hakem önbelleği (ortak paket; python -m perakende_analitik.hakem ile kurulur)
+vakalar/ortak/cikti/
+
 # Python
 __pycache__/
 *.pyc

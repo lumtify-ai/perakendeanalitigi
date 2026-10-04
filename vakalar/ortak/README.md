@@ -17,16 +17,18 @@ python -m venv .venv
 Veri: `veri/cikti/v4/perakende.duckdb` (yayımlanan `lumoda-v4.duckdb`'yi bu adla
 koyun ya da `PERAKENDE_V4_DB` ortam değişkeniyle gösterin; indirme:
 <https://github.com/lumtify-ai/perakendeanalitigi/releases/tag/veri-v4>). Yoksa
-`veri` işaretli testler atlanır. Hakem için ek bağımlılık:
-`pip install -e ".[hakem]"` (`perakende-veri`).
+`veri` işaretli testler atlanır. Hakem için ek bağımlılık `perakende-veri`
+(üreteç, `veri/`); PyPI'da olmadığı için `hakem` ekstrasıyla değil yol ile kurulur:
+`.venv/Scripts/pip install -e ../../veri` (vakalar/ortak içinden).
 
 ## Modüller
 
 | Modül | İş |
 |---|---|
 | `kaynak` | v4'e salt okunur bağlantı; `temiz_satis` (mükerrer satış ayıklanır), `cesit_hucreleri` (mağaza × SKU çeşidi; hayalet stok düşer) |
+| `hakem` | gizli gerçeğin tek kapısı: v4'ü yeniden koşar, hücre-gün başına karşılanmayan talebi (`kendi_satis`, `karsilanmayan`, `ikameye_giden`, `kalici_kayip`) çıkarır, yayımlanan veriyle birebir doğrular, `cikti/hakem/`e yazar. `python -m perakende_analitik.hakem` (~dakikalar, GB'lar); `hakem.oku()` |
 
-Sonraki görevlerde `stok`, `ozellikler`, `hakem`, `talep` gibi modüller eklenir.
+Sonraki görevlerde `talep` gibi modüller eklenir.
 
 ## Sızıntı kuralı
 
