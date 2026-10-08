@@ -8,11 +8,19 @@ Bu paket Lumoda verisi üstünde Blok Transfer'i iki yöntemle çözer
 
     cd vakalar/blok-transfer
     python -m venv .venv
-    .venv/Scripts/pip install -e ".[dev]"
-    .venv/Scripts/python -m pytest -q          # testler
-    .venv/Scripts/python senaryolar.py         # demo JSON'unu üretir (elle)
+    .venv/Scripts/pip install -e ../ortak -e ".[dev]"    # önce ortak paket (perakende-analitik)
+    .venv/Scripts/python -m pytest -q                    # testler (gerçek veri testleri `veri` işaretli)
+    .venv/Scripts/python senaryolar.py                   # demo JSON'unu üretir (elle)
 
-Veri yoksa önce üret: `cd veri && .venv/Scripts/python -m perakende_veri.uret`
+Veri: v4 (`veri/cikti/v4/perakende.duckdb`; başka yol için `PERAKENDE_V4_DB`).
+Yoksa yayımlanan dosyayı indirin ya da yerelde üretin:
+`cd veri && .venv/Scripts/python -m perakende_veri.v4.uret`.
+
+Veri katmanı (`blok_transfer/cekirdek/veri.py`): `karar_ani` (AW25 indirimden önceki,
+8 hafta ileri penceresi dolu son stok fotoğrafı) ve `gorunumler` (`bt_magaza`,
+`bt_stok`, `bt_satis`, `bt_sevkiyat`: online, kapalı, açılmamış ve tadilattaki
+mağazalar dışarıda; mükerrer satış ve hayalet stok düşük). Görünümler tarih sınırı
+koymaz; karar sınırı her sorgunun işidir.
 
 ## Parametre gerekçeleri (spec §4)
 
