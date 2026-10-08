@@ -24,7 +24,11 @@ Bölümler (bu başlıklarla, bu sırayla):
     === DEMO KADRANI ===          spec'teki altı satır, iki yöntem (önbellekten; Ruling R3)
     === ANLATI VARSAYIMLARI ===
     === KORUNUM ===               özet ↔ hareket tablosu, kurtarılan ≤ payda, p ∈ [0, 1],
-                                  hakem ve Basit paydası aynı evrende; tutmazsa AssertionError
+                                  hakem ve Basit paydası aynı evrende, LP ≥ CBC sınırı ≥ MIP
+
+Rapor önce tampona yazılır; korunum tutmazsa stdout'a tek satır gitmez, mesaj stderr'e,
+çıkış kodu 1 (`tamponla`). Basılan her fark ve oran basılan işlenenlerden hesaplanır
+(`yuv`, `fark`, `bolum`): "A → B (+C)" satırı elle yapılan hesapla tutar.
 
 Girdiler: v4 DuckDB, `hazirla` çıktıları (`cikti/`), plan önbelleği (`cikti/planlar`;
 yoksa çözücü koşar, MIP hücresi dakikalar sürer) ve hakem önbelleği
@@ -39,6 +43,8 @@ hücreleri), çeşit dışı karşılanmayan talep ayrıca basılır.
 """
 
 import argparse
+import contextlib
+import io
 import math
 import sys
 import time
@@ -113,6 +119,38 @@ def _oran(pay, payda) -> float | None:
     return pay / payda if payda else None
 
 
+# Basılan her fark ve oran, işlenenlerin BASILAN (yuvarlanmış) değerlerinden hesaplanır:
+# "A → B (+C)" ya da "A / B = C" satırı okuyucunun elle yapacağı hesapla kuruşu kuruşuna tutsun.
+
+def yuv(x, ondalik: int = 0) -> float:
+    """`s(x, ondalik)`'ın bastığı değer (aynı yuvarlama: biçimleme)."""
+    return float(f"{float(x):.{ondalik}f}")
+
+
+def fark(a, b, ondalik: int = 0) -> float:
+    """b − a, ikisi de `ondalik` hanede basıldığı gibi."""
+    return yuv(yuv(b, ondalik) - yuv(a, ondalik), ondalik)
+
+
+def bolum(a, b, ondalik_a: int = 0, ondalik_b: int = 0) -> float | None:
+    """a / b, ikisi de basıldığı gibi."""
+    payda = yuv(b, ondalik_b)
+    return yuv(a, ondalik_a) / payda if payda else None
+
+
+def tamponla(govde) -> tuple[int, str]:
+    """`govde()`yi stdout'u tamponlayarak koşar: (0, metin) ya da korunum bozulursa (1, "")
+    ve mesaj stderr'e. Rapor stdout'a korunumdan önce tek satır yazmaz."""
+    tampon = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(tampon):
+            govde()
+    except AssertionError as e:
+        print(e, file=sys.stderr)
+        return 1, ""
+    return 0, tampon.getvalue()
+
+
 # ---------------------------------------------------------------------------
 # Girdi kapıları
 # ---------------------------------------------------------------------------
@@ -160,6 +198,12 @@ class Zemin:
         self.hakem_tum = olcum.kayip_tablosu(kars, karar, hafta, tum, "karsilanmayan")
         self.hakem_onl = olcum.kayip_tablosu(kars, karar, hafta, {"ONL"}, "karsilanmayan")
         self.satis = olcum.verici_satisi(con, karar, hafta)
+        # "aynı hücre evreni" iddiasının denetimi: Basit'in kayıp yazdığı hücreler çeşit içinde mi
+        h = self.hucreler.astype(str).drop_duplicates().assign(_cesit=True)
+        b = self.basit.astype({"magaza_id": str, "urun_id": str}).merge(
+            h, on=["magaza_id", "urun_id"], how="left")
+        disari = b[b["_cesit"].isna()]
+        self.basit_cesit_disi = (len(disari), int(disari["kayip"].sum()))
 
     def olc(self, hareketler: pd.DataFrame) -> tuple[olcum.Olcum, olcum.Olcum]:
         """(Basit, hakem) ölçümü; `p_verici` iki sürümde aynıdır (gözlenen satış)."""
@@ -460,7 +504,7 @@ def hikaye_bolumu(con, karar, p, kayip, zemin: Zemin, greedy, mip_plan, zorla, a
               + f" · toplam {r['toplam']}")
         hiz = r["hiz_8h"]
         cover = "—" if r["cover"] >= p.buyuk_cover else s(r["cover"], 1)
-        print(f"  hız (8 stoklu hafta ort.) {s(hiz, 2)}/hafta · 8 haftada {s((hiz or 0) * 8, 1)} adet · "
+        print(f"  hız (8 stoklu hafta ort.) {s(hiz, 2)}/hafta · 8 haftada {s(yuv(hiz or 0, 2) * 8, 2)} adet · "
               f"cover {cover} hafta · STR {y(r['str'])}")
         if r["option_id"] == h.option_id and r["magaza_id"] in sevk_satis:
             a, b = sevk_satis[r["magaza_id"]]
@@ -548,7 +592,9 @@ def plan_bolumu(ad: str, plan, oz: dict, ob, oh, kirik_kume: set, kapasite: dict
     eb, ea, sifir = kapasite_engeli(h, df, kapasite)
     print(f"  kapasite bağladı mı: planın taşımadığı puanı pozitif bloklardan {s(eb)} tanesi alıcısının "
           f"kalan boşluğuna sığmıyor ({s(ea)} alıcı) · aday alıcılardan boşluğu 0 olan {sifir}")
-    return {"adreslenen": adres, "kirik_verici": kirik_v, "kapasite_dolu": len(dolu), "sw": sw}
+    net_tutar = yuv(oz["net_kazanc_tl"]) == yuv(sw) - rota * p.rota_sabiti_tl
+    return {"adreslenen": adres, "kirik_verici": kirik_v, "kapasite_dolu": len(dolu), "sw": sw,
+            "net_tutar": net_tutar}
 
 
 def adim_bolumu(aday_n: int, plan) -> None:
@@ -576,16 +622,17 @@ def fark_bolumu(greedy, mip_plan, oz_g, oz_m, ozel_g, ozel_m, adlar, p) -> dict:
     print(f"  yalnız açgözlünün taşıdığı blok: {s(f['yalniz_a'])} ({s(f['yalniz_a_adet'])} adet) · "
           f"yalnız MIP'in: {s(f['yalniz_b'])} ({s(f['yalniz_b_adet'])} adet)")
     print(f"  aynı malı taşıyorlar mı: {'evet' if f['ayni_mal'] else 'hayır'}")
-    dnet = oz_m["net_kazanc_tl"] - oz_g["net_kazanc_tl"]
+    dnet = fark(oz_g["net_kazanc_tl"], oz_m["net_kazanc_tl"])
     drota = oz_g["rota_sayisi"] - oz_m["rota_sayisi"]
-    print(f"  net kazanç farkı (MIP − açgözlü): {tl(dnet)} ({tl(dnet, 2)}) = Σw farkı "
-          f"{tl(ozel_m['sw'] - ozel_g['sw'])} + rota farkı {s(drota)} × {s(p.rota_sabiti_tl)} TL "
-          f"({tl(drota * p.rota_sabiti_tl)})")
-    print(f"  açgözlü, MIP'in net kazancının {y(oz_g['net_kazanc_tl'] / oz_m['net_kazanc_tl'])}'ini "
-          f"buluyor · aradaki fark {y(dnet / oz_m['net_kazanc_tl'])}")
-    kat = mip_plan.sure_sn / greedy.sure_sn if greedy.sure_sn else None
-    print(f"  çözüm süresi: MIP {s(mip_plan.sure_sn, 1)} sn / açgözlü {s(greedy.sure_sn * 1000, 1)} ms "
-          f"= {s(kat)} kat")
+    print(f"  net kazanç farkı (MIP − açgözlü): {tl(oz_m['net_kazanc_tl'])} − {tl(oz_g['net_kazanc_tl'])} = "
+          f"{tl(dnet)} = Σw farkı {tl(fark(ozel_g['sw'], ozel_m['sw']))} + rota farkı {s(drota)} × "
+          f"{s(p.rota_sabiti_tl)} TL ({tl(drota * p.rota_sabiti_tl)})")
+    print(f"  açgözlü, MIP'in net kazancının {y(bolum(oz_g['net_kazanc_tl'], oz_m['net_kazanc_tl']))}'ini "
+          f"buluyor · aradaki fark {y(bolum(dnet, oz_m['net_kazanc_tl']))}")
+    ms = greedy.sure_sn * 1000
+    # basılan iki değerden: MIP sn (bir ondalık) × 1000 / açgözlü ms (bir ondalık)
+    kat = yuv(mip_plan.sure_sn, 1) * 1000 / yuv(ms, 1) if yuv(ms, 1) else None
+    print(f"  çözüm süresi: MIP {s(mip_plan.sure_sn, 1)} sn / açgözlü {s(ms, 1)} ms = {s(kat)} kat")
 
     o = ornek_rota(greedy.hareketler, mip_plan.hareketler)
     print("\n  örnek rota (MIP'in, blokları açgözlüde en az iki farklı alıcıya giden en dolu rotası):")
@@ -606,7 +653,7 @@ def fark_bolumu(greedy, mip_plan, oz_g, oz_m, ozel_g, ozel_m, adlar, p) -> dict:
     return f
 
 
-def lp_bolumu(df: pd.DataFrame, kapasite: dict, mip_plan, oz_m: dict, p) -> None:
+def lp_bolumu(df: pd.DataFrame, kapasite: dict, mip_plan, oz_m: dict, p) -> float:
     print("\n=== LP GEVŞETMESİ ===")
     t0 = time.perf_counter()
     model, x, yv = mip.kur(df, kapasite, p)
@@ -624,13 +671,14 @@ def lp_bolumu(df: pd.DataFrame, kapasite: dict, mip_plan, oz_m: dict, p) -> None
     print(f"  LP gevşetmesi (üst sınır) {tl(gevsek, 2)} · LP durumu {pulp.LpStatus[model.status]} · "
           f"kurma + çözme {s(sure, 1)} sn")
     print(f"  tam sayı çözüm (MIP planı) {tl(tam, 2)}")
-    print(f"  boşluk {tl(gevsek - tam, 2)} ({y((gevsek - tam) / tam, 2)})")
+    print(f"  boşluk {tl(fark(tam, gevsek, 2), 2)} ({y(bolum(fark(tam, gevsek, 2), tam, 2, 2), 2)})")
     print(f"  gevşetilmiş çözümde kesirli çıkan: {s(kesirli(x.values()))}/{s(len(x))} x · "
           f"{s(kesirli(yv.values()))}/{s(len(yv))} y")
     if mip_plan.sinir is not None:
         print(f"  CBC son sınırı {tl(mip_plan.sinir, 2)} · MIP boşluğu %{s(oz_m['bosluk_yuzde'], 2)} "
               f"(göreli tolerans %{s(p.mip_bosluk_orani * 100, 1)}) · CBC'nin LP'den kapattığı "
-              f"{tl(gevsek - mip_plan.sinir, 2)}")
+              f"{tl(fark(mip_plan.sinir, gevsek, 2), 2)}")
+    return gevsek
 
 
 def demo_bolumu(con, karar, zemin: Zemin, planlar: dict, olcumler: dict, ek: list) -> None:
@@ -664,13 +712,13 @@ def demo_bolumu(con, karar, zemin: Zemin, planlar: dict, olcumler: dict, ek: lis
         for yontem in YONTEMLER:
             oa, ba, ha = sonuc[(*a, yontem)]
             ob_, bb, hb = sonuc[(*b, yontem)]
-            dn = ob_["net_kazanc_tl"] - oa["net_kazanc_tl"]
+            dn = fark(oa["net_kazanc_tl"], ob_["net_kazanc_tl"])
             print(f"  {yontem}: {a[0]}|{a[1]} → {b[0]}|{b[1]}: hareket {s(oa['option_sayisi'])} → "
                   f"{s(ob_['option_sayisi'])} ({'+' if ob_['option_sayisi'] >= oa['option_sayisi'] else ''}"
                   f"{s(ob_['option_sayisi'] - oa['option_sayisi'])}) · "
                   f"adet {s(oa['tasinan_adet'])} → {s(ob_['tasinan_adet'])} · net {tl(oa['net_kazanc_tl'])} → {tl(ob_['net_kazanc_tl'])} "
                   f"({'+' if dn >= 0 else ''}{tl(dn)}, {'+' if dn >= 0 else ''}"
-                  f"{y(dn / oa['net_kazanc_tl'])}) · yakalama Basit {y(ba.yakalama, 2)} → "
+                  f"{y(bolum(dn, oa['net_kazanc_tl']))}) · yakalama Basit {y(ba.yakalama, 2)} → "
                   f"{y(bb.yakalama, 2)} · hakem {y(ha.yakalama, 2)} → {y(hb.yakalama, 2)}")
 
     print("\n  (karşılaştırmalarda yakalama iki ondalıkla: bir ondalıkta eşit görünen farklar için)")
@@ -691,8 +739,9 @@ def getiri_bolumu(con, karar, p, greedy, mip_plan, aday, zemin: Zemin, olc_g, ol
     sv = [str_h[(str(v), str(o))] for v, o in zip(g.verici, g.option_id) if (str(v), str(o)) in str_h]
     sa = [str_h[(str(a), str(o))] for a, o in zip(g.alici, g.option_id) if (str(a), str(o)) in str_h]
     str_v, str_a = float(np.mean(sv)), float(np.mean(sa))
+    str_fark = fark(str_v * 100, str_a * 100, 1)
     print(f"  STR (açgözlü referans plan, karara dek): verici ortalaması {y(str_v)} ({len(sv)} hareket) · "
-          f"alıcı ortalaması {y(str_a)} ({len(sa)} hareket) · fark {s((str_a - str_v) * 100, 1)} puan")
+          f"alıcı ortalaması {y(str_a)} ({len(sa)} hareket) · fark {s(str_fark, 1)} puan")
 
     print("\n  model ne varsaydı — veri ne dedi (açgözlü referans plan):")
     ort = ortuk_oranlar(g, aday, H)
@@ -745,39 +794,42 @@ def getiri_bolumu(con, karar, p, greedy, mip_plan, aday, zemin: Zemin, olc_g, ol
         kk = {(str(v), str(a), str(o)) for v, a, o in zip(hk.verici, hk.alici, hk.option_id)}
         rc = len(hc.groupby(["verici", "alici"], observed=True))
         ciro_kar = sum(wk[k] for k in kc) - rc * p.rota_sabiti_tl
+        dk = fark(ciro_kar, oz_k["net_kazanc_tl"])
         bosluk = f" · boşluk %{s(oz_k['bosluk_yuzde'], 2)}" if oz_k.get("bosluk_yuzde") is not None else ""
         print(f"    {yontem}: {s(len(hk))} hareket · ciro planından farklı hareket: yalnız kâr planında "
               f"{s(len(kk - kc))}, yalnız ciro planında {s(len(kc - kk))} (ortak {s(len(kk & kc))}) · "
               f"durum {oz_k['durum']}{bosluk}")
         print(f"      net kazanç kâr cinsinden: kâr planı {tl(oz_k['net_kazanc_tl'])} · ciro planı "
-              f"kârla değerlenince {tl(ciro_kar)} · fark {tl(oz_k['net_kazanc_tl'] - ciro_kar)} "
-              f"({y((oz_k['net_kazanc_tl'] - ciro_kar) / ciro_kar, 2)})")
+              f"kârla değerlenince {tl(ciro_kar)} · fark {tl(dk)} "
+              f"({y(bolum(dk, ciro_kar), 2)})")
 
     pa, pv = ob.p_alici * 100, ob.p_verici * 100
     pa_h = oh.p_alici * 100
     na, nv = getiri.olculen_nokta(pa), getiri.olculen_nokta(pv)
-    print(f"\n  ölçülen nokta: p_alıcı {s(pa, 1)} · p_verici {s(pv, 1)} · fark {s(pa - pv, 1)} puan "
-          f"(kadranda {na} / {nv}) · hakemle p_alıcı {s(pa_h, 1)}, fark {s(pa_h - pv, 1)} puan")
+    olcen_fark = fark(pv, pa, 1)
+    print(f"\n  ölçülen nokta: p_alıcı {s(pa, 1)} · p_verici {s(pv, 1)} · fark {s(olcen_fark, 1)} puan "
+          f"(kadranda {na} / {nv}) · hakemle p_alıcı {s(pa_h, 1)}, fark {s(fark(pv, pa_h, 1), 1)} puan")
     print("  maliyet paketleri (getiri.py; toplama ve kargo varsayım, yıpranma saha kalibrasyonu):")
     for ad in ("dusuk", "orta", "yuksek"):
         pk = getiri.MALIYET_PAKETLERI[ad]
         toplama, kargo = pk.toplama_birim_tl * adet, pk.kargo_rota_tl * rota
         yip = pk.yipranma_orani * maliyet_deg
         olc = getiri.hesapla(hareketler, pk, pa, pv)
-        yuv = getiri.hesapla(hareketler, pk, float(na), float(nv))
+        kadran = getiri.hesapla(hareketler, pk, float(na), float(nv))
         hak = getiri.hesapla(hareketler, pk, pa_h, pv)
         print(f"    {ad:7} toplama {s(adet)} adet × {s(pk.toplama_birim_tl)} TL = {tl(toplama)} · "
               f"kargo {s(rota)} sevkiyat × {s(pk.kargo_rota_tl)} TL = {tl(kargo)} · yıpranma "
-              f"%{s(pk.yipranma_orani * 100)} × maliyet değeri = {tl(yip)} · toplam {tl(toplama + kargo + yip)}")
-        print(f"            yıpranma adet başına {tl(yip / adet, 2)} (beş taşımada {tl(5 * yip / adet, 2)}) · "
+              f"%{s(pk.yipranma_orani * 100)} × maliyet değeri = {tl(yip)} · toplam "
+              f"{tl(yuv(toplama) + yuv(kargo) + yuv(yip))}")
+        print(f"            yıpranma adet başına {tl(yip / adet, 2)} (beş taşımada {tl(5 * yuv(yip / adet, 2), 2)}) · "
               f"başabaş fark {s(olc['basabas_fark_puan'], 1)} puan · başabaş alıcı ihtimali "
-              f"(vericide {s(pv, 1)}) %{s(olc['basabas_ihtimal_yuzde'], 1)}")
+              f"(vericide {s(pv, 1)}) %{s(yuv(pv, 1) + yuv(olc['basabas_fark_puan'], 1), 1)}")
         print(f"            ölçülen noktada net kâr {tl(olc['net_kar_tl'])} · kadranda ({na}/{nv}) "
-              f"{tl(yuv['net_kar_tl'])} · hakemin p_alıcısıyla {tl(hak['net_kar_tl'])} · "
+              f"{tl(kadran['net_kar_tl'])} · hakemin p_alıcısıyla {tl(hak['net_kar_tl'])} · "
               f"ciro etkisi (ölçülen) {tl(olc['ciro_etkisi_tl'])}")
-        print(f"            STR farkı {s((str_a - str_v) * 100, 1)} puan vs başabaş "
-              f"{s(olc['basabas_fark_puan'], 1)} · ölçülen fark {s(pa - pv, 1)} puan "
-              f"{'≥' if pa - pv >= olc['basabas_fark_puan'] else '<'} başabaş")
+        print(f"            STR farkı {s(str_fark, 1)} puan vs başabaş "
+              f"{s(olc['basabas_fark_puan'], 1)} · ölçülen fark {s(olcen_fark, 1)} puan "
+              f"{'≥' if olcen_fark >= yuv(olc['basabas_fark_puan'], 1) else '<'} başabaş")
 
     icerik = getiri.uret(con, karar, ob)
     sonuclar = icerik["sonuclar"]
@@ -802,7 +854,7 @@ def anlati_bolumu(kirik: int) -> None:
         print(f"  {anahtar}: {s(deger)} (varsayım)")
     saat = kirik * v["cift_basina_dakika"] / 60
     print(f"  toplam saat = kırık {s(kirik)} × {v['cift_basina_dakika']} dakika / 60 = {s(saat, 1)} saat "
-          f"(≈ {s(round(saat))} saat) · haftalık mesainin {s(saat / v['haftalik_mesai_saat'], 1)} katı")
+          f"(≈ {s(round(saat))} saat) · haftalık mesainin {s(bolum(saat, v['haftalik_mesai_saat'], 1), 1)} katı")
     print(f"  kalan çift = kırık {s(kirik)} − akşam çözülen {v['aksam_cozulen_cift']} = "
           f"{s(kirik - v['aksam_cozulen_cift'])}")
 
@@ -844,11 +896,34 @@ def main(argv: list[str] | None = None) -> int:
     kars = kars.loc[(kars["tarih"] >= pd.Timestamp(pb)) & (kars["tarih"] < pd.Timestamp(pbit)),
                     ["tarih", "magaza_id", "urun_id", "karsilanmayan"]].reset_index(drop=True)
 
+    # Bütün rapor tampona yazılır; korunum tutmazsa stdout'a tek satır gitmez (tamponla).
+    kod, metin = tamponla(lambda: _govde(con, karar, p, kayip, kars, zorla))
+    if kod:
+        return kod
+    sys.stdout.write(metin)
+    print(f"rapor süresi {time.perf_counter() - bas_sure:.0f} sn", file=sys.stderr)
+    return 0
+
+
+def _olcum_paydasi(zemin: Zemin) -> None:
+    """Yakalama paydaları: Basit ve hakem aynı hücre evreninde mi, dışarıda ne kaldı."""
+    print("\nölçüm paydası (ölçüm penceresi, adet):")
+    print(f"  Basit kaybı (evren içi) {s(zemin.basit.kayip.sum())} · çeşit hücresi dışında kalan Basit "
+          f"hücresi {s(zemin.basit_cesit_disi[0])} ({s(zemin.basit_cesit_disi[1])} adet)")
+    print(f"  hakem karşılanmayan talebi: toplam {s(zemin.hakem_tum.kayip.sum())} · online "
+          f"{s(zemin.hakem_onl.kayip.sum())} · evren içi {s(zemin.hakem_evren.kayip.sum())} · evren içi "
+          f"çeşit içi (hakem paydası) {s(zemin.hakem.kayip.sum())} · evren içi çeşit dışı (paydaya "
+          f"girmez) {s(zemin.hakem_evren.kayip.sum() - zemin.hakem.kayip.sum())}")
+    print(f"  hakem / Basit paydası {s(bolum(zemin.hakem.kayip.sum(), zemin.basit.kayip.sum()), 2)}")
+
+
+def _govde(con, karar: date, p: Parametreler, kayip: pd.DataFrame, kars: pd.DataFrame,
+           zorla) -> None:
+    """Raporun bütün bölümleri, sırasıyla; en sonda korunum (tutmazsa AssertionError)."""
     adlar = _magaza_adlari(con)
     v = veri_bolumu(con, karar, p)
     karar_bolumu(con, karar, p)
     zemin = Zemin(con, karar, kayip, kars, p.olcum_hafta)
-    del kars
 
     greedy, oz_g = degerlendirme.boru_hatti(con, karar, p, "greedy", onbellek=ONBELLEK)
     mip_plan, oz_m = degerlendirme.boru_hatti(con, karar, p, "mip", onbellek=ONBELLEK)
@@ -873,6 +948,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"olası atama 2^{s(n_deg)} ≈ 10^{s(math.floor(n_deg * math.log10(2)))}")
     print(f"kısıt: blok {s(blok_k)} + kapasite {s(kap_k)} + rota bağlama {s(len(df))} + koli "
           f"{s(len(rotalar))} = {s(blok_k + kap_k + len(df) + len(rotalar))}")
+    _olcum_paydasi(zemin)
 
     kirik_kume = {(str(m), str(o)) for m, o in zip(v["kirik"].magaza_id, v["kirik"].option_id)}
     olc_g, olc_m = zemin.olc(greedy.hareketler), zemin.olc(mip_plan.hareketler)
@@ -881,12 +957,13 @@ def main(argv: list[str] | None = None) -> int:
 
     adim_bolumu(len(df), greedy)
     fark_bolumu(greedy, mip_plan, oz_g, oz_m, ozel_g, ozel_m, adlar, p)
-    lp_bolumu(df, kapasite, mip_plan, oz_m, p)
+    gevsek = lp_bolumu(df, kapasite, mip_plan, oz_m, p)
 
     planlar = {"greedy": (greedy.hareketler, oz_g), "mip": (mip_plan.hareketler, oz_m)}
     olcumler = {"greedy basit": olc_g[0], "greedy hakem": olc_g[1],
                 "mip basit": olc_m[0], "mip hakem": olc_m[1]}
     sy = greedy.sayaclar
+    tolerans = 1.0 + 1e-6 * abs(gevsek)        # TL: CBC log sınırı ve LP çözümü yuvarlı
     ek = [
         ("açgözlü sayaçları: pozitif = blok + kapasite + seçilen",
          sy["pozitif"] == sy["blok"] + sy["kapasite"] + sy["secilen"]),
@@ -898,28 +975,22 @@ def main(argv: list[str] | None = None) -> int:
         ("ölçümün taşınan adedi = özetin taşınan adedi (mip)", olc_m[0].tasinan_adet == oz_m["tasinan_adet"]),
         ("hakem ve Basit paydası aynı evrenle süzüldü", olc_g[0].payda == float(zemin.basit.kayip.sum())
          and olc_g[1].payda == float(zemin.hakem.kayip.sum())),
+        ("basılan net kazanç = basılan Σw − rota × R (greedy)", ozel_g["net_tutar"]),
+        ("basılan net kazanç = basılan Σw − rota × R (mip)", ozel_m["net_tutar"]),
+        (f"LP gevşetmesi ({gevsek:.2f}) ≥ CBC sınırı ({mip_plan.sinir}) ≥ MIP amacı ({mip_plan.amac:.2f})",
+         mip_plan.sinir is not None and gevsek + tolerans >= mip_plan.sinir
+         and mip_plan.sinir + tolerans >= mip_plan.amac),
     ]
 
     getiri_bolumu(con, karar, p, greedy, mip_plan, aday, zemin, olc_g, olc_m, planlar, ek)
     demo_bolumu(con, karar, zemin, planlar, olcumler, ek)
-
-    print("\n  hakem penceresi (karşılanmayan talep, adet):")
-    print(f"    toplam {s(zemin.hakem_tum.kayip.sum())} · online {s(zemin.hakem_onl.kayip.sum())} · "
-          f"evren içi {s(zemin.hakem_evren.kayip.sum())} · evren içi çeşit içi (hakem paydası) "
-          f"{s(zemin.hakem.kayip.sum())} · evren içi çeşit dışı (paydaya girmez) "
-          f"{s(zemin.hakem_evren.kayip.sum() - zemin.hakem.kayip.sum())}")
-    print(f"    Basit paydası {s(zemin.basit.kayip.sum())} · hakem / Basit "
-          f"{s(zemin.hakem.kayip.sum() / zemin.basit.kayip.sum(), 2)}")
-
     anlati_bolumu(len(v["kirik"]))
 
-    print("\n=== KORUNUM ===")
     n = korunum(planlar, olcumler, zemin.evren,
                 {"Basit": zemin.basit, "hakem": zemin.hakem}, p, ek)
+    print("\n=== KORUNUM ===")
     print(f"  {n} denetim tuttu (özet ↔ hareket tablosu, kurtarılan ≤ payda, p ∈ [0, 1], "
-          "paydalar aynı evrende, MIP ≥ açgözlü)")
-    print(f"rapor süresi {time.perf_counter() - bas_sure:.0f} sn", file=sys.stderr)
-    return 0
+          "paydalar aynı evrende, MIP ≥ açgözlü, LP ≥ CBC sınırı ≥ MIP)")
 
 
 if __name__ == "__main__":

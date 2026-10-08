@@ -48,6 +48,17 @@ def test_kirik_cift_sayisi_raporla_tutarli():
     assert len(metrikler.kiriklar(con, karar)) == _rapordaki_kirik()
 
 
+@pytest.mark.veri
+def test_rapor_korunumdan_gecmis():
+    """rapor.py korunum tutmazsa stdout'a hiçbir şey yazmaz; dosyadaki rapor tam ve denetlenmiş."""
+    _rapordaki_kirik()                                     # rapor.txt yoksa komutu söyleyip atlar
+    metin = RAPOR.read_text(encoding="utf-8")
+    satirlar = metin.splitlines()
+    assert "=== KORUNUM ===" in satirlar
+    son = satirlar[satirlar.index("=== KORUNUM ===") + 1]
+    assert son.strip().split()[1:3] == ["denetim", "tuttu"], son
+
+
 def _yayimlanan_sql() -> str:
     """Dördüncü yazıdaki ```sql çitinin içini döndürür.
 

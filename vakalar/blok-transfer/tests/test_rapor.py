@@ -66,14 +66,47 @@ def test_hakem_yoksa_komutu_soyler(tmp_path, capsys):
 def test_anlati_varsayimlari_basilir(capsys):
     assert rapor.ANLATI_VARSAYIMLARI == {
         "cift_basina_dakika": 10, "haftalik_mesai_saat": 90, "aksam_cozulen_cift": 40}
-    rapor.anlati_bolumu(528)
+    rapor.anlati_bolumu(1234)
     cikti = capsys.readouterr().out
     assert "=== ANLATI VARSAYIMLARI ===" in cikti
     for anahtar in rapor.ANLATI_VARSAYIMLARI:
         assert anahtar in cikti
     assert "varsayım" in cikti
-    assert "88" in cikti            # 528 × 10 / 60 saat
-    assert "488" in cikti           # 528 − 40 çift
+    assert "= 205,7 saat" in cikti                        # 1.234 × 10 / 60
+    assert "haftalık mesainin 2,3 katı" in cikti          # 205,7 / 90
+    assert "1.234 − akşam çözülen 40 = 1.194" in cikti
+
+
+# ------------------------------------------------------- basılan değerlerden fark ve oran
+
+def test_farklar_basilan_degerlerden():
+    # basılan işlenenler 100 ve 201 → fark 101 (yuvarlanmamış fark 100,2 → 100 olurdu)
+    assert rapor.fark(100.4, 200.6) == 101
+    assert rapor.s(200.6) == "201" and rapor.s(100.4) == "100"
+    # iki ondalık: 1,005 → biçimleme ne basıyorsa yuv o
+    for x in (1.005, 2.675, 38904608.50914, 0.0192 * 1000, 13.47):
+        for n in (0, 1, 2):
+            assert rapor.s(rapor.yuv(x, n), n) == rapor.s(x, n)
+    # oran: basılan 13,5 ve 19,2 → 703,1..., ham 13,47 / 19,24 değil
+    assert rapor.bolum(13.47, 19.24, 1, 1) == pytest.approx(13.5 / 19.2)
+    assert rapor.bolum(1, 0) is None
+    # yüzde: basılan farkın basılan paydaya oranı
+    assert rapor.bolum(rapor.fark(100.4, 200.6), 100.4) == pytest.approx(1.01)
+
+
+def test_tamponla_korunum_bozulursa_stdouta_yazmaz(capsys):
+    def bozuk():
+        print("=== VERİ ===")
+        raise AssertionError("korunum bozuldu: deneme")
+
+    def saglam():
+        print("=== VERİ ===")
+
+    assert rapor.tamponla(bozuk) == (1, "")
+    yakalanan = capsys.readouterr()
+    assert yakalanan.out == "" and "korunum bozuldu: deneme" in yakalanan.err
+    assert rapor.tamponla(saglam) == (0, "=== VERİ ===\n")
+    assert capsys.readouterr().out == ""
 
 
 # ------------------------------------------------------------------------- korunum
