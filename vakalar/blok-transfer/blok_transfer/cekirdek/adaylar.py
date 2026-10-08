@@ -85,6 +85,13 @@ def uret(con, karar: date, p: Parametreler) -> pd.DataFrame:
         ]
 
     kirik_kume = set(zip(kiriklar.magaza_id, kiriklar.option_id))
+    # Karar R4: kırık hücre verici olamaz. Kırığın satışı durur, cover → ∞
+    # görünür; cover tek başına onu verici sayardı. Kırık rafı doldurmak
+    # gerekir, boşaltmak değil (alıcı tarafıyla aynı tanım: `metrikler.kiriklar`).
+    if len(vericiler):
+        vericiler = vericiler[
+            ~vericiler.apply(lambda s: (s.magaza_id, s.option_id) in kirik_kume, axis=1)
+        ]
     stoklu_kume = set(zip(stok.magaza_id, stok.option_id))
     # Alıcı cover'ı: stoklu hücrede hesaplanmış cover, stoksuz hücrede
     # tanımı gereği 0. Sözlükte olmayan hücre stoksuzdur.

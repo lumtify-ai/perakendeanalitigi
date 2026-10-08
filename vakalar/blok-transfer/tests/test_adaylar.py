@@ -157,6 +157,22 @@ def test_hayalet_stok_verici_olmaz(con):
     assert len(hiz[(hiz.magaza_id == "MD") & (hiz.option_id == "OPT2")]) == 0
 
 
+def test_kirik_hucre_verici_olmaz(con):
+    # Karar R4: kırık (mağaza, option) hücresi verici olamaz. Kırığın satışı
+    # durur, cover → ∞ görünür; cover tek başına onu verici sayardı.
+    # MC-OPT1'e karar günü yalnız beden 1'de 10 adet koy: toplam > 0, ara
+    # kademeler 0 → kırık; hız 1.0 → cover 10 ≥ 6, soğumada da değil.
+    con.execute("update stok set adet = 10 where tarih = '2025-12-29' "
+                "and magaza_id = 'MC' and urun_id = 'OPT1-1'")
+    assert ("MC", "OPT1") in set(zip(*[metrikler.kiriklar(con, KARAR)[c] for c in ("magaza_id", "option_id")]))
+    cov = metrikler.coverlar(con, KARAR, P)
+    assert cov[(cov.magaza_id == "MC") & (cov.option_id == "OPT1")].cover.iloc[0] >= P.verici_cover_esigi
+    df = adaylar.uret(con, KARAR, P)
+    assert ("MC", "MB", "OPT1") not in ciftler(df)    # kırık verici → kırık alıcı
+    assert not (df.verici == "MC").any()
+    assert ("MA", "MB", "OPT1") in ciftler(df)        # sağlam verici etkilenmedi
+
+
 def test_std_option_kirik_sayilmaz(con):
     # OPT3 tek bedenli: ara kademesi yok, kırık olamaz. MB'de stoksuz+hızlı →
     # alıcı; MC'de stoklu (2) + hızlı (3) → kırık sayılsaydı alıcı olurdu.

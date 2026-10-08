@@ -1,5 +1,5 @@
 {
- "surum": "4a42bb6 2026-10-08",
+ "surum": "6ebc3cc 2026-10-09",
  "parametreler": [
   {
    "ad": "alici_ihtimal",
@@ -44,9 +44,9 @@
  "sonuclar": {
   "15|0|dusuk": {
    "ozet": {
-    "net_kar_tl": 7043598.85,
-    "ciro_etkisi_tl": 14469898.4,
-    "hareket_basina_kar_tl": 9851.19,
+    "net_kar_tl": 6425303.66,
+    "ciro_etkisi_tl": 13231175.96,
+    "hareket_basina_kar_tl": 10964.68,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 3.0
    },
@@ -54,29 +54,29 @@
   },
   "15|0|orta": {
    "ozet": {
-    "net_kar_tl": 5682614.46,
-    "ciro_etkisi_tl": 14469898.4,
-    "hareket_basina_kar_tl": 7947.71,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 5.3
+    "net_kar_tl": 5172300.08,
+    "ciro_etkisi_tl": 13231175.96,
+    "hareket_basina_kar_tl": 8826.45,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 5.4
    },
    "satirlar": []
   },
   "15|0|yuksek": {
    "ozet": {
-    "net_kar_tl": 3337477.86,
-    "ciro_etkisi_tl": 14469898.4,
-    "hareket_basina_kar_tl": 4667.8,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 9.3
+    "net_kar_tl": 3011222.19,
+    "ciro_etkisi_tl": 13231175.96,
+    "hareket_basina_kar_tl": 5138.6,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 9.4
    },
    "satirlar": []
   },
   "15|5|dusuk": {
    "ozet": {
-    "net_kar_tl": 4104460.37,
-    "ciro_etkisi_tl": 9646598.94,
-    "hareket_basina_kar_tl": 5740.5,
+    "net_kar_tl": 3739558.15,
+    "ciro_etkisi_tl": 8820783.97,
+    "hareket_basina_kar_tl": 6381.5,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 8.0
    },
@@ -84,29 +84,29 @@
   },
   "15|5|orta": {
    "ozet": {
-    "net_kar_tl": 2743475.98,
-    "ciro_etkisi_tl": 9646598.94,
-    "hareket_basina_kar_tl": 3837.03,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 10.3
+    "net_kar_tl": 2486554.56,
+    "ciro_etkisi_tl": 8820783.97,
+    "hareket_basina_kar_tl": 4243.27,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 10.4
    },
    "satirlar": []
   },
   "15|5|yuksek": {
    "ozet": {
-    "net_kar_tl": 398339.38,
-    "ciro_etkisi_tl": 9646598.94,
-    "hareket_basina_kar_tl": 557.12,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 14.3
+    "net_kar_tl": 325476.68,
+    "ciro_etkisi_tl": 8820783.97,
+    "hareket_basina_kar_tl": 555.42,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 14.4
    },
    "satirlar": []
   },
   "15|10|dusuk": {
    "ozet": {
-    "net_kar_tl": 1165321.89,
-    "ciro_etkisi_tl": 4823299.47,
-    "hareket_basina_kar_tl": 1629.82,
+    "net_kar_tl": 1053812.63,
+    "ciro_etkisi_tl": 4410391.99,
+    "hareket_basina_kar_tl": 1798.32,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 13.0
    },
@@ -114,29 +114,29 @@
   },
   "15|10|orta": {
    "ozet": {
-    "net_kar_tl": -195662.51,
-    "ciro_etkisi_tl": 4823299.47,
-    "hareket_basina_kar_tl": -273.65,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 15.3
+    "net_kar_tl": -199190.95,
+    "ciro_etkisi_tl": 4410391.99,
+    "hareket_basina_kar_tl": -339.92,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 15.4
    },
    "satirlar": []
   },
   "15|10|yuksek": {
    "ozet": {
-    "net_kar_tl": -2540799.1,
-    "ciro_etkisi_tl": 4823299.47,
-    "hareket_basina_kar_tl": -3553.57,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 19.3
+    "net_kar_tl": -2360268.84,
+    "ciro_etkisi_tl": 4410391.99,
+    "hareket_basina_kar_tl": -4027.76,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 19.4
    },
    "satirlar": []
   },
   "15|20|dusuk": {
    "ozet": {
-    "net_kar_tl": -4712955.07,
-    "ciro_etkisi_tl": -4823299.47,
-    "hareket_basina_kar_tl": -6591.55,
+    "net_kar_tl": -4317678.4,
+    "ciro_etkisi_tl": -4410391.99,
+    "hareket_basina_kar_tl": -7368.05,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 23.0
    },
@@ -144,29 +144,29 @@
   },
   "15|20|orta": {
    "ozet": {
-    "net_kar_tl": -6073939.47,
-    "ciro_etkisi_tl": -4823299.47,
-    "hareket_basina_kar_tl": -8495.02,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 25.3
+    "net_kar_tl": -5570681.99,
+    "ciro_etkisi_tl": -4410391.99,
+    "hareket_basina_kar_tl": -9506.28,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 25.4
    },
    "satirlar": []
   },
   "15|20|yuksek": {
    "ozet": {
-    "net_kar_tl": -8419076.06,
-    "ciro_etkisi_tl": -4823299.47,
-    "hareket_basina_kar_tl": -11774.93,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 29.3
+    "net_kar_tl": -7731759.87,
+    "ciro_etkisi_tl": -4410391.99,
+    "hareket_basina_kar_tl": -13194.13,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 29.4
    },
    "satirlar": []
   },
   "50|0|dusuk": {
    "ozet": {
-    "net_kar_tl": 27617568.22,
-    "ciro_etkisi_tl": 48232994.68,
-    "hareket_basina_kar_tl": 38625.97,
+    "net_kar_tl": 25225522.27,
+    "ciro_etkisi_tl": 44103919.86,
+    "hareket_basina_kar_tl": 43046.97,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 3.0
    },
@@ -174,29 +174,29 @@
   },
   "50|0|orta": {
    "ozet": {
-    "net_kar_tl": 26256583.82,
-    "ciro_etkisi_tl": 48232994.68,
-    "hareket_basina_kar_tl": 36722.49,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 5.3
+    "net_kar_tl": 23972518.68,
+    "ciro_etkisi_tl": 44103919.86,
+    "hareket_basina_kar_tl": 40908.73,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 5.4
    },
    "satirlar": []
   },
   "50|0|yuksek": {
    "ozet": {
-    "net_kar_tl": 23911447.23,
-    "ciro_etkisi_tl": 48232994.68,
-    "hareket_basina_kar_tl": 33442.58,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 9.3
+    "net_kar_tl": 21811440.8,
+    "ciro_etkisi_tl": 44103919.86,
+    "hareket_basina_kar_tl": 37220.89,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 9.4
    },
    "satirlar": []
   },
   "50|5|dusuk": {
    "ozet": {
-    "net_kar_tl": 24678429.74,
-    "ciro_etkisi_tl": 43409695.21,
-    "hareket_basina_kar_tl": 34515.29,
+    "net_kar_tl": 22539776.76,
+    "ciro_etkisi_tl": 39693527.87,
+    "hareket_basina_kar_tl": 38463.78,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 8.0
    },
@@ -204,29 +204,29 @@
   },
   "50|5|orta": {
    "ozet": {
-    "net_kar_tl": 23317445.34,
-    "ciro_etkisi_tl": 43409695.21,
-    "hareket_basina_kar_tl": 32611.81,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 10.3
+    "net_kar_tl": 21286773.17,
+    "ciro_etkisi_tl": 39693527.87,
+    "hareket_basina_kar_tl": 36325.55,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 10.4
    },
    "satirlar": []
   },
   "50|5|yuksek": {
    "ozet": {
-    "net_kar_tl": 20972308.75,
-    "ciro_etkisi_tl": 43409695.21,
-    "hareket_basina_kar_tl": 29331.9,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 14.3
+    "net_kar_tl": 19125695.29,
+    "ciro_etkisi_tl": 39693527.87,
+    "hareket_basina_kar_tl": 32637.71,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 14.4
    },
    "satirlar": []
   },
   "50|10|dusuk": {
    "ozet": {
-    "net_kar_tl": 21739291.26,
-    "ciro_etkisi_tl": 38586395.74,
-    "hareket_basina_kar_tl": 30404.6,
+    "net_kar_tl": 19854031.24,
+    "ciro_etkisi_tl": 35283135.88,
+    "hareket_basina_kar_tl": 33880.6,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 13.0
    },
@@ -234,29 +234,29 @@
   },
   "50|10|orta": {
    "ozet": {
-    "net_kar_tl": 20378306.86,
-    "ciro_etkisi_tl": 38586395.74,
-    "hareket_basina_kar_tl": 28501.13,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 15.3
+    "net_kar_tl": 18601027.65,
+    "ciro_etkisi_tl": 35283135.88,
+    "hareket_basina_kar_tl": 31742.37,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 15.4
    },
    "satirlar": []
   },
   "50|10|yuksek": {
    "ozet": {
-    "net_kar_tl": 18033170.27,
-    "ciro_etkisi_tl": 38586395.74,
-    "hareket_basina_kar_tl": 25221.22,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 19.3
+    "net_kar_tl": 16439949.77,
+    "ciro_etkisi_tl": 35283135.88,
+    "hareket_basina_kar_tl": 28054.52,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 19.4
    },
    "satirlar": []
   },
   "50|20|dusuk": {
    "ozet": {
-    "net_kar_tl": 15861014.29,
-    "ciro_etkisi_tl": 28939796.81,
-    "hareket_basina_kar_tl": 22183.24,
+    "net_kar_tl": 14482540.21,
+    "ciro_etkisi_tl": 26462351.91,
+    "hareket_basina_kar_tl": 24714.23,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 23.0
    },
@@ -264,29 +264,29 @@
   },
   "50|20|orta": {
    "ozet": {
-    "net_kar_tl": 14500029.9,
-    "ciro_etkisi_tl": 28939796.81,
-    "hareket_basina_kar_tl": 20279.76,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 25.3
+    "net_kar_tl": 13229536.62,
+    "ciro_etkisi_tl": 26462351.91,
+    "hareket_basina_kar_tl": 22576.0,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 25.4
    },
    "satirlar": []
   },
   "50|20|yuksek": {
    "ozet": {
-    "net_kar_tl": 12154893.31,
-    "ciro_etkisi_tl": 28939796.81,
-    "hareket_basina_kar_tl": 16999.85,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 29.3
+    "net_kar_tl": 11068458.74,
+    "ciro_etkisi_tl": 26462351.91,
+    "hareket_basina_kar_tl": 18888.15,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 29.4
    },
    "satirlar": []
   },
   "60|0|dusuk": {
    "ozet": {
-    "net_kar_tl": 33495845.18,
-    "ciro_etkisi_tl": 57879593.62,
-    "hareket_basina_kar_tl": 46847.34,
+    "net_kar_tl": 30597013.3,
+    "ciro_etkisi_tl": 52924703.83,
+    "hareket_basina_kar_tl": 52213.33,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 3.0
    },
@@ -294,29 +294,29 @@
   },
   "60|0|orta": {
    "ozet": {
-    "net_kar_tl": 32134860.79,
-    "ciro_etkisi_tl": 57879593.62,
-    "hareket_basina_kar_tl": 44943.86,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 5.3
+    "net_kar_tl": 29344009.72,
+    "ciro_etkisi_tl": 52924703.83,
+    "hareket_basina_kar_tl": 50075.1,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 5.4
    },
    "satirlar": []
   },
   "60|0|yuksek": {
    "ozet": {
-    "net_kar_tl": 29789724.19,
-    "ciro_etkisi_tl": 57879593.62,
-    "hareket_basina_kar_tl": 41663.95,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 9.3
+    "net_kar_tl": 27182931.83,
+    "ciro_etkisi_tl": 52924703.83,
+    "hareket_basina_kar_tl": 46387.26,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 9.4
    },
    "satirlar": []
   },
   "60|5|dusuk": {
    "ozet": {
-    "net_kar_tl": 30556706.7,
-    "ciro_etkisi_tl": 53056294.15,
-    "hareket_basina_kar_tl": 42736.65,
+    "net_kar_tl": 27911267.79,
+    "ciro_etkisi_tl": 48514311.84,
+    "hareket_basina_kar_tl": 47630.15,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 8.0
    },
@@ -324,29 +324,29 @@
   },
   "60|5|orta": {
    "ozet": {
-    "net_kar_tl": 29195722.3,
-    "ciro_etkisi_tl": 53056294.15,
-    "hareket_basina_kar_tl": 40833.18,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 10.3
+    "net_kar_tl": 26658264.2,
+    "ciro_etkisi_tl": 48514311.84,
+    "hareket_basina_kar_tl": 45491.92,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 10.4
    },
    "satirlar": []
   },
   "60|5|yuksek": {
    "ozet": {
-    "net_kar_tl": 26850585.71,
-    "ciro_etkisi_tl": 53056294.15,
-    "hareket_basina_kar_tl": 37553.27,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 14.3
+    "net_kar_tl": 24497186.32,
+    "ciro_etkisi_tl": 48514311.84,
+    "hareket_basina_kar_tl": 41804.07,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 14.4
    },
    "satirlar": []
   },
   "60|10|dusuk": {
    "ozet": {
-    "net_kar_tl": 27617568.22,
-    "ciro_etkisi_tl": 48232994.68,
-    "hareket_basina_kar_tl": 38625.97,
+    "net_kar_tl": 25225522.27,
+    "ciro_etkisi_tl": 44103919.86,
+    "hareket_basina_kar_tl": 43046.97,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 13.0
    },
@@ -354,29 +354,29 @@
   },
   "60|10|orta": {
    "ozet": {
-    "net_kar_tl": 26256583.82,
-    "ciro_etkisi_tl": 48232994.68,
-    "hareket_basina_kar_tl": 36722.49,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 15.3
+    "net_kar_tl": 23972518.68,
+    "ciro_etkisi_tl": 44103919.86,
+    "hareket_basina_kar_tl": 40908.73,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 15.4
    },
    "satirlar": []
   },
   "60|10|yuksek": {
    "ozet": {
-    "net_kar_tl": 23911447.23,
-    "ciro_etkisi_tl": 48232994.68,
-    "hareket_basina_kar_tl": 33442.58,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 19.3
+    "net_kar_tl": 21811440.8,
+    "ciro_etkisi_tl": 44103919.86,
+    "hareket_basina_kar_tl": 37220.89,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 19.4
    },
    "satirlar": []
   },
   "60|20|dusuk": {
    "ozet": {
-    "net_kar_tl": 21739291.26,
-    "ciro_etkisi_tl": 38586395.74,
-    "hareket_basina_kar_tl": 30404.6,
+    "net_kar_tl": 19854031.24,
+    "ciro_etkisi_tl": 35283135.88,
+    "hareket_basina_kar_tl": 33880.6,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 23.0
    },
@@ -384,29 +384,29 @@
   },
   "60|20|orta": {
    "ozet": {
-    "net_kar_tl": 20378306.86,
-    "ciro_etkisi_tl": 38586395.74,
-    "hareket_basina_kar_tl": 28501.13,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 25.3
+    "net_kar_tl": 18601027.65,
+    "ciro_etkisi_tl": 35283135.88,
+    "hareket_basina_kar_tl": 31742.37,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 25.4
    },
    "satirlar": []
   },
   "60|20|yuksek": {
    "ozet": {
-    "net_kar_tl": 18033170.27,
-    "ciro_etkisi_tl": 38586395.74,
-    "hareket_basina_kar_tl": 25221.22,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 29.3
+    "net_kar_tl": 16439949.77,
+    "ciro_etkisi_tl": 35283135.88,
+    "hareket_basina_kar_tl": 28054.52,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 29.4
    },
    "satirlar": []
   },
   "70|0|dusuk": {
    "ozet": {
-    "net_kar_tl": 39374122.14,
-    "ciro_etkisi_tl": 67526192.55,
-    "hareket_basina_kar_tl": 55068.7,
+    "net_kar_tl": 35968504.33,
+    "ciro_etkisi_tl": 61745487.8,
+    "hareket_basina_kar_tl": 61379.7,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 3.0
    },
@@ -414,29 +414,29 @@
   },
   "70|0|orta": {
    "ozet": {
-    "net_kar_tl": 38013137.75,
-    "ciro_etkisi_tl": 67526192.55,
-    "hareket_basina_kar_tl": 53165.23,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 5.3
+    "net_kar_tl": 34715500.75,
+    "ciro_etkisi_tl": 61745487.8,
+    "hareket_basina_kar_tl": 59241.47,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 5.4
    },
    "satirlar": []
   },
   "70|0|yuksek": {
    "ozet": {
-    "net_kar_tl": 35668001.15,
-    "ciro_etkisi_tl": 67526192.55,
-    "hareket_basina_kar_tl": 49885.32,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 9.3
+    "net_kar_tl": 32554422.86,
+    "ciro_etkisi_tl": 61745487.8,
+    "hareket_basina_kar_tl": 55553.62,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 9.4
    },
    "satirlar": []
   },
   "70|5|dusuk": {
    "ozet": {
-    "net_kar_tl": 36434983.66,
-    "ciro_etkisi_tl": 62702893.08,
-    "hareket_basina_kar_tl": 50958.02,
+    "net_kar_tl": 33282758.82,
+    "ciro_etkisi_tl": 57335095.81,
+    "hareket_basina_kar_tl": 56796.52,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 8.0
    },
@@ -444,29 +444,29 @@
   },
   "70|5|orta": {
    "ozet": {
-    "net_kar_tl": 35073999.27,
-    "ciro_etkisi_tl": 62702893.08,
-    "hareket_basina_kar_tl": 49054.54,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 10.3
+    "net_kar_tl": 32029755.23,
+    "ciro_etkisi_tl": 57335095.81,
+    "hareket_basina_kar_tl": 54658.29,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 10.4
    },
    "satirlar": []
   },
   "70|5|yuksek": {
    "ozet": {
-    "net_kar_tl": 32728862.67,
-    "ciro_etkisi_tl": 62702893.08,
-    "hareket_basina_kar_tl": 45774.63,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 14.3
+    "net_kar_tl": 29868677.35,
+    "ciro_etkisi_tl": 57335095.81,
+    "hareket_basina_kar_tl": 50970.44,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 14.4
    },
    "satirlar": []
   },
   "70|10|dusuk": {
    "ozet": {
-    "net_kar_tl": 33495845.18,
-    "ciro_etkisi_tl": 57879593.62,
-    "hareket_basina_kar_tl": 46847.34,
+    "net_kar_tl": 30597013.3,
+    "ciro_etkisi_tl": 52924703.83,
+    "hareket_basina_kar_tl": 52213.33,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 13.0
    },
@@ -474,29 +474,29 @@
   },
   "70|10|orta": {
    "ozet": {
-    "net_kar_tl": 32134860.79,
-    "ciro_etkisi_tl": 57879593.62,
-    "hareket_basina_kar_tl": 44943.86,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 15.3
+    "net_kar_tl": 29344009.72,
+    "ciro_etkisi_tl": 52924703.83,
+    "hareket_basina_kar_tl": 50075.1,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 15.4
    },
    "satirlar": []
   },
   "70|10|yuksek": {
    "ozet": {
-    "net_kar_tl": 29789724.19,
-    "ciro_etkisi_tl": 57879593.62,
-    "hareket_basina_kar_tl": 41663.95,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 19.3
+    "net_kar_tl": 27182931.83,
+    "ciro_etkisi_tl": 52924703.83,
+    "hareket_basina_kar_tl": 46387.26,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 19.4
    },
    "satirlar": []
   },
   "70|20|dusuk": {
    "ozet": {
-    "net_kar_tl": 27617568.22,
-    "ciro_etkisi_tl": 48232994.68,
-    "hareket_basina_kar_tl": 38625.97,
+    "net_kar_tl": 25225522.27,
+    "ciro_etkisi_tl": 44103919.86,
+    "hareket_basina_kar_tl": 43046.97,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 23.0
    },
@@ -504,29 +504,29 @@
   },
   "70|20|orta": {
    "ozet": {
-    "net_kar_tl": 26256583.82,
-    "ciro_etkisi_tl": 48232994.68,
-    "hareket_basina_kar_tl": 36722.49,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 25.3
+    "net_kar_tl": 23972518.68,
+    "ciro_etkisi_tl": 44103919.86,
+    "hareket_basina_kar_tl": 40908.73,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 25.4
    },
    "satirlar": []
   },
   "70|20|yuksek": {
    "ozet": {
-    "net_kar_tl": 23911447.23,
-    "ciro_etkisi_tl": 48232994.68,
-    "hareket_basina_kar_tl": 33442.58,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 29.3
+    "net_kar_tl": 21811440.8,
+    "ciro_etkisi_tl": 44103919.86,
+    "hareket_basina_kar_tl": 37220.89,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 29.4
    },
    "satirlar": []
   },
   "80|0|dusuk": {
    "ozet": {
-    "net_kar_tl": 45252399.1,
-    "ciro_etkisi_tl": 77172791.49,
-    "hareket_basina_kar_tl": 63290.07,
+    "net_kar_tl": 41339995.37,
+    "ciro_etkisi_tl": 70566271.77,
+    "hareket_basina_kar_tl": 70546.07,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 3.0
    },
@@ -534,29 +534,29 @@
   },
   "80|0|orta": {
    "ozet": {
-    "net_kar_tl": 43891414.71,
-    "ciro_etkisi_tl": 77172791.49,
-    "hareket_basina_kar_tl": 61386.59,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 5.3
+    "net_kar_tl": 40086991.78,
+    "ciro_etkisi_tl": 70566271.77,
+    "hareket_basina_kar_tl": 68407.84,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 5.4
    },
    "satirlar": []
   },
   "80|0|yuksek": {
    "ozet": {
-    "net_kar_tl": 41546278.12,
-    "ciro_etkisi_tl": 77172791.49,
-    "hareket_basina_kar_tl": 58106.68,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 9.3
+    "net_kar_tl": 37925913.9,
+    "ciro_etkisi_tl": 70566271.77,
+    "hareket_basina_kar_tl": 64719.99,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 9.4
    },
    "satirlar": []
   },
   "80|5|dusuk": {
    "ozet": {
-    "net_kar_tl": 42313260.62,
-    "ciro_etkisi_tl": 72349492.02,
-    "hareket_basina_kar_tl": 59179.39,
+    "net_kar_tl": 38654249.85,
+    "ciro_etkisi_tl": 66155879.78,
+    "hareket_basina_kar_tl": 65962.88,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 8.0
    },
@@ -564,29 +564,29 @@
   },
   "80|5|orta": {
    "ozet": {
-    "net_kar_tl": 40952276.23,
-    "ciro_etkisi_tl": 72349492.02,
-    "hareket_basina_kar_tl": 57275.91,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 10.3
+    "net_kar_tl": 37401246.26,
+    "ciro_etkisi_tl": 66155879.78,
+    "hareket_basina_kar_tl": 63824.65,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 10.4
    },
    "satirlar": []
   },
   "80|5|yuksek": {
    "ozet": {
-    "net_kar_tl": 38607139.64,
-    "ciro_etkisi_tl": 72349492.02,
-    "hareket_basina_kar_tl": 53996.0,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 14.3
+    "net_kar_tl": 35240168.38,
+    "ciro_etkisi_tl": 66155879.78,
+    "hareket_basina_kar_tl": 60136.81,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 14.4
    },
    "satirlar": []
   },
   "80|10|dusuk": {
    "ozet": {
-    "net_kar_tl": 39374122.14,
-    "ciro_etkisi_tl": 67526192.55,
-    "hareket_basina_kar_tl": 55068.7,
+    "net_kar_tl": 35968504.33,
+    "ciro_etkisi_tl": 61745487.8,
+    "hareket_basina_kar_tl": 61379.7,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 13.0
    },
@@ -594,29 +594,29 @@
   },
   "80|10|orta": {
    "ozet": {
-    "net_kar_tl": 38013137.75,
-    "ciro_etkisi_tl": 67526192.55,
-    "hareket_basina_kar_tl": 53165.23,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 15.3
+    "net_kar_tl": 34715500.75,
+    "ciro_etkisi_tl": 61745487.8,
+    "hareket_basina_kar_tl": 59241.47,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 15.4
    },
    "satirlar": []
   },
   "80|10|yuksek": {
    "ozet": {
-    "net_kar_tl": 35668001.15,
-    "ciro_etkisi_tl": 67526192.55,
-    "hareket_basina_kar_tl": 49885.32,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 19.3
+    "net_kar_tl": 32554422.86,
+    "ciro_etkisi_tl": 61745487.8,
+    "hareket_basina_kar_tl": 55553.62,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 19.4
    },
    "satirlar": []
   },
   "80|20|dusuk": {
    "ozet": {
-    "net_kar_tl": 33495845.18,
-    "ciro_etkisi_tl": 57879593.62,
-    "hareket_basina_kar_tl": 46847.34,
+    "net_kar_tl": 30597013.3,
+    "ciro_etkisi_tl": 52924703.83,
+    "hareket_basina_kar_tl": 52213.33,
     "basabas_fark_puan": 3.0,
     "basabas_ihtimal_yuzde": 23.0
    },
@@ -624,21 +624,21 @@
   },
   "80|20|orta": {
    "ozet": {
-    "net_kar_tl": 32134860.79,
-    "ciro_etkisi_tl": 57879593.62,
-    "hareket_basina_kar_tl": 44943.86,
-    "basabas_fark_puan": 5.3,
-    "basabas_ihtimal_yuzde": 25.3
+    "net_kar_tl": 29344009.72,
+    "ciro_etkisi_tl": 52924703.83,
+    "hareket_basina_kar_tl": 50075.1,
+    "basabas_fark_puan": 5.4,
+    "basabas_ihtimal_yuzde": 25.4
    },
    "satirlar": []
   },
   "80|20|yuksek": {
    "ozet": {
-    "net_kar_tl": 29789724.19,
-    "ciro_etkisi_tl": 57879593.62,
-    "hareket_basina_kar_tl": 41663.95,
-    "basabas_fark_puan": 9.3,
-    "basabas_ihtimal_yuzde": 29.3
+    "net_kar_tl": 27182931.83,
+    "ciro_etkisi_tl": 52924703.83,
+    "hareket_basina_kar_tl": 46387.26,
+    "basabas_fark_puan": 9.4,
+    "basabas_ihtimal_yuzde": 29.4
    },
    "satirlar": []
   }

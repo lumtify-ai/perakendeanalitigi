@@ -1,5 +1,5 @@
 {
- "surum": "4a42bb6 2026-10-08",
+ "surum": "6ebc3cc 2026-10-09",
  "parametreler": [
   {
    "ad": "verici_cover_esigi",
@@ -36,147 +36,147 @@
  "sonuclar": {
   "6|0|greedy": {
    "ozet": {
-    "option_sayisi": 715,
-    "tasinan_adet": 107064,
-    "rota_sayisi": 360,
-    "bosalan_magaza": 74,
-    "net_kazanc_tl": 35354500.33,
-    "kayip_yakalama_yuzde": 3.6,
-    "sure_sn": 0.019
+    "option_sayisi": 586,
+    "tasinan_adet": 99029,
+    "rota_sayisi": 340,
+    "bosalan_magaza": 73,
+    "net_kazanc_tl": 32680687.71,
+    "kayip_yakalama_yuzde": 3.5,
+    "sure_sn": 0.017
    },
    "durum": "sezgisel",
    "satirlar": []
   },
   "6|0|mip": {
    "ozet": {
-    "option_sayisi": 802,
-    "tasinan_adet": 117196,
-    "rota_sayisi": 331,
+    "option_sayisi": 661,
+    "tasinan_adet": 109100,
+    "rota_sayisi": 318,
     "bosalan_magaza": 77,
-    "net_kazanc_tl": 38904608.51,
-    "kayip_yakalama_yuzde": 3.8,
-    "sure_sn": 13.523
+    "net_kazanc_tl": 35934123.1,
+    "kayip_yakalama_yuzde": 3.7,
+    "sure_sn": 37.807
    },
    "durum": "optimal",
    "satirlar": [],
-   "bosluk_yuzde": 0.42
+   "bosluk_yuzde": 0.18
   },
   "6|3|greedy": {
    "ozet": {
-    "option_sayisi": 931,
-    "tasinan_adet": 133965,
-    "rota_sayisi": 472,
+    "option_sayisi": 804,
+    "tasinan_adet": 126098,
+    "rota_sayisi": 456,
     "bosalan_magaza": 79,
-    "net_kazanc_tl": 48517131.87,
-    "kayip_yakalama_yuzde": 4.6,
-    "sure_sn": 0.019
+    "net_kazanc_tl": 45822639.86,
+    "kayip_yakalama_yuzde": 4.4,
+    "sure_sn": 0.02
    },
    "durum": "sezgisel",
    "satirlar": []
   },
   "6|3|mip": {
    "ozet": {
-    "option_sayisi": 967,
-    "tasinan_adet": 136450,
-    "rota_sayisi": 426,
+    "option_sayisi": 851,
+    "tasinan_adet": 133150,
+    "rota_sayisi": 456,
     "bosalan_magaza": 80,
-    "net_kazanc_tl": 51647900.1,
+    "net_kazanc_tl": 49627967.91,
     "kayip_yakalama_yuzde": 4.2,
-    "sure_sn": 402.46
+    "sure_sn": 603.751
    },
    "durum": "limit",
    "satirlar": [],
-   "bosluk_yuzde": 3.18
+   "bosluk_yuzde": 1.33
   },
   "6|6|greedy": {
    "ozet": {
-    "option_sayisi": 814,
-    "tasinan_adet": 137442,
-    "rota_sayisi": 404,
-    "bosalan_magaza": 78,
-    "net_kazanc_tl": 59646084.83,
-    "kayip_yakalama_yuzde": 4.0,
-    "sure_sn": 0.027
+    "option_sayisi": 717,
+    "tasinan_adet": 132856,
+    "rota_sayisi": 398,
+    "bosalan_magaza": 80,
+    "net_kazanc_tl": 57133383.18,
+    "kayip_yakalama_yuzde": 3.9,
+    "sure_sn": 0.026
    },
    "durum": "sezgisel",
    "satirlar": []
   },
   "6|6|mip": {
    "ozet": {
-    "option_sayisi": 968,
-    "tasinan_adet": 139505,
-    "rota_sayisi": 440,
+    "option_sayisi": 895,
+    "tasinan_adet": 137163,
+    "rota_sayisi": 479,
     "bosalan_magaza": 80,
-    "net_kazanc_tl": 63113569.28,
+    "net_kazanc_tl": 59884561.22,
     "kayip_yakalama_yuzde": 3.8,
-    "sure_sn": 579.336
+    "sure_sn": 781.82
    },
    "durum": "limit",
    "satirlar": [],
-   "bosluk_yuzde": 4.52
+   "bosluk_yuzde": 5.24
   },
   "6|14|greedy": {
    "ozet": {
-    "option_sayisi": 851,
-    "tasinan_adet": 146572,
-    "rota_sayisi": 422,
-    "bosalan_magaza": 78,
-    "net_kazanc_tl": 67179173.69,
+    "option_sayisi": 753,
+    "tasinan_adet": 141414,
+    "rota_sayisi": 412,
+    "bosalan_magaza": 77,
+    "net_kazanc_tl": 64528094.14,
     "kayip_yakalama_yuzde": 3.7,
-    "sure_sn": 0.046
+    "sure_sn": 0.058
    },
    "durum": "sezgisel",
    "satirlar": []
   },
   "6|14|mip": {
    "ozet": {
-    "option_sayisi": 1022,
-    "tasinan_adet": 150139,
-    "rota_sayisi": 439,
+    "option_sayisi": 917,
+    "tasinan_adet": 145006,
+    "rota_sayisi": 438,
     "bosalan_magaza": 80,
-    "net_kazanc_tl": 70981977.97,
+    "net_kazanc_tl": 67450089.07,
     "kayip_yakalama_yuzde": 3.6,
-    "sure_sn": 1778.898
+    "sure_sn": 1019.644
    },
    "durum": "limit",
    "satirlar": [],
-   "bosluk_yuzde": 2.93
+   "bosluk_yuzde": 4.0
   },
   "14|0|greedy": {
    "ozet": {
-    "option_sayisi": 530,
-    "tasinan_adet": 91617,
-    "rota_sayisi": 265,
+    "option_sayisi": 443,
+    "tasinan_adet": 84588,
+    "rota_sayisi": 257,
     "bosalan_magaza": 71,
-    "net_kazanc_tl": 31622293.09,
+    "net_kazanc_tl": 29467476.73,
     "kayip_yakalama_yuzde": 2.7,
-    "sure_sn": 0.013
+    "sure_sn": 0.017
    },
    "durum": "sezgisel",
    "satirlar": []
   },
   "14|0|mip": {
    "ozet": {
-    "option_sayisi": 603,
-    "tasinan_adet": 99655,
-    "rota_sayisi": 246,
+    "option_sayisi": 508,
+    "tasinan_adet": 92830,
+    "rota_sayisi": 245,
     "bosalan_magaza": 75,
-    "net_kazanc_tl": 34618620.43,
+    "net_kazanc_tl": 32008028.78,
     "kayip_yakalama_yuzde": 2.8,
-    "sure_sn": 2.733
+    "sure_sn": 3.055
    },
    "durum": "optimal",
    "satirlar": [],
-   "bosluk_yuzde": 0.43
+   "bosluk_yuzde": 0.35
   },
   "14|3|greedy": {
    "ozet": {
-    "option_sayisi": 688,
-    "tasinan_adet": 112427,
-    "rota_sayisi": 368,
+    "option_sayisi": 599,
+    "tasinan_adet": 105187,
+    "rota_sayisi": 360,
     "bosalan_magaza": 78,
-    "net_kazanc_tl": 43061226.06,
-    "kayip_yakalama_yuzde": 3.5,
+    "net_kazanc_tl": 40828440.59,
+    "kayip_yakalama_yuzde": 3.4,
     "sure_sn": 0.023
    },
    "durum": "sezgisel",
@@ -184,287 +184,287 @@
   },
   "14|3|mip": {
    "ozet": {
-    "option_sayisi": 797,
-    "tasinan_adet": 124294,
-    "rota_sayisi": 360,
+    "option_sayisi": 700,
+    "tasinan_adet": 116312,
+    "rota_sayisi": 344,
     "bosalan_magaza": 79,
-    "net_kazanc_tl": 46892956.54,
-    "kayip_yakalama_yuzde": 3.5,
-    "sure_sn": 55.561
+    "net_kazanc_tl": 44160598.48,
+    "kayip_yakalama_yuzde": 3.4,
+    "sure_sn": 147.242
    },
-   "durum": "optimal",
+   "durum": "limit",
    "satirlar": [],
-   "bosluk_yuzde": 0.3
+   "bosluk_yuzde": 0.56
   },
   "14|6|greedy": {
    "ozet": {
-    "option_sayisi": 765,
-    "tasinan_adet": 129177,
-    "rota_sayisi": 412,
+    "option_sayisi": 675,
+    "tasinan_adet": 122371,
+    "rota_sayisi": 405,
     "bosalan_magaza": 79,
-    "net_kazanc_tl": 55120555.48,
-    "kayip_yakalama_yuzde": 3.4,
-    "sure_sn": 0.031
+    "net_kazanc_tl": 52914637.9,
+    "kayip_yakalama_yuzde": 3.3,
+    "sure_sn": 0.02
    },
    "durum": "sezgisel",
    "satirlar": []
   },
   "14|6|mip": {
    "ozet": {
-    "option_sayisi": 884,
-    "tasinan_adet": 133401,
-    "rota_sayisi": 446,
+    "option_sayisi": 782,
+    "tasinan_adet": 127905,
+    "rota_sayisi": 439,
     "bosalan_magaza": 79,
-    "net_kazanc_tl": 59744521.61,
-    "kayip_yakalama_yuzde": 3.2,
-    "sure_sn": 563.075
+    "net_kazanc_tl": 57529812.95,
+    "kayip_yakalama_yuzde": 3.1,
+    "sure_sn": 462.586
    },
    "durum": "limit",
    "satirlar": [],
-   "bosluk_yuzde": 2.49
+   "bosluk_yuzde": 1.96
   },
   "14|14|greedy": {
    "ozet": {
-    "option_sayisi": 811,
-    "tasinan_adet": 139727,
-    "rota_sayisi": 438,
+    "option_sayisi": 730,
+    "tasinan_adet": 135093,
+    "rota_sayisi": 433,
     "bosalan_magaza": 79,
-    "net_kazanc_tl": 63232380.94,
+    "net_kazanc_tl": 60783553.47,
     "kayip_yakalama_yuzde": 3.0,
-    "sure_sn": 0.023
+    "sure_sn": 0.037
    },
    "durum": "sezgisel",
    "satirlar": []
   },
   "14|14|mip": {
    "ozet": {
-    "option_sayisi": 926,
-    "tasinan_adet": 143166,
-    "rota_sayisi": 445,
+    "option_sayisi": 832,
+    "tasinan_adet": 137327,
+    "rota_sayisi": 438,
     "bosalan_magaza": 79,
-    "net_kazanc_tl": 66718143.75,
+    "net_kazanc_tl": 63980996.48,
     "kayip_yakalama_yuzde": 2.9,
-    "sure_sn": 747.142
+    "sure_sn": 803.582
    },
    "durum": "limit",
    "satirlar": [],
-   "bosluk_yuzde": 2.55
+   "bosluk_yuzde": 2.84
   },
   "18|0|greedy": {
    "ozet": {
-    "option_sayisi": 449,
-    "tasinan_adet": 83570,
-    "rota_sayisi": 216,
+    "option_sayisi": 369,
+    "tasinan_adet": 77519,
+    "rota_sayisi": 207,
     "bosalan_magaza": 65,
-    "net_kazanc_tl": 28716757.47,
-    "kayip_yakalama_yuzde": 2.4,
-    "sure_sn": 0.015
+    "net_kazanc_tl": 26488700.64,
+    "kayip_yakalama_yuzde": 2.3,
+    "sure_sn": 0.013
    },
    "durum": "sezgisel",
    "satirlar": []
   },
   "18|0|mip": {
    "ozet": {
-    "option_sayisi": 501,
-    "tasinan_adet": 91266,
-    "rota_sayisi": 208,
-    "bosalan_magaza": 71,
-    "net_kazanc_tl": 31123033.78,
+    "option_sayisi": 419,
+    "tasinan_adet": 84292,
+    "rota_sayisi": 203,
+    "bosalan_magaza": 70,
+    "net_kazanc_tl": 28717507.48,
     "kayip_yakalama_yuzde": 2.4,
-    "sure_sn": 2.883
+    "sure_sn": 2.053
    },
    "durum": "optimal",
    "satirlar": [],
-   "bosluk_yuzde": 0.31
+   "bosluk_yuzde": 0.04
   },
   "18|3|greedy": {
    "ozet": {
-    "option_sayisi": 577,
-    "tasinan_adet": 100339,
-    "rota_sayisi": 313,
+    "option_sayisi": 497,
+    "tasinan_adet": 93334,
+    "rota_sayisi": 302,
     "bosalan_magaza": 76,
-    "net_kazanc_tl": 38098406.76,
+    "net_kazanc_tl": 35994095.33,
     "kayip_yakalama_yuzde": 2.9,
-    "sure_sn": 0.02
+    "sure_sn": 0.018
    },
    "durum": "sezgisel",
    "satirlar": []
   },
   "18|3|mip": {
    "ozet": {
-    "option_sayisi": 641,
-    "tasinan_adet": 109653,
-    "rota_sayisi": 278,
+    "option_sayisi": 553,
+    "tasinan_adet": 101625,
+    "rota_sayisi": 271,
     "bosalan_magaza": 76,
-    "net_kazanc_tl": 41001885.56,
+    "net_kazanc_tl": 38533599.34,
     "kayip_yakalama_yuzde": 2.9,
-    "sure_sn": 5.842
+    "sure_sn": 3.563
    },
    "durum": "optimal",
    "satirlar": [],
-   "bosluk_yuzde": 0.26
+   "bosluk_yuzde": 0.25
   },
   "18|6|greedy": {
    "ozet": {
-    "option_sayisi": 675,
-    "tasinan_adet": 118523,
-    "rota_sayisi": 373,
+    "option_sayisi": 596,
+    "tasinan_adet": 111516,
+    "rota_sayisi": 361,
     "bosalan_magaza": 78,
-    "net_kazanc_tl": 49822957.26,
+    "net_kazanc_tl": 47705615.61,
     "kayip_yakalama_yuzde": 2.9,
-    "sure_sn": 0.026
+    "sure_sn": 0.024
    },
    "durum": "sezgisel",
    "satirlar": []
   },
   "18|6|mip": {
    "ozet": {
-    "option_sayisi": 787,
-    "tasinan_adet": 128517,
-    "rota_sayisi": 422,
-    "bosalan_magaza": 78,
-    "net_kazanc_tl": 53920632.42,
+    "option_sayisi": 714,
+    "tasinan_adet": 122400,
+    "rota_sayisi": 432,
+    "bosalan_magaza": 79,
+    "net_kazanc_tl": 51535516.73,
     "kayip_yakalama_yuzde": 2.8,
-    "sure_sn": 253.668
+    "sure_sn": 226.138
    },
    "durum": "limit",
    "satirlar": [],
-   "bosluk_yuzde": 1.36
+   "bosluk_yuzde": 1.31
   },
   "18|14|greedy": {
    "ozet": {
-    "option_sayisi": 768,
-    "tasinan_adet": 133227,
-    "rota_sayisi": 421,
+    "option_sayisi": 690,
+    "tasinan_adet": 127297,
+    "rota_sayisi": 416,
     "bosalan_magaza": 79,
-    "net_kazanc_tl": 58035022.25,
+    "net_kazanc_tl": 55748623.26,
     "kayip_yakalama_yuzde": 2.7,
-    "sure_sn": 0.042
+    "sure_sn": 0.034
    },
    "durum": "sezgisel",
    "satirlar": []
   },
   "18|14|mip": {
    "ozet": {
-    "option_sayisi": 874,
-    "tasinan_adet": 139355,
-    "rota_sayisi": 455,
+    "option_sayisi": 787,
+    "tasinan_adet": 136683,
+    "rota_sayisi": 444,
     "bosalan_magaza": 79,
-    "net_kazanc_tl": 60533118.06,
-    "kayip_yakalama_yuzde": 2.8,
-    "sure_sn": 364.604
+    "net_kazanc_tl": 58829810.93,
+    "kayip_yakalama_yuzde": 2.7,
+    "sure_sn": 351.724
    },
    "durum": "limit",
    "satirlar": [],
-   "bosluk_yuzde": 2.95
+   "bosluk_yuzde": 1.71
   },
   "26|0|greedy": {
    "ozet": {
-    "option_sayisi": 343,
-    "tasinan_adet": 72060,
-    "rota_sayisi": 164,
+    "option_sayisi": 292,
+    "tasinan_adet": 67342,
+    "rota_sayisi": 155,
     "bosalan_magaza": 55,
-    "net_kazanc_tl": 24141409.88,
+    "net_kazanc_tl": 22621061.19,
     "kayip_yakalama_yuzde": 1.9,
-    "sure_sn": 0.012
+    "sure_sn": 0.011
    },
    "durum": "sezgisel",
    "satirlar": []
   },
   "26|0|mip": {
    "ozet": {
-    "option_sayisi": 380,
-    "tasinan_adet": 77946,
-    "rota_sayisi": 159,
-    "bosalan_magaza": 59,
-    "net_kazanc_tl": 26089621.25,
+    "option_sayisi": 323,
+    "tasinan_adet": 72576,
+    "rota_sayisi": 153,
+    "bosalan_magaza": 60,
+    "net_kazanc_tl": 24124686.66,
     "kayip_yakalama_yuzde": 1.9,
-    "sure_sn": 1.571
+    "sure_sn": 0.878
    },
    "durum": "optimal",
    "satirlar": [],
-   "bosluk_yuzde": 0.0
+   "bosluk_yuzde": 0.17
   },
   "26|3|greedy": {
    "ozet": {
-    "option_sayisi": 419,
-    "tasinan_adet": 81703,
-    "rota_sayisi": 229,
+    "option_sayisi": 368,
+    "tasinan_adet": 77582,
+    "rota_sayisi": 219,
     "bosalan_magaza": 66,
-    "net_kazanc_tl": 30839128.72,
+    "net_kazanc_tl": 29273284.54,
     "kayip_yakalama_yuzde": 2.1,
-    "sure_sn": 0.015
+    "sure_sn": 0.008
    },
    "durum": "sezgisel",
    "satirlar": []
   },
   "26|3|mip": {
    "ozet": {
-    "option_sayisi": 466,
-    "tasinan_adet": 89733,
-    "rota_sayisi": 215,
-    "bosalan_magaza": 70,
-    "net_kazanc_tl": 33174207.83,
-    "kayip_yakalama_yuzde": 2.2,
-    "sure_sn": 3.453
+    "option_sayisi": 403,
+    "tasinan_adet": 84063,
+    "rota_sayisi": 208,
+    "bosalan_magaza": 69,
+    "net_kazanc_tl": 31201406.42,
+    "kayip_yakalama_yuzde": 2.0,
+    "sure_sn": 1.523
    },
    "durum": "optimal",
    "satirlar": [],
-   "bosluk_yuzde": 0.23
+   "bosluk_yuzde": 0.42
   },
   "26|6|greedy": {
    "ozet": {
-    "option_sayisi": 517,
-    "tasinan_adet": 97592,
-    "rota_sayisi": 293,
+    "option_sayisi": 464,
+    "tasinan_adet": 92572,
+    "rota_sayisi": 284,
     "bosalan_magaza": 73,
-    "net_kazanc_tl": 41119589.74,
+    "net_kazanc_tl": 39534836.48,
     "kayip_yakalama_yuzde": 2.1,
-    "sure_sn": 0.012
+    "sure_sn": 0.018
    },
    "durum": "sezgisel",
    "satirlar": []
   },
   "26|6|mip": {
    "ozet": {
-    "option_sayisi": 588,
-    "tasinan_adet": 106299,
-    "rota_sayisi": 292,
+    "option_sayisi": 527,
+    "tasinan_adet": 101831,
+    "rota_sayisi": 287,
     "bosalan_magaza": 76,
-    "net_kazanc_tl": 43862084.91,
-    "kayip_yakalama_yuzde": 2.3,
-    "sure_sn": 13.634
+    "net_kazanc_tl": 41922719.33,
+    "kayip_yakalama_yuzde": 2.2,
+    "sure_sn": 11.72
    },
    "durum": "optimal",
    "satirlar": [],
-   "bosluk_yuzde": 0.27
+   "bosluk_yuzde": 0.36
   },
   "26|14|greedy": {
    "ozet": {
-    "option_sayisi": 613,
-    "tasinan_adet": 115864,
-    "rota_sayisi": 354,
+    "option_sayisi": 558,
+    "tasinan_adet": 111401,
+    "rota_sayisi": 348,
     "bosalan_magaza": 76,
-    "net_kazanc_tl": 48376886.43,
+    "net_kazanc_tl": 46495715.05,
     "kayip_yakalama_yuzde": 1.9,
-    "sure_sn": 0.036
+    "sure_sn": 0.027
    },
    "durum": "sezgisel",
    "satirlar": []
   },
   "26|14|mip": {
    "ozet": {
-    "option_sayisi": 675,
-    "tasinan_adet": 125297,
-    "rota_sayisi": 355,
+    "option_sayisi": 607,
+    "tasinan_adet": 118759,
+    "rota_sayisi": 347,
     "bosalan_magaza": 77,
-    "net_kazanc_tl": 50648274.83,
+    "net_kazanc_tl": 48815904.57,
     "kayip_yakalama_yuzde": 2.2,
-    "sure_sn": 224.306
+    "sure_sn": 167.263
    },
    "durum": "limit",
    "satirlar": [],
-   "bosluk_yuzde": 0.75
+   "bosluk_yuzde": 0.54
   }
  }
 }
