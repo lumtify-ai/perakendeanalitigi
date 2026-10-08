@@ -171,3 +171,95 @@ def test_cozumsuz_durum_hata_ve_bos_plan(monkeypatch):
     assert plan.durum == "hata"
     assert plan.amac is None
     assert len(plan.hareketler) == 0
+
+
+def _yakala_baslangic(monkeypatch):
+    """CBC komutunun argümanlarını ve çözümden hemen önceki değişken değerlerini yakalar."""
+    gorulen = {"kwargs": {}, "baslangic": {}}
+    asil_cmd, asil_solve = pulp.PULP_CBC_CMD, pulp.LpProblem.solve
+
+    def yakala_cmd(**kwargs):
+        gorulen["kwargs"].update(kwargs)
+        return asil_cmd(**kwargs)
+
+    def yakala_solve(self, *args, **kwargs):
+        gorulen["baslangic"] = {v.name: v.varValue for v in self.variables()}
+        return asil_solve(self, *args, **kwargs)
+
+    monkeypatch.setattr(pulp, "PULP_CBC_CMD", yakala_cmd)
+    monkeypatch.setattr(pulp.LpProblem, "solve", yakala_solve)
+    return gorulen
+
+
+def test_sicak_baslangic_greedy_planindan(monkeypatch):
+    """Başlangıç = greedy planı: seçilen x'ler ve açılan rotaların y'leri 1, gerisi 0;
+    warmStart=True CBC'ye ulaşır."""
+    df, kapasite = gap_ornegi()
+    g = greedy.cozumle(df, kapasite, P)
+    gorulen = _yakala_baslangic(monkeypatch)
+    mip.cozumle(df, kapasite, P)
+    assert gorulen["kwargs"]["warmStart"] is True
+    b = gorulen["baslangic"]
+    secilen = set(zip(g.hareketler.verici, g.hareketler.alici, g.hareketler.option_id))
+    assert len(secilen) > 0
+    for i, s in df.iterrows():
+        beklenen = 1 if (s.verici, s.alici, s.option_id) in secilen else 0
+        assert b[f"x_{i}"] == beklenen
+    rotalar = {(v, a) for v, a, _ in secilen}
+    for v, a in set(zip(df.verici, df.alici)):
+        assert b[f"y_{v}_{a}"] == (1 if (v, a) in rotalar else 0)
+
+
+def test_greedy_bossa_sicak_baslangic_yok(monkeypatch):
+    # Bütün skorlar negatif: greedy boş plan verir → başlangıç verilmez.
+    df = pd.DataFrame([aday("A", "J", "O1", 6, -5.0), aday("B", "J", "O2", 6, -1.0)])
+    gorulen = _yakala_baslangic(monkeypatch)
+    plan = mip.cozumle(df, {"J": 100}, P)
+    assert not gorulen["kwargs"].get("warmStart")
+    assert plan.durum == "optimal" and len(plan.hareketler) == 0
+
+
+@pytest.mark.parametrize("p", [
+    replace(P, mip_dugum_limiti=1),
+    replace(P, mip_dugum_limiti=1, rota_sabiti_tl=60.0, min_koli=6),
+    replace(Parametreler(), mip_dugum_limiti=1),
+])
+def test_mip_greedyden_kotu_olamaz(p):
+    """Yapısal güvence: greedy planı MIP'e başlangıç olarak verildiği için,
+    düğüm limiti 1'de bile MIP amacı greedy amacından düşük olamaz."""
+    df, kapasite = gap_ornegi()
+    g = greedy.cozumle(df, kapasite, p)
+    m = mip.cozumle(df, kapasite, p)
+    assert m.durum in ("optimal", "limit")
+    assert m.amac >= g.amac - 1e-6
+
+
+@pytest.mark.parametrize("satirlar, kapasite, sebep", [
+    ([aday("A", "J", "O1", 6, 1.0), aday("A", "K", "O1", 6, 1.0)], {"J": 9, "K": 9}, "iki hedefe"),
+    ([aday("A", "J", "O1", 6, 1.0), aday("B", "J", "O2", 6, 1.0)], {"J": 10}, "kapasite"),
+    ([aday("A", "J", "O1", 3, 1.0)], {"J": 10}, "min_koli"),
+])
+def test_olursuz_baslangic_acik_hata(satirlar, kapasite, sebep):
+    with pytest.raises(RuntimeError, match=sebep):
+        mip._olurlulugu_dogrula(pd.DataFrame(satirlar), kapasite, replace(P, min_koli=6))
+
+
+def test_cbc_baslangici_kabul_eder(monkeypatch, tmp_path):
+    """CBC başlangıcı gerçekten okumalı ve doğru amaçla kaydetmeli.
+
+    CBC 2.10.3'ün iki tuzağı (ikisi de sessiz):
+      - Windows'ta `-mips C:\...` yolunun başına `.\` ekler, dosyayı bulamaz;
+      - `-max` ile verilen başlangıcın amacını ters işaretle kaydeder
+        (796'lık çözüm 796 maliyetli sayılır), başlangıç işe yaramaz.
+    Log'da başlangıç, greedy amacının eksisi maliyetle görünmeli (min biçimi)."""
+    log = tmp_path / "cbc.log"
+    asil = pulp.PULP_CBC_CMD
+    monkeypatch.setattr(pulp, "PULP_CBC_CMD", lambda **kw: asil(**kw, logPath=str(log)))
+    df, kapasite = gap_ornegi()
+    p = replace(P, mip_dugum_limiti=1)
+    g = greedy.cozumle(df, kapasite, p)
+    m = mip.cozumle(df, kapasite, p)
+    metin = log.read_text()
+    assert "MIPStart values read" in metin
+    assert f"MIPStart provided solution with cost {-g.amac:g}" in metin
+    assert m.amac >= g.amac
