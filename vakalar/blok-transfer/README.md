@@ -22,6 +22,28 @@ Veri katmanı (`blok_transfer/cekirdek/veri.py`): `karar_ani` (AW25 indirimden �
 mağazalar dışarıda; mükerrer satış ve hayalet stok düşük). Görünümler tarih sınırı
 koymaz; karar sınırı her sorgunun işidir.
 
+## Ön hazırlık (`hazirla`)
+
+    cd vakalar/blok-transfer
+    PYTHONIOENCODING=utf-8 .venv/Scripts/python -m blok_transfer.hazirla    # önce bu
+    # ölçüm ve senaryo komutları ondan sonra (hazirla çıktısı yoksa ya da başka bir
+    # karar anı / v4 dosyası için kurulmuşsa hata verip bu komutu söylerler)
+
+`cikti/`ya (git dışı) üç adım yazar: `gunluk.parquet` (2023-01-01..2025-12-31),
+`carpanlar.pkl` (öğrenme 2023–2024), `kayip_basit.parquet` (Basit kestiricinin kaybı,
+yalnız ölçüm penceresi `[karar, karar + 7·olcum_hafta gün)` içindeki `bos`/`tukenen`
+satırları; `blok_transfer.hazirla.pencere` tanımı). Eğitim havuzu ve çarpanlar
+yok-satma vakasıyla aynıdır, yani pencere içindeki `kayip` değerleri yok-satma'nın
+`kayip_basit.parquet`'indekiyle aynıdır. Dosyası olan adım atlanır; `--yeniden`
+hepsini kurar. `kaynak.json` (v4 dosyası parmak izi, karar anı, ölçüm haftası)
+değişirse çıktılar silinip baştan kurulur. Süre ve satır sayıları `cikti/sure.json`'da.
+
+Gerçek v4 verisinde ölçülen süre (tek koşum, tepe bellek ölçülmedi): `gunluk` 319 sn
+(69.380.499 satır), `carpanlar` 36 sn (38.484.293 öğrenme satırı), `basit` 44 sn
+(havuz 56.748.777 satır, pencerede 832.051 stoksuz gün-hücresi); toplam yaklaşık 7 dk.
+Karar anı 2025-11-03, ölçüm penceresi 2025-11-03..2025-12-28; penceredeki toplam
+Basit kaybı 527.475 adet.
+
 ## Parametre gerekçeleri (spec §4)
 
 - `adet_maliyeti_tl = 25`: elleçleme + yol; ortalama liste fiyatının (~1.700 TL)
