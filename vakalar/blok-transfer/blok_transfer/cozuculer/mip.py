@@ -46,22 +46,44 @@ def kur(
     return model, x, y
 
 
+# PuLP'nin `solve()` dönüşü (LpStatus) süre ya da düğüm sınırında olurlu
+# çözümle duran CBC için de LpStatusOptimal'dir: "optimal" kanıt demek
+# değildir. Kanıtı çözüm durumu (`sol_status`) taşır.
+DURUMLAR = {
+    pulp.LpSolutionOptimal: "optimal",          # kanıtlı optimum
+    pulp.LpSolutionIntegerFeasible: "limit",    # sınırda durdu, olurlu en iyi çözüm
+}
+
+
 def cozumle(adaylar: pd.DataFrame, kapasite: dict[str, int], p: Parametreler) -> Plan:
-    """Spec §6 formülasyonu: x blok kararı, y rota açılışı."""
+    """Spec §6 formülasyonu: x blok kararı, y rota açılışı.
+
+    Seri arama ve düğüm limiti: aynı girdi aynı planı verir. Süre limiti
+    yalnız emniyet; demo hücrelerinde belirleyici olan düğüm limitidir
+    (süreye bağlı durma makinenin hızına göre farklı plan üretir).
+
+    `threads=0` bilerek: CBC'de 0 seri dal-sınır demektir; `threads=1` ise
+    paralel kod yolunu tek işçiyle açar. PuLP'nin taşıdığı CBC 2.10.3'te o
+    yol aynı girdide kimi koşuda takılıyor, kimi koşuda çöküyor (ölçüm:
+    Görev 5 raporu). `None` da seri olur ama 0 niyeti açık yazar.
+    """
     baslangic = time.perf_counter()
     if len(adaylar) == 0:
-        return Plan(bos_hareketler(), "optimal", time.perf_counter() - baslangic)
+        return Plan(bos_hareketler(), "optimal", time.perf_counter() - baslangic, amac=0.0)
 
     model, x, y = kur(adaylar, kapasite, p)
-
-    sonuc = model.solve(pulp.PULP_CBC_CMD(msg=0, timeLimit=p.mip_zaman_limiti_sn))
-    if sonuc == pulp.LpStatusOptimal:
-        durum = "optimal"
-    elif sonuc == pulp.LpStatusNotSolved:
-        durum = "limit"
-    else:
-        durum = "hata"
+    model.solve(pulp.PULP_CBC_CMD(
+        msg=0,
+        threads=0,
+        timeLimit=p.mip_zaman_limiti_sn,
+        maxNodes=p.mip_dugum_limiti,
+    ))
+    durum = DURUMLAR.get(model.sol_status, "hata")
+    if durum == "hata":
+        # tam sayı çözüm yok: değişken değerleri (varsa) LP gevşetmesinden, plan değil
+        return Plan(bos_hareketler(), durum, time.perf_counter() - baslangic, amac=None)
 
     secilen = adaylar.loc[[i for i in adaylar.index if x[i].value() and x[i].value() > 0.5]]
     df = secilen[HAREKET_KOLONLARI].reset_index(drop=True) if len(secilen) else bos_hareketler()
-    return Plan(df, durum, time.perf_counter() - baslangic)
+    amac = float(pulp.value(model.objective))
+    return Plan(df, durum, time.perf_counter() - baslangic, amac=amac)

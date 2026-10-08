@@ -10,6 +10,9 @@ from blok_transfer.cekirdek import adaylar as adaylar_mod
 from blok_transfer.cekirdek import metrikler, veri
 from blok_transfer.cekirdek.parametreler import Parametreler
 
+# Ruling R1: v2 kayip_satis_yakalama silindi; modül Görev 9/10'da v4'e yenilenir.
+pytestmark = pytest.mark.skip(reason="Görev 9/10'da v4'e yenilenir")
+
 # tests/ → blok-transfer/ → vakalar/ → depo kökü
 YAZI = (
     Path(__file__).resolve().parents[3]

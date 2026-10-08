@@ -11,6 +11,7 @@ class Plan:
     durum: str                     # 'optimal' | 'limit' | 'hata'
     sure_sn: float
     sayaclar: dict[str, int] | None = None   # yalnız greedy doldurur; rapor.py okur
+    amac: float | None = None      # Σw − rota sabiti × açık rota; durum 'hata'yken None
 
 
 def bos_hareketler() -> pd.DataFrame:

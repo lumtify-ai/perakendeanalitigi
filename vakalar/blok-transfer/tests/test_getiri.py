@@ -3,6 +3,9 @@ import pytest
 
 import getiri
 
+# Ruling R1: v2 kayip_satis_yakalama silindi; modül Görev 9/10'da v4'e yenilenir.
+pytestmark = pytest.mark.skip(reason="Görev 9/10'da v4'e yenilenir")
+
 
 def mini_plan() -> pd.DataFrame:
     """İki hareketli, elle hesaplanabilir plan.

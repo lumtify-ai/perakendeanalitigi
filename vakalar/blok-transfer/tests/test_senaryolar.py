@@ -6,6 +6,9 @@ import pytest
 
 import senaryolar
 
+# Ruling R1: v2 kayip_satis_yakalama silindi; modül Görev 9/10'da v4'e yenilenir.
+pytestmark = pytest.mark.skip(reason="Görev 9/10'da v4'e yenilenir")
+
 KARAR = date(2025, 12, 29)
 
 

@@ -39,9 +39,11 @@ def cozumle(adaylar: pd.DataFrame, kapasite: dict[str, int], p: Parametreler) ->
         rota_adet = df.groupby(["verici", "alici"]).adet.transform("sum")
         df = df[rota_adet >= p.min_koli].reset_index(drop=True)
     sayac["min_koli_kesilen"] = sayac["secilen"] - len(df)
+    rota_sayisi = len(df.groupby(["verici", "alici"], observed=True)) if len(df) else 0
     return Plan(
         hareketler=df,
         durum="optimal",
         sure_sn=time.perf_counter() - baslangic,
         sayaclar=sayac,
+        amac=float(df.w.sum()) - rota_sayisi * p.rota_sabiti_tl,   # MIP amacının aynısı
     )

@@ -77,3 +77,14 @@ def test_deterministik_esit_skor():
     p1 = greedy.cozumle(df, {"MC": 100}, P)
     p2 = greedy.cozumle(df.iloc[::-1].reset_index(drop=True), {"MC": 100}, P)
     assert p1.hareketler.verici.tolist() == p2.hareketler.verici.tolist() == ["MA", "MB"]
+
+
+def test_amac_mip_amaciyla_ayni_olcu():
+    # Greedy'nin amacı MIP'in amaç fonksiyonu, greedy planında hesaplanmış:
+    # Σw − rota sabiti × açık rota. İki rota (MA→MB, MA→MC): 1100 − 2 × 500.
+    df = pd.DataFrame([
+        aday("MA", "MB", "OPT1", 12, 500.0),
+        aday("MA", "MC", "OPT2", 8, 600.0),
+    ])
+    plan = greedy.cozumle(df, {"MB": 100, "MC": 100}, P)
+    assert plan.amac == 100.0

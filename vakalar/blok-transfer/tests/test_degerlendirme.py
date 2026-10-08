@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import date
 
 import duckdb
@@ -33,37 +34,108 @@ def test_ozet_metikleri():
     assert ozet["sure_sn"] == pytest.approx(0.01)
 
 
-def test_kayip_satis_yalniz_burada_okunur():
-    # Ayrı mini con: urun + kayip_satis (çekirdek fikstüründe bu tablo YOK)
-    c = duckdb.connect()
-    c.execute("create table urun (urun_id varchar, option_id varchar)")
-    for opt in ("OPT1", "OPT2"):
-        for sira in range(1, 6):
-            c.execute("insert into urun values (?, ?)", [f"{opt}-{sira}", opt])
-    c.execute("create table kayip_satis (tarih timestamp, magaza_id varchar, urun_id varchar, kayip_adet bigint)")
-    c.execute("insert into kayip_satis values ('2025-12-01', 'MB', 'OPT1-3', 12)")
-    c.execute("insert into kayip_satis values ('2025-12-01', 'MC', 'OPT2-2', 6)")
-    c.execute("insert into kayip_satis values ('2025-12-01', 'MC', 'OPT1-2', 2)")
-    c.execute("insert into kayip_satis values ('2025-12-01', 'MD', 'OPT2-1', 5)")
-    c.execute("insert into kayip_satis values ('2025-01-05', 'MB', 'OPT1-3', 99)")  # pencere dışı
-    oran = degerlendirme.kayip_satis_yakalama(ornek_plan(), c, KARAR)
-    assert oran == pytest.approx(18 / 25)                    # (12+6) / (12+6+2+5)
+def test_ozet_durum_tasir():
+    assert degerlendirme.ozetle(ornek_plan(), P)["durum"] == "optimal"
+    limitte = replace(ornek_plan(), durum="limit")
+    assert degerlendirme.ozetle(limitte, P)["durum"] == "limit"
 
 
-def test_boru_hatti_fiksturde_mip_rotayi_birlestirir(con):
-    # Mini evren rota konsolidasyonunu kendiliğinden gösterir:
-    # greedy skora bakar → OPT1→MB (500) + OPT2→MC (600), 2 rota → net 100.
-    # MIP rota sabitini görür → OPT1 ve OPT2 birlikte MC'ye, 1 rota →
-    # (100 + 600) − 500 = 200.
-    g_plan, g_ozet = degerlendirme.boru_hatti(con, KARAR, P, "greedy")
-    assert set(zip(g_plan.hareketler.alici, g_plan.hareketler.option_id)) == {
-        ("MB", "OPT1"), ("MC", "OPT2")
-    }
-    assert g_ozet["net_kazanc_tl"] == pytest.approx(100.0)
+def test_boru_hatti_fiksturde_kapasiteye_uyar(con):
+    # v4 fikstüründe kapasite boşluğu MB 5, MC 8 (tepe − karar günü stok).
+    # OPT1 bloğu 12 adet: hiçbir alıcıya sığmaz. OPT2 (8) MC'ye sığar.
+    # İki çözücü de tek hareketi seçer: 600 − 500 rota sabiti = 100.
+    # (Rota birleştirmeyi test_mip'in küçük örnekleri sınar.)
+    for yontem in ("greedy", "mip"):
+        plan, ozet = degerlendirme.boru_hatti(con, KARAR, P, yontem)
+        assert plan.durum == "optimal"
+        assert set(zip(plan.hareketler.alici, plan.hareketler.option_id)) == {("MC", "OPT2")}
+        assert ozet["net_kazanc_tl"] == pytest.approx(100.0)
+        assert ozet["durum"] == "optimal"
 
-    m_plan, m_ozet = degerlendirme.boru_hatti(con, KARAR, P, "mip")
-    assert m_plan.durum == "optimal"
-    assert set(zip(m_plan.hareketler.alici, m_plan.hareketler.option_id)) == {
-        ("MC", "OPT1"), ("MC", "OPT2")
-    }
-    assert m_ozet["net_kazanc_tl"] == pytest.approx(200.0)
+
+def test_boru_hatti_degeri_teraziye_gecirir(con):
+    # deger="kar": OPT2→MC skoru 280 < 500 rota sabiti → MIP taşımaz.
+    plan, ozet = degerlendirme.boru_hatti(con, KARAR, P, "mip", deger="kar")
+    assert len(plan.hareketler) == 0
+    assert plan.amac == pytest.approx(0.0)
+
+
+def _sayacli(monkeypatch, yontem="mip"):
+    """COZUCULER[yontem]'i çağrı sayan bir sarmalayıcıyla değiştirir."""
+    sayac = {"n": 0}
+    asil = degerlendirme.COZUCULER[yontem]
+
+    def sayan(*args, **kwargs):
+        sayac["n"] += 1
+        return asil(*args, **kwargs)
+
+    monkeypatch.setitem(degerlendirme.COZUCULER, yontem, sayan)
+    return sayac
+
+
+def test_onbellek_ikinci_cagrida_cozucuyu_cagirmaz(con, tmp_path, monkeypatch):
+    sayac = _sayacli(monkeypatch)
+    plan1, ozet1 = degerlendirme.boru_hatti(con, KARAR, P, "mip", onbellek=tmp_path)
+    plan2, ozet2 = degerlendirme.boru_hatti(con, KARAR, P, "mip", onbellek=tmp_path)
+    assert sayac["n"] == 1
+    assert len(list(tmp_path.glob("*.parquet"))) == 1
+    assert len(list(tmp_path.glob("*.json"))) == 1
+    pd.testing.assert_frame_equal(plan1.hareketler, plan2.hareketler)
+    assert (plan1.durum, plan1.amac, plan1.sayaclar) == (plan2.durum, plan2.amac, plan2.sayaclar)
+    assert plan2.sure_sn == pytest.approx(plan1.sure_sn)   # çözüm süresi, okuma süresi değil
+    assert ozet1 == ozet2
+
+
+def test_onbellek_bos_plani_da_tutar(con, tmp_path, monkeypatch):
+    sayac = _sayacli(monkeypatch)
+    for _ in range(2):
+        plan, _ozet = degerlendirme.boru_hatti(con, KARAR, P, "mip", onbellek=tmp_path, deger="kar")
+        assert len(plan.hareketler) == 0
+    assert sayac["n"] == 1
+
+
+def test_onbellek_anahtari_parametreye_duyarli(con, tmp_path, monkeypatch):
+    sayac = _sayacli(monkeypatch)
+    degerlendirme.boru_hatti(con, KARAR, P, "mip", onbellek=tmp_path)
+    degerlendirme.boru_hatti(con, KARAR, replace(P, rota_sabiti_tl=100.0), "mip", onbellek=tmp_path)
+    degerlendirme.boru_hatti(con, KARAR, P, "mip", onbellek=tmp_path, deger="kar")
+    assert sayac["n"] == 3
+    assert len(list(tmp_path.glob("*.parquet"))) == 3
+    # yöntem ve karar anı da anahtarda
+    g = _sayacli(monkeypatch, "greedy")
+    degerlendirme.boru_hatti(con, KARAR, P, "greedy", onbellek=tmp_path)
+    degerlendirme.boru_hatti(con, date(2025, 12, 22), P, "greedy", onbellek=tmp_path)
+    assert g["n"] == 2
+    assert len(list(tmp_path.glob("*.parquet"))) == 5
+
+
+def test_onbellek_anahtari_veri_dosyasina_duyarli(tmp_path):
+    # Anahtar v4 dosyasının yol + boyut + mtime'ını içerir: dosya yenilenirse
+    # eski plan okunmaz.
+    yol = tmp_path / "v4.duckdb"
+    c = duckdb.connect(str(yol))
+    c.execute("create table t as select 1 as a")
+    a1 = degerlendirme.onbellek_anahtari(c, KARAR, P, "mip", "ciro")
+    assert a1 == degerlendirme.onbellek_anahtari(c, KARAR, P, "mip", "ciro")
+    c.execute("insert into t select range from range(100000)")
+    c.execute("checkpoint")
+    a2 = degerlendirme.onbellek_anahtari(c, KARAR, P, "mip", "ciro")
+    c.close()
+    assert a1 != a2
+
+
+def test_onbellek_hatali_plani_saklamaz(con, tmp_path, monkeypatch):
+    # "hata" (tam sayı çözüm yok) kalıcı bir sonuç değil: bir sonraki çağrı yeniden çözer.
+    from blok_transfer.cozuculer.tip import bos_hareketler
+    sayac = {"n": 0}
+
+    def hatali(*args, **kwargs):
+        sayac["n"] += 1
+        return Plan(bos_hareketler(), "hata", 0.0)
+
+    monkeypatch.setitem(degerlendirme.COZUCULER, "mip", hatali)
+    for _ in range(2):
+        plan, _ozet = degerlendirme.boru_hatti(con, KARAR, P, "mip", onbellek=tmp_path)
+        assert plan.durum == "hata"
+    assert sayac["n"] == 2
+    assert list(tmp_path.glob("*")) == []

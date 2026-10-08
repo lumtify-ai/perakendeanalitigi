@@ -14,7 +14,7 @@ class Parametreler:
     tepe_hafta: int = 52          # tepe talep ufku (hafta)
     olcum_hafta: int = 8          # karar anından sonraki ölçüm penceresi (hafta)
     mip_zaman_limiti_sn: int = 3600
-    mip_dugum_limiti: int | None = None   # değer Görev 5'te ölçülür
+    mip_dugum_limiti: int | None = 50_000  # düğüm limiti belirleyici, süre emniyet (Görev 5 ölçümü)
     verici_cover_esigi: float = 6.0   # senaryo parametresi: gönderen mağazada asgari cover
     alici_cover_tavani: float = 0.0   # senaryo parametresi: alıcıda azami cover; 0 = kapalı
     min_satis: float = 1.0       # senaryo parametresi
