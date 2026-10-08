@@ -34,6 +34,7 @@ koyun ya da `PERAKENDE_V4_DB` ortam değişkeniyle gösterin; indirme:
 | `agac` | kaynak ağacı (`kaynak_ata`): her kayıp hücre-gününe tek dal (lojistik, mağaza, allocation, tedarik, planlama, bilinmiyor) |
 | `hakem` | gizli gerçeğin tek kapısı: v4'ü yeniden koşar, hücre-gün başına karşılanmayan talebi (`kendi_satis`, `karsilanmayan`, `ikameye_giden`, `kalici_kayip`) çıkarır, yayımlanan veriyle birebir doğrular, `cikti/hakem/`e yazar. `python -m perakende_analitik.hakem` (~dakikalar, GB'lar); `hakem.oku()` |
 | `degerlendir` | kestirim ↔ hakem (2025): `eslestir`, `olcutler` (WAPE, yanlılık), `kirilimlar`, `ayrisim`, `cesit_disi`; hakem tablosunu argüman alır, `hakem`i içe aktarmaz |
+| `hazirlik` | hazırlık adımları (vakaların `hazirla` akışları çağırır): `gunluk_yaz` (pencere boyunca yıl yıl parquet), `carpanlar_yaz` (öğrenme bitişine dek), `kestirici` (naif / basit / ml), `kayip_yaz` (kestiricinin kayıp tablosu; `hedef_araligi=[bas, bit)` tahmini yalnız o aralığa yazar, eğitim havuzu değişmez; `agacli=False` kaynak ağacını atlar). Yazımlar atomik (`.yaziliyor` → `replace`) |
 | `sayi_denetimi` | yazılardaki her sayının rapor dosyasında geçtiğini denetler (eşik 10, Türkçe biçim; çitli kod ve `sira` satırı hariç). `python -m perakende_analitik.sayi_denetimi --yazi DIZIN --rapor DOSYA [--komut "rapor üretme komutu"]`; eksik ya da biçimsiz sayıda çıkış 1. Vaka kökündeki `sayi_denetimi.py` sarmalayıcıları yazı dizinini ve rapor yolunu verir |
 
 ## Sızıntı kuralı

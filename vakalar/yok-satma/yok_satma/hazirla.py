@@ -45,7 +45,6 @@ kaydı korunur.
 import argparse
 import gc
 import json
-import pickle
 import threading
 import time
 from datetime import date
@@ -53,21 +52,14 @@ from pathlib import Path
 
 import pandas as pd
 import psutil
-import pyarrow as pa
-import pyarrow.parquet as pq
 
-from perakende_analitik import agac, carpanlar, kayip, kaynak, ozellikler, stok, talep
+from perakende_analitik import kaynak
+from perakende_analitik.hazirlik import carpanlar_yaz, gunluk_yaz, kayip_yaz
 
 PENCERE = (date(2023, 1, 1), date(2025, 12, 31))
 OGRENME_BITIS = pd.Timestamp("2024-12-31")       # çarpanlar 2023–2024'ten öğrenir
-YILLAR = range(PENCERE[0].year, PENCERE[1].year + 1)
 
 VARSAYILAN_CIKTI = Path(__file__).resolve().parents[1] / "cikti"
-GUNLUK_SUTUNLARI = ["tarih", "magaza_id", "urun_id", "option_id", "satis_oncesi",
-                    "brut_satis", "net_satis", "durum"]
-# gözlem havuzundan okunan günlük sütunları (satis_oncesi ve net_satis hiçbir
-# kestiricide okunmaz; durum yalniz_stoklu ve ML'in havuz üyeliği için)
-_GOZLEM_SUTUNLARI = ["tarih", "magaza_id", "urun_id", "option_id", "brut_satis", "durum"]
 
 ADIMLAR = ("gunluk", "carpanlar", "naif", "basit", "ml")      # bağımlılık sırasıyla
 BAGIMLILIKLAR = {"gunluk": (), "carpanlar": ("gunluk",), "naif": ("gunluk",),
@@ -75,18 +67,6 @@ BAGIMLILIKLAR = {"gunluk": (), "carpanlar": ("gunluk",), "naif": ("gunluk",),
 DOSYALAR = {"gunluk": "gunluk.parquet", "carpanlar": "carpanlar.pkl",
             "naif": "kayip_naif.parquet", "basit": "kayip_basit.parquet",
             "ml": "kayip_ml.parquet"}
-
-# `carpanlar.ogren` ve `carpanlar.karakter`in okuduğu özellik sütunları
-CARPAN_OZELLIKLERI = ["hafta_gunu", "tatil", "black_friday", "indirim_baslangici",
-                      "markdown_orani", "kampanya_orani", "kampanya_id", "oran", "yas_gun",
-                      "line", "ust_kategori", "alt_kategori", "kanal"]
-# kestirici -> egit / tahmin'in okuduğu özellik sütunları
-KESTIRICI_OZELLIKLERI = {
-    "naif": ["line", "alt_kategori"],
-    "basit": ["hafta_gunu", "tatil", "black_friday", "indirim_baslangici", "oran", "yas_gun",
-              "line", "ust_kategori", "alt_kategori", "kanal"],
-    "ml": sorted(set(talep.ML_SAYISAL) | set(talep.ML_KATEGORIK) | {"line", "alt_kategori"}),
-}
 
 
 # ------------------------------------------------------------------ ölçüm
@@ -125,102 +105,6 @@ class _Olcer:
 
 
 _GB = 1024 ** 3
-
-
-# --------------------------------------------------------------- okuma
-
-def _oku(yol: Path, sutunlar: list[str], durumlar: tuple[str, ...],
-         bitis: pd.Timestamp | None = None) -> pd.DataFrame:
-    """gunluk.parquet'ten istenen sütunlar, yalnız `durumlar`daki (ve `bitis`e
-    dek) satırlar; kategoriler yazıldığı gibi döner (bütün evren)."""
-    filtre = [("durum", "in", list(durumlar))]
-    if bitis is not None:
-        filtre.append(("tarih", "<=", bitis))
-    return pd.read_parquet(yol, columns=sutunlar, filters=filtre).reset_index(drop=True)
-
-
-# --------------------------------------------------------------- adımlar
-
-def gunluk_yaz(con, yol: Path) -> int:
-    """Mağaza ve online günlük tablosu yıl yıl; satır sayısını döndürür."""
-    gecici = yol.with_suffix(".parquet.yaziliyor")
-    yazici, n = None, 0
-    try:
-        for yil in YILLAR:
-            bas, bit = max(date(yil, 1, 1), PENCERE[0]), min(date(yil, 12, 31), PENCERE[1])
-            for parca in (stok.gunluk_magaza, stok.gunluk_online):
-                df = parca(con, bas, bit)
-                tablo = pa.Table.from_pandas(df[GUNLUK_SUTUNLARI], preserve_index=False)
-                del df
-                if yazici is None:
-                    yazici = pq.ParquetWriter(gecici, tablo.schema)
-                yazici.write_table(tablo)
-                n += tablo.num_rows
-                del tablo
-                gc.collect()
-    finally:
-        if yazici is not None:
-            yazici.close()
-    gecici.replace(yol)
-    return n
-
-
-def carpanlar_yaz(con, gunluk: Path, yol: Path) -> int:
-    """2023–2024 stoklu günlerinden çarpanlar; öğrenilen satır sayısını döndürür."""
-    df = _oku(gunluk, _GOZLEM_SUTUNLARI, ("stoklu",), OGRENME_BITIS)
-    df = ozellikler.ekle(con, df, CARPAN_OZELLIKLERI)
-    c = carpanlar.ogren(df)
-    n = len(df)
-    del df
-    gc.collect()
-    gecici = yol.with_suffix(".pkl.yaziliyor")
-    with open(gecici, "wb") as f:
-        pickle.dump(c, f)
-    gecici.replace(yol)
-    return n
-
-
-def _kestirici(ad: str, carpan: Path):
-    if ad == "naif":
-        return talep.Naif()
-    if ad == "basit":
-        with open(carpan, "rb") as f:
-            return talep.Basit(carpanlar=pickle.load(f))
-    if ad == "ml":
-        return talep.ML()
-    raise ValueError(f"bilinmeyen kestirici: {ad}")
-
-
-def kayip_yaz(con, ad: str, gunluk: Path, carpan: Path, yol: Path) -> dict:
-    """Bir kestiricinin kayıp tablosu (bos + tukenen satırları, kaynak dalıyla)."""
-    gerek = KESTIRICI_OZELLIKLERI[ad]
-    k = _kestirici(ad, carpan)
-
-    gozlem = _oku(gunluk, _GOZLEM_SUTUNLARI, ("stoklu",))
-    havuz = len(gozlem)
-    gozlem = ozellikler.ekle(con, gozlem, gerek)
-    k.egit(gozlem)
-    del gozlem
-    gc.collect()
-
-    hedef = _oku(gunluk, GUNLUK_SUTUNLARI, ("bos", "tukenen"))
-    tahmin = k.tahmin(ozellikler.ekle(con, hedef, gerek))
-    del k
-    gc.collect()
-    kd = kayip.kayip_yaz(hedef, tahmin)
-    kuyruk = int(kd.attrs.get("kuyruk_satir", 0))
-    del tahmin, hedef
-    kd = agac.kaynak_ata(kd, con)
-
-    gecici = yol.with_suffix(".parquet.yaziliyor")
-    kd.to_parquet(gecici, index=False)
-    gecici.replace(yol)
-    ozet = {"havuz_satir": havuz, "hedef_satir": len(kd),
-            "kuyruk_satir": kuyruk,
-            "toplam_kayip": float(kd["kayip"].sum())}
-    del kd
-    gc.collect()
-    return ozet
 
 
 # ----------------------------------------------------------------- akış
@@ -303,9 +187,10 @@ def main(argv: list[str] | None = None) -> dict:
             print(f"{adim}: basliyor", flush=True)
             with _Olcer() as o:
                 if adim == "gunluk":
-                    bilgi = {"satir": gunluk_yaz(con, yol["gunluk"])}
+                    bilgi = {"satir": gunluk_yaz(con, yol["gunluk"], PENCERE)}
                 elif adim == "carpanlar":
-                    bilgi = {"satir": carpanlar_yaz(con, yol["gunluk"], yol["carpanlar"])}
+                    bilgi = {"satir": carpanlar_yaz(con, yol["gunluk"], yol["carpanlar"],
+                                                    OGRENME_BITIS.date())}
                 else:
                     bilgi = kayip_yaz(con, adim, yol["gunluk"], yol["carpanlar"], yol[adim])
             gc.collect()
