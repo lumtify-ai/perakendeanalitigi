@@ -1,3 +1,8 @@
+"""Çekirdek metrikleri. Hepsi `bt_*` görünümlerini okur (evren, mükerrersiz satış,
+hayalet süzülmüş stok; bkz. `veri.gorunumler`). Görünümler tarih sınırı koymaz:
+karar sınırı her sorgunun kendisinde açıkça yazılıdır, böylece karar anından
+sonraki hiçbir satır, varış ya da fotoğraf bir çıktıyı değiştirmez.
+"""
 from datetime import date, timedelta
 
 import duckdb
@@ -8,13 +13,14 @@ from .parametreler import Parametreler
 
 def hizlar(con: duckdb.DuckDBPyConnection, karar: date, pencere_hafta: int) -> pd.DataFrame:
     """Stoklu haftaların ortalama net satışı (option düzeyi). Stoksuz hafta
-    ortalamayı kirletmez; iade (negatif adet) netlenir."""
+    ortalamayı kirletmez; iade (negatif adet) netlenir. Pencere
+    `[karar − pencere_hafta, karar)`: karar günü ve sonrası dışarıda."""
     baslangic = karar - timedelta(weeks=pencere_hafta)
     return con.execute(
         """
         with stoklu as (
             select st.tarih as hafta, st.magaza_id, u.option_id
-            from stok st join urun u using (urun_id)
+            from bt_stok st join urun u using (urun_id)
             where st.tarih >= ? and st.tarih < ?
             group by 1, 2, 3
             having sum(st.adet) > 0
@@ -22,7 +28,7 @@ def hizlar(con: duckdb.DuckDBPyConnection, karar: date, pencere_hafta: int) -> p
         haftalik_satis as (
             select date_trunc('week', s.tarih) as hafta, s.magaza_id, u.option_id,
                    sum(s.adet) as adet
-            from satis s join urun u using (urun_id)
+            from bt_satis s join urun u using (urun_id)
             where s.tarih >= ? and s.tarih < ?
             group by 1, 2, 3
         )
@@ -38,10 +44,11 @@ def hizlar(con: duckdb.DuckDBPyConnection, karar: date, pencere_hafta: int) -> p
 
 
 def stok_fotografi(con, karar: date) -> pd.DataFrame:
+    """Karar günündeki fotoğraf (`tarih = karar`), option düzeyi, stok > 0."""
     return con.execute(
         """
         select st.magaza_id, u.option_id, sum(st.adet) as adet
-        from stok st join urun u using (urun_id)
+        from bt_stok st join urun u using (urun_id)
         where st.tarih = ?
         group by 1, 2
         having sum(st.adet) > 0
@@ -55,7 +62,7 @@ def kiriklar(con, karar: date) -> pd.DataFrame:
     return con.execute(
         """
         select st.magaza_id, u.option_id
-        from stok st join urun u using (urun_id)
+        from bt_stok st join urun u using (urun_id)
         where st.tarih = ?
         group by 1, 2
         having sum(st.adet) > 0
@@ -77,17 +84,19 @@ def coverlar(con, karar: date, p: Parametreler) -> pd.DataFrame:
 
 
 def strler(con, karar: date) -> pd.DataFrame:
+    """Kümülatif satış/sevk oranı: sevk = varışı `≤ karar` olan sevkiyatlar,
+    satış `≤ karar`."""
     return con.execute(
         """
         with sevk as (
             select sv.magaza_id, u.option_id, sum(sv.adet) as sevk_adet
-            from sevkiyat sv join urun u using (urun_id)
+            from bt_sevkiyat sv join urun u using (urun_id)
             where sv.tarih <= ?
             group by 1, 2
         ),
         net_satis as (
             select s.magaza_id, u.option_id, sum(s.adet) as satis_adet
-            from satis s join urun u using (urun_id)
+            from bt_satis s join urun u using (urun_id)
             where s.tarih <= ?
             group by 1, 2
         )

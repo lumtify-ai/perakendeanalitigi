@@ -1,5 +1,6 @@
 from datetime import date
 
+import pandas as pd
 import pytest
 
 from blok_transfer.cekirdek import metrikler
@@ -56,3 +57,52 @@ def test_str_kumulatif(con):
     df = metrikler.strler(con, KARAR)
     assert hucre(df, "MB", "OPT1").str_orani == pytest.approx(0.8)   # 32/40
     assert hucre(df, "MA", "OPT2").str_orani == pytest.approx(0.0)   # 0/8
+    assert hucre(df, "MA", "OPT3").str_orani == pytest.approx(0.25)  # 2/8
+    # mükerrer satış payı şişirmez: MA-OPT1 4 satış / 16 sevk
+    assert hucre(df, "MA", "OPT1").str_orani == pytest.approx(0.25)
+
+
+def test_str_evren_disi_magaza_yok(con):
+    # MF kapalı, MG henüz açılmamış, MH tadilatta, ONL online: sevkiyatları sayılmaz
+    df = metrikler.strler(con, KARAR)
+    assert set(df.magaza_id) == {"MA", "MB", "MC", "MD", "ME"}
+
+
+def test_evren_disi_magaza_metrik_uretmez(con):
+    p = Parametreler()
+    for df in (metrikler.hizlar(con, KARAR, 8), metrikler.stok_fotografi(con, KARAR),
+               metrikler.kiriklar(con, KARAR), metrikler.coverlar(con, KARAR, p)):
+        assert not set(df.magaza_id) & {"MF", "MG", "MH", "ONL"}
+
+
+def test_hayalet_stok_verici_olmaz(con):
+    # MD-OPT3-1: yalnız karar günü, adet 7, varışsız, satışsız = hayalet.
+    # Süzülmezse cover 999 ile verici olurdu.
+    con.execute("insert into stok values ('2025-12-29', 'MD', 'OPT3-1', 7)")
+    p = Parametreler()
+    stok = metrikler.stok_fotografi(con, KARAR)
+    assert set(stok[stok.magaza_id == "MD"].option_id) == {"OPT1"}
+    cover = metrikler.coverlar(con, KARAR, p)
+    assert ("MD", "OPT3") not in set(zip(cover.magaza_id, cover.option_id))
+    # fikstürdeki hayalet (MD-OPT2-3, 12-15) hız penceresinde stoklu hafta üretmez
+    hiz = metrikler.hizlar(con, KARAR, 8)
+    assert len(hiz[(hiz.magaza_id == "MD") & (hiz.option_id == "OPT2")]) == 0
+
+
+def test_std_option_kirik_sayilmaz(con):
+    # OPT3 tek bedenli (sıra 1): ara kademesi yok, hiçbir koşulda kırık değil
+    df = metrikler.kiriklar(con, KARAR)
+    assert "OPT3" not in set(df.option_id)
+
+
+def test_karar_sonrasi_satirlar_metrikleri_degistirmez(con, con_ileri):
+    p = Parametreler()
+    for f in (lambda c: metrikler.hizlar(c, KARAR, 8),
+              lambda c: metrikler.strler(c, KARAR),
+              lambda c: metrikler.stok_fotografi(c, KARAR),
+              lambda c: metrikler.kiriklar(c, KARAR),
+              lambda c: metrikler.coverlar(c, KARAR, p)):
+        pd.testing.assert_frame_equal(
+            f(con).sort_values(["magaza_id", "option_id"]).reset_index(drop=True),
+            f(con_ileri).sort_values(["magaza_id", "option_id"]).reset_index(drop=True),
+        )

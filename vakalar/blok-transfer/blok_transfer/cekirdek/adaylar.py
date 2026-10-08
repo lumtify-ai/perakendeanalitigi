@@ -7,32 +7,60 @@ from . import metrikler
 from .parametreler import Parametreler
 
 
-KOLONLAR = ["verici", "alici", "option_id", "adet", "hiz_verici", "hiz_alici", "fiyat"]
+KOLONLAR = ["verici", "alici", "option_id", "adet", "hiz_verici", "hiz_alici", "fiyat", "alis"]
 
 
-def kapasite_boslugu(con: duckdb.DuckDBPyConnection, karar: date) -> dict[str, int]:
+def kapasite_boslugu(con: duckdb.DuckDBPyConnection, karar: date, tepe_hafta: int = 52) -> dict[str, int]:
+    """Mağaza başına boş yer: `max(0, tepe − stok(karar))` (spec §3.3).
+
+    tepe   `[karar − tepe_hafta hafta, karar)` içindeki fotoğraflarda mağaza
+           toplamının en büyüğü (karar günü ve sonrası tepeye girmez)
+    stok   karar günü fotoğrafındaki mağaza toplamı
+
+    Mağazanın kapasite kolonu kullanılmaz: gözlenen en yüksek stok, mağazanın
+    fiilen taşıdığı yükün kanıtıdır. Geçmişi olmayan mağazanın tepesi 0, boşluğu 0.
+    Yalnız evren (`bt_magaza`) mağazaları döner."""
+    baslangic = karar - timedelta(weeks=tepe_hafta)
     df = con.execute(
         """
+        with foto as (
+            select tarih, magaza_id, sum(adet) as toplam
+            from bt_stok
+            where tarih >= ? and tarih < ?
+            group by 1, 2
+        ),
+        tepe as (select magaza_id, max(toplam) as tepe from foto group by 1),
+        bugun as (
+            select magaza_id, sum(adet) as stok
+            from bt_stok
+            where tarih = ?
+            group by 1
+        )
         select m.magaza_id,
-               greatest(0, m.kapasite - coalesce(sum(st.adet), 0)) as bosluk
-        from magaza m
-        left join stok st on st.magaza_id = m.magaza_id and st.tarih = ?
-        group by m.magaza_id, m.kapasite
+               greatest(0, coalesce(t.tepe, 0) - coalesce(b.stok, 0)) as bosluk
+        from bt_magaza m
+        left join tepe t using (magaza_id)
+        left join bugun b using (magaza_id)
         """,
-        [karar],
+        [baslangic, karar, karar],
     ).df()
     return dict(zip(df.magaza_id, df.bosluk.astype(int)))
 
 
 def _sogumada(con, karar: date, soguma_hafta: int) -> set[tuple[str, str]]:
+    """Varışı `(karar − soguma_hafta, karar]` içinde olan (mağaza, option) hücreleri.
+
+    Her sevkiyat türü (replenishment, elle transfer...) sayılır; ölçüt sevk
+    değil VARIŞ tarihidir, yolda kalanlar (varışı boş) `bt_sevkiyat`ta yoktur.
+    Karar sonrası varışlar soğuma sayılmaz."""
     esik = karar - timedelta(weeks=soguma_hafta)
     df = con.execute(
         """
         select distinct sv.magaza_id, u.option_id
-        from sevkiyat sv join urun u using (urun_id)
-        where sv.tarih > ?
+        from bt_sevkiyat sv join urun u using (urun_id)
+        where sv.tarih > ? and sv.tarih <= ?
         """,
-        [esik],
+        [esik, karar],
     ).df()
     return set(zip(df.magaza_id, df.option_id))
 
@@ -44,10 +72,10 @@ def uret(con, karar: date, p: Parametreler) -> pd.DataFrame:
     stok = metrikler.stok_fotografi(con, karar)
 
     urunler = con.execute(
-        "select option_id, any_value(line) as line, any_value(liste_fiyati) as fiyat "
-        "from urun group by 1"
+        "select option_id, any_value(line) as line, any_value(liste_fiyati) as fiyat, "
+        "any_value(alis_fiyati) as alis from urun group by 1"
     ).df()
-    tipler = dict(con.execute("select magaza_id, tip from magaza").fetchall())
+    tipler = dict(con.execute("select magaza_id, tip from bt_magaza").fetchall())
 
     soguma = _sogumada(con, karar, p.soguma_hafta)
     vericiler = coverlar[coverlar.cover >= p.verici_cover_esigi].copy()

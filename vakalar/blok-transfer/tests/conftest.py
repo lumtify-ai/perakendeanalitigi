@@ -6,7 +6,7 @@ Fikstür `gorunumler(c, KARAR)` çağırıp döner: testler ham tabloyu da (`sto
 `satis`...), temiz `bt_*` görünümlerini de okuyabilir.
 Beklenen değerler (Görev 4-7 testleri bu sayılara kilitli; v2 fikstürüyle aynı):
   hız:   MA-OPT1 0.5 · MB-OPT1 4.0 (iade netli) · MC-OPT1 1.0 (4 stoklu hafta)
-         MD-OPT1 0.125 · MB-OPT2 3.0 · MC-OPT2 2.0 · MA-OPT2 hiç satış → satır yok
+         MD-OPT1 0.125 · MB-OPT2 3.0 · MC-OPT2 2.0 · MA-OPT2 hız 0.0 (stoklu, satışsız) · MD-OPT2 satır yok (hayalet düşer)
   karar günü stok: MA-OPT1 12 · MB-OPT1 5 (kırık) · MD-OPT1 10 · MA-OPT2 8
          MB-OPT2 1 (kırık) · MC-* 0
   kırıklar: (MB,OPT1) ve (MB,OPT2)
@@ -20,6 +20,12 @@ v4 ile eklenenler (v2 sayılarını değiştirmez):
   MH         karar anında tadilatta (`magaza_olay`); ME'nin tadilatı bitmiş, evrende kalır
   mükerrer   MA-OPT1-3 için 2025-11-03 satış satırının tam kopyası → hız yine 0.5
   hayalet    MD-OPT2-3: tek pazartesi (2025-12-15), adet 2, varışsız, satışsız
+  kapasite boşluğu (tepe − karar günü stok; tepe = 8 haftalık fotoğrafların mağaza
+  toplamının en büyüğü, evren ve çeşit süzülmüş):
+         MA tepe 24 (12+8+4) · stok 24 → 0     MB tepe 11 (5+6) · stok 6 → 5
+         MC tepe 8 (OPT1 3 + OPT2 5, ilk 4 hafta) · stok 0 → 8
+         MD tepe 10 (hayalet 2 sayılsaydı 12) · stok 10 → 0
+         ME tepe 5 · stok 5 → 0
   Meşru hücreler hayalet sayılmasın diye (cesit: tek foto + adet>0 = hayalet),
   yalnız karar gününde görünen her SKU'ya HAFTALAR[0]'da adet-0 satırı eklenir;
   option toplamları değişmez.
@@ -56,8 +62,7 @@ def _sevk(c, tarih, hedef, urun_id, adet):
               [tarih, tarih, hedef, urun_id, adet])
 
 
-@pytest.fixture
-def con():
+def _kur():
     c = duckdb.connect()
     _tablolar(c)
 
@@ -171,12 +176,23 @@ def con():
 
 
 @pytest.fixture
-def con_ileri(con):
+def con():
+    return _kur()
+
+
+@pytest.fixture
+def con_ileri():
     """`con` + karar sonrası (karar+1 hafta) satış, varış ve stok fotoğrafı.
 
-    Çekirdeğin karar anından sonrasına bakmadığını kilitlemek için (Görev 4);
-    görünümler tarih sınırı koymaz, bu satırlar `bt_*` içinde görünür."""
+    AYRI bir bağlantıdır (`con` ile aynı nesne değil): çekirdeğin karar anından
+    sonrasına bakmadığını kilitlemek için (Görev 4) iki bağlantının çıktıları
+    karşılaştırılır. Görünümler tarih sınırı koymaz, bu satırlar `bt_*`
+    içinde görünür. Karar sonrası varış, vericinin (MA-OPT1) kendisine de gelir:
+    sınırsız bir soğuma sorgusu onu vericilikten düşürürdü."""
+    con = _kur()
     sonraki = "2026-01-05"
+    con.execute("insert into sevkiyat values (?, ?, 'DEPO', 'MA', 'OPT1-1', 6, 'replenishment')",
+                [sonraki, sonraki])
     con.execute("insert into satis values (?, 'MA', 'OPT1-3', 9)", [sonraki])
     con.execute("insert into satis values (?, 'MB', 'OPT1-3', 9)", [sonraki])
     con.execute("insert into sevkiyat values (?, ?, 'DEPO', 'MB', 'OPT1-1', 20, 'replenishment')",
