@@ -221,37 +221,79 @@ def test_zorla_gecersiz_kilar():
         _sec(urunler, stok, greedy, kayip, zorla=("YOK", "I1", "T1"))
 
 
-def test_yan_roller_secilir():
+def test_ikinci_alici_ayni_blogun_en_yuksek_w_si_ve_rakip_sayisi():
     urunler = _urunler(("O1", "Kazak"))
-    stok = _stok(I1_O1=KIRIK, I2_O1=[1, 0, 0, 0, 1],        # ikinci alıcı: kırık
-                 I3_O1=[5, 5, 5, 5, 5], T1_O1=TAM, T2_O1=TAM,  # I3 çok stoklu
-                 A1_O1=[40, 40, 40, 40, 40])                   # İstanbul değil
-    greedy = _hareket(("T1", "I1", "O1"), ("T1", "I2", "O1"))
-    h = _sec(urunler, stok, greedy, _kayip(I1_O1=7, I2_O1=4),
-             cover=_cover(I3_O1=2.5, A1_O1=1.0, T1_O1=50.0),
-             w=_w(("T1", "I2", "O1", 90.0), ("T2", "I2", "O1", 40.0)))
-    assert h.ikinci_alici == "I2"
-    assert h.karsi_verici == "I3"                           # İstanbul, cover 2,5 < 6, en çok stok
-    assert h.gevseyen == []
-
-
-def test_ikinci_alici_en_yuksek_w_baska_vericiyse_secilmez():
-    urunler = _urunler(("O1", "Kazak"))
-    stok = _stok(I1_O1=KIRIK, I2_O1=[1, 0, 0, 0, 1], T1_O1=TAM, T2_O1=TAM)
+    stok = _stok(I1_O1=KIRIK, I2_O1=TAM, A1_O1=TAM, T1_O1=TAM)
     greedy = _hareket(("T1", "I1", "O1"))
-    h = _sec(urunler, stok, greedy, _kayip(I1_O1=7, I2_O1=4),
-             w=_w(("T1", "I2", "O1", 40.0), ("T2", "I2", "O1", 90.0)))
-    assert h.ikinci_alici is None and "ikinci_alici" in " ".join(h.gevseyen)
+    # aynı (T1, O1) bloğuna aday: I2 (90), A1 (40: bölge fark etmez), I3 (70); başka verici sayılmaz
+    w = _w(("T1", "I2", "O1", 90.0), ("T1", "A1", "O1", 40.0), ("T1", "I3", "O1", 70.0),
+           ("T2", "I3", "O1", 500.0), ("T1", "I1", "O1", 999.0))
+    h = _sec(urunler, stok, greedy, _kayip(I1_O1=7), w=w)
+    assert h.ikinci_alici == "I2" and h.rakip_alici_sayisi == 3
+    assert "ikinci_alici_yok" not in h.gevseyen
+
+
+def test_ikinci_alici_w_esitliginde_kimlik_sirasi():
+    urunler = _urunler(("O1", "Kazak"))
+    h = _sec(urunler, _stok(I1_O1=KIRIK, T1_O1=TAM), _hareket(("T1", "I1", "O1")),
+             _kayip(I1_O1=7), w=_w(("T1", "I3", "O1", 50.0), ("T1", "I2", "O1", 50.0)))
+    assert h.ikinci_alici == "I2" and h.rakip_alici_sayisi == 2
+
+
+def test_karsi_verici_ayni_option_her_bolge_en_cok_stok():
+    urunler = _urunler(("O1", "Kazak"))
+    stok = _stok(I1_O1=KIRIK, T1_O1=TAM,
+                 I3_O1=[5, 5, 5, 5, 5],             # cover 2,5: aday
+                 A1_O1=[40, 40, 40, 40, 40],        # Ankara, cover 1,0: en çok stoklu, bölge fark etmez
+                 T2_O1=[50, 50, 50, 50, 50])        # cover 9: eşik üstü
+    h = _sec(urunler, stok, _hareket(("T1", "I1", "O1")), _kayip(I1_O1=7),
+             cover=_cover(I3_O1=2.5, A1_O1=1.0, T2_O1=9.0))
+    assert (h.karsi_verici, h.karsi_option_id) == ("A1", "O1")
+    assert "karsi_verici_baska_option" not in h.gevseyen
+
+
+def test_karsi_verici_baska_option_ayni_kategori_istanbul():
+    # O1'de cover < 6 mağaza yok; aynı alt kategoride (Kazak, AW25) O2'de İstanbul 3 var,
+    # Ankara'daki daha çok stoklu ama İstanbul değil; O3 Mont (başka kategori)
+    urunler = _urunler(("O1", "Kazak"), ("O2", "Kazak"), ("O3", "Mont"))
+    stok = _stok(I1_O1=KIRIK, T1_O1=TAM, I3_O2=[5, 5, 5, 5, 5], A1_O2=[40, 40, 40, 40, 40],
+                 I2_O3=[90, 90, 90, 90, 90])
+    h = _sec(urunler, stok, _hareket(("T1", "I1", "O1")), _kayip(I1_O1=7),
+             cover=_cover(I3_O2=2.0, A1_O2=1.0, I2_O3=1.0, T1_O1=40.0))
+    assert (h.karsi_verici, h.karsi_option_id) == ("I3", "O2")
+    assert "karsi_verici_baska_option" in h.gevseyen
 
 
 def test_yan_roller_yoksa_none():
     urunler = _urunler(("O1", "Kazak"))
     stok = _stok(I1_O1=KIRIK, T1_O1=TAM, I3_O1=[5, 5, 5, 5, 5])
-    # I3'ün cover'ı 6 ve üstü: karşı verici değil; başka kırık İstanbul mağazası yok
+    # blokta başka aday alıcı yok; I3'ün cover'ı 6 ve üstü ve başka option yok
     h = _sec(urunler, stok, _hareket(("T1", "I1", "O1")), _kayip(I1_O1=7),
-             cover=_cover(I3_O1=6.0))
+             cover=_cover(I3_O1=6.0), w=_w(("T2", "I2", "O1", 10.0)))
     assert h.ikinci_alici is None and h.karsi_verici is None
+    assert h.rakip_alici_sayisi == 0 and h.karsi_option_id is None
     assert h.gevseyen == ["ikinci_alici_yok", "karsi_verici_yok"]
+
+
+def test_kullanici_secimi_iki_planda_da_tasinmali():
+    opt, alici, verici = hikaye_sec.KULLANICI_SECIMI
+    var = _hareket((verici, alici, opt))
+    bos = _hareket(("X", "Y", "Z"))
+    assert hikaye_sec.varsayilan_secim(var, var) == hikaye_sec.KULLANICI_SECIMI
+    with pytest.raises(LookupError, match="mip"):
+        hikaye_sec.varsayilan_secim(var, bos)
+    with pytest.raises(LookupError, match="greedy"):
+        hikaye_sec.varsayilan_secim(bos, var)
+
+
+def test_yakin_adaylar_tutmayan_sayisina_gore_siralar():
+    urunler = _urunler(("O1", "Kazak"), ("O2", "Pantolon"))
+    stok = _stok(I1_O1=KIRIK, A1_O1=TAM, I3_O2=KIRIK, A1_O2=TAM, I1_O2=KIRIK)
+    greedy = _hareket(("A1", "I1", "O1"), ("A1", "I3", "O2"), ("A1", "I1", "O2"))
+    ya = hikaye_sec.yakin_adaylar(urunler, MAGAZALAR, stok, greedy, greedy, _kayip(I1_O1=1))
+    assert list(ya["n_tutmayan"]) == [1, 2, 3]            # Kazak: yalnız trabzon
+    assert ya.loc[0, "tutmayan"] == "trabzon" and ya.loc[0, "option_id"] == "O1"
+    assert ya.loc[2, "tutmayan"].startswith("alt_kategori, cadde")
 
 
 def test_cli_hikaye_ayristirma():

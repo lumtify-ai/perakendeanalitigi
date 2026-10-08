@@ -28,13 +28,23 @@ gevşetme seçilir; `gevseyen` adayın gerçekte tutmadığı ölçütlerdir. Hi
 `LookupError`. Gevşemez ölçütler hikâyenin kendisidir: kırık alıcı, tam setli verici ve
 planın taşıdığı blok olmadan sahne yoktur.
 
-Yan roller:
+Kullanıcı sahnesi: tam hikâye birleşimi (kazak + S-M-L üçü de 0 + Trabzon + cadde) karar anında
+veride yoktur (yukarıdaki huni `LookupError` mesajında basılır). Kullanıcı ölçüt merdiveninin
+en yakın sahneleri arasından birini seçti: `KULLANICI_SECIMI`. `sec` ve CLI `zorla` verilmezse
+onu kullanır; greedy VE MIP planı artık bu bloğu taşımıyorsa açık hata verir (sessiz geri düşme
+yok). Ölçüt merdiveni `gevseyen`i hesaplar (seçilen sahnenin tutmadığı ölçütler) ve `--adaylar`
+ile en yakın sahneleri listeler.
 
-    ikinci_alici   aynı option'da kırık (toplam > 0, S-M-L'den biri 0) başka bir İstanbul
-                   mağazası, ona en yüksek `w`'lu aday verici AYNI vericidir (ağ problemi:
-                   iki alıcı aynı malı ister). Birden çoksa penceredeki kaybı en büyük olan.
-    karsi_verici   aynı option'da en çok stoklu, cover < verici cover eşiği (6) olan İstanbul
-                   mağazası (çok stok var ama hızlı satıyor: vericilik hak değil, bedel olur)
+Yan roller (gevşek):
+
+    ikinci_alici   aday kümesinde AYNI (verici, option) bloğuna aday öteki alıcılardan `w`'si
+                   en yüksek olan (bölge fark etmez); `rakip_alici_sayisi` bu öteki alıcıların
+                   sayısıdır (ağ problemi: aynı mal birden çok alıcıya aday)
+    karsi_verici   aynı option'da, cover < verici cover eşiği (6) olanlar arasında en çok stoklu
+                   mağaza (bölge fark etmez). Yoksa aynı alt kategorideki öteki AW25
+                   option'larda en çok stoklu, cover < eşik İstanbul mağazası; o zaman
+                   `karsi_option_id` hangi option olduğunu söyler ve `gevseyen`e
+                   `karsi_verici_baska_option` yazılır
 
 Bulunamazsa `None`; `gevseyen`e `ikinci_alici_yok` / `karsi_verici_yok` yazılır.
 
@@ -70,6 +80,10 @@ ORTA_BEDENLER = (2, 3, 4)            # S-M-L
 GEVSEK_OLCUTLER = ("alt_kategori", "cadde", "trabzon")     # gevşetme sırası
 GEVSEMEZ = ("urun", "alici_istanbul", "alici_kirik", "verici_bolge", "verici_tam_set",
             "greedy_hareketi")
+# Kullanıcının seçtiği sahne (2026-10-08): tam hikâye birleşimi karar anında veride yok; ölçüt
+# merdiveninin en yakın sahneleri arasından bunu seçti (kazak, Malatya vericisi; hem greedy hem
+# MIP bloğu taşıyor). (option_id, alıcı, verici).
+KULLANICI_SECIMI = ("MDL0673-HAK", "M018", "M071")
 SIRA_DISI = len(UST_GIYIM)           # üst giyim dışı (yalnız alt_kategori gevşerse)
 
 
@@ -83,6 +97,8 @@ class Hikaye:
     karsi_verici: str | None
     mip_de_tasiyor: bool
     gevseyen: list[str]
+    rakip_alici_sayisi: int = 0              # aynı (verici, option) bloğuna aday öteki alıcılar
+    karsi_option_id: str | None = None       # karşı vericinin option'ı (genelde option_id)
 
 
 # ------------------------------------------------------------- saf ölçüt mantığı
@@ -173,29 +189,38 @@ def _huni_metni(huni: list[tuple[str, int]]) -> str:
     return " > ".join(f"{ad} {n}" for ad, n in huni)
 
 
-def _yan_roller(a: pd.Series, magazalar, hucre, kayip, cover, w,
-                cover_esigi: float) -> tuple[str | None, str | None]:
+def _yan_roller(a: pd.Series, urunler, hucre, cover, w, cover_esigi: float) -> dict:
+    """Gevşek yan roller (modül açıklaması): ikinci alıcı, rakip sayısı, karşı verici."""
     opt, alici, verici = a["option_id"], a["alici"], a["verici"]
-    istanbul = set(magazalar.loc[magazalar["sehir"] == ALICI_SEHRI, "magaza_id"].astype(str))
-    h = hucre[(hucre["option_id"] == opt) & hucre["magaza_id"].isin(istanbul)
-              & (hucre["magaza_id"] != alici)]
 
-    # ikinci alıcı: kırık, ona en yüksek w'lu aday verici aynı verici; en çok kaybı olan
-    kayip_opt = kayip[kayip["option_id"] == opt].set_index("magaza_id")["kayip"]
-    adaylar = []
-    for mag in h.loc[h["toplam"].gt(0) & h["orta_eksik"], "magaza_id"]:
-        o = w[(w["alici"] == mag) & (w["option_id"] == opt)]
-        if len(o) and o.sort_values(["w", "verici"], ascending=[False, True]).iloc[0]["verici"] == verici:
-            adaylar.append((-float(kayip_opt.get(mag, 0.0)), mag))
-    ikinci = min(adaylar)[1] if adaylar else None
+    # ikinci alıcı: aynı (verici, option) bloğuna aday öteki alıcılardan en yüksek w
+    rakip = w[(w["verici"] == verici) & (w["option_id"] == opt) & (w["alici"] != alici)]
+    rakip = rakip.groupby("alici", as_index=False)["w"].max()
+    ikinci = (rakip.sort_values(["w", "alici"], ascending=[False, True]).iloc[0]["alici"]
+              if len(rakip) else None)
 
-    # karşı verici: en çok stoklu, cover < eşik
-    c = cover[cover["option_id"] == opt].set_index("magaza_id")["cover"]
-    karsi = h[h["toplam"].gt(0) & (h["magaza_id"] != ikinci)].copy()
-    karsi = karsi[karsi["magaza_id"].map(c).lt(cover_esigi)]
-    karsi_id = (karsi.sort_values(["toplam", "magaza_id"], ascending=[False, True])
-                .iloc[0]["magaza_id"]) if len(karsi) else None
-    return ikinci, karsi_id
+    # karşı verici: cover < eşik, en çok stoklu; önce aynı option, yoksa aynı alt kategori
+    c = cover.set_index(["magaza_id", "option_id"])["cover"]
+    hh = hucre[hucre["toplam"].gt(0)].copy()
+    hh["cover"] = [c.get((m, o)) for m, o in zip(hh["magaza_id"], hh["option_id"])]
+    hh = hh[hh["cover"].lt(cover_esigi) & ~hh["magaza_id"].isin([alici, verici, ikinci])]
+
+    def en_cok(df):
+        return (df.sort_values(["toplam", "magaza_id", "option_id"],
+                               ascending=[False, True, True]).iloc[0]) if len(df) else None
+
+    karsi = en_cok(hh[hh["option_id"] == opt])
+    baska = False
+    if karsi is None:
+        u = urunler.set_index("option_id")
+        ayni = set(u.index[(u["alt_kategori"] == u.loc[opt, "alt_kategori"])
+                           & (u["sezon_kodu"] == SEZON)]) - {opt}
+        karsi = en_cok(hh[hh["option_id"].isin(ayni) & hh["magaza_id"].isin(a["istanbul"])])
+        baska = karsi is not None
+    return {"ikinci": ikinci, "rakip_sayisi": int(len(rakip)),
+            "karsi": None if karsi is None else str(karsi["magaza_id"]),
+            "karsi_option": None if karsi is None else str(karsi["option_id"]),
+            "karsi_baska_option": baska}
 
 
 def _sec_ic(urunler, magazalar, stok, greedy, mip, kayip, cover, w, zorla=None,
@@ -245,15 +270,19 @@ def _sec_ic(urunler, magazalar, stok, greedy, mip, kayip, cover, w, zorla=None,
         tablo, satir = secilen, secilen.iloc[0]
         gevseyen = _tutmayan(satir)
 
-    ikinci, karsi = _yan_roller(satir, magazalar, hucre, kayip, cover, w,
-                                cover_esigi)
-    if ikinci is None:
+    satir = satir.copy()
+    satir["istanbul"] = set(magazalar.loc[magazalar["sehir"] == ALICI_SEHRI, "magaza_id"])
+    y = _yan_roller(satir, urunler, hucre, cover, w, cover_esigi)
+    if y["ikinci"] is None:
         gevseyen.append("ikinci_alici_yok")
-    if karsi is None:
+    if y["karsi"] is None:
         gevseyen.append("karsi_verici_yok")
+    elif y["karsi_baska_option"]:
+        gevseyen.append("karsi_verici_baska_option")
     h = Hikaye(option_id=str(satir["option_id"]), model_adi=str(satir["model_adi"]),
-               alici=str(satir["alici"]), verici=str(satir["verici"]), ikinci_alici=ikinci,
-               karsi_verici=karsi, mip_de_tasiyor=bool(satir["mip_var"]), gevseyen=gevseyen)
+               alici=str(satir["alici"]), verici=str(satir["verici"]), ikinci_alici=y["ikinci"],
+               karsi_verici=y["karsi"], mip_de_tasiyor=bool(satir["mip_var"]), gevseyen=gevseyen,
+               rakip_alici_sayisi=y["rakip_sayisi"], karsi_option_id=y["karsi_option"])
     return h, tablo
 
 
@@ -311,11 +340,43 @@ def _pencere_kayip(con, kayip: pd.DataFrame, karar: date, p: Parametreler,
             .astype({"magaza_id": str}))
 
 
+def varsayilan_secim(greedy: pd.DataFrame, mip: pd.DataFrame) -> tuple[str, str, str]:
+    """`KULLANICI_SECIMI`; greedy VE MIP bloğu hâlâ taşımıyorsa `LookupError` (geri düşme yok)."""
+    opt, alici, verici = KULLANICI_SECIMI
+    eksik = [ad for ad, plan in (("greedy", greedy), ("mip", mip))
+             if not ((plan["verici"].astype(str) == verici) & (plan["alici"].astype(str) == alici)
+                     & (plan["option_id"].astype(str) == opt)).any()]
+    if eksik:
+        raise LookupError(f"KULLANICI_SECIMI {KULLANICI_SECIMI} artik su planlarda tasinmiyor: "
+                          f"{', '.join(eksik)}. Kod ya da veri degisti; --adaylar en yakin "
+                          "sahneleri listeler, --hikaye ile baska sahne secilir.")
+    return KULLANICI_SECIMI
+
+
+def yakin_adaylar(urunler, magazalar, stok, greedy, mip, kayip, n: int = 10) -> pd.DataFrame:
+    """Planın bloklarını tutmadıkları ölçüt sayısına göre sıralar (en yakın sahneler):
+    sayı artan, kategori önceliği, kayıp azalan, option_id. `tutmayan` ölçüt adlarıdır."""
+    urunler = urunler.astype({"option_id": str})
+    magazalar = magazalar.astype({"magaza_id": str})
+    hucre = _hucreler(stok.astype({"magaza_id": str, "option_id": str}), urunler)
+    t = _degerlendir(greedy, urunler, magazalar, hucre,
+                     kayip.astype({"magaza_id": str, "option_id": str}), greedy, mip)
+    tm = t.apply(_tutmayan, axis=1)
+    t = t.assign(tutmayan=tm.map(", ".join), n_tutmayan=tm.map(len))
+    t = t.sort_values(["n_tutmayan", "kategori_sira", "kayip", "option_id", "alici", "verici"],
+                      ascending=[True, True, False, True, True, True], kind="stable")
+    return t.head(n)[["option_id", "alt_kategori", "alici", "verici", "kayip", "w", "mip_var",
+                      "n_tutmayan", "tutmayan"]].reset_index(drop=True)
+
+
 def sec(con, karar: date, greedy, mip, kayip: pd.DataFrame,
         zorla: tuple[str, str, str] | None = None, p: Parametreler | None = None) -> Hikaye:
     """Hikâyeyi veriden seçer. `greedy` ve `mip` `boru_hatti`nin `Plan`ları; `kayip`
-    `hazirla.oku_kayip` çıktısı (ham Basit satırları). `p` varsayılan model sabitleri."""
+    `hazirla.oku_kayip` çıktısı (ham Basit satırları). `p` varsayılan model sabitleri.
+    `zorla` yoksa `KULLANICI_SECIMI` (`varsayilan_secim` doğrular)."""
     p = p or Parametreler()
+    if zorla is None:
+        zorla = varsayilan_secim(greedy.hareketler, mip.hareketler)
     g = _girdiler(con, karar, p, kayip)
     return sec_tablolardan(greedy=greedy.hareketler, mip=mip.hareketler, zorla=zorla,
                            cover_esigi=p.verici_cover_esigi, **g)
@@ -341,37 +402,43 @@ def ozet(con, karar: date, h: Hikaye, kayip: pd.DataFrame, greedy=None, mip=None
     (verilmezse toplanır; veri sorguları pahalıdır, CLI aynısını yeniden kullanır)."""
     p = p or Parametreler()
     g = girdi if girdi is not None else _girdiler(con, karar, p, kayip)
-    urun = con.execute(
-        "select u.urun_id, u.beden, u.beden_sira, u.renk, u.liste_fiyati from urun u "
-        "where u.option_id = ? order by u.beden_sira", [h.option_id]).df()
-    secili = g["urunler"].set_index("option_id").loc[h.option_id]
-    stok = g["stok"][g["stok"]["option_id"] == h.option_id]
-    cv = g["cover"][g["cover"]["option_id"] == h.option_id].set_index("magaza_id")
-    hiz, cover = cv["hiz"], cv["cover"]            # stoklu hücreler; hız yoksa 0
-    strr = metrikler.strler(con, karar)
-    strr = strr[strr["option_id"] == h.option_id].set_index("magaza_id")["str_orani"]
+    strr_hepsi = metrikler.strler(con, karar)
     evren = set(g["magazalar"]["magaza_id"])
-    kt = olcum.kayip_tablosu(kayip, karar, p.olcum_hafta, evren, "kayip").astype({"magaza_id": str,
-                                                                                 "urun_id": str})
-    kt = kt.merge(urun[["urun_id", "beden"]].astype(str), on="urun_id", how="inner")
+    kt = olcum.kayip_tablosu(kayip, karar, p.olcum_hafta, evren, "kayip").astype(
+        {"magaza_id": str, "urun_id": str})
     magaza = g["magazalar"].set_index("magaza_id")
+    urun_onbellek: dict[str, pd.DataFrame] = {}
 
-    def rol(m):
-        s = stok[stok["magaza_id"] == m].merge(urun[["urun_id", "beden"]], on="urun_id")
+    def urunleri(opt):
+        if opt not in urun_onbellek:
+            urun_onbellek[opt] = con.execute(
+                "select u.urun_id, u.beden, u.beden_sira, u.renk, u.liste_fiyati from urun u "
+                "where u.option_id = ? order by u.beden_sira", [opt]).df()
+        return urun_onbellek[opt]
+
+    def rol(m, opt):
+        urun = urunleri(opt)
+        stok = g["stok"][(g["stok"]["option_id"] == opt) & (g["stok"]["magaza_id"] == m)]
+        cv = g["cover"][(g["cover"]["option_id"] == opt) & (g["cover"]["magaza_id"] == m)]
+        st = strr_hepsi[(strr_hepsi["option_id"] == opt) & (strr_hepsi["magaza_id"] == m)]
+        s = stok.merge(urun[["urun_id", "beden"]], on="urun_id")
         adet = dict(zip(s["beden"], s["adet"].astype(int)))
-        k = kt[kt["magaza_id"] == m]
+        k = kt.merge(urun[["urun_id", "beden"]].astype(str), on="urun_id", how="inner")
+        k = k[k["magaza_id"] == m]
         return {
-            "magaza_id": m, "ad": magaza.loc[m, "ad"], "sehir": magaza.loc[m, "sehir"],
-            "tip": magaza.loc[m, "tip"],
+            "magaza_id": m, "option_id": opt, "ad": magaza.loc[m, "ad"],
+            "sehir": magaza.loc[m, "sehir"], "tip": magaza.loc[m, "tip"],
             "bedenler": {b: adet.get(b, 0) for b in urun["beden"]},
             "toplam": int(sum(adet.values())),
-            "hiz_8h": _sozluk(hiz.get(m, 0.0)),
-            "cover": _sozluk(cover.get(m, p.buyuk_cover)),
-            "str": _sozluk(strr.get(m)) if m in strr.index else None,
+            "hiz_8h": _sozluk(cv["hiz"].iloc[0]) if len(cv) else 0.0,   # stoklu hücrelerde
+            "cover": _sozluk(cv["cover"].iloc[0]) if len(cv) else p.buyuk_cover,
+            "str": _sozluk(st["str_orani"].iloc[0]) if len(st) else None,
             "pencere_kaybi": int(k["kayip"].sum()),
             "kayip_beden": {b: int(x) for b, x in zip(k["beden"], k["kayip"])},
         }
 
+    urun = urunleri(h.option_id)
+    secili = g["urunler"].set_index("option_id").loc[h.option_id]
     sonuc = {
         "option": {"option_id": h.option_id, "model_adi": h.model_adi,
                    "alt_kategori": secili["alt_kategori"], "line": secili["line"],
@@ -379,9 +446,11 @@ def ozet(con, karar: date, h: Hikaye, kayip: pd.DataFrame, greedy=None, mip=None
                    "liste_fiyati": _sozluk(urun["liste_fiyati"].iloc[0]),
                    "bedenler": list(urun["beden"])},
         "karar": karar.isoformat(), "mip_de_tasiyor": h.mip_de_tasiyor, "gevseyen": h.gevseyen,
-        "alici": rol(h.alici), "verici": rol(h.verici),
-        "ikinci_alici": rol(h.ikinci_alici) if h.ikinci_alici else None,
-        "karsi_verici": rol(h.karsi_verici) if h.karsi_verici else None,
+        "rakip_alici_sayisi": h.rakip_alici_sayisi,
+        "alici": rol(h.alici, h.option_id), "verici": rol(h.verici, h.option_id),
+        "ikinci_alici": rol(h.ikinci_alici, h.option_id) if h.ikinci_alici else None,
+        "karsi_verici": (rol(h.karsi_verici, h.karsi_option_id or h.option_id)
+                         if h.karsi_verici else None),
     }
     if greedy is not None and mip is not None:
         def hareket(plan, verici, alici):
@@ -393,12 +462,11 @@ def ozet(con, karar: date, h: Hikaye, kayip: pd.DataFrame, greedy=None, mip=None
             "greedy": hareket(greedy, h.verici, h.alici), "mip": hareket(mip, h.verici, h.alici),
             "greedy_ikinci": hareket(greedy, h.verici, h.ikinci_alici) if h.ikinci_alici else None,
             "mip_ikinci": hareket(mip, h.verici, h.ikinci_alici) if h.ikinci_alici else None}
-        # ikinci alıcının aday vericileri, w sırasıyla (ağ problemi kanıtı)
-        if h.ikinci_alici:
-            w = g["w"][(g["w"]["alici"] == h.ikinci_alici) & (g["w"]["option_id"] == h.option_id)]
-            w = w.sort_values(["w", "verici"], ascending=[False, True]).head(3)
-            sonuc["ikinci_alici_adaylari"] = [{"verici": v, "w": float(x)}
-                                              for v, x in zip(w["verici"], w["w"])]
+        # aynı (verici, option) bloğuna aday alıcılar, w sırasıyla (ağ problemi kanıtı)
+        w = g["w"][(g["w"]["verici"] == h.verici) & (g["w"]["option_id"] == h.option_id)]
+        w = w.sort_values(["w", "alici"], ascending=[False, True]).head(5)
+        sonuc["blok_alici_adaylari"] = [{"alici": a_, "w": float(x)}
+                                        for a_, x in zip(w["alici"], w["w"])]
     return sonuc
 
 
@@ -427,21 +495,26 @@ def _yaz(o: dict) -> None:
             continue
         beden = "  ".join(f"{b}:{r['bedenler'][b]}" for b in bedenler)
         str_ = f"{r['str']:.2f}" if r["str"] is not None else "-"
-        print(f"\n{ad}: {r['ad']} ({r['magaza_id']}, {r['sehir']}, {r['tip']})")
+        print(f"\n{ad}: {r['ad']} ({r['magaza_id']}, {r['sehir']}, {r['tip']})  "
+              f"option {r['option_id']}")
         print(f"  stok: {beden}  toplam {r['toplam']}")
         print(f"  hiz (8 hafta): {r['hiz_8h']:.2f}/hafta  cover: {r['cover']:.1f}  STR: {str_}")
         kb = "  ".join(f"{b}:{x}" for b, x in r["kayip_beden"].items()) or "-"
         print(f"  pencere kaybi (Basit): {r['pencere_kaybi']}  beden beden: {kb}")
-    if o.get("ikinci_alici_adaylari"):
-        print("\nikinci alicinin aday vericileri (w):",
-              [(a["verici"], round(a["w"], 1)) for a in o["ikinci_alici_adaylari"]])
+    print(f"\nrakip alici sayisi (ayni verici+option blogunun ote adaylari): "
+          f"{o['rakip_alici_sayisi']}")
+    if o.get("blok_alici_adaylari"):
+        print("blogun aday alicilari (w):",
+              [(a["alici"], round(a["w"], 1)) for a in o["blok_alici_adaylari"]])
 
 
 def main(argv: list[str] | None = None) -> dict:
     a = argparse.ArgumentParser(prog="python -m blok_transfer.hikaye_sec",
                                 description=__doc__.split("\n")[0])
     a.add_argument("--hikaye", metavar="OPTION:ALICI:VERICI", default=None,
-                   help="secimi gecersiz kilar (ornek OPT123:M010:M058)")
+                   help=f"secimi gecersiz kilar (varsayilan KULLANICI_SECIMI {KULLANICI_SECIMI})")
+    a.add_argument("--adaylar", action="store_true",
+                   help="olcut merdivenine en yakin sahneleri listele")
     a.add_argument("--cikti", type=Path, default=VARSAYILAN_CIKTI,
                    help=f"hazirla ciktilari (varsayilan {VARSAYILAN_CIKTI})")
     a.add_argument("--db", type=Path, default=None, help="v4 DuckDB dosyasi (varsayilan: ortak yol)")
@@ -457,15 +530,17 @@ def main(argv: list[str] | None = None) -> dict:
     kayip = hazirla.oku_kayip(args.cikti, con, karar, p.olcum_hafta)
 
     girdi = _girdiler(con, karar, p, kayip)
-    h, tablo = _sec_ic(greedy=greedy.hareketler, mip=mip.hareketler, zorla=zorla,
-                       cover_esigi=p.verici_cover_esigi, **girdi)
     if zorla is None:
-        goster = ["option_id", "model_adi", "alt_kategori", "alici", "verici", "kayip", "w",
-                  "mip_var"]
-        print(f"gevsetmeden sonra aday sayisi: {len(tablo)}; ilk 10:")
-        with pd.option_context("display.width", 200, "display.max_columns", 20):
-            print(tablo.head(10)[goster].to_string(index=False))
+        zorla = varsayilan_secim(greedy.hareketler, mip.hareketler)
+    if args.adaylar:
+        ya = yakin_adaylar(girdi["urunler"], girdi["magazalar"], girdi["stok"],
+                           greedy.hareketler, mip.hareketler, girdi["kayip"])
+        print("olcut merdivenine en yakin sahneler (tutmayan olcut sayisina gore):")
+        with pd.option_context("display.width", 220, "display.max_columns", 20):
+            print(ya.to_string(index=False))
         print()
+    h, _ = _sec_ic(greedy=greedy.hareketler, mip=mip.hareketler, zorla=zorla,
+                   cover_esigi=p.verici_cover_esigi, **girdi)
     o = ozet(con, karar, h, kayip, greedy=greedy, mip=mip, p=p, girdi=girdi)
     _yaz(o)
     return o
