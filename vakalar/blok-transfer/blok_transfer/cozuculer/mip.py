@@ -1,3 +1,6 @@
+import os
+import re
+import tempfile
 import time
 
 import pandas as pd
@@ -55,6 +58,23 @@ DURUMLAR = {
 }
 
 
+def son_sinir(log: str) -> float | None:
+    """CBC 2.10.3 logundan son üst sınır (en büyükleme modeli, TL).
+
+    Sonuç bloğunda CBC, boşluk kalmışsa `Upper bound:` satırını yazar
+    (tolerans içinde durma, düğüm/süre limiti). Kanıtlı optimumda yazmaz:
+    o zaman sınır amacın kendisidir ("Optimal solution found" + `Objective value:`).
+    Hiçbiri yoksa None."""
+    ust = re.search(r"^Upper bound:\s+(\S+)", log, re.MULTILINE)
+    if ust:
+        return float(ust.group(1))
+    if re.search(r"^Result - Optimal solution found\s*$", log, re.MULTILINE):
+        amac = re.search(r"^Objective value:\s+(\S+)", log, re.MULTILINE)
+        if amac:
+            return float(amac.group(1))
+    return None
+
+
 def cozumle(adaylar: pd.DataFrame, kapasite: dict[str, int], p: Parametreler) -> Plan:
     """Spec §6 formülasyonu: x blok kararı, y rota açılışı.
 
@@ -77,19 +97,33 @@ def cozumle(adaylar: pd.DataFrame, kapasite: dict[str, int], p: Parametreler) ->
     paralel kod yolunu tek işçiyle açar. PuLP'nin taşıdığı CBC 2.10.3'te o
     yol aynı girdide kimi koşuda takılıyor, kimi koşuda çöküyor (ölçüm:
     Görev 5 raporu). `None` da seri olur ama 0 niyeti açık yazar.
+
+    Son üst sınır (`Plan.sinir`) CBC logundan okunur: log geçici bir dosyaya
+    yazılır, okunur, silinir. Özet bundan "optimuma en fazla % kaç uzak"
+    (`bosluk_yuzde`) hesaplar.
     """
+    # Sıcak başlangıç (greedy planı) bilerek YOK: CBC 2.10.3 Windows'ta `-mips` yolunu bozuyor, `-max`ta
+    # başlangıç amacını ters işaretli kaydediyor; düzeltilince de düğüm limitli hücreleri kötüleştirdi (Görev 5 raporu).
     baslangic = time.perf_counter()
     if len(adaylar) == 0:
         return Plan(bos_hareketler(), "optimal", time.perf_counter() - baslangic, amac=0.0)
 
     model, x, y = kur(adaylar, kapasite, p)
-    model.solve(pulp.PULP_CBC_CMD(
-        msg=0,
-        threads=0,
-        gapRel=p.mip_bosluk_orani,
-        timeLimit=p.mip_zaman_limiti_sn,
-        maxNodes=p.mip_dugum_limiti,
-    ))
+    tanitici, log_yolu = tempfile.mkstemp(prefix="blok_transfer_cbc_", suffix=".log")
+    os.close(tanitici)
+    try:
+        model.solve(pulp.PULP_CBC_CMD(
+            msg=0,
+            threads=0,
+            gapRel=p.mip_bosluk_orani,
+            timeLimit=p.mip_zaman_limiti_sn,
+            maxNodes=p.mip_dugum_limiti,
+            logPath=log_yolu,
+        ))
+        with open(log_yolu, encoding="utf-8", errors="replace") as f:
+            sinir = son_sinir(f.read())
+    finally:
+        os.remove(log_yolu)
     durum = DURUMLAR.get(model.sol_status, "hata")
     if durum == "hata":
         # tam sayı çözüm yok: değişken değerleri (varsa) LP gevşetmesinden, plan değil
@@ -98,4 +132,4 @@ def cozumle(adaylar: pd.DataFrame, kapasite: dict[str, int], p: Parametreler) ->
     secilen = adaylar.loc[[i for i in adaylar.index if x[i].value() and x[i].value() > 0.5]]
     df = secilen[HAREKET_KOLONLARI].reset_index(drop=True) if len(secilen) else bos_hareketler()
     amac = float(pulp.value(model.objective))
-    return Plan(df, durum, time.perf_counter() - baslangic, amac=amac)
+    return Plan(df, durum, time.perf_counter() - baslangic, amac=amac, sinir=sinir)

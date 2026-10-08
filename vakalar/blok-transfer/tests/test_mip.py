@@ -171,3 +171,65 @@ def test_cozumsuz_durum_hata_ve_bos_plan(monkeypatch):
     assert plan.durum == "hata"
     assert plan.amac is None
     assert len(plan.hareketler) == 0
+
+
+# CBC 2.10.3 logunun son bloğu (gerçek koşulardan kısaltılmış; model en büyükleme).
+LOG_TOLERANS_ICINDE = """\
+Cbc0011I Exiting as integer gap of 165097.16 less than 1e-10 or 0.5%
+Cbc0001I Search completed - best objective -38904608.50914287, took 9546 iterations and 7 nodes (24.44 seconds)
+
+Result - Optimal solution found (within gap tolerance)
+
+Objective value:                38904608.50914287
+Upper bound:                    39069705.674
+Gap:                            -0.00
+Enumerated nodes:               7
+Total iterations:               9546
+"""
+
+LOG_DUGUM_LIMITI = """\
+Cbc0003I Exiting on maximum nodes
+Cbc0005I Partial search - best objective -828 (best possible -851.45534), took 1627 iterations and 1 nodes (0.10 seconds)
+
+Result - Stopped on node limit
+
+Objective value:                828.00000000
+Upper bound:                    851.455
+Gap:                            -0.03
+Enumerated nodes:               1
+Total iterations:               1627
+"""
+
+LOG_KANITLI_OPTIMUM = """\
+Cbc0001I Search completed - best objective -828, took 2121 iterations and 8 nodes (0.13 seconds)
+
+Result - Optimal solution found
+
+Objective value:                828.00000000
+Enumerated nodes:               8
+Total iterations:               2121
+"""
+
+
+@pytest.mark.parametrize("log, beklenen", [
+    (LOG_TOLERANS_ICINDE, 39069705.674),
+    (LOG_DUGUM_LIMITI, 851.455),
+    (LOG_KANITLI_OPTIMUM, 828.0),        # tam kanıt: sınır = amaç, CBC ayrıca yazmıyor
+    ("bozuk log", None),
+], ids=["tolerans_icinde", "dugum_limiti", "kanitli_optimum", "bozuk"])
+def test_son_sinir_logdan_okunur(log, beklenen):
+    sinir = mip.son_sinir(log)
+    if beklenen is None:
+        assert sinir is None
+    else:
+        assert sinir == pytest.approx(beklenen)
+
+
+def test_plan_siniri_tasir():
+    df, kapasite = gap_ornegi()
+    limitte = mip.cozumle(df, kapasite, replace(P, mip_dugum_limiti=1))
+    assert limitte.durum == "limit"
+    assert limitte.sinir is not None and limitte.sinir >= limitte.amac
+    tam = mip.cozumle(df, kapasite, replace(P, mip_bosluk_orani=0.0))
+    assert tam.durum == "optimal"
+    assert tam.sinir == pytest.approx(tam.amac)

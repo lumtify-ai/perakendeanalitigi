@@ -160,3 +160,18 @@ def test_kod_ozeti_icerige_duyarli_satir_sonuna_degil(tmp_path):
     (tmp_path / "alt" / "b.py").write_bytes(b"y = 3\n")
     assert degerlendirme.kod_ozeti(tmp_path) != o1
     assert degerlendirme.kod_ozeti() == degerlendirme.kod_ozeti()   # paketin kendisi, kararlı
+
+
+def test_ozet_bosluk_yuzdesi():
+    plan = replace(ornek_plan(), amac=1000.0, sinir=1012.345)
+    assert degerlendirme.ozetle(plan, P)["bosluk_yuzde"] == 1.23
+    assert degerlendirme.ozetle(ornek_plan(), P)["bosluk_yuzde"] is None     # greedy / bilinmiyor
+    assert degerlendirme.ozetle(replace(ornek_plan(), amac=0.0, sinir=5.0), P)["bosluk_yuzde"] is None
+
+
+def test_onbellek_siniri_saklar(con, tmp_path):
+    p1, _ = degerlendirme.boru_hatti(con, KARAR, P, "mip", onbellek=tmp_path)
+    p2, o2 = degerlendirme.boru_hatti(con, KARAR, P, "mip", onbellek=tmp_path)
+    assert p1.sinir is not None
+    assert p2.sinir == p1.sinir
+    assert o2["bosluk_yuzde"] is not None

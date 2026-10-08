@@ -18,6 +18,14 @@ COZUCULER = {"greedy": greedy.cozumle, "mip": mip.cozumle}
 PAKET_KOKU = Path(__file__).resolve().parent      # blok_transfer/
 
 
+def bosluk_yuzde(plan: Plan) -> float | None:
+    """(sınır − amaç) / |amaç| × 100, iki ondalık: plan optimuma en fazla % kaç uzak.
+    Sınırı olmayan plan (greedy, okunamayan log) ya da sıfır amaç için None."""
+    if plan.sinir is None or not plan.amac:
+        return None
+    return round((plan.sinir - plan.amac) / abs(plan.amac) * 100, 2)
+
+
 def ozetle(plan: Plan, p: Parametreler) -> dict:
     h = plan.hareketler
     rota_sayisi = len(h.groupby(["verici", "alici"])) if len(h) else 0
@@ -29,6 +37,7 @@ def ozetle(plan: Plan, p: Parametreler) -> dict:
         "net_kazanc_tl": round(float(h.w.sum()) - rota_sayisi * p.rota_sabiti_tl, 2),
         "sure_sn": round(plan.sure_sn, 3),
         "durum": plan.durum,
+        "bosluk_yuzde": bosluk_yuzde(plan),
     }
 
 
@@ -87,6 +96,7 @@ def _oku(onbellek: Path, anahtar: str) -> Plan | None:
         sure_sn=bilgi["sure_sn"],
         sayaclar=bilgi["sayaclar"],
         amac=bilgi["amac"],
+        sinir=bilgi.get("sinir"),
     )
 
 
@@ -102,6 +112,7 @@ def _yaz(onbellek: Path, anahtar: str, plan: Plan) -> None:
         "sure_sn": plan.sure_sn,
         "sayaclar": plan.sayaclar,
         "amac": plan.amac,
+        "sinir": plan.sinir,
     }
     gecici = ust.with_suffix(".json.yaziliyor")
     gecici.write_text(json.dumps(bilgi, ensure_ascii=False, indent=2), encoding="utf-8")
