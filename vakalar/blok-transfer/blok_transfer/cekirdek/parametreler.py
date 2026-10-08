@@ -14,7 +14,10 @@ class Parametreler:
     tepe_hafta: int = 52          # tepe talep ufku (hafta)
     olcum_hafta: int = 8          # karar anından sonraki ölçüm penceresi (hafta)
     mip_zaman_limiti_sn: int = 3600
-    mip_dugum_limiti: int | None = 50_000  # düğüm limiti belirleyici, süre emniyet (Görev 5 ölçümü)
+    mip_dugum_limiti: int | None = 10_000  # emniyet; süre limitinden önce bağlar (Görev 5 ölçümü)
+    # MIP sonlanma ölçütü: göreli boşluk. Durum "optimal" = CBC bu tolerans içinde
+    # durdu, kanıtlı optimum değil: plan optimuma en fazla bu oran kadar uzak.
+    mip_bosluk_orani: float = 5e-3        # %0,5; Görev 5 ölçümü (kayıt defteri, Ruling)
     verici_cover_esigi: float = 6.0   # senaryo parametresi: gönderen mağazada asgari cover
     alici_cover_tavani: float = 0.0   # senaryo parametresi: alıcıda azami cover; 0 = kapalı
     min_satis: float = 1.0       # senaryo parametresi

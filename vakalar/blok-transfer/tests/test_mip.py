@@ -135,8 +135,8 @@ def test_kur_modeli_ve_degiskenleri_verir():
     assert len(model.constraints) > 0
 
 
-def test_cbc_seri_ve_dugum_limitli_cagrilir(monkeypatch):
-    """threads=0 (seri) ve maxNodes = p.mip_dugum_limiti. threads=1 CBC 2.10.3'te
+def test_cbc_seri_bosluklu_ve_limitli_cagrilir(monkeypatch):
+    """threads=0 (seri), gapRel = p.mip_bosluk_orani, maxNodes = p.mip_dugum_limiti. threads=1 CBC 2.10.3'te
     paralel kod yolunu açar: aynı girdide takılma ve çökme gözlendi."""
     gorulen = {}
     asil = pulp.PULP_CBC_CMD
@@ -147,10 +147,12 @@ def test_cbc_seri_ve_dugum_limitli_cagrilir(monkeypatch):
 
     monkeypatch.setattr(pulp, "PULP_CBC_CMD", yakala)
     df, kapasite = gap_ornegi()
-    mip.cozumle(df, kapasite, replace(P, mip_dugum_limiti=7, mip_zaman_limiti_sn=60))
+    mip.cozumle(df, kapasite, replace(P, mip_dugum_limiti=7, mip_zaman_limiti_sn=60,
+                                      mip_bosluk_orani=0.025))
     assert gorulen["threads"] == 0
     assert gorulen["maxNodes"] == 7
     assert gorulen["timeLimit"] == 60
+    assert gorulen["gapRel"] == 0.025          # sonlanma ölçütü: göreli boşluk
 
 
 def test_cozumsuz_durum_hata_ve_bos_plan(monkeypatch):

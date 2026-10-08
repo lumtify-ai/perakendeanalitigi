@@ -50,17 +50,28 @@ def kur(
 # çözümle duran CBC için de LpStatusOptimal'dir: "optimal" kanıt demek
 # değildir. Kanıtı çözüm durumu (`sol_status`) taşır.
 DURUMLAR = {
-    pulp.LpSolutionOptimal: "optimal",          # kanıtlı optimum
-    pulp.LpSolutionIntegerFeasible: "limit",    # sınırda durdu, olurlu en iyi çözüm
+    pulp.LpSolutionOptimal: "optimal",          # boşluk toleransı içinde (bkz. cozumle)
+    pulp.LpSolutionIntegerFeasible: "limit",    # emniyet sınırında durdu, olurlu en iyi çözüm
 }
 
 
 def cozumle(adaylar: pd.DataFrame, kapasite: dict[str, int], p: Parametreler) -> Plan:
     """Spec §6 formülasyonu: x blok kararı, y rota açılışı.
 
-    Seri arama ve düğüm limiti: aynı girdi aynı planı verir. Süre limiti
-    yalnız emniyet; demo hücrelerinde belirleyici olan düğüm limitidir
-    (süreye bağlı durma makinenin hızına göre farklı plan üretir).
+    Sonlanma göreli boşlukla (`gapRel = p.mip_bosluk_orani`): CBC, bulduğu
+    çözümün amacı ile kalan ağacın üst sınırı arasındaki fark bu oranın
+    altına inince durur. Durumların anlamı:
+
+        "optimal"  CBC boşluk toleransı içinde durdu. Kanıtlı optimum DEĞİL;
+                   kanıtlanan, çözümün optimuma en fazla `mip_bosluk_orani`
+                   kadar uzak olduğu ("optimuma en fazla %x uzak").
+        "limit"    emniyet sınırlarından biri (düğüm ya da süre) boşluğa
+                   inmeden durdurdu; olurlu en iyi çözüm, boşluk garantisi yok.
+        "hata"     tam sayı çözüm yok; plan boş.
+
+    Seri arama: aynı girdi aynı planı verir. Düğüm limiti ve süre limiti
+    yalnız emniyet; düğüm sınırı süreden önce bağlar ki emniyete takılan
+    hücre de makinenin hızından bağımsız aynı planı versin.
 
     `threads=0` bilerek: CBC'de 0 seri dal-sınır demektir; `threads=1` ise
     paralel kod yolunu tek işçiyle açar. PuLP'nin taşıdığı CBC 2.10.3'te o
@@ -75,6 +86,7 @@ def cozumle(adaylar: pd.DataFrame, kapasite: dict[str, int], p: Parametreler) ->
     model.solve(pulp.PULP_CBC_CMD(
         msg=0,
         threads=0,
+        gapRel=p.mip_bosluk_orani,
         timeLimit=p.mip_zaman_limiti_sn,
         maxNodes=p.mip_dugum_limiti,
     ))

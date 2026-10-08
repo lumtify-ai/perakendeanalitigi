@@ -15,6 +15,7 @@ from .cozuculer import greedy, mip
 from .cozuculer.tip import HAREKET_KOLONLARI, Plan, bos_hareketler
 
 COZUCULER = {"greedy": greedy.cozumle, "mip": mip.cozumle}
+PAKET_KOKU = Path(__file__).resolve().parent      # blok_transfer/
 
 
 def ozetle(plan: Plan, p: Parametreler) -> dict:
@@ -42,17 +43,32 @@ def _kaynak_izi(con: duckdb.DuckDBPyConnection) -> list:
     return [str(Path(yol).resolve()), durum.st_size, durum.st_mtime_ns]
 
 
+def kod_ozeti(kok: Path = PAKET_KOKU) -> str:
+    """`kok` altındaki bütün `*.py` dosyalarının (göreli yol + içerik) sha256'sı.
+
+    Formülasyon, terazi ya da aday kodu değişince önbellek anahtarı da değişsin
+    diye. Satır sonları LF'ye çevrilir: aynı kod Windows (CRLF) ve Linux
+    çalışma kopyasında aynı özeti verir."""
+    ozet = hashlib.sha256()
+    for yol in sorted(kok.rglob("*.py"), key=lambda y: y.relative_to(kok).as_posix()):
+        ozet.update(yol.relative_to(kok).as_posix().encode("utf-8") + b"\0")
+        ozet.update(yol.read_bytes().replace(b"\r\n", b"\n") + b"\0")
+    return ozet.hexdigest()
+
+
 def onbellek_anahtari(
     con: duckdb.DuckDBPyConnection, karar: date, p: Parametreler, yontem: str, deger: str
 ) -> str:
     """Planı belirleyen her şeyin özeti: karar anı, bütün parametreler, yöntem,
-    değer terazisi ve v4 dosyasının kimliği (yol + boyut + mtime)."""
+    değer terazisi, v4 dosyasının kimliği (yol + boyut + mtime) ve
+    `blok_transfer` paketinin kod özeti (`kod_ozeti`)."""
     icerik = {
         "karar": karar.isoformat(),
         "parametreler": dataclasses.asdict(p),
         "yontem": yontem,
         "deger": deger,
         "kaynak": _kaynak_izi(con),
+        "kod": kod_ozeti(),
     }
     metin = json.dumps(icerik, sort_keys=True, ensure_ascii=False, default=str)
     return hashlib.sha256(metin.encode("utf-8")).hexdigest()

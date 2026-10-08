@@ -139,3 +139,24 @@ def test_onbellek_hatali_plani_saklamaz(con, tmp_path, monkeypatch):
         assert plan.durum == "hata"
     assert sayac["n"] == 2
     assert list(tmp_path.glob("*")) == []
+
+
+def test_onbellek_anahtari_kod_ozetine_duyarli(con, monkeypatch):
+    # Formülasyon, terazi ya da aday kodu değişirse eski plan okunmamalı.
+    a1 = degerlendirme.onbellek_anahtari(con, KARAR, P, "mip", "ciro")
+    monkeypatch.setattr(degerlendirme, "kod_ozeti", lambda: "baska-kod")
+    assert degerlendirme.onbellek_anahtari(con, KARAR, P, "mip", "ciro") != a1
+
+
+def test_kod_ozeti_icerige_duyarli_satir_sonuna_degil(tmp_path):
+    (tmp_path / "alt").mkdir()
+    (tmp_path / "a.py").write_bytes(b"x = 1\n")
+    (tmp_path / "alt" / "b.py").write_bytes(b"y = 2\n")
+    (tmp_path / "notlar.txt").write_bytes(b"sayilmaz")
+    o1 = degerlendirme.kod_ozeti(tmp_path)
+    (tmp_path / "notlar.txt").write_bytes(b"degisti")          # .py değil
+    (tmp_path / "a.py").write_bytes(b"x = 1\r\n")             # yalnız satır sonu
+    assert degerlendirme.kod_ozeti(tmp_path) == o1
+    (tmp_path / "alt" / "b.py").write_bytes(b"y = 3\n")
+    assert degerlendirme.kod_ozeti(tmp_path) != o1
+    assert degerlendirme.kod_ozeti() == degerlendirme.kod_ozeti()   # paketin kendisi, kararlı

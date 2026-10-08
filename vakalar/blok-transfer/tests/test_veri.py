@@ -29,7 +29,8 @@ def test_varsayilan_parametreler():
     assert p.tepe_hafta == 52
     assert p.olcum_hafta == 8
     assert p.mip_zaman_limiti_sn == 3600
-    assert p.mip_dugum_limiti == 50_000            # Görev 5 ölçümü (kayıt defteri, Ruling)
+    assert p.mip_dugum_limiti == 10_000            # Görev 5 ölçümü (kayıt defteri, Ruling)
+    assert p.mip_bosluk_orani == 5e-3
 
 
 # --- karar anı (spec §3.1) -------------------------------------------------
