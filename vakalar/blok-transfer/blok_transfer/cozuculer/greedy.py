@@ -42,7 +42,7 @@ def cozumle(adaylar: pd.DataFrame, kapasite: dict[str, int], p: Parametreler) ->
     rota_sayisi = len(df.groupby(["verici", "alici"], observed=True)) if len(df) else 0
     return Plan(
         hareketler=df,
-        durum="optimal",
+        durum="sezgisel",             # kanıt iddiası yok: sınır da yok
         sure_sn=time.perf_counter() - baslangic,
         sayaclar=sayac,
         amac=float(df.w.sum()) - rota_sayisi * p.rota_sabiti_tl,   # MIP amacının aynısı

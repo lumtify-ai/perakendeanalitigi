@@ -45,12 +45,13 @@ def test_boru_hatti_fiksturde_kapasiteye_uyar(con):
     # OPT1 bloğu 12 adet: hiçbir alıcıya sığmaz. OPT2 (8) MC'ye sığar.
     # İki çözücü de tek hareketi seçer: 600 − 500 rota sabiti = 100.
     # (Rota birleştirmeyi test_mip'in küçük örnekleri sınar.)
-    for yontem in ("greedy", "mip"):
+    # Durum: MIP boşluk toleransı içinde "optimal"; açgözlü kanıt iddia etmez: "sezgisel".
+    for yontem, durum in (("greedy", "sezgisel"), ("mip", "optimal")):
         plan, ozet = degerlendirme.boru_hatti(con, KARAR, P, yontem)
-        assert plan.durum == "optimal"
+        assert plan.durum == durum
         assert set(zip(plan.hareketler.alici, plan.hareketler.option_id)) == {("MC", "OPT2")}
         assert ozet["net_kazanc_tl"] == pytest.approx(100.0)
-        assert ozet["durum"] == "optimal"
+        assert ozet["durum"] == durum
 
 
 def test_boru_hatti_degeri_teraziye_gecirir(con):
@@ -148,17 +149,31 @@ def test_onbellek_anahtari_kod_ozetine_duyarli(con, monkeypatch):
     assert degerlendirme.onbellek_anahtari(con, KARAR, P, "mip", "ciro") != a1
 
 
-def test_kod_ozeti_icerige_duyarli_satir_sonuna_degil(tmp_path):
-    (tmp_path / "alt").mkdir()
-    (tmp_path / "a.py").write_bytes(b"x = 1\n")
-    (tmp_path / "alt" / "b.py").write_bytes(b"y = 2\n")
-    (tmp_path / "notlar.txt").write_bytes(b"sayilmaz")
+def test_kod_ozeti_yalniz_cozucuye_giren_kaynaklari_sayar(tmp_path):
+    # Çözücüye giren: cekirdek/**, cozuculer/**, degerlendirme.py. Ölçüm, hikâye
+    # seçimi, ön hazırlık ve notlar MIP önbelleğini geçersiz kılmamalı.
+    (tmp_path / "cekirdek").mkdir()
+    (tmp_path / "cozuculer" / "ic").mkdir(parents=True)
+    (tmp_path / "cekirdek" / "a.py").write_bytes(b"x = 1\n")
+    (tmp_path / "cozuculer" / "ic" / "b.py").write_bytes(b"y = 2\n")
+    (tmp_path / "degerlendirme.py").write_bytes(b"z = 3\n")
+    (tmp_path / "olcum.py").write_bytes(b"o = 1\n")
+    (tmp_path / "hikaye_sec.py").write_bytes(b"h = 1\n")
+    (tmp_path / "cekirdek" / "notlar.txt").write_bytes(b"sayilmaz")
     o1 = degerlendirme.kod_ozeti(tmp_path)
-    (tmp_path / "notlar.txt").write_bytes(b"degisti")          # .py değil
-    (tmp_path / "a.py").write_bytes(b"x = 1\r\n")             # yalnız satır sonu
+    (tmp_path / "olcum.py").write_bytes(b"o = 2\n")                   # çözücü dışı
+    (tmp_path / "hikaye_sec.py").write_bytes(b"h = 2\n")
+    (tmp_path / "hazirla.py").write_bytes(b"yeni dosya\n")
+    (tmp_path / "cekirdek" / "notlar.txt").write_bytes(b"degisti")      # .py değil
+    (tmp_path / "cekirdek" / "a.py").write_bytes(b"x = 1\r\n")          # yalnız satır sonu
     assert degerlendirme.kod_ozeti(tmp_path) == o1
-    (tmp_path / "alt" / "b.py").write_bytes(b"y = 3\n")
-    assert degerlendirme.kod_ozeti(tmp_path) != o1
+    for yol, icerik in [("cekirdek/a.py", b"x = 9\n"), ("cozuculer/ic/b.py", b"y = 9\n"),
+                        ("degerlendirme.py", b"z = 9\n")]:
+        eski = (tmp_path / yol).read_bytes()
+        (tmp_path / yol).write_bytes(icerik)
+        assert degerlendirme.kod_ozeti(tmp_path) != o1, yol
+        (tmp_path / yol).write_bytes(eski)
+    assert degerlendirme.kod_ozeti(tmp_path) == o1
     assert degerlendirme.kod_ozeti() == degerlendirme.kod_ozeti()   # paketin kendisi, kararlı
 
 

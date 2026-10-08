@@ -13,6 +13,7 @@ import pandas as pd
 import senaryolar
 from blok_transfer import degerlendirme
 from blok_transfer.cekirdek.parametreler import Parametreler
+from blok_transfer.olcum import Olcum
 
 
 @dataclass(frozen=True)
@@ -34,24 +35,45 @@ MALIYET_PAKETLERI = {
     "yuksek": Paket(20.0, 900.0, 0.08),
 }
 
-PARAMETRELER = [
-    {
-        "ad": "alici_ihtimal",
-        "etiket": "Alıcı mağazada satma ihtimali (%)",
-        "degerler": [50, 60, 70, 80],
-    },
-    {
-        "ad": "verici_ihtimal",
-        "etiket": "Kalsaydı satma ihtimali (%)",
-        "degerler": [0, 5, 10, 20],
-    },
-    {
-        "ad": "maliyet_paketi",
-        "etiket": "Toplama + kargo + yıpranma",
-        "degerler": ["dusuk", "orta", "yuksek"],
-        "deger_etiketleri": {"dusuk": "düşük", "orta": "orta", "yuksek": "yüksek"},
-    },
-]
+ALICI_TABANI = [50, 60, 70, 80]
+VERICI_TABANI = [0, 5, 10, 20]
+ADIM = 5          # ölçülen değer 5 puanlık adıma yuvarlanır
+
+
+def olculen_nokta(yuzde: float) -> int:
+    """Ölçülen yüzdenin kadrandaki yeri: 5 puanlık adıma yuvarlanmış (`5 · round(yuzde/5)`)."""
+    return ADIM * round(yuzde / ADIM)
+
+
+def deger_kumesi(olculen_yuzde: float, taban: list[int]) -> list[int]:
+    """Kadran değerleri: `taban` + ölçülen yüzdenin 5 puana yuvarlanmışı (`olculen_nokta`),
+    sıralı ve tekil. Ölçülen değer tabanın dışına düşerse küme onu kapsayacak kadar genişler
+    (spec §8): okuyucu kendi verisinde ölçülen noktayı kadranda bulabilsin."""
+    return sorted({*taban, olculen_nokta(olculen_yuzde)})
+
+
+def parametreler(p_alici: float, p_verici: float) -> list[dict]:
+    """Demo kadranları. `p_alici` ve `p_verici` `Olcum`'un 0-1 oranlarıdır (referans planın
+    gerçekleşen oranları); kadran yüzde olduğu için ×100 yapılıp `deger_kumesi`ne verilir."""
+    return [
+        {
+            "ad": "alici_ihtimal",
+            "etiket": "Alıcı mağazada satma ihtimali (%)",
+            "degerler": deger_kumesi(p_alici * 100, ALICI_TABANI),
+        },
+        {
+            "ad": "verici_ihtimal",
+            "etiket": "Kalsaydı satma ihtimali (%)",
+            "degerler": deger_kumesi(p_verici * 100, VERICI_TABANI),
+        },
+        {
+            "ad": "maliyet_paketi",
+            "etiket": "Toplama + kargo + yıpranma",
+            "degerler": ["dusuk", "orta", "yuksek"],
+            "deger_etiketleri": {"dusuk": "düşük", "orta": "orta", "yuksek": "yüksek"},
+        },
+    ]
+
 
 HEDEF = (
     Path(__file__).resolve().parents[2]
@@ -129,12 +151,18 @@ def hareketleri_getir(con, karar) -> pd.DataFrame:
     return zengin
 
 
-def uret(con, karar) -> dict:
+def uret(con, karar, olculen: Olcum) -> dict:
+    """Referans planın getiri kadranı. `olculen`: referans planın ileriye bakan ölçümü
+    (`senaryolar.referans_olcum`); gerçekleşen oranları kadran değerlerine eklenir ve
+    `olculen` alanında hangi kadran değerine denk düştükleri yazılır (Demo bunu göstermez;
+    rapor ve test okur)."""
     hareketler = hareketleri_getir(con, karar)
+    kadranlar = parametreler(olculen.p_alici, olculen.p_verici)
+    alici_degerleri, verici_degerleri, paketler = (k["degerler"] for k in kadranlar)
     sonuclar = {}
-    for alici in PARAMETRELER[0]["degerler"]:
-        for verici in PARAMETRELER[1]["degerler"]:
-            for paket_adi in PARAMETRELER[2]["degerler"]:
+    for alici in alici_degerleri:
+        for verici in verici_degerleri:
+            for paket_adi in paketler:
                 ozet = hesapla(
                     hareketler, MALIYET_PAKETLERI[paket_adi], float(alici), float(verici)
                 )
@@ -144,14 +172,22 @@ def uret(con, karar) -> dict:
                 }
     return {
         "surum": senaryolar._surum(),
-        "parametreler": PARAMETRELER,
+        "parametreler": kadranlar,
+        "olculen": {
+            "alici_ihtimal": olculen_nokta(olculen.p_alici * 100),
+            "verici_ihtimal": olculen_nokta(olculen.p_verici * 100),
+        },
         "sonuclar": sonuclar,
     }
 
 
 if __name__ == "__main__":
+    from blok_transfer import hazirla
     from blok_transfer.cekirdek import veri
 
     baglanti = veri.baglan()
-    senaryolar.yaz(uret(baglanti, veri.karar_tarihi(baglanti)), HEDEF)
+    karar = veri.karar_ani(baglanti)
+    kayip = hazirla.oku_kayip(senaryolar.CIKTI, baglanti, karar, senaryolar.OLCUM_HAFTA)
+    olculen = senaryolar.referans_olcum(baglanti, karar, kayip)
+    senaryolar.yaz(uret(baglanti, karar, olculen), HEDEF)
     print(f"yazildi: {HEDEF}")

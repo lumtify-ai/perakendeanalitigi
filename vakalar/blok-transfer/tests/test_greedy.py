@@ -18,7 +18,7 @@ def test_siralama_tek_hedef_ve_negatif_durur():
         aday("MB", "MC", "OPT3", 7, -50.0),    # w ≤ 0 → alınmaz
     ])
     plan = greedy.cozumle(df, {"MB": 1000, "MC": 1000}, P)
-    assert plan.durum == "optimal"
+    assert plan.durum == "sezgisel"      # açgözlü kanıt iddia etmez
     ciftler = set(zip(plan.hareketler.verici, plan.hareketler.alici, plan.hareketler.option_id))
     assert ciftler == {("MA", "MB", "OPT1"), ("MA", "MC", "OPT2")}
 

@@ -1,10 +1,10 @@
+from datetime import date
+
 import pandas as pd
 import pytest
 
 import getiri
-
-# Ruling R1: v2 kayip_satis_yakalama silindi; modül Görev 9/10'da v4'e yenilenir.
-pytestmark = pytest.mark.skip(reason="Görev 9/10'da v4'e yenilenir")
+from blok_transfer.olcum import Olcum
 
 
 def mini_plan() -> pd.DataFrame:
@@ -79,20 +79,42 @@ def test_paketler_spec_degerleri():
     assert getiri.MALIYET_PAKETLERI["yuksek"] == getiri.Paket(20.0, 900.0, 0.08)
 
 
+def test_deger_kumesi_olculeni_ekler():
+    assert getiri.deger_kumesi(33.0, [50, 60, 70, 80]) == [35, 50, 60, 70, 80]
+    # 62 → 5·round(12,4) = 60, tabanda zaten var: küme değişmez
+    assert getiri.deger_kumesi(62.0, [50, 60, 70, 80]) == [50, 60, 70, 80]
+    # ölçülen taban içine düşerse araya girer; sıralı ve tekil
+    assert getiri.deger_kumesi(12.0, [0, 5, 10, 20]) == [0, 5, 10, 20]
+    assert getiri.deger_kumesi(14.3, [0, 5, 10, 20]) == [0, 5, 10, 15, 20]
+    # taban dışı (üstte): aralık ölçüleni kapsar
+    assert getiri.deger_kumesi(93.0, [50, 60, 70, 80]) == [50, 60, 70, 80, 95]
+
+
+def test_parametreler_olculen_noktalari_ekler():
+    # Olcum oranları 0–1; kadran yüzde: 0,143 → 14,3 → 15 · 0,102 → 10,2 → 10 (tabanda var)
+    parametreler = getiri.parametreler(0.143, 0.102)
+    degerler = {p["ad"]: p["degerler"] for p in parametreler}
+    assert degerler["alici_ihtimal"] == [15, 50, 60, 70, 80]
+    assert degerler["verici_ihtimal"] == [0, 5, 10, 20]
+    assert degerler["maliyet_paketi"] == ["dusuk", "orta", "yuksek"]
+    assert parametreler[2]["deger_etiketleri"]["yuksek"] == "yüksek"
+
+
 def test_parametreler_ve_anahtarlar(con, tmp_path):
-    from datetime import date
     import json
     import senaryolar
 
-    icerik = getiri.uret(con, date(2025, 12, 29))
+    olculen = Olcum(tasinan_adet=8, kurtarilan=3.0, payda=22.0, yakalama=3 / 22,
+                    p_alici=0.33, p_verici=0.0)
+    icerik = getiri.uret(con, date(2025, 12, 29), olculen)
     assert [p["ad"] for p in icerik["parametreler"]] == [
         "alici_ihtimal", "verici_ihtimal", "maliyet_paketi",
     ]
-    assert icerik["parametreler"][0]["degerler"] == [50, 60, 70, 80]
+    assert icerik["parametreler"][0]["degerler"] == [35, 50, 60, 70, 80]
     assert icerik["parametreler"][1]["degerler"] == [0, 5, 10, 20]
     assert icerik["parametreler"][2]["deger_etiketleri"]["yuksek"] == "yüksek"
-    assert len(icerik["sonuclar"]) == 4 * 4 * 3
-    assert "50|0|dusuk" in icerik["sonuclar"]
+    assert len(icerik["sonuclar"]) == 5 * 4 * 3
+    assert "35|0|dusuk" in icerik["sonuclar"]
 
     ornek = icerik["sonuclar"]["60|10|orta"]
     assert set(ornek["ozet"]) == {
@@ -105,3 +127,14 @@ def test_parametreler_ve_anahtarlar(con, tmp_path):
     senaryolar.yaz(icerik, hedef)
     assert hedef.stat().st_size < 500 * 1024
     json.loads(hedef.read_text(encoding="utf-8"))
+
+
+def test_getiri_json_olculen_noktayi_tasir(con):
+    olculen = Olcum(tasinan_adet=8, kurtarilan=3.0, payda=22.0, yakalama=3 / 22,
+                    p_alici=0.33, p_verici=0.02)
+    icerik = getiri.uret(con, date(2025, 12, 29), olculen)
+    # kadran değerleri: 33 → 35, 2 → 0 (tabanda var)
+    assert icerik["olculen"] == {"alici_ihtimal": 35, "verici_ihtimal": 0}
+    # ölçülen nokta demonun tıklayabileceği bir hücre: her maliyet paketinde sonucu var
+    for paket in getiri.MALIYET_PAKETLERI:
+        assert f"35|0|{paket}" in icerik["sonuclar"]

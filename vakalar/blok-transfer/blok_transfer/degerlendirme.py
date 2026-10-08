@@ -52,14 +52,21 @@ def _kaynak_izi(con: duckdb.DuckDBPyConnection) -> list:
     return [str(Path(yol).resolve()), durum.st_size, durum.st_mtime_ns]
 
 
+# Çözücüye giren kaynaklar. Ölçüm, hikâye seçimi ve ön hazırlık plana girmez:
+# onları değiştirmek MIP önbelleğini (saatlerce çözüm) boşuna geçersiz kılmasın.
+COZUCU_KAYNAKLARI = ("cekirdek/**/*.py", "cozuculer/**/*.py", "degerlendirme.py")
+
+
 def kod_ozeti(kok: Path = PAKET_KOKU) -> str:
-    """`kok` altındaki bütün `*.py` dosyalarının (göreli yol + içerik) sha256'sı.
+    """Çözücüye giren kaynakların (`COZUCU_KAYNAKLARI`: cekirdek/, cozuculer/,
+    degerlendirme.py) göreli yol + içerik sha256'sı.
 
     Formülasyon, terazi ya da aday kodu değişince önbellek anahtarı da değişsin
     diye. Satır sonları LF'ye çevrilir: aynı kod Windows (CRLF) ve Linux
     çalışma kopyasında aynı özeti verir."""
+    yollar = {y for desen in COZUCU_KAYNAKLARI for y in kok.glob(desen)}
     ozet = hashlib.sha256()
-    for yol in sorted(kok.rglob("*.py"), key=lambda y: y.relative_to(kok).as_posix()):
+    for yol in sorted(yollar, key=lambda y: y.relative_to(kok).as_posix()):
         ozet.update(yol.relative_to(kok).as_posix().encode("utf-8") + b"\0")
         ozet.update(yol.read_bytes().replace(b"\r\n", b"\n") + b"\0")
     return ozet.hexdigest()
@@ -70,7 +77,7 @@ def onbellek_anahtari(
 ) -> str:
     """Planı belirleyen her şeyin özeti: karar anı, bütün parametreler, yöntem,
     değer terazisi, v4 dosyasının kimliği (yol + boyut + mtime) ve
-    `blok_transfer` paketinin kod özeti (`kod_ozeti`)."""
+    çözücüye giren kaynakların kod özeti (`kod_ozeti`)."""
     icerik = {
         "karar": karar.isoformat(),
         "parametreler": dataclasses.asdict(p),
