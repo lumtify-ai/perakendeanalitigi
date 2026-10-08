@@ -5,7 +5,8 @@ tanitim: Allocator. Depoya gelen malın hangi mağazaya kaçar adet gideceğine 
 ---
 
 Ali bir **allocator**. İşi tek cümleyle: merkez depodaki malı doğru mağazaya,
-doğru adette ve doğru zamanda göndermek.
+doğru adette ve doğru zamanda göndermek. İstanbul mağazaları onda; Anadolu
+mağazalarına Veli bakar.
 
 Sabah trading toplantısına girer, hangi ürünün iyi hangisinin kötü gittiğini
 görür, sonra masasına döner ve o gün kaç adet neyin nereye gideceğine karar
