@@ -8,7 +8,7 @@ Bu paket Lumoda verisi üstünde Blok Transfer'i iki yöntemle çözer
 
     cd vakalar/blok-transfer
     python -m venv .venv
-    .venv/Scripts/pip install -e ../ortak -e ".[dev]"    # önce ortak paket (perakende-analitik)
+    .venv/Scripts/pip install -e ../ortak -e ../../veri -e ".[dev]"    # ortak paket + perakende-veri
     .venv/Scripts/python -m pytest -q                    # testler (gerçek veri testleri `veri` işaretli)
     .venv/Scripts/python senaryolar.py                   # demo JSON'unu üretir (elle)
 
@@ -43,6 +43,18 @@ Gerçek v4 verisinde ölçülen süre (tek koşum, tepe bellek ölçülmedi): `g
 (havuz 56.748.777 satır, pencerede 832.051 stoksuz gün-hücresi); toplam yaklaşık 7 dk.
 Karar anı 2025-11-03, ölçüm penceresi 2025-11-03..2025-12-28; penceredeki toplam
 Basit kaybı 527.475 adet.
+
+## Rapor (`rapor.py`)
+
+    cd vakalar/blok-transfer
+    PYTHONIOENCODING=utf-8 .venv/Scripts/python rapor.py > cikti/rapor.txt
+
+Yazılardaki her sayının tek kaynağı `cikti/rapor.txt`'tir (git dışı). Girdiler: `hazirla`
+çıktıları, plan önbelleği (`cikti/planlar`; `senaryolar.py` doldurur) ve hakem önbelleği
+(`cd ../ortak && .venv/Scripts/python -m perakende_analitik.hakem`). Hakemi yalnız rapor
+okur; bu yüzden `../../veri` (`perakende-veri`, PyPI'da yok) yalnız rapor için kurulur.
+Eksik girdide hangi komutun koşulacağını söyleyip 1 ile çıkar. `--hikaye OPTION:ALICI:VERICI`
+sahneyi geçersiz kılar.
 
 ## Parametre gerekçeleri (spec §4)
 

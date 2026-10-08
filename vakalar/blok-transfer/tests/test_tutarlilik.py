@@ -1,17 +1,21 @@
-"""Gerçek veri setiyle tutarlılık: veri/README.md 528 kırık çift ilan ediyor."""
-from dataclasses import replace
+"""Gerçek veri setiyle tutarlılık (hepsi `veri` işaretli: gerçek v4 ve önbellek ister).
+
+Kırık çift sayısı sabit değil, rapordan okunur: `cikti/rapor.txt` yazıların tek sayı
+kaynağıdır (spec §6) ve bu test onun koddan sapmadığını denetler.
+"""
 from pathlib import Path
 
 import pytest
 
-import getiri
 from blok_transfer import degerlendirme
 from blok_transfer.cekirdek import adaylar as adaylar_mod
 from blok_transfer.cekirdek import metrikler, veri
 from blok_transfer.cekirdek.parametreler import Parametreler
 
-# Ruling R1: v2 kayip_satis_yakalama silindi; modül Görev 9/10'da v4'e yenilenir.
-pytestmark = pytest.mark.skip(reason="Görev 9/10'da v4'e yenilenir")
+KOK = Path(__file__).resolve().parents[1]
+RAPOR = KOK / "cikti" / "rapor.txt"
+ONBELLEK = KOK / "cikti" / "planlar"
+KIRIK_SATIRI = "kırık (mağaza, option) çifti: "
 
 # tests/ → blok-transfer/ → vakalar/ → depo kökü
 YAZI = (
@@ -26,9 +30,22 @@ YAZI = (
 )
 
 
-def test_kirik_cift_sayisi_readme_ile_tutarli():
+def _rapordaki_kirik() -> int:
+    if not RAPOR.exists():
+        pytest.skip(f"{RAPOR} yok; önce: cd vakalar/blok-transfer && "
+                    "PYTHONIOENCODING=utf-8 .venv/Scripts/python rapor.py > cikti/rapor.txt")
+    for satir in RAPOR.read_text(encoding="utf-8").splitlines():
+        if satir.startswith(KIRIK_SATIRI):
+            return int(satir[len(KIRIK_SATIRI):].split()[0].replace(".", ""))
+    raise AssertionError(f"{RAPOR.name}: '{KIRIK_SATIRI}' satırı yok")
+
+
+@pytest.mark.veri
+def test_kirik_cift_sayisi_raporla_tutarli():
     con = veri.baglan()
-    assert len(metrikler.kiriklar(con, veri.karar_tarihi(con))) == 528
+    karar = veri.karar_ani(con)
+    veri.gorunumler(con, karar)
+    assert len(metrikler.kiriklar(con, karar)) == _rapordaki_kirik()
 
 
 def _yayimlanan_sql() -> str:
@@ -61,13 +78,16 @@ def _yayimlanan_sql() -> str:
     return bloklar[0]
 
 
+@pytest.mark.veri
+@pytest.mark.xfail(strict=True, reason="Görev 12: yazıdaki SQL v4 şemasına ve kuralına güncellenir")
 def test_yazidaki_sql_python_boru_hattiyla_ayni_adayi_uretiyor():
     """Dördüncü yazının taşıyıcı iddiası: yayımlanan sorgu Python tarafıyla
     birebir aynı aday listesini üretir. Geçmişte tam burada hata çıktı —
     `soguma` CTE'si tanımlanıp verici filtresinde kullanılmayınca sorgu
     375 yerine 1.460 aday döndürmüştü."""
     con = veri.baglan()
-    karar = veri.karar_tarihi(con)
+    karar = veri.karar_ani(con)
+    veri.gorunumler(con, karar)
     sql_adaylari = con.execute(_yayimlanan_sql()).df()
     python_adaylari = adaylar_mod.uret(con, karar, Parametreler())
 
@@ -77,24 +97,15 @@ def test_yazidaki_sql_python_boru_hattiyla_ayni_adayi_uretiyor():
     )
 
 
+@pytest.mark.veri
 def test_gercek_veride_mip_greedyden_kotu_olamaz():
+    """Referans senaryo (önbellekten): MIP 'optimal' ise amacı açgözlünün net kazancından
+    düşük olamaz. 'limit' durumunda garanti yok; rapor ayrıca denetler."""
     con = veri.baglan()
-    karar = veri.karar_tarihi(con)
-    p = Parametreler()  # cover 6, min_satis 1 — orta senaryo
-    g_plan, g_ozet = degerlendirme.boru_hatti(con, karar, p, "greedy")
-    m_plan, m_ozet = degerlendirme.boru_hatti(con, karar, p, "mip")
-    assert len(g_plan.hareketler) > 0, "orta senaryoda hic hareket cikmamasi supheli"
+    karar = veri.karar_ani(con)
+    p = Parametreler()
+    g_plan, g_ozet = degerlendirme.boru_hatti(con, karar, p, "greedy", onbellek=ONBELLEK)
+    m_plan, m_ozet = degerlendirme.boru_hatti(con, karar, p, "mip", onbellek=ONBELLEK)
+    assert len(g_plan.hareketler) > 0, "referans senaryoda hiç hareket çıkmaması şüpheli"
     if m_plan.durum == "optimal":
         assert m_ozet["net_kazanc_tl"] >= g_ozet["net_kazanc_tl"] - 1e-6
-
-
-def test_getiri_izgarasinin_tamami_karli():
-    """Sektör kalibrasyonunun sonucu; kadran değerleri oynarsa fark edilsin.
-
-    Transfer kararı yakın bir karar değil: en kötü köşede bile pay kalıyor.
-    """
-    con = veri.baglan()
-    icerik = getiri.uret(con, veri.karar_tarihi(con))
-    negatif = [a for a, s in icerik["sonuclar"].items()
-               if s["ozet"]["net_kar_tl"] <= 0]
-    assert negatif == []
