@@ -4,6 +4,8 @@
 Dünya: İstanbul'da üç mağaza (I1, I2 cadde, I3 AVM), Trabzon'da iki (T1 AVM, T2 cadde),
 Ankara'da bir (A1). Beden sırası 1..5; çekirdek S-M-L = sıra 2-4."""
 
+from datetime import date
+
 import pandas as pd
 import pytest
 
@@ -233,11 +235,36 @@ def test_ikinci_alici_ayni_blogun_en_yuksek_w_si_ve_rakip_sayisi():
     assert "ikinci_alici_yok" not in h.gevseyen
 
 
-def test_ikinci_alici_w_esitliginde_kimlik_sirasi():
+def test_ikinci_alici_yalniz_pozitif_w_ve_negatif_rakip_sayilmaz():
     urunler = _urunler(("O1", "Kazak"))
-    h = _sec(urunler, _stok(I1_O1=KIRIK, T1_O1=TAM), _hareket(("T1", "I1", "O1")),
-             _kayip(I1_O1=7), w=_w(("T1", "I3", "O1", 50.0), ("T1", "I2", "O1", 50.0)))
-    assert h.ikinci_alici == "I2" and h.rakip_alici_sayisi == 2
+    stok = _stok(I1_O1=KIRIK, T1_O1=TAM)
+    greedy = _hareket(("T1", "I1", "O1"))
+    # I2 zararına aday (w < 0): ne ikinci alıcı ne rakip
+    w = _w(("T1", "I2", "O1", -11310.8), ("T1", "I3", "O1", 50.0))
+    h = _sec(urunler, stok, greedy, _kayip(I1_O1=7), w=w)
+    assert (h.ikinci_alici, h.rakip_alici_sayisi) == ("I3", 1)
+    # yalnız zararına aday kalırsa ikinci alıcı yok
+    h = _sec(urunler, stok, greedy, _kayip(I1_O1=7), w=_w(("T1", "I2", "O1", -5.0),
+                                                           ("T1", "I3", "O1", 0.0)))
+    assert (h.ikinci_alici, h.rakip_alici_sayisi) == (None, 0)
+    assert "ikinci_alici_yok" in h.gevseyen
+
+
+def test_ikinci_alici_esitlikte_pencere_kaybi_sonra_kimlik():
+    urunler = _urunler(("O1", "Kazak"))
+    stok = _stok(I1_O1=KIRIK, T1_O1=TAM)
+    greedy = _hareket(("T1", "I1", "O1"))
+    # w kuruşa yuvarlı eşit (50,001 ve 50,004 → 50,00): kaybı büyük olan I3 öne geçer
+    w = _w(("T1", "I2", "O1", 50.001), ("T1", "I3", "O1", 50.004))
+    h = _sec(urunler, stok, greedy, _kayip(I1_O1=7, I2_O1=2, I3_O1=9), w=w)
+    assert (h.ikinci_alici, h.rakip_alici_sayisi) == ("I3", 2)
+    # kayıp da eşitse alıcı kimliği
+    h = _sec(urunler, stok, greedy, _kayip(I1_O1=7, I2_O1=4, I3_O1=4), w=w)
+    assert h.ikinci_alici == "I2"
+    # w farklıysa kayıp bakılmaz
+    w2 = _w(("T1", "I2", "O1", 60.0), ("T1", "I3", "O1", 50.0))
+    h = _sec(urunler, stok, greedy, _kayip(I1_O1=7, I3_O1=99), w=w2)
+    assert h.ikinci_alici == "I2"
 
 
 def test_karsi_verici_ayni_option_her_bolge_en_cok_stok():
@@ -294,6 +321,46 @@ def test_yakin_adaylar_tutmayan_sayisina_gore_siralar():
     assert list(ya["n_tutmayan"]) == [1, 2, 3]            # Kazak: yalnız trabzon
     assert ya.loc[0, "tutmayan"] == "trabzon" and ya.loc[0, "option_id"] == "O1"
     assert ya.loc[2, "tutmayan"].startswith("alt_kategori, cadde")
+
+
+def _kayipli_ozet_girdisi():
+    return pd.DataFrame([("2026-01-05", "MB", "OPT1-3", 12), ("2026-01-05", "MB", "OPT1-1", 3),
+                         ("2026-01-12", "ME", "OPT1-2", 2)],
+                        columns=["tarih", "magaza_id", "urun_id", "kayip"]
+                        ).assign(tarih=lambda d: pd.to_datetime(d["tarih"]))
+
+
+def _ozetle(con):
+    con.execute("alter table urun add column renk varchar")      # fikstürde renk yok
+    h = Hikaye(option_id="OPT1", model_adi="Model OPT1", alici="MB", verici="MA",
+               ikinci_alici="MC", karsi_verici="MA", mip_de_tasiyor=True, gevseyen=[],
+               rakip_alici_sayisi=1, karsi_option_id="OPT2")
+    return hikaye_sec.ozet(con, date(2025, 12, 29), h, _kayipli_ozet_girdisi())
+
+
+def test_ozet_rol_sayilari_ve_baska_option_karsi_verici(con):
+    o = _ozetle(con)
+    for rol in ("alici", "verici", "ikinci_alici", "karsi_verici"):
+        assert sum(o[rol]["bedenler"].values()) == o[rol]["toplam"]
+    assert o["alici"]["bedenler"] == {"XS": 2, "S": 0, "M": 0, "L": 0, "XL": 3}
+    assert (o["alici"]["toplam"], o["verici"]["toplam"]) == (5, 12)
+    assert o["alici"]["hiz_8h"] == pytest.approx(4.0)
+    assert o["verici"]["hiz_8h"] == pytest.approx(0.5)
+    assert o["alici"]["pencere_kaybi"] == 15 and o["alici"]["kayip_beden"] == {"M": 12, "XS": 3}
+    # karşı verici başka option'da: rolün option_id'si ve o option'ın stoku
+    kv = o["karsi_verici"]
+    assert kv["option_id"] == "OPT2" and kv["magaza_id"] == "MA" and kv["toplam"] == 8
+    assert kv["bedenler"] == {"XS": 2, "S": 1, "M": 2, "L": 1, "XL": 2}
+    assert o["alici"]["option_id"] == o["verici"]["option_id"] == "OPT1"
+    # stoksuz hücrede (cover satırı yok) hız yok: 0 değil None
+    assert o["ikinci_alici"]["toplam"] == 0 and o["ikinci_alici"]["hiz_8h"] is None
+
+
+def test_ozet_karar_sonrasi_satirlardan_etkilenmez(con, con_ileri):
+    ref, ileri = _ozetle(con), _ozetle(con_ileri)
+    for rol in ("alici", "verici", "ikinci_alici", "karsi_verici"):
+        for alan in ("bedenler", "toplam", "hiz_8h", "cover", "str"):
+            assert ileri[rol][alan] == ref[rol][alan], (rol, alan)
 
 
 def test_cli_hikaye_ayristirma():

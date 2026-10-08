@@ -1,10 +1,14 @@
-"""Yazı 1'in sahnesi: referans plan üzerinden deterministik hikâye seçimi (spec §5).
+"""Yazı 1'in sahnesi: referans plan üzerinden hikâye seçimi (spec §5).
 
-`python -m blok_transfer.hikaye_sec [--hikaye OPTION:ALICI:VERICI]` karar anında
-sahneyi basar. Sahne: İstanbul'daki bir cadde mağazasında kışlık bir örgünün S-M-L'si
-tükenmiş, uçlar (XS, XL) duruyor (alıcı, Ali'nin); Trabzon'daki bir mağazada aynı
-option'ın seti tam ve az satıyor (verici, Veli'nin); planlar bu bloğu bu vericiden bu
-alıcıya taşıyor.
+`python -m blok_transfer.hikaye_sec [--hikaye OPTION:ALICI:VERICI] [--adaylar]` karar anında
+sahneyi basar. Sahne varsayılan olarak kullanıcının seçtiği `KULLANICI_SECIMI`'dir (aşağıda):
+İstanbul'daki bir alıcı mağazada bir kazağın orta bedenleri tükenmiş, başka bölgedeki bir
+vericide seti tam ve az satıyor; greedy de MIP de bu bloğu vericiden alıcıya taşıyor.
+
+Aşağıdaki ölçüt merdiveni spec §5'in aradığı tam hikâyeyi (Trabzon vericisi, cadde alıcısı,
+S-M-L üçü de 0) tarar. Karar anında bu birleşim veride yoktur; merdiven bu yüzden iki iş yapar:
+seçilen sahnenin hangi ölçütleri tutmadığını (`gevseyen`) hesaplar ve `--adaylar` ile en yakın
+sahneleri listeler. Seçimi belirlemez.
 
 Ölçütler (gevşetme sırasında ve `gevseyen`de kullanılan kısa adlarıyla):
 
@@ -37,16 +41,19 @@ ile en yakın sahneleri listeler.
 
 Yan roller (gevşek):
 
-    ikinci_alici   aday kümesinde AYNI (verici, option) bloğuna aday öteki alıcılardan `w`'si
-                   en yüksek olan (bölge fark etmez); `rakip_alici_sayisi` bu öteki alıcıların
-                   sayısıdır (ağ problemi: aynı mal birden çok alıcıya aday)
+    ikinci_alici   aday kümesinde AYNI (verici, option) bloğuna aday öteki alıcılardan `w > 0`
+                   olanların en iyisi (bölge fark etmez); `rakip_alici_sayisi` `w > 0` olan bu
+                   öteki alıcıların sayısıdır (ağ problemi: aynı mal birden çok alıcıya aday;
+                   zararına aday sayılmaz). Sıra: `w` (kuruşa yuvarlı) büyükten küçüğe;
+                   eşitlikte alıcının o option'daki ölçüm penceresi kaybı büyükten küçüğe
+                   (malı daha çok kaçıran alıcı); yine eşitse alıcı kimliği
     karsi_verici   aynı option'da, cover < verici cover eşiği (6) olanlar arasında en çok stoklu
                    mağaza (bölge fark etmez). Yoksa aynı alt kategorideki öteki AW25
                    option'larda en çok stoklu, cover < eşik İstanbul mağazası; o zaman
                    `karsi_option_id` hangi option olduğunu söyler ve `gevseyen`e
                    `karsi_verici_baska_option` yazılır
 
-Bulunamazsa `None`; `gevseyen`e `ikinci_alici_yok` / `karsi_verici_yok` yazılır.
+Bulunamazsa (ikinci alıcıda `w > 0` aday yoksa da) `None`; `gevseyen`e `ikinci_alici_yok` / `karsi_verici_yok` yazılır.
 
 `--hikaye OPTION:ALICI:VERICI` seçimi geçersiz kılar; `gevseyen` o adayın tutmadığı
 bütün ölçütleri (gevşemezler dahil) listeler. Planlar `cikti/planlar` önbelleğinden okunur.
@@ -84,7 +91,6 @@ GEVSEMEZ = ("urun", "alici_istanbul", "alici_kirik", "verici_bolge", "verici_tam
 # merdiveninin en yakın sahneleri arasından bunu seçti (kazak, Malatya vericisi; hem greedy hem
 # MIP bloğu taşıyor). (option_id, alıcı, verici).
 KULLANICI_SECIMI = ("MDL0673-HAK", "M018", "M071")
-SIRA_DISI = len(UST_GIYIM)           # üst giyim dışı (yalnız alt_kategori gevşerse)
 
 
 @dataclass
@@ -189,15 +195,19 @@ def _huni_metni(huni: list[tuple[str, int]]) -> str:
     return " > ".join(f"{ad} {n}" for ad, n in huni)
 
 
-def _yan_roller(a: pd.Series, urunler, hucre, cover, w, cover_esigi: float) -> dict:
+def _yan_roller(a: pd.Series, urunler, hucre, kayip, cover, w, cover_esigi: float) -> dict:
     """Gevşek yan roller (modül açıklaması): ikinci alıcı, rakip sayısı, karşı verici."""
     opt, alici, verici = a["option_id"], a["alici"], a["verici"]
 
-    # ikinci alıcı: aynı (verici, option) bloğuna aday öteki alıcılardan en yüksek w
-    rakip = w[(w["verici"] == verici) & (w["option_id"] == opt) & (w["alici"] != alici)]
+    # ikinci alıcı: aynı (verici, option) bloğuna w > 0 aday öteki alıcıların en iyisi.
+    # Sıra: w (kuruş) azalan, alıcının o option'daki pencere kaybı azalan, alıcı kimliği.
+    rakip = w[(w["verici"] == verici) & (w["option_id"] == opt) & (w["alici"] != alici)
+              & (w["w"] > 0)]
     rakip = rakip.groupby("alici", as_index=False)["w"].max()
-    ikinci = (rakip.sort_values(["w", "alici"], ascending=[False, True]).iloc[0]["alici"]
-              if len(rakip) else None)
+    k = kayip[kayip["option_id"] == opt].groupby("magaza_id")["kayip"].sum()
+    rakip = rakip.assign(w=rakip["w"].astype(float).round(2), kayip=rakip["alici"].map(k).fillna(0.0))
+    ikinci = (rakip.sort_values(["w", "kayip", "alici"], ascending=[False, False, True])
+              .iloc[0]["alici"] if len(rakip) else None)
 
     # karşı verici: cover < eşik, en çok stoklu; önce aynı option, yoksa aynı alt kategori
     c = cover.set_index(["magaza_id", "option_id"])["cover"]
@@ -272,7 +282,7 @@ def _sec_ic(urunler, magazalar, stok, greedy, mip, kayip, cover, w, zorla=None,
 
     satir = satir.copy()
     satir["istanbul"] = set(magazalar.loc[magazalar["sehir"] == ALICI_SEHRI, "magaza_id"])
-    y = _yan_roller(satir, urunler, hucre, cover, w, cover_esigi)
+    y = _yan_roller(satir, urunler, hucre, kayip, cover, w, cover_esigi)
     if y["ikinci"] is None:
         gevseyen.append("ikinci_alici_yok")
     if y["karsi"] is None:
@@ -430,7 +440,7 @@ def ozet(con, karar: date, h: Hikaye, kayip: pd.DataFrame, greedy=None, mip=None
             "sehir": magaza.loc[m, "sehir"], "tip": magaza.loc[m, "tip"],
             "bedenler": {b: adet.get(b, 0) for b in urun["beden"]},
             "toplam": int(sum(adet.values())),
-            "hiz_8h": _sozluk(cv["hiz"].iloc[0]) if len(cv) else 0.0,   # stoklu hücrelerde
+            "hiz_8h": _sozluk(cv["hiz"].iloc[0]) if len(cv) else None,   # stoksuz hücrede yok
             "cover": _sozluk(cv["cover"].iloc[0]) if len(cv) else p.buyuk_cover,
             "str": _sozluk(st["str_orani"].iloc[0]) if len(st) else None,
             "pencere_kaybi": int(k["kayip"].sum()),
@@ -498,7 +508,8 @@ def _yaz(o: dict) -> None:
         print(f"\n{ad}: {r['ad']} ({r['magaza_id']}, {r['sehir']}, {r['tip']})  "
               f"option {r['option_id']}")
         print(f"  stok: {beden}  toplam {r['toplam']}")
-        print(f"  hiz (8 hafta): {r['hiz_8h']:.2f}/hafta  cover: {r['cover']:.1f}  STR: {str_}")
+        hiz = f"{r['hiz_8h']:.2f}" if r["hiz_8h"] is not None else "-"
+        print(f"  hiz (8 hafta): {hiz}/hafta  cover: {r['cover']:.1f}  STR: {str_}")
         kb = "  ".join(f"{b}:{x}" for b, x in r["kayip_beden"].items()) or "-"
         print(f"  pencere kaybi (Basit): {r['pencere_kaybi']}  beden beden: {kb}")
     print(f"\nrakip alici sayisi (ayni verici+option blogunun ote adaylari): "
