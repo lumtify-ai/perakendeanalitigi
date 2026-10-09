@@ -83,6 +83,23 @@ def test_pencere_disi_kayip_sayilmaz():
     assert olcum.kayip_tablosu(kayip, KARAR, 2, {"A"}, "kayip").kayip.sum() == 1110
 
 
+def test_kesirli_kayip_kesilmez():
+    # Basit kaybı kesirli bir kestirimdir: aynı hücrenin iki günü 0,6 + 0,6 = 1,2 sayılır
+    # (tam sayıya kesmek 1 yapardı; bütün evrende payda ~%3 küçülürdü). Kurtarılan da
+    # kesirli kaybı görür: 2 adet taşınan, kayıp 1,2 → kurtarılan 1,2.
+    kayip = pd.DataFrame({
+        "tarih": pd.to_datetime(["2025-12-30", "2025-12-31", "2025-12-30"]),
+        "magaza_id": ["A", "A", "A"], "urun_id": ["OPT1-1", "OPT1-1", "OPT1-2"],
+        "kayip": [0.6, 0.6, 0.4]})
+    tablo = olcum.kayip_tablosu(kayip, KARAR, 8, {"A"}, "kayip")
+    degerler = {(m, u): k for m, u, k in tablo.itertuples(index=False)}
+    assert degerler == {("A", "OPT1-1"): pytest.approx(1.2), ("A", "OPT1-2"): pytest.approx(0.4)}
+    assert tablo.kayip.sum() == pytest.approx(1.6)
+    o = olc(_tasinan(("V", "A", "OPT1-1", 2)), tablo, _satis())
+    assert o.kurtarilan == pytest.approx(1.2)
+    assert o.payda == pytest.approx(1.6)
+
+
 def test_toplam_hucre_basina_ve_sutun_adi():
     # hakem biçimi: kayıp sütunu `karsilanmayan`; aynı hücrenin günleri toplanır
     hakem = pd.DataFrame({

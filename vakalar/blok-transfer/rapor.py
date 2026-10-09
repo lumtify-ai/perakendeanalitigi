@@ -203,7 +203,7 @@ class Zemin:
         b = self.basit.astype({"magaza_id": str, "urun_id": str}).merge(
             h, on=["magaza_id", "urun_id"], how="left")
         disari = b[b["_cesit"].isna()]
-        self.basit_cesit_disi = (len(disari), int(disari["kayip"].sum()))
+        self.basit_cesit_disi = (len(disari), float(disari["kayip"].sum()))
 
     def olc(self, hareketler: pd.DataFrame) -> tuple[olcum.Olcum, olcum.Olcum]:
         """(Basit, hakem) ölçümü; `p_verici` iki sürümde aynıdır (gözlenen satış)."""
@@ -391,7 +391,7 @@ def veri_bolumu(con, karar: date, p: Parametreler) -> dict:
     print(f"mağaza × option hücresi: {s(evren_n)} × {s(option_n)} = {s(hucre)} · karar anında stoklu "
           f"option üzerinden {s(evren_n)} × {s(stoklu_o)} = {s(evren_n * stoklu_o)}")
     print(f"kırık (mağaza, option) çifti: {s(len(kiriklar))}")
-    print(f"kırık × alıcı adayı: {s(len(kiriklar))} × {s(evren_n - 1)} = "
+    print(f"kırık × kaynak (verici) adayı:{s(len(kiriklar))} × {s(evren_n - 1)} = "
           f"{s(len(kiriklar) * (evren_n - 1))} olası hareket")
     ust = evren_n * (evren_n - 1) * option_n
     print(f"kombinatorik üst sınır M × (M − 1) × O: {s(evren_n)} × {s(evren_n - 1)} × "
@@ -489,7 +489,7 @@ def hikaye_bolumu(con, karar, p, kayip, zemin: Zemin, greedy, mip_plan, zorla, a
         "with sv as (select sv.magaza_id, sum(sv.adet) a from bt_sevkiyat sv join urun u using (urun_id) "
         "where u.option_id = ? and sv.tarih <= ?::timestamp group by 1), "
         "st as (select s.magaza_id, sum(s.adet) a from bt_satis s join urun u using (urun_id) "
-        "where u.option_id = ? and s.tarih <= ?::timestamp group by 1) "
+        "where u.option_id = ? and s.tarih < ?::timestamp group by 1) "   # metrikler.strler ile aynı
         "select sv.magaza_id, sv.a, coalesce(st.a, 0) from sv left join st using (magaza_id)",
         [h.option_id, karar.isoformat(), h.option_id, karar.isoformat()]).fetchall()
     sevk_satis = {str(m): (int(a), int(b)) for m, a, b in sevk_satis}
@@ -510,12 +510,12 @@ def hikaye_bolumu(con, karar, p, kayip, zemin: Zemin, greedy, mip_plan, zorla, a
             a, b = sevk_satis[r["magaza_id"]]
             print(f"  STR kaynağı: karara dek varan sevkiyat {a} adet, net satış {b} adet")
         kb = r["kayip_beden"]
-        print(f"  pencere kaybı (Basit) {r['pencere_kaybi']} · beden beden: "
-              + (" · ".join(f"{b} {kb[b]}" for b in r["bedenler"] if b in kb) or "—"))
+        print(f"  pencere kaybı (Basit) {s(r['pencere_kaybi'])} · beden beden: "
+              + (" · ".join(f"{b} {s(kb[b])}" for b in r["bedenler"] if b in kb) or "—"))
         if r["option_id"] == h.option_id:
             k = urun.merge(hk[hk.magaza_id == r["magaza_id"]], on="urun_id")
-            print(f"  pencere karşılanmayan talebi (hakem) {int(k.kayip.sum())} · beden beden: "
-                  + (" · ".join(f"{b} {int(x)}" for b, x in zip(k.beden, k.kayip)) or "—"))
+            print(f"  pencere karşılanmayan talebi (hakem) {s(k.kayip.sum())} · beden beden: "
+                  + (" · ".join(f"{b} {s(x)}" for b, x in zip(k.beden, k.kayip)) or "—"))
 
     hareket = o.get("hareket", {})
     for ad in ("greedy", "mip"):
@@ -655,21 +655,19 @@ def fark_bolumu(greedy, mip_plan, oz_g, oz_m, ozel_g, ozel_m, adlar, p) -> dict:
 
 def lp_bolumu(df: pd.DataFrame, kapasite: dict, mip_plan, oz_m: dict, p) -> float:
     print("\n=== LP GEVŞETMESİ ===")
-    t0 = time.perf_counter()
+    # Süre basılmaz: rapor.txt önbellekten bayt bayt yeniden üretilebilsin (ölçülen süre oynar).
     model, x, yv = mip.kur(df, kapasite, p)
     for d in list(x.values()) + list(yv.values()):
         d.cat = pulp.LpContinuous
         d.lowBound, d.upBound = 0, 1
     model.solve(pulp.PULP_CBC_CMD(msg=0))
-    sure = time.perf_counter() - t0
 
     def kesirli(degiskenler) -> int:
         return sum(1 for d in degiskenler if d.value() is not None and 1e-6 < d.value() < 1 - 1e-6)
 
     gevsek = pulp.value(model.objective)
     tam = mip_plan.amac
-    print(f"  LP gevşetmesi (üst sınır) {tl(gevsek, 2)} · LP durumu {pulp.LpStatus[model.status]} · "
-          f"kurma + çözme {s(sure, 1)} sn")
+    print(f"  LP gevşetmesi (üst sınır) {tl(gevsek, 2)} · LP durumu {pulp.LpStatus[model.status]}")
     print(f"  tam sayı çözüm (MIP planı) {tl(tam, 2)}")
     print(f"  boşluk {tl(fark(tam, gevsek, 2), 2)} ({y(bolum(fark(tam, gevsek, 2), tam, 2, 2), 2)})")
     print(f"  gevşetilmiş çözümde kesirli çıkan: {s(kesirli(x.values()))}/{s(len(x))} x · "

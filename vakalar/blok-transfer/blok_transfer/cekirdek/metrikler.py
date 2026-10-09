@@ -85,7 +85,10 @@ def coverlar(con, karar: date, p: Parametreler) -> pd.DataFrame:
 
 def strler(con, karar: date) -> pd.DataFrame:
     """Kümülatif satış/sevk oranı: sevk = varışı `≤ karar` olan sevkiyatlar,
-    satış `≤ karar`."""
+    satış `< karar`. Pazartesi stok fotoğrafı o günün satışından önce çekilir;
+    karar günü satışı karar anında bilinmez (Ruling R6). Karar günü varışı ise
+    karar anında bilinen gelen maldır (soğumayla aynı, Ruling R7). STR yalnız
+    rapor ve yazı sayısıdır, çözücüye girmez."""
     return con.execute(
         """
         with sevk as (
@@ -97,7 +100,7 @@ def strler(con, karar: date) -> pd.DataFrame:
         net_satis as (
             select s.magaza_id, u.option_id, sum(s.adet) as satis_adet
             from bt_satis s join urun u using (urun_id)
-            where s.tarih <= ?
+            where s.tarih < ?
             group by 1, 2
         )
         select sevk.magaza_id, sevk.option_id,

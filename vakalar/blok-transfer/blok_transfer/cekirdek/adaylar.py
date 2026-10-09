@@ -53,6 +53,7 @@ def _sogumada(con, karar: date, soguma_hafta: int) -> set[tuple[str, str]]:
     Her sevkiyat türü (replenishment, elle transfer...) sayılır; ölçüt sevk
     değil VARIŞ tarihidir, yolda kalanlar (varışı boş) `bt_sevkiyat`ta yoktur.
     Karar sonrası varışlar soğuma sayılmaz."""
+    # Üst uç `≤ karar` bilerek: karar günü varışı karar anında bilinen gelen maldır (Ruling R7).
     esik = karar - timedelta(weeks=soguma_hafta)
     df = con.execute(
         """

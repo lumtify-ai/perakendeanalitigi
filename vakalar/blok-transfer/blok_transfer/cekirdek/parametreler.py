@@ -11,7 +11,7 @@ class Parametreler:
     adet_maliyeti_tl: float = 25.0
     rota_sabiti_tl: float = 500.0
     buyuk_cover: float = 999.0
-    tepe_hafta: int = 52          # tepe talep ufku (hafta)
+    tepe_hafta: int = 52          # tepe stok ufku (hafta): kapasite = son 52 haftanın tepe stoku
     olcum_hafta: int = 8          # karar anından sonraki ölçüm penceresi (hafta)
     mip_zaman_limiti_sn: int = 3600
     mip_dugum_limiti: int | None = 10_000  # emniyet; süre limitinden önce bağlar (Görev 5 ölçümü)

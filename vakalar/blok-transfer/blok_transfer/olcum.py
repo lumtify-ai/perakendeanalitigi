@@ -77,7 +77,8 @@ def kayip_tablosu(
     sutun: str,
     hucreler: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
-    """Pencere içi, evren içi kayıp: `[magaza_id, urun_id, kayip]`, hücre başına toplam.
+    """Pencere içi, evren içi kayıp: `[magaza_id, urun_id, kayip]`, hücre başına toplam
+    (`float64`, kesirli; tam sayıya kesilmez).
 
     `kayip` tablosunda `tarih, magaza_id, urun_id` ve `sutun` olmalı; Basit için
     `sutun="kayip"`, hakem tablosu için `"karsilanmayan"`. Pencere `pencere(karar, hafta)`;
@@ -95,7 +96,9 @@ def kayip_tablosu(
         t = t.merge(h, on=["magaza_id", "urun_id"], how="inner")
     t = (t.groupby(["magaza_id", "urun_id"], as_index=False, observed=True)[sutun].sum()
          .rename(columns={sutun: "kayip"}))
-    t["kayip"] = t["kayip"].astype("int64")
+    # Kesirli kalır: Basit kaybı kesirli bir kestirimdir (0,6 + 0,6 = 1,2); yuvarlama
+    # yalnız basarken (rapor) yapılır, hücre başına kesmek paydayı ~%3 küçültür.
+    t["kayip"] = t["kayip"].astype("float64")
     return t[KAYIP_KOLONLARI].reset_index(drop=True)
 
 

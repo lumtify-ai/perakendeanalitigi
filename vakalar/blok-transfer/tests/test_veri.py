@@ -96,6 +96,19 @@ def test_evren_online_kapali_acilmamis_tadilat_disarida(con):
     assert tipler["MC"] == "Outlet" and tipler["MA"] == "Cadde"
 
 
+def test_bitisi_bos_tadilat_suruyor_sayilir(con):
+    # Bitiş tarihi boş tadilat sürüyordur: mağaza evren dışında kalmalı (NULL
+    # karşılaştırması `gun < NULL` boş döner, koruma olmasa MD evrende kalırdı).
+    con.execute("insert into magaza_olay values ('MD', 'tadilat', '2025-11-01', '2025-12-01', NULL)")
+    veri.gorunumler(con, KARAR_TARIHI)
+    magazalar = {r[0] for r in con.execute("select magaza_id from bt_magaza").fetchall()}
+    assert magazalar == EVREN - {"MD"}
+    # henüz başlamamış (olay tarihi karardan sonra) bitişsiz tadilat evreni değiştirmez
+    con.execute("insert into magaza_olay values ('MA', 'tadilat', '2025-12-30', '2026-02-02', NULL)")
+    veri.gorunumler(con, KARAR_TARIHI)
+    assert "MA" in {r[0] for r in con.execute("select magaza_id from bt_magaza").fetchall()}
+
+
 def test_evren_disi_magazalarin_satiri_gorunumlerde_yok(con):
     for gorunum in ("bt_stok", "bt_satis", "bt_sevkiyat"):
         magazalar = {r[0] for r in con.execute(f"select distinct magaza_id from {gorunum}").fetchall()}

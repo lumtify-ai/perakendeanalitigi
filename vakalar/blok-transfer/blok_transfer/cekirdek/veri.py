@@ -76,7 +76,8 @@ def gorunumler(con: duckdb.DuckDBPyConnection, karar: date) -> None:
           and (m.kapanis_tarihi is null or m.kapanis_tarihi > {gun})
           and not exists (select 1 from magaza_olay o
                           where o.magaza_id = m.magaza_id and o.olay = 'tadilat'
-                            and o.olay_tarihi <= {gun} and {gun} < o.bitis_tarihi)
+                            and o.olay_tarihi <= {gun}
+                            and (o.bitis_tarihi is null or {gun} < o.bitis_tarihi))
         """
     )
     con.execute(

@@ -124,6 +124,11 @@ def test_aday_alis_kolonu(con):
 def test_karar_sonrasi_satirlar_cekirdegi_degistirmez(con, con_ileri):
     # con_ileri ayrı bağlantı: karar+1 hafta satış, varış (vericiye de) ve stok
     # fotoğrafı ekli. Hiçbiri çekirdeğin çıktısına sızmamalı.
+    # KARAR GÜNÜ satışı da (Ruling R6): pazartesi fotoğrafı o günün satışından önce
+    # çekilir, hız ve STR onu görmemeli. Karar günü VARIŞI bilinen gelen maldır
+    # (Ruling R7), burada eklenmez.
+    for magaza in ("MA", "MB"):
+        con_ileri.execute("insert into satis values (?, ?, 'OPT1-3', 9)", [KARAR, magaza])
     pd.testing.assert_frame_equal(adaylar.uret(con, KARAR, P), adaylar.uret(con_ileri, KARAR, P))
     assert adaylar.kapasite_boslugu(con, KARAR) == adaylar.kapasite_boslugu(con_ileri, KARAR)
     assert adaylar._sogumada(con, KARAR, 2) == adaylar._sogumada(con_ileri, KARAR, 2)
@@ -164,12 +169,13 @@ def test_kirik_hucre_verici_olmaz(con):
     # kademeler 0 → kırık; hız 1.0 → cover 10 ≥ 6, soğumada da değil.
     con.execute("update stok set adet = 10 where tarih = '2025-12-29' "
                 "and magaza_id = 'MC' and urun_id = 'OPT1-1'")
-    assert ("MC", "OPT1") in set(zip(*[metrikler.kiriklar(con, KARAR)[c] for c in ("magaza_id", "option_id")]))
+    k = metrikler.kiriklar(con, KARAR)                # bir kez: sorgu satır sırası vermez
+    assert ("MC", "OPT1") in set(zip(k.magaza_id, k.option_id))
     cov = metrikler.coverlar(con, KARAR, P)
     assert cov[(cov.magaza_id == "MC") & (cov.option_id == "OPT1")].cover.iloc[0] >= P.verici_cover_esigi
     df = adaylar.uret(con, KARAR, P)
     assert ("MC", "MB", "OPT1") not in ciftler(df)    # kırık verici → kırık alıcı
-    assert not (df.verici == "MC").any()
+    assert not ((df.verici == "MC") & (df.option_id == "OPT1")).any()   # kırık hücre (MC, OPT1)
     assert ("MA", "MB", "OPT1") in ciftler(df)        # sağlam verici etkilenmedi
 
 

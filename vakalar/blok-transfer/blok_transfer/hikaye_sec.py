@@ -443,8 +443,8 @@ def ozet(con, karar: date, h: Hikaye, kayip: pd.DataFrame, greedy=None, mip=None
             "hiz_8h": _sozluk(cv["hiz"].iloc[0]) if len(cv) else None,   # stoksuz hücrede yok
             "cover": _sozluk(cv["cover"].iloc[0]) if len(cv) else p.buyuk_cover,
             "str": _sozluk(st["str_orani"].iloc[0]) if len(st) else None,
-            "pencere_kaybi": int(k["kayip"].sum()),
-            "kayip_beden": {b: int(x) for b, x in zip(k["beden"], k["kayip"])},
+            "pencere_kaybi": float(k["kayip"].sum()),          # kesirli; basarken yuvarlanır
+            "kayip_beden": {b: float(x) for b, x in zip(k["beden"], k["kayip"])},
         }
 
     urun = urunleri(h.option_id)
@@ -510,8 +510,8 @@ def _yaz(o: dict) -> None:
         print(f"  stok: {beden}  toplam {r['toplam']}")
         hiz = f"{r['hiz_8h']:.2f}" if r["hiz_8h"] is not None else "-"
         print(f"  hiz (8 hafta): {hiz}/hafta  cover: {r['cover']:.1f}  STR: {str_}")
-        kb = "  ".join(f"{b}:{x}" for b, x in r["kayip_beden"].items()) or "-"
-        print(f"  pencere kaybi (Basit): {r['pencere_kaybi']}  beden beden: {kb}")
+        kb = "  ".join(f"{b}:{x:.0f}" for b, x in r["kayip_beden"].items()) or "-"
+        print(f"  pencere kaybi (Basit): {r['pencere_kaybi']:.0f}  beden beden: {kb}")
     print(f"\nrakip alici sayisi (ayni verici+option blogunun ote adaylari): "
           f"{o['rakip_alici_sayisi']}")
     if o.get("blok_alici_adaylari"):

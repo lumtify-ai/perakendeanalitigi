@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Blok Transfer vakasi: ortak cekirdek + greedy ve MIP cozuculeri"
 requires-python = ">=3.11"
 # Kaynak bağlantısı ve temiz görünümler ortak pakette (vakalar/ortak/pyproject.toml).
-dependencies = ["perakende-analitik", "duckdb>=1.0", "pandas>=2.0", "pulp>=2.8"]
+# PuLP sabit: CBC ikilisi PuLP'la gelir (2.10.3); düğüm sınırında duran MIP planı sürüme
+# bağlıdır, yayımlanan planlar bu sürümle çözüldü.
+dependencies = ["perakende-analitik", "duckdb>=1.0", "pandas>=2.0", "pulp==3.3.2"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]

@@ -97,6 +97,8 @@ def test_std_option_kirik_sayilmaz(con):
 
 def test_karar_sonrasi_satirlar_metrikleri_degistirmez(con, con_ileri):
     p = Parametreler()
+    # karar günü satışı da sayılmaz (Ruling R6: fotoğraf o günün satışından önce)
+    con_ileri.execute("insert into satis values (?, 'MA', 'OPT1-3', 9)", [KARAR])
     for f in (lambda c: metrikler.hizlar(c, KARAR, 8),
               lambda c: metrikler.strler(c, KARAR),
               lambda c: metrikler.stok_fotografi(c, KARAR),

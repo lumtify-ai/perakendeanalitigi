@@ -7,6 +7,7 @@ from pathlib import Path
 
 import duckdb
 import pandas as pd
+from perakende_analitik import kaynak
 
 from .cekirdek import adaylar as adaylar_mod
 from .cekirdek import terazi, veri
@@ -55,19 +56,24 @@ def _kaynak_izi(con: duckdb.DuckDBPyConnection) -> list:
 # Çözücüye giren kaynaklar. Ölçüm, hikâye seçimi ve ön hazırlık plana girmez:
 # onları değiştirmek MIP önbelleğini (saatlerce çözüm) boşuna geçersiz kılmasın.
 COZUCU_KAYNAKLARI = ("cekirdek/**/*.py", "cozuculer/**/*.py", "degerlendirme.py")
+# Paket dışından çözücüye giren tek kaynak: ortak `kaynak.py` (çeşit hücreleri ve temiz
+# satış görünümleri `veri.gorunumler` üzerinden adaylara girer; Ruling R6).
+ORTAK_KAYNAKLARI = (Path(kaynak.__file__).resolve(),)
 
 
-def kod_ozeti(kok: Path = PAKET_KOKU) -> str:
+def kod_ozeti(kok: Path = PAKET_KOKU, ek: tuple[Path, ...] = ORTAK_KAYNAKLARI) -> str:
     """Çözücüye giren kaynakların (`COZUCU_KAYNAKLARI`: cekirdek/, cozuculer/,
-    degerlendirme.py) göreli yol + içerik sha256'sı.
+    degerlendirme.py; ve `ek`: ortak `kaynak.py`) göreli yol + içerik sha256'sı.
 
-    Formülasyon, terazi ya da aday kodu değişince önbellek anahtarı da değişsin
-    diye. Satır sonları LF'ye çevrilir: aynı kod Windows (CRLF) ve Linux
-    çalışma kopyasında aynı özeti verir."""
+    Formülasyon, terazi, aday kodu ya da ortak görünümler değişince önbellek anahtarı
+    da değişsin diye. `ek` dosyaları `ortak/<ad>` adıyla girer. Satır sonları LF'ye
+    çevrilir: aynı kod Windows (CRLF) ve Linux çalışma kopyasında aynı özeti verir."""
     yollar = {y for desen in COZUCU_KAYNAKLARI for y in kok.glob(desen)}
+    adli = sorted((y.relative_to(kok).as_posix(), y) for y in yollar)
+    adli += sorted((f"ortak/{Path(y).name}", Path(y)) for y in ek)
     ozet = hashlib.sha256()
-    for yol in sorted(yollar, key=lambda y: y.relative_to(kok).as_posix()):
-        ozet.update(yol.relative_to(kok).as_posix().encode("utf-8") + b"\0")
+    for ad, yol in adli:
+        ozet.update(ad.encode("utf-8") + b"\0")
         ozet.update(yol.read_bytes().replace(b"\r\n", b"\n") + b"\0")
     return ozet.hexdigest()
 

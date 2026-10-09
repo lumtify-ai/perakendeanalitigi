@@ -177,6 +177,24 @@ def test_kod_ozeti_yalniz_cozucuye_giren_kaynaklari_sayar(tmp_path):
     assert degerlendirme.kod_ozeti() == degerlendirme.kod_ozeti()   # paketin kendisi, kararlı
 
 
+def test_kod_ozeti_ortak_kaynagi_sayar(tmp_path):
+    # Ruling R6: ortak `kaynak.py` (çeşit hücreleri, temiz satış) adaylara girer;
+    # değişirse plan önbelleği geçersizlenmeli. Varsayılan `ek` gerçekten o dosya.
+    assert [y.name for y in degerlendirme.ORTAK_KAYNAKLARI] == ["kaynak.py"]
+    assert all(y.exists() for y in degerlendirme.ORTAK_KAYNAKLARI)
+    (tmp_path / "cekirdek").mkdir()
+    (tmp_path / "cekirdek" / "a.py").write_bytes(b"x = 1\n")
+    ortak = tmp_path / "disari" / "kaynak.py"
+    ortak.parent.mkdir()
+    ortak.write_bytes(b"k = 1\n")
+    o1 = degerlendirme.kod_ozeti(tmp_path, ek=(ortak,))
+    assert o1 != degerlendirme.kod_ozeti(tmp_path, ek=())
+    ortak.write_bytes(b"k = 1\r\n")                                   # yalnız satır sonu
+    assert degerlendirme.kod_ozeti(tmp_path, ek=(ortak,)) == o1
+    ortak.write_bytes(b"k = 2\n")
+    assert degerlendirme.kod_ozeti(tmp_path, ek=(ortak,)) != o1
+
+
 def test_ozet_bosluk_yuzdesi():
     plan = replace(ornek_plan(), amac=1000.0, sinir=1012.345)
     assert degerlendirme.ozetle(plan, P)["bosluk_yuzde"] == 1.23

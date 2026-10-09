@@ -3,33 +3,41 @@
 `hakem` ve `perakende_veri` pakette hiçbir yerde içe aktarılamaz (alt paketler dahil):
 kestirim ve çözücü yayımlanan veriyle çalışır, hakem tablosu ölçüme argüman olarak
 dışarıdan gelir (`olcum.kayip_tablosu`). Hakemi okuyan tek yer vakanın `rapor.py`'sidir
-ve o paketin dışındadır. Tarayıcı yok-satma vakasınınkiyle aynı mantıkta, tek farkla:
-`rglob` ile bütün alt dizinleri gezer (`cekirdek/`, `cozuculer/`)."""
+ve o paketin dışındadır. Vaka kökünün öteki iki betiği (`senaryolar.py`, `getiri.py`)
+demo JSON'larını üretir; onlar da hakemi görmez (yayımlanan sayılar Basit kestirimle).
+Tarayıcı yok-satma vakasınınkiyle aynı mantıkta, tek farkla: `rglob` ile bütün alt
+dizinleri gezer (`cekirdek/`, `cozuculer/`)."""
 
 import ast
 from pathlib import Path
 
-PAKET = Path(__file__).resolve().parents[1] / "blok_transfer"
+KOK = Path(__file__).resolve().parents[1]
+PAKET = KOK / "blok_transfer"
+KOK_BETIKLERI = ("senaryolar.py", "getiri.py")
 YASAK = ("hakem", "perakende_veri")
+
+
+def _ice_aktarir(dosya: Path, modul: str) -> bool:
+    """`dosya` `modul`ü (ya da bir alt modülünü, göreli içe aktarma dahil) içe aktarıyor mu."""
+    for d in ast.walk(ast.parse(dosya.read_text(encoding="utf-8"))):
+        adlar = []
+        if isinstance(d, ast.Import):
+            adlar = [a.name for a in d.names]
+        elif isinstance(d, ast.ImportFrom):
+            govde = ("." * d.level) + (d.module or "")
+            adlar = [govde] + [f"{govde}.{a.name}".replace("..", ".") for a in d.names]
+        for ad in adlar:
+            son = ad.lstrip(".")
+            if son == modul or son.startswith(modul + ".") or son.split(".")[-1] == modul:
+                return True
+    return False
 
 
 def _icerenler(paket: Path, modul: str) -> set[str]:
     """`paket` altındaki (alt dizinler dahil) hangi `.py` dosyaları `modul`ü içe aktarıyor;
     göreli yol (posix) döner."""
-    bulunan = set()
-    for dosya in sorted(paket.rglob("*.py")):
-        for d in ast.walk(ast.parse(dosya.read_text(encoding="utf-8"))):
-            adlar = []
-            if isinstance(d, ast.Import):
-                adlar = [a.name for a in d.names]
-            elif isinstance(d, ast.ImportFrom):
-                govde = ("." * d.level) + (d.module or "")
-                adlar = [govde] + [f"{govde}.{a.name}".replace("..", ".") for a in d.names]
-            for ad in adlar:
-                son = ad.lstrip(".")
-                if son == modul or son.startswith(modul + ".") or son.split(".")[-1] == modul:
-                    bulunan.add(dosya.relative_to(paket).as_posix())
-    return bulunan
+    return {d.relative_to(paket).as_posix() for d in sorted(paket.rglob("*.py"))
+            if _ice_aktarir(d, modul)}
 
 
 def test_paket_gizli_gercegi_ice_aktarmaz():
@@ -38,6 +46,15 @@ def test_paket_gizli_gercegi_ice_aktarmaz():
     assert {"hazirla.py", "olcum.py", "cekirdek/veri.py", "cozuculer/mip.py"} <= tarananlar
     for modul in YASAK:
         assert _icerenler(PAKET, modul) == set(), modul
+
+
+def test_kok_betikleri_gizli_gercegi_ice_aktarmaz():
+    # rapor.py hakemi okur (bilerek); senaryolar.py ve getiri.py okumaz.
+    for ad in KOK_BETIKLERI:
+        assert (KOK / ad).exists(), ad
+        for modul in YASAK:
+            assert not _ice_aktarir(KOK / ad, modul), (ad, modul)
+    assert _ice_aktarir(KOK / "rapor.py", "hakem")     # tarayıcı kökte de çalışıyor
 
 
 def test_tarayici_ihlali_yakalar(tmp_path):
