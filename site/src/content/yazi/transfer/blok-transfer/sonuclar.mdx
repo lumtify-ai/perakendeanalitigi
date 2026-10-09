@@ -14,133 +14,215 @@ Bu dizi bir sözle açılmıştı: **sıfır yeni ürünle daha çok satış.** 
 tek koli çıkmadan, üretime tek kuruş verilmeden, yalnızca yanlış yerde duranı
 doğru yere taşıyarak. Şimdi hesabı verme vakti.
 
-Referans senaryoda — <T k="cover">cover</T> eşiği 6 hafta, alıcıda asgari
-haftalık satış 1 adet — açgözlünün çıkardığı plan şu: **252 option, 4.785
-adet, 4,98 milyon TL** net etki. Aşağıdaki demoda kadranı çevirip bu
-sayıların eşiklerle nasıl değiştiğini kendiniz görebilirsiniz; yazıdaki
-referans senaryo kadranın ilk konumu. İkinci yazıda Ali'nin tahtaya yazdığı
-iki sayı burada iki ayrı kadrandır: vericide asgari cover, alıcıda azami
-cover. Aşağıda ikisini de çevireceğiz.
+Referans senaryoda vericide <T k="cover">cover</T> en az 6 hafta, alıcı
+tarafında tavan yok, alıcıda asgari haftalık satış 1 adet. Bu ayarda
+açgözlünün çıkardığı plan şu: **586 option, 99.029 adet, 32,68 milyon TL** net
+etki. Çözücü aynı fotoğraftan 661 option, 109.100 adet ve 35,93 milyon TL
+çıkarıyor.
+
+Aşağıdaki demoda kadranı çevirip bu sayıların eşiklerle nasıl değiştiğini
+kendiniz görebilirsiniz. İkinci yazıda Ali'nin tahtaya yazdığı iki sayı burada
+iki ayrı kadran: vericide asgari cover (6, 14, 18 ya da 26 hafta) ve alıcıda
+azami cover (kapalı, 3, 6 ya da 14 hafta). Üçüncü kadran yöntemi seçiyor:
+açgözlü ya da çözücü. Demo referans senaryonun açgözlü planıyla açılıyor.
+Kayıp satış yakalama satırındaki sayı bir kestirim; ne demek olduğunu birazdan
+açacağım.
 
 <Demo dizi="blok-transfer" />
 
-## Kadıköy'ün telefonuna dönelim
+## İstanbul 18'in telefonuna dönelim
 
-Dizinin ilk yazısı bir telefonla açılmıştı: Kadıköy'de balıkçı yaka siyahın
-ortası tükenmiş, elde XS ve XL kalmıştı. Ve o pazartesi fotoğrafında böyle
-**528** <T k="kiriklik">kırık</T> (mağaza, option) çifti vardı.
+Dizinin ilk yazısı bir telefonla açılmıştı: İstanbul 18'de haki örgü kazağın
+S ve M bedenleri bitmiş, rafta yalnız L, XL ve XXL kalmıştı. Aynı kazaktan
+Malatya 1'de tam set duruyordu, 103 adet.
 
-Dürüst cevap şu: algoritma bunların hepsini çözmüyor.
+İki plan da aynı şeyi yapıyor: Malatya 1'in bloğunu, 103 kazağın tamamını
+İstanbul 18'e gönderiyor. Veli'nin o akşamki sorusu, "Malatya'nın kazağı niye
+İstanbul 18'e gitti de Ankara 3'e gitmedi?", artık cevapsız değil; ama cevap
+gururlandırıcı da değil. Terazide bu blok için üç mağaza tam aynı ağırlıkta:
+İstanbul 18, Ankara 3 ve İzmir 6, üçü de 8.428,74 TL. Açgözlü eşitliği
+dördüncü yazıdaki sıralama kuralıyla bozuyor, çözücü de aynı yeri seçiyor.
+Yani gerekçe "İstanbul 18 daha çok hak ediyordu" değil, "terazi eşit dedi,
+eşitliği yazılı bir kural bozdu". Küçük bir cevap, ama savunulabilir; Veli'nin
+o akşam elinde olmayan da tam olarak buydu.
+
+Karardan sonraki sekiz hafta bu bloğa ne dedi? Kestirime göre İstanbul 18'de
+o kazakta bedenini bulamayıp boş çıkacak müşteri 103 kişi; gerçek kayıpla
+150. Malatya'nın bloğu bunun 86'sını kurtarıyor, gerçek kayıpla 93'ünü. Eksik
+kalan kısım bloğun şeklinden geliyor: S'den 13 kazak gidiyor ama S arayan 30
+müşteri boş çıkacak; XXL'den 16 kazak gidiyor, XXL'de boş çıkacak olan iki
+kişi. Blok bölünmüyor, bedenleri ihtiyaca göre seçilmiyor; Malatya'nın rafında
+ne varsa o gidiyor.
+
+Malatya müdürü de haksız değilmiş: bu 103 kazağın 52'si o sekiz haftada
+Malatya'da da satılacaktı. Bu sayı bir üst sınır, nedenini bir sonraki yazıda
+açacağım. Ama yön belli: iyi bir transferin bile bir bedeli var ve o bedeli
+verici öder.
+
+Bu tek bir kazak. O pazartesi fotoğrafında böyle **2.687**
+<T k="kiriklik">kırık</T> (mağaza, option) çifti vardı ve dürüst cevap şu:
+algoritma bunların hepsini çözmüyor.
 
 | | Açgözlü | Çözücü |
 |---|---:|---:|
-| Alıcı olarak adreslenen kırık çift | 137 | **170** |
-| Kırık seti bozan hareket | 0 | 0 |
+| Alıcı olarak adreslenen kırık çift | 219 | **233** |
+| Kırık seti verici yapan hareket | 0 | 0 |
 
-Beş yüz yirmi sekizin yüz yetmişi. Geri kalanı neden değil? Üç sebep var
-ve üçü de matematiğin değil, gerçekliğin sınırı: o option'ın hiçbir mağazada
-verilebilecek fazlası yoktur, ya alıcının satış hızı eşiğin altındadır, ya da
-taşımanın maliyeti kazancını yemektedir. Bir algoritmanın yapabileceği en
-dürüst şey, çözemediği yeri çözebildiği yerden ayırmaktır.
+İki bin altı yüz seksen yedinin iki yüz otuz üçü, yüzde 8,7. Geri kalanı
+neden değil? Dört sebep var ve dördü de matematiğin değil, gerçekliğin sınırı:
+o option'ın hiçbir mağazada verilebilecek fazlası yoktur, alıcının satış hızı
+eşiğin altındadır, taşımanın maliyeti kazancını yemektedir ya da alıcının yeri
+dolmuştur. Sonuncusu bu veride kâğıtta kalmıyor: çözücünün taşımadığı, puanı
+pozitif bloklardan 194'ü alıcısının kalan boşluğuna sığmıyor. Bir algoritmanın
+yapabileceği en dürüst şey, çözemediği yeri çözebildiği yerden ayırmaktır.
 
 İkinci satır belki daha önemli: **hiçbir hareket kırık bir seti verici
-yapmıyor.** Yani model derdi bir mağazadan alıp başka mağazaya taşımıyor.
-Bunu ayrıca kısıt olarak yazmadık — aday üretimi kırık rafı zaten verici
-adayı saymıyor. İkinci yazıdaki cümlenin kodda karşılığı budur.
+yapmıyor.** Yani model derdi bir mağazadan alıp başka mağazaya taşımıyor. Bunu
+çözücüye ayrıca kısıt olarak yazmadık; aday üretimi kırık rafı verici
+saymıyor. Dördüncü yazıdaki sorgunun `and not v.kirik` satırı tam olarak bu.
+Kural kısıt listesinde değil, aday kümesinin tanımında duruyor; üçüncü yazının
+tezi burada da geçerli. İkinci yazıda Ali'nin "cover'ı kırıklıkla birlikte
+okumazsan terazi tersine çalışır" cümlesinin kodda karşılığı budur.
 
 ## İki yöntem yan yana
 
-Dizinin dört ve beşinci yazıları aynı problemi iki ayrı yoldan çözdü. Bütün
-ölçütlerle yan yana:
+Dizinin dördüncü ve beşinci yazıları aynı problemi iki ayrı yoldan çözdü.
+Bütün ölçütlerle yan yana:
 
 | Ölçüt | Açgözlü (SQL + döngü) | Çözücü (MIP + PuLP) |
 |---|---:|---:|
-| Taşınan option | 252 | 252 |
-| Taşınan adet | 4.785 | 4.785 |
-| Açılan sevkiyat | 196 *(147'si tek option)* | **140** *(56'sı tek option)* |
-| Net kazanç | 4.978.979 TL | **5.006.979 TL** |
-| Çözüm süresi | **~8 ms** | ~0,4 sn |
-| Kayıp satışın yakalanan kısmı | %26,0 | **%29,7** |
-| Adreslenen kırık çift | 137 | **170** |
+| Taşınan option | 586 | **661** |
+| Taşınan adet | 99.029 | **109.100** |
+| Açılan sevkiyat | 340 *(268'i tek option)* | **318** *(194'ü tek option)* |
+| Net kazanç | 32.680.688 TL | **35.934.123 TL** |
+| Çözüm süresi | **16,7 ms** | 37,8 sn |
+| En iyi plana uzaklık | kendi başına ölçemez | en fazla %0,18 |
+| Kayıp satış yakalama (kestirim · gerçek kayıp) | %3,5 · %3,2 | **%3,7 · %3,4** |
+| Adreslenen kırık çift | 219 | **233** |
 | Kurulum | yok | PuLP + CBC |
 | "Neden bu hareket?" cevabı | tek satır | yok |
 
-Paraya bakarsanız çözücü kazanıyor: 28.000 TL, yani yüzde 0,6. Bu farkın
-tamamının nereden geldiğini dördüncü yazıda görmüştük — ikisi birebir aynı
-malı taşıyor, çözücü sadece daha az kamyon kaldırıyor.
+Paraya bakarsanız çözücü kazanıyor: 3.253.435 TL, yani yüzde 9,1. Bu farkın
+nereden geldiğini dördüncü yazıda görmüştük: kamyonlardan değil, mal
+seçiminden. Çözücü 22 rota az açıyor ve bunun değeri 11.000 TL; kalan
+3.242.435 TL hangi kolinin hangi rafa gittiğinden geliyor.
+
+Tablonun bir satırı ayrıca açıklanmayı hak ediyor: **kayıp satış yakalama.**
+İkinci yazıda tanımlamıştık: bu plan, karardan sonraki haftalarda gerçekten
+boş çıkacak müşterinin ne kadarını kurtarırdı? Boş çıkan müşteri kasaya
+uğramaz, hiçbir yerde kaydı yoktur; bu kayıp ölçülmez, kestirilir. Kestirimi
+[Satış Kaybı dizisinin](/is-zekasi/satis-kaybi/) Basit yöntemi yapıyor.
+Lumoda sentetik bir zincir olduğu için verinin içinde gerçek kayıp da saklı
+duruyor; kestirimin ne kadar tuttuğunu onunla sınıyoruz. Tablodaki iki sayı bu
+yüzden: soldaki kestirim, sağdaki gerçek kayıp. Birbirine yakınlar ve iki
+yöntemi aynı sıraya koyuyorlar.
+
+İkisi de çözücüye hiç girmiyor. Model ne kestirimi görüyor ne gerçeği; karar
+anından sonraki hiçbir satır ona verilmiyor. Bu sayılar yalnızca sonradan,
+planı tartmak için kullanılıyor.
+
+Oranlar küçük ve bunu saklamayacağım. Payda zincirin o sekiz haftadaki bütün
+kaybı, kestirime göre 429.980 adet. Transfer ise yalnız bir yerde fazlası olan
+option'larda iş görür; hiçbir mağazada fazlası olmayan bir kazağın boş çıkan
+müşterisine hiçbir kamyon yetişemez. Açgözlü plan 99.029 adet taşıyıp bu
+kaybın 14.873 adedini kurtarıyor. Oran küçük, ama kurtarılan her adet rafın
+önünden eli boş dönecek bir müşteri.
 
 ## Beklemediğim sonuç
 
 Bu sonuç tabloda değil, kadranda çıktı. İkinci yazıda Ali tahtaya tek bir
 çizgi yerine iki sayı yazmıştı: biri vericideki bolluğun eşiği, öbürü
-alıcıdaki kıtlığın tavanı. Aynı stok fotoğrafını farklı eşik takımlarıyla
+alıcıdaki kıtlığın tavanı. Aynı stok fotoğrafını altı eşik takımıyla
 çalıştırınca çözücünün planı şöyle değişiyor:
 
-| Eşik takımı | Taşınan option | Net kazanç | Kayıp satış yakalama |
-|---|---:|---:|---:|
-| verici ≥ 6 hafta · alıcı tavanı kapalı | 252 | 5.006.979 TL | **%29,7** |
-| verici ≥ 6 hafta · alıcı ≤ 6 hafta | 275 | **5.321.250 TL** | %21,9 |
-| verici ≥ 14 hafta · alıcı ≤ 6 hafta | 233 | 5.027.037 TL | %16,7 |
-| verici ≥ 18 hafta · alıcı ≤ 14 hafta | 216 | 4.802.231 TL | %16,1 |
+| Eşik takımı | Taşınan option | Net kazanç | Kayıp satış yakalama (kestirim · gerçek kayıp) | Çözücünün durumu |
+|---|---:|---:|---:|---|
+| verici ≥ 6 hafta · alıcı tavanı kapalı | 661 | 35.934.123 TL | %3,7 · %3,4 | toleransta, %0,18 |
+| verici ≥ 6 hafta · alıcı ≤ 3 hafta | 851 | 49.627.968 TL | **%4,2 · %3,7** | `limit`, %1,33 |
+| verici ≥ 6 hafta · alıcı ≤ 6 hafta | 895 | **59.884.561 TL** | %3,8 · %3,4 | `limit`, %5,24 |
+| verici ≥ 14 hafta · alıcı ≤ 6 hafta | 782 | 57.529.813 TL | %3,1 · %2,7 | `limit`, %1,96 |
+| verici ≥ 18 hafta · alıcı ≤ 14 hafta | 787 | 58.829.811 TL | %2,7 · %2,3 | `limit`, %1,71 |
+| verici ≥ 26 hafta · alıcı ≤ 6 hafta | 527 | 41.922.719 TL | %2,2 · %1,9 | toleransta, %0,36 |
 
-İlk iki satıra bakın: aralarında tek bir kadran dönüyor, verici eşiği yerinde
-duruyor. Alıcı tavanını açmak plana 23 hareket daha ekliyor ve 314.271 TL,
-yani yüzde 6,3 daha kazandırıyor. Aynı hamlede boş çıkan müşterinin yakalanan
-kısmı %29,7'den %21,9'a iniyor.
+Son sütun çözücünün dürüstlük satırı: yüzde, planın olası en iyi plandan en
+fazla ne kadar uzak olduğu. Altı satırın dördünde çözücü emniyet için
+koyduğumuz düğüm sınırına takıldı ve `limit` bayrağıyla döndü. O planlar iyi
+ama kanıtlanmamış; hiçbirine "en iyi plan" demiyorum.
 
-Kayıp satış, rafta bedenini bulamayıp boş çıkan müşteridir; hiçbir kasada
-kaydı yoktur, veri setinde ayrı bir tablo olarak durur ve **hiçbir çözücüye
-girdi olarak verilmez** — çünkü gerçek hayatta o veri yoktur. Yalnızca
-sonradan, "önerilen transferler geçmişte boş çıkan müşterinin ne kadarını
-adresliyor?" diye ölçmek için kullanılır.
+Şimdi ilk ve üçüncü satıra bakın: aralarında tek bir kadran dönüyor, verici
+eşiği yerinde duruyor. Alıcı tavanını kapalıdan altı haftaya açmak plana 234
+hareket ekliyor ve net kazancı 23.950.438 TL büyütüyor: yüzde 66,7, kabaca
+üçte iki. Aynı hamlede kayıp satış yakalama kestirimle %3,65'ten %3,85'e
+çıkıyor, gerçek kayıpla %3,40'tan %3,36'ya iniyor. Yani yerinde sayıyor.
+Açgözlü planda da tablo aynı: para %74,8 büyüyor, yakalama iki ölçüde de
+yarım puandan az kıpırdıyor.
 
-Yani daha çok para kazandıran ayar, dizinin ilk sayfasındaki telefonun
-derdinde geri düşüyor. Pelin tabloyu görünce ikinci yazıdaki sorusuna
-dönüyor:
+Pelin tabloyu görünce ikinci yazıdaki sorusuna dönüyor:
 
-— Tavanı açınca daha çok mal kımıldıyor, para da artıyor. Nasıl oluyor da
-müşteriyi daha az kurtarıyorum?
+— Tavanı açınca iki yüzden fazla hareket ekleniyor, para üçte iki büyüyor. Bu
+kadar mal kımıldıyor da boş çıkan müşteri nasıl fark etmiyor?
 
 Ali'nin cevabı kısa:
 
-— Çünkü tavan açılınca alıcı listesine giren mağazaların seti kırık değil,
-rafı da boş değil; yalnızca malı azalmış. Oraya yolladığın koli iyi satar,
-ciroyu da büyütür. Ama o rafın önünde bedenini bulamayıp eli boş çıkmış bir
-müşteri yoktu ki kurtarasın.
+— Çünkü tavan açılınca alıcı listesine giren mağazaların seti kırık değil.
+Rafları dolu değil ama boş da değil; müşteri bugün bedenini buluyor. Oraya
+yolladığın koli iyi satar, ciroyu da büyütür; terazi o yüzden ona yüksek puan
+veriyor. Ama o rafın önünde bedenini bulamayıp boş çıkacak müşteri az. Para o
+raflarda, boş çıkan müşteri başka raflarda.
+
+— O zaman müşteriyi düşünen tavanı kapalı mı tutmalı? diyor Pelin.
+
+— Onu da söyleyemem, diyor Ali. İkinci satıra bak. Tavanı yalnız üç haftaya
+açınca hem para artıyor hem yakalama; bitmek üzere olan raf, birkaç hafta
+sonra boş çıkacak müşterinin rafıdır. Altı haftaya açınca o artış geri
+gidiyor. Para ile müşteri aynı kadranda duruyor ama birlikte dönmüyor.
 
 Çözücü yanlış bir şey yapmadı. Ona ne dediysek onu yaptı: *net kazancı
-büyüt.* Kayıp satışı hiç duymadı bile; **o ölçütü ona hiç söylemedik.**
+büyüt.* Boş çıkan müşteriyi hiç duymadı bile; **o ölçütü ona hiç söylemedik.**
+Yakalamanın kadranla bir artıp bir azalması bundan: model onu kovalamıyor.
+Yakalanan kısım, paranın peşinden giden planın yolda denk geldiği kısım.
 
 Bu dizinin en pahalı cümlesi bu olabilir: **amaç fonksiyonuna yazmadığınız
-şey, sizin için var değildir.** Optimizasyonun tehlikesi yanlış cevap vermesi
-değil, sorduğunuz soruya kusursuz cevap verirken sormadığınız soruyu sessizce
-çöpe atmasıdır. Önceliğiniz müşterinin aradığını bulmasıysa, bunu amaç
-fonksiyonuna yazmanız gerekir — yoksa modeliniz onu umursamaz.
+şey, sizin için yoktur.** Optimizasyonun tehlikesi yanlış cevap vermesi değil,
+sorduğunuz soruya titizlikle cevap verirken sormadığınız soruyu sessizce bir
+kenara bırakmasıdır. Önceliğiniz müşterinin aradığını bulmasıysa, bunu amaç
+fonksiyonuna yazmanız gerekir; yoksa modeliniz onu umursamaz. Umursamadığı
+şey bazen artar, bazen azalır; ikisi de tesadüftür.
 
-Tablonun son iki satırı aynı dersin başka bir yüzü ve Ali'nin ikinci yazıda
-sayıyla söyleyemediği sezginin karşılığı: verici eşiğini yükseltirken alıcı
-tavanını da gevşetmek kâğıtta temkinli görünür. Sonuçta hem daha az mal
-kımıldıyor, hem de yakalanan kayıp satış artmıyor.
+Tablonun dördüncü ve beşinci satırları aynı dersin başka bir yüzü ve Ali'nin
+ikinci yazıda sayıyla söyleyemediği sezginin karşılığı. Verici eşiğini
+yükseltip alıcı tavanını gevşetmek kâğıtta temkinli görünür. Sonuçta kamyon
+yine doluyor: 18/14 planı 14/6 planından beş hareket fazla, daha çok adet
+taşıyor ve %2,3 daha çok kazandırıyor. Ama kayıp satış yakalama kestirimle
+%3,11'den %2,66'ya, gerçek kayıpla %2,72'den %2,31'e iniyor. Ali'nin "hiçbir
+şey çözmeyen koliler" dediği bunlar: para var, kurtarılan müşteri yok.
 
 ## Peki hangisini kurmalı?
 
 Kesin bir cevabı yok, ama karar birkaç soruya indirgenebilir.
 
-**Açgözlü yöntem yeter** — sabit maliyetler (kamyon, koli, mal kabul) toplamın
-yanında küçükse; kararlar birbirini az kısıtlıyorsa; ekipte optimizasyon
-bakacak kimse yoksa; ve verilen kararın tek satırla savunulabilmesi sizin
-için "en iyi"den daha değerliyse.
+**Açgözlü yöntem yeter**, eğer sabit maliyetler (kamyon, koli, mal kabul)
+toplamın yanında küçükse; kararlar birbirini az kısıtlıyorsa; ekipte
+optimizasyon bakacak kimse yoksa; ve verilen kararın tek satırla
+savunulabilmesi sizin için "en iyi"den daha değerliyse.
 
-**Çözücü gerekir** — rota veya parti maliyetleri ağırsa; kapasiteler gerçekten
-kilitliyorsa; kararlar birbirine bağımlıysa; ve kaybınızın büyüklüğünü
-*bilmek* istiyorsanız.
+**Çözücü gerekir**, eğer rota veya parti maliyetleri ağırsa; kapasiteler
+gerçekten kilitliyorsa; kararlar birbirine bağımlıysa; ve kaybınızın
+büyüklüğünü *bilmek* istiyorsanız.
 
-Son madde en önemlisi ve dördüncü yazının kapanışıydı: yüzde 99,4'ü *biz*
+Son madde en önemlisi ve dördüncü yazının kapanışıydı: %90,9'u *biz*
 biliyoruz, çünkü ikisini de kurup ölçtük. Yalnızca birini çalıştıran bir
-zincir, sonucunun yüzde 99,4 mü yoksa yüzde 70 mi olduğunu bilemez. Bu
-yüzden üçüncü bir seçenek daha var ve çoğu zaman en akıllısı odur: **ikisini
-birden kurun, farkı ölçün, sonra hangisini yaşatacağınıza karar verin.** Fark
-küçükse basit olanı üretimde tutarsınız — ama artık bilerek tutuyorsunuzdur.
+zincir, sonucunun %90,9 mu yoksa %70 mi olduğunu bilemez. Bu yüzden üçüncü bir
+seçenek daha var ve çoğu zaman en akıllısı odur: **ikisini birden kurun, farkı
+ölçün, sonra hangisini yaşatacağınıza karar verin.** Fark küçükse basit olanı
+üretimde tutarsınız; ama artık bilerek tutuyorsunuzdur. Lumoda'nın bu
+haftasında fark küçük değil: üç milyon TL'den fazla.
+
+Ölçmenin de bir sınırı var. Yukarıdaki tablonun dört satırında çözücü kanıt
+üretmeden durdu. Orada açgözlüyle arasındaki farkı ölçtüğünüzde açgözlünün en
+iyi plandan uzaklığını eksik ölçersiniz; gerçek açık biraz daha büyük
+olabilir. Ne kadar büyük olabileceği de bellidir: çözücünün bıraktığı boşluk
+kadar, en fazla %5,24.
 
 ## Varsayımlar ve bu model nerede yetmez
 
@@ -148,25 +230,36 @@ Dizi boyunca dağıttığım dürüstlük maddelerini tek yerde topluyorum. Hiç
 gizli değil; hepsi bilinçli sadeleştirme.
 
 **Kazanç kâr değil, ciro etkisidir.** Terazi liste fiyatıyla kuruldu, alış
-maliyeti düşülmedi. Tablodaki TL rakamları "yer değiştiren ciro"dur.
+maliyeti düşülmedi. Tablodaki TL rakamları "yer değiştiren ciro"dur. Lumoda'da
+marj ürüne göre değişiyor; üçüncü yazıda ölçtük, teraziyi kârla kurunca plan
+değişiyor ama kâr yalnız binde birkaç artıyor.
 
 **Blok bölünmez, tek hedefe gider.** Bir mağazadan alınan stok ikiye
-ayrılmıyor. Bölünebilir dağıtım ayrı bir problem ve kendi yazısını hak ediyor.
+ayrılmıyor. İstanbul 18'in kazağında bunun bedelini gördük: XXL'den
+gereğinden fazla, S'den gereğinden az gitti. Bölünebilir dağıtım ayrı bir
+problem ve kendi yazısını hak ediyor.
 
-**Ufuk sabit sekiz hafta.** Veri setinde sezon kodu ve indirim takvimi yok.
-İkinci yazıdaki "raf ömrü kadranı" — sezon sonu yaklaştıkça terazinin taşımaya
-yatması — bu yüzden modelde yok. Gerçek kurulumda ufuk option başına değişir.
+**Ufuk sabit sekiz hafta.** Veride sezon takvimi var; karar anı sezonun
+ortasında, indirimden önce ve sekiz haftalık ufuk indirim başlamadan
+kapanıyor. Ama ikinci yazıdaki "raf ömrü kadranı", yani sezon sonu yaklaştıkça
+terazinin taşımaya yatması, modelde yok. Gerçek kurulumda ufuk option başına
+değişir ve indirim takvimine bağlanır. Takvim veride durduğu için bu bir veri
+eksiği değil, sıradaki adım.
 
-**Soğuma yalnız yarım görülüyor.** Depo sevkiyatını izleyebiliyoruz ama
-mağazalar arası geçmiş transferler veride tutulmuyor; "geçen hafta zaten
-oradan almıştık" kuralı tam sınanamıyor.
+**Soğuma yalnız iki haftaya bakıyor.** Kural depodan da mağazadan da gelen
+bütün varışları görüyor; karar anında 11.250 raf soğumada, 21'ine mal başka
+bir mağazadan gelmiş. Ama bir malın sezon boyunca kaç kere taşındığını
+saymıyor. Bunun bedelini bir sonraki yazıda konuşacağız.
 
 **Talep sansürlü ölçülüyor.** Kırık setli mağazanın gerçek talebi
 ölçtüğümüzden yüksektir. En çok yardıma muhtaç mağaza, modelin gözünde
-olduğundan sönük görünür. Düzeltmedik; düzeltmek tahmin üstüne tahmin kurmak
-olurdu.
+olduğundan sönük görünür. Bu dizide düzeltmedik; modelin neye dayandığı
+bulanıklaşmasın istedik. Sıradaki adım ise belli: hızı sansürlü satıştan
+değil, karar anına kadarki kaybı da kestiren bir kestiriciden almak.
 
-**Kapasite adet bazlı.** Metrekare, reyon ve askı ayrı ayrı modellenmiyor.
+**Kapasite adet bazlı.** Metrekare, reyon ve askı ayrı ayrı modellenmiyor;
+kapasite mağazanın geçmişte fiilen taşıdığı yükten ölçülüyor. Bu veride
+kapasite gerçekten bağlıyor, o yüzden tanımı en çok tartışılacak varsayım bu.
 
 **Determinizm ücretsiz gelmiyor.** Aynı veriyle iki koşunun aynı planı vermesi
 kendiliğinden olmuyor: hem açgözlü sıralamada, hem çözücünün değişken
@@ -180,14 +273,16 @@ Gerçek bir zincirde bu modelin şekli aynı kalır, ayrıntısı değişir. Ür
 hiyerarşisi daha derindir; mağazalar grup ve bölge taşır; "şu iki mağaza
 arasında transfer olmaz" gibi şirkete özel kurallar vardır; sevkiyat takvimi
 haftanın belirli günlerine bağlıdır. Bunların hepsi ya aday kümesinin
-tanımına, ya da kısıt listesine eklenir — üçüncü yazının cümlesi burada da
+tanımına ya da kısıt listesine eklenir. Üçüncü yazının cümlesi burada da
 geçerlidir: **modelin en önemli kısmı çoğu zaman yazmadığınız kısıtlardır.**
 
-Bir de ölçek meselesi var. Lumoda 25 mağaza ve 240 option'lı küçük bir zincir;
-gerçek bir zincirde bu sayılar bir büyüklük mertebesi yukarıdadır ve o zaman
-çözücünün saniyenin altındaki süresi dakikalara çıkar. Zaman limiti, `limit`
-bayrağı ve "kanıtlanmamış ama iyi" çözümle çalışmak orada gerçek bir mesele
-hâline gelir.
+Bir de ölçek meselesi var. Lumoda 80 mağaza ve 1.870 option'lı bir zincir ve
+model kurmanın genelde "gerçek zincirde karşınıza çıkar" diye ertelenen
+dertleri bu veride zaten yaşanıyor. Referans ayarda çözücü 37,8 saniyede
+toleransın içinde duruyor; kadranı çevirdiğinizde dakikalarca koşup `limit`
+bayrağıyla dönüyor. Zaman limiti, `limit` bayrağı ve "kanıtlanmamış ama iyi"
+çözümle çalışmak burada bir dipnot değil, işin kendisi. Gerçek bir zincirde
+mağaza ve ürün sayısı bunun da üstündedir.
 
 ## Gerçek kurulumda eklenen kısıtlar
 
@@ -205,16 +300,18 @@ karşılığı olup olmadığıyla birlikte topladım:
 | **Maksimum koli / araç hacmi** | Bir sevkiyata sığacak adet, ağırlık, hacim | yok |
 | **Sevkiyat takvimi** | Transfer yalnız belirli günlerde, belirli hatlar üzerinden | yok |
 | **Bölge ve grup kuralları** | "Şu iki mağaza arasında transfer olmaz", franchise sınırları | kısmen (line kuralı) |
-| **Tekrar transfer soğuması** | Aynı malı iki hafta üst üste oradan oraya taşımamak | kısmen (yalnız depo sevkiyatı) |
+| **Tekrar transfer soğuması** | Aynı malı iki hafta üst üste oradan oraya taşımamak | var (bütün varışlar) |
+| **Taşıma sayısı tavanı** | Bir mal sezon boyunca en çok kaç kez taşınır | yok |
 
 Üçü özellikle sık atlanır ve atlandığında plan sahada uygulanamaz hâle gelir.
 
 **Gönderici alt sınırı.** Bizim modelde blok, vericinin stoğunun *tamamıdır*;
-verici o option'da sıfıra iner. Lumoda'da bu kabul edilebilir çünkü verici
-zaten cover eşiğini aşmış, yani satmayan bir raf. Gerçek zincirde mağaza
-müdürü "benim de müşterim var" der ve haklıdır: pratikte vericide belirli bir
-hafta karşılığı bırakılır. Bu, bloğu bölmek demektir ve modeli sürekli miktar
-kararına yaklaştırır.
+verici o option'da sıfıra iner. Lumoda'da bu kabul edilebilir görünüyor, çünkü
+verici zaten cover eşiğini aşmış, yani yavaş satan bir raf. Ama İstanbul 18'in
+kazağında gördük: Malatya o sekiz haftada bloğun yarısını kendisi de
+satabilirdi. Gerçek zincirde mağaza müdürü "benim de müşterim var" der ve
+haklıdır: pratikte vericide belirli bir hafta karşılığı bırakılır. Bu, bloğu
+bölmek demektir ve modeli sürekli miktar kararına yaklaştırır.
 
 **Stok şişme tavanı.** Model alıcıya taşımayı sever, çünkü kazanç orada
 görünür. Ama alıcıda da bir doyma noktası vardır: sekiz haftalık talebi
@@ -222,15 +319,16 @@ karşılayan mağazaya on altı haftalık mal göndermek bir sonraki haftanın �
 stoğunu üretir. Kapasite kısıtı bunu ancak kabaca engeller; asıl koruma
 alıcının transfer sonrası cover'ına konan üst sınırdır.
 
-**Kargo/rota sayısı.** Dördüncü ve beşinci yazının bütün hikâyesi buydu:
-çözücü 140, açgözlü 196 sevkiyat açıyordu. Gerçek lojistikte bu sayının bir
-tavanı vardır ("bir mağaza haftada en çok üç yere gönderir"). Tavanı modele
-yazdığınızda çözücü rotaları daha da birleştirmek zorunda kalır ve iki yöntem
-arasındaki fark büyür — çünkü açgözlü yöntem bu kısıtı ancak sonradan
-eleyerek uygulayabilir, çözücü ise plan kurarken hesaba katar.
+**Kargo/rota sayısı.** Beşinci yazıda rotaları saydık: çözücü 318, açgözlü
+340 sevkiyat açıyor ve açgözlünün 268 sevkiyatı tek bir option taşımak için
+açılıyor. Gerçek lojistikte bu sayının bir tavanı vardır ("bir mağaza haftada
+en çok üç yere gönderir"). Tavanı modele yazdığınızda çözücü rotaları daha da
+birleştirmek zorunda kalır ve iki yöntem arasındaki fark büyür, çünkü açgözlü
+yöntem bu kısıtı ancak sonradan eleyerek uygulayabilir; çözücü ise plan
+kurarken hesaba katar.
 
 Son bir uyarı: her yeni kısıt çözüm uzayını daraltır, yani **beklenen kazancı
-düşürür.** Bu bir kayıp değil, dürüstlüktür — kısıtsız modelin vaat ettiği
+düşürür.** Bu bir kayıp değil, dürüstlüktür; kısıtsız modelin vaat ettiği
 para zaten uygulanamayacak bir planın parasıdır. Asıl soru "kısıt eklersem ne
 kaybederim" değil, "bu kısıt gerçek mi, yoksa alışkanlık mı" sorusudur.
 
@@ -243,8 +341,9 @@ sonunda ikisini tarttık.
 
 Geriye kalan tek cümle şu: bu işin zor kısmı algoritma değildi. Zor kısım,
 kararın nasıl verildiğini yavaş çekimde izleyip yazabilmekti. Onu
-yazabildiğinizde hangi yöntemi seçtiğiniz neredeyse bir detay — ve seçiminizi
+yazabildiğinizde hangi yöntemi seçtiğiniz neredeyse bir detay; ve seçiminizi
 artık savunabiliyorsunuz 🙂
 
 Bu listenin ilk maddesini bir sonraki yazı devralıyor: buradaki rakamlar hâlâ
-ciro cinsinden ve onları paraya çevirmek o yazının işi.
+ciro cinsinden ve onları paraya çevirmek o yazının işi. Orada modelin kendisi
+hakkında da bir şey öğreneceğiz: ne varsaydığını ve verinin ne dediğini.

@@ -4,7 +4,7 @@ tip: teknik
 sira: 7
 ozet: >-
   Transfer bir bahistir: aynı mal, iki raf, iki farklı satma ihtimali. Faydayı
-  ölçmek, modelin kendi faydasını abarttığını da gösterir.
+  ölçmek, modelin kendi faydasını ne kadar abarttığını da gösterir.
 yazar: Sabri Suyunu
 durum: yayinda
 ---
@@ -15,14 +15,19 @@ import Lumtify from '../../../../components/Lumtify.astro'
 
 Kapanış yazısının dürüstlük listesinde bir madde diğerlerinden farklıydı:
 **kazanç kâr değil, ciro etkisidir.** Terazi liste fiyatıyla kuruldu, alış
-maliyeti hiç düşülmedi. Yani raporda duran 4.978.979 TL'nin dürüst adı "yer
-değiştiren ciro"; şirketin kasasına giren para değil.
+maliyeti hiç düşülmedi. Yani açgözlü planın raporunda duran 32.680.688 TL'nin
+dürüst adı "yer değiştiren ciro"; şirketin kasasına giren para değil.
 
 Altı yazı "hangi mal nereye gitmeli" sorusunu çözdü. Bu yazının tek bir sorusu
 var: **o hareket para olarak ne ediyor?** Model değişmiyor, tek satırına
 dokunmuyoruz; çıkardığı planın üstüne ayrı bir hesap katmanı geçiyoruz. Sebebi
 şu: "hangi mal nereye" ile "bu ne ediyor" iki ayrı sorudur ve ikisini aynı
 koda karıştırmak, ikisini de kirletir.
+
+Bu hesapta elimizde bir şans var: veri karar anında bitmiyor, kararın
+ardından gelen sekiz haftayı da görüyoruz. Yani modelin ne varsaydığını,
+verinin ne dediğiyle yan yana koyabiliyoruz. Bu yazının asıl hikâyesi o yan
+yana duruş.
 
 ## Aynı mal, iki raf
 
@@ -32,9 +37,9 @@ Plan çıktığı gün Pelin raporun altındaki satıra takılıyor.
 koli çıkmadı. Bu para nereden geliyor?
 
 — Yeni para gelmiyor zaten, diyor Ali. Transfer para üretmez; bir bahsi
-değiştirir. Elinde bir kazak var. Trabzon'un rafında durursa satma ihtimali
-şu kadar, Kadıköy'ün rafında durursa şu kadar. Kazandığın şey iki ihtimalin
-farkıdır, malın kendisi değil.
+değiştirir. Elinde bir kazak var. Malatya'nın rafında durursa satma ihtimali
+şu kadar, İstanbul 18'in rafında durursa şu kadar. Kazandığın şey iki
+ihtimalin farkıdır, malın kendisi değil.
 
 Tahtaya yazıyor:
 
@@ -42,18 +47,21 @@ $$
 \text{net} = (p_{\text{alıcı}} - p_{\text{verici}}) \times \text{brüt kâr} - \text{maliyet}
 $$
 
-Üç parçadan ikisi ölçülen sayı. Brüt kâr uydurma değil: taşınan her adedin
-liste fiyatı ile alış fiyatı ürün tablosunda yazılı, ikisinin farkı da bu
-planda **4.163.358,70 TL** tutuyor. Maliyet de birazdan kalem kalem
-açılacak. Uydurma olan tek şey baştaki parantez: iki ihtimal.
+Üç parçadan biri kesin: brüt kâr. Taşınan her adedin liste fiyatı ile alış
+fiyatı ürün tablosunda yazılı, ikisinin farkı da bu planda
+**53.714.910,31 TL** tutuyor. Maliyet birazdan kalem kalem açılacak. Asıl
+mesele baştaki parantez: iki ihtimal. Altı yazı boyunca o parantezi model
+kendi hesabıyla doldurdu; bu yazıda veriyle dolduracağız.
 
-Burada bir uyarı borçluyum. Bu sentetik veri setinde marj sabit: alış fiyatı
-liste fiyatının hep aynı oranı, 1.200 ürünün hepsinde brüt marj %61,5.
-Dolayısıyla kâra çevirmek bütün rakamların ölçeğini değiştiriyor ama
-sıralamasını değiştirmiyor; ciroda önde olan hareket kârda da önde. Gerçek
-bir zincirde marj ürüne, markaya ve sezona göre oynar, kâr katmanı da o zaman
-ciro katmanının bilmediği bir şey söyler. Burada söylemiyor. Söyletmek veri
-seti işidir, model işi değil.
+Önce bir not. Lumoda'da marj ürüne göre değişiyor: alış fiyatı liste
+fiyatının 0,316 ile 0,455 katı arasında, yani brüt marj %54,5 ile %68,4
+arasında oynuyor; taşınan malın bütününde %60,9. Kâra çevirmek bu yüzden
+yalnız ölçeği değil, sıralamayı da değiştiriyor. Teraziyi kârla kurunca
+açgözlü plana 33 yeni hareket giriyor, 59 hareket çıkıyor; çözücünün planına
+112 hareket giriyor, 137 hareket çıkıyor. Kâr ise çok az artıyor: açgözlüde
+126.471 TL (%0,68), çözücüde 36.047 TL (%0,18). Plan değişiyor, para pek
+değişmiyor. Bu veride kâr katmanının söylediği asıl yeni şey marjdan değil,
+ihtimallerden gelecek.
 
 — Peki bu bahsi kim tutuyor? diyor Pelin.
 
@@ -62,8 +70,8 @@ yıpranan mal. Bahsi kazanırsan malın kârı; kaybedersen o maliyet cebinden
 çıkar ve mal yeni yerinde, aynı şekilde satmadan durur. Kimse "transfer
 tuttu mu" diye geri dönüp bakmadığı için de kaybettiğini hiç öğrenmezsin.
 
-Kodda karşılığı bu kadar; hesap katmanının tamamı planın hareket listesini
-okuyup üç satır yazmaktan ibaret:
+Bu yazı tam olarak geri dönüp bakıyor. Kodda karşılığı kısa; hesap katmanının
+tamamı planın hareket listesini okuyup üç satır yazmaktan ibaret:
 
 ```python
 maliyet = (
@@ -75,20 +83,19 @@ fark = (alici_ihtimal - verici_ihtimal) / 100.0
 net = fark * brut_kar - maliyet
 ```
 
-## Bahsin ölçülen tarafı
+## Bahsin geriye bakan tarafı
 
-İhtimaller kadrandan geliyor, doğru. Ama bahsin *neden* mantıklı olduğunu
-söyleyen sayı ölçülüyor ve bu yazının merkezinde o duruyor. Planın taşıdığı
-252 bloğun her biri için, aynı option'ın iki mağazadaki <T k="str">STR</T>'ına
-bakalım:
+İhtimallere geçmeden önce, bahsin neden mantıklı göründüğünü söyleyen sayıya
+bakalım. Planın taşıdığı 586 bloğun her biri için, aynı option'ın iki
+mağazadaki <T k="str">STR</T>'ı:
 
 | | Ortalama STR |
 |---|---:|
-| Malın çıktığı mağazada | %39,7 |
-| Malın gittiği mağazada | **%92,4** |
+| Malın çıktığı mağazada | %29,4 |
+| Malın gittiği mağazada | **%85,3** |
 
-Aynı ürün. Aynı hafta. Bir rafta gönderilenin beşte ikisi satılmış, öbür
-rafta neredeyse tamamı.
+Aynı ürün. Aynı hafta. Bir rafta gönderilenin üçte birinden azı satılmış,
+öbür rafta altıda beşinden fazlası.
 
 Ama bu tabloyu olduğundan büyük okumayın: aradaki farkın bir kısmı seçim
 kuralının kendisidir. Verici mağazaları yüksek <T k="cover">cover</T>'a göre
@@ -97,15 +104,90 @@ alıcıları ise rafı kırık ya da boş olduğu için, yani tanımı gereği S
 yüksek olanları. Tablonun bir kısmı bu yüzden yeni bir bilgi değil, seçim
 kuralının STR birimiyle tekrarıdır.
 
-O yüzden "mağazalar arasındaki fark ürün farkı değil, yer farkıdır" demeye
-hakkım yok; bu tablo o sonucu taşımıyor. Taşıdığı daha küçük bir cümle:
-kural, aradığı mağazaları gerçekten buluyor.
-
-İkinci bir uyarı daha var. STR geriye bakan bir ölçüttür — ikinci yazıda
+İkinci bir uyarı daha var. STR geriye bakan bir ölçüttür; ikinci yazıda
 Ali'nin cover'ın "geriye bakan kardeşi" dediği sayı. Yani bu tablo alıcının
-gelecek sekiz haftada da aynı hızda satacağını kanıtlamaz; yalnızca bahsin
-körlemesine olmadığını gösterir. Bahis hâlâ bahistir, ama zarı biz atmıyoruz:
-zar geçmişte defalarca atılmış ve hep aynı yüzü göstermiş.
+gelecek sekiz haftada da aynı hızda satacağını kanıtlamaz, yalnızca bahsin
+körlemesine olmadığını gösterir. Zar geçmişte defalarca atılmış ve hep aynı
+yüzü göstermiş. Sonraki sekiz haftada ne gösterdiğini de görebiliyoruz; ama
+önce modelin ne beklediğine bakalım.
+
+## Model ne varsaydı
+
+Model amaç fonksiyonunda her hareket için bir kazanç yazıyordu. O kazancın
+içinden, bloğun alıcıda kaç adedinin satacağı varsayımını geri çıkarabiliriz:
+taşınan adet, alıcının haftalık hızı ve sekiz haftalık ufuk elimizde. Aynısını
+verici için de yapabiliriz. Çıkan tablo şu:
+
+| | Ortalama | Medyan |
+|---|---:|---:|
+| Modelin alıcı için varsaydığı satma oranı | **%84,2** | %100,0 |
+| Kalsaydı vericide satma oranı | %38,9 | %34,0 |
+
+586 hareketin **370'inde** model, bloğun alıcıda **tamamen** satacağını
+varsayıyor.
+
+Bu bir hata değil, tanımın sonucu: üçüncü yazıdaki kazanç terimi
+`min(stok, hız × ufuk)` tavanıyla hesaplanıyor ve hızlı satan bir alıcıda
+blokların çoğu tavana çarpıyor. İstanbul 18 bu kazaktan haftada 33,60 adet
+satıyordu; sekiz haftada 268,80 eder, 103 kazak o hesapta rahatça erir.
+
+Ali bu tabloya bakınca gülüyor:
+
+— Ben bu işi uzun zamandır yapıyorum; hiçbir mağazada, hiçbir sezonda,
+gönderdiğim malın tamamının sattığını görmedim. En iyi mağazada, en iyi
+üründe bile bu oran yüzde yetmişi zor geçer. Model bana her hareketi kusursuz
+satacakmış gibi anlatıyor.
+
+Çoğu zincirde bu iki cümle karşı karşıya durur ve orada kalır: bir yanda
+Ali'nin sezgisi, öbür yanda modelin varsayımı. Bu veride üçüncü bir ses var.
+
+## Veri ne dedi
+
+Karardan sonraki sekiz haftada taşınan mal gerçekten ne yapardı? İki soruyla
+ölçüyoruz.
+
+Alıcı tarafında soru şu: taşınan kazak, alıcıda bedenini bulamayıp boş
+çıkacak bir müşteriye denk geliyor mu? Denk geliyorsa o satış transferin
+eseridir. Denk gelmiyorsa transfer bir şey eklemiyor: ya o müşteri bedenini
+zaten buluyordu ya da öyle bir müşteri hiç yoktu. Buna **gerçekleşen alıcı oranı** diyelim: taşınan malın,
+penceredeki kaybı beden beden karşılayan payı. Kayıp yine
+[Satış Kaybı dizisinin](/is-zekasi/satis-kaybi/) Basit yöntemiyle kestiriliyor
+ve yine verinin içindeki gerçek kayıpla sınanıyor. Bu oran yalnız sekiz
+haftalık pencereyi sayar; pencereden sonra, örneğin indirimde satılacak olan
+mal burada görünmez.
+
+Verici tarafında soru: taşınan mal vericide kalsaydı, o sekiz haftada orada da
+satılır mıydı? Buna **gerçekleşen verici oranı** diyelim. Bu bir üst sınır:
+vericinin pencerede sattığını sayıyor, oysa o satışların bir kısmını sonradan
+gelen replenishment mümkün kılmış olabilir.
+
+| | Model varsaydı (ortalama) | Veri dedi |
+|---|---:|---:|
+| Alıcıda satma oranı | %84,2 | **%15,0** *(gerçek kayıpla %13,7)* |
+| Kalsaydı vericide satma oranı | %38,9 | en fazla %10,5 |
+
+Model alıcıda %84,2 bekliyordu, veride %15,0 çıkıyor. Modelin gözünde iki raf
+arasındaki fark kırk puanı aşıyor; veride 4,5 puan.
+
+Ali'nin cümlesini de sınayabiliriz. Hareket hareket bakınca gerçekleşen alıcı
+oranının medyanı %24,1. 586 hareketin 111'inde (%18,9) oran %70 ya da
+üstünde; gerçek kayıpla sayınca 98 harekette (%16,7). 35 harekette %100; 35
+harekette sıfır, yani taşınan malın tek adedi bile boş çıkacak bir müşteriye
+denk gelmiyor. Ali'nin çizgisi tutuyor: hareketlerin beşte birinden azı yüzde
+yetmişi geçiyor. Model ise 370 harekette %100 diyordu.
+
+Dizinin açılış sahnesi o beşte birin içinde. İstanbul 18'e giden 103 kazağın
+86'sı boş çıkacak bir müşteriye denk geliyor. Telefonla gelen istek iyi bir
+bahismiş; planın ortalaması ise öyle değil.
+
+Pelin tabloya uzun uzun bakıyor:
+
+— Model bu kadar yanıldıysa planı da mı çöpe atıyoruz?
+
+— Önce parasını hesaplayalım, diyor Ali. Model kendi kazancını sayarken
+abarttı; bu, planın kötü olduğunu değil, modelin skorunun para olmadığını
+söylüyor. Planın para olarak ne ettiğini ölçülen oranlarla hesaplarsak
+öğreniriz.
 
 ## Ölçtüğüm, varsaydığım, bilmediğim
 
@@ -116,28 +198,33 @@ kalem aynı sağlamlıkta değildir. Karıştırıldıklarında ortaya çıkan s
 | Fayda kalemi | Sınıf | Bu hesapta |
 |---|---|---|
 | Brüt kâr etkisi | **ölçülen** | fiyatlar ürün tablosundan |
-| Giderilen <T k="kiriklik">kırıklık</T> | **ölçülen** | 528 kırık çiftin 137'si |
-| Yakalanan kayıp satış | **ölçülen** | %26,0 |
+| Adreslenen <T k="kiriklik">kırıklık</T> | **ölçülen** | 2.687 kırık çiftin 219'u |
+| Yakalanan kayıp satış | **ölçülen** (kestirim, sınanmış) | %3,5 (gerçek kayıpla %3,2) |
 | Stok tutma maliyeti | **varsayılan** | formül var, oran şirkete özel |
-| Carry-over'dan kaçınma | **bilinmeyen** | veri karar anında bitiyor |
+| Carry-over'dan kaçınma | **kısmen ölçülen** | sekiz hafta görünüyor, sezon sonu görünmüyor |
 
 İlk üçü veriden çıkıyor. Kırıklıkta ikinci bir satır daha var ve o satır
 tabloya sığmıyor: planın **hiçbir hareketi kırık bir seti verici yapmıyor**.
-Yani kırıklığı bir mağazadan alıp başka mağazaya taşımıyoruz; o 137 çift
-brüt değil, net kazanç.
+Yani kırıklığı bir mağazadan alıp başka mağazaya taşımıyoruz; o 219 çift brüt
+değil, net kazanç. Yakalanan kayıp satış ise bir şerhle ölçülen sınıfta:
+kayıp kestiriliyor ve kestirim burada gerçekle sınanabiliyor, sahada
+sınanamaz.
 
 Dördüncü kalem dürüstçe varsayımdır. Satılmadan duran malın bir sermaye
 maliyeti vardır, bunun formülü de bellidir; ama içine konacak oran her
 zincirde farklıdır ve bizim veri setinde yoktur. Uydurulmuş bir oranla
 hesaba katsaydım, sonuç ölçüm gibi görünen bir tahmin olurdu. Katmadım.
 
-Beşincisi apaçık bilinmeyen. Taşınmayan kırık setin sezon sonunda ne olduğunu (indirimde
-eridi mi, outlet'e mi gitti, ertesi sezona mı kaldı) söyleyecek
-veri yok; veri setinin ömrü kararın verildiği stok fotoğrafında bitiyor. Bu
-kalem muhtemelen hepsinden büyüktür ve ben onu ölçemiyorum. Ölçemediğim şeyi
-"ihtiyatlı davrandım" diye lehime yazmıyorum; boş bırakıyorum.
+Beşincisi yarı yarıya ölçülü. Veri karar anında bitmediği için kararın
+ardından gelen sekiz haftayı görüyoruz; yukarıdaki iki oran da yakalama da
+oradan geliyor. Ama taşınmayan kırık setin sezon sonunda ne olduğunu
+(indirimde eridi mi, outlet'e mi gitti, ertesi sezona mı kaldı) söyleyecek
+kısım pencerenin dışında: ölçüm penceresi indirim başlamadan kapanıyor. Bu
+kalem muhtemelen hepsinden büyüktür ve sezon sonu kısmını ölçemiyorum.
+Ölçemediğim şeyi "ihtiyatlı davrandım" diye lehime yazmıyorum; boş
+bırakıyorum.
 
-Bu üç sınıfı ayırmak, bu yazının en sağlam yeri. Bir fayda hesabının değeri
+Bu sınıfları ayırmak, bu yazının en sağlam yeri. Bir fayda hesabının değeri
 kaç kalem topladığında değil, hangi kalemin hangi sınıfta olduğunu
 söyleyebilmesindedir.
 
@@ -145,13 +232,15 @@ söyleyebilmesindedir.
 
 Maliyet tarafı için üç paket kurdum: düşük, orta, yüksek. Her paketin içinde
 adet başına toplama emeği, sevkiyat başına kargo ve bir de yıpranma oranı var.
-Orta paketle planın faturası şöyle çıkıyor:
+Toplama ve kargo tutarları varsayım, yıpranma oranı sahadan. Orta paketle
+planın faturası şöyle çıkıyor:
 
 | Kalem | Hesap | Tutar |
 |---|---|---:|
-| Yıpranma | taşınan malın maliyet değerinin %5'i | **130.105 TL** |
-| Kargo | 196 sevkiyat × 500 TL | 98.000 TL |
-| Toplama | 4.785 adet × 10 TL | 47.850 TL |
+| Yıpranma | taşınan malın maliyet değerinin %5'i | **1.724.646 TL** |
+| Toplama | 99.029 adet × 10 TL | 990.290 TL |
+| Kargo | 340 sevkiyat × 500 TL | 170.000 TL |
+| **Toplam** | | **2.884.936 TL** |
 
 Beklemediğim sonuç burada: **en büyük kalem kargo değil, yıpranma.** Toplantı
 odasında konuşulan tek kalem kargodur, çünkü faturası gelir; yıpranmanın
@@ -160,8 +249,8 @@ faturası gelmez.
 Yıpranma oranı sahadan gelen tek sayı: bir ürün her transferde maliyet
 değerinin yaklaşık **%5'i** kadar değer kaybediyor. Poşetten çıkıp kutuya
 giriyor, kutudan çıkıp askıya, etiketi kıvrılıyor, yaka kırışıyor, bir kısmı
-yolda hasar görüyor. Bu planda ortalaması adet başına **27,19 TL** ediyor. Yani
-toplama emeğinin neredeyse üç katı; ve hiçbir muhasebe kaleminde görünmüyor.
+yolda hasar görüyor. Bu planda adet başına **17,42 TL** ediyor; toplama
+emeğinin neredeyse iki katı. Ve hiçbir muhasebe kaleminde görünmüyor.
 
 Pelin'in buna itirazı var:
 
@@ -174,94 +263,98 @@ etiketinde çıkıyor. Kargo faturası tek kalemde toplandığı için görünü
 yıpranma binlerce adede birer kuruş olarak dağıldığı için görünmez. İkisi de
 aynı kasadan ödeniyor.
 
-## Modelin kendi hakkındaki iyimserliği
-
-Şimdi ölçümün modele geri dönüp ona bir şey söylediği yere geldik.
-
-Model amaç fonksiyonunda her hareket için bir kazanç yazıyordu. O kazancın
-içinden, bloğun alıcıda kaç adedinin satacağı varsayımını geri çıkarabiliriz:
-taşınan adet, alıcının haftalık hızı ve sekiz haftalık ufuk elimizde. Çıkan
-tablo şu:
-
-| | Ortalama | Medyan |
-|---|---:|---:|
-| Modelin alıcı için varsaydığı satma oranı | **%99,5** | %100,0 |
-| Kalsaydı vericide satma oranı | %21,3 | %7,7 |
-
-252 hareketin **246'sında** model, bloğun alıcıda **tamamen** satacağını
-varsayıyor. Vericide ise 60 hareket için varsaydığı oran tam sıfır.
-
-Ali bu tabloya bakınca gülüyor:
-
-— Ben bu işi uzun zamandır yapıyorum; hiçbir mağazada, hiçbir sezonda,
-gönderdiğim malın tamamının sattığını görmedim. En iyi mağazada, en iyi
-üründe bile bu oran yüzde yetmişi zor geçer. Model bana her hareketi kusursuz
-satacakmış gibi anlatıyor.
-
-Bu bir hata değil, tanımın sonucu: üçüncü yazıdaki kazanç terimi
-`min(stok, hız × ufuk)` tavanıyla hesaplanıyor ve blokların çoğu tavana
-çarpıyor. Ama hata olmaması onu zararsız yapmıyor: **modelin kendi lehine
-tuttuğu skor, sahanın tutacağı skordan yüksek.** Bunu ölçtüğünüz an bir şeye
-izniniz oluyor; o iyimserliği kadrandan geri kısmak.
-
-Aşağıdaki kadranın en iyimser köşesi %80 — Ali'nin saha tavanı diye verdiği
-yüzde yetmişin de üstünde, bilerek. Kadranı sahanın tavanından bir adım
-yukarı taşıdım ki modelin %99,5'i nereye düşüyor, gözle görülsün. Görülüyor:
-model kadranda hiç bulunmayan bir dünyada çalışıyor.
-
 ## Kadranı siz çevirin
 
-İhtimaller varsayım olduğuna göre, size tek bir sayı söylemem doğru olmaz.
-Kadran, yayımlanmış planın kendisini — o 252 hareketi, o 4.785 adedi — sizin
-seçtiğiniz ihtimallerle yeniden değerliyor:
+İhtimaller artık ölçülü, ama ölçüm de tek bir sayı değil: alıcı oranı
+kestirimle %15,0, gerçek kayıpla %13,7; verici oranı bir üst sınır. Bu yüzden
+size tek bir sonuç söylemek yerine kadranı veriyorum. Kadran, yayımlanmış
+açgözlü planın kendisini, o 586 hareketi ve 99.029 adedi, sizin seçtiğiniz
+ihtimallerle yeniden değerliyor:
 
 <Demo dizi="transfer-getirisi" />
 
-Kırk sekiz hücrenin hepsini çevirdim. Bulgu şu: **hepsi kârlı.** En kötü
-köşede bile — alıcıda yüzde 50, vericide yüzde 20, en yüksek maliyet paketi —
-geriye **768.740 TL** kalıyor. En iyimser köşede rakam 3.169.899 TL.
+Kadranın alıcı tarafı %15 ile %80 arasında. Sol ucu ölçtüğümüz dünya;
+%50'den yukarısı modelin dünyasına yakın. Sağ ucu %80, Ali'nin saha tavanı
+diye verdiği yüzde yetmişin de üstünde; bilerek. Modelin %84,2'si oraya bile
+sığmıyor. Kadran alıcıda %15, vericide sıfır ve düşük maliyet paketiyle
+açılıyor: alıcı tarafı ölçülen yerde, verici tarafı en iyimser hâlinde.
+Ölçülen noktaya gelmek için vericiyi %10'a çevirin.
+
+Kadranın 60 hücresinden 55'i kârlı, 5'i zararlı. En iyimser köşe (alıcıda
+%80, vericide sıfır, düşük paket) 41.339.995 TL bırakıyor; en kötü köşe
+(alıcıda %15, vericide %20, yüksek paket) 7.731.760 TL zarar ettiriyor. Zararlı
+beş hücrenin beşi de alıcı %15 sütununda: tam da ölçtüğümüz yerde.
+
+Ölçülen noktada tablo şu:
+
+| Maliyet paketi | Toplam maliyet | Başabaş fark | Ölçülen noktada net kâr |
+|---|---:|---:|---:|
+| düşük | 1.631.933 TL | 3,0 puan | **773.139 TL** |
+| orta | 2.884.936 TL | 5,4 puan | −479.864 TL |
+| yüksek | 5.046.014 TL | 9,4 puan | −2.640.942 TL |
+
+Transfer yalnız düşük maliyet paketinde kâr bırakıyor. Alıcı oranını gerçek
+kayıpla alırsanız (%13,7) düşük paketin kârı da 78.847 TL'ye iniyor:
+başabaşın hemen üstü. Kadranda en yakın hücre 15/10; vericideki %10,5 orada
+%10'a yuvarlandığı için bir tık iyimser, ama işaretler aynı: düşük pakette
+kâr, orta ve yüksekte zarar.
+
+Bunu saklamayacağım: **"değer mi" sorusu bu veride zor bir soru.** Modelin
+kendi skoruyla bakarsanız her hareket parlak. Ölçülen ihtimallerle bakarsanız
+kâr, maliyetin ne tuttuğuna bağlı ve en iyi durumda bile ince.
 
 Kadranda bir de **Ciro etkisi (TL)** satırı var: aynı ihtimal farkının brüt
-kâr yerine liste fiyatıyla çarpılmış hâli. Yani girişteki 4.978.979 TL ile
-aynı birimde, yer değiştiren ciro cinsinden. Aynı sayı değil, çünkü modelin
-bastığı o rakam modelin kendi %99,5'lik satma varsayımından çıkıyordu;
-buradaki ciro etkisini üreten ise sizin çevirdiğiniz kadran. Satırı, dizinin
-baştan beri bastığı büyüklüğü bu yazının varsayımlarıyla yeniden
-görebilesiniz diye koydum.
-
-Bunu "işte bu yüzden transfer harika" diye satmak yanlış olur. Doğrusu şu:
-**"değer mi" sorusu zor bir soru değil.** Ölçüm bunu söylüyor. Zor olan soru
-"hangi mal nereye" sorusudur ve dizinin altı yazısı zaten ona ayrılmış.
+kâr yerine liste fiyatıyla çarpılmış hâli, yani girişteki 32.680.688 TL ile
+aynı birimde. Ölçülen noktada 3.949.485 TL; modelin bastığı rakamın sekizde
+biri bile değil. Fark nereden geliyor, artık biliyoruz: o rakam modelin kendi
+%84,2'lik satma varsayımından çıkıyordu, bu satır ise ölçülen ihtimallerden.
 
 Ayrımın yükünü kadrandaki iki başabaş satırı taşıyor. Birincisi **Başabaş
 fark (puan)**: maliyetin kaç puanlık ihtimal farkına denk düştüğü. Yalnız
-maliyet paketine bağlı, iki kadranı da çevirseniz kımıldamıyor.
-
-| Maliyet paketi | Başabaş fark |
-|---|---:|
-| düşük | 3,9 puan |
-| orta | 6,6 puan |
-| yüksek | **11,5 puan** |
+maliyet paketine bağlı; iki ihtimal kadranını çevirseniz de kımıldamıyor.
+Yukarıdaki tabloda duruyor: 3,0, 5,4 ve 9,4 puan.
 
 İkincisi **Başabaş alıcı ihtimali (%)**: aynı eşiğin, seçtiğiniz vericinin
-üstüne binmiş hâli. Vericiye yüzde 20 dediyseniz yüksek pakette baraj yüzde
-31,5'e çıkıyor — alıcı kadranını oranın altına indirdiğiniz an hücre zarara
-geçer. Ali ikisini şöyle ayırıyor:
+üstüne binmiş hâli. Vericiyi ölçülen %10,5'te tutarsanız baraj düşük pakette
+%13,5, ortada %15,9, yüksekte %19,9. Ölçülen alıcı oranı %15,0: birinci barajı
+geçiyor, ikincisinin altında kalıyor. Gerçek kayıpla ölçülen %13,7 ise
+birinci barajı ancak geçiyor. Ali ikisini şöyle ayırıyor:
 
 — Fark, benim akılda tutacağım kural: alıcı vericiden şu kadar puan iyi
 olsun, gerisi kâr. İhtimal ise senin o gün masaya koyduğun tahminin barajı
 geçip geçmediği. Kuralı bir kere öğreniyorsun, barajı her toplantıda yeniden
 hesaplıyorsun.
 
-En kötümser maliyet varsayımında bile kural 11,5 puan. Yönetsel cümleye
-çevirelim: **alıcı, vericiden yaklaşık on puan daha iyi olsun; gerisi kâr.**
+En kötümser maliyet varsayımında kural 9,4 puan. Yönetsel cümleye çevirelim:
+**alıcı, vericiden yaklaşık on puan daha iyi olsun; gerisi kâr.**
 
-On puan, bu işte yakın bir yarış değil. Yukarıdaki STR tablosunun iki satırı
-arasında 52,7 puan var — o ölçüt geriye bakar, bahsin ileriye bakan
-ihtimalleriyle birebir aynı şey değildir, üstelik yukarıda itiraf ettiğim
-gibi o farkın bir kısmı seçim kuralının kendisidir. Bu yüzden "eşiği şu kadar
-aştık" diye yazmıyorum. Yine de iki sayının mertebesi bir şey söylüyor: eşik
-ince bir çizgi değil, geniş bir marj. Karar yakın bir karar değil.
+Şimdi o on puanı iki ölçütün yanına koyalım. Yukarıdaki STR tablosunun iki
+satırı arasında 55,9 puan var; o tabloya bakan, kararın yakın bile olmadığını
+düşünür. Ama STR geriye bakar ve farkının bir kısmı seçim kuralının
+kendisidir. İleriye bakan, ölçülen fark 4,5 puan: düşük paketin başabaşını
+(3,0) geçiyor, orta paketinkinin (5,4) altında kalıyor. Gerçek kayıpla ölçülen
+fark 3,2 puan; düşük paketinkini ancak geçiyor. Geriye bakınca geniş bir marj
+gibi görünen şey, ileriye bakınca ince bir çizgi ve bu plan o çizginin tam
+üstünde duruyor.
+
+Pelin bu satırda duruyor:
+
+— Yani transfer zarar mı ettiriyor?
+
+— Ortalamada, maliyetine bağlı, diyor Ali. Ama ortalama burada çok şey
+saklıyor. Hareketlerin beşte birine yakını yüzde yetmişte ya da üstünde; 35 hareket
+hiç kayba denk gelmiyor. Kötü olan transfer değil, planın kuyruğu. Model o
+kuyruğu göremiyor, çünkü her hareketi aynı iyimserlikle sayıyor.
+
+Sıradaki adım da buradan çıkıyor: ölçtüğünüz oranı modele geri vermek, yani
+modelin iyimserliğini kadrandan değil kaynağından kısmak. Bu dizinin modeli
+bunu yapmıyor; bir sonraki adım olarak burada bırakıyorum.
+
+Sizin verinizde zor olan büyük ihtimalle bu ölçümün kendisi olacak. Alıcı
+oranını ölçmek için boş çıkan müşteriyi kestirmeniz gerekir. Lumoda'da
+kestirimi sınayacak bir hakem var: sentetik verinin içinde saklı duran gerçek
+kayıp. Sahada öyle bir hakem yok; elinizde yalnız kestirim kalır ve ne kadar
+tuttuğunu göstermek sizin işiniz olur.
 
 ## Hesabın kendi dürüstlük maddesi
 
@@ -269,23 +362,28 @@ Bu hesabın da bir dip notu var ve saklamayacağım: **tek atışlık.**
 
 Yıpranmayı bir kere sayıyorum, çünkü planı bir kere değerlendiriyorum. Oysa
 gerçek bir zincirde aynı ürün sezon içinde bir mağazadan diğerine, oradan
-üçüncüsüne gidebiliyor. Beş kez taşınan bir üründe adet başına 27,19 TL, 136
-TL'ye yaklaşır; üstüne beş kez toplama emeği, beş kez kargo payı biner. O
-noktada yukarıdaki tablo dağılır ve fayda erir.
+üçüncüsüne gidebiliyor. Beş kez taşınan bir üründe orta paketin adet başına
+17,42 TL'si 87,10 TL'ye çıkar; üstüne beş kez toplama emeği, beş kez kargo
+payı biner. O noktada yukarıdaki tablo dağılır ve zaten ince olan kâr erir.
 
-Bunun modeldeki karşılığı, kapanış yazısında "yalnız yarım görülüyor" diye
-işaretlediğim kısıttır: tekrar transfer soğuması. Depo sevkiyatını
-izleyebiliyoruz ama mağazalar arası geçmiş transferler veride tutulmuyor; bir
-malın kaç kere taşındığına bu yüzden tavan koyamıyoruz.
-Yani bu hesabın en zayıf yeri, modelin de en zayıf yeriyle aynı yerde
-duruyor. Tesadüf değil: bir planın ölçülemeyen tarafı, genellikle
-modellenemeyen tarafıdır.
+Bunun modeldeki karşılığı tekrar transfer soğuması. Lumoda'nın verisinde
+mağazalar arası geçmiş transferler de var (3.049 satır, 29.016 adet) ve
+soğuma kuralı bütün varışları görüyor: karar anında 11.250 raf soğumada,
+21'ine mal başka bir mağazadan gelmiş. Ama soğuma yalnız son iki haftaya
+bakıyor, bir malın sezon boyunca kaç kere taşındığını saymıyor. O sayıya tavan
+koyan bir kural modelde yok. Veri elimizde olduğu için bu bir veri eksiği
+değil, sıradaki adım.
+
+Yani bu hesabın en zayıf yeri, modelin de zayıf yerlerinden biriyle aynı
+yerde duruyor. Tesadüf değil: bir hesabın saymadığı şey, genellikle modelin de
+görmediği şeydir.
 
 Kapanış cümlesi de o yüzden mütevazı olacak. Bu yazı transferin kârlı
-olduğunu kanıtlamadı; kârlılığın **hangi varsayıma ne kadar dayandığını**
-gösterdi. Aradaki fark, bir sonraki toplantıda "bence kârlı" ile "şu ihtimal
-farkının altında zarar, üstünde kâr; siz hangisindesiniz" arasındaki farktır.
-İkincisini söyleyebiliyorsanız, artık bahsi tutan siz değilsiniz — bahsi
-fiyatlayan sizsiniz 🙂
+olduğunu kanıtlamadı; ölçülen noktada kârın maliyete ne kadar bağlı olduğunu
+gösterdi. Asıl gösterdiği şey, kârlılığın **hangi varsayıma ne kadar
+dayandığı.** Aradaki fark, bir sonraki toplantıda "bence kârlı" ile "şu
+ihtimal farkının altında zarar, üstünde kâr; biz ölçtük, buradayız" arasındaki
+farktır. İkincisini söyleyebiliyorsanız, artık bahsi tutan siz değilsiniz;
+bahsi fiyatlayan sizsiniz 🙂
 
 <Lumtify />
