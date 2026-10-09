@@ -10,14 +10,15 @@ yazar: Sabri Suyunu
 durum: yayinda
 ---
 
-Geçen yazı bir SQL sorgusu ve on iki satırlık bir döngüyle çözücünün bulduğu
-değerin yüzde 99,4'ünü buldu. Şimdi kalan yüzde 0,6 için ne gerektiğine
-bakacağız: altmış yedi satır Python ve bedava bir çözücü.
+Geçen yazı bir SQL sorgusu ve kısa bir döngüyle çözücünün bulduğu değerin
+%90,9'unu buldu. Şimdi kalan %9,1 için ne gerektiğine bakacağız: kırk satıra
+yakın Python ve bedava bir çözücü.
 
-Yalnız baştan söyleyeyim, bu yazının asıl konusu o yüzde 0,6 değil. Geçen
-yazının son cümlesi şuydu: yüzde 99,4'ü *biz* biliyoruz, çünkü diğerini de
-kurup ölçtük. Modeli kurmanın esas getirisi bu — kaybınızın büyüklüğünü
-öğreniyorsunuz. Kâr olarak geri dönen kısım cabası.
+Yalnız baştan söyleyeyim, bu yazının asıl konusu o %9,1 değil. Geçen yazının
+son cümlelerinden biri şuydu: %90,9'u *biz* biliyoruz, çünkü diğerini de
+kurup ölçtük. Modeli kurmanın esas getirisi bu: kaybınızın büyüklüğünü
+öğreniyorsunuz. Kâr olarak geri dönen kısım cabası; gerçi bu hafta o caba
+da küçük değil, 3.253.435 TL.
 
 ## PuLP: matematiği Python'da yazmak
 
@@ -28,13 +29,13 @@ Arada bir modelleme dili durur. Python tarafında en yaygını PuLP:
 pip install pulp
 ```
 
-Bu kadar. Çözücü de (CBC — COIN-OR'un açık kaynak dal-sınır motoru) kutunun
+Bu kadar. Çözücü de (CBC, COIN-OR'un açık kaynak dal-sınır motoru) kutunun
 içinde geliyor; ayrıca lisans, sunucu, kurulum yok. Modelin tamamı aşağıdaki
 gibi kuruluyor ve her parçasının üstüne üçüncü yazıdaki formülü koyuyorum ki
 çeviriyi görebilesiniz.
 
-**Değişkenler.** $x_{ijo} \in \{0,1\}$ her aday hareket için, $y_{ij} \in
-\{0,1\}$ her rota için:
+**Değişkenler.** $x_{ijo} \in \{0, 1\}$ her aday hareket için, $y_{ij} \in
+\{0, 1\}$ her rota için:
 
 ```python
 model = pulp.LpProblem("blok_transfer", pulp.LpMaximize)
@@ -52,14 +53,14 @@ model += (
 )
 ```
 
-**Kısıt 1 — blok tek hedefe.** $\sum_j x_{ijo} \le 1$:
+**Kısıt 1: blok tek hedefe.** $\sum_j x_{ijo} \le 1$:
 
 ```python
 for (verici, option), grup in adaylar.groupby(["verici", "option_id"]):
-    model += pulp.lpSum(x[i] for i in grup.index) <= 1
+    model += pulp.lpSum(x[i] for i in grup.index) <= 1          # blok tek hedefe
 ```
 
-**Kısıt 2 — alıcı kapasitesi.** $\sum s_{io}x_{ijo} \le Q_j$:
+**Kısıt 2: alıcı kapasitesi.** $\sum s_{io}x_{ijo} \le Q_j$:
 
 ```python
 for alici, grup in adaylar.groupby("alici"):
@@ -69,16 +70,16 @@ for alici, grup in adaylar.groupby("alici"):
     )
 ```
 
-**Kısıt 3 ve 4 — rota açılışı ve minimum koli.** $x_{ijo} \le y_{ij}$ ve
+**Kısıt 3 ve 4: rota açılışı ve minimum koli.** $x_{ijo} \le y_{ij}$ ve
 $\sum_o s_{io}x_{ijo} \ge K y_{ij}$:
 
 ```python
 for r, grup in adaylar.groupby(["verici", "alici"]):
     for i in grup.index:
-        model += x[i] <= y[r]
+        model += x[i] <= y[r]                                    # rota açılmadan taşıma yok
     model += (
         pulp.lpSum(int(adaylar.loc[i, "adet"]) * x[i] for i in grup.index)
-        >= p.min_koli * y[r]
+        >= p.min_koli * y[r]                                     # açık rota koliyi doldurur
     )
 ```
 
@@ -100,9 +101,9 @@ değişince model dosyasındaki değişken sırası değişir; değişken sıras
 değişince, **eşit değerli birden çok en iyi çözüm varsa** çözücü bir seferinde
 birini, bir seferinde diğerini döndürür.
 
-Matematiksel olarak ikisi de doğrudur — aynı parayı kazandırırlar. Ama
+Matematiksel olarak ikisi de doğrudur; aynı parayı kazandırırlar. Ama
 pazartesi sabahı raporu alan Ali için doğru olmaları yetmez: geçen hafta
-"Trabzon'dan al" diyen sistemin bu hafta aynı veriyle "Kayseri'den al"
+"Malatya'dan al" diyen sistemin bu hafta aynı veriyle "Kayseri'den al"
 demesi, sistemin güvenilirliğini bitirir. Geçen yazıda açgözlü döngünün
 sıralamasına `verici, alici, option_id` kuyruğunu eklerken aynı derdi
 çözüyorduk. **Determinizm bir matematik meselesi değil, güven meselesidir**
@@ -113,147 +114,230 @@ ekliyorum: `sorted` tek başına yetmemiş. Aday tablosunu üreten SQL
 sorgularında `order by` yoktu ve DuckDB satırları her koşuda aynı sırada
 döndürmek zorunda değil. Sıra değişince değişkenlerin adı değişiyor, adlar
 değişince çözücü yine eşit değerli başka bir optimuma düşüyordu: art arda üç
-koşuda amaç değeri kuruşu kuruşuna aynı (5.006.978,84 TL) çıkarken her koşuda
-planın yirmi civarında hareketi farklıydı. Aday tablosunu sıralamak sorunu
-kapattı. Ders şu: determinizm tek bir yerde sağlanmaz, **veriden çözüme kadar bütün zincirde**
-sağlanır — ve bir yerde kaçırdığınızda size hata olarak değil, "geçen hafta
+koşuda amaç değeri kuruşu kuruşuna aynı çıkarken her koşuda planın yirmi
+civarında hareketi farklıydı. Aday tablosunu sıralamak sorunu kapattı; geçen
+yazıdaki sorgunun son satırındaki `order by` oradan geliyor. Ders şu:
+determinizm tek bir yerde sağlanmaz, **veriden çözüme kadar bütün zincirde**
+sağlanır. Bir yerde kaçırdığınızda da size hata olarak değil, "geçen hafta
 başka söylüyordu" olarak geri döner.
 
 ## Çözdürmek ve gelen cevabı okumak
 
 ```python
-sonuc = model.solve(pulp.PULP_CBC_CMD(msg=0, timeLimit=p.mip_zaman_limiti_sn))
-if sonuc == pulp.LpStatusOptimal:
-    durum = "optimal"
-elif sonuc == pulp.LpStatusNotSolved:
-    durum = "limit"
-else:
-    durum = "hata"
+model.solve(pulp.PULP_CBC_CMD(
+    msg=0,
+    threads=0,
+    gapRel=p.mip_bosluk_orani,
+    timeLimit=p.mip_zaman_limiti_sn,
+    maxNodes=p.mip_dugum_limiti,
+    logPath=log_yolu,
+))
+```
+
+`msg` ve `logPath` çözücünün ne yazdığıyla ilgili; kalan dört ayarın her
+birinin bir hikâyesi var.
+
+`gapRel` çözücüye ne zaman duracağını söylüyor: elindeki planla üst sınır
+arasındaki fark %0,5'in altına inince. Yani "en iyiyi bul" demiyoruz, "en
+iyiye yeterince yakın olduğunu kanıtladığın an dur" diyoruz.
+
+`maxNodes` ile `timeLimit` emniyet sınırları ve aralarındaki fark yine
+determinizm dersi. Süre sınırı makinenin hızına bağlıdır: hızlı bilgisayar
+aynı sürede daha çok dal açar, başka bir plan bulur. Düğüm sınırı ise
+makineden bağımsızdır; o yüzden süreden önce bağlayacak şekilde ayarlı.
+Emniyete takılan bir model de, hangi bilgisayarda koşarsa koşsun, aynı planı
+verir. `threads=0` da aynı sebeple orada: paralel arama aynı girdiye kimi
+koşuda takılıyor, kimi koşuda çöküyordu; seri arama her seferinde aynı yolu
+yürüyor.
+
+Bir şeyi de bilerek yapmadık: açgözlü planı çözücüye başlangıç noktası olarak
+vermedik. Denedik; CBC'nin bu sürümünde o yol bozuktu, düzeltince de sınıra
+takılan modelleri kötüleştirdi.
+
+Çözücü durunca ne bulduğunu da ondan okumamız gerekiyor:
+
+```python
+# PuLP'nin `solve()` dönüşü (LpStatus) süre ya da düğüm sınırında olurlu
+# çözümle duran CBC için de LpStatusOptimal'dir: "optimal" kanıt demek
+# değildir. Kanıtı çözüm durumu (`sol_status`) taşır.
+DURUMLAR = {
+    pulp.LpSolutionOptimal: "optimal",          # boşluk toleransı içinde (bkz. cozumle)
+    pulp.LpSolutionIntegerFeasible: "limit",    # emniyet sınırında durdu, olurlu en iyi çözüm
+}
+```
+
+```python
+durum = DURUMLAR.get(model.sol_status, "hata")
 ```
 
 Buradaki üç yol, çözücüyü üretime koyarken en çok ihmal edilen yerdir. Çözücü
 her zaman "en iyisini buldum" demez:
 
-- **`optimal`** — bulunan çözümün daha iyisi yok, kanıtlanmış.
-- **`limit`** — süre doldu. Elde bir çözüm var ve muhtemelen iyi, ama daha
-  iyisi olmadığı kanıtlanmadı.
-- **`hata`** — çözücü bir cevap üretemedi.
+- **`optimal`**: çözücü toleransın içinde durdu. Plan, en iyi plandan en fazla
+  %0,5 uzak; ne kadar uzak olduğunu da logdaki son üst sınırdan okuyoruz.
+  Kanıtlı en iyi demek değil.
+- **`limit`**: bir emniyet sınırı doldu. Elde bir çözüm var ve muhtemelen iyi,
+  ama tolerans kadar yakın olduğu bile kanıtlanmadı.
+- **`hata`**: çözücü bir cevap üretemedi.
+
+Yorum satırındaki tuzak gerçek ve bu kodun ilk hâli tam ona düşüyordu.
+`solve()`'un döndürdüğü değere bakıyordu; PuLP ise süre sınırında olurlu bir
+çözümle duran çözücü için de "optimal" döndürüyor. Kod, yarıda kesilmiş
+planlara sessizce "en iyi" diyordu. Doğru bilgi `sol_status`'ta.
 
 Açgözlü yöntemde böyle bir ayrım yok; o her zaman bir liste veriyor. Model
 kurmanın bedellerinden biri bu belirsizliği kodda karşılamak zorunda
 olmanız. Karşılamazsanız, günün birinde süre dolar ve elinizde sessizce
-yarım kalmış bir plan kalır.
+yarım kalmış bir plan kalır; üstelik raporunuz ona "optimal" der.
 
 ## MIP tam olarak nerede kazanıyor
 
-Geçen yazıda iki planı yan yana koymuş ve şunu bulmuştuk: ikisi de aynı 252
-option'ı, aynı 4.785 adedi taşıyor; fark yalnız rota sayısında — 196'ya
-karşı 140, aradaki 56 rota × 500 TL = 28.000 TL. Şimdi o farkın kodda nereden
-çıktığına bakalım.
-
-Rotaların kaç option taşıdığına bakınca fark görünür hale geliyor:
+Geçen yazıda farkın neredeyse tamamının mal seçiminden geldiğini gördük:
+3.253.435 TL'nin yalnız 11.000 TL'si rotadan. Yine de rotalar işin görünen
+yüzü. Çözücü daha çok bloğu daha az sevkiyatla taşıyor ve rotaların kaç
+option taşıdığına bakınca bu görünür hâle geliyor:
 
 | Rotada taşınan option | Açgözlü | Çözücü |
 |---|---:|---:|
-| 1 | **147** | 56 |
-| 2 | 42 | 60 |
-| 3 | 7 | 20 |
-| 4 | 0 | 4 |
-| **Toplam rota** | **196** | **140** |
+| 1 | **268** | 194 |
+| 2 | 33 | 72 |
+| 3 | 8 | 16 |
+| 4 | 7 | 9 |
+| 5 | 3 | 4 |
+| 6 | 5 | 1 |
+| 7 | 4 | 7 |
+| 8 | 4 | 3 |
+| 9 | 2 | 3 |
+| 10 | 1 | 4 |
+| 11 | 1 | 0 |
+| 12 | 2 | 1 |
+| 13 | 0 | 1 |
+| 14 | 0 | 1 |
+| 15 | 1 | 0 |
+| 17 | 1 | 2 |
+| **Toplam rota** | **340** | **318** |
 
-Açgözlü planda 147 sevkiyat, tek bir option taşımak için açılıyor. Çözücüde
-bu sayı 56. Çözücü aynı işi daha az kamyonla yapıyor, çünkü amaç
+Açgözlü planda 268 sevkiyat tek bir option taşımak için açılıyor. Çözücüde
+bu sayı 194. Çözücü aynı işi daha az kamyonla yapıyor, çünkü amaç
 fonksiyonundaki $-R\sum y_{ij}$ terimi ona her yeni rotanın 500 TL'ye mal
-olduğunu söylüyor; açgözlü döngüde böyle bir terim yok, olamaz da — döngü
+olduğunu söylüyor. Açgözlü döngüde böyle bir terim yok, olamaz da: döngü
 sıradaki hareketi görmediği için "bunu şuraya koysam kamyon zaten kalkacaktı"
 diye düşünemez.
 
-Somut bir örnek, çözücünün en dolu rotası:
+Somut bir örnek, çözücünün en dolu rotalarından biri:
 
 ```
-M025 → M022 · 4 option · 89 adet
+Kayseri 1 → İzmir 1 · 17 option · 5.722 adet
 
-  MDL005-LCV   açgözlü planda:  M025 → M004
-  MDL006-SYH   açgözlü planda:  M025 → M003
-  MDL007-BEJ   açgözlü planda:  M025 → M022
-  MDL071-BEJ   açgözlü planda:  M025 → M010
+  MDL0540-BEJ   569 adet   açgözlü planda: Kayseri 1 → İstanbul 2
+  MDL0541-KRM   236 adet   açgözlü planda: Kayseri 1 → Ankara 2
+  MDL0543-HAK   478 adet   açgözlü planda: Kayseri 1 → İstanbul 2
+  MDL0544-IND   372 adet   açgözlü planda: Kayseri 1 → İstanbul 2
+  MDL0544-YSL   280 adet   açgözlü planda: Kayseri 1 → İzmir 1
+  MDL0551-EKR   250 adet   açgözlü planda: Kayseri 1 → İzmir 1
+  MDL0551-HAK   233 adet   açgözlü planda: Kayseri 1 → İzmir 1
+  MDL0554-BRD   388 adet   açgözlü planda: Kayseri 1 → İzmir 1
+  MDL0555-BRD   363 adet   açgözlü planda: Kayseri 1 → İstanbul 3
+  MDL0556-KRM   202 adet   açgözlü planda: Kayseri 1 → İzmir 1
+  MDL0557-SYH   607 adet   açgözlü planda: Kayseri 1 → İzmir 1
+  MDL0576-BRD   127 adet   açgözlü planda: Kayseri 1 → İzmir 1
+  MDL0576-KRM   189 adet   açgözlü planda: Kayseri 1 → İzmir 1
+  MDL0582-IND   147 adet   açgözlü planda: Kayseri 1 → İzmir 1
+  MDL0597-LCV   165 adet   açgözlü planda: Kayseri 1 → İzmir 1
+  MDL0601-LCV   597 adet   açgözlü planda: Kayseri 1 → İzmir 1
+  MDL0603-YSL   519 adet   açgözlü planda: Kayseri 1 → İstanbul 3
 ```
 
-Çözücü bu dört bloğu tek kamyona koyuyor; açgözlü yöntem aynı dört bloğu
-**dört ayrı sevkiyata** dağıtmış. Dikkat: açgözlü yöntem yanlış bir şey
-yapmıyor — her bloğu tek tek en yüksek puanlı hedefine gönderiyor. Dört bloğun
-her biri kendi başına daha iyi eşleşmiş olabilir; ama dördü için dört kez
-kamyon parası ödeniyor ve toplamda geride kalıyor.
+Çözücü bu on yedi bloğu tek kamyona koyuyor; açgözlü yöntem aynı blokları
+**dört ayrı alıcıya** dağıtmış: 11'i yine İzmir 1'e, kalanı İstanbul 2'ye,
+İstanbul 3'e ve Ankara 2'ye. Dikkat: açgözlü yöntem yanlış bir şey yapmıyor;
+her bloğu sırası geldiğinde kalan en iyi hedefe gönderiyor. Çözücünün o altı
+bloğu neden İzmir 1'e çektiğini ise tek bir rotaya bakarak okuyamazsınız. Rota
+masrafı bir sebep olabilir; İstanbul'daki iki mağazanın boşluğunu başka
+bloklara bırakmak başka bir sebep. Çözücü hiçbir hareketi tek başına
+seçmiyor, bu da yazının sonunda başımıza iş açacak.
 
-Bunun ikinci bir sonucu var, tabloda görünmüyor: iki plan aynı 252 bloğu
-kaldırıyor — aynı mağazadan, aynı option — ama bunların **111'inde alıcı
-farklı**. Yani çözücü aynı planı ucuzlatmakla kalmıyor, kimin kime
-göndereceğini de yeniden kuruyor.
+Tabloda görünmeyen bir sonuç daha var: iki planın ortak taşıdığı 571 bloğun
+193'ünde alıcı farklı; çözücü açgözlünün hiç dokunmadığı 90 bloğu da
+yerleştiriyor. Yani çözücü aynı planı ucuzlatmakla kalmıyor, kimin kime
+göndereceğini baştan kuruyor.
 
-## Neden yarım saniyeden az?
+## Çözücü nerede duruyor?
 
-Üçüncü yazıda bu modelin 1.058 ikili değişkeni olduğunu ve kaba kuvvetle
-$2^{1058}$ olasılık demek olduğunu yazmıştım. Çözücünün bunu yarım saniyeye
-varmadan bitirmesinin sebebini de anlatmıştım: dal-sınır. Şimdi ölçelim.
+Üçüncü yazıda bu modelin 7.730 ikili değişkeni olduğunu ve kaba kuvvetle
+$2^{7.730}$ olasılık demek olduğunu yazmıştım. Çözücünün bunu 37,8 saniyede
+bitirmesinin sebebini de anlatmıştım: dal-sınır. Şimdi ölçelim.
 
 Modeli iki kez çözelim. Önce değişkenlerin 0 ile 1 arasında kesirli olmasına
 izin vererek (LP gevşetmesi), sonra gerçek hâliyle:
 
 | | Değer |
 |---|---:|
-| LP gevşetmesi (üst sınır) | 5.006.978,84 TL |
-| Tamsayı çözüm | 5.006.978,84 TL |
-| **Aradaki boşluk** | **0,00 TL** |
+| LP gevşetmesi (üst sınır) | 36.255.104,44 TL |
+| Tamsayı çözüm (MIP planı) | 35.934.123,10 TL |
+| **Aradaki boşluk** | **320.981,34 TL (%0,89)** |
 
-Boşluk sıfır. İlk tepkim "ölçüm bozuk" oldu, o yüzden gevşetmenin gerçekten
-gevşediğine ayrıca baktım: gevşetilmiş çözümde 664 $x$ değişkeninin 12'si ve
-394 $y$ değişkeninin 6'sı gerçekten kesirli çıkıyor. Yani çözücü tam sayı
-olmayan bir tepe noktasında duruyor; buna rağmen o noktanın değeri tam sayı
-optimumla kuruşu kuruşuna aynı.
+Gevşetmeyi kurup çözmek bir saniye sürüyor (1,0 sn). Çıkan sayı bir tavan:
+hiçbir tam sayı plan 36.255.104,44 TL'yi geçemez. Gevşetilmiş çözümde
+5.369 $x$ değişkeninin 105'i, 2.361 $y$ değişkeninin 56'sı kesirli çıkıyor;
+çözücü "bu bloğun yarısını gönder, bu rotayı yarım aç" diyor. Tavanla
+elimizdeki plan arasında %0,89'luk bir boşluk var; sürenin geri kalanı o
+boşluğu kapatmaya gidiyor.
 
-Anlamı şu: çözücü daha ilk adımda "en iyi çözüm 5.006.978,84'ten fazla
-olamaz" diye bir tavan çiziyor ve elinde tam o tavana oturan bir tam sayı
-çözüm oluyor. Tavanın aşağı inmesi hiç gerekmiyor. Kaç dal açıldığını
-ölçmedim, o yüzden "ağaç hiç açılmadı" demiyorum; bildiğim tek şey, çözücü
-işini bitirdiğinde kapatılacak boşluğun kalmadığı. Ama bunu "işte dal-sınırın
-kanıtı" diye satmak da yanlış olur. Bu sayı yöntemin
-gücünü değil, bu haftanın fotoğrafının uysallığını ölçüyor. Boşluğun sıfır
-çıkması bir garanti değil; başka bir hafta, başka bir eşik takımı aynı modelde
-o boşluğu pekâlâ açabilir. Dürüst cümle şu: bu örnekte çözücünün budayacak
-bir şeyi yoktu.
+Çözücü dallanarak tavanı aşağı çekiyor. Durduğunda son üst sınırı
+35.997.742,47 TL: LP'nin bıraktığı boşluğun 257.361,97 TL'sini kapatmış.
+Elindeki plan bu sınırın %0,18 altında; tolerans %0,5 olduğu için orada
+duruyor. Bu yüzden bu yazıda hiçbir yerde "en iyi plan" demiyorum. Dürüst
+cümle şu: **bu plan, olası en iyi plandan en fazla %0,18 uzak.** Belki tam
+da en iyisi; bunu kanıtlamak için çözücüyü daha uzun koşturmak gerekirdi ve
+en fazla %0,18'lik bir ihtimal için o süreyi harcamadık.
 
-## Her MIP böyle uslu değildir
+## Her MIP uslu değildir
 
-Buradan "çözücüler her zaman hızlıdır" sonucunu çıkarmayın; bu problem kolay
-bir MIP. Kolaylığın sebepleri belli: LP boşluğu kapanmış durumda, kısıtlar
-birbirini az kilitliyor, ve aday kümesi zaten 664 satıra indirilmiş durumda.
+Buradan "çözücüler her zaman hızlıdır" sonucunu çıkarmayın. Bu model
+referans ayarında toleransın içinde durdu ama kadranı çevirince öyle olmuyor.
+Dizinin sonunda karşılaştıracağımız altı eşik takımından dördünde çözücü
+emniyet için koyduğumuz düğüm sınırına takıldı ve `limit` bayrağıyla döndü. O
+planlar optimumdan en fazla %1,33 ile %5,24 arasında uzak; hepsi yine de
+açgözlüden fazla kazandırıyor, ama ne kadar fazla kazandırabileceklerini
+bilmiyoruz.
 
-Aynı model şu üç durumda çok daha zorlanır: aday kümesi elenmeden verilirse
-(144.000 satır), kapasiteler daralıp kısıtlar birbirini kilitlemeye başlarsa,
-ya da rota sabiti büyüyüp "hangi rotalar açılsın" sorusu asıl karar hâline
-gelirse. O zaman zaman limiti gerçekten devreye girer ve `limit` bayrağıyla
-gelen çözümle çalışmayı öğrenmek gerekir: çözüm iyidir, kanıtlanmamıştır ve
-raporda böyle söylenmelidir.
+Bir modeli neyin zorlaştırdığı az çok bilinir ve ikisi bu veride var. Aday
+kümesi büyüyor: alıcı tavanı açıldıkça kırık olmayan raflar da alıcı olabiliyor.
+Kapasiteler bağlıyor: 80 mağazanın 12'sinin hiç boşluğu yok; referans
+planın dışında kalan puanı pozitif bloklardan 194'ü alıcısının kalan
+boşluğuna sığmıyor. Kısıtlar birbirini kilitledikçe tavan yavaş iniyor.
+
+Böyle bir durumda yapılacak şey çözümü atmak değil, `limit` bayrağıyla
+çalışmayı öğrenmek: çözüm iyidir, kanıtlanmamıştır ve raporda böyle
+söylenmelidir. Bizim raporumuz her MIP satırının yanına durumunu ve
+boşluğunu yazıyor. Sizin verinizde zor olan büyük ihtimalle burası olacak:
+çözücünün söylediği "limit"i, planı kullanacak kişiye "yanlış" diye değil
+"kanıtsız" diye anlatmak.
 
 ## Bedelin dürüst muhasebesi
 
-PuLP bedava, CBC bedava, çalıştırmak ~0,4 saniye. O zaman bu tartışma neden
-var?
+PuLP bedava, CBC bedava, çalıştırmak yarım dakikadan biraz uzun. Açgözlünün
+16,7 ms'sinin iki bin katından fazla, ama bir pazartesi sabahı için hiçbir
+şey. O zaman bu tartışma neden var?
 
-Çünkü asıl maliyet lisansta değil. Modeli kuran kişi gittiğinde geriye kalan
-şey altmış yedi satır Python değil, o satırların **neden öyle** olduğunu bilen
-kimsenin kalmaması. Kapasite tanımı değiştiğinde kısıtı kimin güncelleyeceği,
-çözücü sürümü yükselince sonuçların neden bir tık kaydığı, ve hepsinden zoru:
-mağaza müdürü "benim malımı niye aldınız?" diye sorduğunda verilecek cevap.
+Çünkü asıl maliyet lisansta da sürede de değil. Modeli kuran kişi gittiğinde
+geriye kalan şey kırk satır Python değil, o satırların **neden öyle**
+olduğunu bilen kimsenin kalmaması. Kapasite tanımı değiştiğinde kısıtı kimin
+güncelleyeceği, çözücü sürümü yükselince sonuçların neden bir tık kaydığı,
+`limit` dönen bir haftada planın kullanılıp kullanılmayacağı ve hepsinden
+zoru: mağaza müdürü "benim malımı niye aldınız?" diye sorduğunda verilecek
+cevap.
 
 Açgözlü yöntemde o cevap bir satır: *"puanı en yüksek eşleşme buydu."*
 Çözücüde cevap dürüstçe şudur: *"seçilen plan, kısıtları sağlayan bütün
-planlar arasında toplamı en büyük olandı."* Doğru bir cevap ama ikna edici
-değil, çünkü tek bir hareketin gerekçesi diye bir şey yok — hareketler
-birbirine bağlı bir bütün olarak seçiliyor. Bu, optimizasyon projelerinin
-teknik değil, **güven** sebebiyle raflarda kalmasının en yaygın sebebi.
+planlar arasında toplamı en büyük olana en fazla %0,18 uzak olandı."* Doğru
+bir cevap ama ikna edici değil, çünkü tek bir hareketin gerekçesi diye bir
+şey yok; hareketler birbirine bağlı bir bütün olarak seçiliyor. Bu,
+optimizasyon projelerinin teknik değil, **güven** sebebiyle raflarda
+kalmasının en yaygın sebebi.
 
 Sonraki yazıda iki yöntemi bütün ölçütlerle yan yana koyacağız: para, süre,
-kurulum, açıklanabilirlik. Orada beklemediğim bir sonuç çıktı — kadranı
-çevirip daha çok para kazandıran plana geçtiğinizde, boş çıkan müşterinin
-daha azını kurtarıyorsunuz 🙂
+kurulum, açıklanabilirlik. Orada beklemediğim bir sonuç çıktı: kadranı
+çevirip parayı üçte iki büyüten plana geçtiğinizde, boş çıkan müşterinin
+kurtarılan payı neredeyse yerinde sayıyor 🙂

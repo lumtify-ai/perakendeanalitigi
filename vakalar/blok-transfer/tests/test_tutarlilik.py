@@ -90,16 +90,18 @@ def _yayimlanan_sql() -> str:
 
 
 @pytest.mark.veri
-@pytest.mark.xfail(strict=True, reason="Görev 12: yazıdaki SQL v4 şemasına ve kuralına güncellenir")
 def test_yazidaki_sql_python_boru_hattiyla_ayni_adayi_uretiyor():
     """Dördüncü yazının taşıyıcı iddiası: yayımlanan sorgu Python tarafıyla
     birebir aynı aday listesini üretir. Geçmişte tam burada hata çıktı —
     `soguma` CTE'si tanımlanıp verici filtresinde kullanılmayınca sorgu
-    375 yerine 1.460 aday döndürmüştü."""
+    375 yerine 1.460 aday döndürmüştü.
+
+    Sorgunun tek girdisi `$karar` (yazıda tarih yok); karar anını burada
+    `veri.karar_ani` verir."""
     con = veri.baglan()
     karar = veri.karar_ani(con)
     veri.gorunumler(con, karar)
-    sql_adaylari = con.execute(_yayimlanan_sql()).df()
+    sql_adaylari = con.execute(_yayimlanan_sql(), {"karar": karar}).df()
     python_adaylari = adaylar_mod.uret(con, karar, Parametreler())
 
     assert len(sql_adaylari) == len(python_adaylari)

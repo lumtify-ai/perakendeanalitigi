@@ -12,7 +12,7 @@ durum: yayinda
 
 import T from '../../../../components/T.astro'
 
-Bir önceki yazıda 1.058 ikili değişkenli bir karma tamsayılı program kurduk.
+Bir önceki yazıda 7.730 ikili değişkenli bir karma tamsayılı program kurduk.
 Şimdi size bir şey itiraf edeyim: sahada gördüğüm zincirlerin çoğu bu işi
 öyle çözmüyor. SQL yazıyorlar. Bir sorgu, bir sıralama, bir döngü.
 
@@ -31,42 +31,44 @@ en önemlisi: **her koşulda bir cevap üretir.** Çözücü zaman limitine tak�
 verir.
 
 Bu yazının sonunda bu yöntemin ne kadar iyi olduğunu ve tam olarak nerede
-para kaybettiğini kuruşuna kadar göreceğiz.
+para kaybettiğini TL'si TL'sine göreceğiz.
 
 ## Adım 1: Adayı SQL bulur
 
 Geçen yazının tezi şuydu: modelin en önemli kısmı yazmadığınız kısıtlardır.
 İş bilgisi çözücüye kısıt olarak değil, aday kümesinin tanımı olarak girer.
-İyi haber şu — o tanım zaten bir SQL sorgusudur.
+İyi haber şu: o tanım zaten bir SQL sorgusudur.
 
 Aşağıdaki sorgu Lumoda'nın veri setinde doğrudan çalışır ve boru hattının
 Python tarafıyla **birebir aynı** aday listesini üretir:
 
 ```sql
-with son as (select max(tarih) as t from stok),
+-- bt_* görünümleri: açık mağazalar ve ayıklanmış stok, satış, sevkiyat satırları
+with karar as (select cast($karar as date) as t),
 
--- 1. Karar günü fotoğrafı, option düzeyinde: stok ve set kırık mı?
+-- 1. Karar anı fotoğrafı, option düzeyinde: stoklu raflar ve set kırık mı?
 foto as (
   select st.magaza_id, u.option_id,
          sum(st.adet) as stok,
          count(*) filter (where st.adet = 0 and u.beden_sira between 2 and 4) > 0 as kirik
-  from stok st join urun u using (urun_id), son
-  where st.tarih = son.t
+  from bt_stok st join urun u using (urun_id), karar
+  where st.tarih = karar.t
   group by 1, 2
+  having sum(st.adet) > 0
 ),
 
 -- 2. Hız: yalnız malın rafta olduğu haftaların ortalaması
 stoklu_hafta as (
   select st.tarih as hafta, st.magaza_id, u.option_id
-  from stok st join urun u using (urun_id), son
-  where st.tarih >= son.t - interval 8 week and st.tarih < son.t
+  from bt_stok st join urun u using (urun_id), karar
+  where st.tarih >= karar.t - interval 8 week and st.tarih < karar.t
   group by 1, 2, 3
   having sum(st.adet) > 0
 ),
 haftalik_satis as (
   select date_trunc('week', s.tarih) as hafta, s.magaza_id, u.option_id, sum(s.adet) as adet
-  from satis s join urun u using (urun_id), son
-  where s.tarih >= son.t - interval 8 week and s.tarih < son.t
+  from bt_satis s join urun u using (urun_id), karar
+  where s.tarih >= karar.t - interval 8 week and s.tarih < karar.t
   group by 1, 2, 3
 ),
 hiz as (
@@ -78,24 +80,24 @@ hiz as (
   group by 1, 2
 ),
 
--- 3. Soğumadaki raflar: yeni sevkiyat almış, hızı daha oturmamış
+-- 3. Soğumadaki raflar: son iki haftada mal varmış (depodan ya da mağazadan)
 soguma as (
   select distinct sv.magaza_id, u.option_id
-  from sevkiyat sv join urun u using (urun_id), son
-  where sv.tarih > son.t - interval 2 week
+  from bt_sevkiyat sv join urun u using (urun_id), karar
+  where sv.tarih > karar.t - interval 2 week and sv.tarih <= karar.t
 ),
 
--- 4. Verici adayı: stok var, cover eşiği geçiyor, soğumada değil
+-- 4. Verici adayı: stok var, seti tam, cover eşiği geçiyor, soğumada değil
 verici as (
-  select f.magaza_id, f.option_id, f.stok, coalesce(h.hiz, 0) as hiz,
-         case when coalesce(h.hiz, 0) = 0 then 999 else f.stok / h.hiz end as cover
+  select f.magaza_id, f.option_id, f.stok, f.kirik, coalesce(h.hiz, 0) as hiz,
+         case when coalesce(h.hiz, 0) > 0 then f.stok / h.hiz else 999 end as cover
   from foto f
   left join hiz h using (magaza_id, option_id)
-  where f.stok > 0
 ),
 verici_aday as (
   select v.* from verici v
   where v.cover >= 6
+    and not v.kirik
     and not exists (select 1 from soguma s
                     where s.magaza_id = v.magaza_id and s.option_id = v.option_id)
 ),
@@ -106,43 +108,66 @@ alici_aday as (
   from hiz h
   left join foto f using (magaza_id, option_id)
   where h.hiz >= 1
-    and (f.kirik or coalesce(f.stok, 0) = 0)
+    and (f.kirik or f.stok is null)
 ),
 
 urun_ozet as (
-  select option_id, any_value(line) as line, any_value(liste_fiyati) as fiyat
+  select option_id, any_value(line) as line,
+         any_value(liste_fiyati) as fiyat, any_value(alis_fiyati) as alis
   from urun group by 1
 )
 
--- 6. Eşleştir ve ele: kendine gönderme, outlet malı vitrine gitmez
+-- 6. Eşleştir ve ele: kendine gönderme yok, outlet malı vitrine gitmez
 select v.magaza_id as verici, a.magaza_id as alici, v.option_id,
-       v.stok as adet, v.hiz as hiz_verici, a.hiz as hiz_alici, u.fiyat
+       v.stok as adet, v.hiz as hiz_verici, a.hiz as hiz_alici, u.fiyat, u.alis
 from verici_aday v
 join alici_aday a using (option_id)
 join urun_ozet u using (option_id)
-join magaza m on m.magaza_id = a.magaza_id
+join bt_magaza m on m.magaza_id = a.magaza_id
 where v.magaza_id <> a.magaza_id
   and (u.line <> 'Outlet' or m.tip = 'Outlet')
+order by verici, alici, option_id
 ```
 
-Altmış küsur satır ve tamamı iş kuralı. Dördüncü bloktaki `cover >= 6`
-verici tanımı, beşincideki `f.kirik or stok = 0` alıcı tanımı, altıncıdaki
-`line <> 'Outlet' or m.tip = 'Outlet'` ise ticaretin yasağı. Ali'nin ikinci
-sayısı, alıcıdaki azami cover, bu sorguda hiç görünmüyor: üçüncü kapı referans
-senaryoda kapalı olduğu için `alici_aday` yalnız kırık ya da stoksuz rafları
-topluyor. Depoda bu mantık üç ayrı fonksiyona bölünmüş durumda; burada
-okunabilirlik için tek sorguda topladım.
+Seksen küsur satır ve tamamı iş kuralı. Dördüncü bloktaki `cover >= 6`
+verici tanımı, beşincideki `f.kirik or f.stok is null` alıcı tanımı,
+altıncıdaki `line <> 'Outlet' or m.tip = 'Outlet'` ise ticaretin yasağı.
+Ali'nin ikinci sayısı, alıcıdaki azami cover, bu sorguda hiç görünmüyor:
+üçüncü kapı referans senaryoda kapalı olduğu için `alici_aday` yalnız kırık
+ya da stoksuz rafları topluyor. Depoda bu mantık birkaç fonksiyona bölünmüş
+durumda; burada okunabilirlik için tek sorguda topladım.
 
-İkinci bloğa bir kez daha bakın: `having sum(st.adet) > 0`. Hızın yalnız
+Sorgunun tek girdisi en üstteki `$karar`: hangi pazartesinin fotoğrafına
+bakılacağı. Hız, soğuma ve fotoğraf hep ona göre ölçülüyor ve hep ondan
+öncesine bakıyor; karardan sonraki hiçbir satış ya da varış sorguya girmiyor.
+Sorgu ham tablolara da bakmıyor, `bt_` ile başlayan görünümlere bakıyor: o
+pazartesi açık olan fiziksel mağazalar ve onların ayıklanmış satırları.
+Lumoda'nın verisinde de iki kez yazılmış satış satırı, hiç satılmadan bir
+pazartesi görünüp kaybolan hayalet stok var. Sizin verinizde zor olan büyük
+ihtimalle bu sorgu değil, o görünümlerin arkası olacak.
+
+Dördüncü bloktaki `and not v.kirik` satırı, ikinci yazıda Pelin'in yakaladığı
+tuzağın koddaki karşılığı. Kırık setin satışı durur, cover'ı sonsuza gider;
+o satırı silerseniz sorgu kırık rafları en iyi verici diye sıralar ve terazi
+tersine çalışır.
+
+İkinci bloğa da bir kez daha bakın: `having sum(st.adet) > 0`. Hızın yalnız
 stoklu haftalardan ölçülmesini sağlayan şey o tek satır. Onu silerseniz sorgu
-yine çalışır, hiçbir hata vermez, ve stoksuzluktan satamamış her ürünü "yavaş
-satıyor" diye damgalar. Bu yazıdaki en tehlikeli satır o.
+yine çalışır, hiçbir hata vermez ve stoksuzluktan satamamış her ürünü "yavaş
+satıyor" diye damgalar. Bu yazıdaki en tehlikeli satır o, çünkü kırık
+satırının hatası plana bakınca göze batar, bunun hatası batmaz.
 
-Sorgu Lumoda'nın gerçek fotoğrafında **664 aday** döndürüyor.
+Son satırdaki `order by` da süs değil; neden orada olduğunu sonraki yazıda
+anlatacağım.
+
+Sorgu Lumoda'nın gerçek fotoğrafında **5.369 aday** döndürüyor. "Birebir
+aynı" iddiasını da bir test tutuyor: test bu sorguyu yazının içinden okuyup
+çalıştırıyor ve Python tarafının listesiyle karşılaştırıyor. Yazı ile kod
+ayrışırsa test düşer.
 
 ## Adım 2: Terazi puanı
 
-Aday listesi elde. Şimdi her satıra bir puan lazım — ikinci yazının
+Aday listesi elde. Şimdi her satıra bir puan lazım: ikinci yazının
 terazisi, üçüncü yazının $w$'si:
 
 $$
@@ -150,15 +175,18 @@ w = \underbrace{\min(s, v_a H) f}_{\text{kazanç}} - \underbrace{\min(s, v_v H) 
 $$
 
 Bunun için çözücüye gerek yok; sadece aritmetik. Sorgunun select satırına üç
-ifade eklemek ya da Python'da tek satır yazmak yeterli:
+ifade eklemek ya da Python'da dört satır yazmak yeterli:
 
 ```python
-df["w"] = (
-    np.minimum(df.adet, df.hiz_alici * H) * df.fiyat      # kazanç
-    - np.minimum(df.adet, df.hiz_verici * H) * df.fiyat   # kayıp
-    - adet_maliyeti * df.adet                             # taşıma
-)
+df["kazanc"] = np.minimum(df.adet, df.hiz_alici * H) * birim
+df["kayip"] = np.minimum(df.adet, df.hiz_verici * H) * birim
+df["tasima"] = p.adet_maliyeti_tl * df.adet
+df["w"] = df.kazanc - df.kayip - df.tasima
 ```
+
+`birim` burada liste fiyatı. Teraziyi kârla kurmak isteyen onu fiyat eksi
+alışla değiştirir; sorgunun `alis` kolonu bunun için orada. Üçüncü yazıda
+ölçtük: plan biraz değişiyor, kâr binde birkaç kıpırdıyor.
 
 Dikkat: buraya kadar yaptığımız hiçbir şey optimizasyona özgü değil. Aday
 kümesi ve puanlama iki yöntemde de birebir aynı. Ayrım bir sonraki adımda
@@ -177,22 +205,27 @@ sirali = adaylar.sort_values(
 for satir in sirali.itertuples(index=False):
     if satir.w <= 0:
         break                                   # kalanların hepsi daha kötü
+    sayac["pozitif"] += 1
     if (satir.verici, satir.option_id) in verilen:
+        sayac["blok"] += 1
         continue                                # blok tek hedefe
     if kalan.get(satir.alici, 0) < satir.adet:
+        sayac["kapasite"] += 1
         continue                                # alıcı kapasitesi
     verilen.add((satir.verici, satir.option_id))
     kalan[satir.alici] -= satir.adet
-    secilen.append(satir)
+    sayac["secilen"] += 1
+    secilen.append({k: getattr(satir, k) for k in HAREKET_KOLONLARI})
 ```
 
-Üç kontrol, üç kısıt. `break` ilk bakışta cesur görünüyor ama doğru: liste
+Üç kontrol, üç kısıt. `sayac` satırları yalnız sayıyor; aşağıdaki tablo
+onlardan geliyor. `break` ilk bakışta cesur görünüyor ama doğru: liste
 puana göre sıralı olduğuna göre ilk negatif puana geldiğinizde geri kalanların
 hepsi daha kötüdür.
 
 Sıralamadaki `verici, alici, option_id` kuyruğu süs değil. Puanlar eşit
 çıktığında sıralamayı belirleyen şey olmazsa, aynı veriyle iki koşu iki farklı
-plan üretir — ve "dün başka, bugün başka öneriyor" diyen bir sisteme kimse
+plan üretir. "Dün başka, bugün başka öneriyor" diyen bir sisteme de kimse
 güvenmez.
 
 ## Gerçekte ne oldu
@@ -201,22 +234,30 @@ Sayılar, Lumoda'nın gerçek fotoğrafında:
 
 | Adım | Sonuç |
 |---|---:|
-| SQL'in bulduğu aday | 664 |
-| Puanı pozitif olan | 637 |
-| "Bu blok zaten verildi" diye atlanan | 385 |
-| Kapasite yüzünden atlanan | 0 |
-| Seçilen hareket | 252 |
-| Minimum koli filtresinin kestiği | 0 |
-| **Kalan plan** | **252 hareket · 4.785 adet · 196 rota** |
+| SQL'in bulduğu aday | 5.369 |
+| Puanı pozitif olan | 3.337 |
+| "Bu blok zaten verildi" diye atlanan | 1.895 |
+| Kapasite yüzünden atlanan | 852 |
+| Seçilen hareket | 590 |
+| Minimum koli filtresinin kestiği | 4 |
+| **Kalan plan** | **586 hareket · 99.029 adet · 340 rota** |
 
-Süre: **~8 ms**. Net kazanç: **4.978.979 TL**.
+Süre: **16,7 ms**. Net kazanç: **32.680.688 TL**.
 
-O 385 sayısına bir saniye bakalım, çünkü açgözlü yöntemin doğası orada. Aynı
-bloğu isteyen birden çok mağaza var; en yüksek puanlı olan alıyor, diğer 385
-istek kapıdan dönüyor. Yöntem bu 385 isteği bir daha hiç düşünmüyor — oysa
-belki de o bloğu ikinci sıradaki mağazaya verip, en yüksek puanlıya başka bir
-mağazadan mal bulmak toplamda daha iyiydi. Açgözlü yöntemin tanımı budur:
+O 1.895 sayısına bir saniye bakalım, çünkü açgözlü yöntemin doğası orada.
+Aynı bloğu isteyen birden çok mağaza var; en yüksek puanlı olan alıyor, öbür
+istekler kapıdan dönüyor. Yöntem dönen istekleri bir daha hiç düşünmüyor.
+Oysa belki de o bloğu ikinci sıradaki mağazaya verip, en yüksek puanlıya başka
+bir mağazadan mal bulmak toplamda daha iyiydi. Açgözlü yöntemin tanımı budur:
 her adımda o anın en iyisini seçer, seçiminin ileride ne kapattığına bakmaz.
+
+Hemen altındaki 852 aynı hikâyenin ikinci yüzü. Puanı pozitif, bloğu henüz
+kimseye verilmemiş, ama alıcının boşluğu daha önce seçilen bloklarla dolmuş.
+Kapasite burada kâğıtta durmuyor: karar anında 80 mağazanın 12'sinin hiç
+boşluğu yok; plan bittiğinde de taşınmamış, puanı pozitif bloklardan 270'i
+alıcısının kalan boşluğuna sığmıyor. Döngü yer kalmayan alıcıya rastladığında
+"önceki seçimlerimden birini geri alsam bu daha iyi sığar mıydı?" diye
+soramaz; geri dönmek onun tarifinde yok.
 
 ## Nerede para kaybediyor
 
@@ -225,38 +266,41 @@ koyalım:
 
 | | Hareket | Adet | Rota | Net kazanç |
 |---|---:|---:|---:|---:|
-| Açgözlü | 252 | 4.785 | **196** | 4.978.979 TL |
-| Çözücü (MIP) | 252 | 4.785 | **140** | 5.006.979 TL |
+| Açgözlü | 586 | 99.029 | 340 | 32.680.688 TL |
+| Çözücü (MIP) | 661 | 109.100 | 318 | 35.934.123 TL |
 
-Bu tabloyu ilk gördüğümde iki kez baktım. **İki yöntem birebir aynı malı
-taşıyor** — aynı 252 hareket, aynı 4.785 adet. Aradaki tek fark kaç sevkiyat
-açtıkları: 196'ya karşı 140.
+Bu tabloya bakınca ilk sorduğum şey şuydu: aynı malı mı taşıyorlar? Hayır.
+İki plan 571 bloğu ortak taşıyor ama bunların 193'ünde alıcı farklı.
+Açgözlünün taşıyıp çözücünün dokunmadığı 15 blok var; çözücünün taşıyıp
+açgözlünün dokunmadığı 90 blok, toplam 12.580 adet.
 
-Aritmetiği yapalım. Fark 56 rota. Rota başına sabit maliyet 500 TL.
+Aritmetiği yapalım ve farkı ikiye ayıralım: hareketlerin $w$'si ile rota
+masrafı.
 
 $$
-56 \times 500 = 28.000 \text{ TL} = 5.006.979 - 4.978.979
+\underbrace{35.934.123 - 32.680.688}_{3.253.435 \text{ TL}} = \underbrace{3.242.435}_{\text{mal seçimi}} + \underbrace{22 \times 500}_{\text{rota}}
 $$
 
-Kuruşu kuruşuna. Açgözlü yöntemin kaybettiği paranın **tamamı** fazladan
-kaldırdığı kamyonlardan geliyor. Sebebi de kodun kendisinde görünüyor: döngü
-her hareketi tek başına puanlıyor. "Şu iki bloğu aynı iki mağaza arasında
-taşıyorum, ikisini aynı sevkiyata koysam bir kez masraf ödeyeceğim" diye
-soramaz, çünkü sıradaki hareketi henüz görmemiştir. Çözücü ise bütün
-hareketleri aynı anda gördüğü için rotaları topluyor.
+Çözücü 22 rota az açıyor ve bunun değeri 11.000 TL. Kalan 3.242.435 TL
+tamamen hangi bloğun nereye gittiğinden geliyor. Sebebi de kodun kendisinde
+görünüyor: döngü bir bloğu sırası geldiğinde en iyi hedefine veriyor ve o
+anda alıcının boşluğundan yer yiyor. Sıradaki, belki daha değerli blok oraya
+artık sığmıyor. Çözücü ise bütün blokları ve bütün boşlukları aynı anda
+gördüğü için yeri daha iyi paylaştırıyor: açgözlü plan alıcıların
+boşluğunun %60,9'unu kullanıyor, çözücü %70,5'ini.
 
-Bir cümlede: **aynı malı taşıyorlar, fark kaç kamyon kaldırdıklarında.**
+Bir cümlede: **fark kamyonlarda değil, hangi kolinin hangi rafa gittiğinde.**
 
 ## Kaba yama: minimum koli
 
-Bir de dürüstçe anlatmam gereken bir yer var. Minimum koli kuralı — "iki adet
-için kamyon kaldırılmaz" — açgözlü akışa doğal olarak girmiyor, çünkü bir
+Bir de dürüstçe anlatmam gereken bir yer var. Minimum koli kuralı ("iki adet
+için kamyon kaldırılmaz") açgözlü akışa doğal olarak girmiyor, çünkü bir
 rotanın toplam yükü ancak bütün seçimler bittiğinde belli oluyor. Çözüm kaba:
 seçim bitince rotaların yüküne bakıp altında kalanları siliyoruz.
 
 ```python
 rota_adet = df.groupby(["verici", "alici"]).adet.transform("sum")
-df = df[rota_adet >= p.min_koli]
+df = df[rota_adet >= p.min_koli].reset_index(drop=True)
 ```
 
 Bunun neresi kötü? Silmekle yetiniyor, yerine bir şey aramıyor. O rotadaki
@@ -264,31 +308,37 @@ hareketler iptal edildiğinde o bloklar boşa çıkıyor ama yöntem başa dön�
 "madem bu rota açılmayacak, bu bloğu başka nereye verebilirim?" diye
 sormuyor.
 
-Gerçek veride bu yama bu hafta hiç devreye girmedi: seçilen 252 hareketin
-hepsi minimum koliyi zaten dolduran rotalardaydı, kesilen sıfır, maliyeti
-0 TL. Ama bu bir şans, tarifin sağlamlığı değil; parametreler biraz değişse
-aynı yama sessizce hareket kesecek ve yerine bir şey aramayacaktı. Çözücü tarafında böyle bir yama yok — orada minimum koli, modelin
-içinde bir kısıt satırı, ve çözücü onu ihlal etmeden hareketleri **birleştirme**
-seçeneğini de değerlendiriyor.
+Bu hafta yama 4 hareketi kesti: döngünün seçtiği 590 hareketten dördü,
+minimum koliyi dolduramayan rotalarda kaldığı için silindi ve yerlerine hiçbir
+şey konmadı. Dört hareket az görünüyor; asıl dert sayı değil, sessizlik. Bu
+modeli daha küçük bir veriyle ilk kurduğumda yama hiç kesmemişti ve bunu
+"şans, tarifin sağlamlığı değil; parametreler biraz değişse yama sessizce
+kesecek" diye not etmiştim. Veri büyüyünce not doğru çıktı. Çözücü tarafında
+böyle bir yama yok: orada minimum koli modelin içinde bir kısıt satırı ve
+çözücü onu ihlal etmeden hareketleri **birleştirme** seçeneğini de
+değerlendiriyor.
 
 ## Peki bu ne zaman yeter?
 
-Rakamlara bakalım: açgözlü yöntem çözücünün bulduğu değerin **yüzde 99,4'ünü**
-buluyor, hem de kırk kat kısa sürede ve sıfır kurulum maliyetiyle.
+Rakamlara bakalım: açgözlü yöntem çözücünün bulduğu değerin **%90,9'unu**
+buluyor, hem de iki bin kattan fazla kısa sürede ve sıfır kurulum
+maliyetiyle.
 
 Bunu küçümsemek kolay ama yanlış olur. Bu yöntem şu koşullarda gerçekten
 doğru cevaptır: sabit maliyetler küçükse (rota masrafı toplamın yanında
 önemsizse), kararlar birbirini az kısıtlıyorsa, ekipte optimizasyon bakacak
-kimse yoksa, ve "iyi" ile "en iyi" arasındaki fark bir toplantıda konuşulmaya
-değmeyecek kadar küçükse. Lumoda'nın bu haftası tam olarak öyle görünüyor.
+kimse yoksa ve "iyi" ile "en iyi" arasındaki fark bir toplantıda konuşulmaya
+değmeyecek kadar küçükse. Lumoda'nın bu haftası öyle değil. Aynı bloğu birden
+çok mağaza istiyor, alıcıların boşluğu bağlıyor ve aradaki fark %9,1: üç
+milyon TL'den fazla.
 
-Ama dikkat: yüzde 99,4'ü *biz* biliyoruz, çünkü diğerini de kurup ölçtük.
-Yalnızca açgözlü yöntemi çalıştıran bir zincir, sonucunun yüzde 99,4 mü yoksa
-yüzde 70 mi olduğunu bilemez. Sezgi burada işe yaramaz; kaybın büyüklüğü
-problemin şekline bağlıdır ve şekil her hafta değişir.
+Ama dikkat: %90,9'u *biz* biliyoruz, çünkü diğerini de kurup ölçtük.
+Yalnızca açgözlü yöntemi çalıştıran bir zincir, sonucunun %90,9 mu yoksa %70
+mi olduğunu bilemez. Sezgi burada işe yaramaz; kaybın büyüklüğü problemin
+şekline bağlıdır ve şekil her hafta değişir.
 
-Sonraki yazıda aynı problemi çözücüyle kuracağız — PuLP ile modeli yazmak,
-CBC'yi koşturmak ve zaman limitine takıldığında ne yapılacağı. Sonuncusunda
-ikisini bütün ölçütlerle yan yana koyacağız. Orada bir sürpriz var: eşiği
-gevşetip daha çok para kazandığınız yerde, aradığını bulamayan müşterinin
-daha azına dokunuyorsunuz 🙂
+Sonraki yazıda aynı problemi çözücüyle kuracağız: PuLP ile modeli yazmak,
+CBC'yi koşturmak ve çözücü bir sınıra takıldığında ne yapılacağı.
+Sonuncusunda ikisini bütün ölçütlerle yan yana koyacağız. Orada bir sürpriz
+var: kadranı çevirip parayı üçte iki büyüttüğünüzde, aradığını bulamayan
+müşteri bunu neredeyse hiç fark etmiyor 🙂

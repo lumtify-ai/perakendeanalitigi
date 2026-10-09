@@ -22,7 +22,8 @@ uyuşmuyorsa formül yanlıştır, Türkçe değil.
 
 Buradaki model uydurma değil; `vakalar/blok-transfer/` altındaki çalışan
 kodun birebir kendisi. Aşağıdaki bütün sayılar da Lumoda'nın sezon
-kapanışındaki gerçek stok fotoğrafından çıktı.
+ortasındaki, indirimden önceki bir pazartesinin gerçek stok fotoğrafından
+çıktı.
 
 ## Kümeler ve indisler
 
@@ -30,10 +31,13 @@ kapanışındaki gerçek stok fotoğrafından çıktı.
 
 $$
 \begin{aligned}
-M &= \{1, \dots, 25\} && \text{mağazalar} \\
-O &= \{1, \dots, 240\} && \text{option'lar}
+M &= \{1, \dots, 80\} && \text{mağazalar} \\
+O &= \{1, \dots, 1.870\} && \text{option'lar}
 \end{aligned}
 $$
+
+$M$, karar anında açık olan fiziksel mağazalar. Lumoda'nın 84 fiziksel
+mağazasından dördü o pazartesi kapalı; online kanal da transfer almıyor.
 
 Üçüncüsü bu modelin en önemli parçası — ve çoğu anlatımda es geçilen yer:
 
@@ -48,28 +52,38 @@ değer olmayanlar buraya hiç girmez.
 Neden önemli olduğunu sayılar söylüyor. Kısıtsız üçlü sayısı:
 
 $$
-25 \times 24 \times 240 = 144{,}000
+80 \times 79 \times 1.870 = 11.818.400
 $$
 
-Gerçek aday sayısı — orta senaryoda, yani vericide <T k="cover">cover</T>
-eşiği 6 hafta ve alıcıda asgari haftalık satış 1 adet iken: **664**.
+Yalnız karar anında rafta bulunan 552 option'a baksanız bile 3.488.640.
+Gerçek aday sayısı ise referans senaryoda, yani vericide
+<T k="cover">cover</T> eşiği 6 hafta ve alıcıda asgari haftalık satış 1 adet
+iken: **5.369**.
 
-Yüz kırk dört binden altı yüz altmış dörde. Bu düşüşü yapan şey modelin
-kısıtları değil; kümenin tanımı. Verici olabilmek için stok bulunması,
-cover'ın eşiği geçmesi ve o rafın soğumada olmaması gerekiyor. Alıcı
-olabilmek için setin <T k="kiriklik">kırık</T> ya da stoğun sıfır olması,
-üstüne satış hızının eşiği geçmesi gerekiyor. Outlet line'ındaki bir option'ın vitrin mağazasına
-gitmesi ise ticaretin yasağı. Ali'nin tahtaya yazdığı ikinci sayı, yani
-alıcıdaki azami cover, bu kümenin üçüncü kapısıdır (satıyor ama eldeki mal
-tavanın altında kalıyor); bu yazının bütün sayıları o kapı kapalıyken, alıcı
-yalnız kırık ya da stoksuz olabilirken çıktı.
+On bir milyondan beş bine. Bu düşüşü yapan şey modelin kısıtları değil;
+kümenin tanımı. Verici olabilmek için stok bulunması, setin tam olması,
+cover'ın eşiği geçmesi ve o rafın soğumada olmaması gerekiyor. Alıcı olabilmek
+için setin <T k="kiriklik">kırık</T> ya da stoğun sıfır olması, üstüne satış
+hızının eşiği geçmesi gerekiyor. Tek bedenli bir option'ın seti zaten
+kırılamaz (Lumoda'da 211 tane var); onlar alıcı kümesine ancak rafları
+boşalınca girer. Outlet line'ındaki bir option'ın vitrin mağazasına gitmesi
+ise ticaretin yasağı. Ali'nin tahtaya yazdığı ikinci sayı, yani alıcıdaki
+azami cover, bu kümenin üçüncü kapısıdır (satıyor ama eldeki mal tavanın
+altında kalıyor); bu yazının bütün sayıları o kapı kapalıyken, alıcı yalnız
+kırık ya da stoksuz olabilirken çıktı.
+
+Verici tanımındaki "setin tam olması" şartına bir kez daha bakın. İkinci
+yazıda Pelin'in bulduğu tuzaktı: kırık setin satışı durur, cover'ı sonsuza
+gider ve cover'a tek başına bakan bir model o rafı en iyi verici sayar.
+Bunu bir kısıt satırıyla yasaklamadık. Kırık raf verici kümesine hiç girmiyor;
+çözücü, kırık bir setten mal çekmeyi düşünmek zorunda bile kalmıyor.
 
 Bunların hepsini çözücüye kısıt olarak da yazabilirdik. Yazmadık, çünkü o
-zaman 144.000 değişkenli bir model kurup çözücüden bunların 143.336'sını
-"zaten imkânsız" diye elemesini beklerdik. Bu yazının en pratik cümlesi şu
-olabilir: **modelin en önemli kısmı çoğu zaman yazmadığınız kısıtlardır.**
-İş bilgisi modele kısıt olarak değil, kümenin tanımı olarak girdiğinde model
-küçülür ve okunur kalır.
+zaman 11.818.400 değişkenli bir model kurup çözücüden bunların
+11.813.031'ini "zaten imkânsız" diye elemesini beklerdik. Bu yazının en
+pratik cümlesi şu olabilir: **modelin en önemli kısmı çoğu zaman yazmadığınız
+kısıtlardır.** İş bilgisi modele kısıt olarak değil, kümenin tanımı olarak
+girdiğinde model küçülür ve okunur kalır.
 
 ## Parametreler
 
@@ -85,12 +99,19 @@ sihirli sayı değil:
 | $c$ | Adet başına taşıma maliyeti | 25 TL |
 | $R$ | Rota başına sabit maliyet | 500 TL |
 | $K$ | Minimum koli | 6 adet |
-| $Q_j$ | $j$ mağazasının kapasite boşluğu | Kapasite − mevcut stok |
+| $Q_j$ | $j$ mağazasının kapasite boşluğu | Tepe stok − mevcut stok |
 
 $v_{io}$'nun tanımındaki "stoklu" kelimesi kalın yazılmayı hak ediyor. Bir
-önceki yazıda Pelin'in bulduğu tuzak buydu: raf boşken geçen haftaları da
-ortalamaya katarsanız, stoksuz kaldığı için satamamış bir ürünü "yavaş satan
-ürün" ilan edersiniz. Hız yalnız malın rafta olduğu haftalardan ölçülür.
+önceki yazıda Ali'nin "satmıyor ile satamıyor aynı şey değil" dediği yer
+burası: raf boşken geçen haftaları da ortalamaya katarsanız, stoksuz kaldığı
+için satamamış bir ürünü "yavaş satan ürün" ilan edersiniz. Hız yalnız malın rafta olduğu haftalardan
+ölçülür.
+
+$Q_j$'deki tepe stok, mağazanın son 52 haftada fiilen taşıdığı en yüksek
+toplam stok. Mağaza master'ında bir kapasite kolonu da var ama onu
+kullanmıyoruz, çünkü karar anında 80 mağazanın 78'i o sayıyı zaten aşmış
+durumda (medyan doluluk 1,76): mağazanın ne taşıyabildiğinin kanıtı
+kâğıttaki kapasite değil, daha önce taşıdığı yük.
 
 ## Karar değişkenleri
 
@@ -100,7 +121,7 @@ $$
 x_{ijo} \in \{0, 1\}, \quad (i,j,o) \in A
 $$
 
-Türkçesi: *$i$'deki $o$ bloğu $j$'ye taşınsın mı, taşınmasın mı?* Kesir yok —
+Türkçesi: *$i$'deki $o$ bloğu $j$'ye taşınsın mı, taşınmasın mı?* Kesir yok;
 bloğun yarısı diye bir şey yok. Blok bölünmez, çünkü bölünen şey beden
 setidir.
 
@@ -118,9 +139,9 @@ bağlıdır: aynı iki mağaza arasında bir option da taşısanız beş option 
 taşısanız o masraf bir kez ödenir. Bunu $x$ ile ifade edemezsiniz; rotanın
 kendisine ait bir değişken gerekir.
 
-Modelin gerçekten incelikli tek yeri burasıdır ve sonuçları da oradan çıkar:
-$y$ olmadan model her hareketi tek başına değerlendirir, $y$ ile birlikte
-**hareketleri birleştirmeyi** öğrenir.
+Modelin incelikli yerlerinden biri burasıdır: $y$ olmadan model her hareketi
+tek başına değerlendirir, $y$ ile birlikte **hareketleri birleştirmeyi**
+öğrenir.
 
 ## Amaç fonksiyonu
 
@@ -135,8 +156,8 @@ $$
 $$
 
 Türkçesi sırayla: *alıcı bu bloğu ufuk içinde ne kadar satabilirse o kadar
-kazanırız — ama elindeki stoktan fazlasını satamaz, o yüzden minimum.*
-*Vericiden aldığımızda onun satacağı kadarını kaybederiz — aynı sebeple yine
+kazanırız; ama elindeki stoktan fazlasını satamaz, o yüzden minimum.*
+*Vericiden aldığımızda onun satacağı kadarını kaybederiz; aynı sebeple yine
 minimum.* *Taşıma adet başınadır.*
 
 Net ağırlık ikisinin farkı eksi masraf:
@@ -175,7 +196,9 @@ $$
 $$
 
 *Bir mağazaya boşluğundan fazla mal gönderemezsiniz.* Deponun ve rafın sonu
-vardır.
+vardır. Bu kısıt kâğıtta durmuyor: Lumoda'da 80 mağazanın 12'sinin karar
+anında hiç boşluğu yok; sonraki iki yazıda bu satırın planı nasıl
+biçimlendirdiğini göreceğiz.
 
 **3. Rota açılmadan taşıma olmaz.**
 
@@ -193,47 +216,53 @@ $$
 $$
 
 *Sevkiyat açtıysan en az minimum koli kadar mal taşı.* İki adet için kamyon
-kaldırılmaz. Dikkat: bu kısıt üçüncüsüyle birlikte çalışır — üçüncüsü "rota
+kaldırılmaz. Dikkat: bu kısıt üçüncüsüyle birlikte çalışır. Üçüncüsü "rota
 açılmadan hareket olmaz" der, dördüncüsü "rota açıldıysa boş gitmez" der.
 İkisi birden, modeli küçük hareketleri **aynı rotada toplamaya** zorlar.
 
-## Ölçek: 1.058 değişken, 1.347 kısıt
+## Ölçek: 7.730 değişken, 8.965 kısıt
 
-Orta senaryoda modelin gerçek boyutları şöyle:
+Referans senaryoda modelin gerçek boyutları şöyle:
 
 | Parça | Sayı |
 |---|---:|
-| $x$ değişkeni (aday hareket) | 664 |
-| $y$ değişkeni (rota) | 394 |
-| **Toplam ikili değişken** | **1.058** |
-| Blok tekliği kısıtı | 264 |
-| Kapasite kısıtı | 25 |
-| Rota bağlama kısıtı | 664 |
-| Minimum koli kısıtı | 394 |
-| **Toplam kısıt** | **1.347** |
+| $x$ değişkeni (aday hareket) | 5.369 |
+| $y$ değişkeni (rota) | 2.361 |
+| **Toplam ikili değişken** | **7.730** |
+| Blok tekliği kısıtı | 1.155 |
+| Kapasite kısıtı | 80 |
+| Rota bağlama kısıtı | 5.369 |
+| Minimum koli kısıtı | 2.361 |
+| **Toplam kısıt** | **8.965** |
 
-Şimdi şu 1.058 sayısına bakalım. Her değişken 0 veya 1 olabildiğine göre olası
-atama sayısı $2^{1058}$ — yaklaşık $10^{318}$. Gözlemlenebilir evrendeki atom
-sayısı kabaca $10^{80}$ olarak tahmin ediliyor. Yani bu küçük zincirin tek bir
+Şimdi şu 7.730 sayısına bakalım. Her değişken 0 veya 1 olabildiğine göre olası
+atama sayısı $2^{7.730}$, yaklaşık $10^{2.326}$. Gözlemlenebilir evrendeki
+atom sayısı kabaca $10^{80}$ olarak tahmin ediliyor. Yani bu zincirin tek bir
 haftalık transfer kararı, kaba kuvvetle denenmek istense, evrendeki bütün
 atomlara birer bilgisayar verseniz bile bitmez.
 
-Çözücünün (CBC) bu modeli çözme süresi: **~0,4 saniye.**
+Çözücünün (CBC) bu modelle işini bitirme süresi: **37,8 saniye.**
 
 Bu iki cümle yan yana durunca insanın aklına ilk gelen şey "bir yerde hata
 olmalı" oluyor. Yok. Çözücü kombinasyonları saymıyor. Önce problemi
-gevşetiyor — $x$'lerin 0 ile 1 arasında kesirli olmasına izin veriyor, ki bu
+gevşetiyor: $x$'lerin 0 ile 1 arasında kesirli olmasına izin veriyor, ki bu
 hâli hızlı çözülen bir doğrusal program. Çıkan sayı gerçek en iyi çözümün
 üst sınırıdır. Sonra kesirli çıkan bir değişkeni seçip iki dal açıyor ("bu
 sıfır olsun" / "bu bir olsun"), her dalda üst sınırı yeniden hesaplıyor ve bir
-dalın üst sınırı eldeki en iyi çözümden kötüyse o dalın tamamını —
-milyarlarca kombinasyonu — tek hamlede çöpe atıyor. Adı dal-sınır. Bir önceki
-yazıda Ali'nin "altı bin kere teraziyi kuramam" dediği yerin cevabı budur:
+dalın üst sınırı eldeki en iyi çözümden kötüyse o dalın tamamını,
+milyarlarca kombinasyonu, tek hamlede çöpe atıyor. Adı dal-sınır. Bir önceki
+yazıda Ali'nin "yüz elli bin kere teraziyi kuramam" dediği yerin cevabı budur:
 kimse kurmuyor, çözücü bakmadan eliyor.
 
-Bu modelin orta senaryodaki çıktısı 252 option'ın taşınması, toplam 4.785
-adet. Sonraki iki yazıda bu sayının nasıl elde edildiğini iki ayrı yoldan
-göreceğiz.
+Bir şeyi de baştan söyleyeyim, çünkü çözücü çıktısını okurken en çok burada
+yanılınıyor. Çözücüye "en iyiyi bul" demedik; "elindeki plan ile üst sınır
+arasındaki fark %0,5'in altına inince dur" dedik. Bu modelde durduğu noktada
+fark %0,18'di. Yani elimizdeki plan için "en iyi plan" diyemiyoruz; "en iyi
+plandan en fazla %0,18 uzak bir plan" diyebiliyoruz. Bu ikisinin farkını
+beşinci yazıda açacağım.
+
+Çözücünün bulduğu plan 661 option'ı, toplam 109.100 adedi taşıyor. Sonraki
+iki yazıda bu sorunu iki ayrı yoldan çözeceğiz; iki yol aynı yere varmayacak.
 
 ## Varsayımlar ve bu model nerede yetmez
 
@@ -243,24 +272,32 @@ sadeleştirilmiş hâli.
 **$w$ kâr değil, brüt ciro etkisidir.** Kazanç ve kayıp liste fiyatıyla
 hesaplanıyor, alış maliyeti düşülmüyor. Yani model "bu transfer ne kadar
 ciroyu yer değiştirir" sorusunu cevaplıyor, "ne kadar kâr eder" sorusunu
-değil. Sıralamayı çok bozmaz — aynı ürünün marjı iki mağazada da aynıdır —
-ama sonuç yazısındaki TL rakamlarını okurken bunu akılda tutun: onlar kâr
-değil, hareket eden ciro. Marja çevirmek veri setinde mümkün; bilinçli olarak
-sonraki sürüme bıraktık.
+değil. Bir hareketin iki kefesinde de aynı ürün durduğu için marj iki kefeyi
+aynı oranda küçültür; asıl soru hareketleri birbiriyle yarıştırırken çıkar,
+çünkü Lumoda'da marj ürüne göre değişiyor: brüt marj %54,5 ile %68,4
+arasında. Bunu ölçtük. Teraziyi kârla kurunca açgözlü planın kabaca onda
+biri, çözücünün planının beşte biri değişiyor; kâr ise yalnız binde birkaç
+artıyor (açgözlüde %0,68, çözücüde %0,18). Amacı bu yüzden ciroda bıraktık. Sonuç
+yazısındaki TL rakamlarını okurken bunu akılda tutun: onlar kâr değil,
+hareket eden ciro.
 
 **Blok bölünmez.** Bir mağazadan alınan stok tek hedefe gider. Bunu ikiye
 bölmek matematikte kolay görünür ama iki yeni sorun doğurur: hangi bedenler
 kime, ve iki yarım set bir tam setten daha mı iyi? O ayrı bir transfer türü
 ve kendi yazısını hak ediyor.
 
-**Ufuk sabit 8 hafta.** Veri setinde sezon kodu ve indirim takvimi yok. Yazı
-2'deki "raf ömrü kadranı" — sezon sonu yaklaştıkça terazinin taşımaya
-yatması — bu yüzden modelde yok. Gerçek bir kurulumda $H$ option başına
-değişir ve indirim tarihine bağlanır.
+**Ufuk sabit 8 hafta.** Veride sezon kodu da indirim takvimi de var; karar
+anını bilerek sezonun ortasında, indirimden önce seçtik ve sekiz haftalık
+ufuk indirim başlamadan kapanıyor. Ama ikinci yazıdaki "raf ömrü kadranı",
+yani sezon sonu yaklaştıkça terazinin taşımaya yatması, modelde yok. Gerçek
+bir kurulumda $H$ option başına değişir ve indirim tarihine bağlanır; takvim
+veride durduğu için bu artık bir veri eksiği değil, sıradaki adım.
 
-**Soğuma yalnız depo sevkiyatından görülüyor.** Mağazalar arası geçmiş
-transferler veride tutulmuyor; dolayısıyla "geçen hafta zaten oradan almıştık"
-kuralı tam sınanamıyor.
+**Soğuma bütün varışları görüyor.** Veride depo sevkiyatlarının yanında
+mağazalar arası geçmiş transferler de var (3.049 satır). Soğuma kuralı rafa
+malın hangi yoldan geldiğine bakmıyor; son iki haftada varış olduysa raf
+soğumada. Karar anında 11.250 raf soğumada, 21'ine mal başka bir mağazadan
+gelmiş. "Geçen hafta zaten oradan almıştık" kuralı bu yüzden sınanabiliyor.
 
 **Talep sansürlü ölçülüyor.** $v_{jo}$'yu gözlenen satıştan hesaplıyoruz ama
 kırık setli bir mağazanın gerçek talebi ölçtüğümüzden yüksektir. Yani en çok
@@ -268,10 +305,13 @@ yardıma muhtaç mağaza, modelin gözünde olduğundan biraz daha sönük gör�
 Bunu düzeltmeye çalışmadık; düzeltmek tahmin üstüne tahmin kurmak olurdu ve
 modelin nereye dayandığını bulanıklaştırırdı.
 
-**Kapasite adet bazlı.** Metrekare, reyon ve askı kapasitesi ayrı ayrı
-modellenmiyor.
+**Kapasite adet bazlı ve geçmişten ölçülüyor.** Metrekare, reyon ve askı
+kapasitesi ayrı ayrı modellenmiyor; mağaza geçen yıl hiç taşımadığı bir yükü
+taşıyamaz sayılıyor. Sizin verinizde zor olan muhtemelen burası olacak: kâğıttaki
+kapasite ile mağazanın fiilen taşıdığı yük arasındaki farkı kimse bir tabloda
+tutmuyor; hangisinin doğru olduğuna veri değil mağaza karar veriyor.
 
 Bir sonraki yazıda bu modeli hiç kurmadan, yalnız SQL ve bir sıralama
-kuralıyla probleme saldıracağız — sektörde bu iş çoğunlukla öyle yapılıyor
-çünkü. Sonra ikisini yan yana koyacağız. Şunu şimdiden söyleyeyim, çünkü
-sonucun kendisi bu dizinin en ilginç bulgusu: aradaki fark yüzde 0,6 🙂
+kuralıyla probleme saldıracağız; sektörde bu iş çoğunlukla öyle yapılıyor
+çünkü. Sonra ikisini yan yana koyacağız. Şunu şimdiden söyleyeyim: aradaki
+fark yüzde 9,1; o farkın nereden çıktığı da tahmin ettiğiniz yer değil 🙂
