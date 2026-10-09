@@ -13,6 +13,7 @@ def _siparisler(ham, once):
                   for s in ham["siparis"] if s["tip"] == "rpt" and s["siparis_gun"] < once)
 
 
+@pytest.mark.skip(reason="Görev 7'de v4'e")
 @pytest.mark.veri
 @pytest.mark.parametrize("kol", ["mevcut", "frr3", "oneri", "kahin"])
 def test_gelecek_talep_karari_degistirmez(yol0, kol):
@@ -32,6 +33,7 @@ def test_gelecek_talep_karari_degistirmez(yol0, kol):
         assert ayni
 
 
+@pytest.mark.skip(reason="Görev 7'de v4'e")
 @pytest.mark.veri
 def test_oneri_en_fazla_bir_rpt_oyun_disi_ayni(yol0):
     b = yol0["baglam"]

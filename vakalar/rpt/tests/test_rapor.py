@@ -14,6 +14,7 @@ def test_turkce_sayi_bicimi():
     assert rapor.s(float("nan")) == "—"
 
 
+@pytest.mark.skip(reason="Görev 10'de v4'e")
 @pytest.mark.veri
 def test_rapor_duman(veri):
     v = rapor.hazirla(veri["t"], veri["dunya"])

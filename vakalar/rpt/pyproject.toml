@@ -6,7 +6,9 @@ requires-python = ">=3.11"
 # lightgbm ust siniri replenishment vakasindaki Windows cokmesi yuzunden;
 # scikit-learn <1.8: lightgbm 4.5 check_X_y(force_all_finite=...) cagiriyor.
 # (bkz. vakalar/replenishment/pyproject.toml).
-dependencies = ["duckdb>=1.0", "pandas>=2.0", "numpy>=1.26", "scikit-learn>=1.3,<1.8", "lightgbm>=4.3,<4.6"]
+# Kaynak bağlantısı ve temiz görünümler ortak pakette (vakalar/ortak/pyproject.toml);
+# kurulum: pip install -e ../ortak, sonra --no-deps -e ../../veri, sonra -e ".[dev]" (README).
+dependencies = ["perakende-analitik", "duckdb>=1.0", "pandas>=2.0", "numpy>=1.26", "scikit-learn>=1.3,<1.8", "lightgbm>=4.3,<4.6"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
@@ -16,7 +18,7 @@ include = ["rpt*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-markers = ["veri: gercek v3 verisi gerektirir (yavas)"]
+markers = ["veri: gercek v4 verisi gerektirir (yavas)"]
 # numpy 2.5 + pandas 2.3: Timedelta icinde "generic unit" uyarisi (bizim degil)
 filterwarnings = ["ignore:.*generic.*unit:DeprecationWarning", "ignore:.*force_all_finite:FutureWarning"]
 

@@ -10,6 +10,9 @@ vakalar/yok-satma/cikti/
 # Blok transfer vakasının ara çıktıları (plan önbelleği cikti/planlar, rapor)
 vakalar/blok-transfer/cikti/
 
+# RPT vakasinin ara ciktilari (kosu onbellegi, rapor)
+vakalar/rpt/cikti/
+
 # Python
 __pycache__/
 *.pyc

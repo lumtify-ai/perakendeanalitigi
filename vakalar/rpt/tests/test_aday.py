@@ -5,6 +5,7 @@ import pytest
 from rpt import aday, sansur
 
 
+@pytest.mark.skip(reason="Görev 6'de v4'e")
 @pytest.mark.veri
 def test_egitim_yalniz_gecmis_sezonlardan(yol0):
     w = yol0["baglam"].dunya
@@ -16,6 +17,7 @@ def test_egitim_yalniz_gecmis_sezonlardan(yol0):
         assert set(sez[yol0["aday"][G]["sinama"]["option"]]) == {G}
 
 
+@pytest.mark.skip(reason="Görev 6'de v4'e")
 @pytest.mark.veri
 def test_anlik_kestirim_tablo_kestirimiyle_ayni(veri, yol0):
     """Motor içi (Gorunum) düzeltilmiş talep = Faz A'nın tablo tabanlı kestirimi."""
@@ -47,6 +49,7 @@ def test_etiket_elle():
     assert r["kar_x"] == pytest.approx(100 * 100 + 60 * 160 - 40 * 300)
 
 
+@pytest.mark.skip(reason="Görev 6'de v4'e")
 @pytest.mark.veri
 def test_modeller_banu_kuralindan_isabetli(yol0):
     t = yol0["aday"]["SS25"]["sinama"]

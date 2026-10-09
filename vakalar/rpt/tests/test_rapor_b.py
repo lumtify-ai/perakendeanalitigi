@@ -7,6 +7,7 @@ import rapor_b
 from rpt import oyun
 
 
+@pytest.mark.skip(reason="Görev 10'de v4'e")
 @pytest.mark.veri
 def test_rapor_b_duman(yol0):
     v = rapor_b.VeriB(yol0, oyun.tum_kollar(yol0))

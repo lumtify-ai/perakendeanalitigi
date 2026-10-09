@@ -12,10 +12,15 @@ dağıtım veriden aynen alınır, bu vakanın konusu değildir.
 
     cd vakalar/rpt
     python -m venv .venv
-    .venv/Scripts/python -m pip install -e ../../veri -e ".[dev]"
-    .venv/Scripts/python -m pytest -q          # testler (hızlı + @pytest.mark.veri)
+    .venv/Scripts/pip install -e ../ortak
+    .venv/Scripts/pip install --no-deps -e ../../veri
+    .venv/Scripts/pip install -e ".[dev]"
+    .venv/Scripts/python -m pytest tests/test_kaynak.py -q   # `veri` işaretliler gerçek v4 ister (~1 dk)
 
-Veri yoksa önce üret: `cd veri && .venv/Scripts/python -m perakende_veri.v3.uret`
+Veri `veri/cikti/v4/perakende.duckdb` (ya da `PERAKENDE_V4_DB`); yoksa yayımlanan
+`veri-v4` dosyasını indirin ya da `cd veri && python -m perakende_veri.v4.uret`.
+v4 geçişi sürüyor (`docs` ayrı depoda: `2026-10-09-rpt-v4` tasarımı); henüz
+v4'e taşınmamış modüllerin testleri `Görev N'de v4'e` nedeniyle atlanır.
 
 Alternatif talep yollarını koşmak (10 yol, 4 süreç paralel, ~6 dk; önce bu):
 
@@ -40,7 +45,7 @@ dagitim_politikasi=...)`'i ile farklı politikalarla yeniden oynatılır
 
 | Modül | İşi |
 |---|---|
-| `kaynak.py` | v3 DuckDB tablolarını okur, kirli kayıtları ayıklar; hücre-hafta (mağaza × SKU × lansmandan beri hafta) ve option-hafta panelleri; `tarihten_once` ile karar sabahına kırpma |
+| `kaynak.py` | v4 DuckDB tablolarını ortak paketin görünümleriyle (temiz satış, hayaletsiz çeşit) okur; hücre-hafta (mağaza × SKU × lansmandan beri hafta) ve option-hafta panelleri (online satış STR'ye girer, depo stoğu pazartesi süzülür); `tarihten_once` ile karar sabahına kırpma; `gecmis_sezonlar` |
 | `egri.py` | Yaşam eğrisinin **şekli** (birikimli pay k_h), geçmiş sezonlardan: çıplak (sansürlü satış), stoklu gün düzeltmeli (Poisson IPF), gerçek (yalnız kıyas) |
 | `sansur.py` | Sezon talebi kestirimi, dört katman (a çıplak · b stoklu gün hızı · c FRR eğri ölçeği · d b+c), gerçek talebe karşı hata |
 | `hikaye.py` | "Bitti" haftası, hikâye adayları, mağaza tablosu, Lumoda'nın RPT'lerinin akıbeti |

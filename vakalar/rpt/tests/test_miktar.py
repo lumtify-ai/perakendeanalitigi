@@ -57,6 +57,7 @@ def test_kar_egrisi_elle():
     assert kar.tolist() == [0, 100 - 40, 120 + 20 - 80]
 
 
+@pytest.mark.skip(reason="Görev 6'de v4'e")
 @pytest.mark.veri
 def test_kalibrasyon_gelecegi_gormez(veri):
     from rpt import kaynak

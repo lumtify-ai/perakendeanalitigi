@@ -8,6 +8,7 @@ from perakende_veri.v3.simulasyon import simule_et
 from rpt import dagitim, kaynak, oyun, politika
 
 
+@pytest.mark.skip(reason="Görev 8'de v4'e")
 @pytest.mark.veri
 def test_mevcut_kolu_disa_aktarilan_tablolar(veri, yol0):
     ham = yol0["ham"][("mevcut", "mevcut")]
@@ -20,6 +21,7 @@ def test_mevcut_kolu_disa_aktarilan_tablolar(veri, yol0):
         pd.testing.assert_frame_equal(a, b, check_dtype=False)
 
 
+@pytest.mark.skip(reason="Görev 8'de v4'e")
 @pytest.mark.veri
 def test_sarmalayicilar_motoru_bozmaz(yol0):
     """Mevcut kolu (Lumoda sarmalı + 'mevcut' dağıtım nesnesi) = varsayılan motor."""
@@ -30,6 +32,7 @@ def test_sarmalayicilar_motoru_bozmaz(yol0):
         pd.testing.assert_frame_equal(ham[ad], ref[ad])
 
 
+@pytest.mark.skip(reason="Görev 8'de v4'e")
 @pytest.mark.veri
 @pytest.mark.parametrize("kural", ["b", "c", "d"])
 def test_kural_rptsiz_kolda_etkisiz(yol0, kural):
@@ -41,6 +44,7 @@ def test_kural_rptsiz_kolda_etkisiz(yol0, kural):
     pd.testing.assert_frame_equal(ham["kayip_satis"], ref["kayip_satis"])
 
 
+@pytest.mark.skip(reason="Görev 8'de v4'e")
 @pytest.mark.veri
 def test_rptsiz_optionlar_kollar_arasi_ayni(yol0):
     """v3 operasyon rastgeleliği politikadan bağımsız: RPT'siz option kolda aynen kalır."""

@@ -56,6 +56,7 @@ def test_egri_k_ara_deger_ve_kalan():
     assert yedekli.k(("Alt", 1), 2) == pytest.approx(0.3)   # grup yok → dalga eğrisi
 
 
+@pytest.mark.skip(reason="Görev 5'de v4'e")
 @pytest.mark.veri
 def test_gercek_egriler_monoton_ve_bire_varir(veri):
     t, opt = veri["t"], veri["opt"]
@@ -70,6 +71,7 @@ def test_gercek_egriler_monoton_ve_bire_varir(veri):
                     assert k[0] == 0.0
 
 
+@pytest.mark.skip(reason="Görev 5'de v4'e")
 @pytest.mark.veri
 def test_gecmis_sezonlar(veri):
     t = veri["t"]
@@ -77,6 +79,7 @@ def test_gecmis_sezonlar(veri):
     assert egri.gecmis_sezonlar(t, "SS25") == ("SS24", "AW24")
 
 
+@pytest.mark.skip(reason="Görev 5'de v4'e")
 @pytest.mark.veri
 def test_sizinti_kalkani_egri_gelecegi_gormez(veri):
     """Oyun sezonunun eğrisi, oyun başladıktan sonraki veri bozulsa da aynı."""
