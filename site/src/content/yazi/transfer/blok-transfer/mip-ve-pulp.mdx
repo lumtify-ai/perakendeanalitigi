@@ -146,7 +146,7 @@ determinizm dersi. Süre sınırı makinenin hızına bağlıdır: hızlı bilgi
 aynı sürede daha çok dal açar, başka bir plan bulur. Düğüm sınırı ise
 makineden bağımsızdır; o yüzden süreden önce bağlayacak şekilde ayarlı.
 Emniyete takılan bir model de, hangi bilgisayarda koşarsa koşsun, aynı planı
-verir. `threads=0` da aynı sebeple orada: paralel arama aynı girdiye kimi
+verir. `threads=0` da aynı sebeple orada: paralel arama aynı girdide kimi
 koşuda takılıyor, kimi koşuda çöküyordu; seri arama her seferinde aynı yolu
 yürüyor.
 
@@ -180,10 +180,9 @@ her zaman "en iyisini buldum" demez:
   ama tolerans kadar yakın olduğu bile kanıtlanmadı.
 - **`hata`**: çözücü bir cevap üretemedi.
 
-Yorum satırındaki tuzak gerçek ve bu kodun ilk hâli tam ona düşüyordu.
-`solve()`'un döndürdüğü değere bakıyordu; PuLP ise süre sınırında olurlu bir
-çözümle duran çözücü için de "optimal" döndürüyor. Kod, yarıda kesilmiş
-planlara sessizce "en iyi" diyordu. Doğru bilgi `sol_status`'ta.
+Bu tuzağa düşmek çok kolay: `solve()`'un dönüşüne bakan kod, süre sınırında
+yarıda kesilmiş planlara da sessizce "en iyi" der. Doğru bilgi
+`sol_status`'ta.
 
 Açgözlü yöntemde böyle bir ayrım yok; o her zaman bir liste veriyor. Model
 kurmanın bedellerinden biri bu belirsizliği kodda karşılamak zorunda
@@ -203,23 +202,12 @@ option taşıdığına bakınca bu görünür hâle geliyor:
 | 2 | 33 | 72 |
 | 3 | 8 | 16 |
 | 4 | 7 | 9 |
-| 5 | 3 | 4 |
-| 6 | 5 | 1 |
-| 7 | 4 | 7 |
-| 8 | 4 | 3 |
-| 9 | 2 | 3 |
-| 10 | 1 | 4 |
-| 11 | 1 | 0 |
-| 12 | 2 | 1 |
-| 13 | 0 | 1 |
-| 14 | 0 | 1 |
-| 15 | 1 | 0 |
-| 17 | 1 | 2 |
 | **Toplam rota** | **340** | **318** |
 
-Açgözlü planda 268 sevkiyat tek bir option taşımak için açılıyor. Çözücüde
-bu sayı 194. Çözücü aynı işi daha az kamyonla yapıyor, çünkü amaç
-fonksiyonundaki $-R\sum y_{ij}$ terimi ona her yeni rotanın 500 TL'ye mal
+Tabloda yalnız ilk dört satır var; kuyruk iki planda da uzun, en dolu rota
+ikisinde de 17 option taşıyor. Açgözlü planda 268 sevkiyat tek bir option
+taşımak için açılıyor. Çözücüde bu sayı 194. Çözücü daha çok malı daha az
+kamyonla taşıyor, çünkü amaç fonksiyonundaki $-R\sum y_{ij}$ terimi ona her yeni rotanın 500 TL'ye mal
 olduğunu söylüyor. Açgözlü döngüde böyle bir terim yok, olamaz da: döngü
 sıradaki hareketi görmediği için "bunu şuraya koysam kamyon zaten kalkacaktı"
 diye düşünemez.
@@ -265,7 +253,7 @@ göndereceğini baştan kuruyor.
 ## Çözücü nerede duruyor?
 
 Üçüncü yazıda bu modelin 7.730 ikili değişkeni olduğunu ve kaba kuvvetle
-$2^{7.730}$ olasılık demek olduğunu yazmıştım. Çözücünün bunu 37,8 saniyede
+$2^{7.730}$ olasılık demek olduğunu yazmıştım. Çözücünün bunu yarım dakikada
 bitirmesinin sebebini de anlatmıştım: dal-sınır. Şimdi ölçelim.
 
 Modeli iki kez çözelim. Önce değişkenlerin 0 ile 1 arasında kesirli olmasına
@@ -277,7 +265,7 @@ izin vererek (LP gevşetmesi), sonra gerçek hâliyle:
 | Tamsayı çözüm (MIP planı) | 35.934.123,10 TL |
 | **Aradaki boşluk** | **320.981,34 TL (%0,89)** |
 
-Gevşetmeyi kurup çözmek bir saniye sürüyor (1,0 sn). Çıkan sayı bir tavan:
+Gevşetmeyi kurup çözmek bir saniye sürüyor. Çıkan sayı bir tavan:
 hiçbir tam sayı plan 36.255.104,44 TL'yi geçemez. Gevşetilmiş çözümde
 5.369 $x$ değişkeninin 105'i, 2.361 $y$ değişkeninin 56'sı kesirli çıkıyor;
 çözücü "bu bloğun yarısını gönder, bu rotayı yarım aç" diyor. Tavanla
@@ -290,7 +278,7 @@ Elindeki plan bu sınırın %0,18 altında; tolerans %0,5 olduğu için orada
 duruyor. Bu yüzden bu yazıda hiçbir yerde "en iyi plan" demiyorum. Dürüst
 cümle şu: **bu plan, olası en iyi plandan en fazla %0,18 uzak.** Belki tam
 da en iyisi; bunu kanıtlamak için çözücüyü daha uzun koşturmak gerekirdi ve
-en fazla %0,18'lik bir ihtimal için o süreyi harcamadık.
+en fazla %0,18'lik bir iyileşme için o süreyi harcamadık.
 
 ## Her MIP uslu değildir
 
@@ -299,10 +287,10 @@ referans ayarında toleransın içinde durdu ama kadranı çevirince öyle olmuy
 Dizinin sonunda karşılaştıracağımız altı eşik takımından dördünde çözücü
 emniyet için koyduğumuz düğüm sınırına takıldı ve `limit` bayrağıyla döndü. O
 planlar optimumdan en fazla %1,33 ile %5,24 arasında uzak; hepsi yine de
-açgözlüden fazla kazandırıyor, ama ne kadar fazla kazandırabileceklerini
-bilmiyoruz.
+açgözlüden fazla kazandırıyor, ama gerçek en iyinin o aralığın neresinde
+olduğunu bilmiyoruz.
 
-Bir modeli neyin zorlaştırdığı az çok bilinir ve ikisi bu veride var. Aday
+Bir MIP'i neyin zorlaştırdığı aşağı yukarı bilinir; bunlardan ikisi bu veride var. Aday
 kümesi büyüyor: alıcı tavanı açıldıkça kırık olmayan raflar da alıcı olabiliyor.
 Kapasiteler bağlıyor: 80 mağazanın 12'sinin hiç boşluğu yok; referans
 planın dışında kalan puanı pozitif bloklardan 194'ü alıcısının kalan
@@ -331,7 +319,7 @@ cevap.
 
 Açgözlü yöntemde o cevap bir satır: *"puanı en yüksek eşleşme buydu."*
 Çözücüde cevap dürüstçe şudur: *"seçilen plan, kısıtları sağlayan bütün
-planlar arasında toplamı en büyük olana en fazla %0,18 uzak olandı."* Doğru
+planların en iyisinden en fazla %0,18 geride kalan plandı."* Doğru
 bir cevap ama ikna edici değil, çünkü tek bir hareketin gerekçesi diye bir
 şey yok; hareketler birbirine bağlı bir bütün olarak seçiliyor. Bu,
 optimizasyon projelerinin teknik değil, **güven** sebebiyle raflarda

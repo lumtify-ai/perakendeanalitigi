@@ -138,8 +138,8 @@ ya da stoksuz rafları topluyor. Depoda bu mantık birkaç fonksiyona bölünmü
 durumda; burada okunabilirlik için tek sorguda topladım.
 
 Sorgunun tek girdisi en üstteki `$karar`: hangi pazartesinin fotoğrafına
-bakılacağı. Hız, soğuma ve fotoğraf hep ona göre ölçülüyor ve hep ondan
-öncesine bakıyor; karardan sonraki hiçbir satış ya da varış sorguya girmiyor.
+bakılacağı. Hız, soğuma ve fotoğraf hep ona göre ölçülüyor, hiçbiri ondan
+sonrasına bakmıyor; karardan sonraki hiçbir satış ya da varış sorguya girmiyor.
 Sorgu ham tablolara da bakmıyor, `bt_` ile başlayan görünümlere bakıyor: o
 pazartesi açık olan fiziksel mağazalar ve onların ayıklanmış satırları.
 Lumoda'nın verisinde de iki kez yazılmış satış satırı, hiç satılmadan bir
@@ -252,12 +252,11 @@ bir mağazadan mal bulmak toplamda daha iyiydi. Açgözlü yöntemin tanımı bu
 her adımda o anın en iyisini seçer, seçiminin ileride ne kapattığına bakmaz.
 
 Hemen altındaki 852 aynı hikâyenin ikinci yüzü. Puanı pozitif, bloğu henüz
-kimseye verilmemiş, ama alıcının boşluğu daha önce seçilen bloklarla dolmuş.
-Kapasite burada kâğıtta durmuyor: karar anında 80 mağazanın 12'sinin hiç
-boşluğu yok; plan bittiğinde de taşınmamış, puanı pozitif bloklardan 270'i
-alıcısının kalan boşluğuna sığmıyor. Döngü yer kalmayan alıcıya rastladığında
-"önceki seçimlerimden birini geri alsam bu daha iyi sığar mıydı?" diye
-soramaz; geri dönmek onun tarifinde yok.
+kimseye verilmemiş, ama alıcının kalan yeri yetmiyor: çoğu zaman önce seçilen
+bloklar yemiş, bazen mağazanın hiç yeri yok. Kapasite burada kâğıt üzerinde
+kalmıyor: karar anında 80 mağazanın 12'sinin hiç boşluğu yok. Döngü yer kalmayan
+alıcıya rastladığında "önceki seçimlerimden birini geri alsam bu daha iyi
+sığar mıydı?" diye soramaz; geri dönmek onun tarifinde yok.
 
 ## Nerede para kaybediyor
 
@@ -282,12 +281,14 @@ $$
 $$
 
 Çözücü 22 rota az açıyor ve bunun değeri 11.000 TL. Kalan 3.242.435 TL
-tamamen hangi bloğun nereye gittiğinden geliyor. Sebebi de kodun kendisinde
-görünüyor: döngü bir bloğu sırası geldiğinde en iyi hedefine veriyor ve o
-anda alıcının boşluğundan yer yiyor. Sıradaki, belki daha değerli blok oraya
-artık sığmıyor. Çözücü ise bütün blokları ve bütün boşlukları aynı anda
-gördüğü için yeri daha iyi paylaştırıyor: açgözlü plan alıcıların
-boşluğunun %60,9'unu kullanıyor, çözücü %70,5'ini.
+hangi bloğun nereye gittiğinden geliyor. Döngü bir bloğu sırası geldiğinde
+en iyi hedefine veriyor; bu seçim hem o alıcının yerini yiyor hem o bloğu
+isteyen öbür mağazaların önünü kapatıyor. Sonra gelen, tek tek daha düşük
+puanlı ama birlikte daha değerli bloklar oraya sığmayabiliyor; döngü geri
+dönüp yeniden dağıtamıyor. Çözücü bütün blokları ve boşlukları aynı anda
+tartıyor. İzleri görünüyor: plan bittiğinde puanı pozitif bloklardan
+açgözlüde 270'i, çözücüde 194'ü alıcısına sığmıyor. Farkın ne kadarının
+yerden, ne kadarının blok çakışmasından geldiğini ayrıca ölçmedik.
 
 Bir cümlede: **fark kamyonlarda değil, hangi kolinin hangi rafa gittiğinde.**
 
@@ -310,10 +311,10 @@ sormuyor.
 
 Bu hafta yama 4 hareketi kesti: döngünün seçtiği 590 hareketten dördü,
 minimum koliyi dolduramayan rotalarda kaldığı için silindi ve yerlerine hiçbir
-şey konmadı. Dört hareket az görünüyor; asıl dert sayı değil, sessizlik. Bu
-modeli daha küçük bir veriyle ilk kurduğumda yama hiç kesmemişti ve bunu
-"şans, tarifin sağlamlığı değil; parametreler biraz değişse yama sessizce
-kesecek" diye not etmiştim. Veri büyüyünce not doğru çıktı. Çözücü tarafında
+şey konmadı. Dört hareket az görünüyor; asıl dert sayı değil, sessizlik. Böyle
+yamaların huyu budur: çoğu hafta hiçbir şey kesmez, "zaten devreye girmiyor"
+diye unutulur; veri ya da parametreler biraz değişince de kimseye haber
+vermeden keser. Bu hafta kesti ve plana bakan kimse fark etmezdi. Çözücü tarafında
 böyle bir yama yok: orada minimum koli modelin içinde bir kısıt satırı ve
 çözücü onu ihlal etmeden hareketleri **birleştirme** seçeneğini de
 değerlendiriyor.
@@ -321,7 +322,7 @@ değerlendiriyor.
 ## Peki bu ne zaman yeter?
 
 Rakamlara bakalım: açgözlü yöntem çözücünün bulduğu değerin **%90,9'unu**
-buluyor, hem de iki bin kattan fazla kısa sürede ve sıfır kurulum
+buluyor, hem de iki bin kattan daha kısa sürede ve sıfır kurulum
 maliyetiyle.
 
 Bunu küçümsemek kolay ama yanlış olur. Bu yöntem şu koşullarda gerçekten
@@ -339,6 +340,6 @@ mi olduğunu bilemez. Sezgi burada işe yaramaz; kaybın büyüklüğü problemi
 
 Sonraki yazıda aynı problemi çözücüyle kuracağız: PuLP ile modeli yazmak,
 CBC'yi koşturmak ve çözücü bir sınıra takıldığında ne yapılacağı.
-Sonuncusunda ikisini bütün ölçütlerle yan yana koyacağız. Orada bir sürpriz
+Altıncı yazıda ikisini bütün ölçütlerle yan yana koyacağız. Orada bir sürpriz
 var: kadranı çevirip parayı üçte iki büyüttüğünüzde, aradığını bulamayan
 müşteri bunu neredeyse hiç fark etmiyor 🙂

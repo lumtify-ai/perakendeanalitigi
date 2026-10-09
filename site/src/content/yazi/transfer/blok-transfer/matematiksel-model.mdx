@@ -196,7 +196,7 @@ $$
 $$
 
 *Bir mağazaya boşluğundan fazla mal gönderemezsiniz.* Deponun ve rafın sonu
-vardır. Bu kısıt kâğıtta durmuyor: Lumoda'da 80 mağazanın 12'sinin karar
+vardır. Bu kısıt kâğıt üzerinde kalmıyor: Lumoda'da 80 mağazanın 12'sinin karar
 anında hiç boşluğu yok; sonraki iki yazıda bu satırın planı nasıl
 biçimlendirdiğini göreceğiz.
 
@@ -241,7 +241,7 @@ atom sayısı kabaca $10^{80}$ olarak tahmin ediliyor. Yani bu zincirin tek bir
 haftalık transfer kararı, kaba kuvvetle denenmek istense, evrendeki bütün
 atomlara birer bilgisayar verseniz bile bitmez.
 
-Çözücünün (CBC) bu modelle işini bitirme süresi: **37,8 saniye.**
+Çözücünün (CBC) bu modelle işini bitirme süresi: **yarım dakikadan biraz uzun.**
 
 Bu iki cümle yan yana durunca insanın aklına ilk gelen şey "bir yerde hata
 olmalı" oluyor. Yok. Çözücü kombinasyonları saymıyor. Önce problemi
@@ -251,11 +251,11 @@ hâli hızlı çözülen bir doğrusal program. Çıkan sayı gerçek en iyi ç�
 sıfır olsun" / "bu bir olsun"), her dalda üst sınırı yeniden hesaplıyor ve bir
 dalın üst sınırı eldeki en iyi çözümden kötüyse o dalın tamamını,
 milyarlarca kombinasyonu, tek hamlede çöpe atıyor. Adı dal-sınır. Bir önceki
-yazıda Ali'nin "yüz elli bin kere teraziyi kuramam" dediği yerin cevabı budur:
+yazıda Ali'nin yüz elli bin kere kuramam dediği terazinin cevabı budur:
 kimse kurmuyor, çözücü bakmadan eliyor.
 
-Bir şeyi de baştan söyleyeyim, çünkü çözücü çıktısını okurken en çok burada
-yanılınıyor. Çözücüye "en iyiyi bul" demedik; "elindeki plan ile üst sınır
+Bir şeyi de baştan söyleyeyim, çünkü çözücü çıktısını okurken en sık burada
+yanılıyoruz. Çözücüye "en iyiyi bul" demedik; "elindeki plan ile üst sınır
 arasındaki fark %0,5'in altına inince dur" dedik. Bu modelde durduğu noktada
 fark %0,18'di. Yani elimizdeki plan için "en iyi plan" diyemiyoruz; "en iyi
 plandan en fazla %0,18 uzak bir plan" diyebiliyoruz. Bu ikisinin farkını
@@ -275,9 +275,10 @@ ciroyu yer değiştirir" sorusunu cevaplıyor, "ne kadar kâr eder" sorusunu
 değil. Bir hareketin iki kefesinde de aynı ürün durduğu için marj iki kefeyi
 aynı oranda küçültür; asıl soru hareketleri birbiriyle yarıştırırken çıkar,
 çünkü Lumoda'da marj ürüne göre değişiyor: brüt marj %54,5 ile %68,4
-arasında. Bunu ölçtük. Teraziyi kârla kurunca açgözlü planın kabaca onda
+arasında. Ölçtüğümüzde, teraziyi kârla kurunca açgözlü planın kabaca onda
 biri, çözücünün planının beşte biri değişiyor; kâr ise yalnız binde birkaç
-artıyor (açgözlüde %0,68, çözücüde %0,18). Amacı bu yüzden ciroda bıraktık. Sonuç
+artıyor (açgözlüde %0,68, çözücüde %0,18; ikincisi çözücünün kendi
+toleransının içinde kalıyor). Amacı bu yüzden ciroda bıraktık. Sonuç
 yazısındaki TL rakamlarını okurken bunu akılda tutun: onlar kâr değil,
 hareket eden ciro.
 
@@ -291,7 +292,7 @@ anını bilerek sezonun ortasında, indirimden önce seçtik ve sekiz haftalık
 ufuk indirim başlamadan kapanıyor. Ama ikinci yazıdaki "raf ömrü kadranı",
 yani sezon sonu yaklaştıkça terazinin taşımaya yatması, modelde yok. Gerçek
 bir kurulumda $H$ option başına değişir ve indirim tarihine bağlanır; takvim
-veride durduğu için bu artık bir veri eksiği değil, sıradaki adım.
+veride durduğu için bu bir veri eksiği değil, sıradaki adım.
 
 **Soğuma bütün varışları görüyor.** Veride depo sevkiyatlarının yanında
 mağazalar arası geçmiş transferler de var (3.049 satır). Soğuma kuralı rafa
