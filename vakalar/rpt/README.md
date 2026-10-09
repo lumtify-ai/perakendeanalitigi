@@ -58,8 +58,8 @@ dagitim_politikasi=...)`'i ile farklı politikalarla yeniden oynatılır
 | `hikaye.py` | "Bitti" haftası, hikâye adayları, mağaza tablosu, Lumoda'nın RPT'lerinin akıbeti |
 | `anlik.py` | Karar anı hesapları `Gorunum` üstünde (v3 tanımı; Görev 6–7'de v4'e). v4 görünümü ortak günlük tabloyu birebir kurmaya yetmiyor (satış öncesi stok ve fiyat geçmişi yok): ayrıntı modül notunda |
 | `dagitim.py` | RPT dağıtım kuralları: mevcut · b stoklu gün hızı · c yeniden lansman · d c + %30 depoda tutma |
-| `miktar.py` | Banu %50 · FRR · newsvendor (belirsizlik geçmiş sezon hatasından, MOQ kapısı) |
-| `aday.py` | Özellikler, sonradan-bakış etiketi (gerçek ve düzeltilmiş), kural / lojistik / LightGBM, TL değerlendirme |
+| `miktar.py` | Banu %50 · FRR · newsvendor (MOQ kapısı). Belirsizlik (μ, σ) geçmiş sezonlarda log(Basit'le doldurulmuş talep / karar anı kestirimi) — gerçek talep okunmaz; indirim beklentisi geçmiş sezonların yayımlanan `fiyat`ından (dalga × hafta) |
+| `aday.py` | Karar satırı (`karar_kaydi`: karar anı x, D + karar sabahı durumu, tablo yolunda `durum_tablodan`; Banu'nun STR'si yayımlanan RPT'leri birebir üretir), saf özellikler, sonradan-bakış etiketi (talep argüman: gerçek ya da Basit'le doldurulmuş), kural / lojistik / LightGBM (yalnız geçmiş sezonlarla), TL değerlendirme |
 | `politika.py` | Kollar: `rpt_yok`, `mevcut`, `frr` (h=2/3), `oneri`, `kahin` |
 | `oyun.py` | Hazırlık (yolun gerçekleşen tarihi + öğrenme), dağıtım kuralı seçimi (SS24), kol koşuları |
 | `olcutler.py` | Spec 3.4 ölçütleri, option düzeyinde, rpt_yok tabanına göre |
@@ -147,8 +147,13 @@ dagitim_politikasi=...)`'i ile farklı politikalarla yeniden oynatılır
   modellenmez.
 - **SS25'in öğrenmesi AW24'ün gerçekleşen (Banu'lu) tarihinden**; bir kol
   AW24'te başka RPT verseydi SS25'e giden geçmiş biraz farklı olurdu.
-- **Belirsizlik (σ) kısmen örneklem içi**: SS24'ün öncesi olmadığı için SS24
-  kestirimleri oyun sezonunun eğrisiyle yapılır.
+- **Belirsizlik (σ) kısmen örneklem içi**: SS23'ün öncesi olmadığı için SS23
+  kestirimleri oyun sezonunun eğrisiyle yapılır. SS23'ün karar anlarında
+  kapanmış sezon yoktur (AW22 pencereye yarım girer): Basit nötr çarpanlarla
+  çalışır (`hazirla.carpan_bulucu`).
+- **Kalibrasyonun hedefi Basit'tir** (R4: oyunun ilk lansman sabahında
+  doldurulmuş talep), gerçek değil: μ Basit'in kendi yanlılığını içermez; gerçeğe
+  karşı yanlılık yalnız raporda ölçülür.
 - **AW24 aday modeli yalnız SS24'ün 483 satırından (22 pozitif) eğitilir** —
   kırılgan; rapor bunu yazar.
 - **Uzak Doğu RPT'si pratikte hiç aday değil**: eğitim sezonlarında 14–15

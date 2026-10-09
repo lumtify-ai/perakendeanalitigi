@@ -34,7 +34,7 @@ KARAR_MODULLERI = (
     "hikaye", "hikaye_sec", "anlik", "bilgi", "hazirla",
 )
 IZINLI_MODULLER = ("motor", "kahin", "olcutler", "oyun", "yollar")
-GECICI_V3 = {"aday": "Görev 6", "miktar": "Görev 6", "dagitim": "Görev 7", "politika": "Görev 7"}
+GECICI_V3 = {"dagitim": "Görev 7", "politika": "Görev 7"}
 # Muafiyet yalnız küçülür; son görev GECICI_V3'ün boş olduğunu sınamalı.
 GECICI_V3_ILK = frozenset({"aday", "miktar", "dagitim", "politika"})
 

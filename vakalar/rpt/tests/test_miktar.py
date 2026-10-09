@@ -1,11 +1,35 @@
-import numpy as np
-import pytest
+import ast
+from pathlib import Path
 
-from rpt import egri, miktar
+import duckdb
+import numpy as np
+import pandas as pd
+import pytest
+from conftest import sentetik_gunluk
+from perakende_analitik.carpanlar import Carpanlar
+
+import rpt
+from rpt import egri, kaynak, miktar
+
+NOTR = Carpanlar()
 
 
 def _duz(n=10):
     return egri.Egri(paylar={(1,): np.full(n, 1.0 / n)}, grup=("dalga",), yontem="x", hedef="x", sezonlar=())
+
+
+def test_sabitler_v4_ile_ayni():
+    """Karar modülleri üreteci içe aktaramaz; Lumoda'nın sabitleri burada yerel kopyadır."""
+    from perakende_veri.v4 import plan, sabitler
+
+    assert miktar.ADIM == sabitler.YUVARLAMA_ADET
+    assert miktar.IADE_ORANI == sabitler.IADE_ORANI_MAGAZA
+    assert miktar.RPT_MIKTAR_ORANI == sabitler.RPT_MIKTAR_ORANI
+    assert miktar.RPT_STR_ESIGI == sabitler.RPT_STR_ESIGI
+    assert (miktar.RPT_ILK_HAFTA, miktar.RPT_SON_HAFTA) == (sabitler.RPT_ILK_HAFTA, sabitler.RPT_SON_HAFTA)
+    q = np.array([0, 1, 149.5, 150, 299, 300, 301, 1039.99, 1040, 1041, 2500.2])
+    for moq in (100, 300, 500):
+        assert [miktar.moq_yuvarla(x, moq) for x in q] == plan.moq_yuvarla(q, np.full(len(q), moq)).tolist()
 
 
 def test_banu_ve_frr():
@@ -57,21 +81,158 @@ def test_kar_egrisi_elle():
     assert kar.tolist() == [0, 100 - 40, 120 + 20 - 80]
 
 
-@pytest.mark.skip(reason="Görev 6'de v4'e")
-@pytest.mark.veri
-def test_kalibrasyon_gelecegi_gormez(veri):
-    from rpt import kaynak
+# ------------------------------------------------------------ indirim beklentisi
 
-    t, opt = veri["t"], veri["opt"]
-    a = miktar.kalibrasyon(t, opt, "SS25")
-    bas = kaynak.sezon_baslangici(t, "SS25")
-    bozuk = dict(t)
-    df = t["kayip_satis"].copy()
-    df.loc[df["tarih"] >= bas, "kayip_adet"] *= 9
-    bozuk["kayip_satis"] = df
-    df = t["satis"].copy()
-    df.loc[df["tarih"] >= bas, "adet"] *= 3
-    bozuk["satis"] = df
-    b = miktar.kalibrasyon(bozuk, opt, "SS25")
-    assert a.mu == pytest.approx(b.mu) and a.sigma == pytest.approx(b.sigma)
-    assert a.sezonlar == ("SS24", "AW24")
+
+def _fiyat_baglantisi(oyun_orani=0.4):
+    """SS24 (geçmiş, 2 option, 1. dalga) ve AW24 (oyun) option'ları; haftalık `fiyat`."""
+    con = duckdb.connect()
+    sezon = pd.DataFrame({"sezon_kodu": ["SS24", "AW24"], "dalga": [1, 1],
+                          "lansman_tarihi": pd.to_datetime(["2024-02-12", "2024-08-19"]),
+                          "indirim_baslangic": pd.to_datetime(["2024-03-04", "2024-09-09"]),
+                          "cikis_tarihi": pd.to_datetime(["2024-03-18", "2024-09-23"])})
+    urun = pd.DataFrame({"urun_id": ["A-S", "A-M", "B-S", "G-S"], "option_id": ["A", "A", "B", "G"],
+                         "sezon_kodu": ["SS24", "SS24", "SS24", "AW24"], "dalga": 1,
+                         "line": "Collection",
+                         "lansman_tarihi": pd.to_datetime(["2024-02-12"] * 3 + ["2024-08-19"]),
+                         "cikis_tarihi": pd.to_datetime(["2024-03-18"] * 3 + ["2024-09-23"])})
+    satir = []
+    for oid, lan, oranlar in (("A", "2024-02-12", (0, 0, 0, 0.3, 0.5)),
+                              ("B", "2024-02-12", (0, 0, 0.2, 0.3, 0.3)),
+                              ("G", "2024-08-19", (0, 0, 0, oyun_orani, oyun_orani))):
+        for w, r in enumerate(oranlar):
+            for hat in ("normal", "online"):
+                satir.append((pd.Timestamp(lan) + pd.Timedelta(days=7 * w), oid, hat,
+                              r if hat == "normal" else 0.9))
+    fiyat = pd.DataFrame(satir, columns=["hafta_baslangic", "option_id", "hat", "indirim_orani"])
+    for ad, df in (("sezon", sezon), ("urun", urun), ("fiyat", fiyat)):
+        con.register(ad, df)
+    return con
+
+
+def test_indirim_beklentisi_gecmisten():
+    """Geçmiş sezonların (dalga, hafta) ortalaması; oyun sezonunun fiyatları değişse de aynı."""
+    a = miktar.indirim_beklentisi(_fiyat_baglantisi(0.4), "AW24")
+    b = miktar.indirim_beklentisi(_fiyat_baglantisi(0.7), "AW24")
+    assert a == b
+    assert a == pytest.approx({(1, 0): 0.0, (1, 1): 0.0, (1, 2): 0.1, (1, 3): 0.3, (1, 4): 0.4})
+
+
+def test_indirim_fiyatlari_egriyle_agirlikli():
+    opt = pd.DataFrame({"option_id": ["G"], "dalga": [1], "liste_fiyati": [100.0],
+                        "lansman_tarihi": [pd.Timestamp("2024-08-19")],
+                        "indirim_baslangic": [pd.Timestamp("2024-09-02")],
+                        "cikis_tarihi": [pd.Timestamp("2024-09-16")]})
+    beklenti = {(1, 0): 0.0, (1, 1): 0.0, (1, 2): 0.2, (1, 3): 0.5}
+    # indirim haftaları 2 ve 3; eğri payları 0,3 ve 0,1 ⇒ (0,3·0,2 + 0,1·0,5) / 0,4
+    e = egri.Egri(paylar={(1,): np.array([0.3, 0.3, 0.3, 0.1])}, grup=("dalga",), yontem="d",
+                  hedef="cikis", sezonlar=())
+    p = miktar.indirim_fiyatlari(opt, beklenti, e)
+    assert p["G"] == pytest.approx(100 * (1 - (0.3 * 0.2 + 0.1 * 0.5) / 0.4))
+    # eğrisiz: eşit ağırlık; bulunmayan hafta en yakın haftayla
+    assert miktar.indirim_fiyatlari(opt, {(1, 0): 0.0, (1, 2): 0.3}, None)["G"] == pytest.approx(70.0)
+
+
+# ------------------------------------------------------------ kalibrasyon
+
+LAN = {"SS24": pd.Timestamp("2024-02-12"), "AW24": pd.Timestamp("2024-08-19")}
+
+
+@pytest.fixture(scope="module")
+def gecmis_ve_oyun():
+    """SS24'te üç option (geçmiş; 14 hafta, indirim 12.), AW24'te bir option (oyun)."""
+    g, opt, _ = sentetik_gunluk([("P1", "SS24", LAN["SS24"], 14, 1), ("P2", "SS24", LAN["SS24"], 14, 1),
+                                 ("P3", "SS24", LAN["SS24"], 14, 1), ("G1", "AW24", LAN["AW24"], 8, 1)],
+                                magaza_sayisi=30)
+    return g, opt
+
+
+def _kalibre(g, opt):
+    return miktar.kalibrasyon(g, opt, "AW24", lambda t: NOTR, haftalar=(2, 3, 4))
+
+
+def test_kalibrasyon_gecmisten(gecmis_ve_oyun):
+    g, opt = gecmis_ve_oyun
+    b = _kalibre(g, opt)
+    assert b.sezonlar == ("SS24",)
+    assert set(b.mu) == {2, 3, 4} and all(b.n[h] == 3 for h in b.mu)
+    assert all(np.isfinite(b.mu[h]) and b.sigma[h] > 0 for h in b.mu)
+    assert b.al(2.4) == (b.mu[2], b.sigma[2]) and b.al(9) == (b.mu[4], b.sigma[4])
+
+
+def test_kalibrasyon_gelecegi_gormez(gecmis_ve_oyun):
+    """Oyunun ilk lansman sabahından sonraki satırlar (oyun sezonu dahil) μ, σ'yı değiştirmez."""
+    g, opt = gecmis_ve_oyun
+    a = _kalibre(g, opt)
+    bozuk = g.copy()
+    sonra = bozuk["tarih"] >= LAN["AW24"]
+    bozuk.loc[sonra, "brut_satis"] = bozuk.loc[sonra, "brut_satis"] * 7 + 2
+    bozuk.loc[sonra, "durum"] = "bos"
+    b = _kalibre(bozuk, opt)
+    assert a == b
+    # test boş geçmiyor: SS24'ün son haftası (oyundan önce) hedefi değiştirir
+    once = g.copy()
+    son = (once["tarih"] >= LAN["SS24"] + pd.Timedelta(days=70)) & (once["tarih"] < LAN["AW24"])
+    once.loc[son, "brut_satis"] += 3
+    assert _kalibre(once, opt).mu != a.mu
+
+
+def test_kalibrasyon_gercek_kaybi_okumaz(gecmis_ve_oyun):
+    """Gerçek talep / hakem sütunları bozulsa da μ, σ aynı; modüller gizli gerçeği anmaz."""
+    g, opt = gecmis_ve_oyun
+    a = _kalibre(g, opt)
+    zehir = g.assign(gercek_talep=g["gercek_talep"] * 9 + 1, kayip=999.0, karsilanmayan=777,
+                     talep=5.0, kalici_kayip=3)
+    assert _kalibre(zehir, opt) == a
+    assert _kalibre(g.drop(columns="gercek_talep"), opt) == a
+
+
+GIZLI_ADLAR = ("hakem", "karsilanmayan", "kalici_kayip", "ikameye_giden", "kayip_satis",
+               "gercek_talep", "gizli")
+
+
+@pytest.mark.parametrize("modul", ["miktar", "aday"])
+def test_gizli_gercek_anilmaz_ast(modul):
+    """Modül hakemi, üreteci, motoru içe aktarmaz; gizli gerçeğin sütun / tablo adlarını
+    (dizge, ad ya da öznitelik) kod içinde anmaz (açıklama metinleri hariç)."""
+    yol = Path(rpt.__file__).parent / f"{modul}.py"
+    agac = ast.parse(yol.read_text(encoding="utf-8"))
+    belge = set()
+    for d in ast.walk(agac):
+        if isinstance(d, (ast.FunctionDef, ast.ClassDef, ast.Module)) and d.body:
+            ilk = d.body[0]
+            if isinstance(ilk, ast.Expr) and isinstance(ilk.value, ast.Constant):
+                belge.add(id(ilk.value))
+    for d in ast.walk(agac):
+        if isinstance(d, ast.Import):
+            adlar = [a.name for a in d.names]
+        elif isinstance(d, ast.ImportFrom):
+            adlar = [d.module or ""] + [a.name for a in d.names]
+        else:
+            adlar = []
+        assert not [a for a in adlar if "hakem" in a or a.startswith("perakende_veri") or a == "motor"]
+        metin = None
+        if isinstance(d, ast.Constant) and isinstance(d.value, str) and id(d) not in belge:
+            metin = d.value
+        elif isinstance(d, ast.Attribute):
+            metin = d.attr
+        elif isinstance(d, ast.Name):
+            metin = d.id
+        if metin is not None:
+            assert not any(y in metin for y in GIZLI_ADLAR), f"{modul}: {metin!r}"
+
+
+# ------------------------------------------------------------ gerçek veri
+
+
+@pytest.mark.veri
+def test_indirim_beklentisi_gercek_veri():
+    if not kaynak.VERITABANI.exists():
+        pytest.skip("v4 verisi yok")
+    with kaynak.baglan() as con:
+        b = miktar.indirim_beklentisi(con, "SS25")
+    assert {d for d, _ in b} == {1, 2, 3}
+    assert all(0.0 <= v <= 0.7 for v in b.values())
+    # 1. dalga: ilk haftalar tam fiyat, indirim döneminde (20. haftadan) en az %30
+    assert b[(1, 0)] < 0.01 and b[(1, 3)] < 0.01
+    assert all(b[(1, w)] >= 0.29 for w in range(20, 26) if (1, w) in b)

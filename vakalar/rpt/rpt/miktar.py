@@ -1,6 +1,6 @@
 """Ne kadar RPT: üç miktar kuralı.
 
-    banu        ilk alımın %50'si, en az MOQ (v3'teki Lumoda kuralı)
+    banu        ilk alımın %50'si, en az MOQ (Lumoda'nın v4 `LumodaRPT` kuralı)
     frr         Fisher–Rajaram–Raman (2001) perakendecisinin kuralı:
                 Q2 = ((1 − ω) · x_k / k_k − Q1)⁺ — çıplak satış, çıplak eğri.
                 ω iade oranı. Q2 MOQ'nun yarısından küçükse sipariş yok,
@@ -9,16 +9,16 @@
                 en büyükleyen miktar (aşağıda).
 
 NEWSVENDOR. Karar pazartesisi h, tedarik süresi L, geliş a = h + L.
-Sezon talebi kestirimi d katmanıdır (Faz A): Ŝ = D_h / k_h, tam fiyat
-penceresi için indirim eğrisiyle, indirim dönemi için çıkış eğrisiyle.
-Belirsizlik çarpımsaldır: S = Ŝ · exp(ε), ε ~ N(μ_h, σ_h); μ ve σ yalnız
-oyun sezonundan önce kapanmış sezonlardaki kestirim hatasından
-(log(gerçek / kestirim)) öğrenilir (`kalibrasyon`). Dağılım 200 sabit
-kantil noktasıyla temsil edilir (deterministik).
+Sezon talebi kestirimi d katmanıdır (`sansur`): Ŝ = D_h / k_h (D karar anı
+Basit'iyle düzeltilmiş bugüne kadarki talep), tam fiyat penceresi için indirim
+eğrisiyle, indirim dönemi için çıkış eğrisiyle. Belirsizlik çarpımsaldır:
+S = Ŝ · exp(ε), ε ~ N(μ_h, σ_h); μ ve σ yalnız oyun sezonundan önce kapanmış
+sezonlardan öğrenilir (`kalibrasyon`, aşağıda). Dağılım 200 sabit kantil
+noktasıyla temsil edilir (deterministik).
 
     B    = geliş öncesi talep = S_cx · (k_cx(a) − k_cx(h))
     C0   = gelişte elde kalacak stok = (envanter pozisyonu − B)⁺
-           envanter pozisyonu = depo + mağaza stoğu + açık siparişler
+           envanter pozisyonu = depo + mağaza stoğu + yoldaki + açık siparişler
     Xtf  = gelişten indirime tam fiyat talebi = S_io · (1 − k_io(a))
     Xind = indirim dönemi talebi (gelişten sonra) = S_cx · (1 − k_cx(max(a, W)))
     Q'nun tam fiyat satışı  tf  = min(Q, (Xtf − C0)⁺)
@@ -27,14 +27,37 @@ kantil noktasıyla temsil edilir (deterministik).
 
 Az alma maliyeti Cu = p − c (tam fiyat marjı), fazla alma maliyeti
 Co = c − p_ind (indirimde satılırsa) ya da c (hiç satılmazsa); formül bu iki
-maliyeti senaryolar üstünden kendisi tartar. p_ind, option'ın indirim
-dönemindeki planlı fiyatının plan talebiyle ağırlıklı ortalamasıdır (plan
-ve indirim takvimi önceden bilinir).
+maliyeti senaryolar üstünden kendisi tartar.
+
+İNDİRİM FİYATI (v4). v4'te indirim içseldir (Lumoda'nın markdown kuralı STR'ye
+bakar), planı yoktur. Beklenti geçmiş sezonların yayımlanan `fiyat` tablosundan
+öğrenilir (`indirim_beklentisi`: dalga × lansmandan hafta ortalama indirim oranı,
+yalnız oyun sezonu başlamadan biten haftalar); option'ın p_ind'i indirim
+haftalarının bu oranlarının çıkış eğrisi paylarıyla ağırlıklı ortalamasıdır
+(`indirim_fiyatlari`). Oyun sezonunun fiyatları okunmaz.
+
+KALİBRASYON (v4; sızıntı kesildi). Geçmiş sezon P'nin her option'ı ve her karar
+haftası h için hata r = log(hedef / d):
+    d      karar anı kestirimi: lansman + 7h sabahı, yalnız o güne dek bilinenle
+           (`sansur.karar_ozetleri`: karar anı Basit'i, karar havuzu P'nin
+           option'ları), P'nin kendi oyun eğrisiyle (P'den önceki sezonlardan;
+           veride P'den önce sezon yoksa oyun sezonunun eğrisi — örneklem içi,
+           σ'yı biraz iyimser yapar)
+    hedef  P'nin sezon talebi (lansman → indirim), oyun sezonunun ilk lansman
+           sabahında bilinenle: ortak Basit'in karar anı moduyla doldurulmuş
+           talep (`egri.gecmis_talep`, Ruling R4) — sahada kurulabilen sayı.
+Gerçek talep (hakem) okunmaz: v3'teki gerçek kaybı okuyan kalibrasyonun
+sızıntısı kesildi. μ, Basit'in sansürlü günlerdeki yanlılığını da taşır
+(hedef de Basit'tir); gerçeğe karşı yanlılık yalnız raporda ölçülür.
 
 MOQ KAPISI. En iyi Q MOQ'dan küçükse MOQ'nun beklenen kârı pozitifse MOQ,
 değilse sipariş yok. Ayrıca MOQ'nun yarısını tam fiyattan satması
 beklenmeyen sipariş verilmez: aday modelinin etiketi ve olcutler'in "yanlış
 alarm" tanımı aynı eşiktir (tutarlılık).
+
+SABİTLER. Karar modülleri üreteci (`perakende_veri`) içe aktarmaz (sızıntı
+kilidi); Lumoda'nın RPT sabitleri burada kopyadır, v4 `sabitler` ile aynılığı
+testle kilitli (`test_sabitler_v4_ile_ayni`).
 
 Bilinen sadeleştirmeler: mağazalar arası dağılım (sıkışan stok) ve iade
 yok sayılır; teslim sapması yok sayılır (planlanan geliş).
@@ -44,20 +67,31 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from perakende_veri.v3 import sabitler as v3s
-from perakende_veri.v3.tedarik import moq_yuvarla
 from scipy.stats import norm
 
 from . import egri, kaynak, sansur
 
 KANTIL = 200
 _Z = norm.ppf((np.arange(KANTIL) + 0.5) / KANTIL)
-ADIM = v3s.YUVARLAMA_ADET
-IADE_ORANI = v3s.IADE_ORANI
-KALIBRASYON_HAFTALARI = (2, 3, 4, 5, 6)
+
+# Lumoda'nın v4 sabitleri (perakende_veri.v4.sabitler; testle kilitli)
+ADIM = 10                 # YUVARLAMA_ADET: sipariş adedi 10'un katı
+IADE_ORANI = 0.06         # IADE_ORANI_MAGAZA: FRR'nin ω'sı (mağaza iadesi)
+RPT_MIKTAR_ORANI = 0.50   # Banu: ilk alımın yarısı
+RPT_STR_ESIGI = 0.55      # Banu: zincir STR'si eşiği
+RPT_ILK_HAFTA = 3         # Banu: lansmandan 3.–6. pazartesi
+RPT_SON_HAFTA = 6
+
+KALIBRASYON_HAFTALARI = sansur.KARAR_HAFTALARI
+INDIRIM_HATTI = "normal"  # fiziksel mağaza hattı (online hattı aynı oranı izler)
 
 
-def banu(ilk_alim: float, moq: int, oran: float = v3s.RPT_MIKTAR_ORANI) -> int:
+def moq_yuvarla(miktar: float, moq: int) -> int:
+    """En az MOQ, üstü 10'un katına yukarı (v4 `plan.moq_yuvarla`)."""
+    return int(max(moq, np.ceil(miktar / ADIM - 1e-9) * ADIM))
+
+
+def banu(ilk_alim: float, moq: int, oran: float = RPT_MIKTAR_ORANI) -> int:
     return moq_yuvarla(oran * ilk_alim, moq)
 
 
@@ -68,23 +102,79 @@ def frr(x: float, k: float, ilk_alim: float, moq: int, omega: float = IADE_ORANI
     return moq_yuvarla(q2, moq) if q2 >= moq / 2 else 0
 
 
-def indirim_fiyatlari(dunya) -> np.ndarray:
-    """[O] indirim dönemi beklenen fiyatı (plan talebiyle ağırlıklı)."""
-    opt = dunya.optionlar
-    O = len(opt)
-    D = dunya.gun_sayisi + 200
-    g = dunya.g_plan[:D]
-    oran = dunya.indirim_orani[:D]
-    gun = np.arange(len(g))[:, None]
-    ind = (gun >= opt["indirim_gun"].to_numpy()[None, :]) & (gun < opt["cikis_gun"].to_numpy()[None, :])
-    w = np.where(ind, g, 0.0)
-    ort = np.divide((w * (1 - oran)).sum(0), w.sum(0), out=np.full(O, 0.5), where=w.sum(0) > 0)
-    return opt["liste_fiyati"].to_numpy() * ort
+# ---------------------------------------------------------------- indirim
+
+
+def indirim_beklentisi(con, sezon_kodu: str, hat: str = INDIRIM_HATTI,
+                       line: str = "Collection") -> dict:
+    """{(dalga, hafta): ortalama indirim oranı}: oyun sezonundan önce kapanmış
+    sezonların (`kaynak.gecmis_sezonlar`) `line` option'larının yayımlanan haftalık
+    `fiyat`ı (`hat`), lansmandan hafta `hafta` = (hafta_baslangic − lansman) // 7,
+    lansman ≤ hafta < çıkış. Yalnız oyun sezonunun ilk lansman sabahına dek BİTMİŞ
+    haftalar (`fiyat` haftanın sonundaki oranı taşır): oyun sezonunun ve sonrasının
+    fiyatı okunmaz."""
+    gecmis = kaynak.gecmis_sezonlar(sezon_kodu)
+    if not gecmis:
+        raise ValueError(f"indirim_beklentisi: {sezon_kodu}'den önce kapanmış sezon yok")
+    t0 = con.execute("select min(lansman_tarihi) from sezon where sezon_kodu::varchar = ?",
+                     [sezon_kodu]).fetchone()[0]
+    if t0 is None:
+        raise ValueError(f"indirim_beklentisi: {sezon_kodu} sezon tablosunda yok")
+    yer = ", ".join("?" * len(gecmis))
+    df = con.execute(f"""
+        with o as (
+            select distinct option_id::varchar as option_id, dalga, lansman_tarihi, cikis_tarihi
+            from urun where sezon_kodu::varchar in ({yer}) and line::varchar = ?)
+        select o.dalga::integer as dalga,
+               (date_diff('day', o.lansman_tarihi, f.hafta_baslangic) // 7)::integer as hafta,
+               avg(f.indirim_orani) as oran
+        from fiyat f join o on f.option_id::varchar = o.option_id
+        where f.hat::varchar = ? and f.hafta_baslangic >= o.lansman_tarihi
+          and f.hafta_baslangic < o.cikis_tarihi
+          and f.hafta_baslangic + interval 7 day <= ?
+        group by 1, 2 order by 1, 2""", [*gecmis, line, hat, pd.Timestamp(t0)]).df()
+    return {(int(r.dalga), int(r.hafta)): float(r.oran) for r in df.itertuples(index=False)}
+
+
+def _oran(beklenti: dict, dalga: int, hafta: int) -> float:
+    if (dalga, hafta) in beklenti:
+        return beklenti[(dalga, hafta)]
+    aday = [w for d, w in beklenti if d == dalga]
+    if aday:
+        return beklenti[(dalga, min(aday, key=lambda w: (abs(w - hafta), -w)))]
+    return float(np.mean(list(beklenti.values()))) if beklenti else 0.0
+
+
+def indirim_fiyatlari(opt: pd.DataFrame, beklenti: dict, egri_cx: egri.Egri | None = None) -> pd.Series:
+    """option_id → indirim dönemi beklenen fiyatı p_ind = liste × (1 − ō).
+
+    ō: option'ın indirim haftalarının ([indirim başı haftası, çıkış)) beklenen
+    oranları (`indirim_beklentisi`; olmayan hafta dalganın en yakın haftası), çıkış
+    eğrisinin o haftalardaki paylarıyla ağırlıklı (talep indirimin ilk haftalarında
+    yoğundur); eğri yoksa ya da payları sıfırsa eşit ağırlık."""
+    sonuc = {}
+    for r in opt.drop_duplicates("option_id").itertuples(index=False):
+        lan = pd.Timestamp(r.lansman_tarihi)
+        w0 = (pd.Timestamp(r.indirim_baslangic) - lan).days // 7
+        w1 = -(-(pd.Timestamp(r.cikis_tarihi) - lan).days // 7)
+        haftalar = np.arange(w0, max(w1, w0 + 1))
+        oran = np.array([_oran(beklenti, int(r.dalga), int(w)) for w in haftalar])
+        agirlik = np.ones(len(haftalar))
+        if egri_cx is not None:
+            pay = egri_cx._satir((int(r.dalga),))
+            a = np.where(haftalar < len(pay), pay[np.minimum(haftalar, len(pay) - 1)], 0.0)
+            if a.sum() > 0:
+                agirlik = a
+        sonuc[str(r.option_id)] = float(r.liste_fiyati) * (1 - float((agirlik * oran).sum() / agirlik.sum()))
+    return pd.Series(sonuc, name="p_ind")
+
+
+# ---------------------------------------------------------------- kalibrasyon
 
 
 @dataclass(frozen=True)
 class Belirsizlik:
-    mu: dict      # h → ortalama log(gerçek / kestirim)
+    mu: dict      # h → ortalama log(hedef / kestirim)
     sigma: dict   # h → std
     n: dict
     sezonlar: tuple
@@ -95,44 +185,73 @@ class Belirsizlik:
         return self.mu[k], self.sigma[k]
 
 
-def kalibrasyon(t: dict, opt_t: pd.DataFrame, oyun_sezonu: str, hh: pd.DataFrame | None = None,
-                egriler: dict | None = None) -> Belirsizlik:
-    """Oyun sezonundan önceki tam sezonlarda d katmanının log hatası.
+def _sezon_talebi(talep: pd.DataFrame, opt: pd.DataFrame) -> pd.Series:
+    """option_id → lansman ≤ tarih < indirim başı talep toplamı (hücre-gün `talep`)."""
+    o = opt[["option_id", "lansman_tarihi", "indirim_baslangic"]].drop_duplicates("option_id").copy()
+    o["option_id"] = o["option_id"].astype(str)
+    d = pd.DataFrame({"option_id": talep["option_id"].astype(str).to_numpy(),
+                      "tarih": talep["tarih"].to_numpy("datetime64[ns]"),
+                      "talep": talep["talep"].to_numpy(np.float64)}).merge(o, on="option_id")
+    d = d[(d["tarih"] >= d["lansman_tarihi"]) & (d["tarih"] < d["indirim_baslangic"])]
+    return d.groupby("option_id")["talep"].sum()
 
-    Geçmiş sezon P'nin kestirimi, P'nin kendi oyun eğrisiyle (P'den önceki
-    sezonlardan) yapılır; P'nin öncesi yoksa (SS24) oyun sezonunun eğrisi
-    kullanılır — örneklem içi, σ'yı biraz iyimser yapar (README).
-    `hh` tablolar oyun başlangıcına kırpılmadan kurulmuş olabilir: yalnız
-    geçmiş sezonların satırları okunur, hepsi oyun başlamadan kapanmıştır.
+
+def egri_kaynagi(opt: pd.DataFrame, sezon: str, oyun_sezonu: str, line: str = "Collection") -> str:
+    """Geçmiş sezon `sezon`un karar anı kestiriminde kullanılacak eğrinin oyun sezonu:
+    `sezon`un kendisi (eğrisi `sezon`dan önceki sezonlardan) — veride ondan önce kapanmış
+    `line` option'ı yoksa (SS23) oyun sezonu."""
+    once = kaynak.gecmis_sezonlar(sezon)
+    var = ((opt["sezon_kodu"].isin(once)) & (opt["line"] == line)).any() if once else False
+    return sezon if var else oyun_sezonu
+
+
+def kalibrasyon(gunluk: pd.DataFrame, opt: pd.DataFrame, oyun_sezonu: str, carpanlar_bul,
+                egriler: dict | None = None, ozetler: pd.DataFrame | None = None,
+                haftalar=KALIBRASYON_HAFTALARI, line: str = "Collection") -> Belirsizlik:
+    """Oyun sezonundan önce kapanmış sezonlarda d katmanının log hatası (modül notu).
+
+    gunluk         ortak günlük tablo + Basit özellikleri; geçmiş sezonların
+                   satırları (oyunun ilk lansman sabahından sonrası okunmaz)
+    carpanlar_bul  t → karar anında bilinen çarpanlar
+    egriler        {oyun sezonu: {(yöntem, hedef): Egri}} önbelleği; eksik eğri
+                   `egri.oyun_egrileri` ile kurulup buraya eklenir
+    ozetler        `sansur.karar_ozetleri` çıktısı (geçmiş sezonlar × `haftalar`);
+                   verilmezse kurulur (aday satırlarıyla paylaşmak için)
     """
-    gecmis = egri.gecmis_sezonlar(t, oyun_sezonu)
-    bas = kaynak.sezon_baslangici(t, oyun_sezonu)
-    kirpik = kaynak.tarihten_once(t, bas)
-    if hh is None:
-        hh = kaynak.hucre_hafta(kirpik, opt_t, gecmis)
-    egriler = egriler or {}
+    gecmis = tuple(s for s in kaynak.gecmis_sezonlar(oyun_sezonu)
+                   if ((opt["sezon_kodu"] == s) & (opt["line"] == line)).any())
+    t0 = egri.oyun_baslangici(opt, oyun_sezonu)
+    egriler = {} if egriler is None else egriler
 
-    def _egri(sezon, yontem):
-        anahtar = (sezon, yontem)
-        if anahtar not in egriler:
-            egriler[anahtar] = egri.oyun_egrisi(t, opt_t, sezon, yontem)
-        return egriler[anahtar]
+    def _egri(sezon):
+        if sezon not in egriler:
+            egriler[sezon] = egri.oyun_egrileri(gunluk, opt, sezon,
+                                                carpanlar_bul(egri.oyun_baslangici(opt, sezon)))
+        return egriler[sezon][("duzeltilmis", "indirim")]
 
+    hedef = _sezon_talebi(egri.gecmis_talep(gunluk, opt, oyun_sezonu, carpanlar_bul(t0), line), opt)
+    if ozetler is None:
+        ozetler = sansur.karar_ozetleri(gunluk, opt, gecmis, haftalar, carpanlar_bul, line)
+    oz = ozetler[ozetler["sezon_kodu"].isin(gecmis) & ozetler["h"].isin(haftalar)]
+    if (oz["karar_ani"] >= t0).any():
+        raise ValueError("kalibrasyon: karar anı oyun başlangıcından sonra olan satır var")
     parca = []
-    for P in gecmis:
-        kaynak_sezon = P if egri.gecmis_sezonlar(t, P) else oyun_sezonu
-        o = opt_t[(opt_t["sezon_kodu"] == P) & (opt_t["line"] == "Collection")]
-        h_ = hh[hh["option_id"].isin(o["option_id"])]
-        g = sansur.gercek_talep(h_)
-        for h in KALIBRASYON_HAFTALARI:
-            k = sansur.kestir(h_, o, h, _egri(kaynak_sezon, "ham"), _egri(kaynak_sezon, "duzeltilmis"))
-            k = k.merge(g, on="option_id")
-            k = k[(k["d"] > 0) & (k["gercek_io"] > 0)]
-            parca.append(pd.DataFrame({"h": h, "r": np.log(k["gercek_io"] / k["d"])}))
-    r = pd.concat(parca)
+    for P, p in oz.groupby("sezon_kodu", sort=False):
+        e = _egri(egri_kaynagi(opt, P, oyun_sezonu, line))
+        k = np.array([e.k((int(d),), int(h)) for d, h in zip(p["dalga"], p["h"])])
+        d = p["D"].to_numpy(float) / np.maximum(k, 1e-6)
+        y = p["option_id"].astype(str).map(hedef).fillna(0.0).to_numpy(float)
+        gecerli = (d > 0) & (y > 0)
+        parca.append(pd.DataFrame({"h": p["h"].to_numpy()[gecerli],
+                                   "r": np.log(y[gecerli] / d[gecerli])}))
+    r = pd.concat(parca, ignore_index=True)
     ozet = r.groupby("h")["r"].agg(["mean", "std", "size"])
-    return Belirsizlik(mu=ozet["mean"].to_dict(), sigma=ozet["std"].to_dict(),
-                       n=ozet["size"].to_dict(), sezonlar=gecmis)
+    return Belirsizlik(mu={int(h): float(v) for h, v in ozet["mean"].items()},
+                       sigma={int(h): float(v) for h, v in ozet["std"].items()},
+                       n={int(h): int(v) for h, v in ozet["size"].items()}, sezonlar=gecmis)
+
+
+# ---------------------------------------------------------------- newsvendor
 
 
 def senaryolar(D, h, L, W, egri_io, egri_cx, dalga, mu, sigma):

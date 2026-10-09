@@ -241,6 +241,35 @@ def katmanlar(karar_ani, h: int, gunluk: pd.DataFrame, opt: pd.DataFrame, carpan
     return k
 
 
+def karar_ozetleri(gunluk: pd.DataFrame, opt: pd.DataFrame, sezonlar, haftalar, carpanlar_bul,
+                   line: str = "Collection") -> pd.DataFrame:
+    """Sezonların her dalgası ve her `h` için karar anı `t = lansman + 7h`'de o dalganın
+    `line` option'larının x ve D'si (`ozet`): option_id, sezon_kodu, dalga, h, karar_ani,
+    x, D, stoklu_pay. Karar havuzu `karar_havuzu(opt, sezon, t)`, çarpanlar
+    `carpanlar_bul(t)` (karar anında bilinenler). Sıra: sezon, lansman, h, option_id.
+    Aday satırlarının (`aday.karar_kaydi`) ve kalibrasyonun (`miktar.kalibrasyon`)
+    ortak girdisi."""
+    parca = []
+    for sezon in sezonlar:
+        o = opt[(opt["sezon_kodu"] == sezon) & (opt["line"] == line)]
+        for lansman in sorted(o["lansman_tarihi"].unique()):
+            hedef = o[o["lansman_tarihi"] == lansman][["option_id", "sezon_kodu", "dalga"]].copy()
+            hedef["option_id"] = hedef["option_id"].astype(str)
+            hedef = hedef.drop_duplicates("option_id").sort_values("option_id")
+            for h in haftalar:
+                t = pd.Timestamp(lansman) + pd.Timedelta(days=7 * int(h))
+                oz = ozet(karar_ani_talep(gunluk, t, carpanlar_bul(t), karar_havuzu(opt, sezon, t, line)))
+                k = hedef.merge(oz[["option_id", "x", "D", "stoklu_pay"]], on="option_id", how="left")
+                k[["x", "D", "stoklu_pay"]] = k[["x", "D", "stoklu_pay"]].fillna(0.0)
+                k.insert(3, "h", int(h))
+                k.insert(4, "karar_ani", t)
+                parca.append(k)
+    if not parca:
+        return pd.DataFrame(columns=["option_id", "sezon_kodu", "dalga", "h", "karar_ani", "x", "D",
+                                     "stoklu_pay"])
+    return pd.concat(parca, ignore_index=True)
+
+
 def sezon_katmanlari(sezon: str, h: int, gunluk: pd.DataFrame, opt: pd.DataFrame, carpanlar_bul,
                      egri_ham: Egri, egri_duz: Egri, line: str = "Collection") -> pd.DataFrame:
     """Sezonun her dalgası için `katmanlar(lansman + 7h, h, …)`; `carpanlar_bul(t)`

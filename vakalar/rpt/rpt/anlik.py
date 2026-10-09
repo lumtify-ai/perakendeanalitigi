@@ -1,8 +1,9 @@
 """Karar anının hesapları — motorun `Gorunum`u üstünde (motor içi ikiz).
 
-DURUM (Görev 5, v4). Bu dosyadaki fonksiyonlar hâlâ v3 tanımıdır (stoklu gün
-oranıyla düzeltme); `aday`, `dagitim`, `politika` onları Görev 6–7'de v4'e
-taşınana dek kullanır. v4'te karar anı kestirimi `sansur.karar_ani_talep`tir
+DURUM (Görev 6, v4). Bu dosyadaki fonksiyonlar hâlâ v3 tanımıdır (stoklu gün
+oranıyla düzeltme); `dagitim`, `politika` onları Görev 7'de v4'e taşınana dek
+kullanır (`aday` Görev 6'da bıraktı: karar satırı `aday.karar_kaydi`, özellikler
+saf `aday.ozellikler`; motor içinde aynı sütunlar görünümden kurulacak). v4'te karar anı kestirimi `sansur.karar_ani_talep`tir
 (saf fonksiyon, Ruling R5) ve motor içinde aynı fonksiyon, görünümden kurulan
 günlük tabloyla çağrılacaktır (`gunluk_gorunumden`, Görev 7). v4 `Gorunum`u o
 tabloyu birebir kurmaya bugün yetmez; eksikler (görev raporu ve kayıt defteri):

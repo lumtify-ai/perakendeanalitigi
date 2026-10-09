@@ -127,6 +127,24 @@ def carpanlar(con, yol: Path, t, cikti: Path | None = None):
     return c
 
 
+def carpan_bulucu(con, yol: Path, cikti: Path | None = None):
+    """`t → carpanlar(con, yol, t)` (süreç içi önbellekli); `t`'de kapanmış sezon yoksa
+    (pencerenin ilk sezonu SS23'ün kararları: AW22 pencereye yarım girer) nötr
+    çarpanlar `Carpanlar()` — o anda hiçbir çarpan bilinmez. Aday satırları ve
+    kalibrasyon her karar anında bunu çağırır."""
+    from perakende_analitik.carpanlar import Carpanlar
+
+    bellek: dict = {}
+
+    def bul(t):
+        kume = tuple(hazirlik.kapanmis_sezonlar(con, Path(yol), pd.Timestamp(t).date())["sezon_kodu"])
+        if kume not in bellek:
+            bellek[kume] = carpanlar(con, yol, t, cikti) if kume else Carpanlar()
+        return bellek[kume]
+
+    return bul
+
+
 def _ayristir(argv: list[str] | None) -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="python -m rpt.hazirla", description=__doc__.split("\n")[0])
     p.add_argument("--cikti", type=Path, default=VARSAYILAN_CIKTI)
