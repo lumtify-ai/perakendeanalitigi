@@ -14,8 +14,9 @@ Bu dizi bir sözle açılmıştı: **sıfır yeni ürünle daha çok satış.** 
 tek koli çıkmadan, üretime tek kuruş verilmeden, yalnızca yanlış yerde duranı
 doğru yere taşıyarak. Şimdi hesabı verme vakti.
 
-Referans senaryoda vericide <T k="cover">cover</T> en az 6 hafta, alıcı
-tarafında tavan yok, alıcıda asgari haftalık satış 1 adet. Bu ayarda
+Referans senaryoda vericide <T k="cover">cover</T> en az 6 hafta; alıcı
+tavanı kapalı, yani alıcı yalnız rafı kırık ya da boş olan mağaza
+olabiliyor; alıcıda asgari haftalık satış 1 adet. Bu ayarda
 açgözlünün çıkardığı plan şu: **586 option, 99.029 adet, 32,68 milyon TL** net
 etki. Çözücü aynı fotoğraftan 661 option, 109.100 adet ve 35,93 milyon TL
 çıkarıyor.
@@ -39,7 +40,7 @@ Malatya 1'de tam set duruyordu, 103 adet.
 İki plan da aynı şeyi yapıyor: Malatya 1'in bloğunu, 103 kazağın tamamını
 İstanbul 18'e gönderiyor. Veli'nin o akşamki sorusu, "Malatya'nın kazağı niye
 İstanbul 18'e gitti de Ankara 3'e gitmedi?", artık cevapsız değil; ama cevap
-gururlandırıcı da değil. Terazide bu blok için üç mağaza tam aynı ağırlıkta:
+pek parlak da değil. Terazide bu blok için üç mağaza tam aynı ağırlıkta:
 İstanbul 18, Ankara 3 ve İzmir 6, üçü de 8.428,74 TL. Açgözlü eşitliği
 dördüncü yazıdaki sıralama kuralıyla bozuyor, çözücü de aynı yeri seçiyor.
 Yani gerekçe "İstanbul 18 daha çok hak ediyordu" değil, "terazi eşit dedi,
@@ -121,7 +122,7 @@ yöntemi aynı sıraya koyuyorlar.
 anından sonraki hiçbir satır ona verilmiyor. Bu sayılar yalnızca sonradan,
 planı tartmak için kullanılıyor.
 
-Oranlar küçük ve bunu saklamayacağım. Payda zincirin o sekiz haftadaki bütün
+Oranlar küçük ve bunun bir sebebi var. Payda zincirin o sekiz haftadaki bütün
 kaybı, kestirime göre 429.980 adet. Transfer ise yalnız bir yerde fazlası olan
 option'larda iş görür; hiçbir mağazada fazlası olmayan bir kazağın boş çıkan
 müşterisine hiçbir kamyon yetişemez. Açgözlü plan 99.029 adet taşıyıp bu
@@ -144,7 +145,7 @@ alıcıdaki kıtlığın tavanı. Aynı stok fotoğrafını altı eşik takımı
 | verici ≥ 18 hafta · alıcı ≤ 14 hafta | 787 | 58.829.811 TL | %2,7 · %2,3 | `limit`, %1,71 |
 | verici ≥ 26 hafta · alıcı ≤ 6 hafta | 527 | 41.922.719 TL | %2,2 · %1,9 | toleransta, %0,36 |
 
-Son sütun çözücünün dürüstlük satırı: yüzde, planın olası en iyi plandan en
+Son sütun çözücünün dürüstlük sütunu: yüzde, planın olası en iyi plandan en
 fazla ne kadar uzak olduğu. Altı satırın dördünde çözücü emniyet için
 koyduğumuz düğüm sınırına takıldı ve `limit` bayrağıyla döndü. O planlar iyi
 ama kanıtlanmamış; hiçbirine "en iyi plan" demiyorum.
@@ -152,8 +153,8 @@ ama kanıtlanmamış; hiçbirine "en iyi plan" demiyorum.
 Şimdi ilk ve üçüncü satıra bakın: aralarında tek bir kadran dönüyor, verici
 eşiği yerinde duruyor. Alıcı tavanını kapalıdan altı haftaya açmak plana 234
 hareket ekliyor ve net kazancı 23.950.438 TL büyütüyor: yüzde 66,7, kabaca
-üçte iki. Aynı hamlede kayıp satış yakalama kestirimle %3,65'ten %3,85'e
-çıkıyor, gerçek kayıpla %3,40'tan %3,36'ya iniyor. Yani yerinde sayıyor.
+üçte iki. Aynı hamlede kayıp satış yakalama (iki ondalıkla) kestirimle %3,65'ten
+%3,85'e çıkıyor, gerçek kayıpla %3,40'tan %3,36'ya iniyor. Yani yerinde sayıyor.
 Açgözlü planda da tablo aynı: para %74,8 büyüyor, yakalama iki ölçüde de
 yarım puandan az kıpırdıyor.
 
@@ -189,13 +190,14 @@ kenara bırakmasıdır. Önceliğiniz müşterinin aradığını bulmasıysa, bu
 fonksiyonuna yazmanız gerekir; yoksa modeliniz onu umursamaz. Umursamadığı
 şey bazen artar, bazen azalır; ikisi de tesadüftür.
 
-Tablonun dördüncü ve beşinci satırları aynı dersin başka bir yüzü ve Ali'nin
-ikinci yazıda sayıyla söyleyemediği sezginin karşılığı. Verici eşiğini
+Tablonun dördüncü ve beşinci satırları, ikinci yazıda gördüğümüz karşılaştırma
+ve aynı dersin başka bir yüzü. Verici eşiğini
 yükseltip alıcı tavanını gevşetmek kâğıtta temkinli görünür. Sonuçta kamyon
 yine doluyor: 18/14 planı 14/6 planından beş hareket fazla, daha çok adet
 taşıyor ve %2,3 daha çok kazandırıyor. Ama kayıp satış yakalama kestirimle
 %3,11'den %2,66'ya, gerçek kayıpla %2,72'den %2,31'e iniyor. Ali'nin "hiçbir
-şey çözmeyen koliler" dediği bunlar: para var, kurtarılan müşteri yok.
+şey çözmeyen koliler" dediği bunlar: para biraz artıyor, kurtarılan müşteri
+azalıyor.
 
 ## Peki hangisini kurmalı?
 
@@ -279,8 +281,8 @@ geçerlidir: **modelin en önemli kısmı çoğu zaman yazmadığınız kısıtl
 Bir de ölçek meselesi var. Lumoda 80 mağaza ve 1.870 option'lı bir zincir ve
 model kurmanın genelde "gerçek zincirde karşınıza çıkar" diye ertelenen
 dertleri bu veride zaten yaşanıyor. Referans ayarda çözücü 37,8 saniyede
-toleransın içinde duruyor; kadranı çevirdiğinizde dakikalarca koşup `limit`
-bayrağıyla dönüyor. Zaman limiti, `limit` bayrağı ve "kanıtlanmamış ama iyi"
+toleransın içinde duruyor; kadranın çoğu ayarında ise dakikalarca koşup
+`limit` bayrağıyla dönüyor. Zaman limiti, `limit` bayrağı ve "kanıtlanmamış ama iyi"
 çözümle çalışmak burada bir dipnot değil, işin kendisi. Gerçek bir zincirde
 mağaza ve ürün sayısı bunun da üstündedir.
 
