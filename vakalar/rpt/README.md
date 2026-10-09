@@ -46,6 +46,7 @@ dagitim_politikasi=...)`'i ile farklı politikalarla yeniden oynatılır
 | Modül | İşi |
 |---|---|
 | `kaynak.py` | v4 DuckDB tablolarını ortak paketin görünümleriyle (temiz satış, hayaletsiz çeşit) okur; hücre-hafta (mağaza × SKU × lansmandan beri hafta) ve option-hafta panelleri (online satış STR'ye girer, depo stoğu pazartesi süzülür); `tarihten_once` ile karar sabahına kırpma; `gecmis_sezonlar` |
+| `motor.py` | Üretecin tek kapısı: vakada `perakende_veri`'yi yalnız bu modül içe aktarır. `dunya()`, `politika_gorunumu(dunya)` (Lumoda'nın gördüğü plan, ilk alım, tedarikçi alanları; karar modüllerine bu verilir), `kos(rpt, replenishment, ad=, parametreler=)` → `Kosu` (temiz 18 tablo + hücre-gün gizli gerçek, hakem tanımıyla). Koşular `cikti/kosular/`'da anahtarlı önbellekte (ad, parametreler, tohumlar, kod özeti, v4 parmak izi); **politikanın davranışını değiştiren her parametre `parametreler`'e girmeli**. Karar modülleri bu modülü içe aktarmaz (`tests/test_sizinti.py`) |
 | `egri.py` | Yaşam eğrisinin **şekli** (birikimli pay k_h), geçmiş sezonlardan: çıplak (sansürlü satış), stoklu gün düzeltmeli (Poisson IPF), gerçek (yalnız kıyas) |
 | `sansur.py` | Sezon talebi kestirimi, dört katman (a çıplak · b stoklu gün hızı · c FRR eğri ölçeği · d b+c), gerçek talebe karşı hata |
 | `hikaye.py` | "Bitti" haftası, hikâye adayları, mağaza tablosu, Lumoda'nın RPT'lerinin akıbeti |
