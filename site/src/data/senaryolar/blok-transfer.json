@@ -1,5 +1,5 @@
 {
- "surum": "c0facea 2026-10-09",
+ "surum": "b7b47bc 2026-10-09",
  "parametreler": [
   {
    "ad": "verici_cover_esigi",
@@ -460,7 +460,7 @@
     "bosalan_magaza": 77,
     "net_kazanc_tl": 48815904.57,
     "kayip_yakalama_yuzde": 2.1,
-    "sure_sn": 4196.04
+    "sure_sn": 254.991
    },
    "durum": "limit",
    "satirlar": [],
