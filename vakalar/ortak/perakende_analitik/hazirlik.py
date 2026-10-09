@@ -159,7 +159,8 @@ def kapanmis_sezonlar(con, gunluk: Path, karar_ani: date) -> pd.DataFrame:
     """`karar_ani`de kapanmış ve günlük pencereye bütünüyle giren sezonlar:
     `sezon_kodu, lansman, cikis` (dalgaların en erken lansmanı, en geç çıkışı);
     `cikis < karar_ani` ve `lansman >=` günlük tablonun ilk günü (pencerenin
-    başında yarım kalan sezon, v4'te AW22, kullanılmaz)."""
+    başında yarım kalan sezon, v4'te AW22, kullanılmaz). Çıkışı tam `karar_ani`
+    olan sezon temkinle kapanmış sayılmaz."""
     s = con.execute("""
         select sezon_kodu::varchar as sezon_kodu, min(lansman_tarihi) as lansman,
                max(cikis_tarihi) as cikis
@@ -173,18 +174,19 @@ def carpanlar_kapanmis(con, gunluk: Path, karar_ani: date) -> carpanlar.Carpanla
     """Karar anında bilinen çarpanlar: `carpanlar.ogren`, yalnız `karar_ani`de
     kapanmış sezonların (`kapanmis_sezonlar`) stoklu günleriyle.
 
-    Satırlar: `tarih < karar_ani`, `durum = stoklu` ve ya ürünün sezonu kapanmış
-    ya da ürün devamlı (`DEVAMLI`) ve gün kapanmış sezonların aralığında
-    `[ilk lansman, son çıkış)`. Devamlı ürünlerin günleri böylece karar anına dek
-    haftadan haftaya büyümez: çarpanlar yalnız kapanmış sezon kümesiyle değişir
-    (çağıran sezon başına önbellekleyebilir). Özellik sütunları `carpanlar_yaz`ınki
+    Satırlar: `durum = stoklu`, gün kapanmış sezonların aralığında `[ilk lansman,
+    son çıkış)` (son çıkış < karar_ani) ve ürünün sezonu kapanmış ya da ürün devamlı
+    (`DEVAMLI`). Aralık her satıra uygulanır: v4'te sezon çıkışından sonra ~11 hafta
+    stoklu mağaza satırı sürer, devamlı ürünler hiç bitmez; ikisi de karar anına dek
+    haftadan haftaya büyümez. Çarpanlar böylece yalnız kapanmış sezon kümesiyle
+    değişir (çağıran sezon başına önbellekleyebilir; sonraki bir `t`de kurulan
+    önbellek önceki bir `t`ye sızmaz). Özellik sütunları `carpanlar_yaz`ınki
     (`CARPAN_OZELLIKLERI`). Kapanmış sezon yoksa ValueError."""
     sezonlar = kapanmis_sezonlar(con, gunluk, karar_ani)
     if sezonlar.empty:
         raise ValueError(f"carpanlar_kapanmis: {karar_ani} tarihinde kapanmış sezon yok")
-    bas, son = sezonlar["lansman"].min(), sezonlar["cikis"].max()
-    t = pd.Timestamp(karar_ani)
-    df = _oku(gunluk, _GOZLEM_SUTUNLARI, ("stoklu",), aralik=(bas, t))
+    bas, son = sezonlar["lansman"].min(), sezonlar["cikis"].max()     # son < karar_ani
+    df = _oku(gunluk, _GOZLEM_SUTUNLARI, ("stoklu",), aralik=(bas, son))
     urun = con.execute("select urun_id::varchar as urun_id, sezon_kodu::varchar as sezon "
                        "from urun").fetchdf()
     kapali = set(sezonlar["sezon_kodu"])
@@ -195,8 +197,7 @@ def carpanlar_kapanmis(con, gunluk: Path, karar_ani: date) -> carpanlar.Carpanla
     kod = tur.reindex(kat.cat.categories.astype(str)).fillna(0).to_numpy(np.int8)
     kodlar = kat.cat.codes.to_numpy()
     satir = np.where(kodlar >= 0, kod[np.maximum(kodlar, 0)], 0)
-    sec = (satir == 1) | ((satir == 2) & (df["tarih"] < son).to_numpy())
-    df = df[sec].reset_index(drop=True)
+    df = df[satir > 0].reset_index(drop=True)
     df = ozellikler.ekle(con, df, CARPAN_OZELLIKLERI)
     c = carpanlar.ogren(df)
     del df

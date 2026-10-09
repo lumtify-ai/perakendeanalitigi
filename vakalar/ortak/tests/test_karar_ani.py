@@ -141,8 +141,12 @@ def test_karar_ani_komsulugu_t_den_once_keser():
 
 
 def test_karar_ani_yoksa_eski_davranis():
-    """`karar_ani=None` ile verinin sonundan sonraki bir karar anı aynı sonucu verir;
-    ikisi de bugünkü Basit'tir (bütün satırlar, t'den sonrakiler dahil)."""
+    """Verinin sonundan sonraki bir karar anı `karar_ani=None` ile birebir aynıdır (süzme,
+    kategori budama ve pencere kesimi hiçbir şeyi değiştirmez). `None` dalı kod yolunu
+    değiştirmediği için buradaki karşılaştırması kendiliğinden doğrudur; bugünkü Basit'le
+    birebirliğin asıl güvencesi yok-satma'nın yayımlanan `kayip_basit.parquet`'iyle bir
+    kez yapılan tam eşitlik denetimidir (görev raporu) ve `test_talep`'in elle hesaplanmış
+    Basit testleridir."""
     df = _dunya()
     hedef = df[df["durum"] != "stoklu"]
     eski = talep.Basit(carpanlar=_c())
@@ -196,12 +200,15 @@ def _carpan_tablolari():
 
 def _gunluk(t, yol, bozan=None, tohum: int = 5) -> pd.DataFrame:
     """Uygun günler (lansman <= d < çıkış, pencere içinde), M001 ve ONL; satış hafta sonu
-    yüksek, yaşla değişir. `bozan(df)` satırları yazmadan önce değiştirir."""
+    yüksek, yaşla değişir. S1'in satırları çıkıştan sonra karar anına dek sürer (gerçek
+    v4'te sezon çıkışından sonra ~11 hafta stoklu mağaza satırı var). `bozan(df)` satırları yazmadan önce değiştirir."""
     rng = np.random.default_rng(tohum)
     parcalar = []
     for r in t["urun"].itertuples():
         bas = max(r.lansman_tarihi, W0)
         bit = WSON if pd.isna(r.cikis_tarihi) else min(r.cikis_tarihi - pd.Timedelta(days=1), WSON)
+        if r.sezon_kodu == "S1":
+            bit = pd.Timestamp(TK) - pd.Timedelta(days=1)
         gunler = pd.date_range(bas, bit, freq="D")
         for m in ("M001", "ONL"):
             hs = np.where(gunler.dayofweek >= 5, 1.5, 1.0)
@@ -242,10 +249,11 @@ def _sezon(df: pd.DataFrame) -> pd.Series:
 
 @pytest.mark.filterwarnings("ignore:Mean of empty slice:RuntimeWarning")
 def test_carpanlar_kapanmis_sezonlardan(tmp_path):
-    """Kapanmış (çıkışı < t) ve pencereye bütünüyle giren sezonların stoklu günleri;
-    devamlı ürünler bu sezonların aralığında. Açık sezonun, yarım sezonun, aralık
-    dışındaki devamlı günlerin ve t'den sonraki her satırın değişmesi çarpanları
-    değiştirmez; kapanmış sezonun satırları değiştirir."""
+    """Kapanmış (çıkışı < t) ve pencereye bütünüyle giren sezonların stoklu günleri,
+    devamlı ürünler dahil, yalnız bu sezonların aralığında. Açık sezonun, yarım sezonun,
+    aralık dışındaki günlerin (kapanmış sezonun çıkıştan sonraki satırları ve devamlılar)
+    ve t'den sonraki her satırın değişmesi çarpanları değiştirmez; kapanmış sezonun
+    aralık içindeki satırları değiştirir."""
     t = _carpan_tablolari()
     con = oyuncak_baglan(t)
     tk = pd.Timestamp(TK)
@@ -256,6 +264,7 @@ def test_carpanlar_kapanmis_sezonlardan(tmp_path):
     # beklenen: tanımın kendisiyle elle seçilen satırlardan `ogren`
     sz = _sezon(df)
     sec = ((df["durum"] == "stoklu") & (df["tarih"] < tk)
+           & (df["tarih"] < s1_cikis)
            & ((sz == "S1") | ((sz == "DEVAMLI") & (df["tarih"] >= s1_bas)
                               & (df["tarih"] < s1_cikis))))
     g = pd.read_parquet(tmp_path / "g.parquet")
@@ -269,6 +278,7 @@ def test_carpanlar_kapanmis_sezonlardan(tmp_path):
         d = d.copy()
         s = _sezon(d)
         oyun = ((s.isin(["S0", "S2"]))
+                | ((s == "S1") & (d["tarih"] >= s1_cikis))
                 | ((s == "DEVAMLI") & ((d["tarih"] < s1_bas) | (d["tarih"] >= s1_cikis)))
                 | (d["tarih"] >= tk))
         d.loc[oyun, "brut_satis"] = d.loc[oyun, "brut_satis"] * 5 + 3
