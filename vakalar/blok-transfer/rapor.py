@@ -391,7 +391,7 @@ def veri_bolumu(con, karar: date, p: Parametreler) -> dict:
     print(f"mağaza × option hücresi: {s(evren_n)} × {s(option_n)} = {s(hucre)} · karar anında stoklu "
           f"option üzerinden {s(evren_n)} × {s(stoklu_o)} = {s(evren_n * stoklu_o)}")
     print(f"kırık (mağaza, option) çifti: {s(len(kiriklar))}")
-    print(f"kırık × kaynak (verici) adayı:{s(len(kiriklar))} × {s(evren_n - 1)} = "
+    print(f"kırık × kaynak (verici) adayı: {s(len(kiriklar))} × {s(evren_n - 1)} = "
           f"{s(len(kiriklar) * (evren_n - 1))} olası hareket")
     ust = evren_n * (evren_n - 1) * option_n
     print(f"kombinatorik üst sınır M × (M − 1) × O: {s(evren_n)} × {s(evren_n - 1)} × "
@@ -504,7 +504,7 @@ def hikaye_bolumu(con, karar, p, kayip, zemin: Zemin, greedy, mip_plan, zorla, a
               + f" · toplam {r['toplam']}")
         hiz = r["hiz_8h"]
         cover = "—" if r["cover"] >= p.buyuk_cover else s(r["cover"], 1)
-        print(f"  hız (8 stoklu hafta ort.) {s(hiz, 2)}/hafta · 8 haftada {s(yuv(hiz or 0, 2) * 8, 2)} adet · "
+        print(f"  hız (son 8 haftadaki stoklu haftaların ort.) {s(hiz, 2)}/hafta · 8 haftada {s(yuv(hiz or 0, 2) * 8, 2)} adet · "
               f"cover {cover} hafta · STR {y(r['str'])}")
         if r["option_id"] == h.option_id and r["magaza_id"] in sevk_satis:
             a, b = sevk_satis[r["magaza_id"]]

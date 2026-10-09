@@ -3,7 +3,9 @@
     PYTHONIOENCODING=utf-8 .venv/Scripts/python senaryolar.py
 
 16 (verici eşiği × alıcı tavanı) hücresi × 2 yöntem. Planlar `cikti/planlar` önbelleğinden
-okunur: MIP hücreleri 10 sn ile 12 dk arası sürer, yeniden koşum anidir. Önce
+okunur. Soğuk koşum (önbellek boş) ölçümü: MIP hücresi başına 0,9 sn ile 17,7 dk arası,
+toplam ~2–3 saat (makine yükü ya da uykusu duvar saatini uzatır: bir koşuda 26|14 hücresi
+70 dk sürdü, planı aynı çıktı); önbellek doluyken dakikalar. Önce
 `python -m blok_transfer.hazirla` koşmuş olmalı (Basit kayıp tablosu).
 
 Her sonuç `ozet` (Demo.astro'nun çizdiği ölçütler, bu dosyadaki sırayla) ile birlikte sonuç
