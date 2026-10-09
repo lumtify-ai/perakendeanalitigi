@@ -92,7 +92,7 @@ OLCEKLER = {"tam": Olcek.TAM, "kucuk": Olcek.KUCUK}
 
 # Kod özetine giren kaynaklar (yalnız koşuyu etkileyenler; Ruling R3):
 #   rpt    KOSU_MODULLERI (henüz olmayan dosya atlanır). Ölçüm ve anlatı
-#          (KOSU_DISI: olcutler, hikaye*, yollar; vaka kökü rapor*.py, testler)
+#          (KOSU_DISI: olcutler, hikaye*, yollar, hazirla; vaka kökü rapor*.py, testler)
 #          koşuyu değiştirmez: bir ölçümün sonucu politikaya girerse (ör. SS24'te
 #          seçilen dağıtım kuralı) o sonuç `parametreler`'e girer. rpt/'deki her
 #          modül iki listeden birindedir (tests/test_motor.py).
@@ -104,7 +104,7 @@ KOSU_MODULLERI = (
     "motor", "bilgi", "politika", "dagitim", "kahin", "aday", "miktar", "sansur", "egri",
     "kaynak", "anlik", "oyun",
 )
-KOSU_DISI = ("olcutler", "hikaye", "hikaye_sec", "yollar")
+KOSU_DISI = ("olcutler", "hikaye", "hikaye_sec", "yollar", "hazirla")
 ORTAK_TOHUM = ("kaynak", "stok", "ozellikler", "carpanlar", "talep", "hazirlik")
 KOD_KOKLERI = {
     "rpt": PAKET_KOKU,

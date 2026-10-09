@@ -31,7 +31,7 @@ PAKET = Path(rpt.__file__).resolve().parent
 
 KARAR_MODULLERI = (
     "kaynak", "egri", "sansur", "aday", "miktar", "dagitim", "politika",
-    "hikaye", "hikaye_sec", "anlik", "bilgi",
+    "hikaye", "hikaye_sec", "anlik", "bilgi", "hazirla",
 )
 IZINLI_MODULLER = ("motor", "kahin", "olcutler", "oyun", "yollar")
 GECICI_V3 = {"aday": "Görev 6", "miktar": "Görev 6", "dagitim": "Görev 7", "politika": "Görev 7"}

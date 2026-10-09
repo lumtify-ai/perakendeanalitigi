@@ -1,15 +1,25 @@
-"""Karar anının hesapları — v3 motorunun `Gorunum`u üstünde.
+"""Karar anının hesapları — motorun `Gorunum`u üstünde (motor içi ikiz).
 
-Faz A'nın tablo tabanlı `sansur.duzeltilmis_talep`'inin motor içi eşidir:
-politika bir pazartesi sabahı yalnız görünümü okur (bugüne kadarki satış
-ve stoklu gün matrisleri, anlık mağaza ve depo stoğu, açık siparişler).
-Aynı fonksiyonlar hem politikada (oneri, dağıtım) hem de öğrenme satırı
-kaydında (`Kaydedici`) kullanılır; eğitim ile karar aynı kodu görür.
-`test_anlik.py`, gerçek veride tablo tabanlı kestirimle eşitliği sınar.
+DURUM (Görev 5, v4). Bu dosyadaki fonksiyonlar hâlâ v3 tanımıdır (stoklu gün
+oranıyla düzeltme); `aday`, `dagitim`, `politika` onları Görev 6–7'de v4'e
+taşınana dek kullanır. v4'te karar anı kestirimi `sansur.karar_ani_talep`tir
+(saf fonksiyon, Ruling R5) ve motor içinde aynı fonksiyon, görünümden kurulan
+günlük tabloyla çağrılacaktır (`gunluk_gorunumden`, Görev 7). v4 `Gorunum`u o
+tabloyu birebir kurmaya bugün yetmez; eksikler (görev raporu ve kayıt defteri):
 
-Görünüm gelecekteki teslim gününü (`acik_siparisler[..]["gerceklesen_gun"]`)
-de taşır. Kâhin dışında hiçbir politika onu okumaz: miktar kararı
-planlanan günü, dağıtım yalnız gelmiş siparişi kullanır.
+  * satış öncesi stok geçmişi: `stoklu_gecmisi` yalnız "açılışta stok > 0"
+    bayrağıdır; ortak durumun `tukenen` / `stoklu` ayrımı (`brut_satis >=
+    satis_oncesi`) ve `kayip_yaz`ın tükenen günü için `satis_oncesi` gerekir.
+    Önerilen kayıt: `Durum.satis_oncesi_gecmisi[d]` (14. adımdan önceki raf;
+    ONL'de depo), görünümde `[:d]`.
+  * fiyat geçmişi: `fiyat_orani` yalnız bugünkü orandır; Basit'in karakteri
+    günün `oran`ını (max(markdown, kampanya)) okur. Önerilen kayıt: motorun
+    zaten tuttuğu `fiyat` değişiklik kaydının (`kay.fiyat`) `gun < d` kısmı.
+  * çeşit kuralı: ortak günlük tablonun "hiç stoklanmamış hücre" kuralı bütün
+    pencereye bakar; `karar_ani_talep` karar anındaki karşılığını kendisi
+    uyguladığından bu eksik değildir (iki yol aynı hücreleri görür).
+
+Görünüm gelecekteki teslim gününü taşımaz (v4: açık siparişlerden çıkarılmış).
 """
 
 from dataclasses import dataclass

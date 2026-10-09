@@ -1,46 +1,72 @@
 import numpy as np
 import pandas as pd
 import pytest
+from conftest import sentetik_gunluk
+from perakende_analitik.carpanlar import Carpanlar
 
-from rpt import egri, kaynak
+from rpt import egri, hazirla, kaynak
 
-
-def _sentetik(tohum=3, C=60, H=12):
-    """Bilinen şekil b_h; seviyesi yüksek hücreler 3. haftadan sonra stoksuz
-    kalır (satış sansürlenir). Döner: hh benzeri tablo, opt, gerçek pay."""
-    rng = np.random.default_rng(tohum)
-    h = np.arange(H)
-    b = (h + 1) * np.exp(-h / 4.0)
-    a = rng.lognormal(0, 0.6, C)
-    satir = []
-    for c in range(C):
-        for w in range(H):
-            lam = a[c] * b[w]
-            talep = rng.poisson(lam * 7)
-            # Yüksek seviyeli hücreler (üst çeyrek) 3. haftadan sonra 1 gün stoklu
-            st = 1 if (a[c] > np.quantile(a, 0.75) and w >= 3) else 7
-            satis = rng.poisson(lam * st)
-            satir.append({"magaza_id": f"M{c}", "urun_id": "U", "option_id": "O", "h": w,
-                          "satis": satis, "kayip": max(talep - satis, 0), "stoklu_gun": st,
-                          "acik_gun": 7, "ilk_dagitim": 1})
-    hh = pd.DataFrame(satir)
-    hh["satis_io"], hh["kayip_io"], hh["acik_io"] = hh["satis"], hh["kayip"], hh["acik_gun"]
-    opt = pd.DataFrame({"option_id": ["O"], "sezon_kodu": ["SS24"], "line": ["Collection"],
-                        "dalga": [1], "ust_kategori": ["Üst"]})
-    return hh, opt, b / b.sum()
+NOTR = Carpanlar()
+GECMIS = pd.Timestamp("2024-02-12")     # SS24
+OYUN = pd.Timestamp("2024-05-13")       # sentetik "AW24": SS24 indiriminden sonra, çıkışından önce
 
 
-def test_ipf_sansuru_duzeltir():
-    hh, opt, gercek_pay = _sentetik()
-    duz = egri.egri_ogren(hh, opt, ["SS24"], "duzeltilmis")
-    ham = egri.egri_ogren(hh, opt, ["SS24"], "ham")
-    k_gercek = np.cumsum(gercek_pay)
-    k_duz = duz.birikimli((1,))[1:]
-    k_ham = ham.birikimli((1,))[1:]
-    # Çıplak eğri sansür yüzünden öne yığılır; düzeltilmiş gerçeğe yakındır
+@pytest.fixture(scope="module")
+def sentetik():
+    """SS24 option'ı (geçmiş, 14 hafta: indirim 12. hafta) + AW24 option'ı (oyun)."""
+    g, opt, b = sentetik_gunluk([("P1", "SS24", GECMIS, 14, 1), ("G1", "AW24", OYUN, 8, 1)],
+                                magaza_sayisi=60)
+    return g, opt, b
+
+
+def test_basit_duzeltmesi_sansuru_duzeltir(sentetik):
+    """Sansürlü satışın eğrisi öne yığılır; Basit kaybıyla düzeltilmiş eğri gerçeğe yakın."""
+    g, opt, b = sentetik
+    egriler = egri.oyun_egrileri(g, opt, "AW24", NOTR)
+    ham, duz = egriler[("ham", "indirim")], egriler[("duzeltilmis", "indirim")]
+    H = 12
+    k_gercek = np.cumsum(b[:H] / b[:H].sum())
+    k_ham, k_duz = ham.birikimli((1,))[1:], duz.birikimli((1,))[1:]
+    assert len(k_duz) == H
     assert k_ham[3] > k_gercek[3] + 0.03
     assert np.abs(k_duz - k_gercek).max() < 0.03
     assert np.abs(k_duz - k_gercek).max() < np.abs(k_ham - k_gercek).max() / 2
+    # yalnız geçmiş sezon
+    assert duz.sezonlar == ("SS23", "AW23", "SS24")
+
+
+def test_oyun_egrisi_gelecegi_gormez(sentetik):
+    """Oyunun ilk lansman sabahından sonraki satırlar (oyun sezonu dahil) eğriyi değiştirmez."""
+    g, opt, _ = sentetik
+    a = egri.oyun_egrileri(g, opt, "AW24", NOTR)
+    bozuk = g.copy()
+    sonra = bozuk["tarih"] >= OYUN
+    bozuk.loc[sonra, "brut_satis"] = bozuk.loc[sonra, "brut_satis"] * 5 + 1
+    bozuk.loc[sonra, "durum"] = "bos"
+    b = egri.oyun_egrileri(bozuk, opt, "AW24", NOTR)
+    for anahtar in a:
+        assert a[anahtar].paylar.keys() == b[anahtar].paylar.keys()
+        for k in a[anahtar].paylar:
+            np.testing.assert_allclose(a[anahtar].paylar[k], b[anahtar].paylar[k])
+    # çıkış eğrisi oyun başlangıcında kırpılır: SS24'ün son haftası (13.) görünmez
+    assert len(a[("duzeltilmis", "cikis")].paylar[(1,)]) == 13
+
+
+def test_gercek_yontemi_yalniz_argumanla(sentetik):
+    g, opt, b = sentetik
+    with pytest.raises(ValueError):
+        egri.egri_ogren(g, opt, ["SS24"], "gercek")
+    with pytest.raises(ValueError):
+        egri.oyun_egrisi(g, opt, "AW24", NOTR, "gercek")
+    gercek = g[["tarih", "option_id"]].assign(talep=g["gercek_talep"])
+    e = egri.egri_ogren(None, opt, ["SS24"], "gercek", gercek=gercek)
+    H = 12
+    np.testing.assert_allclose(e.birikimli((1,))[1:], np.cumsum(b[:H] / b[:H].sum()), atol=0.02)
+
+
+def test_gecmis_sezonlar_egri():
+    assert egri.gecmis_sezonlar("AW24") == ("SS23", "AW23", "SS24")
+    assert egri.gecmis_sezonlar("SS25") == ("SS23", "AW23", "SS24", "AW24")
 
 
 def test_egri_k_ara_deger_ve_kalan():
@@ -56,50 +82,29 @@ def test_egri_k_ara_deger_ve_kalan():
     assert yedekli.k(("Alt", 1), 2) == pytest.approx(0.3)   # grup yok → dalga eğrisi
 
 
-@pytest.mark.skip(reason="Görev 5'de v4'e")
 @pytest.mark.veri
 def test_gercek_egriler_monoton_ve_bire_varir(veri):
-    t, opt = veri["t"], veri["opt"]
-    for sezon in kaynak.OYUN_SEZONLARI:
-        for yontem in ("ham", "duzeltilmis"):
-            for hedef in ("indirim", "cikis"):
-                e = egri.oyun_egrisi(t, opt, sezon, yontem, hedef=hedef)
-                for anahtar in e.paylar:
-                    k = e.birikimli(anahtar)
-                    assert (np.diff(k) >= -1e-12).all()
-                    assert k[-1] == pytest.approx(1.0)
-                    assert k[0] == 0.0
-
-
-@pytest.mark.skip(reason="Görev 5'de v4'e")
-@pytest.mark.veri
-def test_gecmis_sezonlar(veri):
-    t = veri["t"]
-    assert egri.gecmis_sezonlar(t, "AW24") == ("SS24",)
-    assert egri.gecmis_sezonlar(t, "SS25") == ("SS24", "AW24")
-
-
-@pytest.mark.skip(reason="Görev 5'de v4'e")
-@pytest.mark.veri
-def test_sizinti_kalkani_egri_gelecegi_gormez(veri):
-    """Oyun sezonunun eğrisi, oyun başladıktan sonraki veri bozulsa da aynı."""
-    t, opt = veri["t"], veri["opt"]
-    for sezon in kaynak.OYUN_SEZONLARI:
-        bas = kaynak.sezon_baslangici(t, sezon)
-        bozuk = dict(t)
-        for ad, kolon in (("satis", "adet"), ("kayip_satis", "kayip_adet")):
-            df = t[ad].copy()
-            sonra = df["tarih"] >= bas
-            df.loc[sonra, kolon] = df.loc[sonra, kolon] * 5
-            bozuk[ad] = df
-        st = t["stok"].copy()
-        st.loc[st["tarih"] > bas, "stoklu_gun"] = 0
-        bozuk["stok"] = st
-        for yontem in ("ham", "duzeltilmis"):
-            a = egri.oyun_egrisi(t, opt, sezon, yontem)
-            b = egri.oyun_egrisi(bozuk, opt, sezon, yontem)
-            assert a.paylar.keys() == b.paylar.keys()
-            for k in a.paylar:
-                np.testing.assert_allclose(a.paylar[k], b.paylar[k])
-            # ve yalnız geçmiş sezonları kullanır
-            assert sezon not in a.sezonlar
+    """AW24 oyun eğrileri gerçek v4'te (SS23, AW23, SS24; t0 = 2024-08-19)."""
+    con = kaynak.baglan()
+    try:
+        try:
+            yol = hazirla.gunluk_yolu(con=con)
+        except RuntimeError as e:
+            pytest.skip(str(e))
+        opt = veri["opt"]
+        t0 = egri.oyun_baslangici(opt, "AW24")
+        havuz = egri.gecmis_havuzu(opt, egri.gecmis_sezonlar("AW24"))
+        gunluk = hazirla.havuz_gunlugu(yol, con, havuz, t0)
+        egriler = egri.oyun_egrileri(gunluk, opt, "AW24", hazirla.carpanlar(con, yol, t0))
+    finally:
+        con.close()
+    for (yontem, hedef), e in egriler.items():
+        assert e.sezonlar == ("SS23", "AW23", "SS24")
+        assert set(e.paylar) == {(1,), (2,), (3,)}
+        for anahtar in e.paylar:
+            k = e.birikimli(anahtar)
+            assert (np.diff(k) >= -1e-12).all()
+            assert k[-1] == pytest.approx(1.0)
+    # düzeltilmiş eğri ham eğriden geç biter (sansür erken haftaları şişirir)
+    ham, duz = egriler[("ham", "indirim")], egriler[("duzeltilmis", "indirim")]
+    assert duz.k((1,), 4) < ham.k((1,), 4)

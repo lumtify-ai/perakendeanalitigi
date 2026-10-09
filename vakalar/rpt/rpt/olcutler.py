@@ -138,3 +138,45 @@ def sezon_ozeti(kol: pd.DataFrame, taban: pd.DataFrame, kahin: pd.DataFrame | No
         oz["kacirilan"] = int(kacan.sum())
         oz["kacirilan_tl"] = float(kazanc[kacan].sum())
     return oz
+
+
+def gercek_gunluk(satis: pd.DataFrame, karsilanmayan: pd.DataFrame, ikame_alinan: pd.DataFrame,
+                  urun: pd.DataFrame, opsiyonlar=None) -> pd.DataFrame:
+    """Hücre-gün gerçek talep (ölçüm; kestiricilere verilmez): `tarih, magaza_id,
+    urun_id, option_id, talep`, yalnız talebi pozitif satırlar.
+
+        talep = pozitif satış − alınan ikame + karşılanmayan
+
+    satis          yayımlanan TEMİZ satış (`kaynak.temiz_satis`; iade satırları atılır)
+    karsilanmayan  hakem tablosu (`hakem.oku()["karsilanmayan"]`; talep − kendi satış)
+    ikame_alinan   hakem tablosu (alıcı hücrede ikame satışı; satışta zaten var)
+    urun           urun_id → option_id
+    opsiyonlar     verilirse yalnız bu option'lar (bellek)
+
+    Hakemin kendi satışı ham satıştan gelir; temiz satış ondan yalnız kirletme
+    farkı kadar ayrılır (mükerrer satır temizlikte düşer)."""
+    u = urun[["urun_id", "option_id"]].drop_duplicates("urun_id").astype({"urun_id": str,
+                                                                         "option_id": str})
+    if opsiyonlar is not None:
+        u = u[u["option_id"].isin(set(map(str, opsiyonlar)))]
+    secili = set(u["urun_id"])
+
+    def _parca(df, kolon, isaret, pozitif=False):
+        d = df[["tarih", "magaza_id", "urun_id", kolon]]
+        d = d[d["urun_id"].astype(str).isin(secili)]
+        if pozitif:
+            d = d[d[kolon] > 0]
+        return pd.DataFrame({"tarih": pd.to_datetime(d["tarih"]).to_numpy("datetime64[ns]"),
+                             "magaza_id": d["magaza_id"].astype(str).to_numpy(),
+                             "urun_id": d["urun_id"].astype(str).to_numpy(),
+                             "talep": isaret * d[kolon].to_numpy(np.int64)})
+
+    g = pd.concat([_parca(satis, "adet", 1, pozitif=True),
+                   _parca(ikame_alinan, "adet", -1),
+                   _parca(karsilanmayan, "karsilanmayan", 1)], ignore_index=True)
+    g = g.groupby(["tarih", "magaza_id", "urun_id"], sort=True)["talep"].sum().reset_index()
+    if (g["talep"] < 0).any():
+        raise ValueError(f"gercek_gunluk: {int((g['talep'] < 0).sum())} hücre-günde alınan ikame "
+                         "satışı aşıyor (satış tablosu temiz satış mı?)")
+    g = g[g["talep"] > 0].merge(u, on="urun_id")
+    return g[["tarih", "magaza_id", "urun_id", "option_id", "talep"]].reset_index(drop=True)

@@ -102,3 +102,58 @@ def oyuncak():
     opt = kaynak.optionlar(t)
     opt["plan_sezon"] = 50.0
     return t, opt
+
+
+def sentetik_gunluk(optionlar, magaza_sayisi=40, tohum=3, sansur_haftasi=3, beden=("S", "M")):
+    """Ortak günlük tablo biçiminde (`stok.gunluk_magaza`) sentetik hücre-günler +
+    Basit'in özellik sütunları + test için bilinen gerçek talep (`gercek_talep`).
+
+    optionlar: [(option_id, sezon_kodu, lansman, hafta_sayisi, dalga)]. Günlük
+    talep ~ Poisson(a_m · b_h · pay_beden), b_h = (h+1)·exp(−h/4). Üst çeyrek
+    seviyeli mağazalar `sansur_haftasi`ndan sonra haftada yalnız bir gün
+    (pazartesi) stokludur: diğer günler `bos` (satış 0); pazartesi rafta 4 adet
+    vardır (talep ≥ 4 ise `tukenen`). Diğer hücre-günler bol stokla `stoklu`.
+    Döner: (gunluk, opt, b paylari)."""
+    import numpy as np
+
+    rng = np.random.default_rng(tohum)
+    a = rng.lognormal(0, 0.6, magaza_sayisi)
+    yuksek = a > np.quantile(a, 0.75)
+    pay = {"S": 0.4, "M": 0.6}
+    satir = []
+    opt = []
+    for oid, sezon, lansman, H, dalga in optionlar:
+        lansman = pd.Timestamp(lansman)
+        opt.append({"option_id": oid, "sezon_kodu": sezon, "line": "Collection", "dalga": dalga,
+                    "ust_kategori": "Üst", "lansman_tarihi": lansman,
+                    "indirim_baslangic": lansman + pd.Timedelta(days=7 * (H - 2)),
+                    "cikis_tarihi": lansman + pd.Timedelta(days=7 * H),
+                    "satis_hafta": float(H - 2)})
+        for m in range(magaza_sayisi):
+            for bd in beden:
+                for gun in range(7 * H):
+                    w = gun // 7
+                    lam = a[m] * (w + 1) * np.exp(-w / 4.0) * pay[bd]
+                    talep = int(rng.poisson(lam))
+                    if yuksek[m] and w >= sansur_haftasi:
+                        oncesi = 4 if gun % 7 == 0 else 0
+                    else:
+                        oncesi = 1000
+                    satis = min(talep, oncesi)
+                    durum = "bos" if oncesi <= 0 else ("tukenen" if satis >= oncesi else "stoklu")
+                    satir.append((lansman + pd.Timedelta(days=gun), f"M{m:02d}", f"{oid}-{bd}", oid,
+                                  oncesi, satis, satis, durum, gun, talep))
+    g = pd.DataFrame(satir, columns=["tarih", "magaza_id", "urun_id", "option_id", "satis_oncesi",
+                                     "brut_satis", "net_satis", "durum", "yas_gun", "gercek_talep"])
+    g["durum"] = pd.Categorical(g["durum"], categories=["stoklu", "tukenen", "bos"])
+    g["hafta_gunu"] = g["tarih"].dt.dayofweek.astype("int8")
+    g["tatil"] = False
+    g["black_friday"] = False
+    g["indirim_baslangici"] = False
+    g["oran"] = np.float32(0.0)
+    g["line"] = "Collection"
+    g["ust_kategori"] = "Üst"
+    g["alt_kategori"] = "Tişört"
+    g["kanal"] = "magaza"
+    b = np.array([(w + 1) * np.exp(-w / 4.0) for w in range(max(o[3] for o in optionlar))])
+    return g, pd.DataFrame(opt), b

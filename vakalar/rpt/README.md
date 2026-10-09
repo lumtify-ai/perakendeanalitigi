@@ -22,6 +22,10 @@ Veri `veri/cikti/v4/perakende.duckdb` (ya da `PERAKENDE_V4_DB`); yoksa yayımlan
 v4 geçişi sürüyor (`docs` ayrı depoda: `2026-10-09-rpt-v4` tasarımı); henüz
 v4'e taşınmamış modüllerin testleri `Görev N'de v4'e` nedeniyle atlanır.
 
+Ortak günlük tabloyu kurmak (~6,5 dk, bir kez; eğri, katmanlar ve aday bunu okur):
+
+    .venv/Scripts/python -m rpt.hazirla         # cikti/gunluk.parquet
+
 Alternatif talep yollarını koşmak (10 yol, 4 süreç paralel, ~6 dk; önce bu):
 
     .venv/Scripts/python -m rpt.yollar          # cikti/yollar.json
@@ -48,10 +52,11 @@ dagitim_politikasi=...)`'i ile farklı politikalarla yeniden oynatılır
 | `kaynak.py` | v4 DuckDB tablolarını ortak paketin görünümleriyle (temiz satış, hayaletsiz çeşit) okur; hücre-hafta (mağaza × SKU × lansmandan beri hafta) ve option-hafta panelleri (online satış STR'ye girer, depo stoğu pazartesi süzülür); `tarihten_once` ile karar sabahına kırpma; `gecmis_sezonlar` |
 | `motor.py` | Üretecin tek kapısı: vakada `perakende_veri`'yi yalnız bu modül içe aktarır. `dunya()`, `politika_gorunumu(dunya)` (Lumoda'nın gördüğü plan, ilk alım, tedarikçi alanları; karar modüllerine bu verilir), `kos(rpt, replenishment, ad=, parametreler=)` → `Kosu` (temiz 18 tablo + hücre-gün gizli gerçek, hakem tanımıyla). Koşular `cikti/kosular/`'da anahtarlı önbellekte (ad, parametreler, tohumlar, yalnız koşuyu etkileyen kaynakların kod özeti, v4 parmak izi); **politikanın davranışını değiştiren her parametre `parametreler`'e girmeli**. Karar modülleri bu modülü içe aktarmaz (`tests/test_sizinti.py`) |
 | `bilgi.py` | `PolitikaBilgisi` veri tipi (tarafsız; karar modülleri tipi buradan alır, nesneyi `motor.politika_gorunumu` doldurur) |
-| `egri.py` | Yaşam eğrisinin **şekli** (birikimli pay k_h), geçmiş sezonlardan: çıplak (sansürlü satış), stoklu gün düzeltmeli (Poisson IPF), gerçek (yalnız kıyas) |
-| `sansur.py` | Sezon talebi kestirimi, dört katman (a çıplak · b stoklu gün hızı · c FRR eğri ölçeği · d b+c), gerçek talebe karşı hata |
+| `hazirla.py` | `python -m rpt.hazirla`: `cikti/gunluk.parquet` (ortak günlük tablo, 2023–2025, durum stoklu / tükenen / boş; ~6,5 dk, bir kez, v4 parmak izli); `havuz_gunlugu` (karar havuzunun satırları + Basit özellikleri), `carpanlar` (karar anı çarpanları, kapanmış sezon kümesi başına önbellekli) |
+| `egri.py` | Yaşam eğrisinin **şekli** (birikimli pay k_h), geçmiş sezonlardan: çıplak (sansürlü satış), düzeltilmiş (satış + ortak Basit kaybı, karar anı = oyunun ilk lansman sabahı), gerçek (yalnız argüman olarak verilen gerçek tabloyla, kıyas) |
+| `sansur.py` | `karar_ani_talep(gunluk, t, carpanlar, havuz)`: karar anı Basit'iyle hücre-gün talebi (saf; tablo yolunda ve motor içinde aynı); sezon talebi kestirimi, dört katman (a çıplak · b stoklu gün hızı · c FRR eğri ölçeği · d b+c); gerçek talebe (argüman) karşı hata |
 | `hikaye.py` | "Bitti" haftası, hikâye adayları, mağaza tablosu, Lumoda'nın RPT'lerinin akıbeti |
-| `anlik.py` | Karar anı hesapları `Gorunum` üstünde (düzeltilmiş talep, option özeti); `Kaydedici` her pazartesi aday satırı kaydeder — eğitim ve karar aynı kodu görür |
+| `anlik.py` | Karar anı hesapları `Gorunum` üstünde (v3 tanımı; Görev 6–7'de v4'e). v4 görünümü ortak günlük tabloyu birebir kurmaya yetmiyor (satış öncesi stok ve fiyat geçmişi yok): ayrıntı modül notunda |
 | `dagitim.py` | RPT dağıtım kuralları: mevcut · b stoklu gün hızı · c yeniden lansman · d c + %30 depoda tutma |
 | `miktar.py` | Banu %50 · FRR · newsvendor (belirsizlik geçmiş sezon hatasından, MOQ kapısı) |
 | `aday.py` | Özellikler, sonradan-bakış etiketi (gerçek ve düzeltilmiş), kural / lojistik / LightGBM, TL değerlendirme |
@@ -67,17 +72,16 @@ dagitim_politikasi=...)`'i ile farklı politikalarla yeniden oynatılır
   bulunulan sezonun erken haftalarından gelir; geçmiş sezonlardan yalnız
   eğrinin **şekli** öğrenilir (kullanıcının "RPT geçmişe değil bu sezona
   bakar" cümlesi).
-- **Sızıntı yok.** Oyun sezonları AW24 ve SS25. Eğri, tabloların oyun
-  sezonunun ilk lansman sabahına kırpılmış hâlinden ve yalnız o güne kadar
-  indirimi başlamış tam sezonlardan öğrenilir (AW24 ← SS24; SS25 ← SS24 +
-  AW24). AW23 pencerede indirim öncesine yalnız bir günle göründüğü için
-  kullanılmaz. Kestirim h. pazartesiden sonraki satırı okumaz. Üçü de testle
-  kilitli (`test_sizinti_kalkani_egri_gelecegi_gormez`,
-  `test_kestirim_kirpilmis_veriyle_ayni`).
-- **Kayıp satış yalnız doğruluk ölçüsüdür.** Gerçek talep = satış + kayıp;
-  hiçbir kestirim kayıp kolonunu okumaz (`test_kestirim_kayip_satisi_okumaz`).
-  Raporda kayıp satıştan gelen her sayı "[gerçek, zincir görmez]" diye
-  işaretlidir.
+- **Sızıntı yok.** Oyun sezonları AW24 ve SS25. Eğri yalnız oyun sezonundan
+  önce kapanmış sezonlardan (AW24 ← SS23, AW23, SS24; SS25 ← + AW24) ve oyunun
+  ilk lansman sabahından önceki satırlardan öğrenilir; Basit'in kaybı o sabahın
+  karar anı moduyla (Ruling R4). Karar pazartesisi `t`'nin kestirimi `t`'den
+  sonraki satırı okumaz. Testle kilitli (`test_oyun_egrisi_gelecegi_gormez`,
+  `test_karar_ani_katmanlari_gelecegi_gormez`, `test_gercek_veri_kirpilmis_tabloyla_ayni`).
+- **Kayıp satış yalnız doğruluk ölçüsüdür.** v4'te kayıp satış yayımlanmaz;
+  gerçek talep hakemden yalnız raporda kurulur (`olcutler.gercek_gunluk`) ve
+  kestirim modüllerine yalnız argüman olarak girer; hiçbir kestirim onu okumaz
+  (`test_kayip_okunmaz_*`).
 - **Sezon talebi = lansman → indirim başı** (FRR'nin "sezon"u). Çıkışa kadarki
   talep de ayrıca raporlanır (RPT'nin indirimde satacağı kısım için).
 - **Plan gizli değildir.** Buyer planı (`plan_sezon`) tablolarda yok, dünyadan

@@ -2,34 +2,40 @@
 geçmiş olur (birikimli pay k_h).
 
 RPT kararının bilgisi içinde bulunulan sezondan gelir (kullanıcının cümlesi:
-"RPT geçmişe değil bu sezona bakar"). Ama ilk üç haftanın satışını sezona
+"RPT geçmişe değil bu sezona bakar"). Ama ilk haftaların satışını sezona
 taşımak için eğrinin şekli gerekir; şekil ürüne değil takvime ve kategoriye
 bağlıdır ve **geçmiş sezonlardan** öğrenilir. Seviye (ürünün kendisi ne
 kadar tutuyor) bu sezonun erken haftalarından gelir — `sansur.py`.
 
 ÜÇ YÖNTEM
 
-    ham          geçmiş sezonların SATIŞI, grup içinde toplanıp haftalara
+    ham          geçmiş sezonların SATIŞI (brüt), grup içinde toplanıp haftalara
                  paylaştırılır (FRR 2001'in perakendecisinin yaptığı). Satış
                  sansürlüdür: tutan ürün üçüncü haftada bitince eğrinin
                  kuyruğu yapay olarak incelir ve erken haftalar şişer.
-    duzeltilmis  stoklu gün düzeltmesi: hücre-hafta satışı ~ Poisson(a_c ·
-                 b_h · stoklu gün). a_c hücrenin (mağaza × SKU) seviyesi,
-                 b_h haftanın göreli günlük hızı; ikisi dönüşümlü orantılı
-                 uydurmayla (IPF) bulunur. Stoksuz günler denkleme girmez,
-                 stoksuz kalan hücrenin seviyesi stoklu günlerinden gelir.
-                 Haftalık talep ∝ b_h · (o haftanın açık günü).
-    gercek       satış + kayıp satış. Yalnız rapor ve test içindir (kâhin);
-                 hiçbir karar bu eğriyi kullanmaz.
+    duzeltilmis  satış + ortak Basit'in kaybı (`sansur.karar_ani_talep`): stoksuz
+                 ve tükenen günlerin talebi aynı hücrenin ve option'ın stoklu
+                 günlerinden kurulur. Basit karar anı modundadır (Ruling R4): karar
+                 anı oyun sezonunun ilk lansman sabahı, çarpanlar o anda kapanmış
+                 sezonlardan (`hazirlik.carpanlar_kapanmis`); geçmiş sezonlar o
+                 sabah bilinen veriyle düzeltilir.
+    gercek       gerçek talep. Yalnız argüman olarak verilen gerçek tablosuyla
+                 (`gercek=`; raporda hakemden) ve yalnız rapor / test içindir;
+                 hiçbir karar bu eğriyi kullanmaz. Modül hakemi okumaz.
 
 HEDEF. `indirim`: sezon talebi = lansman → indirim başı (FRR'nin "sezon"u;
 tam fiyat dönemi). `cikis`: lansman → çıkış, indirim dönemi dahil (RPT'nin
 indirimde satacağı payı görmek için).
 
-SIZINTI KALKANI. `oyun_egrisi` tabloları oyun sezonunun ilk lansman
-sabahına kırpar ve yalnız o güne kadar indirimi başlamış TAM sezonları
-kullanır (AW24 için SS24; SS25 için SS24 + AW24). AW23 pencerede indirim
-öncesine yalnız bir günle göründüğü için kullanılmaz.
+KAPSAM. Mağaza ve online hücreleri (`sansur` ile aynı kapsam).
+
+SIZINTI KALKANI. `oyun_egrisi` / `oyun_egrileri` yalnız oyun sezonundan önce
+eksiksiz kapanmış sezonları (`kaynak.gecmis_sezonlar`: AW24 ← SS23, AW23, SS24;
+SS25 ← + AW24) ve yalnız oyunun ilk lansman sabahından önceki satırları kullanır
+(`karar_ani_talep(…, t0, …)`). `cikis` eğrisi, geçmiş sezonun çıkışı oyun
+başlangıcından sonraysa (SS24 çıkışı 2024-08-26, AW24 lansmanı 2024-08-19; AW24
+çıkışı 2025-02-24, SS25 lansmanı 2025-02-10) o sezonun son haftalarını göremez;
+kırpılmış veriyle ne görünüyorsa o.
 """
 
 from dataclasses import dataclass
@@ -40,7 +46,7 @@ import pandas as pd
 from . import kaynak
 
 YONTEMLER = ("ham", "duzeltilmis", "gercek")
-IPF_TUR = 60
+HEDEFLER = ("indirim", "cikis")
 
 
 @dataclass(frozen=True)
@@ -91,114 +97,112 @@ class Egri:
         return np.concatenate([[0.0], np.cumsum(self._satir(anahtar))])
 
 
-def _anahtar_kolonu(df: pd.DataFrame, grup: tuple) -> pd.Series:
-    return pd.Series(list(zip(*[df[g] for g in grup])), index=df.index)
-
-
-def _hucre_verisi(hh: pd.DataFrame, hedef: str) -> pd.DataFrame:
-    """Hedef penceresine göre satış, gerçek talep, açık gün ve maruz kalma."""
-    if hedef == "indirim":
-        s, k, acik = hh["satis_io"], hh["kayip_io"], hh["acik_io"]
-    elif hedef == "cikis":
-        s, k, acik = hh["satis"], hh["kayip"], hh["acik_gun"]
-    else:
+def _haftalik(tablo: pd.DataFrame, deger: str, opt: pd.DataFrame, grup: tuple,
+              hedef: str) -> pd.DataFrame:
+    """Hücre-gün tablosunu (tarih, option_id, `deger`) grup × lansmandan hafta
+    toplamına indirir; yalnız hedef penceresi (lansman ≤ tarih < indirim / çıkış)."""
+    if hedef not in HEDEFLER:
         raise ValueError(hedef)
-    # Stoklu gün haftalıktır; indirimin bölündüğü haftada açık güne orantılı
-    maruz = hh["stoklu_gun"] * np.divide(acik, hh["acik_gun"], out=np.zeros(len(hh)),
-                                         where=hh["acik_gun"] > 0)
-    d = hh[["magaza_id", "urun_id", "option_id", "h"]].copy()
-    d["s"], d["talep"], d["acik"], d["maruz"] = s.to_numpy(), (s + k).to_numpy(), acik.to_numpy(), maruz.to_numpy()
-    return d[d["acik"] > 0]
+    son = "indirim_baslangic" if hedef == "indirim" else "cikis_tarihi"
+    o = opt[["option_id", "lansman_tarihi", son, *grup]].drop_duplicates("option_id").copy()
+    o["option_id"] = o["option_id"].astype(str)
+    d = pd.DataFrame({"option_id": tablo["option_id"].astype(str).to_numpy(),
+                      "tarih": tablo["tarih"].to_numpy("datetime64[ns]"),
+                      "w": tablo[deger].to_numpy(np.float64)})
+    d = d.merge(o, on="option_id")
+    d = d[(d["tarih"] >= d["lansman_tarihi"]) & (d["tarih"] < d[son])]
+    d["h"] = (d["tarih"] - d["lansman_tarihi"]).dt.days // 7
+    d["_g"] = list(zip(*[d[g] for g in grup]))
+    return d.groupby(["_g", "h"])["w"].sum().reset_index()
 
 
-def ipf_hafta_hizi(d: pd.DataFrame, tur: int = IPF_TUR) -> pd.Series:
-    """Satış ~ Poisson(a_c · b_h · maruz) modelinde b_h (göreli günlük hız).
+def egri_ogren(tablo: pd.DataFrame | None, opt: pd.DataFrame, sezonlar, yontem: str = "duzeltilmis",
+               grup: tuple = ("dalga",), hedef: str = "indirim", line: str = "Collection",
+               gercek: pd.DataFrame | None = None) -> Egri:
+    """Verilen sezonların `line` option'larından eğri.
 
-    d kolonları: hucre (herhangi bir anahtar), h, s, maruz. Maruziyeti
-    sıfır olan hücre-haftalar bilgi taşımaz ve kendiliğinden düşer. b ölçeği
-    keyfîdir (ortalaması 1'e çekilir).
+    tablo   `sansur.karar_ani_talep` çıktısı (hücre-gün; `brut_satis`, `talep`):
+            ham → brut_satis, duzeltilmis → talep
+    gercek  yalnız `yontem="gercek"`: hücre-gün gerçek talep (tarih, option_id,
+            talep); bu yöntem `tablo`yu okumaz
     """
-    hucre = pd.factorize(d["hucre"])[0]
-    hafta = d["h"].to_numpy().astype(int)
-    s = d["s"].to_numpy(dtype=float)
-    e = d["maruz"].to_numpy(dtype=float)
-    C, H = hucre.max() + 1, hafta.max() + 1
-    a, b = np.ones(C), np.ones(H)
-    s_c = np.bincount(hucre, s, C)
-    s_h = np.bincount(hafta, s, H)
-    for _ in range(tur):
-        payda = np.bincount(hafta, a[hucre] * e, H)
-        b = np.divide(s_h, payda, out=np.zeros(H), where=payda > 0)
-        payda = np.bincount(hucre, b[hafta] * e, C)
-        a = np.divide(s_c, payda, out=np.zeros(C), where=payda > 0)
-        olcek = b[b > 0].mean() if (b > 0).any() else 1.0
-        b, a = b / olcek, a * olcek
-    return pd.Series(b, index=np.arange(H))
-
-
-def egri_ogren(hh: pd.DataFrame, opt: pd.DataFrame, sezonlar, yontem: str = "duzeltilmis",
-               grup: tuple = ("dalga",), hedef: str = "indirim", line: str = "Collection") -> Egri:
-    """Verilen sezonların hücre-hafta panelinden eğri öğrenir."""
     if yontem not in YONTEMLER:
         raise ValueError(yontem)
+    if yontem == "gercek":
+        if gercek is None:
+            raise ValueError("egri_ogren: 'gercek' yöntemi gerçek tabloyu argüman ister (gercek=)")
+        tablo, deger = gercek, "talep"
+    else:
+        deger = "brut_satis" if yontem == "ham" else "talep"
     sezonlar = tuple(sezonlar)
     o = opt[opt["sezon_kodu"].isin(sezonlar) & (opt["line"] == line)]
-    d = _hucre_verisi(hh[hh["option_id"].isin(o["option_id"])], hedef)
-    d = d.merge(o[["option_id", *grup]].drop_duplicates(), on="option_id")
-    d["_g"] = _anahtar_kolonu(d, grup)
+    tablo = tablo[tablo["option_id"].astype(str).isin(set(o["option_id"].astype(str)))]
+    w = _haftalik(tablo, deger, o, tuple(grup), hedef)
 
     satirlar = {}
-    for g, dg in d.groupby("_g", sort=True):
-        H = int(dg["h"].max()) + 1
-        # Haftanın ortalama açık günü (hücre başına): son hafta kısmi
-        acik = dg.groupby("h")["acik"].sum() / dg.groupby("h")["acik"].size()
-        if yontem == "ham":
-            w = dg.groupby("h")["s"].sum()
-        elif yontem == "gercek":
-            w = dg.groupby("h")["talep"].sum()
-        else:
-            dg = dg.assign(hucre=list(zip(dg["magaza_id"], dg["urun_id"])))
-            b = ipf_hafta_hizi(dg)
-            w = b.reindex(acik.index).fillna(0) * acik
-        w = w.reindex(range(H), fill_value=0.0).astype(float)
-        satirlar[g] = (w / w.sum()).to_numpy() if w.sum() > 0 else w.to_numpy()
+    for g, wg in w.groupby("_g", sort=True):
+        H = int(wg["h"].max()) + 1
+        v = wg.set_index("h")["w"].reindex(range(H), fill_value=0.0).to_numpy(float)
+        satirlar[g] = v / v.sum() if v.sum() > 0 else v
 
     yedek = None
     if tuple(grup) != ("dalga",) and "dalga" in grup:
-        yedek = egri_ogren(hh, opt, sezonlar, yontem, ("dalga",), hedef, line)
+        yedek = egri_ogren(tablo if yontem != "gercek" else None, opt, sezonlar, yontem,
+                           ("dalga",), hedef, line, gercek)
     return Egri(paylar=satirlar, grup=tuple(grup), yontem=yontem, hedef=hedef,
                 sezonlar=sezonlar, yedek=yedek)
 
 
-def gecmis_sezonlar(t: dict, oyun_sezonu: str) -> tuple:
-    """Oyun sezonunun ilk lansmanından önce indirimi başlamış tam sezonlar."""
-    bas = kaynak.sezon_baslangici(t, oyun_sezonu)
-    s = t["sezon"].drop_duplicates("sezon_kodu")
-    once = s[pd.to_datetime(s["indirim_baslangic"]) < bas]["sezon_kodu"]
-    return tuple(k for k in kaynak.TAM_SEZONLAR if k in set(once))
+# ------------------------------------------------------------ oyun sezonu
 
 
-def oyun_egrisi(t: dict, opt: pd.DataFrame, oyun_sezonu: str, yontem: str = "duzeltilmis",
-                grup: tuple = ("dalga",), hedef: str = "indirim") -> Egri:
-    """Oyun sezonu için eğri: tablolar oyunun ilk lansman sabahına kırpılır.
-
-    `hedef="cikis"` eğrisi, geçmiş sezonun çıkışı oyun başlangıcından
-    sonraysa (SS24 çıkışı 2024-08-26, AW24 lansmanı 2024-08-19) o sezonun
-    son haftasını göremez; kırpılmış veriyle ne görünüyorsa o.
-    """
-    bas = kaynak.sezon_baslangici(t, oyun_sezonu)
-    gecmis = gecmis_sezonlar(t, oyun_sezonu)
-    if not gecmis:
-        raise ValueError(f"{oyun_sezonu} için geçmiş tam sezon yok")
-    kirpik = kaynak.tarihten_once(t, bas)
-    hh = kaynak.hucre_hafta(kirpik, opt, gecmis)
-    return egri_ogren(hh, opt, gecmis, yontem, grup, hedef)
+def gecmis_sezonlar(oyun_sezonu: str) -> tuple:
+    """Oyun sezonundan önce eksiksiz kapanmış sezonlar (`kaynak.gecmis_sezonlar`)."""
+    return kaynak.gecmis_sezonlar(oyun_sezonu)
 
 
-def oyun_egrileri(t: dict, opt: pd.DataFrame, oyun_sezonu: str) -> dict:
-    """Oyun sezonunun dört eğrisi {(yöntem, hedef): Egri}, tek kırpma ile."""
-    bas = kaynak.sezon_baslangici(t, oyun_sezonu)
-    gecmis = gecmis_sezonlar(t, oyun_sezonu)
-    hh = kaynak.hucre_hafta(kaynak.tarihten_once(t, bas), opt, gecmis)
-    return {(y, h): egri_ogren(hh, opt, gecmis, y, ("dalga",), h)
-            for y in ("ham", "duzeltilmis") for h in ("indirim", "cikis")}
+def oyun_baslangici(opt: pd.DataFrame, oyun_sezonu: str) -> pd.Timestamp:
+    """Oyun sezonunun ilk lansman sabahı (öğrenmenin karar anı, Ruling R4)."""
+    s = opt.loc[opt["sezon_kodu"] == oyun_sezonu, "lansman_tarihi"]
+    if s.empty:
+        raise ValueError(f"{oyun_sezonu} option'ı yok")
+    return pd.Timestamp(s.min()).normalize()
+
+
+def gecmis_havuzu(opt: pd.DataFrame, sezonlar, line: str = "Collection") -> pd.DataFrame:
+    """Geçmiş sezonların `line` option'ları, lansmandan çıkışa (eğrinin karar havuzu)."""
+    o = opt[opt["sezon_kodu"].isin(tuple(sezonlar)) & (opt["line"] == line)]
+    return pd.DataFrame({"option_id": o["option_id"].astype(str).to_numpy(),
+                         "bas": pd.to_datetime(o["lansman_tarihi"]).to_numpy(),
+                         "son": pd.to_datetime(o["cikis_tarihi"]).to_numpy()})
+
+
+def gecmis_talep(gunluk: pd.DataFrame, opt: pd.DataFrame, oyun_sezonu: str, carpanlar,
+                 line: str = "Collection") -> pd.DataFrame:
+    """Geçmiş sezonların hücre-gün talebi, oyunun ilk lansman sabahında bilinenle
+    (`sansur.karar_ani_talep(gunluk, t0, carpanlar, gecmis_havuzu)`). `carpanlar`
+    t0'da kapanmış sezonlardan (`hazirlik.carpanlar_kapanmis(…, t0)`)."""
+    from .sansur import karar_ani_talep
+
+    gecmis = gecmis_sezonlar(oyun_sezonu)
+    t0 = oyun_baslangici(opt, oyun_sezonu)
+    return karar_ani_talep(gunluk, t0, carpanlar, gecmis_havuzu(opt, gecmis, line))
+
+
+def oyun_egrisi(gunluk: pd.DataFrame, opt: pd.DataFrame, oyun_sezonu: str, carpanlar,
+                yontem: str = "duzeltilmis", grup: tuple = ("dalga",),
+                hedef: str = "indirim") -> Egri:
+    """Oyun sezonu için eğri: geçmiş sezonlar, oyunun ilk lansman sabahına dek
+    bilinen veriyle (sızıntı kalkanı). `yontem` ham ya da duzeltilmis."""
+    if yontem == "gercek":
+        raise ValueError("oyun_egrisi: 'gercek' karar eğrisi değildir; egri_ogren(gercek=…)")
+    talep = gecmis_talep(gunluk, opt, oyun_sezonu, carpanlar)
+    return egri_ogren(talep, opt, gecmis_sezonlar(oyun_sezonu), yontem, grup, hedef)
+
+
+def oyun_egrileri(gunluk: pd.DataFrame, opt: pd.DataFrame, oyun_sezonu: str, carpanlar) -> dict:
+    """Oyun sezonunun dört eğrisi {(yöntem, hedef): Egri}, tek kestirimle."""
+    talep = gecmis_talep(gunluk, opt, oyun_sezonu, carpanlar)
+    gecmis = gecmis_sezonlar(oyun_sezonu)
+    return {(y, h): egri_ogren(talep, opt, gecmis, y, ("dalga",), h)
+            for y in ("ham", "duzeltilmis") for h in HEDEFLER}
