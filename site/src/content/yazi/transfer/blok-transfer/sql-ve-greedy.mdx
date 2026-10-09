@@ -87,7 +87,7 @@ soguma as (
   where sv.tarih > karar.t - interval 2 week and sv.tarih <= karar.t
 ),
 
--- 4. Verici adayı: stok var, seti tam, cover eşiği geçiyor, soğumada değil
+-- 4. Verici adayı: stok var, seti kırık değil (orta bedenler rafta), cover eşiği geçiyor, soğumada değil
 verici as (
   select f.magaza_id, f.option_id, f.stok, f.kirik, coalesce(h.hiz, 0) as hiz,
          case when coalesce(h.hiz, 0) > 0 then f.stok / h.hiz else 999 end as cover
@@ -242,7 +242,7 @@ Sayılar, Lumoda'nın gerçek fotoğrafında:
 | Minimum koli filtresinin kestiği | 4 |
 | **Kalan plan** | **586 hareket · 99.029 adet · 340 rota** |
 
-Süre: **16,7 ms**. Net kazanç: **32.680.688 TL**.
+Süre: **39,7 ms**. Net kazanç: **32.680.688 TL**.
 
 O 1.895 sayısına bir saniye bakalım, çünkü açgözlü yöntemin doğası orada.
 Aynı bloğu isteyen birden çok mağaza var; en yüksek puanlı olan alıyor, öbür
@@ -312,7 +312,7 @@ sormuyor.
 Bu hafta yama 4 hareketi kesti: döngünün seçtiği 590 hareketten dördü,
 minimum koliyi dolduramayan rotalarda kaldığı için silindi ve yerlerine hiçbir
 şey konmadı. Dört hareket az görünüyor; asıl dert sayı değil, sessizlik. Böyle
-yamaların huyu budur: çoğu hafta hiçbir şey kesmez, "zaten devreye girmiyor"
+yamaların huyu budur: çoğu zaman hiçbir şey kesmez, "zaten devreye girmiyor"
 diye unutulur; veri ya da parametreler biraz değişince de kimseye haber
 vermeden keser. Bu hafta kesti ve plana bakan kimse fark etmezdi. Çözücü tarafında
 böyle bir yama yok: orada minimum koli modelin içinde bir kısıt satırı ve
@@ -322,7 +322,7 @@ değerlendiriyor.
 ## Peki bu ne zaman yeter?
 
 Rakamlara bakalım: açgözlü yöntem çözücünün bulduğu değerin **%90,9'unu**
-buluyor, hem de iki bin kattan daha kısa sürede ve sıfır kurulum
+buluyor, hem de bin kattan daha kısa sürede ve sıfır kurulum
 maliyetiyle.
 
 Bunu küçümsemek kolay ama yanlış olur. Bu yöntem şu koşullarda gerçekten

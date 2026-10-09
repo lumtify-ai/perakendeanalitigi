@@ -247,13 +247,13 @@ seçmiyor, bu da yazının sonunda başımıza iş açacak.
 
 Tabloda görünmeyen bir sonuç daha var: iki planın ortak taşıdığı 571 bloğun
 193'ünde alıcı farklı; çözücü açgözlünün hiç dokunmadığı 90 bloğu da
-yerleştiriyor. Yani çözücü aynı planı ucuzlatmakla kalmıyor, kimin kime
-göndereceğini baştan kuruyor.
+yerleştiriyor. Yani çözücü açgözlünün planını ucuza yeniden dizmiyor; hangi
+malın taşınacağını da, kimin kime göndereceğini de baştan kuruyor.
 
 ## Çözücü nerede duruyor?
 
 Üçüncü yazıda bu modelin 7.730 ikili değişkeni olduğunu ve kaba kuvvetle
-$2^{7.730}$ olasılık demek olduğunu yazmıştım. Çözücünün bunu yarım dakikada
+$2^{7.730}$ olasılık demek olduğunu yazmıştım. Çözücünün bunu bir dakikanın altında
 bitirmesinin sebebini de anlatmıştım: dal-sınır. Şimdi ölçelim.
 
 Modeli iki kez çözelim. Önce değişkenlerin 0 ile 1 arasında kesirli olmasına
@@ -265,7 +265,7 @@ izin vererek (LP gevşetmesi), sonra gerçek hâliyle:
 | Tamsayı çözüm (MIP planı) | 35.934.123,10 TL |
 | **Aradaki boşluk** | **320.981,34 TL (%0,89)** |
 
-Gevşetmeyi kurup çözmek bir saniye sürüyor. Çıkan sayı bir tavan:
+Gevşetmeyi çözmek tam sayı modele göre çok kısa sürüyor. Çıkan sayı bir tavan:
 hiçbir tam sayı plan 36.255.104,44 TL'yi geçemez. Gevşetilmiş çözümde
 5.369 $x$ değişkeninin 105'i, 2.361 $y$ değişkeninin 56'sı kesirli çıkıyor;
 çözücü "bu bloğun yarısını gönder, bu rotayı yarım aç" diyor. Tavanla
@@ -305,8 +305,8 @@ boşluğunu yazıyor. Sizin verinizde zor olan büyük ihtimalle burası olacak:
 
 ## Bedelin dürüst muhasebesi
 
-PuLP bedava, CBC bedava, çalıştırmak yarım dakikadan biraz uzun. Açgözlünün
-16,7 ms'sinin iki bin katından fazla, ama bir pazartesi sabahı için hiçbir
+PuLP bedava, CBC bedava, çalıştırmak bir dakikadan kısa. Açgözlünün
+39,7 ms'sinin bin katından fazla, ama bir pazartesi sabahı için hiçbir
 şey. O zaman bu tartışma neden var?
 
 Çünkü asıl maliyet lisansta da sürede de değil. Modeli kuran kişi gittiğinde

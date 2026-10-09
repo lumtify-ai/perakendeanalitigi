@@ -61,8 +61,8 @@ Gerçek aday sayısı ise referans senaryoda, yani vericide
 iken: **5.369**.
 
 On bir milyondan beş bine. Bu düşüşü yapan şey modelin kısıtları değil;
-kümenin tanımı. Verici olabilmek için stok bulunması, setin tam olması,
-cover'ın eşiği geçmesi ve o rafın soğumada olmaması gerekiyor. Alıcı olabilmek
+kümenin tanımı. Verici olabilmek için stok bulunması, setin kırık olmaması
+(orta bedenlerin rafta durması), cover'ın eşiği geçmesi ve o rafın soğumada olmaması gerekiyor. Alıcı olabilmek
 için setin <T k="kiriklik">kırık</T> ya da stoğun sıfır olması, üstüne satış
 hızının eşiği geçmesi gerekiyor. Tek bedenli bir option'ın seti zaten
 kırılamaz (Lumoda'da 211 tane var); onlar alıcı kümesine ancak rafları
@@ -72,7 +72,7 @@ azami cover, bu kümenin üçüncü kapısıdır (satıyor ama eldeki mal tavan�
 altında kalıyor); bu yazının bütün sayıları o kapı kapalıyken, alıcı yalnız
 kırık ya da stoksuz olabilirken çıktı.
 
-Verici tanımındaki "setin tam olması" şartına bir kez daha bakın. İkinci
+Verici tanımındaki "setin kırık olmaması" şartına bir kez daha bakın. İkinci
 yazıda Pelin'in bulduğu tuzaktı: kırık setin satışı durur, cover'ı sonsuza
 gider ve cover'a tek başına bakan bir model o rafı en iyi verici sayar.
 Bunu bir kısıt satırıyla yasaklamadık. Kırık raf verici kümesine hiç girmiyor;
@@ -93,7 +93,7 @@ sihirli sayı değil:
 | Sembol | Anlamı | Değer / kaynak |
 |---|---|---|
 | $s_{io}$ | $i$ mağazasındaki $o$ option'ının stoğu | Stok fotoğrafı |
-| $v_{io}$ | Haftalık satış hızı | Son 8 **stoklu** haftanın ortalaması |
+| $v_{io}$ | Haftalık satış hızı | Son 8 haftadaki **stoklu** haftaların ortalaması |
 | $f_o$ | Option'ın liste fiyatı | Ürün master'ı |
 | $H$ | Planlama ufku | 8 hafta |
 | $c$ | Adet başına taşıma maliyeti | 25 TL |
@@ -241,7 +241,7 @@ atom sayısı kabaca $10^{80}$ olarak tahmin ediliyor. Yani bu zincirin tek bir
 haftalık transfer kararı, kaba kuvvetle denenmek istense, evrendeki bütün
 atomlara birer bilgisayar verseniz bile bitmez.
 
-Çözücünün (CBC) bu modelle işini bitirme süresi: **yarım dakikadan biraz uzun.**
+Çözücünün (CBC) bu modelle işini bitirme süresi: **bir dakikadan kısa.**
 
 Bu iki cümle yan yana durunca insanın aklına ilk gelen şey "bir yerde hata
 olmalı" oluyor. Yok. Çözücü kombinasyonları saymıyor. Önce problemi

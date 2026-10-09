@@ -48,10 +48,10 @@ eşitliği yazılı bir kural bozdu". Küçük bir cevap, ama savunulabilir; Vel
 o akşam elinde olmayan da tam olarak buydu.
 
 Karardan sonraki sekiz hafta bu bloğa ne dedi? Kestirime göre İstanbul 18'de
-o kazakta bedenini bulamayıp boş çıkacak müşteri 103 kişi; gerçek kayıpla
-150. Malatya'nın bloğu bunun 86'sını kurtarıyor, gerçek kayıpla 93'ünü. Eksik
+o kazakta bedenini bulamayıp boş çıkacak müşteri 105 kişi; gerçek kayıpla
+150. Malatya'nın bloğu bunun 87'sini kurtarıyor, gerçek kayıpla 93'ünü. Eksik
 kalan kısım bloğun şeklinden geliyor: S'den 13 kazak gidiyor ama S arayan 30
-müşteri boş çıkacak; XXL'den 16 kazak gidiyor, XXL'de boş çıkacak olan iki
+müşteri boş çıkacak; XXL'den 16 kazak gidiyor, XXL'de boş çıkacak olan üç
 kişi. Blok bölünmüyor, bedenleri ihtiyaca göre seçilmiyor; Malatya'nın rafında
 ne varsa o gidiyor.
 
@@ -96,9 +96,9 @@ Bütün ölçütlerle yan yana:
 | Taşınan adet | 99.029 | **109.100** |
 | Açılan sevkiyat | 340 *(268'i tek option)* | **318** *(194'ü tek option)* |
 | Net kazanç | 32.680.688 TL | **35.934.123 TL** |
-| Çözüm süresi | **16,7 ms** | 37,8 sn |
+| Çözüm süresi | **39,7 ms** | 54,7 sn |
 | En iyi plana uzaklık | kendi başına ölçemez | en fazla %0,18 |
-| Kayıp satış yakalama (kestirim · gerçek kayıp) | %3,5 · %3,2 | **%3,7 · %3,4** |
+| Kayıp satış yakalama (kestirim · gerçek kayıp) | %3,4 · %3,2 | **%3,6 · %3,4** |
 | Adreslenen kırık çift | 219 | **233** |
 | Kurulum | yok | PuLP + CBC |
 | "Neden bu hareket?" cevabı | tek satır | yok |
@@ -123,10 +123,10 @@ anından sonraki hiçbir satır ona verilmiyor. Bu sayılar yalnızca sonradan,
 planı tartmak için kullanılıyor.
 
 Oranlar küçük ve bunun bir sebebi var. Payda zincirin o sekiz haftadaki bütün
-kaybı, kestirime göre 429.980 adet. Transfer ise yalnız bir yerde fazlası olan
+kaybı, kestirime göre 443.961 adet. Transfer ise yalnız bir yerde fazlası olan
 option'larda iş görür; hiçbir mağazada fazlası olmayan bir kazağın boş çıkan
 müşterisine hiçbir kamyon yetişemez. Açgözlü plan 99.029 adet taşıyıp bu
-kaybın 14.873 adedini kurtarıyor. Oran küçük, ama kurtarılan her adet rafın
+kaybın 15.244 adedini kurtarıyor. Oran küçük, ama kurtarılan her adet rafın
 önünden eli boş dönecek bir müşteri.
 
 ## Beklemediğim sonuç
@@ -138,11 +138,11 @@ alıcıdaki kıtlığın tavanı. Aynı stok fotoğrafını altı eşik takımı
 
 | Eşik takımı | Taşınan option | Net kazanç | Kayıp satış yakalama (kestirim · gerçek kayıp) | Çözücünün durumu |
 |---|---:|---:|---:|---|
-| verici ≥ 6 hafta · alıcı tavanı kapalı | 661 | 35.934.123 TL | %3,7 · %3,4 | toleransta, %0,18 |
+| verici ≥ 6 hafta · alıcı tavanı kapalı | 661 | 35.934.123 TL | %3,6 · %3,4 | toleransta, %0,18 |
 | verici ≥ 6 hafta · alıcı ≤ 3 hafta | 851 | 49.627.968 TL | **%4,2 · %3,7** | `limit`, %1,33 |
 | verici ≥ 6 hafta · alıcı ≤ 6 hafta | 895 | **59.884.561 TL** | %3,8 · %3,4 | `limit`, %5,24 |
 | verici ≥ 14 hafta · alıcı ≤ 6 hafta | 782 | 57.529.813 TL | %3,1 · %2,7 | `limit`, %1,96 |
-| verici ≥ 18 hafta · alıcı ≤ 14 hafta | 787 | 58.829.811 TL | %2,7 · %2,3 | `limit`, %1,71 |
+| verici ≥ 18 hafta · alıcı ≤ 14 hafta | 787 | 58.829.811 TL | %2,6 · %2,3 | `limit`, %1,71 |
 | verici ≥ 26 hafta · alıcı ≤ 6 hafta | 527 | 41.922.719 TL | %2,2 · %1,9 | toleransta, %0,36 |
 
 Son sütun çözücünün dürüstlük sütunu: yüzde, planın olası en iyi plandan en
@@ -153,8 +153,8 @@ ama kanıtlanmamış; hiçbirine "en iyi plan" demiyorum.
 Şimdi ilk ve üçüncü satıra bakın: aralarında tek bir kadran dönüyor, verici
 eşiği yerinde duruyor. Alıcı tavanını kapalıdan altı haftaya açmak plana 234
 hareket ekliyor ve net kazancı 23.950.438 TL büyütüyor: yüzde 66,7, kabaca
-üçte iki. Aynı hamlede kayıp satış yakalama (iki ondalıkla) kestirimle %3,65'ten
-%3,85'e çıkıyor, gerçek kayıpla %3,40'tan %3,36'ya iniyor. Yani yerinde sayıyor.
+üçte iki. Aynı hamlede kayıp satış yakalama (iki ondalıkla) kestirimle %3,62'den
+%3,83'e çıkıyor, gerçek kayıpla %3,40'tan %3,36'ya iniyor. Yani yerinde sayıyor.
 Açgözlü planda da tablo aynı: para %74,8 büyüyor, yakalama iki ölçüde de
 yarım puandan az kıpırdıyor.
 
@@ -195,7 +195,7 @@ ve aynı dersin başka bir yüzü. Verici eşiğini
 yükseltip alıcı tavanını gevşetmek kâğıtta temkinli görünür. Sonuçta kamyon
 yine doluyor: 18/14 planı 14/6 planından beş hareket fazla, daha çok adet
 taşıyor ve %2,3 daha çok kazandırıyor. Ama kayıp satış yakalama kestirimle
-%3,11'den %2,66'ya, gerçek kayıpla %2,72'den %2,31'e iniyor. Ali'nin "hiçbir
+%3,10'dan %2,65'e, gerçek kayıpla %2,72'den %2,31'e iniyor. Ali'nin "hiçbir
 şey çözmeyen koliler" dediği bunlar: para biraz artıyor, kurtarılan müşteri
 azalıyor.
 
@@ -280,7 +280,7 @@ geçerlidir: **modelin en önemli kısmı çoğu zaman yazmadığınız kısıtl
 
 Bir de ölçek meselesi var. Lumoda 80 mağaza ve 1.870 option'lı bir zincir ve
 model kurmanın genelde "gerçek zincirde karşınıza çıkar" diye ertelenen
-dertleri bu veride zaten yaşanıyor. Referans ayarda çözücü 37,8 saniyede
+dertleri bu veride zaten yaşanıyor. Referans ayarda çözücü 54,7 saniyede
 toleransın içinde duruyor; kadranın çoğu ayarında ise dakikalarca koşup
 `limit` bayrağıyla dönüyor. Zaman limiti, `limit` bayrağı ve "kanıtlanmamış ama iyi"
 çözümle çalışmak burada bir dipnot değil, işin kendisi. Gerçek bir zincirde

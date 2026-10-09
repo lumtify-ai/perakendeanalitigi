@@ -91,8 +91,8 @@ mağazadaki <T k="str">STR</T>'ı:
 
 | | Ortalama STR |
 |---|---:|
-| Malın çıktığı mağazada | %29,4 |
-| Malın gittiği mağazada | **%85,3** |
+| Malın çıktığı mağazada | %29,1 |
+| Malın gittiği mağazada | **%84,8** |
 
 Aynı ürün. Aynı hafta. Bir rafta gönderilenin üçte birinden azı satılmış,
 öbür rafta altıda beşinden fazlası.
@@ -163,21 +163,21 @@ gelen replenishment mümkün kılmış olabilir.
 
 | | Model varsaydı (ortalama) | Veri dedi |
 |---|---:|---:|
-| Alıcıda satma oranı | %84,2 | **%15,0** *(gerçek kayıpla %13,7)* |
+| Alıcıda satma oranı | %84,2 | **%15,4** *(gerçek kayıpla %13,7)* |
 | Kalsaydı vericide satma oranı | %38,9 | en fazla %10,5 |
 
-Model alıcıda %84,2 bekliyordu, veride %15,0 çıkıyor. Modelin gözünde iki raf
-arasındaki fark kırk puanı aşıyor; veride 4,5 puan.
+Model alıcıda %84,2 bekliyordu, veride %15,4 çıkıyor. Modelin gözünde iki raf
+arasındaki fark kırk puanı aşıyor; veride 4,9 puan.
 
 Ali'nin cümlesini de sınayabiliriz. Hareket hareket bakınca gerçekleşen alıcı
-oranının medyanı %24,1. 586 hareketin 111'inde (%18,9) oran %70 ya da
+oranının medyanı %25,6. 586 hareketin 113'ünde (%19,3) oran %70 ya da
 üstünde; gerçek kayıpla sayınca 98 harekette (%16,7). Basit kestirime göre
-35 harekette %100, 35 harekette sıfır (gerçek kayıpla 38 ve 10); sıfır olanlarda
+35 harekette %100, 10 harekette sıfır (gerçek kayıpla 38 ve 10); sıfır olanlarda
 taşınan malın tek adedi bile boş çıkacak bir müşteriye denk gelmiyor. Ali'nin çizgisi tutuyor: hareketlerin beşte birinden azı yüzde
 yetmişi geçiyor. Model ise 370 harekette %100 diyordu.
 
 Dizinin açılış sahnesi o beşte birin içinde. İstanbul 18'e giden 103 kazağın
-86'sı boş çıkacak bir müşteriye denk geliyor. Telefonla gelen istek iyi bir
+87'si boş çıkacak bir müşteriye denk geliyor. Telefonla gelen istek iyi bir
 bahismiş; planın ortalaması ise öyle değil.
 
 Pelin tabloya uzun uzun bakıyor:
@@ -199,7 +199,7 @@ kalem aynı sağlamlıkta değildir. Karıştırıldıklarında ortaya çıkan s
 |---|---|---|
 | Brüt kâr etkisi | **ölçülen** | fiyatlar ürün tablosundan |
 | Adreslenen <T k="kiriklik">kırıklık</T> | **ölçülen** | 2.687 kırık çiftin 219'u |
-| Yakalanan kayıp satış | **ölçülen** (kestirim, sınanmış) | %3,5 (gerçek kayıpla %3,2) |
+| Yakalanan kayıp satış | **ölçülen** (kestirim, sınanmış) | %3,4 (gerçek kayıpla %3,2) |
 | Stok tutma maliyeti | **varsayılan** | formül var, oran şirkete özel |
 | Carry-over'dan kaçınma | **kısmen ölçülen** | sekiz hafta görünüyor, sezon sonu görünmüyor |
 
@@ -266,7 +266,7 @@ aynı kasadan ödeniyor.
 ## Kadranı siz çevirin
 
 İhtimaller artık ölçülü, ama ölçüm de tek bir sayı değil: alıcı oranı
-kestirimle %15,0, gerçek kayıpla %13,7; verici oranı bir üst sınır. Bu yüzden
+kestirimle %15,4, gerçek kayıpla %13,7; verici oranı bir üst sınır. Bu yüzden
 size tek bir sonuç söylemek yerine kadranı veriyorum. Kadran, yayımlanmış
 açgözlü planın kendisini, o 586 hareketi ve 99.029 adedi, sizin seçtiğiniz
 ihtimallerle yeniden değerliyor:
@@ -277,30 +277,30 @@ Kadranın alıcı tarafı %15 ile %80 arasında. Sol ucu ölçtüğümüz dünya
 %50'den yukarısı modelin dünyasına yakın. Sağ ucu %80, Ali'nin saha tavanı
 diye verdiği yüzde yetmişin de üstünde; bilerek. Modelin %84,2'si oraya bile
 sığmıyor. Kadran alıcıda %15, vericide sıfır ve düşük maliyet paketiyle
-açılıyor: alıcı tarafı ölçülen yerde, verici tarafı en iyimser hâlinde.
+açılıyor: alıcı tarafı ölçülen yere en yakın adımda, verici tarafı en iyimser hâlinde.
 Ölçülen noktaya en yakın hücre için vericiyi %10'a çevirin.
 
 Kadranın 60 hücresinden 55'i kârlı, 5'i zararlı. En iyimser köşe (alıcıda
 %80, vericide sıfır, düşük paket) 41.339.995 TL bırakıyor; en kötü köşe
 (alıcıda %15, vericide %20, yüksek paket) 7.731.760 TL zarar ettiriyor. Zararlı
-beş hücrenin beşi de alıcı %15 sütununda: tam da ölçtüğümüz yerde.
+beş hücrenin beşi de alıcı %15 sütununda: ölçtüğümüz yere en yakın sütunda.
 
 Ölçülen noktada tablo şu:
 
 | Maliyet paketi | Toplam maliyet | Başabaş fark | Ölçülen noktada net kâr |
 |---|---:|---:|---:|
-| düşük | 1.631.933 TL | 3,0 puan | **773.139 TL** |
-| orta | 2.884.936 TL | 5,4 puan | −479.864 TL |
-| yüksek | 5.046.014 TL | 9,4 puan | −2.640.942 TL |
+| düşük | 1.631.933 TL | 3,0 puan | **974.205 TL** |
+| orta | 2.884.936 TL | 5,4 puan | −278.799 TL |
+| yüksek | 5.046.014 TL | 9,4 puan | −2.439.877 TL |
 
 Transfer yalnız düşük maliyet paketinde kâr bırakıyor. Alıcı oranını gerçek
 kayıpla alırsanız (%13,7) düşük paketin kârı da 78.847 TL'ye iniyor:
 başabaşın hemen üstü.
 
-Kadrandaki en yakın hücre, 15/10, ölçülen nokta değil. Vericideki %10,5 orada
-%10'a yuvarlanıyor ve bu yarım puan az bir şey değil: düşük pakette hücre
-1.053.813 TL gösteriyor. Bu planda vericideki yarım puan çeyrek milyon TL'den
-fazlasına denk geliyor. İşaretler aynı kalıyor (düşük pakette kâr, orta ve
+Kadrandaki en yakın hücre, 15/10, ölçülen nokta değil. Alıcıdaki %15,4 orada
+%15'e, vericideki %10,5 %10'a yuvarlanıyor. İki yuvarlama ters yönde çalışıyor;
+düşük pakette hücre 1.053.813 TL gösteriyor, ölçülen noktanın biraz üstünde.
+Bu planda yarım puanlık bir yuvarlama bile tutarı belirgin oynatıyor. İşaretler aynı kalıyor (düşük pakette kâr, orta ve
 yüksekte zarar), ama tutarları okurken bu farkı akılda tutun.
 
 **"Değer mi" sorusu bu veride zor bir soru.** Modelin
@@ -309,7 +309,7 @@ kâr, maliyetin ne tuttuğuna bağlı ve en iyi durumda bile ince.
 
 Kadranda bir de **Ciro etkisi (TL)** satırı var: aynı ihtimal farkının brüt
 kâr yerine liste fiyatıyla çarpılmış hâli, yani girişteki 32.680.688 TL ile
-aynı birimde. Ölçülen noktada 3.949.485 TL; modelin bastığı rakamın sekizde
+aynı birimde. Ölçülen noktada 4.279.664 TL; modelin bastığı rakamın yedide
 biri bile değil. O rakam modelin varsaydığı farktan çıkıyordu (alıcıda %84,2'ye
 karşı vericide %38,9), bu satır ise ölçülen farktan.
 
@@ -333,11 +333,11 @@ En kötümser maliyet varsayımında kural 9,4 puan. Yönetsel cümleye çevirel
 **alıcı, vericiden yaklaşık on puan daha iyi olsun; gerisi kâr.**
 
 Şimdi o on puanı iki ölçütün yanına koyalım. Yukarıdaki STR tablosunun iki
-satırı arasında 55,9 puan var; o tabloya bakan, kararın yakın bile olmadığını
+satırı arasında 55,7 puan var; o tabloya bakan, kararın yakın bile olmadığını
 düşünür. Ama STR geriye bakar ve farkının bir kısmı seçim kuralının
-kendisidir. İleriye bakan, ölçülen fark 4,5 puan: düşük paketin başabaşını
+kendisidir. İleriye bakan, ölçülen fark 4,9 puan: düşük paketin başabaşını
 (3,0) geçiyor, orta paketinkinin (5,4) altında kalıyor. Aynı şeyi baraj
-diliyle söylersek alıcı oranı %15,0, düşük paketin %13,5'lik barajının
+diliyle söylersek alıcı oranı %15,4, düşük paketin %13,5'lik barajının
 üstünde, ortanın %15,9'unun altında. Gerçek kayıpla ölçülen fark 3,2 puan
 (alıcı oranı %13,7); düşük paketinkini ancak geçiyor. Geriye bakınca geniş bir marj
 gibi görünen şey, ileriye bakınca ince bir çizgi ve bu plan o çizginin tam
