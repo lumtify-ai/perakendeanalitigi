@@ -30,11 +30,14 @@ koşar ve döndürür:
 bir alt dizin `<ad>_<anahtar[:20]>`: tablolar ve gizli gerçek Parquet,
 `meta.json` en son. Dizin önce `.yaziliyor` adıyla yazılır, sonra tek
 `os.replace` ile yerine konur; `meta.json`'u olmayan ya da anahtarı tutmayan
-dizin okunmaz. Anahtar (`onbellek_anahtari`): `ad`, `parametreler`
-(kanonik JSON), politika türleri (sınıf / fonksiyon tam adı), iki tohum,
-ölçek, gün sayısı, kod özeti (`rpt/**/*.py` + ortak `kaynak.py` +
-`perakende_veri/v4/**/*.py`, satır sonları LF), v4 DuckDB dosyasının parmak
-izi (ad, boyut, değişiklik zamanı), numpy / pandas sürümü.
+dizin okunmaz; meta'sı tam ama Parquet'i eksik/bozuk kayıt silinip yeniden
+koşulur; bu süreçten eski `.yaziliyor-*` artıkları silinir. Anahtar
+(`onbellek_anahtari`): `ad`, `parametreler` (kanonik JSON), politika türleri
+(sınıf / fonksiyon tam adı), iki tohum, ölçek, gün sayısı, kod özeti (yalnız
+koşuyu etkileyen kaynaklar: `KOSU_MODULLERI`, onların ortak paket kapanışı,
+`perakende_veri/v4/**/*.py`; satır sonları LF), v4 DuckDB dosyasının parmak
+izi (ad, boyut, değişiklik zamanı), numpy / pandas / pyarrow / lightgbm /
+scikit-learn sürümü.
 
 **Politikalar Python nesneleridir; anahtar onları `ad` + `parametreler`
 ile tanır.** Çağıran, politikanın davranışını değiştiren HER parametreyi
@@ -52,8 +55,10 @@ iki süreç yazarsa ikincisi birincinin dizinini bulur ve onu okur). Bir TAM
 koşu ~4 dk, ~6 GB.
 """
 
+import ast
 import functools
 import hashlib
+import importlib.metadata
 import inspect
 import json
 import os
@@ -61,6 +66,7 @@ import re
 import shutil
 import sys
 import time
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -76,18 +82,36 @@ from perakende_veri.v4.magaza import Olcek
 from perakende_veri.v4.motor import simule_et
 from perakende_veri.v4.politika import Politikalar
 
+from .bilgi import PolitikaBilgisi
+
 TOHUM = sabitler.TOHUM
 PAKET_KOKU = Path(__file__).resolve().parent                    # vakalar/rpt/rpt
 KOSU_DIZINI = PAKET_KOKU.parent / "cikti" / "kosular"
 VERI_YOLU = ortak.VARSAYILAN_YOL
 OLCEKLER = {"tam": Olcek.TAM, "kucuk": Olcek.KUCUK}
 
-# (ad öneki, kök, desen): kod özetine giren kaynak kümeleri
-KOD_KAYNAKLARI = (
-    ("rpt", PAKET_KOKU, "**/*.py"),
-    ("ortak", Path(ortak.__file__).resolve().parent, "kaynak.py"),
-    ("v4", Path(_v4_paketi.__file__).resolve().parent, "**/*.py"),
+# Kod özetine giren kaynaklar (yalnız koşuyu etkileyenler; Ruling R3):
+#   rpt    KOSU_MODULLERI (henüz olmayan dosya atlanır). Ölçüm ve anlatı
+#          (KOSU_DISI: olcutler, hikaye*, yollar; vaka kökü rapor*.py, testler)
+#          koşuyu değiştirmez: bir ölçümün sonucu politikaya girerse (ör. SS24'te
+#          seçilen dağıtım kuralı) o sonuç `parametreler`'e girer. rpt/'deki her
+#          modül iki listeden birindedir (tests/test_motor.py).
+#   ortak  perakende_analitik'te ORTAK_TOHUM + rpt kaynaklarının içe aktardığı
+#          ortak modüllerin içe aktarma kapanışı (AST; hakem gibi ulaşılmayan
+#          modüller girmez)
+#   v4     perakende_veri/v4/**/*.py
+KOSU_MODULLERI = (
+    "motor", "bilgi", "politika", "dagitim", "kahin", "aday", "miktar", "sansur", "egri",
+    "kaynak", "anlik", "oyun",
 )
+KOSU_DISI = ("olcutler", "hikaye", "hikaye_sec", "yollar")
+ORTAK_TOHUM = ("kaynak", "stok", "ozellikler", "carpanlar", "talep", "hazirlik")
+KOD_KOKLERI = {
+    "rpt": PAKET_KOKU,
+    "ortak": Path(ortak.__file__).resolve().parent,                 # perakende_analitik/
+    "v4": Path(_v4_paketi.__file__).resolve().parent,
+}
+ORTAK_PAKET = "perakende_analitik"
 
 GERCEK_SUTUNLARI = ("talep", "kendi_satis", "karsilanmayan", "ikameye_giden", "kalici_kayip")
 _AD_DESENI = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
@@ -102,33 +126,6 @@ _AD_DESENI = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 def dunya(olcek: str = "tam"):
     """v4 dünyası (`dunya_kur`, varsayılan tohum; süreç içi önbellek, TAM ~20 sn)."""
     return dunya_kur(OLCEKLER[olcek])
-
-
-@dataclass(frozen=True)
-class PolitikaBilgisi:
-    """Lumoda'nın politikalarının gördüğü sabitler (`dunya`'nın kamuya açık
-    yüzünden; `Gorunum` sözleşmesi). Karar modüllerine motor yerine bu verilir.
-
-    optionlar   option başına (`dunya.optionlar` sırası): kimlik ve ürün
-                alanları, `indirim_baslangic`; `plan_sezon` = zincir plan
-                λ'sı [lansman, indirim) (ilk alımın tabanı, ×0,93),
-                `plan_cikis` = [lansman, çıkış); `ilk_alim` (DEVAMLI 0);
-                tedarikçi alanları (`mense`, `ulke`, `ilk_siparis_hafta`,
-                `rpt_hafta`, `moq_option`, `uzmanlik`)
-    plan_hafta  sezonluk option × lansmandan beri hafta h: [lansman + 7h,
-                lansman + 7h + 7) ∩ [., çıkış) plan λ'sı, `plan_magaza`,
-                `plan_online`, `plan` (toplam)
-    plan_tablolari  yayımlanan `mfp_plan`, `range_plan`, `magaza_plan`
-
-    Plan λ'sı Lumoda'nın planıdır (sürprizi, gerçek esnekliği bilmez;
-    indirimden sonra planlanan indirim inancını taşır), gerçek talep değildir.
-    Okunmayanlar: `lam`, `gizli_*`, `esneklik*`, `sapma_*`, `ilk_siparisler`
-    (gerçekleşen teslim, hatalı adet), `gercek()`.
-    """
-
-    optionlar: pd.DataFrame
-    plan_hafta: pd.DataFrame
-    plan_tablolari: dict = field(repr=False)
 
 
 def _gun_tarihi(gun) -> np.ndarray:
@@ -315,19 +312,67 @@ def _kanonik(x):
     raise TypeError(f"önbellek anahtarına girmeyen parametre türü: {type(x).__name__} ({x!r})")
 
 
-def kod_dosyalari(kaynaklar=None) -> dict[str, Path]:
-    """Kod özetine giren dosyalar: `<önek>/<göreli yol>` → yol."""
-    kaynaklar = KOD_KAYNAKLARI if kaynaklar is None else kaynaklar
-    dosyalar: dict[str, Path] = {}
-    for onek, kok, desen in kaynaklar:
-        for y in Path(kok).glob(desen):
-            if y.is_file() and "__pycache__" not in y.parts:
-                dosyalar[f"{onek}/{y.relative_to(kok).as_posix()}"] = y
+def ice_aktarimlar(yol: Path, paket_adi: str) -> set[str]:
+    """Dosyanın içe aktardığı tam modül adları (AST; fonksiyon içi dahil;
+    göreli adlar `paket_adi` altına; `from m import a` hem `m` hem `m.a`)."""
+    agac = ast.parse(Path(yol).read_text(encoding="utf-8"), filename=str(yol))
+    adlar: set[str] = set()
+    for d in ast.walk(agac):
+        if isinstance(d, ast.Import):
+            adlar |= {a.name for a in d.names}
+        elif isinstance(d, ast.ImportFrom):
+            taban = ".".join([paket_adi] + ([d.module] if d.module else [])) if d.level else (d.module or "")
+            adlar.add(taban)
+            adlar |= {f"{taban}.{a.name}" for a in d.names}
+    return adlar
+
+
+def _paket_modulleri(adlar: set[str], paket_adi: str, kok: Path) -> set[str]:
+    """`adlar` içinde `paket_adi.X` biçimindeki, `kok/X.py`'si olan X'ler."""
+    on = paket_adi + "."
+    return {a[len(on):].split(".")[0] for a in adlar if a.startswith(on)} & {
+        y.stem for y in Path(kok).glob("*.py")}
+
+
+def ortak_kapanisi(rpt_dosyalari, ortak_koku: Path, tohum=ORTAK_TOHUM) -> list[str]:
+    """`tohum` + rpt dosyalarının içe aktardığı ortak modüllerden başlayıp
+    ortak paket içi içe aktarmalarla ulaşılan modüller (sıralı)."""
+    ortak_koku = Path(ortak_koku)
+    var = {y.stem for y in ortak_koku.glob("*.py")}
+    sira = {m for m in tohum if m in var}
+    for y in rpt_dosyalari:
+        sira |= _paket_modulleri(ice_aktarimlar(y, "rpt"), ORTAK_PAKET, ortak_koku)
+    gorulen: set[str] = set()
+    while sira:
+        m = sira.pop()
+        gorulen.add(m)
+        yeni = _paket_modulleri(ice_aktarimlar(ortak_koku / f"{m}.py", ORTAK_PAKET), ORTAK_PAKET, ortak_koku)
+        sira |= yeni - gorulen
+    return sorted(gorulen)
+
+
+def kod_dosyalari() -> dict[str, Path]:
+    """Kod özetine giren dosyalar: `<önek>/<göreli yol>` → yol (bkz. KOSU_MODULLERI)."""
+    rpt_koku, ortak_koku, v4_koku = (Path(KOD_KOKLERI[a]) for a in ("rpt", "ortak", "v4"))
+    rpt = [rpt_koku / f"{m}.py" for m in KOSU_MODULLERI if (rpt_koku / f"{m}.py").is_file()]
+    dosyalar = {f"rpt/{y.name}": y for y in rpt}
+    for m in ortak_kapanisi(rpt, ortak_koku):
+        dosyalar[f"ortak/{m}.py"] = ortak_koku / f"{m}.py"
+    for y in v4_koku.glob("**/*.py"):
+        if y.is_file() and "__pycache__" not in y.parts:
+            dosyalar[f"v4/{y.relative_to(v4_koku).as_posix()}"] = y
     return dict(sorted(dosyalar.items()))
 
 
+def _surum(paket: str) -> str | None:
+    try:
+        return importlib.metadata.version(paket)
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
 def kod_ozeti() -> str:
-    """`KOD_KAYNAKLARI`'nın göreli yol + içerik sha256'sı (satır sonları LF)."""
+    """`kod_dosyalari`'nın göreli yol + içerik sha256'sı (satır sonları LF)."""
     ozet = hashlib.sha256()
     for ad, yol in kod_dosyalari().items():
         ozet.update(ad.encode("utf-8") + b"\0")
@@ -366,7 +411,7 @@ def anahtar_icerigi(
         "gun_sayisi": None if gun_sayisi is None else int(gun_sayisi),
         "kod": kod_ozeti(),
         "veri": veri_parmak_izi(),
-        "surumler": {"numpy": np.__version__, "pandas": pd.__version__},
+        "surumler": {p: _surum(p) for p in ("numpy", "pandas", "pyarrow", "lightgbm", "scikit-learn")},
     }
 
 
@@ -437,10 +482,28 @@ def _oku(dizin: Path, anahtar: str) -> Kosu | None:
     meta = json.loads(meta_yolu.read_text(encoding="utf-8"))
     if meta.get("anahtar") != anahtar:
         return None
-    tablolar = {ad: pd.read_parquet(dizin / f"tablo_{ad}.parquet") for ad in meta["tablolar"]}
-    kayitlar = {ad: pd.read_parquet(dizin / f"kayit_{ad}.parquet") for ad in meta["kayitlar"]}
-    gercek = pd.read_parquet(dizin / "gercek.parquet")
+    try:
+        tablolar = {ad: pd.read_parquet(dizin / f"tablo_{ad}.parquet") for ad in meta["tablolar"]}
+        kayitlar = {ad: pd.read_parquet(dizin / f"kayit_{ad}.parquet") for ad in meta["kayitlar"]}
+        gercek = pd.read_parquet(dizin / "gercek.parquet")
+    except Exception as e:  # noqa: BLE001 — eksik ya da bozuk Parquet: kayıt silinir, yeniden koşulur
+        warnings.warn(f"bozuk koşu kaydı siliniyor ({type(e).__name__}): {dizin}", stacklevel=3)
+        shutil.rmtree(dizin, ignore_errors=True)
+        return None
     return Kosu(tablolar=tablolar, gercek=gercek, meta=meta, kayitlar=kayitlar, onbellekten=True)
+
+
+_SUREC_BASI = time.time()
+
+
+def _artiklari_sil(onbellek: Path) -> None:
+    """Bu süreçten önce başlamış (yarıda kalmış) `.yaziliyor-*` dizinlerini siler."""
+    for d in Path(onbellek).glob("*.yaziliyor-*"):
+        try:
+            if d.is_dir() and d.stat().st_mtime < _SUREC_BASI:
+                shutil.rmtree(d, ignore_errors=True)
+        except OSError:
+            pass
 
 
 def _yaz(dizin: Path, kosu: Kosu) -> None:
@@ -503,6 +566,7 @@ def kos(
                              turler=turler)
     anahtar = _ozet(icerik)
     if onbellek is not None:
+        _artiklari_sil(onbellek)
         k = _oku(_dizin(onbellek, ad, anahtar), anahtar)
         if k is not None:
             return k
@@ -551,9 +615,11 @@ def _oku_zorunlu(dizin: Path, anahtar: str) -> Kosu:
     return k
 
 
-def yayimlanan_bicim(tablolar: dict, olcek: str = "tam") -> dict:
-    """Temiz tablolara yayımlamadaki kirli kayıtları ekler (`uret.yayimla`'nın
-    `kirlet` adımı: aynı `kirli` akışı, aynı dünya). Lumoda + varsayılan
-    tohumlarla koşunun bu biçimi yayımlanan v4'tür."""
+def yayimlanan_bicim(tablolar: dict, olcek: str) -> dict:
+    """Temiz tablolara yayımlamadaki kirli kayıtları ekler: `uret.yayimla`'nın
+    `kirlet` adımı (aynı `kirli` akışı, aynı dünya; `yayimla` ham çıktı
+    aldığı için çağrılamaz, adım aynen tekrarlanır ve KÜÇÜK dünyada
+    `yayimla`'yla eşitliği test edilir). Lumoda + varsayılan tohumlarla
+    koşunun bu biçimi yayımlanan v4'tür."""
     w = dunya(olcek)
     return kirlet(akislar(w.tohum)["kirli"], dict(tablolar), w)

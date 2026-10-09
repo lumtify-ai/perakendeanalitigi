@@ -25,29 +25,34 @@ KUCUK = {"olcek": "kucuk", "gun_sayisi": GUN}
 
 
 def _kaynak_agaci(kok):
-    """Üç kaynak kümesini taklit eden geçici ağaç (rpt/, ortak kaynak.py, v4/)."""
-    (kok / "rpt" / "alt").mkdir(parents=True)
+    """Üç kaynak kökünü taklit eden geçici ağaç. rpt: listedeki (motor,
+    politika) ve dışındaki (hikaye) modüller; ortak: tohumdan (kaynak, stok)
+    ve rpt'nin içe aktarmasından (ekstra > derin) ulaşılanlar, ulaşılmayan hakem."""
+    (kok / "rpt").mkdir(parents=True)
     (kok / "rpt" / "motor.py").write_bytes(b"a = 1\n")
-    (kok / "rpt" / "alt" / "x.py").write_bytes(b"b = 2\n")
+    (kok / "rpt" / "politika.py").write_bytes(b"from perakende_analitik import ekstra\n")
+    (kok / "rpt" / "hikaye.py").write_bytes(b"h = 1\n")
     (kok / "rpt" / "notlar.txt").write_bytes(b"py olmayan dosya\n")
-    (kok / "ortak").mkdir()
-    (kok / "ortak" / "kaynak.py").write_bytes(b"c = 3\n")
+    o = kok / "ortak"
+    o.mkdir()
+    (o / "kaynak.py").write_bytes(b"c = 3\n")
+    (o / "stok.py").write_bytes(b"from perakende_analitik import kaynak\n")
+    (o / "ekstra.py").write_bytes(b"def f():\n    from perakende_analitik.derin import x\n")
+    (o / "derin.py").write_bytes(b"x = 1\n")
+    (o / "hakem.py").write_bytes(b"import perakende_veri\n")
     (kok / "v4" / "motor").mkdir(parents=True)
     (kok / "v4" / "motor" / "dongu.py").write_bytes(b"d = 4\n")
-    return (
-        ("rpt", kok / "rpt", "**/*.py"),
-        ("ortak", kok / "ortak", "kaynak.py"),
-        ("v4", kok / "v4", "**/*.py"),
-    )
+    return {"rpt": kok / "rpt", "ortak": o, "v4": kok / "v4"}
 
 
 def test_onbellek_anahtari_duyarli(tmp_path, monkeypatch):
-    """Anahtarın her bileşeni anahtarı değiştirir: ad, parametreler,
-    iki tohum, ölçek, gün sayısı, politika türü, üç kaynak kümesinin her
-    biri, v4 dosyasının parmak izi. Değiştirmeyenler: parametre sözlüğünün
-    sırası, satır sonları (CRLF/LF), kaynak kümesindeki `.py` dışı dosya."""
-    kaynaklar = _kaynak_agaci(tmp_path / "kod")
-    monkeypatch.setattr(motor, "KOD_KAYNAKLARI", kaynaklar)
+    """Anahtarın her bileşeni anahtarı değiştirir: ad, parametreler, iki
+    tohum, ölçek, gün sayısı, politika türü, koşuyu etkileyen her kaynak (rpt
+    listesi, ortak kapanış, v4), v4 dosyasının parmak izi. Değiştirmeyenler:
+    parametre sözlüğünün sırası, satır sonları (CRLF/LF), `.py` dışı dosya,
+    koşu dışı rpt modülü (hikaye; listede olmayan yeni modül), ortak
+    kapanışa girmeyen modül (hakem)."""
+    monkeypatch.setattr(motor, "KOD_KOKLERI", _kaynak_agaci(tmp_path / "kod"))
     db = tmp_path / "v4.duckdb"
     db.write_bytes(b"0" * 100)
     monkeypatch.setattr(motor, "VERI_YOLU", db)
@@ -56,6 +61,9 @@ def test_onbellek_anahtari_duyarli(tmp_path, monkeypatch):
                  operasyon_tohumu=motor.TOHUM, olcek="tam", gun_sayisi=None, turler={})
     a0 = motor.onbellek_anahtari(**temel)
     assert a0 == motor.onbellek_anahtari(**temel)
+    assert sorted(motor.kod_dosyalari()) == [
+        "ortak/derin.py", "ortak/ekstra.py", "ortak/kaynak.py", "ortak/stok.py",
+        "rpt/motor.py", "rpt/politika.py", "v4/motor/dongu.py"]
 
     degisik = {
         "ad": "baska_kol",
@@ -75,23 +83,26 @@ def test_onbellek_anahtari_duyarli(tmp_path, monkeypatch):
     with pytest.raises(TypeError):
         motor.onbellek_anahtari(**{**temel, "parametreler": {"f": len}})
 
-    # Kaynak kümeleri: her biri anahtarı değiştirir; CRLF ve .py dışı dosya değiştirmez
     kod = tmp_path / "kod"
-    (kod / "rpt" / "notlar.txt").write_bytes(b"degisti\n")
-    assert motor.onbellek_anahtari(**temel) == a0
-    (kod / "rpt" / "motor.py").write_bytes(b"a = 1\r\n")
-    assert motor.onbellek_anahtari(**temel) == a0
-    for dosya, icerik in (
-        (kod / "rpt" / "alt" / "x.py", b"b = 22\n"),
-        (kod / "ortak" / "kaynak.py", b"c = 33\n"),
+    for dosya, icerik in (                                    # değiştirmeyenler
+        (kod / "rpt" / "notlar.txt", b"degisti\n"),
+        (kod / "rpt" / "motor.py", b"a = 1\r\n"),
+        (kod / "rpt" / "hikaye.py", b"h = 2\n"),
+        (kod / "rpt" / "yeni.py", b"y = 1\n"),
+        (kod / "ortak" / "hakem.py", b"import perakende_veri.v4\n"),
+    ):
+        dosya.write_bytes(icerik)
+        assert motor.onbellek_anahtari(**temel) == a0, dosya
+    for dosya, icerik in (                                    # değiştirenler
+        (kod / "rpt" / "politika.py", b"from perakende_analitik import ekstra\nk = 1\n"),
+        (kod / "rpt" / "kahin.py", b""),                      # listede, sonradan yazılan modül
+        (kod / "ortak" / "stok.py", b"from perakende_analitik import kaynak\ns = 1\n"),
+        (kod / "ortak" / "derin.py", b"x = 2\n"),             # politika > ekstra > derin
         (kod / "v4" / "motor" / "dongu.py", b"d = 44\n"),
     ):
         once = motor.onbellek_anahtari(**temel)
         dosya.write_bytes(icerik)
         assert motor.onbellek_anahtari(**temel) != once, dosya
-    once = motor.onbellek_anahtari(**temel)
-    (kod / "rpt" / "yeni.py").write_bytes(b"")
-    assert motor.onbellek_anahtari(**temel) != once, "yeni modül"
 
     # v4 parmak izi: boyut ve değişiklik zamanı
     once = motor.onbellek_anahtari(**temel)
@@ -107,12 +118,53 @@ def test_onbellek_anahtari_duyarli(tmp_path, monkeypatch):
 
 
 def test_kod_kaynaklari_gercek_dosyalari_kapsar():
-    """Gerçek kaynak kümeleri: rpt/motor.py, ortak kaynak.py ve v4 motoru özete girer."""
+    """Gerçek kaynaklar: koşu modülleri ve ortak kapanış girer; ölçüm,
+    anlatı ve hakem girmez; sürümler lightgbm ve scikit-learn'ü taşır."""
     adlar = motor.kod_dosyalari()
-    assert "rpt/motor.py" in adlar and "rpt/kaynak.py" in adlar
-    assert "ortak/kaynak.py" in adlar
-    assert "v4/motor/dongu.py" in adlar and "v4/politika.py" in adlar
-    assert not any("hakem" in a for a in adlar)
+    for a in ("rpt/motor.py", "rpt/bilgi.py", "rpt/kaynak.py", "rpt/politika.py", "rpt/dagitim.py",
+              "ortak/kaynak.py", "ortak/stok.py", "ortak/ozellikler.py", "ortak/carpanlar.py",
+              "ortak/talep.py", "ortak/hazirlik.py", "ortak/agac.py", "ortak/kayip.py",
+              "v4/motor/dongu.py", "v4/politika.py"):
+        assert a in adlar, a
+    for a in ("rpt/hikaye.py", "rpt/olcutler.py", "rpt/yollar.py", "rpt/__init__.py",
+              "ortak/hakem.py", "ortak/sayi_denetimi.py", "ortak/degerlendir.py"):
+        assert a not in adlar, a
+    surum = motor.anahtar_icerigi(ad="a", parametreler={}, talep_tohumu=None, operasyon_tohumu=1,
+                                  olcek="tam", gun_sayisi=None, turler={})["surumler"]
+    assert surum["lightgbm"] and surum["scikit-learn"] and surum["numpy"]
+
+
+def _rpt_kapanisi(baslangic):
+    """rpt paketi içinde `baslangic` modüllerinden içe aktarmayla ulaşılanlar."""
+    var = {y.stem for y in motor.PAKET_KOKU.glob("*.py")}
+    gorulen, sira = set(), [m for m in baslangic if m in var]
+    while sira:
+        m = sira.pop()
+        if m in gorulen:
+            continue
+        gorulen.add(m)
+        for ad in motor.ice_aktarimlar(motor.PAKET_KOKU / f"{m}.py", "rpt"):
+            parca = ad.split(".")
+            if parca[0] == "rpt" and len(parca) > 1 and parca[1] in var:
+                sira.append(parca[1])
+    return gorulen
+
+
+def test_kosu_modulleri_listesi_kapali():
+    """rpt/'deki her modül ya koşuyu etkiler (KOSU_MODULLERI) ya etkilemez
+    (KOSU_DISI). Politika tarafının (politika, dagitim, kahin, motor) içe
+    aktardığı her rpt modülü listededir; oyun'un kapanışında liste dışı
+    yalnız KOSU_DISI olabilir (ölçüm: sonucu politikaya girerse
+    `parametreler`'e girer)."""
+    liste, disi = set(motor.KOSU_MODULLERI), set(motor.KOSU_DISI)
+    var = {y.stem for y in motor.PAKET_KOKU.glob("*.py")} - {"__init__"}
+    assert var <= liste | disi, f"sınıflandırılmamış rpt modülü: {var - liste - disi}"
+    assert not liste & disi
+    politika_tarafi = _rpt_kapanisi(("politika", "dagitim", "kahin", "motor"))
+    assert {"motor", "bilgi", "politika", "miktar"} <= politika_tarafi   # tarama boş dönmüyor
+    assert politika_tarafi <= liste, politika_tarafi - liste
+    oyun = _rpt_kapanisi(("oyun",))
+    assert "politika" in oyun and oyun - disi <= liste, oyun - disi - liste
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +231,46 @@ def test_onbellek_ikinci_cagrida_kosmaz(tmp_path, monkeypatch):
     (dizin / "meta.json").unlink()
     with pytest.raises(AssertionError, match="yeniden"):
         motor.kos(rpt=_KayitliRPT(), ad="lumoda_kayitli", parametreler={}, onbellek=tmp_path, **KUCUK)
+
+
+def test_bozuk_kayit_ve_artiklar(tmp_path):
+    """Meta'sı tam ama Parquet'i bozuk ya da eksik kayıt silinir ve yeniden
+    koşulur; bu süreçten eski `.yaziliyor-*` artığı silinir, yenisi kalır."""
+    ilk = motor.kos(ad="lumoda", parametreler={}, onbellek=tmp_path, **KUCUK)
+    (dizin,) = [d for d in tmp_path.iterdir() if d.is_dir()]
+    (dizin / "tablo_satis.parquet").write_bytes(b"bozuk")
+    with pytest.warns(UserWarning, match="bozuk"):
+        ikinci = motor.kos(ad="lumoda", parametreler={}, onbellek=tmp_path, **KUCUK)
+    assert not ikinci.onbellekten
+    _ayni_kosu(ilk, ikinci)
+    (dizin / "gercek.parquet").unlink()
+    with pytest.warns(UserWarning, match="bozuk"):
+        assert not motor.kos(ad="lumoda", parametreler={}, onbellek=tmp_path, **KUCUK).onbellekten
+    assert motor.kos(ad="lumoda", parametreler={}, onbellek=tmp_path, **KUCUK).onbellekten
+
+    eski, yeni = tmp_path / "x_1.yaziliyor-1", tmp_path / "x_2.yaziliyor-2"
+    eski.mkdir()
+    yeni.mkdir()
+    os.utime(eski, (1_000_000_000, 1_000_000_000))
+    os.utime(yeni, (motor._SUREC_BASI + 3600, motor._SUREC_BASI + 3600))
+    motor.kos(ad="lumoda", parametreler={}, onbellek=tmp_path, **KUCUK)
+    assert not eski.exists() and yeni.exists()
+
+
+def test_yayimlanan_bicim_yayimla_ile_ayni():
+    """KÜÇÜK dünyada tam koşu: `yayimlanan_bicim(hareket_tablolari)` =
+    `uret.yayimla` (kirletme adımı birebir)."""
+    from perakende_veri.v4.motor import simule_et
+    from perakende_veri.v4.tablolar import hareket_tablolari
+    from perakende_veri.v4.uret import yayimla
+
+    w = motor.dunya("kucuk")
+    ham = simule_et(w)
+    beklenen = yayimla(w, ham)
+    yeni = motor.yayimlanan_bicim(hareket_tablolari(w, ham), "kucuk")
+    assert sorted(yeni) == sorted(beklenen)
+    for ad in beklenen:
+        pd.testing.assert_frame_equal(yeni[ad], beklenen[ad], obj=ad)
 
 
 def _parquet_turu(df):
@@ -261,6 +353,9 @@ def test_politika_gorunumu_kucuk():
     ilk alım, tedarikçi alanları; gizli alan adı yok."""
     w = motor.dunya("kucuk")
     pb = motor.politika_gorunumu(w)
+    from rpt.bilgi import PolitikaBilgisi
+
+    assert isinstance(pb, PolitikaBilgisi)
     o = pb.optionlar
     assert list(o["option_id"]) == list(w.optionlar["option_id"])
     for s in ("sezon_kodu", "line", "lansman_tarihi", "indirim_baslangic", "cikis_tarihi",
@@ -350,7 +445,7 @@ def test_mevcut_kol_yayimlanan_tablolarla_ayni():
     k = motor.kos(ad="lumoda", parametreler={}, onbellek=motor.KOSU_DIZINI)
     print(f"\nkoşu: {'önbellekten' if k.onbellekten else 'yeni'}; "
           f"{k.meta.get('sure_sn')} sn; tepe bellek {k.meta.get('tepe_bellek_gb')} GB")
-    tablolar = motor.yayimlanan_bicim(k.tablolar)
+    tablolar = motor.yayimlanan_bicim(k.tablolar, "tam")
 
     yayimlanan = sorted(p.stem for p in parquet.glob("*.parquet"))
     assert sorted(tablolar) == yayimlanan

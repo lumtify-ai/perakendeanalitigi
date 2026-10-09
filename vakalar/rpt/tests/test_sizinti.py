@@ -31,10 +31,12 @@ PAKET = Path(rpt.__file__).resolve().parent
 
 KARAR_MODULLERI = (
     "kaynak", "egri", "sansur", "aday", "miktar", "dagitim", "politika",
-    "hikaye", "hikaye_sec", "anlik",
+    "hikaye", "hikaye_sec", "anlik", "bilgi",
 )
 IZINLI_MODULLER = ("motor", "kahin", "olcutler", "oyun", "yollar")
 GECICI_V3 = {"aday": "Görev 6", "miktar": "Görev 6", "dagitim": "Görev 7", "politika": "Görev 7"}
+# Muafiyet yalnız küçülür; son görev GECICI_V3'ün boş olduğunu sınamalı.
+GECICI_V3_ILK = frozenset({"aday", "miktar", "dagitim", "politika"})
 
 
 def yasaklar(paket_adi: str) -> tuple[str, ...]:
@@ -115,6 +117,10 @@ def test_paket_karar_modulleri_motoru_gormez():
     assert not kalici, f"karar modülü gizli gerçeğin kapısını içe aktarıyor: {kalici}"
     eskimis = [m for m in GECICI_V3 if m not in bulunan]
     assert not eskimis, f"v3'ten kurtulmuş; GECICI_V3'ten silin: {eskimis}"
+
+
+def test_gecici_v3_yalniz_kuculur():
+    assert set(GECICI_V3) <= GECICI_V3_ILK
 
 
 def test_her_modul_siniflandirilmis():
