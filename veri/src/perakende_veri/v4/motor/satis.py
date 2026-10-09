@@ -7,7 +7,8 @@ Rastgelelik (global kısıt): her gün her amaç (`talep`, `indirim`, `iade`,
 talebi yalnız (u_talep[d, c], λ, fiyat oranı), işlem indirimi yalnız
 (u_indirim[d, c]), iadesi yalnız (u_iade[d, c], gecikmeli satış) ile
 belirlenir. İkame çekilişleri (`beden_ikame`, `ikame`) müşteri davranışıdır:
-dünyanın tohumuyla çekilir.
+talep gibi talep tohumuyla çekilir (varsayılan: dünyanın tohumu;
+`simule_et(talep_tohumu=...)`).
 
 Talep (spec §5.2): `oran_talep = max(markdown, kampanya)`; `λ = gerçek
 λ(d) × (1 − oran_talep)^(−ε)`; `talep = PoissonTersCDF(u_talep, λ)`. Aynı
@@ -37,12 +38,13 @@ def hat_indisi(hucre_online: np.ndarray, hucre_outlet_akisi: np.ndarray) -> np.n
     ).astype(np.intp)
 
 
-def tekduzeler(d: int, C: int, dunya_tohumu: int, operasyon_tohumu: int) -> dict[str, np.ndarray]:
+def tekduzeler(d: int, C: int, talep_tohumu: int, operasyon_tohumu: int) -> dict[str, np.ndarray]:
     """Günün üç tekdüze dizisi, sabit sırayla ve her gün tam birer kez.
-    Talep dünyanın tohumuyla (müşteri akışı dünyaya aittir), indirim ve
-    iade operasyon tohumuyla çekilir."""
+    Talep talep tohumuyla (müşteri akışı; motorda varsayılanı dünyanın
+    tohumu, bkz. `simule_et(talep_tohumu=...)`), indirim ve iade operasyon
+    tohumuyla çekilir."""
     return {
-        "talep": sayac_uretici(d, "talep", dunya_tohumu).random(C),
+        "talep": sayac_uretici(d, "talep", talep_tohumu).random(C),
         "indirim": sayac_uretici(d, "indirim", operasyon_tohumu).random(C),
         "iade": sayac_uretici(d, "iade", operasyon_tohumu).random(C),
     }
@@ -166,7 +168,14 @@ def _ikame_yapisi(dunya) -> dict:
     return yapi
 
 
-def ikame(stok_sonrasi: np.ndarray, kayip: np.ndarray, dunya, d: int, lam: np.ndarray | None = None):
+def ikame(
+    stok_sonrasi: np.ndarray,
+    kayip: np.ndarray,
+    dunya,
+    d: int,
+    lam: np.ndarray | None = None,
+    tohum: int | None = None,
+):
     """Stoksuzluğun karşılanmamış talebini ikameye çevirir; tek tur.
 
     `stok_sonrasi` [C] bugünkü birincil satıştan sonra hücrenin satabileceği
@@ -175,6 +184,8 @@ def ikame(stok_sonrasi: np.ndarray, kayip: np.ndarray, dunya, d: int, lam: np.nd
     `dunya.lam.gun(d)`), alıcı ağırlığıdır (çekicilik × beden payı zaten
     içindedir; penceresi kapalı ya da mağazası kapalı hücrede 0 → alıcı
     olamaz).
+    `tohum` iki ikame sayacının tohumudur (müşteri davranışı; `None` →
+    `dunya.tohum`, motorda `simule_et`'in talep tohumu).
 
     1. Beden ikamesi: `n = Binom(kayip, BEDEN_IKAME_ORANI)` (sayaç
        "beden_ikame"); aynı mağaza ve option'da önce bir büyük, sonra bir
@@ -195,8 +206,9 @@ def ikame(stok_sonrasi: np.ndarray, kayip: np.ndarray, dunya, d: int, lam: np.nd
     """
     C = len(kayip)
     kayip = np.asarray(kayip, dtype=np.int64)
-    u1 = sayac_uretici(d, "beden_ikame", dunya.tohum).random(C)
-    u2 = sayac_uretici(d, "ikame", dunya.tohum).random(C)
+    tohum = dunya.tohum if tohum is None else tohum
+    u1 = sayac_uretici(d, "beden_ikame", tohum).random(C)
+    u2 = sayac_uretici(d, "ikame", tohum).random(C)
     satis = np.zeros(C, dtype=np.int64)
     kurtarilan = np.zeros(C, dtype=np.int64)
     kaynak = np.flatnonzero(kayip > 0)

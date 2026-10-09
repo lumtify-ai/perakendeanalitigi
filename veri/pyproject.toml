@@ -23,4 +23,5 @@ where = ["src"]
 pythonpath = ["src"]
 markers = [
     "yavas: tam olcekli, yavas testler (-m \"not yavas\" ile atlanir)",
+    "veri: yayimlanan v4 verisini (cikti/v4) gerektirir; yavas ile birlikte",
 ]

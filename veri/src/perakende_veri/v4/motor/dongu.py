@@ -174,6 +174,7 @@ def simule_et(
     gun_sayisi: int | None = None,
     operasyon_tohumu: int = sabitler.TOHUM,
     kayit_talep: bool = False,
+    talep_tohumu: int | None = None,
 ) -> dict:
     """Motoru koşar; ham sonuçları (gün, hücre/SKU/mağaza indisli) döndürür.
 
@@ -181,8 +182,13 @@ def simule_et(
     gun_sayisi        yalnız ilk n günü koş; ilk n gün tam koşunun ilk n
                       günüyle birebir aynıdır
     operasyon_tohumu  indirim, iade ve kalite çekilişlerinin tohumu (talep
-                      dünyanın tohumuyla çekilir)
+                      ve ikame `talep_tohumu`yla çekilir)
     kayit_talep       True ise `talep` [D, C] int16 de döner
+    talep_tohumu      talep, `beden_ikame` ve `ikame` tekdüzelerinin tohumu;
+                      None ise `dunya.tohum` (yayımlanan v4 bu yolla
+                      üretildi). Değer verilirse yalnız bu üç çekiliş
+                      değişir: dünya (mağazalar, ürünler, beklenen talep,
+                      sürprizler) ve operasyon çekilişleri aynı kalır
 
     Dönen sözlük: `satis` (gun, hucre, adet, tutar, indirim_tutari,
     kampanya_id = fiyatı belirleyen kampanyanın `kampanya` satır konumu,
@@ -202,6 +208,7 @@ def simule_et(
     pol = Politikalar() if politikalar is None else politikalar
     w = dunya
     D = w.gun_sayisi if gun_sayisi is None else gun_sayisi
+    t_tohum = w.tohum if talep_tohumu is None else talep_tohumu
     C, S, O, M = len(w.cesit), len(w.urunler), len(w.optionlar), len(w.magazalar)
     opt = w.optionlar
     ho, hs, hm = w.hucre_option, w.hucre_sku, w.hucre_magaza
@@ -580,7 +587,7 @@ def simule_et(
             kay.fiyat.append((d, oo, hh, z.fiyat_orani[oo, hh].copy()))
 
         # 12) Fiyat
-        u = tekduzeler(d, C, w.tohum, operasyon_tohumu)
+        u = tekduzeler(d, C, t_tohum, operasyon_tohumu)
         md = z.fiyat_orani[ho, hat_c]
         kamp = w.kampanya_takvimi(d)[hm, ho]
         oran_talep = np.maximum(md, kamp)
@@ -599,7 +606,7 @@ def simule_et(
         kayip = talep - satilan
 
         # 15) İkame (tek tur; alıcının kalan stoğundan, aynı fiyat kuralıyla)
-        ik, kayip = ikame(np.where(onl, z.depo[hs], z.stok), kayip, w, d, lam_d)
+        ik, kayip = ikame(np.where(onl, z.depo[hs], z.stok), kayip, w, d, lam_d, tohum=t_tohum)
         alan = np.flatnonzero(ik > 0)
         if alan.size:
             a = ik[alan]
