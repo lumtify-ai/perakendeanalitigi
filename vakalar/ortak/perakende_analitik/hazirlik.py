@@ -9,6 +9,10 @@ kendisi burada durur.
                    satır grubu olarak eklenir: bütün pencere bellekte hiç birlikte
                    durmaz.
     carpanlar_yaz  `carpanlar.ogren`, yalnız `ogrenme_bitis`e dek stoklu günlerle
+    carpanlar_kapanmis
+                   karar anı çarpanları: `carpanlar.ogren`, yalnız karar anında
+                   kapanmış sezonların stoklu günleriyle (`talep.Basit(karar_ani=t)`
+                   için; dosyaya yazmaz, `Carpanlar` döndürür)
     kestirici      "naif" / "basit" / "ml"
     kayip_yaz      bir kestiricinin kayıp tablosu: `egit` bütün pencerenin stoklu
                    günleriyle, `tahmin` ve `kayip.kayip_yaz` yalnız `bos` ve
@@ -32,6 +36,7 @@ from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -132,6 +137,71 @@ def carpanlar_yaz(con, gunluk: Path, yol: Path, ogrenme_bitis: date) -> int:
 
     _atomik(yol, ".pkl.yaziliyor", yaz)
     return n
+
+
+def _ilk_tarih(gunluk: Path) -> pd.Timestamp:
+    """gunluk.parquet'in ilk günü (satır grubu istatistiklerinden; yoksa sütundan)."""
+    meta = pq.ParquetFile(gunluk).metadata
+    i = meta.schema.to_arrow_schema().get_field_index("tarih")
+    enler = []
+    for g in range(meta.num_row_groups):
+        st = meta.row_group(g).column(i).statistics
+        if st is None or not st.has_min_max:
+            enler = None
+            break
+        enler.append(pd.Timestamp(st.min))
+    if enler:
+        return min(enler)
+    return pd.Timestamp(pd.read_parquet(gunluk, columns=["tarih"])["tarih"].min())
+
+
+def kapanmis_sezonlar(con, gunluk: Path, karar_ani: date) -> pd.DataFrame:
+    """`karar_ani`de kapanmış ve günlük pencereye bütünüyle giren sezonlar:
+    `sezon_kodu, lansman, cikis` (dalgaların en erken lansmanı, en geç çıkışı);
+    `cikis < karar_ani` ve `lansman >=` günlük tablonun ilk günü (pencerenin
+    başında yarım kalan sezon, v4'te AW22, kullanılmaz)."""
+    s = con.execute("""
+        select sezon_kodu::varchar as sezon_kodu, min(lansman_tarihi) as lansman,
+               max(cikis_tarihi) as cikis
+        from sezon group by 1 order by 2
+    """).fetchdf()
+    t = pd.Timestamp(karar_ani)
+    return s[(s["cikis"] < t) & (s["lansman"] >= _ilk_tarih(gunluk))].reset_index(drop=True)
+
+
+def carpanlar_kapanmis(con, gunluk: Path, karar_ani: date) -> carpanlar.Carpanlar:
+    """Karar anında bilinen çarpanlar: `carpanlar.ogren`, yalnız `karar_ani`de
+    kapanmış sezonların (`kapanmis_sezonlar`) stoklu günleriyle.
+
+    Satırlar: `tarih < karar_ani`, `durum = stoklu` ve ya ürünün sezonu kapanmış
+    ya da ürün devamlı (`DEVAMLI`) ve gün kapanmış sezonların aralığında
+    `[ilk lansman, son çıkış)`. Devamlı ürünlerin günleri böylece karar anına dek
+    haftadan haftaya büyümez: çarpanlar yalnız kapanmış sezon kümesiyle değişir
+    (çağıran sezon başına önbellekleyebilir). Özellik sütunları `carpanlar_yaz`ınki
+    (`CARPAN_OZELLIKLERI`). Kapanmış sezon yoksa ValueError."""
+    sezonlar = kapanmis_sezonlar(con, gunluk, karar_ani)
+    if sezonlar.empty:
+        raise ValueError(f"carpanlar_kapanmis: {karar_ani} tarihinde kapanmış sezon yok")
+    bas, son = sezonlar["lansman"].min(), sezonlar["cikis"].max()
+    t = pd.Timestamp(karar_ani)
+    df = _oku(gunluk, _GOZLEM_SUTUNLARI, ("stoklu",), aralik=(bas, t))
+    urun = con.execute("select urun_id::varchar as urun_id, sezon_kodu::varchar as sezon "
+                       "from urun").fetchdf()
+    kapali = set(sezonlar["sezon_kodu"])
+    # ürün kategorisi başına: 1 kapanmış sezon, 2 devamlı, 0 öteki (satır başına Python yok)
+    tur = urun.set_index("urun_id")["sezon"].map(
+        lambda z: 1 if z in kapali else (2 if z == "DEVAMLI" else 0))
+    kat = df["urun_id"].astype("category")
+    kod = tur.reindex(kat.cat.categories.astype(str)).fillna(0).to_numpy(np.int8)
+    kodlar = kat.cat.codes.to_numpy()
+    satir = np.where(kodlar >= 0, kod[np.maximum(kodlar, 0)], 0)
+    sec = (satir == 1) | ((satir == 2) & (df["tarih"] < son).to_numpy())
+    df = df[sec].reset_index(drop=True)
+    df = ozellikler.ekle(con, df, CARPAN_OZELLIKLERI)
+    c = carpanlar.ogren(df)
+    del df
+    gc.collect()
+    return c
 
 
 def kestirici(ad: str, carpan: Path):

@@ -36,6 +36,14 @@ en az bir stoklu bedeni olan günler; tahmin `λ_opt × karakter_d × pay_s`.
 boşluğun bir ucu açıksa yalnız bir yandan — yaşam çarpanı uzatır). Option
 mağazada hiç stoklu değilse zincir yedeği, o da yoksa son yedek.
 
+**Basit, karar anı** (`karar_ani=t`, karar pazartesisi): `t`'de ve sonrasındaki
+satırlar hiçbir şeyi etkilemez. Havuz (beden payı, göreli hız, son yedek, option
+ve zincir dizinleri) yalnız `tarih < t` stoklu satırlarıdır; komşuluk
+`[d − 14, min(d + 14, t − 1)]`, en yakın 28 gün yalnız geriden. Yalnız `t`'den
+önceki hücre-günler kestirilir (`tarih >= t` hedef: ValueError). Çarpanlar
+kurucuya karar anında bilinenlerden verilir (`hazirlik.carpanlar_kapanmis`).
+`None` bugünkü Basit'tir (geriye dönük; yok-satma sayıları).
+
 **Zincir yedeği.** Mağazanın göreli hızı `r_m`: bir option'ın orada stoklu
 bir günde ne hızla sattığı, zincirinkine oranla — `(Σ s ÷ Σ karakter × P)`
 mağazanın line × alt kategori segmentinde ÷ aynısı zincirin segmentinde
@@ -79,6 +87,7 @@ penceresi `searchsorted` ile O(log n), en yakın 28 gün ikili aramayla.
 Satır başına Python yok.
 """
 
+from datetime import date
 from typing import Protocol
 
 import lightgbm as lgb
@@ -399,6 +408,20 @@ class _Havuz:
         return np.where(np.isnan(sonuc), self.hiz_genel, sonuc)
 
 
+_KIMLIK = ("magaza_id", "urun_id", "option_id", "alt_kategori", "line")   # `_Kodlar`ın evrenleri
+
+
+def _karar_oncesi(df: pd.DataFrame, karar_ani: pd.Timestamp) -> pd.DataFrame:
+    """`tarih < karar_ani` satırları; kimlik sütunlarının kullanılmayan kategorileri
+    atılır (havuzun kod evreni yalnız karar anından önceki satırlardan gelir)."""
+    sec = (df["tarih"] < karar_ani).to_numpy()
+    df = df[sec].copy(deep=False)          # süzme kopyalar; sığ kopya yalnız bayrağı temizler
+    for c in _KIMLIK:
+        if c in df.columns and isinstance(df[c].dtype, pd.CategoricalDtype):
+            df[c] = df[c].cat.remove_unused_categories()
+    return df
+
+
 def _sonlu(ad: str, x: np.ndarray) -> np.ndarray:
     """NaN/inf kümülatif toplamı zehirler ve sessizce yedeğe düşürür: açık hata."""
     if not np.isfinite(x).all():
@@ -480,14 +503,32 @@ class Naif:
 # ------------------------------------------------------------------ Basit
 
 class Basit:
-    """Stoksuz günün ±`komsu_gun` içindeki stoklu option-günleri, karakterle düzeltilmiş."""
+    """Stoksuz günün ±`komsu_gun` içindeki stoklu option-günleri, karakterle düzeltilmiş.
 
-    def __init__(self, komsu_gun: int = 14, *, carpanlar: Carpanlar):
+    `karar_ani=t` (karar pazartesisi): `t`'de ve sonrasındaki hiçbir satır
+    kestirimi etkilemez. `egit` havuzu `tarih < t` stoklu satırlarıyla kurar (beden
+    payı, göreli hız, son yedek, option ve zincir dizinleri); kimlik sütunlarının
+    kullanılmayan kategorileri atılır, yani yalnız `t`'den sonra görünen mağaza ya da
+    option havuzun kod evrenine de girmez. `tahmin` komşuluğu
+    `[d − komsu_gun, min(d + komsu_gun, t − 1)]` ile keser; en yakın 28 gün yedeği
+    havuzdan, yani yalnız `t`'den öncekilerden seçilir. Yalnız `t`'den önceki
+    hücre-günler kestirilir: hedefte `tarih >= t` satırı varsa ValueError.
+    Çarpanlar kurucuya verilir; karar anında bilinenlerden öğrenilmesi
+    (`hazirlik.carpanlar_kapanmis`) çağıranın işidir. `None`: bütün havuz, iki yan
+    (bugünkü davranış, birebir)."""
+
+    def __init__(self, komsu_gun: int = 14, *, carpanlar: Carpanlar,
+                 karar_ani: date | pd.Timestamp | None = None):
         self.komsu_gun = komsu_gun
         self.carpanlar = carpanlar
+        self.karar_ani = None if karar_ani is None else pd.Timestamp(karar_ani).normalize()
+        self._t_gun = (None if karar_ani is None
+                       else int(gun_sayisi(pd.Series([self.karar_ani]))[0]))
 
     def egit(self, gozlem: pd.DataFrame) -> None:
         df = yalniz_stoklu(gozlem)
+        if self.karar_ani is not None:
+            df = _karar_oncesi(df, self.karar_ani)
         h = self._havuz = _Havuz(df)
         k = h.k
         payda = (_sonlu("karakter", _c.karakter(df, self.carpanlar).to_numpy())
@@ -498,8 +539,12 @@ class Basit:
         h.birak()
 
     def _hiz(self, dizin: _Dizin, grup: np.ndarray, gun: np.ndarray) -> np.ndarray:
-        """±komsu_gun; yoksa en yakın YEDEK_GUN anahtar. Grup havuzda yoksa NaN."""
-        lo, hi = dizin.aralik(grup, gun - self.komsu_gun, gun + self.komsu_gun)
+        """±komsu_gun (karar anında üst uç t − 1'de kesilir); yoksa en yakın YEDEK_GUN
+        anahtar. Grup havuzda yoksa NaN."""
+        ust = gun + self.komsu_gun
+        if self._t_gun is not None:
+            ust = np.minimum(ust, self._t_gun - 1)
+        lo, hi = dizin.aralik(grup, gun - self.komsu_gun, ust)
         hiz = _bolum(dizin.toplam("s", lo, hi), dizin.toplam("p", lo, hi), hi > lo)
         kalan = np.flatnonzero(np.isnan(hiz))
         if len(kalan):
@@ -510,6 +555,10 @@ class Basit:
     def tahmin(self, hucre_gunler: pd.DataFrame) -> pd.Series:
         h = self._havuz
         m, u, o, a, gun = h.k.hedef(hucre_gunler)
+        if self._t_gun is not None and (gun >= self._t_gun).any():
+            n = int((gun >= self._t_gun).sum())
+            raise ValueError(f"Basit: {n} hedef satırı karar_ani ({self.karar_ani.date()}) "
+                             "gününde ya da sonrasında; karar anında yalnız öncesi kestirilir")
         olcek = _sonlu("karakter", _c.karakter(hucre_gunler, self.carpanlar).to_numpy())
         olcek = olcek * h.pay(m, u, o)
         hiz = self._hiz(self._mo, h.k.mo(m, o), gun)
