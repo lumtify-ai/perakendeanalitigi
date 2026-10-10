@@ -12,8 +12,9 @@ adettir; kolideki mal mağazaya yalnız tam koli olarak gider.
   2. **Koli aşaması.** Kalan ihtiyaçta (mağaza, option) başına koli kuralı
      (`koli_uygun`) geçerse ve option'ın kapalı kolisi varsa tam koli,
      önceliğe göre; her koliden sonra kalan ihtiyaç yeniden değerlendirilir.
-     Koli tavana sayılmaz (tavan açık toplamanın sınırı); sınırı yalnız
-     kapalı koli stoğu. Kolinin içerik bedenlerinden birinin hücresi maskeliyse
+     **Koli tavana hiç sayılmaz, tavan sonlu olsa da** (Ruling R16; tavan
+     haftalık açık toplamanın sınırıdır, v2 anlamı); koli aşamasının sınırı
+     yalnız kapalı koli stoğu. Kolinin içerik bedenlerinden birinin hücresi maskeliyse
      o çifte koli gitmez.
 
 Düşüm `dagit` içinde yapılır (`defter.dus_acik`, `defter.dus_koli`).
@@ -197,7 +198,10 @@ class Sevk:
     acik_adet       açık aşamada toplanan adet (kısıtsızda bütün gönderim)
     koli_sayisi     gönderilen tam koli
     koli_adet       kolilerle giden adet
-    tavan_dolulugu  açık adet / tavan (tavan ∞ ya da 0 iken 0)
+    tavan_dolulugu  açık adet / ⌊tavan⌋ (açık aşama en çok ⌊tavan⌋ adet
+                    toplar; bağlayan kesirli tavanda 1,0). Tavan ∞ ise ya da
+                    ⌊tavan⌋ = 0 ise (o zaman açık adet de 0) 0. Kolideki adet
+                    sayılmaz.
     """
 
     hucre_adet: np.ndarray
@@ -242,6 +246,7 @@ def _acik_orantili(istek, z: _Dizinler, stok, tavan_adet) -> np.ndarray:
     x = _en_buyuk_kalan(istek, z.hucre_sku, stok)
     if tavan_adet is not None and x.sum() > tavan_adet:
         x = _en_buyuk_kalan(x, np.zeros(len(x), dtype=np.int64), np.array([tavan_adet]))
+        assert x.sum() <= tavan_adet, "orantılı kesim tavanı aştı"
     return x
 
 
@@ -369,7 +374,7 @@ def _kolileri_ac(defter, z: _Dizinler, sku_adet: np.ndarray) -> None:
     koli = np.zeros(len(z.koli_adedi), dtype=np.int64)
     np.maximum.at(koli, z.sku_option, gerek)
     defter.dus_koli(koli)
-    defter.acik = defter.acik + koli[z.sku_option] * ic
+    defter.acik += koli[z.sku_option] * ic        # yerinde (dus_koli gibi): defterin dizisi değişmez
 
 
 def dagit(
@@ -443,7 +448,7 @@ def dagit(
         acik_adet=acik_adet,
         koli_sayisi=int(koli.sum()),
         koli_adet=int(koli_hucre.sum()),
-        tavan_dolulugu=acik_adet / tavan if math.isfinite(tavan) and tavan > 0 else 0.0,
+        tavan_dolulugu=acik_adet / tavan_adet if tavan_adet else 0.0,
     )
 
 

@@ -217,7 +217,7 @@ def test_tavan_asilmaz():
     d = _defter(w, acik=np.full(5, 100), kapali=[0])
     sevk = _dagit(w, d, istek, tavan=7.5, kural=KOLI_KURALLARI["yok"]())
     assert sevk.acik_adet == 7 and sevk.hucre_adet.sum() == 7
-    assert sevk.tavan_dolulugu == pytest.approx(7 / 7.5)
+    assert sevk.tavan_dolulugu == 1.0                  # bağlayan kesirli tavan: ⌊7,5⌋ = 7 dolu
     # Koli tavana sayılmaz: tavan 0'da da tam koli gider
     d = _defter(w, acik=np.full(5, 100), kapali=[5])
     sevk = _dagit(w, d, _istek(w, {(0, 0): PAKET}), tavan=0.0)
@@ -226,6 +226,27 @@ def test_tavan_asilmaz():
     d = _defter(w, acik=np.full(5, 100), kapali=[0])
     sevk = _dagit(w, d, istek, tavan=7.5, oncelik="orantili")
     assert sevk.acik_adet == 7
+
+
+def test_tavan_dolulugu_kesirli_tavanda():
+    """Doluluk ⌊tavan⌋'a bölünür: bağlayan kesirli tavan 1,0; bağlamayan
+    kesir; ⌊tavan⌋ = 0 iken 0; koli tavana sayılmaz (sonlu tavanda da)."""
+    w = _dunya(magaza=2)
+    for oncelik in ("cover", "orantili"):
+        d = _defter(w, acik=np.full(5, 100), kapali=[0])
+        sevk = _dagit(w, d, _istek(w, {(0, 0): [9] * 5, (1, 0): [9] * 5}), tavan=12.9,
+                      oncelik=oncelik, kural=KOLI_KURALLARI["yok"]())
+        assert sevk.acik_adet == 12 and sevk.tavan_dolulugu == 1.0
+    d = _defter(w, acik=np.full(5, 100), kapali=[0])
+    sevk = _dagit(w, d, _istek(w, {(0, 0): [1, 1, 1, 0, 0]}), tavan=12.9)
+    assert sevk.tavan_dolulugu == pytest.approx(3 / 12)
+    d = _defter(w, acik=np.full(5, 100), kapali=[3])
+    sevk = _dagit(w, d, _istek(w, {(0, 0): PAKET}), tavan=0.7)
+    assert sevk.acik_adet == 0 and sevk.koli_sayisi == 1 and sevk.tavan_dolulugu == 0.0
+    # Koli tavana sayılmaz: tavan 2, açık 2 adet + 1 koli (7 adet) gider, doluluk 1,0
+    d = _defter(w, acik=[0, 0, 2, 0, 0], kapali=[3])
+    sevk = _dagit(w, d, _istek(w, {(0, 0): PAKET + np.array([0, 0, 2, 0, 0])}), tavan=2.0)
+    assert sevk.acik_adet == 2 and sevk.koli_sayisi == 1 and sevk.tavan_dolulugu == 1.0
 
 
 def test_tavan_sonsuzken_doluluk_sifir():
@@ -363,6 +384,17 @@ def test_kisitsiz_butun_stok_acik_gibi():
     assert d.kapali.tolist() == [0] and d.acik.tolist() == [2, 4, 1, 2, 2]
     with pytest.raises(ValueError):
         _dagit(w, d, _istek(w, {(0, 0): [0, 0, 1, 0, 0]}), kural=KISITSIZ, tavan=10.0)
+
+
+def test_kisitsiz_defter_dizileri_yerinde_degisir():
+    """Kısıtsızda koli açma defterin dizilerini yerinde değiştirir: önceden
+    alınmış başvuru değişikliği görür."""
+    w = _dunya(magaza=1)
+    d = _defter(w, acik=np.zeros(5), kapali=[2])
+    acik, kapali = d.acik, d.kapali
+    _dagit(w, d, _istek(w, {(0, 0): [0, 0, 3, 0, 0]}), kural=KISITSIZ)
+    assert d.acik is acik and d.kapali is kapali
+    assert acik.tolist() == [2, 4, 1, 2, 2] and kapali.tolist() == [0]
 
 
 def test_kisitsiz_orantili_motor_kesimiyle_ayni():
