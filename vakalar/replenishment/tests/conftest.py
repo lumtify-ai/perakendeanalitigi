@@ -24,7 +24,6 @@ import pytest
 
 # Henüz v4'e taşınmamış v2 testleri: modül adı -> taşınacağı görev
 GECICI_V2: dict[str, str] = {
-    "test_ihtiyac": "Görev 5",
     "test_dagitim": "Görev 6",
     "test_tahmin": "Görev 7",
     "test_kalibrasyon": "Görev 9",

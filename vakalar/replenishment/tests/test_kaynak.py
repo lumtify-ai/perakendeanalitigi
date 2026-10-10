@@ -164,6 +164,12 @@ def test_harita_hucre_dizileri_dunyanin_aynisi(kucuk):
     assert h.oc.shape == (C,) and h.sku_option.shape == (S,) and h.line.shape == (O,)
     assert np.array_equal(h.sku_option, w.sku_option)
     assert h.line.tolist() == w.optionlar["line"].astype(str).tolist()
+    # beden bölmesi alanları (ihtiyac): option kategorisi / beden seti, SKU beden sırası ve zincir payı
+    assert h.option_kategori.tolist() == w.optionlar["ust_kategori"].astype(str).tolist()
+    assert h.option_beden_seti.tolist() == w.optionlar["beden_seti"].astype(str).tolist()
+    assert np.array_equal(h.sku_beden, w.urunler["beden_sira"]) and h.sku_beden.min() == 1
+    assert np.array_equal(h.sku_beden_payi, w.sku_beden_payi)
+    assert np.allclose(np.bincount(h.sku_option, weights=h.sku_beden_payi), 1.0)
 
 
 def test_harita_oc_magaza_option_cifti(kucuk):

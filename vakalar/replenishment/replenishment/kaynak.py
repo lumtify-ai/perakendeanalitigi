@@ -4,7 +4,8 @@
 (`replenishment.motor`) ve hakeme dokunmaz. Veri `veri/cikti/v4/perakende.duckdb`
 (ya da `PERAKENDE_V4_DB`) üstünden ortak paketin bağlantısı ve temizlik
 görünümleriyle okunur; harita, çağıranın verdiği dünya nesnesinin yalnız
-kamuya açık alanlarını okur (`hucre_*`, `sku_option`, `optionlar`).
+kamuya açık alanlarını okur (`hucre_*`, `sku_option`, `sku_beden_payi`,
+`optionlar`, `urunler`).
 
 **Veri.**
 
@@ -226,6 +227,13 @@ class Harita:
     oc_online                              [OC] bool; ONL çifti (fiziksel çiftler `~oc_online`)
     sku_option                             [S]  SKU'nun option indisi
     line                                   [O]  option'ın line'ı (str)
+    option_kategori                        [O]  option'ın üst kategorisi (str)
+    option_beden_seti                      [O]  option'ın beden seti (str; "Kadın Harf", "Standart", ...)
+    sku_beden                              [S]  SKU'nun beden sırası (1..; `urunler.beden_sira`)
+    sku_beden_payi                         [S]  zincir beden eğrisi payı (option içinde toplam 1)
+
+    Son dört alan beden bölmesi içindir (`ihtiyac`): bir mağazanın aynı üst
+    kategori ve beden setindeki option'ları aynı beden sırasında havuzlanır.
     """
 
     hucre_magaza: np.ndarray
@@ -238,6 +246,10 @@ class Harita:
     oc_online: np.ndarray
     sku_option: np.ndarray
     line: np.ndarray
+    option_kategori: np.ndarray
+    option_beden_seti: np.ndarray
+    sku_beden: np.ndarray
+    sku_beden_payi: np.ndarray
 
     def __post_init__(self):
         for ad in self.__dataclass_fields__:
@@ -247,7 +259,8 @@ class Harita:
 
 
 def harita_kur(w) -> Harita:
-    """Dünyanın açık alanlarından (`hucre_*`, `sku_option`, `optionlar`) harita kurar.
+    """Dünyanın açık alanlarından (`hucre_*`, `sku_option`, `sku_beden_payi`,
+    `optionlar`, `urunler`) harita kurar.
 
     `w` bir dünya nesnesidir (bu modül `perakende_veri`yi içe aktarmaz); gizli
     alanlara (`lam`, `gizli_*`, `esneklik*`, ...) dokunmaz."""
@@ -264,4 +277,8 @@ def harita_kur(w) -> Harita:
         oc_magaza=cift // O, oc_option=cift % O, oc_online=oc_online,
         sku_option=np.asarray(w.sku_option, dtype=np.int64).copy(),
         line=w.optionlar["line"].to_numpy().astype(str),
+        option_kategori=w.optionlar["ust_kategori"].to_numpy().astype(str),
+        option_beden_seti=w.optionlar["beden_seti"].to_numpy().astype(str),
+        sku_beden=w.urunler["beden_sira"].to_numpy().astype(np.int64),
+        sku_beden_payi=np.asarray(w.sku_beden_payi, dtype=float).copy(),
     )
