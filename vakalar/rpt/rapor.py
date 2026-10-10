@@ -59,7 +59,7 @@ import numpy as np
 import pandas as pd
 
 from perakende_analitik import hakem
-from rpt import egri, hazirla, hikaye, hikaye_sec, kaynak, motor, olcutler, oyun, politika, sansur
+from rpt import aday, egri, hazirla, hikaye, hikaye_sec, kaynak, motor, olcutler, oyun, politika, sansur
 
 warnings.filterwarnings("ignore", message=".*generic.*unit.*", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*force_all_finite.*", category=FutureWarning)
@@ -283,6 +283,7 @@ class VeriA:
     egri_gercek: dict = field(default_factory=dict)       # (sezon, hedef) → oyun sezonunun gerçek eğrisi
     egri_gecmis_gercek: dict = field(default_factory=dict)  # sezon → öğrenme sezonlarının gerçek eğrisi
     egri_kat_gercek: dict = field(default_factory=dict)     # sezon → gerçek eğri, kategori × dalga
+    ikame: pd.DataFrame | None = None                       # hakem ikame_alinan, oyun Collection SKU'ları
     depo_ertesi: dict = field(default_factory=dict)         # option → (gün, depo stoğu)
     rpt_yay: pd.DataFrame | None = None                     # yayımlanan RPT siparişleri
     akibet: dict = field(default_factory=dict)              # sezon → yayımlanan RPT akıbeti (FIFO)
@@ -336,6 +337,8 @@ def hazirla_a(hakem_dizini: Path, zorla: tuple[str, str] | None = None) -> VeriA
     hh = kaynak.hucre_hafta(t, opt, OYUN)
     panel = kaynak.option_panel(t, opt, hh, OYUN)
     f = hikaye_sec.ozellikler(t, opt, hh)
+    # R9: geç gelen sahnede Banu'nun RPT'si zarar ettirmiş olmalı; ölçüt oyun koşularından veri olarak
+    f = hikaye_sec.banu_zarari_ekle(f, banu_kar_farki(H, HIKAYE_SEZONU))
     hik = hikaye_sec.sec(t, opt, hh, zorla=zorla, f=f)
     oz = hikaye_sec.ozet(t, opt, hh, f, hik, plan=opt.set_index("option_id")["plan_sezon"])
 
@@ -351,12 +354,16 @@ def hazirla_a(hakem_dizini: Path, zorla: tuple[str, str] | None = None) -> VeriA
     kars = kars[kars["urun_id"].astype(str).isin(set(u["urun_id"]))]
     kars = kars.assign(urun_id=kars["urun_id"].astype(str), magaza_id=kars["magaza_id"].astype(str))
     kars = kars.merge(u, on="urun_id").reset_index(drop=True)
+    ikame = hk["ikame_alinan"]
+    ikame = ikame[ikame["urun_id"].astype(str).isin(set(u["urun_id"]))]
+    ikame = ikame.assign(urun_id=ikame["urun_id"].astype(str), magaza_id=ikame["magaza_id"].astype(str))
+    ikame = ikame.merge(u, on="urun_id").reset_index(drop=True)
     del hk
     gercek = sansur.gercek_talep(gg, opt)
     hata = {G: sansur.hata_tablosu(katman[G], gercek) for G in OYUN}
 
     v = VeriA(H=H, opt=opt, t=t, hh=hh, panel=panel, f=f, hik=hik, oz=oz, gg=gg, kars=kars, gercek=gercek,
-              katman=katman, hata=hata, egri_yeniden=egri_yeniden, egri_kat=egri_kat)
+              katman=katman, hata=hata, egri_yeniden=egri_yeniden, egri_kat=egri_kat, ikame=ikame)
     for G in OYUN:
         for hedef in ("indirim", "cikis"):
             v.egri_gercek[(G, hedef)] = egri.egri_ogren(None, opt, [G], "gercek", hedef=hedef, gercek=gg)
@@ -407,7 +414,27 @@ def _haftalik_gercek(v: VeriA, oid: str) -> pd.DataFrame:
     for c in ("karsilanmayan", "kalici_kayip", "ikameye_giden"):
         r[c] = k.groupby("h")[c].sum()
     r["karsilanmayan_magaza"] = k[k["magaza_id"] != kaynak.ONLINE].groupby("h")["karsilanmayan"].sum()
-    return r.fillna(0.0).sort_index()
+    # satış (temiz, pozitif; mağaza + online) − başka üründen ikameyle alınan = kendi satış;
+    # gerçek talep = kendi satış + karşılanmayan (hakem tanımı)
+    u = v.t["urun"][["urun_id", "option_id"]].astype(str)
+    sku = set(u.loc[u["option_id"] == oid, "urun_id"])
+    sa = v.t["satis"]
+    sa = sa[sa["urun_id"].astype(str).isin(sku) & (sa["adet"] > 0)]
+    r["satis"] = sa.groupby(((pd.to_datetime(sa["tarih"]) - lan).dt.days // 7).to_numpy())["adet"].sum()
+    ik = v.ikame[v.ikame["option_id"] == oid]
+    r["ikame_alinan"] = ik.groupby(((pd.to_datetime(ik["tarih"]) - lan).dt.days // 7).to_numpy())["adet"].sum()
+    r = r.fillna(0.0).sort_index()
+    r["kendi_satis"] = r["satis"] - r["ikame_alinan"]
+    return r
+
+
+def banu_kar_farki(H, sezon: str) -> pd.Series:
+    """option_id → Banu'nun koşusunun (mevcut, a: yayımlanan dünya) option kârı − RPT yok
+    koşusununki (aynı talep tohumu), sezonun Collection option'ları (oyun koşularının önbelleğinden;
+    Ruling R9'un geç gelen ölçütü `hikaye_sec.banu_zarari_ekle`'ye veri olarak)."""
+    yok = oyun.kos(H, "rpt_yok", "a", ilerleme=None)
+    o = olcutler.ozet(H.kosu, sezon, olcutler.ozet(yok, sezon))
+    return o.set_index("option_id")["d_kar"]
 
 
 def _magaza_gercek(v: VeriA, oid: str, h: int) -> pd.DataFrame:
@@ -427,16 +454,32 @@ def _magaza_gercek(v: VeriA, oid: str, h: int) -> pd.DataFrame:
 # HİKÂYE (1. yazı)
 # ---------------------------------------------------------------------------
 
+def sk(x) -> str:
+    """Tam sayıysa ondalıksız, değilse bir ondalıkla (13 · 13,5)."""
+    return s(x, 0) if float(x) == round(float(x)) else s(x, 1)
+
+
+def aralik(seri: pd.Series) -> str:
+    """min–max; ikisi eşitse tek değer."""
+    a, b = seri.min(), seri.max()
+    return sk(a) if a == b else f"{sk(a)}–{sk(b)}"
+
+
+def tipik_rpt_suresi(td: pd.DataFrame) -> dict:
+    """Menşe → tedarikçilerin medyan RPT süresi (hafta; kesirli olabilir: Uzak Doğu 13,5). KARAR
+    tablosu ve HİKÂYE aynı değeri kullanır."""
+    return {m: float(td.loc[td["mense"] == m, "rpt_hafta"].median()) for m in MENSELER}
+
+
 def _tedarik_ozeti(v: VeriA) -> None:
     td = v.t["tedarikci"]
+    tip = tipik_rpt_suresi(td)
     alt("Tedarikçiler: ilk siparişin lansmandan kaç hafta önce verildiği, RPT süresi, MOQ")
     for m in MENSELER:
         g = td[td["mense"] == m]
-        print(f"  {m:9s} {len(g)} tedarikçi: ilk sipariş lansmandan {s(g['ilk_siparis_hafta'].min())}–"
-              f"{s(g['ilk_siparis_hafta'].max())} hafta önce (medyan {s(g['ilk_siparis_hafta'].median())}); "
-              f"RPT süresi {s(g['rpt_hafta'].min())}–{s(g['rpt_hafta'].max())} hafta "
-              f"(medyan {s(g['rpt_hafta'].median())}); MOQ {s(g['moq_option'].min())}"
-              + (f"–{s(g['moq_option'].max())}" if g['moq_option'].nunique() > 1 else "") + " adet")
+        print(f"  {m:9s} {len(g)} tedarikçi: ilk sipariş lansmandan {aralik(g['ilk_siparis_hafta'])} hafta önce "
+              f"(medyan {sk(g['ilk_siparis_hafta'].median())}); RPT süresi {aralik(g['rpt_hafta'])} hafta "
+              f"(medyan {sk(tip[m])}); MOQ {aralik(g['moq_option'])} adet")
     print(f"  (menşe sayısı {td['mense'].nunique()}: {', '.join(MENSELER)}; Yakın = Mısır)")
 
 
@@ -482,6 +525,11 @@ def _rpt_satiri(v: VeriA, s_: dict) -> None:
     print(f"    planlanan teslim {r['planlanan_teslim']} (lansman + {s(r['siparis_h'] + s_['rpt_hafta'])} hafta), "
           f"gerçekleşen {r['teslim']} (lansman + {s(r['teslim_h'], 1)} hafta; gecikme {s(r['gecikme_gun'])} gün); "
           f"indirime {s(r['indirime_kalan_gun'])} gün ({s(r['indirime_kalan_gun'] / 7, 1)} hafta) kala")
+    sip, tes = pd.Timestamp(r["siparis"]), pd.Timestamp(r["teslim"])
+    d = aday.durum_tablodan(v.t, sip, [s_["option_id"]]).iloc[0]
+    print(f"    siparişten gelişe {s((tes - sip).days)} gün ({s((tes - sip).days / 7, 1)} hafta); sipariş sabahı "
+          f"({s(r['siparis_h'])}. pazartesi) satış {s(d['satilan'])}, gönderilen {s(d['gonderilen'])}, STR "
+          f"{y(d['str'])}; depo {s(d['depo'])}, mağaza stoğu {s(d['magaza'])}")
     print(f"    kalite kontrolde reddedilen {s(r['red'])}, depoya giren {s(r['giren'])}; geliş haftası taşıyan "
           f"{s(r['gelis_tasiyan'])} mağazadan boş olan {s(r['gelis_bos'])} ({y(pay(r['gelis_bos'], r['gelis_tasiyan']))}), "
           f"boş ve son {hikaye_sec.SATISSIZ_GUN} günde satışsız {s(r['gelis_satissiz'])}")
@@ -566,11 +614,16 @@ def hikaye_bolumu(v: VeriA, ek: list) -> None:
     alt("Hit — zincirde gerçek talep ve kaybolan satış [hakem]")
     hg = _haftalik_gercek(v, hit["option_id"])
     for hh_ in (KARAR_H, KARAR_H + 1):
-        g = hg.loc[hg.index < hh_]
+        g = hg.loc[(hg.index >= 0) & (hg.index < hh_)]
         xs = p.loc[p.index < hh_, "satis"].sum()
-        print(f"  ilk {hh_} hafta: gerçek talep {s(g['talep'].sum())}, satış {s(xs)}, karşılanmayan "
-              f"{s(g['karsilanmayan'].sum())} (kalıcı kayıp {s(g['kalici_kayip'].sum())}, başka ürüne ikame "
-              f"{s(g['ikameye_giden'].sum())}; mağazalarda {s(g['karsilanmayan_magaza'].sum())})")
+        print(f"  ilk {hh_} hafta: satış {s(g['satis'].sum())} (başka üründen ikameyle alınan "
+              f"{s(g['ikame_alinan'].sum())}; kendi satış {s(g['kendi_satis'].sum())}) + karşılanmayan "
+              f"{s(g['karsilanmayan'].sum())} = gerçek talep {s(g['talep'].sum())}; karşılanmayanın kalıcı kaybı "
+              f"{s(g['kalici_kayip'].sum())}, başka ürüne ikamesi {s(g['ikameye_giden'].sum())}; mağazalarda "
+              f"{s(g['karsilanmayan_magaza'].sum())}")
+        ek.append((f"hit ilk {hh_} hafta: kendi satış + karşılanmayan = gerçek talep (hakem)",
+                   g["kendi_satis"].sum() + g["karsilanmayan"].sum() == g["talep"].sum()))
+        ek.append((f"hit ilk {hh_} hafta: satış = option paneli satışı", g["satis"].sum() == xs))
 
     alt(f"Hit'in sonu — haftalık seyir (h: satış / gerçek talep / karşılanmayan / mağazaya varan / "
         f"depo / stoklu mağaza)")
@@ -599,9 +652,13 @@ def hikaye_bolumu(v: VeriA, ek: list) -> None:
     _rpt_satiri(v, gec)
     go = _o(v, gec["option_id"])
     d = int(go["dalga"])
+    gp_ = round(gec["rpt"]["siparis_h"]) + int(go["rpt_hafta"])
+    bk = v.f.set_index("option_id").loc[gec["option_id"], "banu_dkar"]
+    print(f"  [oyun koşuları] Banu'nun RPT'si bu option'da RPT yoka göre kâr farkı {tl(bk)} (R9: zararlı RPT; "
+          f"Banu / a ile RPT yok, aynı talep)")
     print(f"  eğri ({HIKAYE_SEZONU} düzeltilmiş, {d}. dalga): planlanan gelişte (lansman + "
-          f"{KARAR_H + int(go['rpt_hafta'])} hafta) indirime kalan {y(e_io.kalan((d,), KARAR_H + int(go['rpt_hafta'])))}, "
-          f"çıkışa kalan {y(e_cx.kalan((d,), KARAR_H + int(go['rpt_hafta'])))}; gerçekleşen gelişte (+"
+          f"{gp_} hafta) indirime kalan {y(e_io.kalan((d,), gp_))}, "
+          f"çıkışa kalan {y(e_cx.kalan((d,), gp_))}; gerçekleşen gelişte (+"
           f"{s(gec['rpt']['teslim_h'], 1)} hafta) {y(e_io.kalan((d,), gec['rpt']['teslim_h']))} / "
           f"{y(e_cx.kalan((d,), gec['rpt']['teslim_h']))}")
     print("  geldiği hafta boş olup lansmandan beri en çok satan mağazalar (stok / son 28 gün satış / "
@@ -610,7 +667,9 @@ def hikaye_bolumu(v: VeriA, ek: list) -> None:
         print(f"    {m['ad']} ({m['tip']}): {s(m['stok'])} / {s(m['satis_28'])} / {s(m['satis_toplam'])}")
     gp = v.panel[v.panel["option_id"] == gec["option_id"]].set_index("h")
     gh = _haftalik_gercek(v, gec["option_id"])
-    print("  haftalık seyir (h: satış / gerçek talep / karşılanmayan / mağazaya varan / depo / stoklu mağaza):")
+    print(f"  haftalık seyir (h: satış / gerçek talep / karşılanmayan / mağazaya varan / depo / stoklu mağaza ÷ "
+          f"sezonda mal alan mağaza; ilk dağıtım {s(gec['tasiyan_magaza'])} mağazaya, geliş haftası taşıyan "
+          f"{s(gec['rpt']['gelis_tasiyan'])}):")
     gl = gec["rpt"]["teslim_h"]
     for w in range(max(int(np.floor(gl)) - 2, 0), int(gp.index.max()) + 1):
         x = gh.loc[w] if w in gh.index else pd.Series(0.0, index=gh.columns)
@@ -705,18 +764,19 @@ def karar_bolumu(v: VeriA, ek: list) -> None:
             continue
         print(f"  gerçekleşen RPT teslim sapması (yayımlanan bütün RPT'ler), {m}: ortalama {s(g['sapma'].mean(), 1)} "
               f"gün, en çok {s(g['sapma'].max())} gün, en erken {s(g['sapma'].min())} gün (n={s(len(g))})")
-    tip = td.groupby("mense")["rpt_hafta"].median()
+    tip = tipik_rpt_suresi(td)
 
     alt(f"Lansman + {KARAR_H} hafta verilen RPT: gelişten sonra kalan eğri ({HIKAYE_SEZONU} eğrisi, menşenin medyan "
         f"RPT süresiyle)")
     e_io = v.ogr.egriler[HIKAYE_SEZONU][("duzeltilmis", "indirim")]
     e_cx = v.ogr.egriler[HIKAYE_SEZONU][("duzeltilmis", "cikis")]
-    print(f"  {'dalga':5s} {'menşe':9s} {'L':>3s} {'geliş h':>7s} {'indirime kalan':>14s} {'çıkışa kalan':>12s}")
+    print(f"  {'dalga':5s} {'menşe':9s} {'L':>4s} {'geliş h':>7s} {'indirime kalan':>14s} {'çıkışa kalan':>12s}")
     for d in (1, 2, 3):
         for m in MENSELER:
-            L = int(tip[m])
+            L = tip[m]
             gh = KARAR_H + L
-            print(f"  {d:>5d} {m:9s} {L:>3d} {gh:>7d} {y(e_io.kalan((d,), gh)):>14s} {y(e_cx.kalan((d,), gh)):>12s}")
+            print(f"  {d:>5d} {m:9s} {sk(L):>4s} {sk(gh):>7s} {y(e_io.kalan((d,), gh)):>14s} "
+                  f"{y(e_cx.kalan((d,), gh)):>12s}")
     print("  (indirime kalan: lansman → indirim talebinin gelişten sonraki payı; çıkışa kalan: lansman → çıkış "
           "talebinin, indirim dahil)")
     alt("Sipariş haftasına göre kalan eğri (hikâyenin iki option'ı, kendi RPT süreleriyle)")
@@ -734,7 +794,7 @@ def karar_bolumu(v: VeriA, ek: list) -> None:
     for h in (KARAR_H, KARAR_H + 1):
         r = k[(k["option_id"] == hit) & (k["h"] == h)].iloc[0]
         gercek = hg.loc[hg.index < h, "talep"].sum()
-        ham, duz, gr = yuv(r["x"] / h, 1), yuv(r["D"] / h, 1), yuv(gercek / h, 1)
+        ham, duz, gr = yuv(yuv(r["x"]) / h, 1), yuv(yuv(r["D"]) / h, 1), yuv(yuv(gercek) / h, 1)
         print(f"  h={h}: brüt satış x {s(r['x'])}, karar anı Basit'iyle düzeltilmiş talep D {s(r['D'])} "
               f"(+{y(pay(fark(r['x'], r['D']), r['x']))}); hücre-gün {s(r['hucre_gun'])}, stoklu ya da tükenen pay "
               f"{y(r['stoklu_pay'])}")
@@ -796,7 +856,7 @@ def sansur_bolumu(v: VeriA, ek: list) -> None:
         d2, p2, c2 = tk.loc[("d", 2), "wape"], tk.loc[("plan", 2), "wape"], tk.loc[("c", 2), "wape"]
         print(f"  {G}: h=2'de d {y(d2)}, FRR kuralı (c) {y(c2)}, buyer planı {y(p2)}; d / plan = "
               f"{y(d2)} / {y(p2)} = {s(yuzde_bolum(d2, p2), 2)}; h=3'te d {y(tk.loc[('d', 3), 'wape'])}, "
-              f"h=6'da d {y(tk.loc[('d', 6), 'wape'])}; en iyi katman h=2'de "
+              f"h=6'da d {y(tk.loc[('d', 6), 'wape'])}; dört katmandan (a, b, c, d) en iyisi h=2'de "
               f"{min(sansur.KATMANLAR, key=lambda k_: tk.loc[(k_, 2), 'wape'])}")
 
     alt("Hikâye option'larında katmanlar (sezon talebi kestirimi, lansman → indirim)")

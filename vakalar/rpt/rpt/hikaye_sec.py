@@ -13,7 +13,8 @@ yazıların alıntılayabileceği bütün sayıları basar. Sahneler varsayılan
   geç gelen
            Uzak Doğu tedarikçili bir ürün; Lumoda'nın (Banu'nun kuralının) yayımlanan
            RPT'si indirimden kısa süre önce depoya giriyor ve mağazada satmıyor. 6. yazının
-           sahnesi (hit'teki gibi kural lansmandan 3. pazartesi tetiklenmiş).
+           sahnesi. Ruling R9: Banu'nun RPT'si o option'da RPT yoka göre zarar ettirmiş olmalı
+           (oyun koşularından, rapor hesaplar; `banu_zarari_ekle`).
 
 Ölçütler (bayrak adlarıyla; gevşetme sırası "gevşer" sütununda):
 
@@ -23,6 +24,8 @@ yazıların alıntılayabileceği bütün sayıları basar. Sahneler varsayılan
              stoksuz        ≥ 3 mağazada, ≥ 3 stoksuz gün (üç hafta, beden ort.)  2. gevşer
   geç gelen  uzak_dogu      menşe Uzak Doğu                                       (gevşemez)
              banu_rpt       yayımlanmış Lumoda RPT'si var                         (gevşemez)
+             zarar          Banu'nun RPT'si o option'da RPT yoka göre zarar ettirdi (gevşemez; R9)
+                            (`banu_dkar` < 0: rapor oyun koşularından hesaplar, veri olarak verir)
              gelis          RPT indirimden 7–28 gün önce depoya girmiş            1. gevşer
              bos            geldiği hafta taşıyan mağazaların ≥ %67'si boş        2. gevşer
              depoda         RPT'nin ≥ %75'i çıkış sabahı hâlâ depoda (FIFO)       3. gevşer
@@ -69,12 +72,13 @@ SATISSIZ_GUN = 28                  # replenishment kuralının baktığı pencer
 
 HIT_OLCUTLERI = ("yerli", "banu_h", "dalga3", "stoksuz")
 HIT_GEVSEK = ("dalga3", "stoksuz")                                  # gevşetme sırası
-GEC_OLCUTLERI = ("uzak_dogu", "banu_rpt", "gelis", "bos", "depoda", "banu_h")
+GEC_OLCUTLERI = ("uzak_dogu", "banu_rpt", "zarar", "gelis", "bos", "depoda", "banu_h")
 GEC_GEVSEK = ("gelis", "bos", "depoda", "banu_h")
 
-# Yürütücünün seçimi (2026-10-10; kullanıcı yetki verdi, okuma kapısında sunulur).
-# (hit option_id, geç gelen option_id). Gerekçe: görev raporu (task-9-report.md).
-YURUTUCU_SECIMI = ("MDL0548-LCV", "MDL0609-GRM")
+# Yürütücünün seçimi (kullanıcı yetki verdi, okuma kapısında sunulur).
+# (hit option_id, geç gelen option_id). Hit: görev 9 raporu. Geç gelen: R9'la (zarar ölçütü)
+# merdivenin ilk sırası, banu_h gevşeyerek (Banu 4. pazartesi verdi); görev 10 düzeltme raporu.
+YURUTUCU_SECIMI = ("MDL0548-LCV", "MDL0579-SYH")
 
 
 @dataclass
@@ -204,11 +208,20 @@ def gec_bayraklari(f: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame({
         "uzak_dogu": f["mense"] == "Uzak Doğu",
         "banu_rpt": f["banu_rpt"].astype(bool),
+        "zarar": (f["banu_dkar"] < 0) if "banu_dkar" in f.columns else pd.Series(False, index=f.index),
         "gelis": f["rpt_gelis_gun"].between(lo, hi),
         "bos": f["bos_pay"] >= BOS_PAY_ESIGI,
         "depoda": f["depoda_pay"] >= DEPODA_PAY_ESIGI,
         "banu_h": f["banu_h"].astype(bool),
     }, index=f.index)[list(GEC_OLCUTLERI)].fillna(False).astype(bool)
+
+
+def banu_zarari_ekle(f: pd.DataFrame, banu_dkar: pd.Series) -> pd.DataFrame:
+    """Özellik tablosuna `banu_dkar` (option_id → Banu'nun koşusunun option kârı − RPT yok
+    koşusununki, aynı talep; Ruling R9). Bu modül motoru görmez: değer rapordan (oyun
+    koşularının önbelleğinden) ya da `--zarar` CSV'sinden veri olarak gelir. Olmayan option NaN
+    (ölçüt tutmuyor)."""
+    return f.assign(banu_dkar=f["option_id"].astype(str).map(banu_dkar.astype(float)))
 
 
 def hit_sirasi(f: pd.DataFrame) -> pd.DataFrame:
@@ -508,6 +521,8 @@ def main(argv: list[str] | None = None) -> dict:
     a.add_argument("--plan", type=Path, default=None,
                    help="option_id,plan_sezon CSV (acik yol; verilmezse plan basilmaz. Plan yayimlanmaz, "
                         "motordan gelir: rapor.py onu motor.politika_gorunumu'nden okur)")
+    a.add_argument("--zarar", type=Path, default=None,
+                   help="option_id,banu_dkar CSV (Banu'nun RPT'sinin RPT yoka göre option kâr farkı; R9)")
     args = a.parse_args(argv)
     zorla = secim_ayristir(args.hikaye) if args.hikaye else None
 
@@ -516,6 +531,12 @@ def main(argv: list[str] | None = None) -> dict:
     hh = kaynak.hucre_hafta(t, opt, (SEZON,))
     f = ozellikler(t, opt, hh)
     plan = plan_oku(args.plan)
+    if args.zarar is not None:
+        z = pd.read_csv(args.zarar).set_index("option_id")["banu_dkar"]
+        f = banu_zarari_ekle(f, z)
+    else:
+        print("zarar verisi yok: geç gelen 'zarar' ölçütü (R9) tutmuyor sayılır; rapor.py oyun "
+              "koşularından hesaplar ya da --zarar CSV (option_id,banu_dkar) verin", file=sys.stderr)
     hb, gb = hit_bayraklari(f), gec_bayraklari(f)
     print(f"merdiven huni (hit): {huni(hb)}")
     print(f"merdiven huni (gec gelen): {huni(gb)}")
@@ -529,7 +550,7 @@ def main(argv: list[str] | None = None) -> dict:
             print(en_yakin(f, gb, gec_sirasi)[kol + ["rpt", "rpt_h", "rpt_gelis_gun", "bos_pay", "depoda_pay"]]
                   .to_string(index=False))
     h = sec(t, opt, hh, zorla=zorla, f=f)
-    s = sec_ozellikten(f)
+    s = sec_ozellikten(f, (h.hit_option, h.gec_option))
     print(f"\nmerdivenin ilk sirasi: hit {s['merdiven']['hit']}, gec gelen {s['merdiven']['gec']}"
           f"  (secim {h.hit_option}, {h.gec_option})")
     o = ozet(t, opt, hh, f, h, plan=plan)

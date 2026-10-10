@@ -25,7 +25,7 @@ from rpt.hikaye_sec import (
 
 VARSAYILAN = {
     "mense": "Yerli", "banu_h": True, "dalga": 3, "stoksuz_magaza": 5, "satis_ilk_alim": 0.6,
-    "banu_rpt": True, "rpt_gelis_gun": 14.0, "bos_pay": 0.9, "depoda_pay": 0.9,
+    "banu_rpt": True, "rpt_gelis_gun": 14.0, "bos_pay": 0.9, "depoda_pay": 0.9, "banu_dkar": -100.0,
     "tedarikci": "Ted", "rpt": 500.0,
 }
 
@@ -141,6 +141,30 @@ def test_gec_gevsemez_menses_ve_banu_rpt():
               {"option_id": "rpt_yok", "mense": "Uzak Doğu", "banu_rpt": False})
     with pytest.raises(LookupError, match="uzak_dogu 1"):
         merdiven(f, gec_bayraklari(f), hikaye_sec.GEC_GEVSEK, gec_sirasi)
+
+
+def test_gec_zarar_olcutu_gevsemez_ve_veriyle_gelir():
+    """Ruling R9: geç gelen sahnede Banu'nun RPT'si RPT yoka göre zarar ettirmiş olmalı
+    (`banu_dkar` < 0; rapor oyun koşularından hesaplayıp sütun olarak verir). Ölçüt gevşemez;
+    sütun yoksa ölçüt tutmuyor sayılır (hikaye_sec motoru görmez)."""
+    uzak = {"mense": "Uzak Doğu"}
+    f = tablo({"option_id": "karli", **uzak, "banu_dkar": 5000.0},
+              {"option_id": "zararli_gec_h", **uzak, "banu_dkar": -10.0, "banu_h": False})
+    gb = gec_bayraklari(f).set_index(f["option_id"])
+    assert "zarar" in hikaye_sec.GEC_OLCUTLERI and "zarar" not in hikaye_sec.GEC_GEVSEK
+    assert not gb.loc["karli", "zarar"] and gb.loc["zararli_gec_h", "zarar"]
+    adaylar, gev = merdiven(f, gec_bayraklari(f), hikaye_sec.GEC_GEVSEK, gec_sirasi)
+    assert adaylar.iloc[0]["option_id"] == "zararli_gec_h" and gev == ["banu_h"]
+    with pytest.raises(LookupError, match="zarar 0"):
+        merdiven(f.iloc[[0]], gec_bayraklari(f.iloc[[0]]), hikaye_sec.GEC_GEVSEK, gec_sirasi)
+    assert not gec_bayraklari(f.drop(columns="banu_dkar"))["zarar"].any()
+
+
+def test_banu_zarari_ekle():
+    f = tablo({"option_id": "a"}, {"option_id": "b"}).drop(columns="banu_dkar")
+    g = hikaye_sec.banu_zarari_ekle(f, pd.Series({"a": -3.0}))
+    assert g.set_index("option_id")["banu_dkar"].to_dict()["a"] == -3.0
+    assert pd.isna(g.set_index("option_id").loc["b", "banu_dkar"])
 
 
 def test_gec_sirasi_hedefe_yakin_once():
@@ -276,8 +300,14 @@ def test_gelis_durumu_oyuncak_bos_magaza():
 
 @pytest.fixture(scope="module")
 def ozellik(veri):
+    """Özellik tablosu + R9'un zarar sütunu (oyun koşularının önbelleğinden, rapor.py'nin hesabıyla)."""
+    import rapor
+    from rpt import oyun
+
     t, opt, hh = veri["t"], veri["opt"], veri["hh"]
-    return t, opt, hh, hikaye_sec.ozellikler(t, opt, hh)
+    f = hikaye_sec.ozellikler(t, opt, hh)
+    H = oyun.hazirlik(0, ilerleme=None)
+    return t, opt, hh, hikaye_sec.banu_zarari_ekle(f, rapor.banu_kar_farki(H, hikaye_sec.SEZON))
 
 
 @pytest.mark.veri
@@ -291,10 +321,13 @@ def test_banu_kurali_yayimlananla_ayni(ozellik):
 
 
 @pytest.mark.veri
-def test_merdiven_gercek_veride_birebir_sahne_var(ozellik):
+def test_merdiven_gercek_veride_sahne_var(ozellik):
+    """Hit birebir; geç gelen R9'un zarar ölçütüyle birebir değil, yalnız banu_h gevşeyince (SS25'te
+    zararlı RPT'li adaylar Banu'nun kuralını 4. pazartesi tetikliyor)."""
     _, _, _, f = ozellik
     hb, gb = hit_bayraklari(f), gec_bayraklari(f)
-    assert hb.all(axis=1).sum() >= 1 and gb.all(axis=1).sum() >= 1
+    assert hb.all(axis=1).sum() >= 1 and gb.all(axis=1).sum() == 0
+    assert gb.drop(columns="banu_h").all(axis=1).sum() >= 1
     assert [n for _, n in huni(hb)][-1] == hb.all(axis=1).sum()
     assert set(f["sezon_kodu"]) == {"SS25"} and set(f["line"]) == {"Collection"}
 
@@ -306,7 +339,7 @@ def test_yurutucu_secimi_merdivenle_tutarli(ozellik):
     assert (s["merdiven"]["hit"], s["merdiven"]["gec"]) == hikaye_sec.YURUTUCU_SECIMI
     h = hikaye_sec.sec(t, opt, hh, f=f)
     assert (h.hit_option, h.gec_option) == hikaye_sec.YURUTUCU_SECIMI
-    assert h.gevseyen == {"hit": [], "gec": []}            # birebir sahne: gevşeyen yok
+    assert h.gevseyen == {"hit": [], "gec": ["banu_h"]}    # geç gelen: Banu 4. pazartesi verdi (R9)
     assert h.hit_tedarikci in set(t["tedarikci"]["ad"]) and h.gec_tedarikci in set(t["tedarikci"]["ad"])
     ad = t["magaza"].set_index("magaza_id")["ad"]
     for sahne in ("hit", "gec"):
@@ -342,7 +375,8 @@ def test_ozet_gercek_veride_tutarli(ozellik):
         assert s["rpt"]["bosa"] <= min(s["rpt"]["giren"], s["rpt"]["kalan_son"])
         assert 0 <= s["rpt"]["magazaya_alt"] <= s["rpt"]["magazaya_ust"] <= s["rpt"]["cikisa_kadar"]
     assert hit["mense"] == "Yerli" and hit["dalga"] == 3 and hit["banu_tetik"]
-    assert gec["mense"] == "Uzak Doğu" and gec["banu_tetik"]
+    assert gec["mense"] == "Uzak Doğu"
+    assert f.set_index("option_id").loc[h.gec_option, "banu_dkar"] < 0      # R9: Banu'nun RPT'si zarar
     assert hikaye_sec.GELIS_ARALIGI[0] <= gec["rpt"]["indirime_kalan_gun"] <= hikaye_sec.GELIS_ARALIGI[1]
     assert gec["rpt"]["gelis_bos"] / gec["rpt"]["gelis_tasiyan"] >= BOS_PAY_ESIGI
 

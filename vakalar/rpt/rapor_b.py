@@ -298,21 +298,27 @@ def miktar_bolumu(va, vb: VeriB, ek: list) -> None:
         print(f"  {G} ← {', '.join(b.sezonlar)}: " + "; ".join(
             f"h={h}: μ {s(b.mu[h], 3)}, σ {s(b.sigma[h], 3)} (n={s(b.n[h])})" for h in sorted(b.mu)))
 
-    alt(f"Hikâye option'ları, {KARAR_H}. pazartesi (yayımlanan dünyanın sabahı, Banu'nun gördüğü)")
-    for oid in (va.hik.hit_option, va.hik.gec_option):
-        r = _hikaye_satiri(va, oid, KARAR_H)
+    alt(f"Hikâye option'ları: {KARAR_H}. pazartesi ve Banu'nun sipariş pazartesisi (yayımlanan dünyanın "
+        f"sabahı, Banu'nun gördüğü)")
+    yay = va.rpt_yay.set_index("option_id")
+    sahneler = [(va.hik.hit_option, KARAR_H)]
+    gh = int(round(yay.loc[va.hik.gec_option, "siparis_h"])) if va.hik.gec_option in yay.index else KARAR_H
+    sahneler += [(va.hik.gec_option, h) for h in sorted({KARAR_H, gh})]
+    for oid, hh in sahneler:
+        r = _hikaye_satiri(va, oid, hh)
         o = opt.set_index("option_id").loc[oid]
         G = o["sezon_kodu"]
         e = ogr.egriler[G]
         d = int(o["dalga"])
-        mu, sg = ogr.belirsizlik[G].al(KARAR_H)
-        nv = miktar.newsvendor(r["D"], KARAR_H, int(r["L"]), r["W"], e[("duzeltilmis", "indirim")],
+        mu, sg = ogr.belirsizlik[G].al(hh)
+        nv = miktar.newsvendor(r["D"], hh, int(r["L"]), r["W"], e[("duzeltilmis", "indirim")],
                                e[("duzeltilmis", "cikis")], d, r["ip"], r["p"], r["c"], r["p_ind"], mu, sg, int(r["moq"]))
         q_banu = miktar.banu(float(o["ilk_alim"]), int(r["moq"]))
-        q_frr = miktar.frr(float(r["satilan"]), e[("ham", "indirim")].k((d,), KARAR_H), float(o["ilk_alim"]),
+        q_frr = miktar.frr(float(r["satilan"]), e[("ham", "indirim")].k((d,), hh), float(o["ilk_alim"]),
                            int(r["moq"]))
         print(f"  {oid} ({o['model_adi']} {o['renk']}; {o['mense']}, RPT {s(r['L'])} hafta, MOQ {s(r['moq'])}, "
-              f"ilk alım {s(o['ilk_alim'])}):")
+              f"ilk alım {s(o['ilk_alim'])}), {hh}. pazartesi; zincir STR {y(r['str'])}"
+              f"{' (Banu eşiği aşılmış)' if r['str'] >= miktar.RPT_STR_ESIGI else ''}:")
         print(f"    bugüne kadar brüt satış x {s(r['x'])}, düzeltilmiş talep D {s(r['D'])}; d kestirimi (lansman → indirim) "
               f"{s(r['d_kestirim'])}; envanter pozisyonu {s(r['ip'])} (depo {s(r['depo'])} + mağaza {s(r['magaza'])} "
               f"+ yolda {s(r['yolda'])} + açık sipariş {s(r['acik'])})")
@@ -322,7 +328,9 @@ def miktar_bolumu(va, vb: VeriB, ek: list) -> None:
         print(f"    Banu (ilk alımın yarısı) {s(q_banu)} · FRR {s(q_frr)} · newsvendor {s(nv['q'])} (MOQ kapısız en iyi "
               f"{s(nv['q_serbest'])}; beklenen tam fiyat satış {s(nv['beklenen_tf'])}, indirimli {s(nv['beklenen_ind'])}, "
               f"kâr {tl(nv['beklenen_kar'])})")
-        ek.append((f"{oid}: newsvendor miktarı = aday özelliğinin q_nv'si", int(nv["q"]) == int(r["q_nv"])))
+        ek.append((f"{oid} h={hh}: newsvendor miktarı = aday özelliğinin q_nv'si", int(nv["q"]) == int(r["q_nv"])))
+        if hh != max(h_ for o_, h_ in sahneler if o_ == oid):
+            continue
         for kol in ("mevcut", "frr3", "oneri", "oneri_lojistik", "kahin"):
             kk = _kayit(vb, kol, vb.en_iyi)
             kk = kk[kk["option_id"] == oid]
@@ -341,10 +349,10 @@ def miktar_bolumu(va, vb: VeriB, ek: list) -> None:
         for G in OYUN:
             g = kk[kk["option_id"].map(sh) == G]
             if g.empty:
-                print(f"  {KOL_ADI[kol]:17s} {G}: RPT yok")
+                print(f"  {KOL_ADI[kol]:22s} {G}: RPT yok")
                 continue
             mm = _mense(va, g["option_id"]).to_numpy()
-            print(f"  {KOL_ADI[kol]:17s} {G}: {s(len(g))} RPT, {s(g['adet'].sum())} adet; h: " + ", ".join(
+            print(f"  {KOL_ADI[kol]:22s} {G}: {s(len(g))} RPT, {s(g['adet'].sum())} adet; h: " + ", ".join(
                 f"{int(h)}→{s(n)}" for h, n in g["h"].value_counts().sort_index().items()) + "; menşe: " + ", ".join(
                 f"{m} {s((mm == m).sum())}" for m in MENSELER if (mm == m).any()))
 
@@ -360,8 +368,8 @@ def miktar_bolumu(va, vb: VeriB, ek: list) -> None:
                     g = rp[rp["mense"] == m]
                     parca.append(f"{m} {s(len(g))} opt / {s(g['rpt'].sum())} adet, ek tf {s(g['d_satis_tf'].sum())}, "
                                  f"ek ind {s(g['d_satis_ind'].sum())}, Δkâr {tl(g['d_kar'].sum())}")
-                print(f"    {KOL_ADI[kol] + ' / ' + kural:17s} " + " | ".join(parca))
-                print(f"    {'':17s} RPT'li toplam Δkâr {tl(rp['d_kar'].sum())}; RPT'siz option'ların Δkârı "
+                print(f"    {KOL_ADI[kol] + ' / ' + kural:22s} " + " | ".join(parca))
+                print(f"    {'':22s} RPT'li toplam Δkâr {tl(rp['d_kar'].sum())}; RPT'siz option'ların Δkârı "
                       f"{tl(o.loc[o['rpt'] == 0, 'd_kar'].sum())}; sezon Δkârı {tl(o['d_kar'].sum())}")
 
 
@@ -397,7 +405,7 @@ def sonuc_bolumu(va, vb: VeriB, ek: list) -> None:
           "(ilk alım + RPT − kalite reddi); pencere sonunda kalan stok 0 TL. Taban: RPT yok (aynı talep tohumu).")
     print("  Kurtarılan kayıp = tabana göre karşılanmayan talebin düşüşü (kalıcı kayıp + başka ürüne ikame).")
     print("  Kâhin: aynı tohumlu RPT yok koşusunun talebini bilen kol (RPT verilmeseydi gelecek talebi bilen); "
-          "zincir düzeyinde düşünür, üst sınır değildir.")
+          "gerçek teslim gecikmesini de bilir; zincir düzeyinde düşünür, üst sınır değildir.")
 
     alt(f"Dağıtım kuralının seçimi (oyundan önce, {oyun.SECIM_SEZONU}; Banu'nun RPT'leri, dört kural)")
     a0 = vb.secim.set_index("kural").loc["a", "kar"]
@@ -408,6 +416,9 @@ def sonuc_bolumu(va, vb: VeriB, ek: list) -> None:
               f"satış {s(r.satis_tf)}, indirimli {s(r.satis_ind)}, mağazaya giden (bütün mal) {s(r.magazaya)}")
         print(f"     RPT {s(r.rpt)} adet; {_fifo_satiri(ak)}; pencere sonu kalan RPT (boşa) {s(r.rpt_bosa)}")
         ek += fifo_denetimleri(ak, f"seçim {r.kural}")
+    sk_ = vb.secim.set_index("kural")["kar"]
+    print(f"  b − d: {tl(sk_['b'])} − {tl(sk_['d'])} = {tl(fark(sk_['d'], sk_['b']))} "
+          f"(SS24 Collection kârının {y(pay(fark(sk_['d'], sk_['b']), sk_['b']), 2)}); b − a {tl(fark(sk_['a'], sk_['b']))}")
     print(f"  seçilen kural: {en} (b stoklu gün hızı, c yeniden lansman, d c + %30 depoda tutma; a bugünkü kural, "
           f"taban); oyun.json'daki seçim {vb.oyun_json['en_iyi'] if vb.oyun_json else '—'}")
     if vb.oyun_json:
@@ -473,8 +484,13 @@ def sonuc_bolumu(va, vb: VeriB, ek: list) -> None:
                        all(int(ya[c].sum()) == int(ka[c].sum()) for c in
                            ("rpt_giren", "rpt_depoda_cikista", "rpt_cikisa_kadar", "rpt_outlete", "rpt_depoda_kalan"))))
 
-    hit = va.hik.hit_option
-    alt(f"Hit ({hit}) kollara göre")
+    for ad_, oid_ in (("Hit", va.hik.hit_option), ("Geç gelen", va.hik.gec_option)):
+        alt(f"{ad_} ({oid_}) kollara göre")
+        _option_kollari(va, vb, oid_)
+
+
+def _option_kollari(va, vb: VeriB, hit: str) -> None:
+    en = vb.en_iyi
     for kol, kural in (("rpt_yok", "a"), ("mevcut", "a"), ("mevcut", en), ("frr3", en), ("oneri", en),
                        ("oneri_lojistik", en), ("kahin", "a"), ("kahin", en)):
         o = vb.o[(kol, kural, HIKAYE_SEZONU)].set_index("option_id").loc[hit]
@@ -550,10 +566,14 @@ def yollar_bolumu(va, vb: VeriB, ek: list) -> None:
         oz = Y["ozet"][G]
         print("  öneri önde (Δkâr, yol sayısı): " + "; ".join(
             f"{_ad(r.split('|', 1)[1])} karşısında {s(v['onde'])}/{s(v['yol'])}" for r, v in oz.items() if r.startswith("oneri_onde")))
+        yollar_ = sorted(yl, key=int)
+        print("  yol başına Δkâr (yol " + ", ".join(yollar_) + "):")
+        for anahtar, ad in ciftler:
+            print(f"    {ad:15s} " + " · ".join(tl(yl[k]["sezon"][G][anahtar]["d_kar"]) for k in yollar_))
         for a_, b_, ad in ((f"oneri|{en}", "mevcut|a", f"öneri / {en} − Banu / a"),
                            (f"mevcut|{en}", "mevcut|a", f"yalnız dağıtım (Banu / {en} − Banu / a)"),
                            (f"oneri|{en}", f"mevcut|{en}", f"yalnız karar (öneri / {en} − Banu / {en})")):
-            f_ = np.array([yl[k]["sezon"][G][a_]["d_kar"] - yl[k]["sezon"][G][b_]["d_kar"] for k in yl])
+            f_ = np.array([fark(yl[k]["sezon"][G][b_]["d_kar"], yl[k]["sezon"][G][a_]["d_kar"]) for k in yollar_])
             print(f"  {ad}: medyan {tl(np.median(f_))} ({mn(np.median(f_), 1)}), en küçük {tl(f_.min())}, pozitif "
                   f"{s((f_ > 0).sum())}/{s(len(f_))}")
         # yol 0 = bu raporun oyun koşuları
