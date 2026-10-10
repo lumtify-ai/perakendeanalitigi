@@ -85,20 +85,26 @@ def test_kar_egrisi_elle():
 
 
 def _fiyat_baglantisi(oyun_orani=0.4):
-    """SS24 (geçmiş, 2 option, 1. dalga) ve AW24 (oyun) option'ları; haftalık `fiyat`."""
+    """SS24 (geçmiş: 1. dalgada 2 option, 2. dalgada 1 option — haftaları oyun başlangıcını
+    aşar) ve AW24 (oyun) option'ları; haftalık `fiyat`. SS24 1. dalga indirimi 3.
+    haftada (lansman + 21), 2. dalga 8. haftada (lansman + 56) başlar."""
     con = duckdb.connect()
-    sezon = pd.DataFrame({"sezon_kodu": ["SS24", "AW24"], "dalga": [1, 1],
-                          "lansman_tarihi": pd.to_datetime(["2024-02-12", "2024-08-19"]),
-                          "indirim_baslangic": pd.to_datetime(["2024-03-04", "2024-09-09"]),
-                          "cikis_tarihi": pd.to_datetime(["2024-03-18", "2024-09-23"])})
-    urun = pd.DataFrame({"urun_id": ["A-S", "A-M", "B-S", "G-S"], "option_id": ["A", "A", "B", "G"],
-                         "sezon_kodu": ["SS24", "SS24", "SS24", "AW24"], "dalga": 1,
+    sezon = pd.DataFrame({"sezon_kodu": ["SS24", "SS24", "AW24"], "dalga": [1, 2, 1],
+                          "lansman_tarihi": pd.to_datetime(["2024-02-12", "2024-06-03", "2024-08-19"]),
+                          "indirim_baslangic": pd.to_datetime(["2024-03-04", "2024-07-29", "2024-09-09"]),
+                          "cikis_tarihi": pd.to_datetime(["2024-03-18", "2024-09-02", "2024-09-23"])})
+    urun = pd.DataFrame({"urun_id": ["A-S", "A-M", "B-S", "C-S", "G-S"],
+                         "option_id": ["A", "A", "B", "C", "G"],
+                         "sezon_kodu": ["SS24", "SS24", "SS24", "SS24", "AW24"], "dalga": [1, 1, 1, 2, 1],
                          "line": "Collection",
-                         "lansman_tarihi": pd.to_datetime(["2024-02-12"] * 3 + ["2024-08-19"]),
-                         "cikis_tarihi": pd.to_datetime(["2024-03-18"] * 3 + ["2024-09-23"])})
+                         "lansman_tarihi": pd.to_datetime(["2024-02-12"] * 3 + ["2024-06-03", "2024-08-19"]),
+                         "cikis_tarihi": pd.to_datetime(["2024-03-18"] * 3 + ["2024-09-02", "2024-09-23"])})
     satir = []
+    # C: 8.–10. hafta %30 (10. hafta 2024-08-12, oyunun ilk lansman sabahı 2024-08-19'da
+    # biter: okunur); 11. ve 12. hafta oyun başladıktan sonra biter: okunmamalı (%90)
     for oid, lan, oranlar in (("A", "2024-02-12", (0, 0, 0, 0.3, 0.5)),
                               ("B", "2024-02-12", (0, 0, 0.2, 0.3, 0.3)),
+                              ("C", "2024-06-03", (0,) * 8 + (0.3, 0.3, 0.3, 0.9, 0.9)),
                               ("G", "2024-08-19", (0, 0, 0, oyun_orani, oyun_orani))):
         for w, r in enumerate(oranlar):
             for hat in ("normal", "online"):
@@ -111,11 +117,15 @@ def _fiyat_baglantisi(oyun_orani=0.4):
 
 
 def test_indirim_beklentisi_gecmisten():
-    """Geçmiş sezonların (dalga, hafta) ortalaması; oyun sezonunun fiyatları değişse de aynı."""
+    """Geçmiş sezonların (dalga, indirim başına göre hafta) ortalaması; oyun sezonunun
+    fiyatları değişse de aynı; oyun başlangıcından sonra biten hafta okunmaz."""
     a = miktar.indirim_beklentisi(_fiyat_baglantisi(0.4), "AW24")
     b = miktar.indirim_beklentisi(_fiyat_baglantisi(0.7), "AW24")
     assert a == b
-    assert a == pytest.approx({(1, 0): 0.0, (1, 1): 0.0, (1, 2): 0.1, (1, 3): 0.3, (1, 4): 0.4})
+    beklenen = {(1, -3): 0.0, (1, -2): 0.0, (1, -1): 0.1, (1, 0): 0.3, (1, 1): 0.4,
+                **{(2, w): 0.0 for w in range(-8, 0)}, (2, 0): 0.3, (2, 1): 0.3, (2, 2): 0.3}
+    assert a == pytest.approx(beklenen)
+    assert (2, 3) not in a and (2, 4) not in a        # hafta_baslangic + 7 > t0
 
 
 def test_indirim_fiyatlari_egriyle_agirlikli():
@@ -123,14 +133,15 @@ def test_indirim_fiyatlari_egriyle_agirlikli():
                         "lansman_tarihi": [pd.Timestamp("2024-08-19")],
                         "indirim_baslangic": [pd.Timestamp("2024-09-02")],
                         "cikis_tarihi": [pd.Timestamp("2024-09-16")]})
-    beklenti = {(1, 0): 0.0, (1, 1): 0.0, (1, 2): 0.2, (1, 3): 0.5}
-    # indirim haftaları 2 ve 3; eğri payları 0,3 ve 0,1 ⇒ (0,3·0,2 + 0,1·0,5) / 0,4
+    # anahtar indirim başına göre: indirim haftaları lansmandan 2 ve 3 = göreli 0 ve 1
+    beklenti = {(1, -2): 0.0, (1, -1): 0.0, (1, 0): 0.2, (1, 1): 0.5}
+    # eğri payları (lansmandan 2. ve 3. hafta) 0,3 ve 0,1 ⇒ (0,3·0,2 + 0,1·0,5) / 0,4
     e = egri.Egri(paylar={(1,): np.array([0.3, 0.3, 0.3, 0.1])}, grup=("dalga",), yontem="d",
                   hedef="cikis", sezonlar=())
     p = miktar.indirim_fiyatlari(opt, beklenti, e)
     assert p["G"] == pytest.approx(100 * (1 - (0.3 * 0.2 + 0.1 * 0.5) / 0.4))
     # eğrisiz: eşit ağırlık; bulunmayan hafta en yakın haftayla
-    assert miktar.indirim_fiyatlari(opt, {(1, 0): 0.0, (1, 2): 0.3}, None)["G"] == pytest.approx(70.0)
+    assert miktar.indirim_fiyatlari(opt, {(1, -2): 0.0, (1, 0): 0.3}, None)["G"] == pytest.approx(70.0)
 
 
 # ------------------------------------------------------------ kalibrasyon
@@ -233,6 +244,7 @@ def test_indirim_beklentisi_gercek_veri():
         b = miktar.indirim_beklentisi(con, "SS25")
     assert {d for d, _ in b} == {1, 2, 3}
     assert all(0.0 <= v <= 0.7 for v in b.values())
-    # 1. dalga: ilk haftalar tam fiyat, indirim döneminde (20. haftadan) en az %30
-    assert b[(1, 0)] < 0.01 and b[(1, 3)] < 0.01
-    assert all(b[(1, w)] >= 0.29 for w in range(20, 26) if (1, w) in b)
+    # indirim başından dört hafta önce ve öncesi neredeyse tam fiyat; indirim
+    # haftalarında (göreli 0–5) her dalgada en az %29 (SS ve AW aynı haftada)
+    assert all(v < 0.05 for (d, w), v in b.items() if w <= -4)
+    assert all(b[(d, w)] >= 0.29 for d in (1, 2, 3) for w in range(0, 6))

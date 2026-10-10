@@ -205,6 +205,29 @@ def test_etiket_elle():
     assert not yok["etiket_x"] and yok["kar_x"] == 0.0
 
 
+def test_etiket_duz_r4_ile():
+    """Etiket (ii): Basit, karar anı = oyunun ilk lansman sabahı (R4); oyun başladıktan
+    sonraki satırlar etiketi değiştirmez; oyun sezonu satırı reddedilir."""
+    gecmis_lan, oyun_lan = pd.Timestamp("2024-02-12"), pd.Timestamp("2024-08-19")
+    g, opt, _ = sentetik_gunluk([("P1", "SS24", gecmis_lan, 14, 1), ("P2", "SS24", gecmis_lan, 14, 1),
+                                 ("G1", "AW24", oyun_lan, 8, 1)], magaza_sayisi=20)
+    ozl = pd.DataFrame({"option_id": ["P1", "P2"], "sezon_kodu": "SS24", "h": [3, 4], "L": [2, 3],
+                        "ip": [50.0, 80.0], "q_etiket": [60, 60], "moq": [60, 60], "p": 100.0,
+                        "c": 40.0, "p_ind": 60.0})
+    a = aday.etiket_duz(ozl, g, opt, "AW24", lambda t: NOTR)
+    elle = aday.etiket(ozl, egri.gecmis_talep(g, opt, "AW24", NOTR), opt, "duz")
+    pd.testing.assert_frame_equal(a, elle)
+    assert a["etiket_duz"].any()
+    bozuk = g.copy()
+    sonra = bozuk["tarih"] >= oyun_lan
+    bozuk.loc[sonra, "brut_satis"] = bozuk.loc[sonra, "brut_satis"] * 9 + 4
+    bozuk.loc[sonra, "durum"] = "bos"
+    pd.testing.assert_frame_equal(a, aday.etiket_duz(ozl, bozuk.drop(columns="gercek_talep"), opt, "AW24",
+                                                     lambda t: NOTR))
+    with pytest.raises(ValueError, match="AW24"):
+        aday.etiket_duz(ozl.assign(sezon_kodu=["SS24", "AW24"]), g, opt, "AW24", lambda t: NOTR)
+
+
 def test_uyum_ve_degerlendir_elle():
     ozl = pd.DataFrame({"option_id": ["A", "A", "B", "C"], "h": [2, 3, 2, 2],
                         "etiket_gercek": [True, True, False, False], "etiket_duz": [True, False, False, True],

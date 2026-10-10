@@ -154,11 +154,10 @@ dagitim_politikasi=...)`'i ile farklı politikalarla yeniden oynatılır
 - **Kalibrasyonun hedefi Basit'tir** (R4: oyunun ilk lansman sabahında
   doldurulmuş talep), gerçek değil: μ Basit'in kendi yanlılığını içermez; gerçeğe
   karşı yanlılık yalnız raporda ölçülür.
-- **AW24 aday modeli yalnız SS24'ün 483 satırından (22 pozitif) eğitilir** —
-  kırılgan; rapor bunu yazar.
-- **Uzak Doğu RPT'si pratikte hiç aday değil**: eğitim sezonlarında 14–15
-  haftalık tedarikle etiketi pozitif tek satır yok; model Uzak Doğu'ya hiç RPT
-  önermez.
+- **Aday modeli üç (AW24) ya da dört (SS25) geçmiş sezondan** eğitilir (SS23,
+  AW23, SS24 [, AW24]); satır ve pozitif sayıları raporda.
+- **Uzak Doğu da aday olabilir** (v3'te olamıyordu): v4 sezonları uzun, 12–15
+  haftalık tedarikle bile bazı satırların etiketi pozitif; oranı raporda.
 - Aday etiketi ve newsvendor zincir düzeyinde stok akışı varsayar (mağazalar
   arası sıkışma yok): RPT lehine iyimser.
 - İade oranı newsvendor'da yok sayılır; motor iadeyi satışla orantılı üretir.

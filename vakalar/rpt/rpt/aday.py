@@ -17,7 +17,9 @@ satış (mağaza + online) ÷ bu sabaha kadar depodan mağazalara çıkan (ilk d
 replenishment, depodan outlet akışı, açılış transferi). Tablodan kurulan bu STR ile
 Banu'nun kuralı yayımlanan RPT siparişlerini birebir üretir (testli). Depo ve
 mağaza stoğu o sabahın pazartesi fotoğrafı; yolda = çıkmış ama `t`'ye dek
-varmamış sevkiyat; açık = `t`'den önce verilmiş, `t`'ye dek teslim olmamış
+varmamış, hedefi depo olmayan HER sevkiyat (mağazadan mağazaya transfer ve outlet
+akışı dahil: zincirin envanter pozisyonunu hafifçe fazla sayar; depodan çıkan
+zaten depo fotoğrafında değildir); açık = `t`'den önce verilmiş, `t`'ye dek teslim olmamış
 sipariş; stoklu / kırık mağaza payı o sabahın mağaza fotoğrafından (yalnız o
 sabah fotoğrafta görünen mağazalar: gelecekteki kapanış okunmaz).
 
@@ -55,7 +57,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from . import kaynak, miktar, sansur
+from . import egri, kaynak, miktar, sansur
 
 OZELLIKLER = ["h", "str", "stoklu_magaza_payi", "kirik_magaza_payi", "hiz_q1", "d_q1", "frr_q1",
               "kapsama", "hafta_indirime", "L", "kalan_tf", "ekstra_q1", "moq_oran", "uzak"]
@@ -266,6 +268,22 @@ def etiket(ozl: pd.DataFrame, talep: pd.DataFrame, opt: pd.DataFrame, ek: str) -
     """`etiketle(ozl, haftalik(talep, opt), ek)`: talep argümandır — (i) gerçek talep
     (`ek="gercek"`), (ii) Basit'le doldurulmuş talep (`ek="duz"`)."""
     return etiketle(ozl, haftalik(talep, opt), ek)
+
+
+def etiket_duz(ozl: pd.DataFrame, gunluk: pd.DataFrame, opt: pd.DataFrame, oyun_sezonu: str,
+               carpanlar_bul, line: str = "Collection") -> pd.DataFrame:
+    """Etiket (ii), Ruling R4'le: talep = ortak Basit'in karar anı moduyla doldurulmuş
+    talep, karar anı oyun sezonunun ilk lansman sabahı (`egri.gecmis_talep(…, t0)`,
+    çarpanlar `carpanlar_bul(t0)`). Yalnız geçmiş sezon satırları (eğitim) için:
+    `ozl`'de geçmiş olmayan sezon varsa ValueError (o satırların talebi t0'da
+    bilinmez, etiket sessizce negatif çıkardı)."""
+    gecmis = kaynak.gecmis_sezonlar(oyun_sezonu)
+    disari = sorted(set(ozl["sezon_kodu"]) - set(gecmis))
+    if disari:
+        raise ValueError(f"etiket_duz: {oyun_sezonu} için geçmiş olmayan sezon satırı {disari}")
+    t0 = egri.oyun_baslangici(opt, oyun_sezonu)
+    talep = egri.gecmis_talep(gunluk, opt, oyun_sezonu, carpanlar_bul(t0), line)
+    return etiket(ozl, talep, opt, "duz")
 
 
 def uyum(ozl: pd.DataFrame, ek1: str = "gercek", ek2: str = "duz") -> dict:

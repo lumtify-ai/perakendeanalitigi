@@ -31,10 +31,13 @@ maliyeti senaryolar üstünden kendisi tartar.
 
 İNDİRİM FİYATI (v4). v4'te indirim içseldir (Lumoda'nın markdown kuralı STR'ye
 bakar), planı yoktur. Beklenti geçmiş sezonların yayımlanan `fiyat` tablosundan
-öğrenilir (`indirim_beklentisi`: dalga × lansmandan hafta ortalama indirim oranı,
-yalnız oyun sezonu başlamadan biten haftalar); option'ın p_ind'i indirim
-haftalarının bu oranlarının çıkış eğrisi paylarıyla ağırlıklı ortalamasıdır
-(`indirim_fiyatlari`). Oyun sezonunun fiyatları okunmaz.
+öğrenilir (`indirim_beklentisi`: dalga × indirim başına göre hafta ortalama
+indirim oranı, yalnız oyun sezonu başlamadan biten haftalar); option'ın p_ind'i
+indirim haftalarının bu oranlarının çıkış eğrisi paylarıyla ağırlıklı
+ortalamasıdır (`indirim_fiyatlari`). Hafta indirim başına göre sayılır: SS'te
+indirim lansmandan 20, AW'de 19 hafta sonra (perşembe) başlar; lansmana göre
+saymak iki sezon türünü indirim başı çevresinde karıştırırdı. Oyun sezonunun
+fiyatları okunmaz.
 
 KALİBRASYON (v4; sızıntı kesildi). Geçmiş sezon P'nin her option'ı ve her karar
 haftası h için hata r = log(hedef / d):
@@ -109,10 +112,13 @@ def indirim_beklentisi(con, sezon_kodu: str, hat: str = INDIRIM_HATTI,
                        line: str = "Collection") -> dict:
     """{(dalga, hafta): ortalama indirim oranı}: oyun sezonundan önce kapanmış
     sezonların (`kaynak.gecmis_sezonlar`) `line` option'larının yayımlanan haftalık
-    `fiyat`ı (`hat`), lansmandan hafta `hafta` = (hafta_baslangic − lansman) // 7,
-    lansman ≤ hafta < çıkış. Yalnız oyun sezonunun ilk lansman sabahına dek BİTMİŞ
-    haftalar (`fiyat` haftanın sonundaki oranı taşır): oyun sezonunun ve sonrasının
-    fiyatı okunmaz."""
+    `fiyat`ı (`hat`); `hafta` option'ın indirim başı haftasına göredir:
+    (hafta_baslangic − lansman) // 7 − w0, w0 = (indirim_baslangic − lansman) // 7
+    (indirim başını içeren hafta 0, öncesi negatif; `indirim_fiyatlari` aynı w0'la
+    okur), lansman ≤ hafta < çıkış. İndirim başı yayımlanan `sezon` tablosundan
+    (sezon × dalga). Yalnız oyun sezonunun ilk lansman sabahına dek BİTMİŞ haftalar
+    (`fiyat` haftanın sonundaki oranı taşır: hafta_baslangic + 7 ≤ t0): oyun
+    sezonunun ve sonrasının fiyatı okunmaz."""
     gecmis = kaynak.gecmis_sezonlar(sezon_kodu)
     if not gecmis:
         raise ValueError(f"indirim_beklentisi: {sezon_kodu}'den önce kapanmış sezon yok")
@@ -123,10 +129,14 @@ def indirim_beklentisi(con, sezon_kodu: str, hat: str = INDIRIM_HATTI,
     yer = ", ".join("?" * len(gecmis))
     df = con.execute(f"""
         with o as (
-            select distinct option_id::varchar as option_id, dalga, lansman_tarihi, cikis_tarihi
-            from urun where sezon_kodu::varchar in ({yer}) and line::varchar = ?)
+            select distinct u.option_id::varchar as option_id, u.dalga, u.lansman_tarihi,
+                   u.cikis_tarihi, s.indirim_baslangic
+            from urun u join sezon s on s.sezon_kodu::varchar = u.sezon_kodu::varchar
+                                    and s.dalga = u.dalga
+            where u.sezon_kodu::varchar in ({yer}) and u.line::varchar = ?)
         select o.dalga::integer as dalga,
-               (date_diff('day', o.lansman_tarihi, f.hafta_baslangic) // 7)::integer as hafta,
+               (date_diff('day', o.lansman_tarihi, f.hafta_baslangic) // 7
+                - date_diff('day', o.lansman_tarihi, o.indirim_baslangic) // 7)::integer as hafta,
                avg(f.indirim_orani) as oran
         from fiyat f join o on f.option_id::varchar = o.option_id
         where f.hat::varchar = ? and f.hafta_baslangic >= o.lansman_tarihi
@@ -149,7 +159,8 @@ def indirim_fiyatlari(opt: pd.DataFrame, beklenti: dict, egri_cx: egri.Egri | No
     """option_id → indirim dönemi beklenen fiyatı p_ind = liste × (1 − ō).
 
     ō: option'ın indirim haftalarının ([indirim başı haftası, çıkış)) beklenen
-    oranları (`indirim_beklentisi`; olmayan hafta dalganın en yakın haftası), çıkış
+    oranları (`indirim_beklentisi`, indirim başı haftasına göre w − w0; olmayan hafta
+    dalganın en yakın haftası), çıkış
     eğrisinin o haftalardaki paylarıyla ağırlıklı (talep indirimin ilk haftalarında
     yoğundur); eğri yoksa ya da payları sıfırsa eşit ağırlık."""
     sonuc = {}
@@ -158,7 +169,7 @@ def indirim_fiyatlari(opt: pd.DataFrame, beklenti: dict, egri_cx: egri.Egri | No
         w0 = (pd.Timestamp(r.indirim_baslangic) - lan).days // 7
         w1 = -(-(pd.Timestamp(r.cikis_tarihi) - lan).days // 7)
         haftalar = np.arange(w0, max(w1, w0 + 1))
-        oran = np.array([_oran(beklenti, int(r.dalga), int(w)) for w in haftalar])
+        oran = np.array([_oran(beklenti, int(r.dalga), int(w - w0)) for w in haftalar])
         agirlik = np.ones(len(haftalar))
         if egri_cx is not None:
             pay = egri_cx._satir((int(r.dalga),))
