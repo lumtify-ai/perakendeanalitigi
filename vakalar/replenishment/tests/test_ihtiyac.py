@@ -323,6 +323,24 @@ def test_kural_ongorusu_kategori_katsayisi_uygulanir_yoksa_bir(d):
     assert o[oc(h, 0, 1)] == pytest.approx(70.0)   # katsayısı yok: 1 (hafta katsayısı da 1)
 
 
+def test_oc_hafta_katsayisi_kural_ongorusunun_carpani(d):
+    """Çiftin hafta katsayısı kategorisinden; kural öngörüsü = son 7 gün × bu çarpan
+    (karar anı Basit'inin ham 7 gününü aynı haftaya taşımak için de kullanılır)."""
+    _, h = d
+    t = takvim(["2025-10-29"], bf=["2025-11-28"])
+    k = gun(t, "2025-10-27")
+    kat = {"Üst Giyim": 1.2, "Alt Giyim|black_friday": 3.0}
+    c = ihtiyac.oc_hafta_katsayisi(h, t, k, kat)
+    assert c.shape == (len(h.oc_magaza),)
+    assert c[oc(h, 0, 0)] == pytest.approx(ihtiyac.hafta_katsayisi(t, k, 1.2))
+    assert c[oc(h, 1, 3)] == pytest.approx(ihtiyac.hafta_katsayisi(t, k, 1.2))   # aynı kategori
+    assert c[oc(h, 0, 1)] == pytest.approx(1.0)                                   # BF bu hafta değil
+    satis = sifir(h)
+    satis[k - 7 : k] = 1
+    assert np.allclose(ihtiyac.kural_ongorusu(satis, h, k, kat, takvim=t),
+                       ihtiyac.haftalik(satis, h, k, 1)[0] * c)
+
+
 def test_kural_ongorusu_karar_gunu_dahil_degil(d):
     _, h = d
     satis = sifir(h)
@@ -419,6 +437,31 @@ def test_magaza_beden_paylari_satis_yoksa_zincir_payi(d):
     _, h = d
     p = ihtiyac.magaza_beden_paylari(sifir(h), h, bit_gunu=200)
     assert p[hucreler(h, 0, 0)] == pytest.approx(EGRI)
+
+
+def test_magaza_beden_paylari_oc_bedenleri_hic_satmadiysa_zincir_payi(d):
+    """Grup satmış ama OC'nin bedenlerinin hiçbiri satmamış (M1'de o0'ın 5. bedeni
+    çeşit dışı; grup yalnız o3'ün 5. bedenini satmış): havuz payı o0@M1'de tümüyle 0
+    olurdu, hedefi olan çift hiç almazdı. Zincir eğrisine düşer; o3@M1 havuzda kalır."""
+    _, h = d
+    satis = sifir(h)
+    satis[100, hucreler(h, 1, 3)[4]] = 10          # M1, o3, beden 5 (o0@M1'de yok)
+    p = ihtiyac.magaza_beden_paylari(satis, h, bit_gunu=200)
+    assert p[hucreler(h, 1, 0)] == pytest.approx(EGRI[:4] / EGRI[:4].sum())
+    assert p[hucreler(h, 1, 3)].tolist() == pytest.approx([0, 0, 0, 0, 1])
+    assert np.allclose(np.bincount(h.oc, weights=p), 1.0)
+
+
+def test_magaza_beden_paylari_zincir_payi_da_sifirsa_esit(d):
+    w, _ = d
+    w0 = SimpleNamespace(**{**vars(w), "sku_beden_payi": np.where(np.asarray(w.sku_option) == 0, 0.0,
+                                                                   w.sku_beden_payi)})
+    h0 = kaynak.harita_kur(w0)
+    satis = sifir(h0)
+    satis[100, hucreler(h0, 1, 3)[4]] = 10
+    p = ihtiyac.magaza_beden_paylari(satis, h0, bit_gunu=200)
+    assert p[hucreler(h0, 1, 0)] == pytest.approx([0.25] * 4)
+    assert np.allclose(np.bincount(h0.oc, weights=p), 1.0)
 
 
 # ------------------------------------------------------------- bedene bölme

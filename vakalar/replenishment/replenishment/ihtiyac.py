@@ -260,11 +260,21 @@ def kural_ongorusu(
     son7 = _pencere(satis, harita, karar_gunu - 7, karar_gunu)
     if stoklu is not None:
         son7 = _hiz(son7, stoklu_gun(stoklu, satis, harita, karar_gunu, 7)) * 7.0
+    return son7 * oc_hafta_katsayisi(harita, takvim, karar_gunu, katsayilar)
+
+
+def oc_hafta_katsayisi(
+    harita: Harita, takvim: pd.DataFrame, karar_gunu: int, katsayilar: dict[str, float]
+) -> np.ndarray:
+    """float[OC]: çiftin option'ının üst kategorisine göre `hafta_katsayisi`
+    (tatil `katsayilar[kategori]`, Black Friday `katsayilar[kategori + BF_SONEKI]`;
+    anahtarı olmayan katsayı 1). `kural_ongorusu`'nun çarpanı; başka bir öngörüyü
+    (ör. karar anı Basit'inin ham 7 günü) aynı haftaya taşımak için de."""
     kategoriler, kat_o = np.unique(harita.option_kategori, return_inverse=True)
     carpan = np.array([
         hafta_katsayisi(takvim, karar_gunu, katsayilar.get(str(k), 1.0), katsayilar.get(str(k) + BF_SONEKI, 1.0))
         for k in kategoriler])
-    return son7 * carpan[kat_o.reshape(-1)[harita.oc_option]]
+    return carpan[kat_o.reshape(-1)[harita.oc_option]]
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +290,12 @@ def magaza_beden_paylari(satis: np.ndarray, harita: Harita, bit_gunu: int) -> np
     sırasındaki bütün hücreler alır (yeni option'ın kendi geçmişi yoktur).
     Mağaza–kategori–set grubunda hiç satış yoksa zincirin beden eğrisi
     (`sku_beden_payi`). Sonuç OC içinde yeniden ölçeklenir: çeşit dışı bedenler
-    (OC'nin hücresi olmayan bedenler) payını taşımaz."""
+    (OC'nin hücresi olmayan bedenler) payını taşımaz.
+
+    Grup satış yapmış ama OC'nin bedenlerinin hiçbiri satmamışsa (ör. grup yalnız
+    OC'de çeşit dışı kalan bedeni satmış) havuz payı OC'de tümüyle 0 olurdu ve
+    hedefi olan çifte hiç gönderilmezdi: o OC zincir eğrisine düşer (o da 0 ise
+    bedenlere eşit)."""
     if bit_gunu > satis.shape[0]:
         raise ValueError(f"bit_gunu {bit_gunu}: satış {satis.shape[0]} satır")
     satis_c = satis[:bit_gunu].sum(axis=0, dtype=np.int64).astype(float)
@@ -297,9 +312,14 @@ def magaza_beden_paylari(satis: np.ndarray, harita: Harita, bit_gunu: int) -> np
     mgb = mg * B + beden_c                                         # mağaza–grup–beden
     havuz = np.bincount(mgb, weights=satis_c, minlength=magaza_say * G * B)
     toplam = np.bincount(mg, weights=satis_c, minlength=magaza_say * G)[mg]
-    pay = np.where(toplam > 0, havuz[mgb] / np.where(toplam > 0, toplam, 1.0), harita.sku_beden_payi[harita.hucre_sku])
-    oc_toplam = _oc_topla(pay, harita)[harita.oc]
-    return _oranla(pay, oc_toplam)
+    zincir = harita.sku_beden_payi[harita.hucre_sku]
+    pay = np.where(toplam > 0, havuz[mgb] / np.where(toplam > 0, toplam, 1.0), zincir)
+    for yedek in (zincir, np.ones_like(pay)):                       # tümü 0 olan OC'ye yedek
+        bos = _oc_topla(pay, harita)[harita.oc] <= 0
+        if not bos.any():
+            break
+        pay = np.where(bos, yedek, pay)
+    return _oranla(pay, _oc_topla(pay, harita)[harita.oc])
 
 
 def _oranla(pay: np.ndarray, payda: np.ndarray) -> np.ndarray:
