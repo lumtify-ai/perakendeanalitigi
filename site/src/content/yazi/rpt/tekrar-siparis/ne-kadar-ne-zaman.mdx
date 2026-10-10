@@ -33,143 +33,291 @@ cesur, küçükse temkinli davranır. Buna kritik oran denir.
 
 RPT aynı problemin sezon içindeki hâli, üç farkla. Talep dağılımı
 **bugünkü kestirimden** geliyor, geçmişten değil. Mal bugün değil, tedarik
-süresi dolunca geliyor. Ve fazla birim çöpe gitmiyor, indirime kalıyor.
+süresi dolunca geliyor. Ve fazla birim çöpe gitmiyor; önce indirime, sezon
+kapanınca outlet'e kalıyor.
 
 ## Lumoda'nın terazisi
 
-Oyun sezonlarındaki Collection ürünleri için ortalama rakamlar:
+İki oyun sezonunun Collection ürünleri için ortalama rakamlar:
 
 | | TL |
 |---|---:|
-| Liste fiyatı | 1.331 |
-| Alış fiyatı | 512 |
-| İndirim döneminde beklenen fiyat | 835 |
+| Liste fiyatı | 990 |
+| Alış fiyatı | 364 |
+| İndirim döneminde beklenen fiyat | 676 |
 
-Tam fiyattan satılamayan bir birim için bedel $C_u$ = 1.331 − 512 ≈ 819
+Tam fiyattan satılamayan bir birim için bedel $C_u$ = 990 − 364 ≈ 626
 TL. Fazla bir birim ise iki farklı akıbete uğrayabilir. İndirimde
-satılırsa 835 TL getirir: alış fiyatının **üstünde**. Yani indirimde
-satmak bile kârlı; fazla birimin bedeli eksiye dönüyor, yaklaşık −323 TL.
-Hiç satılmazsa bedeli alış fiyatının tamamı, 512 TL.
+satılırsa 676 TL getirir: alış fiyatının **üstünde**. Yani indirimde
+satmak bile kârlı; fazla birimin bedeli eksiye dönüyor, yaklaşık −312 TL.
+Hiç satılmazsa bedeli alış fiyatının tamamı, 364 TL.
 
 İlk ihtimal şaşırtıcı görünebilir ama moda perakendesinde sık rastlanan
-bir durum: liste fiyatı alış fiyatının 2,6 katıyken yüzde otuz, hatta elli
-indirim bile maliyetin üstünde kalır. RPT'yi tehlikeli yapan şey
-indirimde satmak değil, **hiç satamamaktır.** Yalnız tam fiyat ile hiç
-satılmama arasındaki terazi için kritik oran %61,5.
+bir durum: liste fiyatı alış fiyatının 2,72 katıyken yüzde otuz, hatta
+elli indirim bile maliyetin üstünde kalır. İki sezonun 420 Collection
+ürününün hepsinde beklenen indirim fiyatı alışın üstünde. RPT'yi tehlikeli
+yapan şey indirimde satmak değil, **hiç satamamaktır.** Yalnız tam fiyat
+ile hiç satılmama arasındaki terazi için kritik oran %63,2.
 
-Hesapta çıkışta kalan stok 0 TL sayılıyor. Gerçekte o mal bir outlet'e ya
-da bir sonraki sezona devreder ve bir şey eder. Buradaki kârlar bu yüzden
-bir alt sınır.
+İndirim döneminin fiyatını kimse önceden yazmıyor. Lumoda'da indirimi bir
+plan değil, bir kural koyuyor ve kural ürünün ne kadar sattığına bakıyor.
+Beklentiyi bu yüzden geçmişten öğreniyoruz: bu sezondan önce kapanmış
+sezonlarda, aynı dalgayla gelmiş Collection ürünleri indirimin ilk
+haftasında, ikinci haftasında ve sonrasında ortalama ne kadar indirim
+görmüş? Haftaları lansmandan değil, ürünün kendi indirim başından
+sayıyoruz. Yoksa indirimin farklı haftalarda başladığı iki sezon türü
+aynı ortalamada karışırdı. Bir ürünün beklenen indirimi, indirim
+haftalarının oranlarının ortalaması; her hafta o haftadaki talebin
+payıyla ağırlıklı, çünkü indirim talebi ilk haftalarda yoğunlaşır. Oyun
+sezonunun kendi fiyatına bakılmıyor. Çıkan beklenti ortalamada listenin
+%68,3'ü.
+
+Bir ayrıntı daha. Miktar hesabı sezon kapandığında elde kalan birimi 0 TL
+sayıyor. Oyunların kâr ölçüsü biraz daha cömert: sezon kapanınca depodaki
+mal outlet'e gidiyor ve oradaki satış gelire giriyor; yalnız en sonunda
+hâlâ satılmamış kalan mal 0 TL. Yani miktar hesabı fazla birimin
+bedelini olduğundan biraz yüksek görüyor. Hata temkinli tarafta.
 
 ## Belirsizlik
 
 Kritik orana göre sipariş verebilmek için tek bir kestirim değil, bir
-dağılım gerekiyor. Onu da geçmişten öğreniyoruz. Üçüncü yazının d
-katmanının geçmiş sezonlardaki hatası, logaritmik ölçekte:
+dağılım gerekiyor. Üçüncü yazının sonunda söylediğimiz buydu: "sezon
+talebi 3.807" demek yetmez, bu sayının ne kadar oynayabileceğini de
+bilmek gerekir.
 
-| Hafta | h=2 | h=3 | h=4 | h=5 | h=6 |
+Onu da geçmişten öğreniyoruz. Bu sezondan önce kapanmış her sezona dönüp
+her ürünün d kestirimini, her karar pazartesisinde, o sabah bilinenle
+yeniden kuruyoruz. Sonra sezon sonundaki talebe oranlıyoruz. Gerçek
+talebe değil: sahada o yok. Sezon kapandıktan sonra aynı yöntemle
+doldurulmuş talebe. Bu oranın logaritmasının standart sapması:
+
+| Sezon | h=2 | h=3 | h=4 | h=5 | h=6 |
 |---|---:|---:|---:|---:|---:|
-| σ | 0,268 | 0,235 | 0,204 | 0,181 | 0,157 |
+| Sonbahar-kış (üç geçmiş sezondan) | 0,397 | 0,318 | 0,275 | 0,237 | 0,197 |
+| İlkbahar-yaz (dört geçmiş sezondan) | 0,372 | 0,306 | 0,266 | 0,229 | 0,195 |
 
-İlkbahar-yaz sezonu için, iki geçmiş sezondan. Beklediğiniz her hafta
-dağılım daralıyor. Bu, beklemenin değeridir. Bedeli ise tedarik süresi:
-beklediğiniz her hafta, mal bir hafta geç geliyor ve eğrinin bir haftası
-daha kaçıyor.
+Dağılım geniş. Üçüncü pazartesi σ 0,306; kabaca her üç üründen birinde
+sezon talebi kestirimin dörtte üçünün altında ya da üçte bir fazlasının
+üstünde çıkıyor. Geçmiş sezonlarda ortalama hata ise sıfıra çok yakın.
+Üçüncü yazıda d'nin ilkbahar-yazda eksik kaldığını görmüştük; o kayma
+geçmiş sezonlarda görünmüyordu, sezonun eğrisi geçmişe benzememişti.
+Geçmişten öğrenilen belirsizlik bu sezonun sürprizini önceden bilmiyor.
+
+Beklediğiniz her hafta dağılım daralıyor. Bu, beklemenin değeridir.
+Bedeli ise tedarik süresi: beklediğiniz her hafta mal bir hafta geç
+geliyor ve eğrinin bir haftası daha kaçıyor.
 
 ## Miktar
 
-Şortun üçüncü pazartesisine dönelim. Kestirim ve yaşam eğrisi kalan
+Ceketin üçüncü pazartesisine dönelim. Kestirim ve yaşam eğrisi kalan
 talebi üç parçaya bölüyor:
 
 | Dönem | Beklenen talep |
 |---|---:|
-| Bugünden RPT'nin gelişine | 2.362 |
-| Gelişten indirime, tam fiyat | 1.208 |
-| İndirim dönemi | 2.649 |
+| Bugünden RPT'nin gelişine | 2.262 |
+| Gelişten indirime, tam fiyat | 471 |
+| Gelişten sonra, indirim dönemi | 1.826 |
 
-İlk parça RPT'nin yetişemeyeceği talep; eldeki 764 adetlik stok onun bir
-kısmını karşılayacak. RPT'nin hedefi ikinci ve üçüncü parça.
+İlk parça RPT'nin yetişemeyeceği talep. Depoda ve mağazalarda 777 adet
+var; ilk parçanın ancak üçte birini karşılayacak. RPT'nin hedefi ikinci
+ve üçüncü parça. Ceket üçüncü dalgayla gelmiş: RPT geldiğinde tam fiyat
+penceresi dar, indirim dönemi geniş.
 
-Dört yöntemin aynı sabah söyledikleri:
+Hesap kodda kısa. Her sütun dağılımdan bir senaryo, her satır bir sipariş
+miktarı:
 
-| Yöntem | Sipariş |
-|---|---:|
-| Banu: ilk alımın yarısı | 1.040 |
-| FRR kuralı | 1.470 |
-| Newsvendor | 3.530 |
-| Kâhin (gerçek talebi bilen, ikinci pazartesi) | 4.170 |
+```python
+def kar_egrisi(Q: np.ndarray, B, Xtf, Xind, ip, p, p_ind, c):
+    """Q ızgarası için beklenen (tam fiyat satış, indirimli satış, kâr)."""
+    C0 = np.maximum(ip - B, 0.0)
+    C1 = np.maximum(C0 - Xtf, 0.0)
+    ihtiyac_tf = np.maximum(Xtf - C0, 0.0)[None, :]
+    ihtiyac_ind = np.maximum(Xind - C1, 0.0)[None, :]
+    Qm = Q[:, None].astype(float)
+    tf = np.minimum(Qm, ihtiyac_tf)
+    ind = np.minimum(Qm - tf, ihtiyac_ind)
+    kar = p * tf + p_ind * ind - c * Qm
+    return tf.mean(1), ind.mean(1), kar.mean(1)
+```
 
-Newsvendor, Banu'nun üç katından fazlasını istiyor. Beklenen satış
-1.208'i tam fiyattan, 2.116'sı indirimde. Satışın büyük kısmı indirim
-döneminde, ve newsvendor buna rağmen sipariş veriyor, çünkü Lumoda'da
-indirimli fiyat bile maliyetin üstünde.
+`ip` eldeki stok: depo, mağaza, yoldaki mal ve açık siparişler. `B`
+gelişe kadarki talep; `C0` RPT geldiğinde elde kalacak olan. RPT önce
+tam fiyat talebinin elde kalanla karşılanamayan kısmını, sonra indirim
+döneminin talebini karşılıyor. Senaryoların ortalaması beklenen kâr;
+beklenen kârı en büyük miktar seçiliyor. Sonra iki kapı var. Miktar
+MOQ'nun altındaysa ya MOQ'ya çıkıyor ya sıfıra iniyor. MOQ'nun yarısını
+tam fiyattan satması beklenmeyen sipariş ise hiç verilmiyor; dördüncü
+yazının etiketi de aynı eşiği kullanıyordu.
 
-Bir de Uzak Doğu'dan gelen bir ürüne bakalım: ilk dalgayla gelmiş bir
-Polo Yaka Tişört, ekru, tedarikçisi Bangladeş'te. Planının 2,89 katı
-satıyor, yani o da tutan bir ürün. Üçüncü pazartesisi ise tamamen başka:
+Ceketin liste fiyatı 2.130 TL, alışı 818 TL, beklenen indirim fiyatı
+1.463 TL. Yöntemlerin söyledikleri:
+
+| Yöntem | Ne zaman | Sipariş |
+|---|---|---:|
+| Banu: ilk alımın yarısı | üçüncü pazartesi | 930 |
+| FRR kuralı | üçüncü pazartesi | 620 |
+| Newsvendor | üçüncü pazartesi | 2.090 |
+| Öneri: aday modeli + newsvendor | ikinci pazartesi | 2.120 |
+| Kâhin | ikinci pazartesi | 2.160 |
+
+Newsvendor, Banu'nun iki katından fazlasını istiyor. Beklenen satışı 471
+adet tam fiyattan, 1.444 adet indirimde; beklenen kârı 1.405.891 TL.
+Satışın büyük kısmı indirim döneminde ve newsvendor buna rağmen sipariş
+veriyor, çünkü indirimli fiyat bile maliyetin üstünde.
+
+FRR kuralı Banu'dan da az istiyor. Çıplak satışı çıplak eğriyle
+büyütüyor; üçüncü yazıda gördüğümüz gibi bu hesap iki yerden sansür
+yiyor ve en çok tutan üründe yanılıyor.
+
+Son iki satır bir hafta önceki sabahtan. Öneri kolu dördüncü yazının
+aday modelini bu hesapla birleştiriyor; ceketi ikinci pazartesi aday
+buluyor ve 2.120 adet istiyor. Kestirimin daha belirsiz olduğu bir
+sabah, newsvendor'un bir hafta sonra söyleyeceğine yakın bir sayı.
+
+**Kâhin** bu dizide bir karşılaştırma kolu. RPT verilmeseydi gelecekte ne
+talep geleceğini biliyor; aynı müşteri akışının RPT'siz hâlini görmüş
+gibi. Tedarikçinin gerçekte kaç gün gecikeceğini de biliyor, öteki kollar
+planlanan süreyle karar veriyor. Her ürün için ikinci ile altıncı
+pazartesi arasındaki bütün seçenekleri tartıp en kârlısını seçiyor. Ama
+zincir düzeyinde düşünüyor, malın hangi mağazada kalacağını bilmiyor. O
+yüzden bir üst sınır değil, bir yön işareti. Ceket için 2.160 diyor:
+talebi bilmeyen öneriyle neredeyse aynı sayı.
+
+## Uzak Doğu'dan bir kemer
+
+Bir de Uzak Doğu'dan gelen bir ürüne bakalım. İlk yazının sonunda
+Veli'nin andığı Örgü Kemer, siyah: ilk dalgayla gelmiş, tedarikçisi
+Hindistan'da, Tiruppur Ganga. Tekrar siparişi on dört haftada üretiyor ve
+600 adetten azını kabul etmiyor. Sezon kapandığında bakınca gerçek talebi
+planının 1,81 katıydı. O da tutan bir ürün.
+
+Üçüncü pazartesi zincir STR'si %40,2, Banu'nun eşiğinin altında. Newsvendor
+da sıfır diyor; MOQ olmasa en iyi miktar 190 olurdu. Bir hafta sonra STR
+%57,8'e çıkıyor ve kural tetikleniyor. O sabahın hesabı:
 
 | Dönem | Beklenen talep |
 |---|---:|
-| Bugünden RPT'nin gelişine | 2.708 |
-| Gelişten indirime, tam fiyat | 142 |
-| İndirim dönemi | 270 |
+| Bugünden RPT'nin gelişine | 1.197 |
+| Gelişten indirime, tam fiyat | 38 |
+| Gelişten sonra, indirim dönemi | 144 |
 
-Tedarikçinin <T k="moq">MOQ</T>'su 600. Gelişten sonra kalan bütün talep
-bunun altında. Newsvendor sıfır diyor; MOQ kapısı olmasa bile en iyi
-miktar 380, yani tedarikçinin kabul etmeyeceği bir sipariş. Kâhin de
-sipariş vermiyor. Banu'nun kuralı 750 verdi, FRR kuralı 1.240 verirdi.
+O sabah verilen sipariş on sekizinci haftada gelecek, indirime iki hafta
+kala. Gelişten sonra kalan bütün talep, tam fiyat ve indirim birlikte,
+tedarikçinin <T k="moq">MOQ</T>'sunun üçte birine bile varmıyor.
+Newsvendor yine sıfır diyor; MOQ kapısı olmasa bile en iyi miktar 170,
+tedarikçinin kabul etmeyeceği bir sipariş. Öneri de FRR de sipariş
+vermiyor.
+
+Banu'nun kuralı 600 verdi. İlk alım 1.030, yarısı 515; MOQ 600 olduğu
+için sipariş 600'e çıktı. Pelin'in ilk yazıdaki sorusu burada daha sert:
+600 neye göre? Talebe göre değil, ilk alıma göre bile değil. Tedarikçinin
+asgari adedine göre.
+
+Kâhin ise bu kemere RPT veriyor, ama başka bir sabah: ikinci pazartesi,
+MOQ kadar, 600 adet. Tedarikçinin gerçek gecikmesiyle mal lansmandan 16,1
+hafta sonra geliyor, indirime dört haftaya yakın kala. Aynı 600 kemer
+iki hafta önce verilince ne kazandırıyor, son yazıda göreceğiz.
 
 ## Ne zaman
 
-Newsvendor'u aday modeliyle birleştirip her pazartesi çalıştırdığımızda
-ilkbahar-yaz sezonunda 12 ürüne RPT verildi. Hepsi ikinci pazartesi.
-Hiçbiri Uzak Doğu'dan değil.
+Öneri kolu her pazartesi çalıştırıldığında ilkbahar-yazda 77 ürüne RPT
+verdi, 70'ini ikinci pazartesi. Sonbahar-kışta 72 ürüne verdi; biri
+hariç hepsini ikinci pazartesi. İlkbahar-yazda kolların RPT'leri, karar haftasına
+göre:
+
+| Kol | h=2 | h=3 | h=4 | h=5 | h=6 |
+|---|---:|---:|---:|---:|---:|
+| Banu | 0 | 20 | 40 | 23 | 20 |
+| FRR, üçüncü pazartesi | 0 | 19 | 0 | 0 | 0 |
+| Öneri | 70 | 5 | 2 | 0 | 0 |
+| Kâhin | 129 | 0 | 0 | 0 | 0 |
+
+Banu'nun kuralı ürüne ilk kez üçüncü pazartesi bakıyor ve siparişlerinin
+çoğunu dördüncü pazartesi ve sonrasında veriyor. Kâhin her ürün için beş
+haftayı da tartıyor ve 129 siparişinin hepsini ikinci pazartesi veriyor;
+sonbahar-kışta da 116'sının hepsini. Talebi bilseniz bile en iyi hafta,
+seçebileceğiniz en erken hafta.
 
 Bu, önceki yazıdaki pencerenin başka bir yüzü. Yerli bir üründe ikinci
 pazartesi kestirim hâlâ belirsiz, ama beklemenin bedeli daha büyük. Bir
 hafta beklemek belirsizliği biraz azaltıyor; eğrinin tepesini ise
-tamamen kaçırtıyor. Fisher, Rajaram ve Raman kendi perakendecilerinde
-en iyi sipariş haftasını ikinci hafta bulmuşlardı. Lumoda'da da sonuç
-aynı.
+kaçırtıyor. Fisher, Rajaram ve Raman kendi perakendecilerinde en iyi
+sipariş haftasını ikinci hafta bulmuşlardı. Lumoda'da da sonuç aynı.
 
 ## Menşeye göre
 
 Kolları aynı talep üzerinde koşturup, hiç RPT verilmeyen bir sezona göre
 brüt kâr farkını ölçelim. Hepsinde gelen mal, altıncı yazıda anlatacağımız
-en iyi dağıtım kuralıyla mağazalara gidiyor; yani fark yalnız **karardan**
-geliyor. Tablolar yalnız RPT verilen ürünlerin kâr farkını topluyor; "öneri"
-kolu LightGBM'li aday modeliyle koşturuldu.
+b dağıtım kuralıyla mağazalara gidiyor; yani fark yalnız **karardan**
+geliyor. Tablolar yalnız RPT verilen ürünlerin kâr farkını topluyor;
+"öneri" kolu LightGBM'li aday modeliyle koşturuldu.
 
-Sonbahar-kış sezonu:
+Sonbahar-kış sezonu (RPT verilen ürün sayısı ve kâr farkı, TL):
 
-| Kol | Yerli RPT | Yerli Δ kâr | Uzak Doğu RPT | Uzak Doğu Δ kâr |
-|---|---:|---:|---:|---:|
-| Banu | 23 | 2.082.194 TL | 12 | −4.879.457 TL |
-| FRR, üçüncü pazartesi | 7 | 2.934.902 TL | 2 | −1.000.490 TL |
-| Öneri | 13 | 5.245.081 TL | 0 | 0 |
-| Kâhin | 16 | 6.881.541 TL | 3 | 133.706 TL |
+| Kol | Yerli | Yerli Δ kâr | Mısır | Mısır Δ kâr | Uzak Doğu | Uzak Doğu Δ kâr |
+|---|---:|---:|---:|---:|---:|---:|
+| Banu | 64 | 20.473.554 | 11 | −1.531.077 | 21 | −10.899.477 |
+| FRR, üçüncü pazartesi | 17 | 10.473.906 | 1 | 166.672 | 2 | −970.373 |
+| Öneri | 51 | 31.111.551 | 10 | −660.419 | 11 | 2.738.794 |
+| Kâhin | 61 | 52.048.202 | 13 | 1.809.191 | 42 | 12.920.614 |
 
 İlkbahar-yaz sezonu:
 
-| Kol | Yerli RPT | Yerli Δ kâr | Uzak Doğu RPT | Uzak Doğu Δ kâr |
-|---|---:|---:|---:|---:|
-| Banu | 29 | −1.395.744 TL | 9 | −2.091.285 TL |
-| FRR, üçüncü pazartesi | 4 | 800.710 TL | 1 | −156.887 TL |
-| Öneri | 12 | 1.572.612 TL | 0 | 0 |
-| Kâhin | 13 | 2.453.159 TL | 0 | 0 |
+| Kol | Yerli | Yerli Δ kâr | Mısır | Mısır Δ kâr | Uzak Doğu | Uzak Doğu Δ kâr |
+|---|---:|---:|---:|---:|---:|---:|
+| Banu | 75 | 41.052.699 | 12 | 21.499.381 | 16 | 8.661 |
+| FRR, üçüncü pazartesi | 17 | 26.369.736 | 1 | 7.439.748 | 1 | 41.431 |
+| Öneri | 62 | 70.921.395 | 9 | 21.201.408 | 6 | 5.382.253 |
+| Kâhin | 69 | 91.418.675 | 14 | 38.907.004 | 46 | 10.139.345 |
 
-Sonbahar-kışta Banu'nun on iki Uzak Doğu RPT'si, gelişten sonra toplam
-**47** adet ek tam fiyat satış getirdi ve 4.879.457 TL kaybettirdi. Kâhin
-bile Uzak Doğu'dan yalnız üç sipariş veriyor ve bunlardan neredeyse bir
-şey kazanamıyor.
+Sonbahar-kışta Banu'nun 21 Uzak Doğu RPT'si, toplam 53.840 adet, gelişten
+sonra yalnız **431** adet ek tam fiyat satış getirdi ve 10.899.477 TL
+kaybettirdi. İlkbahar-yazda 16 Uzak Doğu RPT'si başa baş: 8.661 TL. Bu
+tablolarda mal b kuralıyla dağıtılıyor. Bugünkü dağıtımla, yani Banu'nun
+gerçekte yaşadığı dünyada, aynı siparişler iki sezonda da kaybettiriyor:
+sonbahar-kışta 19.697.766 TL, ilkbahar-yazda 5.405.735 TL.
 
-Yerli tarafta Banu'nun kuralı sonbahar-kışta para kazandırıyor ama
-önerinin yarısından az; ilkbahar-yazda kaybettiriyor. Miktar sabit
-olduğu için hit'lerde az, sıradan ürünlerde fazla sipariş veriyor.
+Öneri ve kâhin ise Uzak Doğu'dan para kazanıyor. Öneri sonbahar-kışta
+11, ilkbahar-yazda 6 Uzak Doğu ürününe RPT verdi; kâhin 42 ve 46 ürüne.
+Fark siparişin zamanında ve büyüklüğünde. İkisi de siparişlerini
+neredeyse hep ikinci pazartesi veriyor ve Uzak Doğu ürünü başına
+Banu'nunkinden küçük sipariş veriyor. Banu'nun kuralı Uzak Doğu ürününe
+ilk kez üçüncü pazartesi bakıyor ve ilk alımın yarısını, en az MOQ kadarını
+istiyor.
 
-FRR kuralı temkinli: az sipariş veriyor, yerli siparişlerinde kazanıyor.
-Sansürlü veriyle ölçeklendiği için talebi düşük kestiriyor ve hit'lerde
-kazanabileceğinin bir kısmını bırakıyor.
+Yerli tarafta Banu'nun kuralı iki sezonda da para kazandırıyor, ama
+önerinin kazandırdığının ancak yarısından biraz fazlasını ya da üçte
+ikisini. Öneriden daha
+çok yerli ürüne RPT veriyor ve daha az kazandırıyor: miktar sabit olduğu
+için hit'lerde az sipariş veriyor; dördüncü yazıda gördüğümüz gibi asıl
+kaybı da kaçırdığı ürünlerde. Mısır'dan gelen ürünlerde sonuç
+sezona göre değişiyor: sonbahar-kışta Banu da öneri de az da olsa
+kaybediyor, ilkbahar-yazda ikisi de neredeyse aynı tutarı kazandırıyor.
+
+FRR kuralı temkinli: iki sezonda 20 ve 19 RPT veriyor, yerli
+siparişlerinde kazanıyor. Sansürlü veriyle ölçeklendiği için talebi düşük
+kestiriyor ve hit'lerde kazanabileceğinin bir kısmını bırakıyor.
+
+Altıncı yazının tabloları bütün Collection'ı toplayacak. O toplamlar
+buradakilerle aynı çıkmayacak; nedenini orada anlatacağız.
+
+## Sizin verinizde zor olan
+
+**İndirim fiyatı.** Lumoda'nın indirim kuralı sezondan sezona aynı, o yüzden
+beklentiyi geçmişten öğrenmek işe yarıyor. Sizin zincirinizde indirim
+politikası değiştiyse geçmiş fiyatlar geleceği temsil etmez. Bir de şu
+var: indirim satışa bakıyorsa, RPT'nin getirdiği fazla mal indirimi
+derinleştirebilir. Hesap bunu görmüyor; beklenen fiyat, ürünün kendi
+siparişinden bağımsız bir ortalama.
+
+**Belirsizlik.** σ'yı sezon sonunda doldurulmuş talebe göre ölçtük, çünkü
+sahada başka bir cevap anahtarı yok. Doldurmanın kendi hatası bu
+dağılımın içinde değil. Lumoda'da onu bir hakemle ölçebiliyoruz, sizin
+verinizde ölçemezsiniz.
+
+**Tedarik koşulları.** MOQ ve tekrar sipariş süresi bu hesapta sabit.
+Gerçekte pazarlıkla değişirler ve Uzak Doğu'nun cevabı bazen RPT değil,
+daha kısa bir süre ya da önceden ayrılmış kumaştır.
 
 ## Özet
 
@@ -178,10 +326,11 @@ kazanabileceğinin bir kısmını bırakıyor.
 - İndirimli fiyat maliyetin üstündeyse, RPT'nin asıl riski hiç
   satamamaktır. O yüzden gelişten sonra kalan talep MOQ'ya yetmiyorsa
   sipariş verilmez.
-- Yerli üründe karar ikinci pazartesi verilir. Uzak Doğu'dan gelen
-  Collection ürününde, bu tedarik süresiyle, RPT neredeyse hiçbir zaman
-  doğru cevap değildir. Cevap ya daha kısa bir tedarik süresidir ya da
-  ilk siparişin kendisi.
+- En iyi hafta ikinci pazartesi. Talebi bilen kâhin bile oraya gidiyor.
+- Uzak Doğu'da RPT ancak erken ve küçük verilirse kâr ediyor. Banu'nun
+  kuralının zamanında ve miktarında, üçüncü pazartesi ve sonrasında ilk
+  alımın yarısı kadar, çoğunlukla etmiyor. Öteki cevaplar daha kısa bir
+  tedarik süresi ya da ilk siparişin kendisi.
 
-Son yazıda, Veli'nin hatırasına dönüyoruz: RPT geldi, mağazaların satışı
-sıfır. Mal nasıl gidecek?
+Son yazıda Veli'nin örgü kemerine dönüyoruz: RPT geldi, mağazaların
+satışı sıfır. Mal nasıl gidecek?
