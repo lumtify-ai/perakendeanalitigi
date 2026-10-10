@@ -16,7 +16,7 @@ açıyoruz. Sıra önemli, çünkü her soru bir öncekinin cevabına yaslanıyo
 
 Banu'nun ilk itirazı şu oldu:
 
-— Her pazartesi 109 ürüne tek tek mi bakacağız?
+— Her pazartesi 210 ürüne tek tek mi bakacağız?
 
 Bakmayacağız. RPT sorusu yalnız bir ürün grubunda anlamlıdır.
 
@@ -46,23 +46,36 @@ dördüncü yazısının konusu. Burada yalnız şunu söyleyelim: aday modeli
 
 Pelin'in sorusu. Cevabın iki katmanı var.
 
-**Birinci katman: stoksuz günler.** Satışı takvim gününe değil, stoklu
-güne bölmek gerekir. Replenishment dizisinde aynı düzeltmeyi yapmıştık.
-Şorta uygulayalım. Üç haftada 1.367 adet satmış; takvim gününe bölünce
-haftada 455,7 adet. Mağaza ve beden düzeyinde stoksuz günler ayıklanınca
-haftalık talep 505,0 çıkıyor, %10,8 daha fazla.
+**Birinci katman: rafı boş bulan müşteri.** Satış raporu talebi değil,
+talep ile stoğun küçüğünü gösterir. Aradaki farkı kestirmenin yolunu
+[Satış Kaybı dizisi](/is-zekasi/satis-kaybi/) anlattı: stoksuz günü bul,
+stoklu günlerin hızını ölç, her stoksuz güne bir kayıp yaz. RPT için tek
+bir kısıt ekleniyor. Kestirimi karar sabahı yapıyoruz, yani yalnız o
+pazartesiye kadar olanı görerek. Ertesi günün satışı hesaba giremez.
 
-Gerçek haftalık talep ise 563,3. Düzeltme farkın yarısından azını
-kapatıyor. Sebebi bir sonraki yazının konusu, ama kısaca şöyle: bir beden
-sabah üç adetle açılıp öğlen bitiyorsa o gün "stoklu" sayılır. Öğleden
-sonra gelen müşteri yine kaybolur. Stoklu gün düzeltmesi günü kurtarır,
-saati kurtaramaz.
+Cekete uygulayalım. Üç haftada 1.091 adet satmış; haftada 363,7 adet.
+Stoksuz günlere kayıp yazılınca üç haftanın talebi 1.195 çıkıyor, haftada
+398,3; %9,5 daha fazla. Kestirilen şey ceketin kendi talebi: rafı boş
+bulup sonunda başka bir ürün alan müşteri de ceketi istemişti, o da bu
+talebin içinde.
+
+Gerçek haftalık talep 392,7. Düzeltme açığı kapatıyor, hatta biraz aşıyor.
+Ceketin ilk üç haftasında mağaza ve beden günlerinin %95,0'ı rafta malla
+açılmış; stoksuzluk henüz hafif ve düzeltme işini görüyor. Ama bir üründe
+tutması her üründe tutacağı anlamına gelmez. Üçüncü yazıda iki sezonun
+bütün ürünlerinde sınayacağız: kestirim ortalamada biraz aşağıda kalıyor
+ve belirsizliği geniş. Miktar kararı bu yüzden tek bir sayıyla değil, bir
+dağılımla verilecek.
+
+Gerçek talebi biz biliyoruz, çünkü Lumoda sentetik. Sizin zincirinizde bu
+karşılaştırmayı yapacak bir hakem yok. Kestirimin ne kadar tuttuğunu ancak
+dolaylı yollardan sınayabilirsiniz.
 
 **İkinci katman: yaşam eğrisi.** İlk üç haftanın satışını bilmek sezonun
 satışını bilmek değildir. Ama geçmiş sezonlardan şunu biliriz: ilk dalgayla gelen
-bir Collection ürünü, indirime kadarki talebinin %23,1'ini ilk üç haftada
-görür. Üçüncü dalgayla gelen, sezonu daha kısa olduğu için, %30,8'ini. Bu
-oran ürüne göre değişmez, eğrinin şekline bağlıdır. O zaman
+bir Collection ürünü, indirime kadarki talebinin %22,8'ini ilk üç haftada
+görür. Üçüncü dalgayla gelen, sezonu daha kısa olduğu için, %31,4'ünü. Bu
+oranı ürün ürün bilmeyiz; dalganın ortak eğrisinden alırız. O zaman
 
 $$
 \text{sezon talebi} \approx \frac{\text{ilk üç haftanın talebi}}{\text{eğrinin ilk üç haftadaki payı}}
@@ -79,7 +92,9 @@ Dikkat edilmesi gereken ince nokta şu: eğrinin **şekli** geçmiş
 sezonlardan gelir, **seviyesi** bu sezondan. RPT kararı geçen sezonun
 satışına bakmaz. Ürün zaten satışta; ne kadar sattığı bu sezonun verisinde
 yazıyor. Geçmiş yalnızca "üç haftada eğrinin ne kadarı biter" sorusuna
-cevap verir.
+cevap verir. Lumoda'da eğri, üç yıllık verinin bu sezondan önce kapanmış
+dört sezonundan öğreniliyor. O sezonların satışı da raf boşken durduğu
+için eğri de önce aynı yöntemle düzeltiliyor; ayrıntısı üçüncü yazıda.
 
 ## Üçüncü soru: yetişir mi?
 
@@ -88,23 +103,32 @@ Banu'nun sorusu, ama yanlış sorulursa yanlış cevap verir.
 "Yetişir mi" genelde "indirimden önce depoya girer mi" diye sorulur. Bu
 yetmez. Asıl soru **"gelişinden sonra eğrinin ne kadarı kalıyor"**dur.
 
-İki tedarikçiyi yan yana koyalım. Lumoda'nın yerli tedarikçileri tekrar
-siparişi tipik olarak 5 haftada, Uzak Doğu'dakiler 14 haftada basıyor.
-Lansmandan üç hafta sonra sipariş verilirse:
+Tedarikçileri yan yana koyalım. Lumoda'nın yerli tedarikçileri tekrar
+siparişi tipik olarak 5 haftada, Mısır'dakiler 8 haftada üretiyor. Uzak
+Doğu'dakilerin süresi 12 ile 15 hafta arasında; tabloda ortancayı, 13,5
+haftayı kullanıyoruz. Lansmandan üç hafta sonra sipariş verilirse:
 
 | Dalga | Menşe | Geliş (lansmandan hafta) | İndirime kadarki talepten kalan | Çıkışa kadarki talepten kalan |
 |---|---|---:|---:|---:|
-| 1 | Yerli | 8 | %37,9 | %42,3 |
-| 1 | Uzak Doğu | 17 | %3,8 | %10,7 |
-| 3 | Yerli | 8 | %13,7 | %44,3 |
-| 3 | Uzak Doğu | 17 | %0,0 | %2,5 |
+| 1 | Yerli | 8 | %36,1 | %41,2 |
+| 1 | Mısır | 11 | %20,0 | %26,3 |
+| 1 | Uzak Doğu | 16,5 | %4,5 | %12,1 |
+| 3 | Yerli | 8 | %11,8 | %41,3 |
+| 3 | Mısır | 11 | %0,0 | %23,4 |
+| 3 | Uzak Doğu | 16,5 | %0,0 | %1,0 |
 
-İlk dalgada ikisi de indirimden önce geliyor. Yerli siparişin önünde
+İlk dalgada üçü de indirimden önce geliyor. Yerli siparişin önünde
 indirime kadarki talebin üçte birinden fazlası duruyor, Uzak Doğu'dakinin önünde
-yirmide biri bile yok. Aynı ürün, aynı sinyal, çok farklı iki karar.
+yirmide biri bile yok. Aynı ürün, aynı sinyal, çok farklı kararlar.
+
+Tedarikçi bir de söz verdiği günde gelmeyebilir. Lumoda'da yerli
+tedarikçiler RPT'yi neredeyse gününde getiriyor. Uzak Doğu'dakiler
+ortalama 5,8 gün, en kötü durumda 20 gün geç kalıyor. Zaten az kalan
+eğriden bir parça daha gidiyor.
 
 Son sütuna da bakın. Üçüncü dalgada yerli RPT indirime kadarki talebin
-yalnız %13,7'sini yakalıyor ama çıkışa kadarki talebin %44,3'ünü. Farkı
+yalnız %11,8'ini yakalıyor ama çıkışa kadarki talebin %41,3'ünü. İlk
+yazının ceketi tam bu satırda. Farkı
 indirim dönemi yapıyor. O dönemde de satılır, ama daha ucuza. RPT'nin
 kârlı olup olmadığı bu yüzden bir sonraki sorunun, miktar sorusunun
 içinde cevaplanır.
@@ -157,8 +181,9 @@ Hangisinin daha iyi olduğunu altıncı yazıda aynı talep üzerinde ölçeceğ
 Kuralı bir daha yazalım: ilk haftalarda gönderilenin %55'inden fazlası
 satıldıysa, ilk alımın yarısı kadar sipariş ver.
 
-1. **Oran talebe değil ilk alıma bakar.** Az alınmış bir ürün sıradan bir
-   talepte de yüksek oran gösterir. Çok alınmış bir hit ise düşük.
+1. **Oran talebe değil gönderilen mala bakar.** Az alınmış bir ürün
+   sıradan bir talepte de yüksek oran gösterir. Çok alınmış bir hit ise
+   düşük.
 2. **Stoksuz günleri görmez.** Biten ürünün oranı %100'de takılır;
    ne kadar daha satacağını söylemez.
 3. **Miktar sabittir.** Kalan eğriye, tedarik süresine, iki hatanın

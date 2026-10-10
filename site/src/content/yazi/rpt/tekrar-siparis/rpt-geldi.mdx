@@ -218,4 +218,26 @@ malı mağazaya göndermek, "satışı sıfır" diyen bir kuralın sorusu değil
 Ama belki en önemli sonuç şu: RPT vermemek de bir karardır ve çoğu zaman
 doğru karardır. İyi bir planlama sistemi az RPT verendir.
 
-<Lumtify />
+<Lumtify>
+
+Bu dizinin hesabı yayımlanabilir olması için sadeleştirildi. Lumoda'da her
+ürünün gerçek talebi bir yerde yazılı duruyor; kuralı, modelleri ve kâhini
+aynı müşteri akışında yarıştırabildik. Gerçek bir zincirde o hakem yoktur:
+bir RPT'nin gerçekten gerekip gerekmediğini sezon kapandıktan sonra bile
+tam bilemezsiniz. Tedarikçinin asgari adedi ve tekrar sipariş süresi de
+sabit değildir; pazarlıkla değişir, kumaş önceden ayrılırsa süre kısalır.
+Karar ise her pazartesi yüzlerce ürün için verilir. Tek seferlik bir
+analizle değil, buyer'ın, planner'ın ve allocator'ın birlikte işlettiği
+bir haftalık rutinle yürür.
+
+<Fragment slot="son">
+
+Raf boşken kaybolan talebi kendi hareket kayıtlarınızdan kestirir, yaşam
+eğrisini kendi geçmiş sezonlarınızdan öğrenir, tedarikçi koşullarınızı ve
+maliyetlerinizi kendi sözleşmelerinizle kurar. Böylece her pazartesi hangi
+ürüne ne kadar RPT verileceğini ve gelen malın hangi mağazaya gideceğini
+aynı hesapla söyler.
+
+</Fragment>
+
+</Lumtify>
