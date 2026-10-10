@@ -19,7 +19,8 @@ dağıtım veriden aynen alınır, bu vakanın konusu değildir.
 
 Veri `veri/cikti/v4/perakende.duckdb` (ya da `PERAKENDE_V4_DB`); yoksa yayımlanan
 `veri-v4` dosyasını indirin ya da `cd veri && python -m perakende_veri.v4.uret`.
-Hakem önbelleği ortak paketin kendi ortamında kurulur (`vakalar/ortak/.venv`).
+Hakem önbelleği ortak paketin kendi ortamında kurulur (`vakalar/ortak/.venv`): kurulum
+`vakalar/ortak/README.md`'de; hakem için ek olarak `cd ../ortak && .venv/Scripts/pip install -e ../../veri`.
 
 ## Koşum
 
@@ -88,16 +89,20 @@ etmediği her parametre `parametreler`'e girmeli.
 - `hazirla.py` ya da ortak kapanışı değişirse günlük tablo ve çarpanlar kendiliğinden yenilenir;
   öğrenme de (anahtarında hazirla.py var). Bilinen açık: aday sınamasının anahtarında günlük
   tablonun ve hazirla kodunun izi yok (`oyun.sinama`; oyun.py koşu modülü olduğu için bu dalga
-  değiştirmedi). `hazirla` "içerik değişti" dediyse `cikti/yollar/yol*/rpt_yok/sinama.anahtar`
-  dosyalarını silin.
+  değiştirmedi). `hazirla.py` ya da ortak içe aktarma kapanışı değiştiğinde (içerik aynı çıksa
+  da) `cikti/yollar/yol*/rpt_yok/sinama.anahtar` dosyalarını silin.
 - **Öğrenmeyi temiz bir süreçte kurun.** `Ogrenilen.kimlik` eğitilmiş modelleri pickle
   baytlarından da özetler (`politika.ozet_hash`); pickle'ın nesne paylaşımı süreçte daha önce
   ne yüklendiğine bağlı. Son düzeltme dalgasında rapor içinden yeniden öğrenmek aynı içerikle
   başka bir kimlik verdi ve öneri / kâhin kolunun 5 koşusu (çıktıları bayt bayt aynı) yeni
   anahtarla yeniden koşuldu; aynı öğrenme temiz bir süreçte özgün kimliği verdi ve 18 koşu yine
-  önbellekten geldi. Öğrenmenin anahtarı değiştiyse (hazirla.py, v4 dosyası, koşu kodu) raporu
+  önbellekten geldi. Bu tek bir gözlem; kök neden varsayım olarak kalıyor (pickle nesne
+  paylaşımı en olası açıklama, ayrıca doğrulanmadı). Öğrenmenin anahtarı değiştiyse (hazirla.py, v4 dosyası, koşu kodu) raporu
   koşmadan önce `.venv/Scripts/python -c "from rpt import oyun; oyun.hazirlik(0, ilerleme=None)"`
-  (ya da `python -m rpt.oyun`) koşun. Kalıcı çare (modellerin içerik özeti) koşu modüllerini
+  (ya da `python -m rpt.oyun`) koşun. Bir sonraki `python -m rpt.yollar` için de aynı kaygı
+  geçerli: `yollar.json` `kod` alanından önce yazıldı ve `hazirla` değişti; p > 0 yolları
+  yeniden öğrenilir, kimlikler farklı çıkabilir ve o yolların kolları aynı çıktılarla yeniden
+  koşulur (en kötü ~1–1,7 sa). Denetim stderr'deki "N/N koşu önbellekten" sayısıdır. Kalıcı çare (modellerin içerik özeti) koşu modüllerini
   değiştirir; ızgara yeniden koşulacağı bir değişikliğe bırakıldı.
 - `olcutler.py` ya da `yollar.py` değişirse `yollar.json`'ın yolları kendiliğinden yeniden
   hesaplanır (`python -m rpt.yollar`; koşular önbellekten). Bu alandan (`kod`, `anahtarlar`)
