@@ -1,0 +1,190 @@
+---
+baslik: Perakende Analitiği Nedir?
+tip: anlatici
+sira: 1
+ozet: >-
+  Perakende analitiği, mağaza, ürün ve müşteri verisini kullanarak stok, fiyat
+  ve dağıtım kararlarını ölçülebilir hâle getirme işidir: ne kadar alınacağı,
+  hangi mağazaya gideceği, ne zaman yeniden sipariş verileceği ve ne zaman
+  indirime girileceği.
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import T from '../../../components/T.astro'
+
+Bu işi anlatırken en sık duyduğum soru hep aynı: "Perakende analitiği tam
+olarak ne demek? Rapor mu hazırlıyorsunuz?" Tanımı söylediğimde karşımdaki
+kişi başını sallıyor ama pek bir şey anlamamış oluyor. Sonra bir ürün
+üzerinden anlatıyorum ve o zaman anlaşılıyor.
+
+Bu yazıda o ürünü anlatacağım. Sitedeki diğer bütün yazılar bu sorunun bir
+parçasını açıyor; burası hepsinin girişi.
+
+## Rapor mu, karar mı?
+
+Pelin, <a href="/veri-seti/">Lumoda</a>'nın planlama ekibine yeni girmiş.
+Lumoda kurgusal bir moda zinciri: 84 mağaza, bir de online kanal. Pelin'in
+ilk haftası. Kahve makinesinin önünde Pars'la karşılaşıyor. Pars şirketin
+perakende analitiği uzmanı.
+
+— Senin işin tam olarak ne? diyor Pelin. Raporları mı hazırlıyorsun?
+
+Pars gülüyor, çünkü bu soruyu herkes soruyor:
+
+— Rapor sana ne olduğunu söyler. Ben ne yapılacağını söylemeye çalışıyorum.
+Bir kazak düşün. Siyah, balıkçı yaka. Bu kazak için bir yıl içinde kaç karar
+veriyoruz sence?
+
+Pelin düşünüyor. Pars parmaklarıyla saymaya başlıyor:
+
+— Sezon başlamadan aylar önce, kaç tane üretilecek. Mal depoya gelince, hangi
+mağazaya kaç tane gidecek. Mağazada satmaya başlayınca, depodan ne zaman,
+ne kadar daha gönderilecek. Beklenenden hızlı satarsa, tedarikçiye yeniden
+sipariş verilecek mi. Bir mağazada bitip ötekinde dururken, stok mağazalar
+arasında taşınacak mı. Sezon sonunda kalanlar ne zaman, ne kadar indirimle
+satılacak.
+
+— Altı karar, diyor Pelin. Ama bunları bugün de birileri veriyor zaten.
+
+— Veriyor. Çoğu Excel'le, bir kısmı tecrübeyle. Sorun kararın verilmesi
+değil. Ne kadar iyi verildiğini kimsenin ölçememesi.
+
+## Kararları saymak
+
+Pelin ikna olmuş görünmüyor. Altı karar, birkaç kişiyle yönetilecek bir şey
+gibi geliyor. Pars bilgisayarını açıyor.
+
+— Son ilkbahar-yaz sezonuna bakalım. Bu sezon için 250
+<T k="option">option</T> aldık, yani 250 ayrı model-renk. Bedenleriyle
+birlikte 1.166 ürün. Sezon boyunca 79 mağazamız açıktı.
+
+Sonra sezonun ortasından sıradan bir pazartesi sabahını açıyor. Raflarda
+yalnız bu sezonun ürünleri yok; her sezon satılan temel ürünler ve önceki
+sezondan kalanlar da var. Hepsini sayınca o sabah **14.457** ayrı
+mağaza-option ikilisinde stok var. Her biri için aynı soru soruluyor: bu
+renk bu mağazada yeterli mi, fazla mı, eksik mi? Bedene inince sayı
+**59.794** oluyor.
+
+Sezon 29 pazartesi sürüyor. Yalnızca option düzeyinde, yalnızca bu soru
+için, sezon boyunca **350.414** kez karar veriliyor.
+
+— Bunu kimse Excel'le yapmıyor, diyor Pars. Yapıyormuş gibi görünüyor. En
+çok satan yüz ürüne bakılıyor, geri kalanı geçen haftanın kuralına
+bırakılıyor.
+
+Pelin ilk kez biraz korkmuş görünüyor. Pars devam ediyor:
+
+— Perakende analitiği o geri kalanlar için var. Her mağaza-option ikilisine
+aynı kuralla bakan, kuralı açıkça yazılmış ve sonucu ölçülebilen bir sistem.
+
+## Tanım
+
+Pelin'in sorusunun cevabı şu:
+
+**Perakende analitiği, mağaza, ürün ve müşteri verisini kullanarak stok,
+fiyat ve dağıtım kararlarını ölçülebilir hâle getirme işidir.**
+
+Tanımda üç şey var ve üçü de gerekli:
+
+- **Veri.** Kararı tecrübe değil satış, stok, sevkiyat ve fiyat kaydı besler.
+- **Açık bir kural ya da model.** Karar bir kişinin kafasında değil, herkesin
+  okuyabileceği bir hesapta durur. Kural basit olabilir; önemli olan yazılı
+  olması.
+- **Ölçüm.** Kararın iyi olup olmadığı sonradan sayıyla söylenebilir. Bu
+  üçüncüsü en çok atlananıdır ve olmadan ilk ikisi tahmin oyununa döner.
+
+## İş zekâsından farkı ne?
+
+İş zekâsıyla perakende analitiği sık karıştırılır. Farkı üç soruyla
+anlatmak en kolayı:
+
+1. **Ne oldu?** Geçen hafta bu mağazada bu kazaktan kaç tane satıldı?
+2. **Ne olacak?** Önümüzdeki hafta kaç tane satılacak?
+3. **Ne yapmalı?** Depodan kaç tane gönderelim, başka bir mağazadan alalım
+   mı, yoksa hiç dokunmayalım mı?
+
+İş zekâsı birinci soruyu iyi cevaplar: raporlar, panolar, kırılımlar.
+Perakende analitiği üçünü birden ister ama asıl derdi üçüncüsüdür. Rapor
+okunur ve kapanır; analitiğin çıktısı ise bir sevkiyat listesi, bir sipariş
+adedi ya da bir indirim oranıdır.
+
+Burada bir tuzak var. Birinci soru göründüğü kadar kolay değil. Kazak bir
+mağazada çarşamba günü bittiyse, perşembe ve cuma o mağazada sıfır satış
+görürsünüz. Ama talep sıfır değildi; müşteri geldi, rafı boş buldu ve gitti.
+Rapor gerçekleşen satışı gösterir, talebi göstermez. Bu farkın adı
+<T k="sansurlu-talep">sansürlü talep</T> ve onu görmeden yapılan her tahmin,
+stoğun bittiği yerde talebi olduğundan az sayar. Yani "ne oldu" sorusu bile
+analitik ister.
+
+## Hangi kararları kapsar?
+
+Bir moda zincirinin yılı kabaca üç parçaya ayrılır. Bu sitenin haritası da
+aynı şekilde kurulu:
+
+- **[Sezon öncesi](/sezon-oncesi/).** Bütçe planı, koleksiyonun kaç ürün ve
+  kaç renkten oluşacağı, ilk fiyat, beden dağılımı, mağazaların hangi gruplara
+  ayrılacağı. Mal henüz yoktur; kararlar tahmine dayanır.
+- **[Sezon içi](/sezon-ici/).** İlk sevkiyat, depodan mağazaya
+  <T k="replenishment">replenishment</T>, tedarikçiye tekrar sipariş
+  (<T k="rpt">RPT</T>), mağazalar arası transfer, indirim ve kampanya. Mal
+  rafta, müşteri planı okumamış; kararlar gerçek satışa göre düzeltilir.
+- **[Diğer süreçler](/diger-surecler/).** Tedarikçi seçimi, satış kaybını ve
+  atıl stoğu ölçmek, depo ve lojistik, müşteri analitiği. Sezonun bir anına
+  bağlı değildir, hepsinin altında akar.
+
+Şimdiye kadar dört tanesini uçtan uca yazdım. Her birinde problem bir
+hikâyeyle başlıyor, modeli kuruluyor ve Lumoda verisi üzerinde çözülüyor:
+
+- **[Blok Transfer](/transfer/blok-transfer/)**: bir mağazada durup
+  başka mağazada satacak stoğu toplu olarak taşımak.
+- **[Depodan Mağazaya](/replenishment/depodan-magazaya/)**: depodaki kısıtlı
+  stoğun hangi mağazaya, ne kadar gideceği.
+- **[Tekrar Sipariş (RPT)](/rpt/tekrar-siparis/)**: beklenenden hızlı satan
+  ürünü tedarikçiye yeniden ürettirmek.
+- **[Satış Kaybı](/is-zekasi/satis-kaybi/)**: stok yüzünden kaçan satışı
+  ölçmek ve kimin sorumluluğunda olduğunu göstermek.
+
+## Hangi veriyle çalışır?
+
+Çoğu şirkette veri zaten var, ERP'nin içinde duruyor:
+
+- **Satış:** gün, mağaza ve ürün düzeyinde, iadeler dahil.
+- **Stok:** mağazada ve depoda, belli aralıklarla çekilmiş fotoğraflar.
+- **Sevkiyat ve sipariş:** mağazalara giden mal ve tedarikçiye verilen
+  siparişler.
+- **Fiyat ve kampanya:** hangi ürün hangi hafta hangi fiyattan satıldı.
+- **Plan:** bütçe, koleksiyon planı ve mağaza hedefleri.
+- **Müşteri:** fiş, sadakat kartı, online davranış, yorumlar.
+
+Lumoda'da bunların hepsi var ve [veri seti sayfasından](/veri-seti/)
+indirilebilir. Yalnızca satış tablosu yaklaşık 18 milyon satır.
+
+Bu listede asıl zor olan veri bulmak değil, tabloların aynı dili konuşması.
+Satış raporunda "ürün" bir şeyi, sevkiyatta başka bir şeyi, planda üçüncü bir
+şeyi kastedebilir. Bu yüzden sıradaki yazı bütün algoritmaların altında duran
+o ortak dil hakkında:
+[Ürün Hiyerarşisi — Model, Option, SKU](/temeller/urun-hiyerarsisi/).
+
+## Sizin verinizde zor olan
+
+Lumoda'da işler kolay, çünkü veriyi biz ürettik. Gerçek bir zincirde üç şey
+işi zorlaştırır:
+
+- **Verinin kalitesi.** Stok sayımları tutmaz, transferler iki kez kaydedilir,
+  iade yanlış mağazaya düşer. Analitiğin ilk haftaları çoğu zaman modelle
+  değil veriyi temizlemekle geçer.
+- **Hakemin olmaması.** Lumoda'da müşterinin gerçekte ne kadar almak
+  istediğini biliyoruz, çünkü onu biz yazdık. Sahada bunu kimse bilmez. Bir
+  algoritmanın iyi olduğunu göstermek, onu kurmaktan zor bir iştir.
+- **Kuralı kimin koyduğu.** Bir sistem kararı verdiğinde, o kararı kim
+  onaylar, kim itiraz eder, itiraz edince ne olur? Bu sorular cevaplanmadan
+  en iyi model de kullanılmaz.
+
+Kahvesini bitiren Pelin son bir soru soruyor:
+
+— Yani sen rapor hazırlamıyorsun.
+
+— Hazırlıyorum, diyor Pars. Ama her raporun sonunda bir "öyleyse" olmalı.
+
+Bu sitedeki her yazı o "öyleyse"lerden birini anlatıyor. 🙂

@@ -252,6 +252,46 @@ describe('dizi sayfası', () => {
   })
 })
 
+describe('"Perakende analitiği nedir?" yazısı', () => {
+  const YOL = 'temeller/perakende-analitigi-nedir/index.html'
+
+  it('arama sorgusunu başlıkta ve adreste taşır', () => {
+    const html = oku(YOL)
+    expect(html).toContain('<title>Perakende Analitiği Nedir? · perakendeanalitigi.com</title>')
+    expect(html).toMatch(/<h1>Perakende Analitiği Nedir\?<\/h1>/)
+    expect(html).toContain('"@type":"Article"')
+  })
+
+  it('başlığın hemen altında tanımla açılır', () => {
+    // Özet başlığın altına basılır; Google'ın alıntılayacağı paragraf budur.
+    const html = oku(YOL)
+    expect(html).toMatch(/<p class="ozet">Perakende analitiği, /)
+  })
+
+  it('site haritasında ilan edilir', () => {
+    expect(oku('sitemap-0.xml')).toContain(`${SITE}/temeller/perakende-analitigi-nedir/`)
+  })
+
+  it('Temeller rafının ilk yazısıdır', () => {
+    const html = oku('temeller/index.html')
+    const nedir = html.indexOf('href="/temeller/perakende-analitigi-nedir/"')
+    expect(nedir).toBeGreaterThan(-1)
+    expect(nedir).toBeLessThan(html.indexOf('href="/temeller/urun-hiyerarsisi/"'))
+  })
+
+  it('yayındaki dört diziye bağlanır', () => {
+    const html = oku(YOL)
+    for (const dizi of [
+      '/transfer/blok-transfer/',
+      '/replenishment/depodan-magazaya/',
+      '/rpt/tekrar-siparis/',
+      '/is-zekasi/satis-kaybi/',
+    ]) {
+      expect(html, dizi).toContain(`href="${dizi}"`)
+    }
+  })
+})
+
 describe('alan sayfası', () => {
   it('dizili alan dizileri listeler', () => {
     const html = oku('transfer/index.html')
@@ -306,6 +346,22 @@ describe('ana sayfa', () => {
       url: `${SITE}/`,
       inLanguage: 'tr',
     })
+  })
+
+  it('"Perakende analitiği nedir?" yazısına bağlanır', () => {
+    // Raf listesi dışında tanım paragrafının hemen altında da bağlantı var:
+    // ana sayfaya gelen arama ziyaretçisi ayrıntılı tanımı ilk ekranda bulur.
+    const html = oku('index.html')
+    const olcu = html.slice(html.indexOf('<main'), html.indexOf('id="harita"'))
+    expect(olcu).toContain('href="/temeller/perakende-analitigi-nedir/"')
+  })
+
+  it("Lumoda'yı yayımlanan veri setinin mağaza sayısıyla tanıtır", () => {
+    // Veri seti sayfası 84 mağaza ve online kanal diyor; ana sayfa eskiden
+    // v1'in 25 mağazasını söylüyordu.
+    const html = oku('index.html')
+    expect(html).not.toMatch(/25 mağaza/)
+    expect(html).toMatch(/84 mağaza/)
   })
 
   it('WebSite kaydı yalnız ana sayfadadır', () => {
