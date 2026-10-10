@@ -12,10 +12,19 @@ vakanın kapsamı dışındadır.
 
     cd vakalar/replenishment
     python -m venv .venv
-    .venv/Scripts/python -m pip install -e ../../veri -e ".[dev]"
+    .venv/Scripts/pip install -e ../ortak              # perakende_analitik (Basit, hakem, sayı denetimi)
+    .venv/Scripts/pip install --no-deps -e ../../veri  # perakende_veri (v4 motoru; yalnız replenishment/motor.py açar)
+    .venv/Scripts/pip install -e ".[dev]"
     .venv/Scripts/python -m pytest -q          # testler (hızlı + @pytest.mark.veri)
 
-Veri yoksa önce üret: `cd veri && .venv/Scripts/python -m perakende_veri.uret`
+Veri `veri/cikti/v4/perakende.duckdb` (ya da `PERAKENDE_V4_DB`); yoksa yayımlanan
+`veri-v4` dosyasını indirin ya da `cd veri && python -m perakende_veri.v4.uret`.
+Ortam: Windows konsolunda `PYTHONIOENCODING=utf-8`.
+
+> v4'e geçiş sürüyor (`docs/superpowers/plans/2026-10-10-dm-v4.md`): aşağıdaki
+> bölümler v2 vakasını anlatır ve modül modül yeniden yazılıyor. v4'e taşınmamış
+> modüllerin eski testleri `tests/conftest.py` içindeki `GECICI_V2` listesiyle
+> atlanır.
 
 Senaryo taramasını koşmak (21 talep yolu × 60 senaryo, birkaç saat; yarıda
 kalırsa kaldığı yerden devam eder):

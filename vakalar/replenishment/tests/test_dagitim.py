@@ -1,3 +1,7 @@
+from conftest import gecici_atla
+
+gecici_atla(__name__)  # v2 testi: Görev N'de v4'e taşınır (conftest.GECICI_V2)
+
 import dataclasses
 
 import numpy as np

@@ -1,3 +1,7 @@
+from conftest import gecici_atla
+
+gecici_atla(__name__)  # v2 testi: Görev N'de v4'e taşınır (conftest.GECICI_V2)
+
 import numpy as np
 import pytest
 from lightgbm.basic import LightGBMError
