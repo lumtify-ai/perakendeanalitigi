@@ -2,16 +2,18 @@
 baslik: Hangi Ürün RPT'ye Aday
 tip: teknik
 sira: 4
-ozet: Her hafta her Collection ürünü için "tekrar üretmeye değer mi" sorusu. Etiketin tanımı, kural, lojistik regresyon ve LightGBM, yanlış alarmın bedeli.
+ozet: Her hafta her Collection ürünü için "tekrar üretmeye değer mi" sorusu. Etiketin tanımı, kural, lojistik regresyon ve LightGBM, yanlış alarmın ve kaçırmanın bedeli.
 yazar: Sabri Suyunu
 durum: yayinda
 ---
 
 import T from '../../../../components/T.astro'
 
-Banu'nun kuralı bir sezonda 38 ürüne RPT verdi. Bunların 24'ü tutan
-ürünler değildi. Bu yazı o sayının arkasındaki soruyu açıyor: bir ürünün
-RPT'ye aday olup olmadığına nasıl karar verilir?
+Banu'nun kuralı bu ilkbahar-yazda 103 ürüne RPT verdi. Bunların 64'ü
+tutan ürünler değildi. Göze batan hata bu: tutmayan ürüne verilmiş,
+depoda bekleyen RPT. Bu yazı o sayının arkasındaki soruyu açıyor: bir
+ürünün RPT'ye aday olup olmadığına nasıl karar verilir? Sonunda kuralın
+asıl pahalı hatasının göze batmayan tarafta olduğunu göreceğiz.
 
 Önceki yazıda "daha olsaydı ne kadar satardı" sorusunu cevapladık.
 Adaylık o sorunun cevabını kullanır ama aynı soru değildir. Bir ürün çok
@@ -21,10 +23,14 @@ geldiğinde satacak zaman kalmamışsa.
 ## Kapsam
 
 Soru yalnız Collection ürünlerinde sorulur. NOS ve Basic ürünler zaten
-sürekli tedarik ediliyor. Bir sezonun Collection'ı Lumoda'da 109
+sürekli tedarik ediliyor. Bir sezonun Collection'ı Lumoda'da 210
 option. Her biri için lansmandan sonraki ikinci, üçüncü, dördüncü,
 beşinci ve altıncı pazartesi bir karar satırı var; henüz RPT verilmemiş
-her option için bir satır. Bir sezonda 545 satır.
+her option için bir satır. Bir sezonda en çok 1.050 satır.
+
+Her satır o pazartesi sabahı bilinenden kuruluyor: ürünün o sabaha
+kadarki satışı, önceki yazıdaki gibi karar anında doldurulmuş talebi ve
+zincirin o sabahki stoğu.
 
 ## Etiket: en zor kısım
 
@@ -46,67 +52,86 @@ var: etiket **gerçek talebe** bakarak hesaplanırsa sahada kurulamaz,
 çünkü sahada gerçek talebi bilmiyoruz. O yüzden etiketi iki kez
 hesapladık:
 
-- **(i)** gerçek talepten: satış + kayıp satış. Yalnız sentetik veride var.
-- **(ii)** sezon bittikten sonra, stoklu gün düzeltmeli talepten. Her
-  zincir bunu kendi verisinden hesaplayabilir.
+- **(i)** gerçek talepten: ürünün kendi satışı + karşılanmayan talep.
+  Yalnız sentetik veride var.
+- **(ii)** Satış Kaybı'nın yöntemiyle doldurulmuş talepten. Geçmiş
+  sezonların stoksuz günleri Basit'le dolduruluyor, sınav sezonunun ilk
+  lansman sabahı elde olan veriyle. Her zincir bunu kendi verisinden
+  hesaplayabilir.
 
-Modeller (ii) ile eğitiliyor, (i) ile sınanıyor. İkisi satırların
-%99,8'inde aynı sonucu veriyor. Yani sahada kurulabilen etiket, gerçeği
-bilen etiketle neredeyse birebir örtüşüyor. Önceki yazıda stoklu gün
-düzeltmesinin tek bir ürünün talebini tam kurtaramadığını görmüştük; evet
-ya da hayır sorusunda ise yeterli.
+Modeller (ii) ile eğitiliyor, (i) ile sınanıyor. İlkbahar-yaz modelinin
+eğitim satırlarında iki etiket satırların %95,5'inde aynı sonucu veriyor;
+şansa göre düzeltilmiş uyum ölçüsü, Cohen'in kappası, 0,866. Sonbahar-kış
+modelininkinde %95,1 ve 0,858. Ayrıldıkları yerde yön belli: (ii) daha
+cömert. 3.502 satırın 145'inde yalnız (ii) "evet" diyor, 11'inde yalnız
+(i). Doldurulmuş talep bazı ürünlerde gerçeği biraz fazla görüyor; Satış
+Kaybı dizisinde de Basit kaybı biraz fazla yazmıştı. Sahada kurulabilen
+etiket gerçeği bilen etiketle birebir örtüşmüyor, ama evet ya da hayır
+sorusunda yeterince yakın.
 
-## Sonuç nadir
+## Aday nadir değil
 
-İlkbahar-yaz sezonunun 545 karar satırının yalnız **24**'ü pozitif:
-%4,4. Aday olmak nadir bir durum. Bu, kararın asıl zorluğunu da söylüyor:
-her hafta yüzlerce "hayır"ın içinden birkaç "evet"i bulmak.
+İlkbahar-yaz sezonunun 1.050 karar satırının **334**'ü pozitif: %31,8.
+Sonbahar-kışta 218, %20,8. Aday olmak nadir değil; ilkbahar-yazda her
+üç satırdan biri, sonbahar-kışta her beş satırdan biri "evet". Zor olan,
+hangisinin "evet" olduğunu erken görmek.
 
-Pozitiflerin nerede toplandığına bakın. Modelin eğitildiği iki geçmiş
-sezonda:
+Pozitiflerin nerede toplandığına bakın. İlkbahar-yaz modelinin eğitildiği
+dört geçmiş sezonda, (ii) etiketiyle, pozitif / satır:
 
 | Menşe | h=2 | h=3 | h=4 | h=5 | h=6 |
 |---|---:|---:|---:|---:|---:|
-| Yerli | 20 | 18 | 8 | 2 | 0 |
-| Uzak Doğu | 0 | 0 | 0 | 0 | 0 |
+| Yerli | 210 / 358 | 201 / 358 | 105 / 280 | 43 / 205 | 12 / 140 |
+| Mısır | 38 / 106 | 38 / 106 | 25 / 89 | 13 / 73 | 4 / 54 |
+| Uzak Doğu | 55 / 376 | 34 / 376 | 17 / 351 | 7 / 327 | 0 / 303 |
 
-İki şey açıkça okunuyor. Uzak Doğu'dan gelen hiçbir ürün, hiçbir haftada
-RPT'ye aday değil: on dört haftalık tedarik süresi, yaşam eğrisinden
-geriye bir şey bırakmıyor. Yerli ürünlerde ise aday olmanın penceresi
-ikinci ve üçüncü haftada açık, beşinci haftada neredeyse kapanmış.
+Satır sayısı haftalar ilerledikçe azalıyor, çünkü RPT verilen option
+sonraki haftalarda listeden düşüyor. İki şey açıkça okunuyor. Yerli
+ürünlerde aday olmanın penceresi ikinci ve üçüncü haftada geniş,
+dördüncü haftada daralıyor, altıncı haftada neredeyse kapanmış. Uzak
+Doğu'dan gelen ürün de aday olabiliyor, ama yalnız erken: ikinci
+pazartesi 376 satırın 55'i, altıncı pazartesi hiçbiri. On iki ile on beş
+haftalık tedarik süresi, eğriden ancak erken verilen siparişe pay
+bırakıyor.
 
-Banu'nun kuralı ürüne ilk kez üçüncü pazartesi bakıyor. Pencerenin en
-verimli haftası o gün çoktan geçmiş.
+Banu'nun kuralı ürüne ilk kez üçüncü pazartesi bakıyor. Yerli üründe
+pencere o gün hâlâ açık. Uzak Doğu'da en verimli hafta çoktan geçmiş
+oluyor.
 
 ## Özellikler
 
 Her satır için, o pazartesi sabahı bilinenlerden:
 
-- Stoklu gün düzeltmeli hız ve bunun ilk alıma oranı
-- Önceki yazının d kestirimi, ilk alıma oranı; FRR kestirimi
+- Karar anında doldurulmuş talebin haftalık hızı, ilk alıma oranı
+- Önceki yazının d kestirimi ve FRR kestirimi, ilk alıma oranları
 - Zincir <T k="str">STR</T>'si (Banu'nun kuralının baktığı tek şey)
 - Stoklu mağaza payı, kırık mağaza payı, kapsama (eldeki stok kaç haftalık)
-- Lansmandan geçen hafta, indirime kalan hafta
+- Karar haftası, indirime kalan hafta
 - Tedarikçinin RPT süresi ve Uzak Doğu olup olmadığı
 - Yaşam eğrisine göre gelişten sonra kalan tam fiyat talep payı
+- Tahmini ek talep, ilk alıma oranı
 - **MOQ ÷ tahmini ek talep**: tedarikçinin en küçük siparişi, gelişten
   sonra karşılanamayacak talebin ne kadarı
 
 ## Üç model
 
-Banu'nun kuralı (STR ≥ %55), lojistik regresyon ve LightGBM. İlkbahar-yaz
-sezonu için modeller bir önceki ilkbahar-yaz ve sonbahar-kış
-sezonlarında eğitildi, sınav sezonunu hiç görmedi.
+Banu'nun kuralı (STR ≥ %55, üçüncü ile altıncı pazartesi arası),
+lojistik regresyon ve LightGBM. İlkbahar-yaz sezonu için modeller ondan
+önce kapanmış dört sezonun 3.502 satırında, 802 pozitifle eğitildi;
+sınav sezonunu hiç görmedi.
 
 | Model | Alarm | Doğru | Yanlış alarm | Kaçan | İsabet | Duyarlılık |
 |---|---:|---:|---:|---:|---:|---:|
-| Banu'nun kuralı | 88 | 12 | 76 | 12 | %14 | %50 |
-| Lojistik regresyon | 40 | 19 | 21 | 5 | %48 | %79 |
-| LightGBM | 26 | 13 | 13 | 11 | %50 | %54 |
+| Banu'nun kuralı | 267 | 162 | 105 | 172 | %60,7 | %48,5 |
+| Lojistik regresyon | 390 | 292 | 98 | 42 | %74,9 | %87,4 |
+| LightGBM | 382 | 300 | 82 | 34 | %78,5 | %89,8 |
 
-Banu'nun kuralı çok bağırıyor ve çoğunda yanılıyor: 88 alarmın 12'si
-doğru. Lojistik regresyon yarısından az alarmla, yakalanması gereken 24 satırın
-19'unu buluyor.
+Banu'nun kuralı çok bağırmıyor. Bağırdığında da çoğunlukla haklı: 267
+alarmın 162'si doğru. Asıl sorunu susması: yakalanması gereken 334
+satırın yarısından azını buluyor. İkinci pazartesinin pozitiflerini hiç
+görmüyor, çünkü ürüne ilk kez üçüncü pazartesi bakıyor. Modeller
+kuraldan daha çok alarm veriyor ve yine de daha az yanılıyor;
+pozitiflerin onda dokuza yakınını buluyorlar.
 
 Satır sayıları paranın kendisi değil. Aynı sınavı TL ile de okuyabiliriz:
 her yanlış alarm, verilmemesi gereken bir siparişin sonradan bakıldığında
@@ -115,66 +140,89 @@ getirmediği kâr.
 
 | Model | Yanlış alarmların bedeli | Kaçanların bedeli |
 |---|---:|---:|
-| Banu'nun kuralı | 6.794.130 TL | 3.719.001 TL |
-| Lojistik regresyon | 2.227.550 TL | 535.005 TL |
-| LightGBM | 1.617.567 TL | 1.881.178 TL |
+| Banu'nun kuralı | 6.182.207 TL | 205.808.206 TL |
+| Lojistik regresyon | 14.825.493 TL | 10.405.622 TL |
+| LightGBM | 17.038.283 TL | 6.440.643 TL |
+
+Kuralın yanlış alarmları ucuz: 6,2 milyon TL. Kaçırdıkları 205,8 milyon
+TL. Modellerin yanlış alarmı kuralınkinin iki ila üç katı, ama
+kaçırdıklarının bedeli 10,4 ve 6,4 milyon TL.
 
 Bir option'a sezonda en fazla bir RPT verildiğini varsayıp, her modelin
-bir option için **ilk** alarmında sipariş verildiğini düşünelim. Sezonun
-sonunda toplam kâr farkı:
+bir option için **ilk** alarmında sipariş verildiğini düşünelim. RPT'lerin
+sezon sonunda getirdiği kâr:
 
 | Model | İlk alarm alan option | Kâr |
 |---|---:|---:|
-| Banu'nun kuralı | 38 | −1.558.430 TL |
-| Lojistik regresyon | 16 | 2.607.405 TL |
-| LightGBM | 13 | 2.519.322 TL |
-| Mükemmel sınıflandırıcı | 10 | 3.491.021 TL |
+| Banu'nun kuralı | 103 | 100.600.229 TL |
+| Lojistik regresyon | 110 | 130.700.734 TL |
+| LightGBM | 101 | 129.519.127 TL |
+| Mükemmel sınıflandırıcı | 79 | 134.774.625 TL |
 
-Banu'nun kuralı, sipariş miktarı doğru hesaplansa bile kaybettiriyor.
-Lojistik regresyon mükemmel bir sınıflandırıcının getireceği kârın
-yaklaşık dörtte üçünü alıyor.
+Sipariş miktarı doğru hesaplanınca Banu'nun kuralı da kazandırıyor:
+mükemmel bir sınıflandırıcının getireceği kârın %74,6'sını, yani
+dörtte üçünü alıyor. Modeller neredeyse tamamını alıyor: lojistik
+regresyon %97,0, LightGBM %96,1. Aradaki fark kuralın kaçırdığı
+ürünlerde.
 
-Aynı sınav sonbahar-kış sezonunda daha da net: kural %31 isabetle, lojistik
-regresyon %82 isabet ve %100 duyarlılıkla. Ama o sezonun modeli yalnız 483
-satırla ve 22 pozitifle eğitildi; bu sonuçlara güvenmek için veri az.
+Aynı sınav sonbahar-kış sezonunda aynı resmi veriyor: kural %44,6 isabet
+ve %50,9 duyarlılıkla, lojistik regresyon %61,4 ve %91,3 ile, LightGBM
+%61,8 ve %95,0 ile. İlk alarm kârında kural mükemmelin %69,0'ını,
+lojistik regresyon %82,0'ını, LightGBM %80,0'ını alıyor. O sezonun
+modeli üç kapanmış sezonun 2.604 satırıyla ve 623 pozitifle eğitildi.
+Üç yıllık veri bir model kurmaya yetiyor.
 
 ## Model neye bakıyor?
 
-Lojistik regresyonun katsayıları, özellikler ölçeklendikten sonra:
+İlkbahar-yaz modelinde lojistik regresyonun katsayıları, özellikler
+ölçeklendikten sonra, büyükten küçüğe ilk altısı:
 
 | Özellik | Katsayı |
 |---|---:|
-| MOQ ÷ tahmini ek talep | −2,90 |
-| Gelişten sonra kalan tam fiyat talep | 0,91 |
-| Tedarikçinin RPT süresi | −0,58 |
-| Uzak Doğu tedarikçisi | −0,46 |
-| Zincir STR'si | 0,45 |
+| Tedarikçinin RPT süresi | −2,98 |
+| İndirime kalan hafta | 2,08 |
+| Gelişten sonra kalan tam fiyat talep payı | −1,15 |
+| Stok kapsaması | −1,02 |
+| Karar haftası | −0,97 |
+| MOQ ÷ tahmini ek talep | −0,90 |
 
-En büyük ağırlık tek bir soruda: **tedarikçinin en küçük siparişi,
-karşılanamayacak talebe göre ne kadar büyük?** Banu'nun kuralının
-baktığı STR, listede beşinci sırada ve katsayısı en büyük katsayının
-altıda birinden küçük.
+En büyük iki ağırlık zamanın kendisinde: **tedarik ne kadar sürüyor,
+indirime ne kadar kalmış?** Tedarik uzadıkça aday olma ihtimali düşüyor,
+indirime kalan hafta arttıkça yükseliyor. Banu'nun kuralının baktığı
+STR, on dört özelliğin on üçüncüsü; katsayısı 0,13, en büyük katsayının
+yirmide birinden küçük.
 
 Bu, aday olmanın tanımını değiştiriyor. "Satıyor mu" sorusu önemli, ama
-belirleyici değil. Belirleyici olan "tedarikçinin üreteceği en küçük
-partiyi, geldiğinde tam fiyattan satacak kadar talep kalıyor mu"
-sorusu.
+belirleyici değil. Belirleyici olan iki soru: "mal geldiğinde satacak
+zaman kalıyor mu" ve "tedarikçinin üreteceği en küçük parti, kalan
+talebe göre ne kadar büyük".
 
-Tedarikçinin RPT süresi ve Uzak Doğu'dan gelmek, ikisi de eksi işaretli.
-Pozitiflerin tablosunun söylediğini model de öğrenmiş: tedarik uzadıkça
-gelişten sonra satacak zaman kalmıyor.
+Tabloyu okurken bir uyarı. Özelliklerin bir kısmı aynı takvimden türüyor:
+tedarik süresi, indirime kalan hafta ve gelişten sonra kalan pay birlikte
+hareket ediyor. Böyle özelliklerde tek bir katsayının işaretini tek
+başına okumak yanıltır. Gelişten sonra kalan payın eksi görünmesi
+"kalan pay arttıkça aday olma ihtimali düşer" demek değil; ilk iki
+özellikle birlikte okunmalı.
+
+Uzak Doğu'dan gelmek ayrı bir özellik olarak küçük bir ağırlık taşıyor
+ve işareti sezona göre değişiyor: ilkbahar-yaz modelinde +0,42,
+sonbahar-kış modelinde −0,02. Uzak Doğu'nun dezavantajı zaten tedarik
+süresi sütununda.
 
 ## Hangisi?
 
-LightGBM daha az alarm veriyor ama daha çok kaçırıyor; kârda ikisi
-başa baş. Sonraki yazılardaki oyunlarda "öneri" kolu LightGBM ile
-koşturuldu; aynı oyunlar lojistik regresyonla da koşturuldu ve iki model
-aynı siparişleri verdi (altıncı yazıda). Satır sayısı küçük, pozitif sayısı daha da
-küçük. Böyle bir veride esnek bir model fazladan bir şey öğrenemiyor;
-lojistik regresyon ise bir buyer'a "bu ürün neden aday" sorusunun cevabını
-tek tabloda veriyor. Ben olsam lojistiği seçerdim.
-Replenishment dizisinin tezi burada da geçerli: karmaşıklık kendini
-ölçümle kazanmalı.
+LightGBM biraz daha isabetli, kârda ikisi başa baş. Sonraki yazılardaki
+oyunlarda "öneri" kolu LightGBM ile koşturuldu; aynı oyunlar lojistik
+regresyonla da koşturuldu ve iki model neredeyse aynı siparişleri verdi.
+İlkbahar-yazda LightGBM 77 option'a, lojistik regresyon 79 option'a RPT
+verdi; 76'sı ortak. İki modelin kâr farkı kârlarının %2'sinden az
+(altıncı yazıda).
+
+Ben olsam lojistiği seçerdim. Veri büyüdükçe esnek model az da olsa öne
+geçiyor, ama fark açıklanabilirlikten vazgeçmeye değecek kadar büyük
+değil. Lojistik regresyon bir buyer'a "bu ürün neden aday" sorusunun
+cevabını tek tabloda veriyor. Replenishment dizisinin tezi burada da
+geçerli: karmaşıklık kendini ölçümle kazanmalı.
 
 ## Bir uyarı
 
@@ -185,4 +233,20 @@ olmadığı, **ne kadar** sipariş verileceğine bağlı. Etiket, bir sonraki
 yazının miktar hesabını kullanıyor. Aday ile miktar ayrı sorular gibi
 anlatılıyor ama aynı hesabın iki yüzü.
 
-Sonraki yazıda o hesabı kuruyoruz: ne kadar, ne zaman?
+## Sizin verinizde zor olan
+
+Bu yazının sınavı (i) etiketiyle yapıldı ve (i) gerçek talebi biliyor.
+Sizin zincirinizde yalnız (ii) var. Modeli onunla eğitebilirsiniz, ama
+sınamak için de yine onu kullanmak zorundasınız; soruyu da cevap
+anahtarını da aynı kestirimden yazıyorsunuz. Lumoda'da iki etiketin
+yirmi satırın on dokuzunda aynı sonucu verdiğini gördük. Sizin verinizde
+bu oranı ölçemezsiniz. Yalnız, stoksuz günleri ne kadar doğru
+bulduğunuza bağlı olduğunu bilirsiniz.
+
+Bir de maliyetin görünürlüğü var. Kuralın en pahalı hatası kaçırmak ve
+kaçırılan RPT hiçbir raporda görünmez. Tutmayan ürüne verilmiş RPT
+depoda durur, herkes görür. Verilmeyen RPT'nin bedeli, rafı boş bulan
+müşteriyle birlikte kaybolur. Sahadaki kurallar bu yüzden görünen hataya
+göre ayarlanmaya, yani fark edilmeden temkinli olmaya eğilimlidir.
+
+Sonraki yazıda miktar hesabını kuruyoruz: ne kadar, ne zaman?
