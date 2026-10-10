@@ -1,0 +1,866 @@
+"""Üretecin tek kapısı: v4 dünyası, politika enjeksiyonu, kaydediciler, koşu
+önbelleği, gizli gerçek.
+
+RPT vakasının `rpt/motor.py`'sinin kopyasıdır (Ruling R1: ortak parçaya
+çıkarılmaz; RPT'nin kod özeti ve ızgarası korunur). Farklar: ilk alım oranı
+(dünya ve anahtar), kaydedici sarmalayıcılar, yalnız replenishment enjekte
+edilir, RPT'ye özgü `politika_gorunumu` yoktur.
+
+Vakada `perakende_veri`'yi (v4 üreteci) yalnız bu modül içe aktarır. Karar
+modülleri (`kaynak`, `defter`, `ihtiyac`, `dagitim`, `tahmin`, `anlik`,
+`politika`, `kalibrasyon`, `hikaye_sec`) bu modülü de içe aktarmaz
+(`tests/test_sizinti.py` kilitler); politika yalnız `Gorunum`'ü ve dünyanın
+açık alanlarını okur. Gizli gerçek (`Kosu.gercek`) yalnız ölçüme ve rapora gider.
+
+    w = dunya()                                       # TAM v4 dünyası (süreç içi önbellek)
+    w = dunya("tam", ilk_alim_orani=0.7)              # AW25 ilk alımı planın 0,7'si
+    k = kos(benim_kolum, ad="kural", parametreler={...})
+    k.tablolar["satis"], k.gercek, k.kayitlar["ilk_dagitim"], k.meta
+
+KOŞU. `kos` `Politikalar(replenishment=..., ilk_dagitim=..., outlet_akisi=...)`
+ile (verilmeyen alan Lumoda) `simule_et(..., kayit_talep=True, talep_tohumu,
+operasyon_tohumu)` koşar ve döndürür:
+
+    tablolar  yayımlanan 18 tablonun TEMİZ hâli (`hareket_tablolari`: aynı
+              şema, aynı pencere, kirli kayıt yok). Kollar arası farkın
+              yalnız kararlardan gelmesi için kirletilmez; yayımlanan
+              biçim `yayimlanan_bicim(tablolar)` (aynı kirli kayıtlar).
+    gercek    hücre-gün gizli gerçek (`gercek_tablosu`; hakem tanımı)
+    kayitlar  kaydedicilerin (`ilk_dagitim`, `outlet_akisi`) ve enjekte edilen
+              politikanın `kayit_tablosu()` DataFrame'leri (varsa):
+              önbellekten okunan koşuda politika çalışmadığı için yan etkisi
+              buradan gelir
+    meta      anahtar bileşenleri, süre, tepe bellek, satır sayıları
+
+KAYDEDİCİLER. `kaydedici=True` (varsayılan) iken Lumoda'nın politika dışı iki
+kararı, `ilk_dagitim(g, o)` ve `outlet_akisi(g, os)`, `Kaydedici`yle sarılı
+enjekte edilir: sardığını aynen çağırır, aynı nesneyi döndürür, her çağrıyı
+`{"gun", "args", "cikti"}` olarak (çıktının kopyası; Ruling R3) canlı
+`kayit` listesine ekler. Çıktıyı değiştirmez (`test_kaydedici_ciktiyi_degistirmez`,
+eşdeğerlik testi). Gölge defter (spec §3.4) depodaki brüt akışları bu
+kayıtlardan okur: `kos`, aynı kaydedici nesnelerini replenishment
+politikasına `politika.baglan({"ilk_dagitim": k1, "outlet_akisi": k2})` ile
+verir (yöntem varsa; `kaydedici=False` iken çağrılmaz). Kayıt politikanın
+kararıdır, motorun uyguladığı değil: motor ilk dağıtımı aday maskesiyle ve
+depo stoğuyla kırpar, sevki lansmandan önceki güne erteleyebilir (kayıttaki
+`gun` karar günüdür). Bu iç kaydediciler hep Lumoda'yı sardığı için anahtara
+yalnız `kaydedici` bayrağı girer. Vakanın kendisinin sardığı politika
+(Ruling R4: `kos(Kaydedici(lumoda("replenishment")), ...)`) ise sardığını
+`temel` ile anahtara taşır.
+
+`kos(..., tembel=True)` (önbellek ister) tabloları belleğe almadan `KosuKaydi`
+döndürür: tablolar ve gizli gerçek istendikçe diskten, yalnız gereken sütun ve
+SKU'larla (`tablo(ad, sutunlar, urunler)`; `Kosu`da da aynı yöntem).
+
+ÖNBELLEK. `onbellek` dizininde (varsayılan `cikti/kosular/`) koşu başına
+bir alt dizin `<ad>_<anahtar[:20]>`: tablolar, kayıtlar ve gizli gerçek
+Parquet, `meta.json` en son. Dizin önce `.yaziliyor` adıyla yazılır, sonra tek
+`os.replace` ile yerine konur; `meta.json`'u olmayan ya da anahtarı tutmayan
+dizin okunmaz; meta'sı tam ama Parquet'i eksik/bozuk kayıt silinip yeniden
+koşulur; bu süreçten eski `.yaziliyor-*` artıkları silinir. Anahtar
+(`onbellek_anahtari`): `ad`, `parametreler` (kanonik JSON), ilk alım oranı,
+kaydedici bayrağı, politika türü (sınıf / fonksiyon tam adı) ve kimliği, iki
+tohum, ölçek, gün sayısı, kod özeti (yalnız koşuyu etkileyen kaynaklar:
+`KOSU_MODULLERI`, onların ortak paket kapanışı, `perakende_veri/v4/**/*.py`;
+satır sonları LF), v4 DuckDB dosyasının parmak izi (ad, boyut, değişiklik
+zamanı), numpy / pandas / pyarrow / lightgbm / scikit-learn sürümü.
+
+GEÇMİŞ KAYDI. Politika `gecmis_gerekir = True` taşıyorsa (motor içi karar anı
+kestiricisi) motor `gecmis_kaydi=True` ile koşar. Kayıt yalnız okur, çıktılar
+birebir aynıdır; anahtara girmez.
+
+LUMODA. Karar modülleri üreteci içe aktarmadığı için Lumoda'nın bugünkü kuralları
+kollara argüman olarak verilir: `lumoda("replenishment")` (v4 `lumoda_replenishment`).
+
+POLİTİKANIN KENDİ KİMLİĞİ. Enjekte edilen politikanın `parametreler()`
+yöntemi varsa çıktısı, `temel` (sardığı politika; ör. kolun Lumoda kuralı,
+kaydedicinin sardığı) varsa onun türü ve kimliği (özyinelemeli) anahtara
+kendiliğinden girer (`politika_kimligi`). Öğrenilmiş nesneler kimliklerini
+İÇERİKTEN taşır (spec §3.3; RPT'nin pickle kimliği dersi): `sabitle()` ile
+içerik özeti; LightGBM modelinin özeti `booster.model_to_string()`'in
+SHA-256'sı (pickle baytı değil).
+
+**Politikalar Python nesneleridir; anahtar onları `ad` + `parametreler` +
+kimlik ile tanır.** Çağıran, politikanın davranışını değiştiren HER parametreyi
+(tavan, koli kuralı, öncelik, eğitim verisinin kaynağı olan koşunun anahtarı,
+…) `parametreler`'e ya da politikanın `parametreler()`'ine koymalıdır; aksi
+halde farklı davranan iki politika aynı önbellek kaydını okur. Ölçüm sonucu
+(oyun / yollar / kalibrasyon) politikaya yalnız `parametreler` üstünden girer.
+Kod değişikliği özetle, veri değişikliği parmak iziyle yakalanır. Kod özeti
+çağrı anındaki dosyalardan alınır: süreç açıkken değiştirilen kod (yüklenmiş
+modül eski) yakalanmaz, süreç yeniden başlatılmalıdır.
+
+Koşular sıralıdır: önbellek eşzamanlı yazıma karşı korunmaz. Bir TAM koşu
+~4–7 dk, tepe ~10 GB. `dunya` her (ölçek, oran) için bir dünya tutar (süreç
+içi); çok oranlı uzun süreçte `dunya.cache_clear()` belleği bırakır.
+"""
+
+import ast
+import copy
+import dataclasses
+import functools
+import hashlib
+import importlib.metadata
+import inspect
+import json
+import os
+import re
+import shutil
+import sys
+import time
+import warnings
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import perakende_veri.v4 as _v4_paketi
+from perakende_analitik import kaynak as ortak
+from perakende_veri.v4 import sabitler as v4_sabitler
+from perakende_veri.v4 import tablolar as v4_tablolar
+from perakende_veri.v4.dunya import akislar, dunya_kur
+from perakende_veri.v4.kirlet import kirlet
+from perakende_veri.v4.magaza import Olcek
+from perakende_veri.v4.motor import simule_et
+from perakende_veri.v4.politika import Politikalar, lumoda_politikalari
+
+TOHUM = v4_sabitler.TOHUM
+PAKET_ADI = "replenishment"
+PAKET_KOKU = Path(__file__).resolve().parent                    # vakalar/replenishment/replenishment
+KOSU_DIZINI = PAKET_KOKU.parent / "cikti" / "kosular"
+VERI_YOLU = ortak.VARSAYILAN_YOL
+OLCEKLER = {"tam": Olcek.TAM, "kucuk": Olcek.KUCUK}
+
+# Kod özetine giren kaynaklar (yalnız koşuyu etkileyenler):
+#   replenishment  KOSU_MODULLERI (henüz olmayan dosya atlanır). Ölçüm, anlatı
+#          ve kalibrasyon (KOSU_DISI; vaka kökü rapor*.py, testler) koşuyu
+#          değiştirmez: bir ölçümün sonucu politikaya girerse (ör. kalibrasyonun
+#          seçtiği güvenlik stoku, Ruling R5) o sonuç `parametreler`'e girer.
+#          replenishment/'deki her modül iki listeden birindedir (tests/test_motor.py).
+#   ortak  perakende_analitik'te ORTAK_TOHUM + vaka kaynaklarının içe aktardığı
+#          ortak modüllerin içe aktarma kapanışı (AST; hakem gibi ulaşılmayan
+#          modüller girmez)
+#   v4     perakende_veri/v4/**/*.py
+KOSU_MODULLERI = (
+    "motor", "bilgi", "sabitler", "kaynak", "defter", "ihtiyac", "dagitim", "tahmin", "anlik",
+    "politika",
+)
+KOSU_DISI = ("olcutler", "oyun", "yollar", "hikaye_sec", "senaryolar", "kalibrasyon")
+ORTAK_TOHUM = ("kaynak", "stok", "ozellikler", "carpanlar", "talep", "hazirlik")
+KOD_KOKLERI = {
+    PAKET_ADI: PAKET_KOKU,
+    "ortak": Path(ortak.__file__).resolve().parent,                 # perakende_analitik/
+    "v4": Path(_v4_paketi.__file__).resolve().parent,
+}
+ORTAK_PAKET = "perakende_analitik"
+
+# `kaydedici=True` iken Lumoda'nın kaydedicilerle sarılan politika dışı kararları
+KAYDEDILENLER = ("ilk_dagitim", "outlet_akisi")
+
+GERCEK_SUTUNLARI = ("talep", "kendi_satis", "karsilanmayan", "ikameye_giden", "kalici_kayip")
+_AD_DESENI = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+
+
+# ---------------------------------------------------------------------------
+# Dünya, Lumoda, kaydedici
+# ---------------------------------------------------------------------------
+
+
+def _oran(ilk_alim_orani) -> float:
+    o = float(ilk_alim_orani)
+    if not (np.isfinite(o) and o > 0):
+        raise ValueError(f"ilk alım oranı sonlu ve > 0 olmalı: {ilk_alim_orani!r}")
+    return o
+
+
+@functools.cache
+def _dunya(olcek: str, ilk_alim_orani: float):
+    return dunya_kur(OLCEKLER[olcek], ilk_alim_orani=ilk_alim_orani)
+
+
+def dunya(olcek: str = "tam", ilk_alim_orani: float = 1.0):
+    """v4 dünyası (`dunya_kur`, varsayılan tohum; süreç içi önbellek, TAM ~20 sn).
+    `ilk_alim_orani` AW25 sezonluk option'larının ilk alımını planın bu kesrine
+    indirir (1,0 yayımlanan dünyadır); oran önbellek anahtarındadır."""
+    if olcek not in OLCEKLER:
+        raise ValueError(f"ölçek {sorted(OLCEKLER)}'den biri olmalı: {olcek!r}")
+    return _dunya(olcek, _oran(ilk_alim_orani))
+
+
+dunya.cache_clear = _dunya.cache_clear
+
+
+def lumoda(ad: str):
+    """Lumoda'nın v4 politikası (`Politikalar` alan adı: "replenishment", "ilk_dagitim", …)."""
+    p = lumoda_politikalari()
+    if ad not in p:
+        raise ValueError(f"Lumoda politikası {sorted(p)}'den biri olmalı: {ad!r}")
+    return p[ad]
+
+
+def _kopya(x):
+    """Kayda giren kopya: numpy skaleri Python sayısına, gerisi derin kopya."""
+    if isinstance(x, np.generic):
+        return x.item()
+    return copy.deepcopy(x)
+
+
+def _skaler(x) -> bool:
+    return isinstance(x, (bool, int, float, np.generic))
+
+
+class Kaydedici:
+    """Bir politikayı sarar: aynen çağırır, aynı nesneyi döndürür, her çağrıyı
+    kaydeder (çıktıyı değiştirmez).
+
+    `kayit` (canlı liste; Ruling R3): her çağrı için `{"gun": g.gun, "args":
+    (g dışındaki argümanların kopyaları), "cikti": çıktının kopyası}`.
+    Örnekler: `ilk_dagitim` → `args=(o,)`, `cikti` [M] paket sayısı;
+    `outlet_akisi` → `args=(os,)`, `cikti` `Transferler`; `replenishment` →
+    `args=()`, `cikti` [C] istek. Kopya: motor ya da politika dönen nesneyi
+    sonradan değiştirse de kayıt değişmez.
+
+    `temel` sarılan politikadır: `politika_kimligi` onun türünü ve kimliğini
+    anahtara taşır (kaydedici kimliksiz bir kabuktur). `gecmis_gerekir` ve
+    `baglan` sarılana geçer. Sarılanın kendi `kayit_tablosu`'nu gölgeler.
+    """
+
+    def __init__(self, temel):
+        self.temel = temel
+        self.kayit: list[dict] = []
+
+    def __call__(self, g, *args):
+        cikti = self.temel(g, *args)
+        self.kayit.append({"gun": int(g.gun), "args": tuple(_kopya(a) for a in args),
+                           "cikti": _kopya(cikti)})
+        return cikti
+
+    @property
+    def gecmis_gerekir(self) -> bool:
+        return bool(getattr(self.temel, "gecmis_gerekir", False))
+
+    def baglan(self, kaydediciler: dict) -> None:
+        f = getattr(self.temel, "baglan", None)
+        if callable(f):
+            f(kaydediciler)
+
+    def kayit_tablosu(self) -> pd.DataFrame:
+        """Uzun biçim (int64): `gun`, skaler argümanlar (`arg0`, `arg1`, …;
+        dizi argüman, ör. outlet akışının `os`'u, tabloda yer almaz), sonra
+        çıktının sıfır olmayan satırları:
+
+            1-B dizi                      `indis`, `deger` (sıfırdan farklı öğeler)
+                                          (ilk dağıtım: indis = mağaza, deger =
+                                          paket; replenishment: indis = hücre,
+                                          deger = istek adedi)
+            dizi alanlı dataclass         alan adları (`Transferler`: `kaynak,
+                                          hedef, sku, adet`), satır başına
+
+        Kayıt yoksa yalnız `gun` sütunlu boş tablo."""
+        parcalar = []
+        for e in self.kayit:
+            argler = {f"arg{i}": a for i, a in enumerate(e["args"]) if _skaler(a)}
+            c = e["cikti"]
+            if isinstance(c, np.ndarray) and c.ndim == 1:
+                i = np.flatnonzero(c)
+                sutunlar = {"indis": i, "deger": c[i]}
+            elif dataclasses.is_dataclass(c) and not isinstance(c, type):
+                sutunlar = {f.name: np.asarray(getattr(c, f.name)) for f in dataclasses.fields(c)}
+            else:
+                raise TypeError(f"kayıt tablosuna dönmeyen çıktı türü: {type(c).__name__}")
+            n = len(next(iter(sutunlar.values()))) if sutunlar else 0
+            parcalar.append(pd.DataFrame(
+                {"gun": np.full(n, e["gun"]), **{a: np.full(n, v) for a, v in argler.items()},
+                 **sutunlar}))
+        if not parcalar:
+            return pd.DataFrame({"gun": np.zeros(0, dtype=np.int64)})
+        df = pd.concat(parcalar, ignore_index=True)
+        return df.astype({s: np.int64 for s in df.columns if pd.api.types.is_integer_dtype(df[s])})
+
+
+# ---------------------------------------------------------------------------
+# Gizli gerçek
+# ---------------------------------------------------------------------------
+
+
+def _anahtarli(df: pd.DataFrame, C: int, pozitif: bool = False) -> tuple[np.ndarray, np.ndarray]:
+    """(gun, hucre, adet) → (artan tekil `gun*C + hucre`, adet toplamı);
+    `pozitif` iade (negatif) satırlarını atar."""
+    gun = df["gun"].to_numpy(dtype=np.int64)
+    hucre = df["hucre"].to_numpy(dtype=np.int64)
+    adet = df["adet"].to_numpy(dtype=np.int64)
+    if pozitif:
+        m = adet > 0
+        gun, hucre, adet = gun[m], hucre[m], adet[m]
+    anahtar = gun * C + hucre
+    if len(anahtar) > 1 and not np.all(anahtar[1:] > anahtar[:-1]):
+        anahtar, ters = np.unique(anahtar, return_inverse=True)
+        adet = np.bincount(ters, weights=adet, minlength=len(anahtar)).astype(np.int64)
+    return anahtar, adet
+
+
+def _bul(sirali: np.ndarray, aranan: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """`aranan`ın `sirali`daki konumu ve bulundu maskesi."""
+    if not len(sirali):
+        return np.zeros(len(aranan), dtype=np.int64), np.zeros(len(aranan), dtype=bool)
+    i = np.minimum(np.searchsorted(sirali, aranan), len(sirali) - 1)
+    return i, sirali[i] == aranan
+
+
+def gercek_tablosu(w, ham: dict) -> pd.DataFrame:
+    """Hücre-gün gizli gerçek: `tarih, magaza_id, urun_id` + `talep,
+    kendi_satis, karsilanmayan, ikameye_giden, kalici_kayip` (int32).
+
+    Satırlar: pencerede (2023-01-01 – 2025-12-31) talebi olan her hücre-gün;
+    (tarih, magaza_id, urun_id) sıralı. Tanımlar hakemle aynı
+    (`perakende_analitik.hakem.karsilanmayan_tablosu`; onun tablosu bunun
+    `karsilanmayan > 0` alt kümesidir):
+
+        kendi_satis    = ham `satis`'in pozitif satırı − alınan ikame
+        karsilanmayan  = talep − kendi_satis
+        kalici_kayip   = `gizli_kayip` (ikameden sonra, kaynak hücrede)
+        ikameye_giden  = karsilanmayan − kalici_kayip
+
+    Hücreye başka hücreden gelen ikame satışı (talebi olmayan hücre-günde
+    de olabilir) = pozitif satış − kendi_satis; `satis`'te zaten vardır.
+    Kimlik tutmazsa (kendi satış talebi aşar, kalıcı kayıp karşılanmayanı
+    aşar ya da talepsiz hücre-günde) `RuntimeError`."""
+    talep = np.asarray(ham["talep"])
+    D, C = talep.shape
+    bas, son = v4_tablolar.pencere()
+    son = min(son, D - 1)
+    talep_duz = talep.reshape(-1)
+
+    s_anahtar, kendi = _anahtarli(ham["satis"], C, pozitif=True)
+    i_anahtar, ikame = _anahtarli(ham["ikame_satis"], C)
+    if len(i_anahtar):
+        sira, var = _bul(s_anahtar, i_anahtar)
+        if not var.all():
+            raise RuntimeError("gercek: satışsız hücre-günde alınan ikame var")
+        kendi[sira] -= ikame
+    asan = (kendi > talep_duz[s_anahtar]) | (kendi < 0)
+    if asan.any():
+        raise RuntimeError(f"gercek: kendi_satis talebi aşıyor ya da negatif: {int(asan.sum())} hücre-gün")
+
+    if bas > son:
+        anahtar = np.zeros(0, dtype=np.int64)
+    else:
+        anahtar = np.flatnonzero(talep_duz[bas * C:(son + 1) * C] > 0) + bas * C
+    t = talep_duz[anahtar].astype(np.int32)
+    sira, var = _bul(s_anahtar, anahtar)
+    k = np.where(var, kendi[sira] if len(kendi) else 0, 0).astype(np.int32)
+    del sira, var
+    kars = t - k
+
+    g_anahtar, g_adet = _anahtarli(ham["gizli_kayip"], C)
+    pen = (g_anahtar >= bas * C) & (g_anahtar < (son + 1) * C)
+    g_anahtar, g_adet = g_anahtar[pen], g_adet[pen]
+    kalici = np.zeros(len(anahtar), dtype=np.int32)
+    sira, var = _bul(anahtar, g_anahtar)
+    if not var.all():
+        raise RuntimeError(f"gercek: kalici_kayip talepsiz hücre-günde: {int((~var).sum())}")
+    kalici[sira] = g_adet
+    if (kalici > kars).any():
+        raise RuntimeError(f"gercek: kalici_kayip karsilanmayani aşıyor: {int((kalici > kars).sum())}")
+
+    gun, hucre = anahtar // C, anahtar % C
+    # Sıra: gün, sonra (magaza_id, urun_id) sözlük sırası (yayımlanan tablolar gibi)
+    m = w.magazalar["magaza_id"].to_numpy().astype(str)[np.asarray(w.hucre_magaza)]
+    u = w.urunler["urun_id"].to_numpy().astype(str)[np.asarray(w.hucre_sku)]
+    rutbe = np.empty(C, dtype=np.int64)
+    rutbe[np.lexsort((u, m))] = np.arange(C)
+    p = np.argsort(gun * C + rutbe[hucre], kind="stable")
+    ham_df = pd.DataFrame({
+        "gun": gun[p], "hucre": hucre[p], "talep": t[p], "kendi_satis": k[p],
+        "karsilanmayan": kars[p], "ikameye_giden": (kars - kalici)[p], "kalici_kayip": kalici[p],
+    })
+    df = v4_tablolar.hucre_tablosu(w, ham_df).reset_index(drop=True)
+    for s in GERCEK_SUTUNLARI:
+        df[s] = df[s].astype(np.int32)
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Önbellek anahtarı
+# ---------------------------------------------------------------------------
+
+
+def _kanonik(x):
+    """JSON'a birebir dönen değer (numpy sayıları ve dizileri listeye);
+    başka her tür `TypeError`: anahtar yalnız tanımlı biçimden kurulur."""
+    if isinstance(x, dict):
+        if not all(isinstance(k, str) for k in x):
+            raise TypeError(f"parametre anahtarları str olmalı: {list(x)}")
+        return {k: _kanonik(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_kanonik(v) for v in x]
+    if isinstance(x, np.ndarray):
+        return [_kanonik(v) for v in x.tolist()]
+    if isinstance(x, np.generic):
+        return _kanonik(x.item())
+    if x is None or isinstance(x, (bool, int, str)):
+        return x
+    if isinstance(x, float):
+        if not np.isfinite(x):
+            raise TypeError(f"sonlu olmayan parametre: {x}")
+        return x
+    raise TypeError(f"önbellek anahtarına girmeyen parametre türü: {type(x).__name__} ({x!r})")
+
+
+def ice_aktarimlar(yol: Path, paket_adi: str) -> set[str]:
+    """Dosyanın içe aktardığı tam modül adları (AST; fonksiyon içi dahil;
+    göreli adlar `paket_adi` altına; `from m import a` hem `m` hem `m.a`)."""
+    agac = ast.parse(Path(yol).read_text(encoding="utf-8"), filename=str(yol))
+    adlar: set[str] = set()
+    for d in ast.walk(agac):
+        if isinstance(d, ast.Import):
+            adlar |= {a.name for a in d.names}
+        elif isinstance(d, ast.ImportFrom):
+            taban = ".".join([paket_adi] + ([d.module] if d.module else [])) if d.level else (d.module or "")
+            adlar.add(taban)
+            adlar |= {f"{taban}.{a.name}" for a in d.names}
+    return adlar
+
+
+def _paket_modulleri(adlar: set[str], paket_adi: str, kok: Path) -> set[str]:
+    """`adlar` içinde `paket_adi.X` biçimindeki, `kok/X.py`'si olan X'ler."""
+    on = paket_adi + "."
+    return {a[len(on):].split(".")[0] for a in adlar if a.startswith(on)} & {
+        y.stem for y in Path(kok).glob("*.py")}
+
+
+def ortak_kapanisi(vaka_dosyalari, ortak_koku: Path, tohum=ORTAK_TOHUM) -> list[str]:
+    """`tohum` + vaka dosyalarının içe aktardığı ortak modüllerden başlayıp
+    ortak paket içi içe aktarmalarla ulaşılan modüller (sıralı)."""
+    ortak_koku = Path(ortak_koku)
+    var = {y.stem for y in ortak_koku.glob("*.py")}
+    sira = {m for m in tohum if m in var}
+    for y in vaka_dosyalari:
+        sira |= _paket_modulleri(ice_aktarimlar(y, PAKET_ADI), ORTAK_PAKET, ortak_koku)
+    gorulen: set[str] = set()
+    while sira:
+        m = sira.pop()
+        gorulen.add(m)
+        yeni = _paket_modulleri(ice_aktarimlar(ortak_koku / f"{m}.py", ORTAK_PAKET), ORTAK_PAKET, ortak_koku)
+        sira |= yeni - gorulen
+    return sorted(gorulen)
+
+
+def kod_dosyalari() -> dict[str, Path]:
+    """Kod özetine giren dosyalar: `<önek>/<göreli yol>` → yol (bkz. KOSU_MODULLERI)."""
+    vaka_koku, ortak_koku, v4_koku = (Path(KOD_KOKLERI[a]) for a in (PAKET_ADI, "ortak", "v4"))
+    vaka = [vaka_koku / f"{m}.py" for m in KOSU_MODULLERI if (vaka_koku / f"{m}.py").is_file()]
+    dosyalar = {f"{PAKET_ADI}/{y.name}": y for y in vaka}
+    for m in ortak_kapanisi(vaka, ortak_koku):
+        dosyalar[f"ortak/{m}.py"] = ortak_koku / f"{m}.py"
+    for y in v4_koku.glob("**/*.py"):
+        if y.is_file() and "__pycache__" not in y.parts:
+            dosyalar[f"v4/{y.relative_to(v4_koku).as_posix()}"] = y
+    return dict(sorted(dosyalar.items()))
+
+
+def _surum(paket: str) -> str | None:
+    try:
+        return importlib.metadata.version(paket)
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
+def kod_ozeti() -> str:
+    """`kod_dosyalari`'nın göreli yol + içerik sha256'sı (satır sonları LF)."""
+    ozet = hashlib.sha256()
+    for ad, yol in kod_dosyalari().items():
+        ozet.update(ad.encode("utf-8") + b"\0")
+        ozet.update(yol.read_bytes().replace(b"\r\n", b"\n") + b"\0")
+    return ozet.hexdigest()
+
+
+def veri_parmak_izi() -> list:
+    """v4 DuckDB dosyasının kimliği: ad, boyut, değişiklik zamanı (yoksa "yok")."""
+    yol = Path(VERI_YOLU)
+    if not yol.exists():
+        return ["yok", yol.name]
+    d = yol.stat()
+    return [yol.name, d.st_size, d.st_mtime_ns]
+
+
+def _tur_adi(p) -> str:
+    """Politikanın türü: fonksiyonsa kendi tam adı, nesneyse sınıfınınki."""
+    if inspect.isfunction(p) or inspect.ismethod(p) or inspect.isbuiltin(p):
+        return f"{p.__module__}.{p.__qualname__}"
+    return f"{type(p).__module__}.{type(p).__qualname__}"
+
+
+POLITIKA_DERINLIGI = 5
+
+
+def politika_kimligi(p, derinlik: int = POLITIKA_DERINLIGI) -> dict:
+    """Politikanın kendi beyan ettiği kimliği: `parametreler()` çıktısı ve sardığı
+    `temel` politikanın türü + kimliği (özyinelemeli). Beyanı olmayan politika `{}`."""
+    k = {}
+    f = getattr(p, "parametreler", None)
+    if callable(f):
+        k["parametreler"] = f()
+    t = getattr(p, "temel", None)
+    if t is not None:
+        if derinlik <= 0:
+            raise ValueError("politika_kimligi: `temel` zinciri çok derin")
+        k["temel"] = {"tur": _tur_adi(t), **politika_kimligi(t, derinlik - 1)}
+    return k
+
+
+def anahtar_icerigi(
+    *, ad: str, parametreler: dict, ilk_alim_orani: float, kaydedici: bool,
+    talep_tohumu: int | None, operasyon_tohumu: int, olcek: str, gun_sayisi: int | None,
+    turler: dict, politikalar: dict | None = None,
+) -> dict:
+    """Koşuyu belirleyen her şey (bkz. modül belgesi); `meta`'ya da yazılır.
+    `politikalar`: kanca → `politika_kimligi` (boşsa içeriğe girmez)."""
+    ek = {"politikalar": _kanonik(politikalar)} if politikalar else {}
+    return {
+        "ad": ad,
+        "parametreler": _kanonik(parametreler),
+        "ilk_alim_orani": _oran(ilk_alim_orani),
+        "kaydedici": bool(kaydedici),
+        "turler": _kanonik(turler),
+        **ek,
+        "talep_tohumu": None if talep_tohumu is None else int(talep_tohumu),
+        "operasyon_tohumu": int(operasyon_tohumu),
+        "olcek": olcek,
+        "gun_sayisi": None if gun_sayisi is None else int(gun_sayisi),
+        "kod": kod_ozeti(),
+        "veri": veri_parmak_izi(),
+        "surumler": {p: _surum(p) for p in ("numpy", "pandas", "pyarrow", "lightgbm", "scikit-learn")},
+    }
+
+
+def _ozet(icerik: dict) -> str:
+    metin = json.dumps(icerik, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(metin.encode("utf-8")).hexdigest()
+
+
+def onbellek_anahtari(**alanlar) -> str:
+    """`anahtar_icerigi`'nin sha256'sı (kanonik JSON)."""
+    return _ozet(anahtar_icerigi(**alanlar))
+
+
+# ---------------------------------------------------------------------------
+# Koşu
+# ---------------------------------------------------------------------------
+
+
+def _sec(df: pd.DataFrame, sutunlar, urunler) -> pd.DataFrame:
+    if urunler is not None:
+        df = df[df["urun_id"].astype(str).isin(set(map(str, urunler)))]
+    if sutunlar is not None:
+        df = df[list(sutunlar)]
+    return df.reset_index(drop=True)
+
+
+@dataclass
+class Kosu:
+    """Bir koşunun sonucu (bkz. modül belgesi)."""
+
+    tablolar: dict
+    gercek: pd.DataFrame
+    meta: dict
+    kayitlar: dict = field(default_factory=dict)
+    onbellekten: bool = False
+
+    def tablo(self, ad: str, sutunlar=None, urunler=None) -> pd.DataFrame:
+        """Tablo `ad` (ya da "gercek"), yalnız `sutunlar`, yalnız `urun_id ∈ urunler`."""
+        return _sec(self.gercek if ad == "gercek" else self.tablolar[ad], sutunlar, urunler)
+
+
+class _TembelTablolar(Mapping):
+    """`KosuKaydi.tablolar`: her erişimde tabloyu Parquet'ten okur (bellekte tutmaz)."""
+
+    def __init__(self, kayit: "KosuKaydi"):
+        self._k = kayit
+
+    def __getitem__(self, ad):
+        if ad not in self._k.meta["tablolar"]:
+            raise KeyError(ad)
+        return self._k.tablo(ad)
+
+    def __iter__(self):
+        return iter(self._k.meta["tablolar"])
+
+    def __len__(self):
+        return len(self._k.meta["tablolar"])
+
+
+@dataclass
+class KosuKaydi:
+    """Önbellekteki bir koşu, tembel (`kos(..., tembel=True)`): `meta` ve
+    `kayitlar` bellekte; tablolar ve gizli gerçek istendikçe diskten okunur
+    (`tablo(ad, sutunlar, urunler)` yalnız gereken sütun ve SKU'ları okur). Bir TAM
+    koşunun tabloları belleğe ~birkaç GB'tır; ızgara bunları aynı anda tutamaz.
+    `yukle()` tam `Kosu`. Parquet'in bütünlüğü okunurken sınanır (tembel kayıt
+    yalnız dosyaların varlığını sınar)."""
+
+    dizin: Path
+    meta: dict
+    kayitlar: dict = field(default_factory=dict)
+    onbellekten: bool = True
+
+    def _yol(self, ad: str) -> Path:
+        return self.dizin / ("gercek.parquet" if ad == "gercek" else f"tablo_{ad}.parquet")
+
+    def tablo(self, ad: str, sutunlar=None, urunler=None) -> pd.DataFrame:
+        """Tablo `ad` (ya da "gercek"), yalnız `sutunlar`, yalnız `urun_id ∈ urunler`
+        (Parquet süzgeciyle; bütün tablo belleğe gelmez)."""
+        if ad != "gercek" and ad not in self.meta["tablolar"]:
+            raise KeyError(ad)
+        suzgec = [("urun_id", "in", sorted(set(map(str, urunler))))] if urunler is not None else None
+        df = pd.read_parquet(self._yol(ad), columns=None if sutunlar is None else list(sutunlar),
+                             filters=suzgec)
+        return df.reset_index(drop=True)
+
+    @property
+    def tablolar(self) -> Mapping:
+        return _TembelTablolar(self)
+
+    @property
+    def gercek(self) -> pd.DataFrame:
+        return self.tablo("gercek")
+
+    def yukle(self) -> Kosu:
+        return Kosu(tablolar={a: self.tablo(a) for a in self.meta["tablolar"]}, gercek=self.gercek,
+                    meta=self.meta, kayitlar=dict(self.kayitlar), onbellekten=self.onbellekten)
+
+
+def _tepe_bellek_gb() -> float | None:
+    """Sürecin tepe çalışma kümesi (GB): Windows'ta `GetProcessMemoryInfo`,
+    başka yerde `ru_maxrss`."""
+    try:
+        if sys.platform == "win32":
+            import ctypes
+            from ctypes import wintypes
+
+            class _Sayac(ctypes.Structure):
+                _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD)] + [
+                    (a, ctypes.c_size_t) for a in (
+                        "PeakWorkingSetSize", "WorkingSetSize", "QuotaPeakPagedPoolUsage",
+                        "QuotaPagedPoolUsage", "QuotaPeakNonPagedPoolUsage",
+                        "QuotaNonPagedPoolUsage", "PagefileUsage", "PeakPagefileUsage")]
+
+            s = _Sayac()
+            s.cb = ctypes.sizeof(s)
+            bilgi = ctypes.WinDLL("psapi").GetProcessMemoryInfo
+            bilgi.argtypes = [wintypes.HANDLE, ctypes.POINTER(_Sayac), wintypes.DWORD]
+            # -1: GetCurrentProcess sözde tanıtıcısı (64 bit HANDLE olarak geçmeli)
+            if not bilgi(wintypes.HANDLE(-1), ctypes.byref(s), s.cb):
+                return None
+            return round(s.PeakWorkingSetSize / 2**30, 2)
+        import resource
+
+        return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 2)
+    except Exception:  # noqa: BLE001 — yalnız bilgi amaçlı
+        return None
+
+
+def _dizin(onbellek: Path, ad: str, anahtar: str) -> Path:
+    return Path(onbellek) / f"{ad}_{anahtar[:20]}"
+
+
+def _oku(dizin: Path, anahtar: str) -> Kosu | None:
+    meta_yolu = dizin / "meta.json"
+    if not meta_yolu.exists():
+        return None
+    meta = json.loads(meta_yolu.read_text(encoding="utf-8"))
+    if meta.get("anahtar") != anahtar:
+        return None
+    try:
+        tablolar = {ad: pd.read_parquet(dizin / f"tablo_{ad}.parquet") for ad in meta["tablolar"]}
+        kayitlar = {ad: pd.read_parquet(dizin / f"kayit_{ad}.parquet") for ad in meta["kayitlar"]}
+        gercek = pd.read_parquet(dizin / "gercek.parquet")
+    except Exception as e:  # noqa: BLE001 — eksik ya da bozuk Parquet: kayıt silinir, yeniden koşulur
+        warnings.warn(f"bozuk koşu kaydı siliniyor ({type(e).__name__}): {dizin}", stacklevel=3)
+        shutil.rmtree(dizin, ignore_errors=True)
+        return None
+    return Kosu(tablolar=tablolar, gercek=gercek, meta=meta, kayitlar=kayitlar, onbellekten=True)
+
+
+def _oku_tembel(dizin: Path, anahtar: str) -> KosuKaydi | None:
+    """`_oku`'nun tembel hâli: meta ve anahtar tutmalı, bütün Parquet dosyaları
+    bulunmalı (eksikse kayıt silinir, yeniden koşulur); yalnız kayıtlar okunur."""
+    meta_yolu = dizin / "meta.json"
+    if not meta_yolu.exists():
+        return None
+    meta = json.loads(meta_yolu.read_text(encoding="utf-8"))
+    if meta.get("anahtar") != anahtar:
+        return None
+    dosyalar = ([dizin / f"tablo_{a}.parquet" for a in meta["tablolar"]]
+                + [dizin / f"kayit_{a}.parquet" for a in meta["kayitlar"]] + [dizin / "gercek.parquet"])
+    try:
+        if not all(d.is_file() for d in dosyalar):
+            raise FileNotFoundError("eksik Parquet")
+        kayitlar = {ad: pd.read_parquet(dizin / f"kayit_{ad}.parquet") for ad in meta["kayitlar"]}
+    except Exception as e:  # noqa: BLE001 — eksik ya da bozuk: kayıt silinir, yeniden koşulur
+        warnings.warn(f"eksik ya da bozuk koşu kaydı siliniyor ({type(e).__name__}): {dizin}",
+                      stacklevel=3)
+        shutil.rmtree(dizin, ignore_errors=True)
+        return None
+    return KosuKaydi(dizin=dizin, meta=meta, kayitlar=kayitlar, onbellekten=True)
+
+
+_SUREC_BASI = time.time()
+
+
+def _artiklari_sil(onbellek: Path) -> None:
+    """Bu süreçten önce başlamış (yarıda kalmış) `.yaziliyor-*` dizinlerini siler."""
+    for d in Path(onbellek).glob("*.yaziliyor-*"):
+        try:
+            if d.is_dir() and d.stat().st_mtime < _SUREC_BASI:
+                shutil.rmtree(d, ignore_errors=True)
+        except OSError:
+            pass
+
+
+def _yaz(dizin: Path, kosu: Kosu) -> None:
+    """Geçici dizine yazar (`meta.json` en son), sonra tek `os.replace`."""
+    dizin.parent.mkdir(parents=True, exist_ok=True)
+    gecici = dizin.with_name(dizin.name + f".yaziliyor-{os.getpid()}")
+    shutil.rmtree(gecici, ignore_errors=True)
+    gecici.mkdir()
+    for ad, df in kosu.tablolar.items():
+        df.to_parquet(gecici / f"tablo_{ad}.parquet", index=False, compression="zstd")
+    for ad, df in kosu.kayitlar.items():
+        df.to_parquet(gecici / f"kayit_{ad}.parquet", index=False, compression="zstd")
+    kosu.gercek.to_parquet(gecici / "gercek.parquet", index=False, compression="zstd")
+    (gecici / "meta.json").write_text(
+        json.dumps(kosu.meta, indent=2, ensure_ascii=False), encoding="utf-8")
+    if dizin.exists():                       # yarım (meta'sız) ya da bayat kayıt
+        shutil.rmtree(dizin)
+    os.replace(gecici, dizin)
+
+
+def _gidis_donus(kosu: Kosu) -> Kosu:
+    """Parquet gidiş-dönüşü bellekte: önbellekli ve önbelleksiz koşu aynı
+    türleri döndürsün."""
+    import io
+
+    def gd(df):
+        tampon = io.BytesIO()
+        df.to_parquet(tampon, index=False)
+        tampon.seek(0)
+        return pd.read_parquet(tampon)
+
+    return Kosu(tablolar={a: gd(d) for a, d in kosu.tablolar.items()}, gercek=gd(kosu.gercek),
+                meta=kosu.meta, kayitlar={a: gd(d) for a, d in kosu.kayitlar.items()})
+
+
+def kos(
+    replenishment=None,
+    *,
+    ilk_alim_orani: float = 1.0,
+    talep_tohumu: int | None = None,
+    operasyon_tohumu: int = TOHUM,
+    ad: str,
+    parametreler: dict,
+    onbellek: Path | None = KOSU_DIZINI,
+    olcek: str = "tam",
+    gun_sayisi: int | None = None,
+    gecmis_kaydi: bool | None = None,
+    tembel: bool = False,
+    kaydedici: bool = True,
+) -> Kosu | KosuKaydi:
+    """v4 motorunu verilen replenishment politikasıyla (verilmezse Lumoda)
+    `ilk_alim_orani`'lı dünyada koşar; önbellekte varsa koşmadan okur.
+    `onbellek=None` önbelleği kapatır. `parametreler` politikanın davranışını
+    belirleyen HER şeyi taşımalıdır (modül belgesi). `olcek`, `gun_sayisi`
+    testler içindir. `kaydedici` (anahtara girer): ilk dağıtım ve outlet akışı
+    kaydedicilerle; politika `baglan` taşıyorsa kaydediciler ona verilir.
+    `gecmis_kaydi` None ise politikanın `gecmis_gerekir`inden (çıktıyı
+    değiştirmez, anahtara girmez). `tembel` (önbellek ister): tabloları
+    belleğe almadan `KosuKaydi` döndürür (anahtara girmez)."""
+    if not _AD_DESENI.match(ad):
+        raise ValueError(f"koşu adı dosya adına uygun olmalı: {ad!r}")
+    if tembel and onbellek is None:
+        raise ValueError("tembel koşu kaydı önbellek ister (onbellek=None verildi)")
+    if olcek not in OLCEKLER:
+        raise ValueError(f"ölçek {sorted(OLCEKLER)}'den biri olmalı: {olcek!r}")
+    ilk_alim_orani = _oran(ilk_alim_orani)
+    kaydedici = bool(kaydedici)
+    turler = {} if replenishment is None else {"replenishment": _tur_adi(replenishment)}
+    kimlik = {} if replenishment is None else politika_kimligi(replenishment)
+    icerik = anahtar_icerigi(ad=ad, parametreler=parametreler, ilk_alim_orani=ilk_alim_orani,
+                             kaydedici=kaydedici, talep_tohumu=talep_tohumu,
+                             operasyon_tohumu=operasyon_tohumu, olcek=olcek, gun_sayisi=gun_sayisi,
+                             turler=turler, politikalar={"replenishment": kimlik} if kimlik else None)
+    anahtar = _ozet(icerik)
+    if onbellek is not None:
+        _artiklari_sil(onbellek)
+        k = (_oku_tembel if tembel else _oku)(_dizin(onbellek, ad, anahtar), anahtar)
+        if k is not None:
+            return k
+
+    t0 = time.perf_counter()
+    w = dunya(olcek, ilk_alim_orani)
+    kaydediciler = {a: Kaydedici(lumoda(a)) for a in KAYDEDILENLER} if kaydedici else {}
+    alanlar = dict(kaydediciler)
+    if replenishment is not None:
+        alanlar["replenishment"] = replenishment
+        baglan = getattr(replenishment, "baglan", None)
+        if kaydediciler and callable(baglan):
+            baglan(kaydediciler)
+    if gecmis_kaydi is None:
+        gecmis_kaydi = bool(getattr(replenishment, "gecmis_gerekir", False))
+    ham = simule_et(w, Politikalar(**alanlar), gun_sayisi=gun_sayisi,
+                    operasyon_tohumu=operasyon_tohumu, kayit_talep=True,
+                    talep_tohumu=talep_tohumu, gecmis_kaydi=bool(gecmis_kaydi))
+    t1 = time.perf_counter()
+    gercek = gercek_tablosu(w, ham)
+    del ham["talep"]
+    tablolar = v4_tablolar.hareket_tablolari(w, ham)
+    del ham
+    kayitlar = {}
+    for a, p in {**kaydediciler, "replenishment": replenishment}.items():
+        f = getattr(p, "kayit_tablosu", None)
+        if callable(f):
+            kayitlar[a] = pd.DataFrame(f()).reset_index(drop=True)
+    meta = {
+        "anahtar": anahtar,
+        **icerik,
+        "motor_sn": round(t1 - t0, 1),
+        "sure_sn": round(time.perf_counter() - t0, 1),
+        "tepe_bellek_gb": _tepe_bellek_gb(),
+        "tablolar": sorted(tablolar),
+        "kayitlar": sorted(kayitlar),
+        "satir_sayilari": {a: len(d) for a, d in sorted(tablolar.items())} | {"gercek": len(gercek)},
+        "gercek_toplamlari": {s: int(gercek[s].to_numpy().sum(dtype=np.int64)) for s in GERCEK_SUTUNLARI},
+    }
+    kosu = Kosu(tablolar=tablolar, gercek=gercek, meta=meta, kayitlar=kayitlar)
+    if onbellek is None:
+        return _gidis_donus(kosu)
+    dizin = _dizin(onbellek, ad, anahtar)
+    _yaz(dizin, kosu)
+    del kosu, tablolar, gercek
+    if tembel:
+        k = _oku_tembel(dizin, anahtar)
+        if k is None:
+            raise RuntimeError(f"koşu yazıldı ama okunamadı: {dizin}")
+        k.onbellekten = False
+        return k
+    return _oku_zorunlu(dizin, anahtar)
+
+
+def _oku_zorunlu(dizin: Path, anahtar: str) -> Kosu:
+    """Yeni yazılan koşuyu okur (dönen koşu önbellekten okunanla aynı türlerde)."""
+    k = _oku(dizin, anahtar)
+    if k is None:
+        raise RuntimeError(f"koşu yazıldı ama okunamadı: {dizin}")
+    k.onbellekten = False
+    return k
+
+
+def yayimlanan_bicim(tablolar: dict, olcek: str) -> dict:
+    """Temiz tablolara yayımlamadaki kirli kayıtları ekler: `uret.yayimla`'nın
+    `kirlet` adımı (aynı `kirli` akışı, aynı dünya; `yayimla` ham çıktı
+    aldığı için çağrılamaz, adım aynen tekrarlanır ve KÜÇÜK dünyada
+    `yayimla`'yla eşitliği test edilir). Lumoda + varsayılan tohumlar + alım
+    oranı 1,0 ile koşunun bu biçimi yayımlanan v4'tür."""
+    w = dunya(olcek)
+    return kirlet(akislar(w.tohum)["kirli"], dict(tablolar), w)

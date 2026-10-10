@@ -209,9 +209,11 @@ def gunluk_stoklu_matrisi(con, w_hucre_anahtari: pd.Index, bas, bit) -> np.ndarr
 # ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Harita:
     """Politikaların kullandığı salt okunur indis dizileri (yalnız dünyanın açık alanlarından).
+
+    `eq=False`: dizi alanlarıyla alan alan `==` belirsizdir; eşitlik ve `hash` kimliktendir.
 
     İndis uzayları: hücre `c` [C], mağaza–option çifti `oc` [OC], SKU `s` [S],
     option `o` [O], mağaza `m`.
