@@ -13,6 +13,8 @@ Testler motoru ve `perakende_veri`'yi içe aktarabilir; `politika` aktaramaz
 (`test_kahin_alani_okunmaz`, `tests/test_sizinti.py`).
 """
 
+import copy
+import dataclasses
 from datetime import date
 from math import inf
 from pathlib import Path
@@ -286,9 +288,11 @@ def test_ayar_dogrulama():
     k = KoliKurali("B", gamma=0.5)
     assert Ayar(koli=k).kural() is k
     for hatali in ({"koli": "Z"}, {"oncelik": "rastgele"}, {"tavan": -1.0},
-                   {"kisitsiz": True, "tavan": 100.0}, {"pencere": (date(2025, 9, 2), date(2025, 9, 1))}):
+                   {"kisitsiz": True, "tavan": 100.0}, {"pencere": (date(2025, 9, 2), date(2025, 9, 1))},
+                   {"koli": KISITSIZ}):
         with pytest.raises(ValueError):
             Ayar(**hatali)
+    assert Ayar(koli=KISITSIZ, kisitsiz=True).kural() is KISITSIZ
 
 
 def test_parametreler_davranisi_tasir(tahminci):
@@ -354,3 +358,113 @@ def test_lumoda_kisitsiz_motora_aynen_verir(kosular, w, tahminci):
     for t in ("sevkiyat", "satis", "stok", "depo_stok"):
         pd.testing.assert_frame_equal(k.tablolar[t], ref.tablolar[t])
     assert len(politika.hafta_tablosu(k)) == 3 and len(politika.istek_tablosu(k)) > 0
+
+
+# ---------------------------------------------------------------- düzeltme turu (R21)
+
+
+def test_karsilastirma_pazartesisiz_hata(kosular):
+    """Kayıtta pencere pazartesisi yoksa denetim boş dönmez (hiçbir şey denetlenmedi): hata."""
+    k, _ = kosular("kural")
+    bos = k.kayitlar["replenishment"].iloc[:0]
+    with pytest.raises(ValueError, match="pazartesi"):
+        politika.sevkiyatla_karsilastir(SimpleNamespace(kayitlar={"replenishment": bos}, tablo=k.tablo))
+    sadece_istek = k.kayitlar["replenishment"]
+    sadece_istek = sadece_istek[sadece_istek["kalem"] == "istek"]
+    with pytest.raises(ValueError, match="pazartesi"):
+        politika.sevkiyatla_karsilastir(SimpleNamespace(kayitlar={"replenishment": sadece_istek}, tablo=k.tablo))
+
+
+def test_carpanlar_kopyalanir():
+    """Çağıranın çarpan nesnesi sonradan değişirse kolun davranışı da anahtarı da değişmez."""
+    c = Carpanlar(ozel_gun={"tatil": 0.7})
+    kol = KOLLAR["kural_basit"](motor.lumoda("replenishment"), Ayar(), carpanlar=c)
+    once = kol.parametreler()
+    c.ozel_gun["tatil"] = 0.1
+    c.hafta_gunu[("magaza", 0)] = 2.0
+    assert kol.parametreler() == once
+    assert kol.carpanlar.ozel_gun == {"tatil": 0.7} and kol.carpanlar.hafta_gunu == {}
+    assert politika.carpan_ozeti(kol.carpanlar) == once["carpanlar"]
+
+
+def test_lumoda_kaydinda_hedef_yok(kosular):
+    """Lumoda kolu hedef kurmaz (isteği zaten eksik): `hedef_adet` sütunu yok, yanlış
+    okunamaz; hedefli kollarda var ve hedef ≥ eksik değil, ayrı büyüklük."""
+    lum = politika.hafta_tablosu(kosular("lumoda")[0])
+    assert "hedef_adet" not in lum.columns and (lum["istek_adet"] > 0).all()
+    assert "hedef_adet" in politika.hafta_tablosu(kosular("kural")[0]).columns
+
+
+def test_lumoda_kisitsiz_kaydedicisiz_yeniden_kullanilir(w):
+    """Kısıtsız Lumoda bağlantı istemez: `kaydedici=False` ile aynı nesne iki koşuda
+    da çalışır (ikinci koşu durumunu sıfırlar), kayıtlar birebir. Defter tutan kol
+    `kaydedici=False` ile pencereye girince açık hata verir."""
+    kol = KOLLAR["lumoda"](motor.lumoda("replenishment"), Ayar(pencere=PENCERE, kisitsiz=True))
+    n = _gun(w, PENCERE[0]) + 8
+    a = [motor.kos(kol, ad="t_lk", parametreler={}, onbellek=None, olcek="kucuk", gun_sayisi=n,
+                   kaydedici=False) for _ in range(2)]
+    pd.testing.assert_frame_equal(politika.istek_tablosu(a[0]), politika.istek_tablosu(a[1]))
+    assert len(politika.hafta_tablosu(a[1])) == 2
+    kural = KOLLAR["kural"](motor.lumoda("replenishment"), Ayar(pencere=PENCERE))
+    with pytest.raises(RuntimeError, match="kaydedici=True"):
+        motor.kos(kural, ad="t_kk", parametreler={}, onbellek=None, olcek="kucuk", gun_sayisi=n,
+                  kaydedici=False)
+
+
+class _Sonda(_Denetci):
+    """Seçili pazartesilerde kolun o anki durumunun kopyasını bozuk geleceği olan bir
+    görünümle çağırır (dünya ve tahminci paylaşılır), sonra kolun kendisini gerçek
+    görünümle; ikisinin çıktısını saklar."""
+
+    def __init__(self, kol, gunler, paylas=()):
+        super().__init__(kol)
+        self.gunler, self.paylas, self.sonuc = set(gunler), list(paylas), {}
+
+    def __call__(self, g):
+        if g.gun not in self.gunler:
+            return self.kol(g)
+        bellek = {id(x): x for x in [g.dunya, *self.paylas]}
+        klon = copy.deepcopy(self.kol, bellek)
+        S, F = np.asarray(g.satis_gecmisi), np.asarray(g.stoklu_gecmisi)
+        ek = 21                                           # t günü ve sonraki üç hafta
+        bozuk = dataclasses.replace(
+            g, satis_gecmisi=np.concatenate([S, np.full((ek, S.shape[1]), 99, dtype=S.dtype)]),
+            stoklu_gecmisi=np.concatenate([F, np.ones((ek, F.shape[1]), dtype=F.dtype)]))
+        r_bozuk = np.array(klon(bozuk))
+        r = np.asarray(self.kol(g))
+        self.sonuc[int(g.gun)] = (np.array(r), r_bozuk)
+        return r
+
+
+@pytest.mark.parametrize("ad", ["kural", "tahmin"])
+def test_istek_gelecegi_gormez(w, tahminci, ad):
+    """Spec §4.2: pencere pazartesisi t'nin isteği, Görünüm'e t günü ve sonrasının
+    (bozuk) satış / stoklu satırları eklenince aynı durumdan birebir aynı; ilk
+    pazartesi (bir kerelik hesaplar) ve sonraki bir pazartesi (uzlaştırma)."""
+    d0 = _gun(w, PENCERE[0])
+    gunler = (d0, d0 + 14)
+    kol = _kol(ad, w, tahminci)
+    sonda = _Sonda(kol, gunler, paylas=[tahminci])
+    motor.kos(sonda, ad=f"t_sizinti_{ad}", parametreler={}, onbellek=None, olcek="kucuk",
+              gun_sayisi=d0 + 15)
+    assert set(sonda.sonuc) == set(gunler)
+    for gun, (r, r_bozuk) in sonda.sonuc.items():
+        assert r.sum() > 0
+        assert np.array_equal(r, r_bozuk), gun
+
+
+def test_kayit_onbellek_gidis_donusu(w, tahminci, tmp_path):
+    """Kolun kaydı koşu önbelleğine yazılıp okunur (tam ve tembel `KosuKaydi`); okunan
+    koşuda denetim 0 fark, istek ve hafta tabloları bellekteki koşuyla aynı."""
+    kol = _kol("kural_siki", w, tahminci)
+    n = _gun(w, PENCERE[0]) + 15
+    bellekte = motor.kos(kol, ad="t_onbellek", parametreler={}, onbellek=None, olcek="kucuk", gun_sayisi=n)
+    yazilan = motor.kos(kol, ad="t_onbellek", parametreler={}, onbellek=tmp_path, olcek="kucuk", gun_sayisi=n)
+    tembel = motor.kos(kol, ad="t_onbellek", parametreler={}, onbellek=tmp_path, olcek="kucuk", gun_sayisi=n,
+                       tembel=True)
+    assert not yazilan.onbellekten and tembel.onbellekten and isinstance(tembel, motor.KosuKaydi)
+    for k in (yazilan, tembel):
+        assert politika.sevkiyatla_karsilastir(k).empty
+        pd.testing.assert_frame_equal(politika.istek_tablosu(k), politika.istek_tablosu(bellekte))
+        pd.testing.assert_frame_equal(politika.hafta_tablosu(k), politika.hafta_tablosu(bellekte))
+    assert len(politika.hafta_tablosu(tembel)) == 3

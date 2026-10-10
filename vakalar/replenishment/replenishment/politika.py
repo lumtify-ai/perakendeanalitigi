@@ -28,8 +28,10 @@ baştan başlar). Bağlanmamış kol pencereye girerse `RuntimeError` (motor
 
 **Kollar** (`KOLLAR`; hepsi `(temel, ayar=None, **ek)`):
 
-    lumoda        hedef = Lumoda'nın hücre isteği (`temel(g)`); kısıtlıysa `dagit`'ten
-                  hep `orantili` öncelikle geçer (Ayar.oncelik yerine). Kısıtsızsa
+    lumoda        Lumoda'nın hücre isteği (`temel(g)`: kendi 28 günlük hedefinden raf ve
+                  yolda düşülmüş eksik) doğrudan istektir; hedef [OC] kurulmaz, kayıtta
+                  `hedef_adet` YOKTUR (Lumoda'nın isteği `istek_adet`'tedir). Kısıtlıysa
+                  `dagit`'ten hep `orantili` öncelikle geçer (Ayar.oncelik yerine). Kısıtsızsa
                   (`Ayar.kisitsiz`) isteği aynen motora verir: motorun orantılı
                   kesimi böler (eşdeğerlik koşusunun kuralı; defter tutulmaz, kayıt
                   maskeli istektir ve sevkiyattan farklı olabilir)
@@ -58,7 +60,9 @@ girer (motor anahtarı).
 **Kayıt** (`kayit_tablosu() -> DataFrame`, motor `kayitlar["replenishment"]`'a
 yazar): uzun biçim, sütunlar `gun, tarih, kalem, hucre, magaza_id, urun_id, deger`.
 `kalem == "istek"` satırları hücre başına gönderim (`deger` adet); öteki kalemler
-pazartesi başına bir satır (`hucre = -1`): `pazartesi`, `hedef_adet`, `istek_adet`,
+pazartesi başına bir satır (`hucre = -1`): `pazartesi`, `hedef_adet` (hedef [OC]
+toplamı, raf ve yolda düşülmeden; lumoda kolunda yok), `istek_adet` (bedene bölünmüş
+eksik, maskeden önce),
 `maske_disi_adet`, `gonderilen_adet`, `karsilanmayan_adet`, `acik_adet`,
 `koli_sayisi`, `koli_adet`, `tavan`, `tavan_dolulugu`, `defter_kapali_adet`,
 `defter_acik_adet` (gönderimden sonra) ve defterin uzlaştırma kalemleri `uzl_*`
@@ -76,6 +80,7 @@ Bu modül `perakende_veri`'yi, `replenishment.motor`'u ve hakemi içe aktarmaz
 (`tests/test_sizinti.py`); `Gorunum`'ü ve dünyanın açık alanlarını okur.
 """
 
+import copy
 import dataclasses
 import hashlib
 import json
@@ -144,6 +149,8 @@ class Ayar:
             raise ValueError(f"tavan ≥ 0 olmalı: {self.tavan}")
         if self.kisitsiz and math.isfinite(t):
             raise ValueError("kısıtsız kolda tavan ∞ olmalı")
+        if isinstance(self.koli, KoliKurali) and self.koli.ad == "kisitsiz" and not self.kisitsiz:
+            raise ValueError("koli=KoliKurali('kisitsiz') yalnız kisitsiz=True ile (Ayar.kisitsiz kullanın)")
         bas, bit = self.pencere
         if not bas <= bit:
             raise ValueError(f"pencere başı sonundan sonra: {self.pencere}")
@@ -203,7 +210,8 @@ def baslangic_havuzu_denetimi(ilk_dagitim_kaydi: list, lansman_gun: np.ndarray, 
 
 class _Kol:
     """Ortak iskelet: pencere, bağlantı, defter, dağıtım, kayıt (modül notu).
-    Alt sınıf `_hazirla_kol(g)` ve `_istek(g) -> (hedef_oc, ongoru_oc, istek_c)` verir."""
+    Alt sınıf `_hazirla_kol(g)` ve `_istek(g) -> (hedef_oc, ongoru_oc, istek_c)` verir
+    (`hedef_oc` None: kol hedef kurmaz, yalnız lumoda)."""
 
     ad = ""
     gecmis_gerekir = False
@@ -247,9 +255,20 @@ class _Kol:
         if self._kaydediciler is None:
             raise RuntimeError(f"{type(self).__name__} pencerede (gün {g.gun}) ama baglan(kaydediciler) "
                                "çağrılmadı: motoru kaydedici=True ile koşun")
+        self._gun_denetimi(g)
+
+    def _gun_denetimi(self, g) -> None:
+        """Gün son pencere gününden geri gittiyse yeni bir koşudur: defter tutan kol
+        `baglan`'sız yeni koşuya giremez (`RuntimeError`); defter tutmayan kol
+        (`_kendiliginden_sifirlanir`) durumunu sıfırlayıp yeniden başlar."""
         d = int(g.gun)
         if self._son_gun is not None and d <= self._son_gun:
-            raise RuntimeError(f"gün {d} son günden ({self._son_gun}) önce: yeni koşu baglan ile başlar")
+            if not self._kendiliginden_sifirlanir():
+                raise RuntimeError(f"gün {d} son günden ({self._son_gun}) önce: yeni koşu baglan ile başlar")
+            self._sifirla()
+
+    def _kendiliginden_sifirlanir(self) -> bool:
+        return False
 
     def _hazirla(self, g) -> None:
         """Pencerenin ilk pazartesisi: dünyadan indisler ve kolun bir kerelik hesapları."""
@@ -304,8 +323,9 @@ class _Kol:
         depo = np.asarray(g.depo)
         if (np.bincount(h.hucre_sku, giden, minlength=len(depo)) > depo).any() or giden[~maske].any():
             raise RuntimeError(f"gün {d}: gönderim depoyu ya da motor maskesini aşıyor (defter kaydı)")
+        hedef = {} if hedef_oc is None else {"hedef_adet": float(np.sum(hedef_oc))}
         self._kaydet(g, giden, {
-            "hedef_adet": float(np.sum(hedef_oc)),
+            **hedef,
             "istek_adet": int(istek.sum()),
             "maske_disi_adet": int(istek[~maske].sum()),
             "gonderilen_adet": int(giden.sum()),
@@ -355,11 +375,10 @@ class LumodaKol(_Kol):
     def _pencerede(self, g) -> np.ndarray:
         if not self.ayar.kisitsiz:
             return super()._pencerede(g)
+        self._gun_denetimi(g)
         istek = np.asarray(self.temel(g))
         if self._son_gun is None:
             self._hazirla(g)
-        elif int(g.gun) <= self._son_gun:
-            raise RuntimeError(f"gün {g.gun} son günden ({self._son_gun}) önce: yeni koşu baglan ile başlar")
         maske = motor_maskesi(g)
         self._kaydet(g, np.where(maske, np.maximum(istek, 0), 0),
                      {"istek_adet": int(np.maximum(istek, 0).sum()),
@@ -367,9 +386,12 @@ class LumodaKol(_Kol):
         self._son_gun = int(g.gun)
         return istek
 
+    def _kendiliginden_sifirlanir(self) -> bool:
+        return self.ayar.kisitsiz          # kısıtsız Lumoda defter tutmaz, bağlantı istemez
+
     def _istek(self, g):
-        istek = np.asarray(self.temel(g), dtype=np.int64)
-        return np.maximum(istek, 0)[~self._harita.hucre_online], np.zeros(len(self._harita.oc_magaza)), istek
+        # hedef yok (None): Lumoda'nın isteği zaten raf ve yolda düşülmüş eksiktir
+        return None, np.zeros(len(self._harita.oc_magaza)), np.asarray(self.temel(g), dtype=np.int64)
 
 
 class _HedefliKol(_Kol):
@@ -422,8 +444,8 @@ class KuralBasitKol(KuralKol):
 
     def __init__(self, temel, ayar: Ayar | None = None, *, carpanlar):
         super().__init__(temel, ayar)
-        self.carpanlar = carpanlar
-        self._carpan_ozeti = carpan_ozeti(carpanlar)
+        self.carpanlar = copy.deepcopy(carpanlar)      # çağıranın nesnesi sonradan değişse de
+        self._carpan_ozeti = carpan_ozeti(self.carpanlar)
 
     def parametreler(self) -> dict:
         return {**super().parametreler(), "carpanlar": self._carpan_ozeti}
@@ -490,7 +512,11 @@ def _kayit(kosu) -> pd.DataFrame:
 
 
 def istek_tablosu(kosu) -> pd.DataFrame:
-    """Kolun hücre başına gönderimi: `gun, tarih, hucre, magaza_id, urun_id, adet` (int64)."""
+    """Kolun hücre başına gönderimi: `gun, tarih, hucre, magaza_id, urun_id, adet` (int64).
+
+    Satırlar kolun motora verdiği diziden (`dagit`'ten SONRA: koli, tavan, stok ve
+    maske uygulanmış, yani sevkiyat), kesimden önceki istek değil; o haftalık toplam
+    olarak `hafta_tablosu`'nun `istek_adet`'indedir."""
     k = _kayit(kosu)
     k = k[k["kalem"] == "istek"]
     return pd.DataFrame({
@@ -504,7 +530,10 @@ def istek_tablosu(kosu) -> pd.DataFrame:
 
 
 def hafta_tablosu(kosu) -> pd.DataFrame:
-    """Pazartesi başına özet kalemler (geniş biçim; satır = kolun pencere pazartesisi)."""
+    """Pazartesi başına özet kalemler (geniş biçim; satır = kolun pencere pazartesisi;
+    sütunlar modül notundaki kalemler). `hedef_adet` hedef [OC] toplamıdır (raf ve
+    yolda düşülmeden); lumoda kolunda hedef kurulmadığı için bu sütun yoktur, Lumoda'nın
+    isteği `istek_adet`'tir."""
     k = _kayit(kosu)
     k = k[k["kalem"] != "istek"]
     if k.empty:
@@ -517,10 +546,14 @@ def hafta_tablosu(kosu) -> pd.DataFrame:
 def sevkiyatla_karsilastir(kosu) -> pd.DataFrame:
     """Kolun pencere pazartesilerinde kaydettiği istek ile koşunun `sevkiyat`'ındaki
     `replenishment` satırları (çıkış günü, hedef mağaza, ürün) arasındaki fark
-    satırları: `tarih, magaza_id, urun_id, istek, sevk`. Kısıtlı kolda boş olmalı:
+    satırları: `tarih, magaza_id, urun_id, istek, sevk`. Kayıtta pencere pazartesisi
+    yoksa `ValueError` (boş sonuç "hiçbir şey denetlenmedi" anlamına gelmesin). Kısıtlı kolda boş olmalı:
     dolu ise motor isteği kesmiş ya da sıfırlamış, gölge defter kaymıştır."""
     k = _kayit(kosu)
     gunler = pd.to_datetime(k.loc[k["kalem"] == "pazartesi", "tarih"]).unique()
+    if len(gunler) == 0:
+        raise ValueError("kayıtta pencere pazartesisi yok: karşılaştırılacak bir şey yok "
+                         "(kol pencereye hiç girmedi ya da kayıt boş)")
     anahtar = ["tarih", "magaza_id", "urun_id"]
     ist = istek_tablosu(kosu).groupby(anahtar, as_index=False)["adet"].sum().rename(columns={"adet": "istek"})
     sv = kosu.tablo("sevkiyat", ["tarih", "hedef", "urun_id", "adet", "tip"])
