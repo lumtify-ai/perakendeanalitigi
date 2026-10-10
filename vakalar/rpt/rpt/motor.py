@@ -39,6 +39,15 @@ koşuyu etkileyen kaynaklar: `KOSU_MODULLERI`, onların ortak paket kapanışı,
 izi (ad, boyut, değişiklik zamanı), numpy / pandas / pyarrow / lightgbm /
 scikit-learn sürümü.
 
+GEÇMİŞ KAYDI. Politikalardan biri `gecmis_gerekir = True` taşıyorsa (motor içi
+karar anı kestiricisi, `politika.Oneri`) motor `gecmis_kaydi=True` ile koşar
+(Ruling R6: `Gorunum` satış öncesi stok, fiyat ve fotoğraf geçmişini taşır).
+Kayıt yalnız okur, çıktılar birebir aynıdır (veri testi); anahtara girmez.
+
+LUMODA. Karar modülleri üreteci içe aktarmadığı için Lumoda'nın bugünkü kuralları
+kollara ve dağıtım kurallarına argüman olarak verilir: `lumoda("rpt")`,
+`lumoda("replenishment")` (v4 `LumodaRPT`, `lumoda_replenishment`).
+
 **Politikalar Python nesneleridir; anahtar onları `ad` + `parametreler`
 ile tanır.** Çağıran, politikanın davranışını değiştiren HER parametreyi
 (eşik, model türü, dağıtım kuralı, öğrenmenin dayandığı sezonlar, eğitim
@@ -80,7 +89,7 @@ from perakende_veri.v4.dunya import akislar, dunya_kur
 from perakende_veri.v4.kirlet import kirlet
 from perakende_veri.v4.magaza import Olcek
 from perakende_veri.v4.motor import simule_et
-from perakende_veri.v4.politika import Politikalar
+from perakende_veri.v4.politika import Politikalar, lumoda_politikalari
 
 from .bilgi import PolitikaBilgisi
 
@@ -126,6 +135,14 @@ _AD_DESENI = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 def dunya(olcek: str = "tam"):
     """v4 dünyası (`dunya_kur`, varsayılan tohum; süreç içi önbellek, TAM ~20 sn)."""
     return dunya_kur(OLCEKLER[olcek])
+
+
+def lumoda(ad: str):
+    """Lumoda'nın v4 politikası (`Politikalar` alan adı: "rpt", "replenishment", …)."""
+    p = lumoda_politikalari()
+    if ad not in p:
+        raise ValueError(f"Lumoda politikası {sorted(p)}'den biri olmalı: {ad!r}")
+    return p[ad]
 
 
 def _gun_tarihi(gun) -> np.ndarray:
@@ -550,11 +567,14 @@ def kos(
     onbellek: Path | None = KOSU_DIZINI,
     olcek: str = "tam",
     gun_sayisi: int | None = None,
+    gecmis_kaydi: bool | None = None,
 ) -> Kosu:
     """v4 motorunu verilen RPT / replenishment politikasıyla koşar (verilmeyen
     Lumoda); önbellekte varsa koşmadan okur. `onbellek=None` önbelleği
     kapatır. `parametreler` politikanın davranışını belirleyen HER şeyi
-    taşımalıdır (modül belgesi). `olcek`, `gun_sayisi` testler içindir."""
+    taşımalıdır (modül belgesi). `olcek`, `gun_sayisi` testler içindir.
+    `gecmis_kaydi` None ise politikaların `gecmis_gerekir`inden (çıktıyı
+    değiştirmez, anahtara girmez)."""
     if not _AD_DESENI.match(ad):
         raise ValueError(f"koşu adı dosya adına uygun olmalı: {ad!r}")
     if olcek not in OLCEKLER:
@@ -574,8 +594,10 @@ def kos(
     t0 = time.perf_counter()
     w = dunya(olcek)
     pol = Politikalar(**{a: p for a, p in politikalar.items() if p is not None})
+    if gecmis_kaydi is None:
+        gecmis_kaydi = any(getattr(p, "gecmis_gerekir", False) for p in politikalar.values())
     ham = simule_et(w, pol, gun_sayisi=gun_sayisi, operasyon_tohumu=operasyon_tohumu,
-                    kayit_talep=True, talep_tohumu=talep_tohumu)
+                    kayit_talep=True, talep_tohumu=talep_tohumu, gecmis_kaydi=bool(gecmis_kaydi))
     t1 = time.perf_counter()
     gercek = gercek_tablosu(w, ham)
     del ham["talep"]

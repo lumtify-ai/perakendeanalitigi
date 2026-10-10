@@ -14,10 +14,21 @@ Tarama AST'dir: modül başı ve fonksiyon içi `import` / `from … import`
 `__import__(...)`. Pakete eklenen her modül iki listeden birinde olmalıdır
 (`test_her_modul_siniflandirilmis`).
 
+Kâhin de yasaktır (`rpt.kahin` gerçek talebi argüman alır): karar modülü onu
+ne doğrudan ne geçişli içe aktarır.
+
 Geçici muafiyet (`GECICI_V3`): v3 üretecini (`perakende_veri.v3`) hâlâ
 içe aktaran eski modüller, ilgili görev onları v4'e taşıyana dek yalnız
 v3 için muaftır; motor, hakem ve v4 onlarda da yasaktır. Modül v3'ten
-kurtulunca muafiyet satırı silinmelidir (test bunu ister).
+kurtulunca muafiyet satırı silinmelidir (test bunu ister). Görev 7'den beri
+boştur.
+
+GİZLİ ALANLAR (Görev 4'ten ertelenen, Görev 7). İçe aktarma kilidi motorun
+dünyasını kapatmaz: karar modülleri `Gorunum.dunya` üstünden dünyanın nesnesini
+görür. Sözleşme (`perakende_veri.v4.motor.durum.Gorunum`) yalnız kamuya açık
+alanları serbest bırakır; `GORUNUM_MODULLERI` dünyanın gizli alanlarının hiçbirine
+(`GIZLI_ALANLAR`, `GIZLI_ONEKLER`) öznitelik ya da sabit dizgeli `getattr` ile
+erişmez (AST; adı her nesnede yasaktır, yalnız dünyada değil).
 """
 
 import ast
@@ -34,13 +45,13 @@ KARAR_MODULLERI = (
     "hikaye", "hikaye_sec", "anlik", "bilgi", "hazirla",
 )
 IZINLI_MODULLER = ("motor", "kahin", "olcutler", "oyun", "yollar")
-GECICI_V3 = {"dagitim": "Görev 7", "politika": "Görev 7"}
+GECICI_V3: dict[str, str] = {}
 # Muafiyet yalnız küçülür; son görev GECICI_V3'ün boş olduğunu sınamalı.
 GECICI_V3_ILK = frozenset({"aday", "miktar", "dagitim", "politika"})
 
 
 def yasaklar(paket_adi: str) -> tuple[str, ...]:
-    return ("perakende_veri", "perakende_analitik.hakem", f"{paket_adi}.motor")
+    return ("perakende_veri", "perakende_analitik.hakem", f"{paket_adi}.motor", f"{paket_adi}.kahin")
 
 
 def _altinda(ad: str, kok: str) -> bool:
@@ -123,6 +134,11 @@ def test_gecici_v3_yalniz_kuculur():
     assert set(GECICI_V3) <= GECICI_V3_ILK
 
 
+def test_gecici_v3_bos():
+    """Görev 7'den beri hiçbir karar modülü v3 üretecini içe aktarmaz."""
+    assert GECICI_V3 == {}
+
+
 def test_her_modul_siniflandirilmis():
     assert siniflandirilmamis(PAKET) == []
     assert not set(KARAR_MODULLERI) & set(IZINLI_MODULLER)
@@ -169,3 +185,70 @@ def test_tarayici_ihlali_yakalar(tmp_path):
 def test_tarayici_tek_satir(tmp_path, metin):
     paket = _yaz(tmp_path / "rpt", {"__init__": "", "motor": "", "egri": metin})
     assert "egri" in ihlaller(paket)
+
+
+# ---------------------------------------------------------------------------
+# Gizli alanlar (Gorunum.dunya)
+# ---------------------------------------------------------------------------
+
+# `Gorunum` sözleşmesinin "asla" listesi + motorun kayıtlı talebi (`talep`,
+# `kayit_talep`) + `Kosu.gercek` / `dunya.gercek()`.
+GIZLI_ALANLAR = frozenset({"lam", "esneklik", "esneklik_hucre", "ilk_siparisler", "gercek",
+                           "talep", "kayit_talep"})
+GIZLI_ONEKLER = ("gizli_", "sapma_")
+GORUNUM_MODULLERI = ("politika", "dagitim", "anlik", "aday", "miktar", "sansur", "egri", "bilgi")
+
+
+def _gizli(ad: str) -> bool:
+    return ad in GIZLI_ALANLAR or ad.startswith(GIZLI_ONEKLER)
+
+
+def gizli_erisimler(yol: Path) -> list[tuple[int, str]]:
+    """Dosyadaki gizli alan erişimleri: (satır, ad). `x.ad` ve
+    `getattr(x, "ad"[, …])` / `hasattr` / `setattr` sabit dizgeyle."""
+    agac = ast.parse(Path(yol).read_text(encoding="utf-8"), filename=str(yol))
+    bulunan = []
+    for d in ast.walk(agac):
+        if isinstance(d, ast.Attribute) and _gizli(d.attr):
+            bulunan.append((d.lineno, d.attr))
+        elif (isinstance(d, ast.Call) and isinstance(d.func, ast.Name)
+              and d.func.id in ("getattr", "hasattr", "setattr") and len(d.args) >= 2
+              and isinstance(d.args[1], ast.Constant) and isinstance(d.args[1].value, str)
+              and _gizli(d.args[1].value)):
+            bulunan.append((d.lineno, d.args[1].value))
+    return sorted(bulunan)
+
+
+def test_karar_modulleri_gizli_alan_okumaz():
+    eksik = [m for m in GORUNUM_MODULLERI if not (PAKET / f"{m}.py").is_file()]
+    assert not eksik, eksik
+    bulunan = {m: gizli_erisimler(PAKET / f"{m}.py") for m in GORUNUM_MODULLERI}
+    bulunan = {m: b for m, b in bulunan.items() if b}
+    assert not bulunan, f"karar modülü dünyanın gizli alanını okuyor: {bulunan}"
+
+
+
+def test_gizli_alan_tarayicisi(tmp_path):
+    yol = tmp_path / "x.py"
+    yol.write_text("\n".join([
+        "def f(g):",
+        "    a = g.dunya.lam.gun(g.gun)",
+        "    b = g.dunya.gizli_tedarikci['hatali_orani']",
+        "    c = getattr(g.dunya, 'sapma_rpt')",
+        "    d = g.dunya.esneklik_hucre",
+        "    e = g.dunya.gercek()",
+        "    f = b_.talep",
+        "    ok = g.dunya.optionlar, x['talep'], g.satis_gecmisi, getattr(g, 'depo')",
+        "    return a",
+    ]) + "\n", encoding="utf-8")
+    assert gizli_erisimler(yol) == [(2, "lam"), (3, "gizli_tedarikci"), (4, "sapma_rpt"),
+                                    (5, "esneklik_hucre"), (6, "gercek"), (7, "talep")]
+
+
+def test_kahin_karar_modulunden_ice_aktarilamaz(tmp_path):
+    paket = _yaz(tmp_path / "rpt", {"__init__": "", "kahin": "", "aday": "",
+                                    "politika": "from . import aday\nfrom .kahin import Kahin\n",
+                                    "dagitim": "from . import politika\n"})
+    bulunan = ihlaller(paket)
+    assert set(bulunan) == {"politika", "dagitim"}
+    assert ("dagitim > politika", "rpt.kahin.Kahin") in bulunan["dagitim"]

@@ -56,11 +56,12 @@ dagitim_politikasi=...)`'i ile farklı politikalarla yeniden oynatılır
 | `egri.py` | Yaşam eğrisinin **şekli** (birikimli pay k_h), geçmiş sezonlardan: çıplak (sansürlü satış), düzeltilmiş (satış + ortak Basit kaybı, karar anı = oyunun ilk lansman sabahı), gerçek (yalnız argüman olarak verilen gerçek tabloyla, kıyas) |
 | `sansur.py` | `karar_ani_talep(gunluk, t, carpanlar, havuz)`: karar anı Basit'iyle hücre-gün talebi (saf; tablo yolunda ve motor içinde aynı); sezon talebi kestirimi, dört katman (a çıplak · b stoklu gün hızı · c FRR eğri ölçeği · d b+c); gerçek talebe (argüman) karşı hata |
 | `hikaye.py` | "Bitti" haftası, hikâye adayları, mağaza tablosu, Lumoda'nın RPT'lerinin akıbeti |
-| `anlik.py` | Karar anı hesapları `Gorunum` üstünde (v3 tanımı; Görev 6–7'de v4'e). v4 görünümü ortak günlük tabloyu birebir kurmaya yetmiyor (satış öncesi stok ve fiyat geçmişi yok): ayrıntı modül notunda |
-| `dagitim.py` | RPT dağıtım kuralları: mevcut · b stoklu gün hızı · c yeniden lansman · d c + %30 depoda tutma |
+| `anlik.py` | Motor içi ikiz: `gunluk_gorunumden(g, havuz)` Görünüm'den (motor `gecmis_kaydi`yla) ortak günlük tabloyu + Basit özelliklerini kurar; tablo yoluyla aynı girdide aynı kestirim (R5, testli, birebir). `durum_gorunumden`: karar sabahı STR, stok, açık sipariş |
+| `dagitim.py` | `KURALLAR` a/b/c/d: v4 replenishment kancası (a Lumoda · b stoklu gün hızı · c yeniden lansman · d c + %30 depoda tutma); RPT'nin varışı açık siparişin düşmesinden ve depodan anlaşılır |
 | `miktar.py` | Banu %50 · FRR · newsvendor (MOQ kapısı). Belirsizlik (μ, σ) geçmiş sezonlarda log(Basit'le doldurulmuş talep / karar anı kestirimi) — gerçek talep okunmaz; indirim beklentisi geçmiş sezonların yayımlanan `fiyat`ından (dalga × hafta) |
 | `aday.py` | Karar satırı (`karar_kaydi`: karar anı x, D + karar sabahı durumu, tablo yolunda `durum_tablodan`; Banu'nun STR'si yayımlanan RPT'leri birebir üretir), saf özellikler, sonradan-bakış etiketi (talep argüman: gerçek ya da Basit'le doldurulmuş), kural / lojistik / LightGBM (yalnız geçmiş sezonlarla), TL değerlendirme |
-| `politika.py` | Kollar: `rpt_yok`, `mevcut`, `frr` (h=2/3), `oneri`, `kahin` |
+| `politika.py` | `KOLLAR`: `rpt_yok`, `mevcut` (v4 `LumodaRPT`), `frr`, `oneri` (her karar pazartesisi kendi dünyasının geçmişinden karar anı kestirimi + aday modeli + newsvendor). Çevrimdışı öğrenilenler `Ogrenilen` (veri; özetleri `parametreler()` ile koşu anahtarına) |
+| `kahin.py` | `Kahin(gercek_talep, …)`: koşunun talebini bilen kol; `politika` onu içe aktarmaz |
 | `oyun.py` | Hazırlık (yolun gerçekleşen tarihi + öğrenme), dağıtım kuralı seçimi (SS24), kol koşuları |
 | `olcutler.py` | Spec 3.4 ölçütleri, option düzeyinde, rpt_yok tabanına göre |
 | `yollar.py` | 10 alternatif talep yolu, paralel, JSON |

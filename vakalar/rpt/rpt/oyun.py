@@ -1,5 +1,10 @@
 """Kolları aynı talep üzerinde koşturur.
 
+DURUM (Görev 7). Bu modül hâlâ v3 oyunudur (v3 motoru, `politika.Baglam`,
+`anlik.Kaydedici`); Görev 8 onu v4 kollarına (`politika.KOLLAR`,
+`dagitim.KURALLAR`, `kahin.Kahin`) ve `motor.kos`'a taşır. Testleri o göreve
+dek atlanır; burada yalnız içe aktarılabilir kalır.
+
     b   = hazirlik(dunya, talep)          # öğrenme: eğri, belirsizlik, aday
     ham = kos(b, "oneri", "c")            # kol × dağıtım kuralı
     tab = olcut_tablosu(b, {...})
@@ -22,7 +27,7 @@ import pandas as pd
 from perakende_veri.v3.politika import LumodaRPT
 from perakende_veri.v3.simulasyon import simule_et
 
-from . import aday, anlik, dagitim, egri, kaynak, miktar, olcutler, politika
+from . import aday, anlik, dagitim, egri, kahin, kaynak, miktar, olcutler, politika
 
 OYUN = kaynak.OYUN_SEZONLARI
 KOLLAR = {
@@ -32,7 +37,7 @@ KOLLAR = {
     "frr3": lambda b: politika.FRR(b, 3),
     "oneri": politika.Oneri,
     "oneri_lojistik": lambda b: politika.Oneri(b, "lojistik"),
-    "kahin": politika.Kahin,
+    "kahin": kahin.Kahin,
 }
 
 

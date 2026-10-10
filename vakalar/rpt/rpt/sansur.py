@@ -32,8 +32,8 @@ havuzdaki option'ların `[bas, min(son, t))` günlerini görür: karar anı
 katmanlarında karar sezonunun Collection option'ları, lansmandan `t`'ye; eğrinin
 öğrenmesinde geçmiş sezonların option'ları, lansmandan çıkışa (`egri`). Basit'in
 beden payı, göreli hızı, zincir ve son yedekleri bu havuzdan kurulur; aynı
-fonksiyon motor içinde de (Görev 7) aynı havuzla çağrılır, sonuç havuzun dışındaki
-hiçbir satıra bağlı değildir.
+fonksiyon motor içinde de (`politika.Oneri`, `anlik.gunluk_gorunumden`) aynı
+havuzla çağrılır, sonuç havuzun dışındaki hiçbir satıra bağlı değildir.
 
 KARAR ANINDA ÇEŞİT. `t`'ye dek hiç stoklanmamış hücre (bütün günleri `bos`,
 satışı yok) havuzdan düşer: ortak günlük tablonun "hiç stoklanmamış hücre çeşit
@@ -252,22 +252,50 @@ def karar_ozetleri(gunluk: pd.DataFrame, opt: pd.DataFrame, sezonlar, haftalar, 
     parca = []
     for sezon in sezonlar:
         o = opt[(opt["sezon_kodu"] == sezon) & (opt["line"] == line)]
+        bellek: dict = {}     # karar anı → özet (aynı t'de birden çok dalga)
         for lansman in sorted(o["lansman_tarihi"].unique()):
-            hedef = o[o["lansman_tarihi"] == lansman][["option_id", "sezon_kodu", "dalga"]].copy()
-            hedef["option_id"] = hedef["option_id"].astype(str)
-            hedef = hedef.drop_duplicates("option_id").sort_values("option_id")
             for h in haftalar:
                 t = pd.Timestamp(lansman) + pd.Timedelta(days=7 * int(h))
-                oz = ozet(karar_ani_talep(gunluk, t, carpanlar_bul(t), karar_havuzu(opt, sezon, t, line)))
-                k = hedef.merge(oz[["option_id", "x", "D", "stoklu_pay"]], on="option_id", how="left")
-                k[["x", "D", "stoklu_pay"]] = k[["x", "D", "stoklu_pay"]].fillna(0.0)
-                k.insert(3, "h", int(h))
-                k.insert(4, "karar_ani", t)
-                parca.append(k)
+                if t not in bellek:
+                    bellek[t] = ozet(karar_ani_talep(gunluk, t, carpanlar_bul(t),
+                                                     karar_havuzu(opt, sezon, t, line)))
+                parca.append(_dalga_satirlari(o, lansman, int(h), t, bellek[t]))
     if not parca:
-        return pd.DataFrame(columns=["option_id", "sezon_kodu", "dalga", "h", "karar_ani", "x", "D",
-                                     "stoklu_pay"])
+        return pd.DataFrame(columns=list(KARAR_OZETI_SUTUNLARI))
     return pd.concat(parca, ignore_index=True)
+
+
+KARAR_OZETI_SUTUNLARI = ("option_id", "sezon_kodu", "dalga", "h", "karar_ani", "x", "D", "stoklu_pay")
+
+
+def _dalga_satirlari(o: pd.DataFrame, lansman, h: int, t: pd.Timestamp, oz: pd.DataFrame) -> pd.DataFrame:
+    """`lansman` dalgasının option'ları × (h, t): `oz`dan (`ozet`) x, D, stoklu_pay."""
+    hedef = o[o["lansman_tarihi"] == lansman][["option_id", "sezon_kodu", "dalga"]].copy()
+    hedef["option_id"] = hedef["option_id"].astype(str)
+    hedef = hedef.drop_duplicates("option_id").sort_values("option_id")
+    k = hedef.merge(oz[["option_id", "x", "D", "stoklu_pay"]], on="option_id", how="left")
+    k[["x", "D", "stoklu_pay"]] = k[["x", "D", "stoklu_pay"]].fillna(0.0)
+    k.insert(3, "h", int(h))
+    k.insert(4, "karar_ani", t)
+    return k
+
+
+def karar_ani_satirlari(gunluk: pd.DataFrame, opt: pd.DataFrame, sezon: str, t, haftalar, carpanlar,
+                        line: str = "Collection") -> pd.DataFrame:
+    """Tek karar anı `t` (pazartesi): sezonun lansmanı `t − 7h` (h ∈ `haftalar`) olan
+    `line` option'larının `karar_ozetleri` satırları (aynı sütunlar, aynı tanım).
+    Motor içi kol her pazartesi bunu kendi dünyasının günlük tablosuyla
+    (`anlik.gunluk_gorunumden`) çağırır; tablo yolu `karar_ozetleri` ile aynı satırı
+    üretir (Ruling R5). O pazartesi karar haftasında dalga yoksa boş tablo."""
+    t = pd.Timestamp(t).normalize()
+    o = opt[(opt["sezon_kodu"] == sezon) & (opt["line"] == line)]
+    lansmanlar = set(pd.to_datetime(o["lansman_tarihi"]).unique())
+    dalgalar = [(t - pd.Timedelta(days=7 * int(h)), int(h)) for h in haftalar]
+    dalgalar = sorted((lan, h) for lan, h in dalgalar if lan in lansmanlar)
+    if not dalgalar:
+        return pd.DataFrame(columns=list(KARAR_OZETI_SUTUNLARI))
+    oz = ozet(karar_ani_talep(gunluk, t, carpanlar, karar_havuzu(opt, sezon, t, line)))
+    return pd.concat([_dalga_satirlari(o, lan, h, t, oz) for lan, h in dalgalar], ignore_index=True)
 
 
 def sezon_katmanlari(sezon: str, h: int, gunluk: pd.DataFrame, opt: pd.DataFrame, carpanlar_bul,

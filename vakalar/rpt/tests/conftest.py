@@ -157,3 +157,56 @@ def sentetik_gunluk(optionlar, magaza_sayisi=40, tohum=3, sansur_haftasi=3, bede
     g["kanal"] = "magaza"
     b = np.array([(w + 1) * np.exp(-w / 4.0) for w in range(max(o[3] for o in optionlar))])
     return g, pd.DataFrame(opt), b
+
+
+# ---------------------------------------------------------------------------
+# KÜÇÜK motor koşuları için kol / kural girdileri (Görev 7)
+# ---------------------------------------------------------------------------
+
+
+def duz_egri(hedef: str, dalgalar, yontem: str = "duzeltilmis", hafta: int = 30):
+    """Bütün dalgalara aynı tümsek eğri (testler için; öğrenilmiş değil)."""
+    import numpy as np
+
+    from rpt import egri
+
+    w = np.arange(hafta)
+    pay = (w + 1) * np.exp(-w / 6.0)
+    pay = pay / pay.sum()
+    return egri.Egri(paylar={(int(d),): pay.copy() for d in dalgalar}, grup=("dalga",), yontem=yontem,
+                     hedef=hedef, sezonlar=())
+
+
+class SabitModel:
+    """`aday.Modeller` yerine: her satıra aynı olasılık."""
+
+    def __init__(self, p: float):
+        self.p = p
+
+    def olasilik(self, ozl, model):
+        import numpy as np
+
+        return np.full(len(ozl), self.p)
+
+
+def kucuk_ogrenilen(w, sezonlar=("AW24", "SS25"), p: float = 1.0):
+    """KÜÇÜK dünya için `politika.Ogrenilen`: düz eğriler, nötr çarpanlar, sabit model."""
+    import numpy as np
+    from perakende_analitik.carpanlar import Carpanlar
+
+    from rpt import miktar, motor, politika
+
+    opt = motor.politika_gorunumu(w).optionlar.copy()
+    for k in ("lansman_tarihi", "cikis_tarihi", "indirim_baslangic"):
+        opt[k] = pd.to_datetime(opt[k])
+    opt["satis_hafta"] = (opt["indirim_baslangic"] - opt["lansman_tarihi"]).dt.days / 7.0
+    dalgalar = sorted(opt["dalga"].dropna().astype(int).unique())
+    eg = {s: {(y, h): duz_egri(h, dalgalar, y) for y in ("ham", "duzeltilmis") for h in ("indirim", "cikis")}
+          for s in sezonlar}
+    bel = {s: miktar.Belirsizlik(mu={h: 0.0 for h in range(2, 7)}, sigma={h: 0.3 for h in range(2, 7)},
+                                 n={h: 1 for h in range(2, 7)}, sezonlar=()) for s in sezonlar}
+    carp = {t: Carpanlar() for s in sezonlar for t in politika.karar_anlari(opt, s)}
+    p_ind = pd.Series(0.6 * opt["liste_fiyati"].to_numpy(float), index=opt["option_id"].astype(str))
+    return politika.Ogrenilen(optionlar=opt, egriler=eg, belirsizlik=bel,
+                              modeller={s: SabitModel(p) for s in sezonlar}, p_ind=p_ind,
+                              carpanlar=carp)

@@ -8,7 +8,8 @@ kurulur:
             saf fonksiyonu (Ruling R5; motor içi yol aynı fonksiyonu çağırır)
     durum   zincirin o sabahki durumu (`DURUM_KOLONLARI`): tablo yolunda
             `durum_tablodan` (yayımlanan tablolar `kaynak.tarihten_once(t)`'ye
-            kırpılarak); motor içinde aynı sütunlar `Gorunum`dan (Görev 7)
+            kırpılarak); motor içinde aynı sütunlar `Gorunum`dan
+            (`anlik.durum_gorunumden`)
 Özellikler (`ozellikler`) bu satırın ve option'ın kamuya açık alanlarının
 (tedarikçi, ilk alım, takvim, fiyat) saf fonksiyonudur.
 
@@ -117,7 +118,8 @@ def durum_tablodan(t: dict, karar_ani, optionlar) -> pd.DataFrame:
     st = st[st["tarih"] == k]
     st = st.assign(option_id=_opt(st), dolu=st["adet"] > 0, bos=st["adet"] == 0)
     magaza = st.groupby("option_id")["adet"].sum()
-    mg = st.groupby(["option_id", "magaza_id"])[["dolu", "bos"]].max()
+    # observed: kategorik kimlikte fotoğrafta görünmeyen mağaza paydaya girmez
+    mg = st.groupby(["option_id", "magaza_id"], observed=True)[["dolu", "bos"]].max()
     stoklu_pay = mg["dolu"].groupby(level=0).mean()
     kirik_pay = (mg["dolu"] & mg["bos"]).groupby(level=0).mean()
     sp = kirpik["siparis"]
