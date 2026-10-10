@@ -257,6 +257,41 @@ def test_bozuk_kayit_ve_artiklar(tmp_path):
     assert not eski.exists() and yeni.exists()
 
 
+def test_tembel_kosu_kaydi(tmp_path, monkeypatch):
+    """`tembel=True`: büyük tablolar bellekte değil, istendikçe diskten okunur
+    (`KosuKaydi`); okunan her tablo ve süzülen satırlar tam koşununkiyle aynı.
+    Önbelleksiz tembel koşu yoktur; eksik Parquet'li kayıt yeniden koşulur."""
+    tam = motor.kos(rpt=_KayitliRPT(), ad="lumoda_kayitli", parametreler={}, onbellek=tmp_path, **KUCUK)
+    k = motor.kos(rpt=_KayitliRPT(), ad="lumoda_kayitli", parametreler={}, onbellek=tmp_path,
+                  tembel=True, **KUCUK)
+    assert isinstance(k, motor.KosuKaydi) and k.onbellekten and k.meta == tam.meta
+    assert sorted(k.tablolar) == sorted(tam.tablolar)
+    for ad in ("satis", "urun", "siparis"):
+        pd.testing.assert_frame_equal(k.tablolar[ad], tam.tablolar[ad], obj=ad)
+    pd.testing.assert_frame_equal(k.gercek, tam.gercek)
+    pd.testing.assert_frame_equal(k.kayitlar["rpt"], tam.kayitlar["rpt"])
+    urunler = sorted(set(tam.tablolar["satis"]["urun_id"].astype(str)))[:7]
+    for kosu in (k, tam):
+        s = kosu.tablo("satis", sutunlar=["tarih", "urun_id", "adet"], urunler=urunler)
+        assert list(s.columns) == ["tarih", "urun_id", "adet"] and len(s) > 0
+        assert set(s["urun_id"].astype(str)) <= set(urunler)
+        g = kosu.tablo("gercek", urunler=urunler)
+        assert set(g["urun_id"].astype(str)) <= set(urunler)
+    a = k.tablo("satis", sutunlar=["tarih", "urun_id", "adet"], urunler=urunler)
+    b = tam.tablo("satis", sutunlar=["tarih", "urun_id", "adet"], urunler=urunler)
+    pd.testing.assert_frame_equal(a, b)
+    pd.testing.assert_frame_equal(k.yukle().tablolar["stok"], tam.tablolar["stok"])
+
+    with pytest.raises(ValueError, match="tembel"):
+        motor.kos(ad="lumoda", parametreler={}, onbellek=None, tembel=True, **KUCUK)
+
+    (k.dizin / "tablo_stok.parquet").unlink()
+    with pytest.warns(UserWarning, match="eksik"):
+        yeni = motor.kos(rpt=_KayitliRPT(), ad="lumoda_kayitli", parametreler={}, onbellek=tmp_path,
+                         tembel=True, **KUCUK)
+    assert not yeni.onbellekten and (yeni.dizin / "tablo_stok.parquet").exists()
+
+
 def test_yayimlanan_bicim_yayimla_ile_ayni():
     """KÜÇÜK dünyada tam koşu: `yayimlanan_bicim(hareket_tablolari)` =
     `uret.yayimla` (kirletme adımı birebir)."""

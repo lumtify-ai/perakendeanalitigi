@@ -133,6 +133,45 @@ def test_parametreler_ogrenileni_yansitir(ogrenilen):
     assert anahtar(p0) != anahtar(politika.Oneri(temel, o).parametreler())
 
 
+def test_ozet_hash_icerikten():
+    """`ozet_hash` içerikten: pickle'ın paylaşım (memo) farkı özeti değiştirmez;
+    içerik değişince değişir. (Gidiş-dönüşte aynı metin iki ayrı nesneye dönüşür.)"""
+    import pickle
+
+    from conftest import duz_egri
+
+    ad = "".join(["duzelt", "ilmis"])                      # derleyicinin paylaştığı sabitten ayrı nesne
+    e = {"AW24": duz_egri("cikis", [1, 2]), "SS25": duz_egri("cikis", [1, 2], yontem=ad)}
+    geri = pickle.loads(pickle.dumps({"x": e, "y": [ad, "duzeltilmis"]}))["x"]
+    assert politika.ozet_hash(geri) == politika.ozet_hash(e)
+    df = pd.DataFrame({"a": [1, 2], "b": ["x", "y"]})
+    assert politika.ozet_hash(df) == politika.ozet_hash(pickle.loads(pickle.dumps(df)))
+    assert politika.ozet_hash(df) != politika.ozet_hash(df.assign(a=[1, 3]))
+    assert politika.ozet_hash({(np.int64(1),): 1.0}) == politika.ozet_hash({(1,): 1.0})
+    e2 = {"AW24": duz_egri("cikis", [1, 2], hafta=29), "SS25": e["SS25"]}
+    assert politika.ozet_hash(e2) != politika.ozet_hash(e)
+
+
+def test_kimlik_sabit_ozet(ogrenilen):
+    """`sabitle()`: içerik özetleri bir kez alınır ve kimliğe yazılır; pickle
+    gidiş-dönüşünden sonra (DataFrame / model pickle'ı bayt bayt aynı dönmeyebilir)
+    `parametreler()` aynı kalır. Kimliksiz nesne içerikten özetler; farklı içerik
+    farklı kimlik verir."""
+    import pickle
+
+    s = ogrenilen.sabitle()
+    assert s.kimlik and s.parametreler() != ogrenilen.parametreler()
+    assert set(s.parametreler()) == set(ogrenilen.parametreler())
+    geri = pickle.loads(pickle.dumps(s))
+    assert geri.parametreler() == s.parametreler()
+    assert geri.sabitle().kimlik == s.kimlik                       # sabit nesne yeniden özetlenmez
+    o = politika.Ogrenilen(**{**ogrenilen.__dict__, "esik": 0.7})
+    assert o.sabitle().kimlik != s.kimlik
+    k = kahin.Kahin(pd.DataFrame({"tarih": [], "urun_id": [], "talep": []}), motor.lumoda("rpt"), s,
+                    talep_kimligi="x")
+    assert k.parametreler()["p_ind"] == s.parametreler()["p_ind"]
+
+
 def test_kahin_disi_kollar_gelecek_talebi_kullanmaz(ogrenilen, oneri):
     from test_sizinti import PAKET, ihlaller
 

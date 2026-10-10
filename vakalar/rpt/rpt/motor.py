@@ -26,6 +26,11 @@ koşar ve döndürür:
               için yan etkisi buradan gelir
     meta      anahtar bileşenleri, süre, tepe bellek, satır sayıları
 
+`kos(..., tembel=True)` (önbellek ister) tabloları belleğe almadan `KosuKaydi`
+döndürür: tablolar ve gizli gerçek istendikçe diskten, yalnız gereken sütun ve
+SKU'larla (`tablo(ad, sutunlar, urunler)`; `Kosu`da da aynı yöntem). Oyunun
+ızgarası onlarca TAM koşuyu böyle tutar.
+
 ÖNBELLEK. `onbellek` dizininde (varsayılan `cikti/kosular/`) koşu başına
 bir alt dizin `<ad>_<anahtar[:20]>`: tablolar ve gizli gerçek Parquet,
 `meta.json` en son. Dizin önce `.yaziliyor` adıyla yazılır, sonra tek
@@ -84,6 +89,7 @@ import shutil
 import sys
 import time
 import warnings
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -476,6 +482,14 @@ def onbellek_anahtari(**alanlar) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _sec(df: pd.DataFrame, sutunlar, urunler) -> pd.DataFrame:
+    if urunler is not None:
+        df = df[df["urun_id"].astype(str).isin(set(map(str, urunler)))]
+    if sutunlar is not None:
+        df = df[list(sutunlar)]
+    return df.reset_index(drop=True)
+
+
 @dataclass
 class Kosu:
     """Bir koşunun sonucu (bkz. modül belgesi)."""
@@ -485,6 +499,68 @@ class Kosu:
     meta: dict
     kayitlar: dict = field(default_factory=dict)
     onbellekten: bool = False
+
+    def tablo(self, ad: str, sutunlar=None, urunler=None) -> pd.DataFrame:
+        """Tablo `ad` (ya da "gercek"), yalnız `sutunlar`, yalnız `urun_id ∈ urunler`."""
+        return _sec(self.gercek if ad == "gercek" else self.tablolar[ad], sutunlar, urunler)
+
+
+class _TembelTablolar(Mapping):
+    """`KosuKaydi.tablolar`: her erişimde tabloyu Parquet'ten okur (bellekte tutmaz)."""
+
+    def __init__(self, kayit: "KosuKaydi"):
+        self._k = kayit
+
+    def __getitem__(self, ad):
+        if ad not in self._k.meta["tablolar"]:
+            raise KeyError(ad)
+        return self._k.tablo(ad)
+
+    def __iter__(self):
+        return iter(self._k.meta["tablolar"])
+
+    def __len__(self):
+        return len(self._k.meta["tablolar"])
+
+
+@dataclass
+class KosuKaydi:
+    """Önbellekteki bir koşu, tembel (`kos(..., tembel=True)`): `meta` ve politika
+    `kayitlar`ı bellekte; tablolar ve gizli gerçek istendikçe diskten okunur
+    (`tablo(ad, sutunlar, urunler)` yalnız gereken sütun ve SKU'ları okur). Bir TAM
+    koşunun tabloları belleğe ~birkaç GB'tır; ızgara bunları aynı anda tutamaz.
+    `yukle()` tam `Kosu`. Parquet'in bütünlüğü okunurken sınanır (tembel kayıt
+    yalnız dosyaların varlığını sınar)."""
+
+    dizin: Path
+    meta: dict
+    kayitlar: dict = field(default_factory=dict)
+    onbellekten: bool = True
+
+    def _yol(self, ad: str) -> Path:
+        return self.dizin / ("gercek.parquet" if ad == "gercek" else f"tablo_{ad}.parquet")
+
+    def tablo(self, ad: str, sutunlar=None, urunler=None) -> pd.DataFrame:
+        """Tablo `ad` (ya da "gercek"), yalnız `sutunlar`, yalnız `urun_id ∈ urunler`
+        (Parquet süzgeciyle; bütün tablo belleğe gelmez)."""
+        if ad != "gercek" and ad not in self.meta["tablolar"]:
+            raise KeyError(ad)
+        suzgec = [("urun_id", "in", sorted(set(map(str, urunler))))] if urunler is not None else None
+        df = pd.read_parquet(self._yol(ad), columns=None if sutunlar is None else list(sutunlar),
+                             filters=suzgec)
+        return df.reset_index(drop=True)
+
+    @property
+    def tablolar(self) -> Mapping:
+        return _TembelTablolar(self)
+
+    @property
+    def gercek(self) -> pd.DataFrame:
+        return self.tablo("gercek")
+
+    def yukle(self) -> Kosu:
+        return Kosu(tablolar={a: self.tablo(a) for a in self.meta["tablolar"]}, gercek=self.gercek,
+                    meta=self.meta, kayitlar=dict(self.kayitlar), onbellekten=self.onbellekten)
 
 
 def _tepe_bellek_gb() -> float | None:
@@ -537,6 +613,29 @@ def _oku(dizin: Path, anahtar: str) -> Kosu | None:
         shutil.rmtree(dizin, ignore_errors=True)
         return None
     return Kosu(tablolar=tablolar, gercek=gercek, meta=meta, kayitlar=kayitlar, onbellekten=True)
+
+
+def _oku_tembel(dizin: Path, anahtar: str) -> KosuKaydi | None:
+    """`_oku`'nun tembel hâli: meta ve anahtar tutmalı, bütün Parquet dosyaları
+    bulunmalı (eksikse kayıt silinir, yeniden koşulur); yalnız kayıtlar okunur."""
+    meta_yolu = dizin / "meta.json"
+    if not meta_yolu.exists():
+        return None
+    meta = json.loads(meta_yolu.read_text(encoding="utf-8"))
+    if meta.get("anahtar") != anahtar:
+        return None
+    dosyalar = ([dizin / f"tablo_{a}.parquet" for a in meta["tablolar"]]
+                + [dizin / f"kayit_{a}.parquet" for a in meta["kayitlar"]] + [dizin / "gercek.parquet"])
+    try:
+        if not all(d.is_file() for d in dosyalar):
+            raise FileNotFoundError("eksik Parquet")
+        kayitlar = {ad: pd.read_parquet(dizin / f"kayit_{ad}.parquet") for ad in meta["kayitlar"]}
+    except Exception as e:  # noqa: BLE001 — eksik ya da bozuk: kayıt silinir, yeniden koşulur
+        warnings.warn(f"eksik ya da bozuk koşu kaydı siliniyor ({type(e).__name__}): {dizin}",
+                      stacklevel=3)
+        shutil.rmtree(dizin, ignore_errors=True)
+        return None
+    return KosuKaydi(dizin=dizin, meta=meta, kayitlar=kayitlar, onbellekten=True)
 
 
 _SUREC_BASI = time.time()
@@ -597,15 +696,19 @@ def kos(
     olcek: str = "tam",
     gun_sayisi: int | None = None,
     gecmis_kaydi: bool | None = None,
-) -> Kosu:
+    tembel: bool = False,
+) -> Kosu | KosuKaydi:
     """v4 motorunu verilen RPT / replenishment politikasıyla koşar (verilmeyen
     Lumoda); önbellekte varsa koşmadan okur. `onbellek=None` önbelleği
     kapatır. `parametreler` politikanın davranışını belirleyen HER şeyi
     taşımalıdır (modül belgesi). `olcek`, `gun_sayisi` testler içindir.
     `gecmis_kaydi` None ise politikaların `gecmis_gerekir`inden (çıktıyı
-    değiştirmez, anahtara girmez)."""
+    değiştirmez, anahtara girmez). `tembel` (önbellek ister): tabloları
+    belleğe almadan `KosuKaydi` döndürür (anahtara girmez)."""
     if not _AD_DESENI.match(ad):
         raise ValueError(f"koşu adı dosya adına uygun olmalı: {ad!r}")
+    if tembel and onbellek is None:
+        raise ValueError("tembel koşu kaydı önbellek ister (onbellek=None verildi)")
     if olcek not in OLCEKLER:
         raise ValueError(f"ölçek {sorted(OLCEKLER)}'den biri olmalı: {olcek!r}")
     politikalar = {"rpt": rpt, "replenishment": replenishment}
@@ -617,7 +720,7 @@ def kos(
     anahtar = _ozet(icerik)
     if onbellek is not None:
         _artiklari_sil(onbellek)
-        k = _oku(_dizin(onbellek, ad, anahtar), anahtar)
+        k = (_oku_tembel if tembel else _oku)(_dizin(onbellek, ad, anahtar), anahtar)
         if k is not None:
             return k
 
@@ -655,6 +758,12 @@ def kos(
     dizin = _dizin(onbellek, ad, anahtar)
     _yaz(dizin, kosu)
     del kosu, tablolar, gercek
+    if tembel:
+        k = _oku_tembel(dizin, anahtar)
+        if k is None:
+            raise RuntimeError(f"koşu yazıldı ama okunamadı: {dizin}")
+        k.onbellekten = False
+        return k
     return _oku_zorunlu(dizin, anahtar)
 
 

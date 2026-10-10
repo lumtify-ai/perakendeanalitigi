@@ -26,9 +26,12 @@ Ortak günlük tabloyu kurmak (~6,5 dk, bir kez; eğri, katmanlar ve aday bunu o
 
     .venv/Scripts/python -m rpt.hazirla         # cikti/gunluk.parquet
 
-Alternatif talep yollarını koşmak (10 yol, 4 süreç paralel, ~6 dk; önce bu):
+Oyunu koşmak (sıralı, saatler; makine uyanık kalmalı; koşular `cikti/kosular/`'da
+önbellekli, yarıda kalırsa aynı komut kaldığı yerden sürer; biten her koşu
+`cikti/ilerleme.jsonl`'a yazılır):
 
-    .venv/Scripts/python -m rpt.yollar          # cikti/yollar.json
+    .venv/Scripts/python -m rpt.oyun            # yol 0: hazırlık, SS24 seçimi, 14 kol; cikti/oyun.json
+    .venv/Scripts/python -m rpt.yollar          # 5 talep yolu × 5 kol; cikti/yollar.json
 
 Yazıların alıntıladığı bütün sayıları basmak (~2 dk; yol 0'ı baştan koşar):
 
@@ -40,10 +43,9 @@ Windows konsolunda Türkçe karakter için `PYTHONIOENCODING=utf-8`.
 
 **Faz A:** veri paneli, yaşam eğrisi, sansürlü talep kestirimi ve ilk üç
 yazının sayıları. **Faz B:** aday modeli, newsvendor miktarı, dağıtım
-kuralları, kollar ve alternatif talep yolları (4.–6. yazılar). Motor
-yazılmaz: aynı talep v3'ün `simule_et(dunya, talep, rpt_politikasi=...,
-dagitim_politikasi=...)`'i ile farklı politikalarla yeniden oynatılır
-(bir koşu ~3 sn).
+kuralları, kollar ve alternatif talep yolları (4.–6. yazılar). Kollar v4
+motorunda, aynı müşteri akışıyla (`talep_tohumu`) yeniden oynatılır
+(`motor.kos`; bir TAM koşu ~3–5 dk).
 
 ## Modüller
 
@@ -62,9 +64,9 @@ dagitim_politikasi=...)`'i ile farklı politikalarla yeniden oynatılır
 | `aday.py` | Karar satırı (`karar_kaydi`: karar anı x, D + karar sabahı durumu, tablo yolunda `durum_tablodan`; Banu'nun STR'si yayımlanan RPT'leri birebir üretir), saf özellikler, sonradan-bakış etiketi (talep argüman: gerçek ya da Basit'le doldurulmuş), kural / lojistik / LightGBM (yalnız geçmiş sezonlarla), TL değerlendirme |
 | `politika.py` | `KOLLAR`: `rpt_yok`, `mevcut` (v4 `LumodaRPT`), `frr`, `oneri` (her karar pazartesisi kendi dünyasının geçmişinden karar anı kestirimi + aday modeli + newsvendor). Çevrimdışı öğrenilenler `Ogrenilen` (veri; özetleri `parametreler()` ile koşu anahtarına) |
 | `kahin.py` | `Kahin(gercek_talep, …)`: koşunun talebini bilen kol; `politika` onu içe aktarmaz |
-| `oyun.py` | Hazırlık (yolun gerçekleşen tarihi + öğrenme), dağıtım kuralı seçimi (SS24), kol koşuları |
-| `olcutler.py` | Spec 3.4 ölçütleri, option düzeyinde, rpt_yok tabanına göre |
-| `yollar.py` | 10 alternatif talep yolu, paralel, JSON |
+| `oyun.py` | `hazirlik(yol)`: yolun gerçekleşen tarihi (Lumoda koşusu; yol 0 = yayımlanan v4) ve ondan öğrenme (eğri, karar kaydı, μ/σ, p_ind, aday modelleri, karar anı çarpanları → `politika.Ogrenilen`; yol p > 0 kendi DuckDB'si ve günlük tablosuyla); `dagitim_secimi` (SS24'te dört kural); `tum_kollar` (14 kol × kural); `ozet_tablosu`; `sinama` (aday modelinin rpt_yok dünyasındaki sınama satırları) |
+| `olcutler.py` | Spec §4.4 ölçütleri, option düzeyinde, koşunun tablolarından ve gizli gerçeğinden: kâr (gerçekleşen fiyat, depoya giren mal), kurtarılan kayıp (kalıcı / ikame ayrı), boşa giden RPT, yanlış alarm; rpt_yok tabanına göre; `gercek_gunluk` (hakemden gerçek talep) |
+| `yollar.py` | 5 alternatif talep yolu (yol 0 yayımlanan), her yolda öğrenme + 5 kol, sıralı; `cikti/yollar.json` (min / medyan / max, "öneri kaç yolda önde") |
 | `rapor.py`, `rapor_b.py` | Yayımlanacak her sayı (HİKÂYE · KARAR · SANSÜR · ADAY · MİKTAR · SONUÇ) |
 
 ## İlkeler
@@ -96,18 +98,21 @@ dagitim_politikasi=...)`'i ile farklı politikalarla yeniden oynatılır
   işler. Dağıtım kuralları yalnız RPT'si GELMİŞ option'lara uygulanır: RPT'siz
   kolda b/c/d bugünkü kuralla birebir aynıdır (testli). Fark RPT'nin kendisinden
   gelir.
-- **Kollar arası gürültü yok.** v3'ün iade ve işlem indirimi rastgeleliği (gün,
-  hücre) başına tohumlanır ve politikadan bağımsızdır (`simule_et(...,
-  operasyon_tohumu=42)`): RPT'si olmayan bir option her kolda birebir aynı
-  sonuçlanır (testli). Alternatif yollar kendi operasyon tohumunu kullanır.
-- **`mevcut` kolu v3'ün kendisidir**: dışa aktarılan tablolar birebir
-  (`test_esdegerlik.py`).
+- **Kollar arası gürültü yok.** v4'ün talep, iade, ikame ve işlem indirimi
+  rastgeleliği (gün, hücre) anahtarlı sayaçlardan çekilir, politikadan
+  bağımsızdır: aynı tohumda koşu birebir tekrarlanır, oyun başlamadan bütün
+  kollar aynıdır (testli). v4'te ikame ve markdown içsel olduğundan RPT'siz bir
+  option da kola göre biraz değişebilir (komşusunun stoğu değişir). Alternatif
+  yollar yalnız talep tohumunu değiştirir; operasyon tohumu aynıdır.
+- **`mevcut` kolu + kural a, yayımlanan v4'ü üreten koşudur** (hazırlık koşusu;
+  `test_esdegerlik.py`, `test_motor.py`).
 - **Öğrenme** (eğri, belirsizlik, aday modeli) her yolun "gerçekleşen tarihi"nden
   (Banu'nun kuralı + bugünkü dağıtım), oyun sezonunun ilk lansman sabahına
   kırpılarak, yalnız önceki sezonlardan. **Dağıtım kuralı** oyundan önce SS24'te
   seçilir (Banu'nun RPT'leriyle, en yüksek SS24 kârı).
-- **Değerleme:** gelir − (ilk alım + RPT) × alış; sezon sonunda kalan stok 0 TL
-  (alt sınır). Taban `rpt_yok`.
+- **Değerleme:** gerçekleşen satış tutarı − depoya giren (ilk alım + RPT −
+  kalite reddi) × alış; pencere sonunda kalan stok 0 TL (alt sınır). Taban
+  `rpt_yok`. Kâhin aynı tohumlu `rpt_yok` koşusunun talebini bilir (R7).
 - **Kâhin üst sınır değildir:** gerçek talebi ve teslim gecikmesini bilir ama
   zincir düzeyinde düşünür; mağazalar arası sıkışmayı ve dağıtımı bilmez. Kâr
   ölçütü indirimde satışı da içerdiği için tam fiyattan MOQ/2 satamayan ama

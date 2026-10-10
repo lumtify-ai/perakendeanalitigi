@@ -1,140 +1,215 @@
-"""Kol ölçütleri (spec 3.4), motorun ham çıktısından, option düzeyinde.
+"""Kol ölçütleri (spec §4.4), bir koşunun tablolarından ve gizli gerçeğinden,
+option düzeyinde. Ölçüm modülüdür: koşuyu etkilemez (`motor.KOSU_DISI`); sonucu
+bir politikaya girerse (SS24'te seçilen dağıtım kuralı) o politikanın
+`parametreler`'inden geçer.
 
-Değerleme: gelir = gerçekleşen satış tutarı (iadeler düşülmüş, indirimler
-dahil); maliyet = (ilk alım + RPT) × alış fiyatı; çıkışta depoda ya da geri
-toplanan stok 0 değerlidir (hurda değeri yok — sezon sonu stoğunun bir
-sonraki sezonda outlet'te satılması modellenmez; kâr alt sınırdır).
-Kayıp satışın TL karşılığı o günün fiyatıyla (liste × (1 − planlı indirim)).
+    o   = ozet(kosu, "SS25")                    # option başına, mutlak
+    o   = ozet(kosu, "SS25", taban=ozet(yok))   # + rpt_yok koluna göre farklar
+    oz  = sezon_ozeti(o, kahin=ozet(kahin_kosusu, "SS25", taban=...))
 
-Bağlam uyarısı (replenishment vakasının dersi): bir kol daha az mal
-gönderdiği için de "iyi" görünebilir. Bu yüzden her tabloda mağazaya giden
-adet ve tam fiyat döneminin stoklu gün payı da basılır.
+`kosu` bir `motor.Kosu` ya da `motor.KosuKaydi`dır (`tablo(ad, sutunlar,
+urunler)`: yalnız sezonun SKU'ları okunur).
+
+DEĞERLEME. Gelir = koşunun gerçekleşen satış tutarı (`satis.tutar`: markdown,
+kampanya ve işlem indirimi dahil, iadeler düşülmüş; outlet satışı dahil; pencere
+sonuna dek). Maliyet = alış fiyatı × depoya GİREN adet (ilk alım + RPT; teslim
+edilmiş sipariş adedi − kalite kontrolde reddedilen; reddedilen mal depoya girmez,
+tedarikçiye döner). Pencere sonunda kalan stok 0 değerlidir (v4 README: çıkmış
+sezonluk stok depoda kalır, bir daha satılmaz): kâr alt sınırdır.
+
+KAYIP (gizli gerçekten, `Kosu.gercek`): karşılanmayan = talep − kendi satış;
+kalıcı kayıp (müşteri hiçbir şey almadı) ve ikameye giden (başka SKU aldı) ayrı.
+`_tf` sütunları indirim başından önceki günlerdir (tam fiyat dönemi). Kurtarılan
+kayıp tabana (rpt_yok kolu, aynı tohum) göre karşılanmayanın düşüşüdür.
+
+RPT. `rpt` sipariş adedi, `rpt_giren` depoya giren; `kalan_son` pencerenin son
+günündeki depo stoğu + son pazartesi raf stoğu; `rpt_bosa` = min(rpt_giren,
+kalan_son): satılmadan kalan RPT adedi (RPT marjinal mal sayılır). Yanlış alarm:
+RPT'si olan option'ın tam fiyat satışı tabana göre MOQ/2'den az arttı (aday
+modelinin etiketiyle aynı eşik).
+
+Bağlam uyarısı (replenishment vakasının dersi): bir kol daha az mal gönderdiği
+için de "iyi" görünebilir; her özette mağazaya giden adet (`magazaya`) ve tam
+fiyat döneminin stoklu gün payı (`stoklu_pay_tf`) da durur.
 """
 
 import numpy as np
 import pandas as pd
 
+DEPO = "DEPO"
+OZET_SUTUNLARI = (
+    "option_id", "sezon_kodu", "dalga", "mense", "moq", "alis_fiyati", "indirim_baslangic",
+    "ilk_alim", "ilk_giren", "rpt", "rpt_giren", "rpt_siparis_tarihi", "rpt_teslim",
+    "satis_tf", "satis_ind", "iade", "gelir", "maliyet", "kar", "magazaya", "stoklu_pay_tf",
+    "talep", "karsilanmayan", "karsilanmayan_tf", "ikameye_giden", "kalici_kayip",
+    "kalan_son", "rpt_bosa",
+)
+FARK_SUTUNLARI = ("d_kar", "d_gelir", "d_satis_tf", "d_satis_ind", "kurtarilan", "kurtarilan_tf",
+                  "kurtarilan_kalici", "kurtarilan_ikame", "yanlis_alarm")
+TAM_SAYI = ("ilk_alim", "ilk_giren", "rpt", "rpt_giren", "satis_tf", "satis_ind", "iade", "magazaya",
+            "talep", "karsilanmayan", "karsilanmayan_tf", "ikameye_giden", "kalici_kayip",
+            "kalan_son", "rpt_bosa", "moq")
 
-def option_olcutleri(dunya, ham: dict, optionlar: np.ndarray) -> pd.DataFrame:
-    """Verilen option indisleri için satır başına ölçütler."""
-    w = dunya
-    opt = w.optionlar
-    O = len(opt)
-    ho = w.hucre_option
-    ind = opt["indirim_gun"].to_numpy()
-    cik = opt["cikis_gun"].to_numpy()
-    lan = opt["lansman_gun"].to_numpy()
-    liste = opt["liste_fiyati"].to_numpy()
-    alis = opt["alis_fiyati"].to_numpy()
 
-    s = ham["satis"]
-    so = ho[s["hucre"].to_numpy()]
-    gun = s["gun"].to_numpy()
-    adet = s["adet"].to_numpy()
+def _metin(df: pd.DataFrame, sutunlar) -> pd.DataFrame:
+    return df.assign(**{c: df[c].astype(str) for c in sutunlar if c in df.columns})
+
+
+def ozet(kosu, sezon: str, taban: pd.DataFrame | None = None, line: str = "Collection") -> pd.DataFrame:
+    """Sezonun `line` option'ları için option başına ölçütler (`OZET_SUTUNLARI`;
+    `taban` verilirse + `FARK_SUTUNLARI`), option_id sıralı. Bkz. modül notu."""
+    urun = _metin(kosu.tablo("urun", ["urun_id", "option_id", "sezon_kodu", "line", "dalga",
+                                      "alis_fiyati", "tedarikci_id", "lansman_tarihi"]),
+                  ("urun_id", "option_id", "sezon_kodu", "line", "tedarikci_id"))
+    u = urun[(urun["sezon_kodu"] == sezon) & (urun["line"] == line)]
+    if u.empty:
+        raise ValueError(f"ozet: {sezon} {line} option'ı yok")
+    skular = sorted(u["urun_id"])
+    harita = pd.Series(u["option_id"].to_numpy(), index=u["urun_id"].to_numpy())
+    o = (u.drop_duplicates("option_id").sort_values("option_id")
+         [["option_id", "sezon_kodu", "dalga", "alis_fiyati", "tedarikci_id", "lansman_tarihi"]])
+    sz = _metin(kosu.tablo("sezon", ["sezon_kodu", "dalga", "indirim_baslangic"]), ("sezon_kodu",))
+    o = o.merge(sz.drop_duplicates(["sezon_kodu", "dalga"]), on=["sezon_kodu", "dalga"], how="left")
+    ted = _metin(kosu.tablo("tedarikci", ["tedarikci_id", "mense", "moq_option"]), ("tedarikci_id", "mense"))
+    o = o.merge(ted.rename(columns={"moq_option": "moq"}), on="tedarikci_id", how="left")
+    o = o.set_index("option_id")
+    ids = o.index
+    ind = pd.to_datetime(o["indirim_baslangic"])
+    lan = pd.to_datetime(o["lansman_tarihi"])
+
+    def opt(df) -> np.ndarray:
+        return df["urun_id"].astype(str).map(harita).to_numpy()
+
+    def topla(anahtar, deger) -> np.ndarray:
+        seri = pd.Series(np.asarray(deger, dtype=float)).groupby(np.asarray(anahtar)).sum()
+        return seri.reindex(ids).fillna(0.0).to_numpy()
+
+    # Sipariş ve kalite: depoya giren adet
+    sp = _metin(kosu.tablo("siparis", ["siparis_id", "tip", "urun_id", "siparis_tarihi",
+                                       "gerceklesen_teslim", "adet"], urunler=skular),
+                ("siparis_id", "tip", "urun_id"))
+    sp = sp.assign(option_id=opt(sp))
+    kal = _metin(kosu.tablo("kalite_kontrol", ["siparis_id", "hatali"]), ("siparis_id",))
+    hatali = kal.groupby("siparis_id")["hatali"].sum()
+    s = sp.groupby("siparis_id").agg(option_id=("option_id", "first"), tip=("tip", "first"),
+                                     siparis_tarihi=("siparis_tarihi", "min"),
+                                     teslim=("gerceklesen_teslim", "min"), adet=("adet", "sum"))
+    s["giren"] = np.where(s["teslim"].notna(), s["adet"] - hatali.reindex(s.index).fillna(0), 0)
+    sonuc = pd.DataFrame(index=ids)
+    ilk, rpt = s[s["tip"] == "ilk"], s[s["tip"] == "rpt"]
+    sonuc["ilk_alim"] = topla(ilk["option_id"], ilk["adet"])
+    sonuc["ilk_giren"] = topla(ilk["option_id"], ilk["giren"])
+    sonuc["rpt"] = topla(rpt["option_id"], rpt["adet"])
+    sonuc["rpt_giren"] = topla(rpt["option_id"], rpt["giren"])
+    r = rpt.groupby("option_id")
+    sonuc["rpt_siparis_tarihi"] = r["siparis_tarihi"].min().reindex(ids)
+    sonuc["rpt_teslim"] = r["teslim"].min().reindex(ids)
+
+    # Satış
+    sa = kosu.tablo("satis", ["tarih", "urun_id", "adet", "tutar"], urunler=skular)
+    so = opt(sa)
+    adet = sa["adet"].to_numpy(float)
     poz = adet > 0
-    tf = gun < ind[so]
-    satis_tf = np.bincount(so[poz & tf], adet[poz & tf], O)
-    satis_ind = np.bincount(so[poz & ~tf], adet[poz & ~tf], O)
-    iade = -np.bincount(so[~poz], adet[~poz], O)
-    gelir = np.bincount(so, s["tutar"].to_numpy(), O)
+    tf = pd.to_datetime(sa["tarih"]).to_numpy() < ind.reindex(so).to_numpy()
+    sonuc["satis_tf"] = topla(so[poz & tf], adet[poz & tf])
+    sonuc["satis_ind"] = topla(so[poz & ~tf], adet[poz & ~tf])
+    sonuc["iade"] = -topla(so[~poz], adet[~poz])
+    sonuc["gelir"] = topla(so, sa["tutar"].to_numpy(float))
+    sonuc["maliyet"] = o["alis_fiyati"].to_numpy(float) * (sonuc["ilk_giren"] + sonuc["rpt_giren"])
+    sonuc["kar"] = sonuc["gelir"] - sonuc["maliyet"]
 
-    k = ham["kayip_satis"]
-    ko = ho[k["hucre"].to_numpy()]
-    kg = k["gun"].to_numpy()
-    ka = k["kayip_adet"].to_numpy()
-    ktf = kg < ind[ko]
-    kayip_tf = np.bincount(ko[ktf], ka[ktf], O)
-    kayip_ind = np.bincount(ko[~ktf], ka[~ktf], O)
-    kayip_tl = np.bincount(ko, ka * liste[ko] * (1 - w.indirim_orani[kg, ko]), O)
+    # Sevkiyat ve raf
+    sv = _metin(kosu.tablo("sevkiyat", ["kaynak", "hedef", "urun_id", "adet"], urunler=skular),
+                ("kaynak", "hedef"))
+    giden = sv[(sv["kaynak"] == DEPO) & (sv["hedef"] != DEPO)]
+    sonuc["magazaya"] = topla(opt(giden), giden["adet"])
+    st = kosu.tablo("stok", ["tarih", "urun_id", "adet", "stoklu_gun"], urunler=skular)
+    sto = opt(st)
+    stt = pd.to_datetime(st["tarih"]).to_numpy()
+    tfh = (stt > lan.reindex(sto).to_numpy()) & (stt <= ind.reindex(sto).to_numpy())
+    n = topla(sto[tfh], np.ones(int(tfh.sum())))
+    sonuc["stoklu_pay_tf"] = np.divide(topla(sto[tfh], st["stoklu_gun"].to_numpy(float)[tfh]), 7.0 * n,
+                                       out=np.full(len(ids), np.nan), where=n > 0)
 
-    sv = ham["sevkiyat"]
-    svo = ho[sv["hucre"].to_numpy()]
-    giden = sv["tip"].to_numpy() != "geri_toplama"
-    magazaya = np.bincount(svo[giden], sv["adet"].to_numpy()[giden], O)
-    geri = -np.bincount(svo[~giden], sv["adet"].to_numpy()[~giden], O)
+    # Gizli gerçek
+    g = kosu.tablo("gercek", ["tarih", "urun_id", "talep", "karsilanmayan", "ikameye_giden", "kalici_kayip"],
+                   urunler=skular)
+    go = opt(g)
+    gtf = pd.to_datetime(g["tarih"]).to_numpy() < ind.reindex(go).to_numpy()
+    for c in ("talep", "karsilanmayan", "ikameye_giden", "kalici_kayip"):
+        sonuc[c] = topla(go, g[c].to_numpy(float))
+    sonuc["karsilanmayan_tf"] = topla(go[gtf], g["karsilanmayan"].to_numpy(float)[gtf])
 
-    ds = ham["depo_stok"]
-    dso = w.sku_option[ds["sku"].to_numpy()]
-    cikista = ds["gun"].to_numpy() == cik[dso]
-    depo_cikis = np.bincount(dso[cikista], ds["adet"].to_numpy()[cikista], O)
+    # Pencere sonunda kalan
+    takvim = pd.to_datetime(kosu.tablo("takvim", ["tarih"])["tarih"])
+    son, son_pzt = takvim.max(), takvim[takvim.dt.dayofweek == 0].max()
+    ds = kosu.tablo("depo_stok", ["tarih", "urun_id", "adet"], urunler=skular)
+    ds = ds[pd.to_datetime(ds["tarih"]).to_numpy() == son.to_datetime64()]
+    rs = st[stt == son_pzt.to_datetime64()]
+    sonuc["kalan_son"] = topla(opt(ds), ds["adet"]) + topla(opt(rs), rs["adet"])
+    sonuc["rpt_bosa"] = np.minimum(sonuc["rpt_giren"], sonuc["kalan_son"])
 
-    st = ham["stok"]
-    sto = ho[st["hucre"].to_numpy()]
-    sg = st["gun"].to_numpy()
-    tfh = (sg > lan[sto]) & (sg <= ind[sto])
-    stoklu_pay = np.divide(np.bincount(sto[tfh], st["stoklu_gun"].to_numpy()[tfh], O),
-                           7.0 * np.bincount(sto[tfh], minlength=O), out=np.full(O, np.nan),
-                           where=np.bincount(sto[tfh], minlength=O) > 0)
-
-    rpt = np.zeros(O)
-    rpt_gelen = np.zeros(O)
-    rpt_gec = np.zeros(O)
-    rpt_gun = np.full(O, -1)
-    rpt_gelis = np.full(O, -1)
-    son_gun = w.gun_sayisi - 1
-    for sp in ham["siparis"]:
-        if sp["tip"] != "rpt":
-            continue
-        o = sp["option"]
-        a = float(np.sum(sp["adetler"]))
-        rpt[o] += a
-        if sp["gerceklesen_gun"] <= son_gun:
-            rpt_gelen[o] += a
-        if sp["gerceklesen_gun"] >= ind[o]:
-            rpt_gec[o] += a
-        rpt_gun[o] = sp["siparis_gun"] if rpt_gun[o] < 0 else rpt_gun[o]
-        rpt_gelis[o] = sp["gerceklesen_gun"] if rpt_gelis[o] < 0 else rpt_gelis[o]
-    ilk = w.ilk_alim.astype(float)
-    rpt_depoda = np.minimum(rpt_gelen, depo_cikis)
-
-    d = pd.DataFrame({
-        "option": np.arange(O), "option_id": opt["option_id"], "sezon": opt["sezon_kodu"],
-        "mense": opt["mense"], "moq": opt["moq_option"],
-        "satis_tf": satis_tf, "satis_ind": satis_ind, "iade": iade, "gelir": gelir,
-        "kayip_tf": kayip_tf, "kayip_ind": kayip_ind, "kayip_tl": kayip_tl,
-        "magazaya": magazaya, "geri_toplama": geri, "depo_cikis": depo_cikis,
-        "stoklu_pay_tf": stoklu_pay, "ilk_alim": ilk,
-        "rpt": rpt, "rpt_gelen": rpt_gelen, "rpt_indirimden_sonra": rpt_gec,
-        "rpt_depoda_kalan": rpt_depoda, "rpt_magazaya": rpt_gelen - rpt_depoda,
-        "rpt_gun": rpt_gun, "rpt_gelis_gun": rpt_gelis,
-        "maliyet": alis * (ilk + rpt),
-    })
-    d["kar"] = d["gelir"] - d["maliyet"]
-    return d.iloc[np.asarray(optionlar)].reset_index(drop=True)
+    d = o.join(sonuc).reset_index()
+    for c in TAM_SAYI:
+        d[c] = d[c].astype(np.int64)
+    d = d[list(OZET_SUTUNLARI)]
+    if taban is not None:
+        d = _farklar(d, taban)
+    return d
 
 
-TOPLANAN = ["satis_tf", "satis_ind", "kayip_tf", "kayip_ind", "kayip_tl", "gelir", "maliyet", "kar",
-            "magazaya", "depo_cikis", "geri_toplama", "rpt", "rpt_gelen", "rpt_indirimden_sonra",
-            "rpt_magazaya", "rpt_depoda_kalan"]
+def _farklar(d: pd.DataFrame, taban: pd.DataFrame) -> pd.DataFrame:
+    t = taban.set_index("option_id").reindex(d["option_id"])
+    if t["kar"].isna().any():
+        raise ValueError("ozet: tabanda olmayan option")
+    d = d.copy()
+
+    def fark(c):
+        return d[c].to_numpy(float) - t[c].to_numpy(float)
+
+    d["d_kar"], d["d_gelir"] = fark("kar"), fark("gelir")
+    d["d_satis_tf"], d["d_satis_ind"] = fark("satis_tf"), fark("satis_ind")
+    d["kurtarilan"] = -fark("karsilanmayan")
+    d["kurtarilan_tf"] = -fark("karsilanmayan_tf")
+    d["kurtarilan_kalici"] = -fark("kalici_kayip")
+    d["kurtarilan_ikame"] = -fark("ikameye_giden")
+    d["yanlis_alarm"] = (d["rpt"] > 0) & (d["d_satis_tf"] < d["moq"] / 2)
+    return d
 
 
-def sezon_ozeti(kol: pd.DataFrame, taban: pd.DataFrame, kahin: pd.DataFrame | None = None) -> dict:
-    """Bir kolun bir sezondaki toplamları ve rpt_yok'a (taban) göre farkları.
+TOPLANAN = ("ilk_alim", "ilk_giren", "rpt", "rpt_giren", "satis_tf", "satis_ind", "iade", "gelir",
+            "maliyet", "kar", "magazaya", "talep", "karsilanmayan", "karsilanmayan_tf", "ikameye_giden",
+            "kalici_kayip", "kalan_son", "rpt_bosa",
+            "d_kar", "d_gelir", "d_satis_tf", "d_satis_ind", "kurtarilan", "kurtarilan_tf",
+            "kurtarilan_kalici", "kurtarilan_ikame")
 
-    Yanlış alarm: RPT'si olan option'ın tam fiyat satış artışı < MOQ/2.
-    Kaçırılan fırsat: kolda RPT yok ama kâhinin kârı o option'da tabana göre
-    arttı (sayı ve kâhinin TL kazancı).
-    """
-    k = kol.set_index("option")
-    t = taban.set_index("option").loc[k.index]
-    oz = {c: float(k[c].sum()) for c in TOPLANAN}
-    oz["rpt_option"] = int((k["rpt"] > 0).sum())
-    oz["stoklu_pay_tf"] = float(k["stoklu_pay_tf"].mean())
-    oz["kurtarilan_kayip"] = float(t["kayip_tf"].sum() + t["kayip_ind"].sum() - k["kayip_tf"].sum() - k["kayip_ind"].sum())
-    oz["kurtarilan_kayip_tf"] = float(t["kayip_tf"].sum() - k["kayip_tf"].sum())
-    oz["kurtarilan_kayip_tl"] = float(t["kayip_tl"].sum() - k["kayip_tl"].sum())
-    oz["delta_kar"] = float(k["kar"].sum() - t["kar"].sum())
-    oz["delta_gelir"] = float(k["gelir"].sum() - t["gelir"].sum())
+
+def sezon_ozeti(o: pd.DataFrame, kahin: pd.DataFrame | None = None) -> dict:
+    """`ozet` tablosunun sezon toplamları (`TOPLANAN`'dan var olanlar) + sayımlar.
+
+    rpt_option   RPT'si olan option sayısı
+    yanlis_alarm (tabanlı özette) yanlış alarm sayısı
+    rpt_ek_tf / rpt_ek_ind / rpt_str
+                 RPT'li option'ların tabana göre ek satışı; ek satış ÷ giren RPT
+    kacirilan    `kahin` (kâhin kolunun tabanlı özeti) verilirse: kolun RPT
+                 vermediği, kâhinin RPT verip kârı tabana göre artırdığı option
+                 sayısı ve kâhinin o option'lardaki kâr artışı (`kacirilan_tl`)"""
+    k = o.set_index("option_id")
+    oz = {c: float(k[c].sum()) for c in TOPLANAN if c in k.columns}
+    oz["option"] = int(len(k))
     rptli = k["rpt"] > 0
-    d_tf = k["satis_tf"] - t["satis_tf"]
-    oz["rpt_ek_tf"] = float(d_tf[rptli].sum())
-    oz["rpt_ek_ind"] = float((k["satis_ind"] - t["satis_ind"])[rptli].sum())
-    oz["rpt_str"] = (oz["rpt_ek_tf"] + oz["rpt_ek_ind"]) / oz["rpt"] if oz["rpt"] > 0 else np.nan
-    oz["yanlis_alarm"] = int((rptli & (d_tf < k["moq"] / 2)).sum())
+    oz["rpt_option"] = int(rptli.sum())
+    oz["stoklu_pay_tf"] = float(k["stoklu_pay_tf"].mean())
+    if "yanlis_alarm" in k.columns:
+        oz["yanlis_alarm"] = int(k["yanlis_alarm"].sum())
+        oz["rpt_ek_tf"] = float(k.loc[rptli, "d_satis_tf"].sum())
+        oz["rpt_ek_ind"] = float(k.loc[rptli, "d_satis_ind"].sum())
+        oz["rpt_str"] = ((oz["rpt_ek_tf"] + oz["rpt_ek_ind"]) / oz["rpt_giren"]
+                         if oz["rpt_giren"] > 0 else float("nan"))
     if kahin is not None:
-        kh = kahin.set_index("option").loc[k.index]
-        kazanc = kh["kar"] - t["kar"]
-        kacan = (~rptli) & (kazanc > 0) & (kh["rpt"] > 0)
+        kh = kahin.set_index("option_id").reindex(k.index)
+        kazanc = kh["d_kar"]
+        kacan = (~rptli) & (kh["rpt"] > 0) & (kazanc > 0)
         oz["kacirilan"] = int(kacan.sum())
         oz["kacirilan_tl"] = float(kazanc[kacan].sum())
     return oz

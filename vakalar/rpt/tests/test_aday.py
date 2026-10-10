@@ -284,8 +284,21 @@ def test_banu_kurali_yayimlanan_rptleri_uretir(veri):
     assert a == b
 
 
-@pytest.mark.skip(reason="Görev 8'de: oyun hazırlığı (eğri, karar kaydı, kalibrasyon ~9 dk) önbellekle kurulunca")
 @pytest.mark.veri
 def test_modeller_banu_kuralindan_isabetli():
-    """SS25 sınama satırlarında LightGBM'in isabeti Banu'nun kuralından yüksek
-    (Görev 6 ön koşusu: 0,741 / 0,680, gerçek etiketle; task-6-report.md)."""
+    """SS25 sınama satırlarında (rpt_yok kolunun dünyası, kolun karar anında
+    gördüğüyle; `oyun.sinama`) LightGBM'in isabeti Banu'nun kuralından yüksek,
+    gerçek (i) etiketle (Görev 6 ön koşusu, yayımlanan dünyada: 0,741 / 0,680).
+    Yol 0'ın hazırlığı ve rpt_yok koşusu önbellekten (yoksa ~35 dk)."""
+    from rpt import motor, oyun
+
+    if not motor.VERI_YOLU.exists():
+        pytest.skip("v4 verisi yok")
+    H = oyun.hazirlik(0)
+    s = oyun.sinama(H, oyun.kos(H, "rpt_yok", "a"))
+    s = s[s["sezon_kodu"] == "SS25"]
+    assert len(s) > 500 and (s["rpt_sayisi"] == 0).all()
+    lgbm = aday.degerlendir(s["p_lgbm"].to_numpy() >= aday.ESIK, s, "gercek")
+    banu = aday.degerlendir(s["banu"].to_numpy(bool), s, "gercek")
+    assert lgbm["isabet"] > banu["isabet"]
+    assert lgbm["duyarlilik"] > banu["duyarlilik"]

@@ -35,7 +35,9 @@ ve geçmiş sezonlardan öğrenilmiş veriyi kullanır; bu modül `kahin`'i, `mo
 üreteci, hakemi içe aktarmaz (`tests/test_sizinti.py`, geçişli; gizli alan listesi).
 """
 
+import dataclasses
 import hashlib
+import json
 import pickle
 from dataclasses import dataclass, field
 
@@ -48,10 +50,68 @@ OYUN_SEZONLARI = ("AW24", "SS25")
 HAFTALAR = sansur.KARAR_HAFTALARI
 
 
+def _kanonik(x, h) -> None:
+    """`x`'in içeriğini `h`'ye kanonik biçimde yazar: sözlük (anahtar sıralı),
+    dizi / demet, numpy dizisi (tür, biçim, baytlar), numpy / Python sayıları (değer),
+    DataFrame / Series / Index (sütunlar, türler, satır özetleri), dataclass (tür adı
+    + alanlar). Bunların dışındaki nesne (ör. eğitilmiş model) pickle'ıyla."""
+    if isinstance(x, np.generic):
+        x = x.item()
+    if x is None or isinstance(x, (bool, int, float, str, bytes)):
+        h.update(f"s{type(x).__name__}:{x!r};".encode("utf-8"))
+    elif isinstance(x, dict):
+        h.update(f"d{len(x)}:".encode())
+        oge = sorted(((_kanonik_metin(k), k) for k in x), key=lambda t: t[0])
+        for km, k in oge:
+            h.update(km.encode("utf-8"))
+            _kanonik(x[k], h)
+    elif isinstance(x, (list, tuple)):
+        h.update(f"{'l' if isinstance(x, list) else 't'}{len(x)}:".encode())
+        for v in x:
+            _kanonik(v, h)
+    elif isinstance(x, np.ndarray):
+        if x.dtype == object:
+            _kanonik(x.tolist(), h)
+        else:
+            h.update(f"a{x.dtype.str}{x.shape}:".encode())
+            h.update(np.ascontiguousarray(x).tobytes())
+    elif isinstance(x, pd.DataFrame):
+        h.update(f"f{list(map(str, x.columns))}{[str(t) for t in x.dtypes]}:".encode("utf-8"))
+        h.update(pd.util.hash_pandas_object(x, index=True).to_numpy().tobytes())
+    elif isinstance(x, pd.Series):
+        h.update(f"r{x.name!r}{x.dtype}:".encode("utf-8"))
+        h.update(pd.util.hash_pandas_object(x, index=True).to_numpy().tobytes())
+    elif isinstance(x, pd.Index):
+        h.update(f"i{x.dtype}:".encode())
+        h.update(pd.util.hash_pandas_object(x).to_numpy().tobytes())
+    elif isinstance(x, pd.Timestamp):
+        h.update(f"z{x.isoformat()};".encode())
+    elif dataclasses.is_dataclass(x) and not isinstance(x, type):
+        h.update(f"c{type(x).__module__}.{type(x).__qualname__}:".encode())
+        _kanonik({f.name: getattr(x, f.name) for f in dataclasses.fields(x)}, h)
+    else:
+        h.update(b"p")
+        h.update(pickle.dumps(x, protocol=5))
+
+
+def _kanonik_metin(k) -> str:
+    h = hashlib.sha256()
+    _kanonik(k, h)
+    return h.hexdigest()
+
+
 def ozet_hash(nesne) -> str:
-    """Çevrimdışı öğrenilmiş bir nesnenin özeti (pickle sha256, ilk 20 hane):
-    koşu önbelleği anahtarı için (`parametreler`)."""
-    return hashlib.sha256(pickle.dumps(nesne, protocol=5)).hexdigest()[:20]
+    """Çevrimdışı öğrenilmiş bir nesnenin içerik özeti (`_kanonik` sha256, ilk 20
+    hane): koşu önbelleği anahtarı için (`parametreler`). Pickle'ın nesne paylaşımına
+    (memo) bağlı değildir: diskten yeniden yüklenen eğri aynı özeti verir. Tanımadığı
+    nesneyi (eğitilmiş model) pickle'ıyla özetler; onun kararlılığı için
+    `Ogrenilen.sabitle`."""
+    h = hashlib.sha256()
+    _kanonik(nesne, h)
+    return h.hexdigest()[:20]
+
+
+OGRENILEN_PARCALARI = ("optionlar", "egriler", "belirsizlik", "modeller", "p_ind", "carpanlar")
 
 
 @dataclass(frozen=True)
@@ -68,7 +128,8 @@ class Ogrenilen:
     p_ind       option_id → indirim dönemi beklenen fiyatı
     carpanlar   karar anı (pazartesi, Timestamp) → karar anında bilinen `Carpanlar`
                 (`karar_anlari` ile listelenir)
-    esik        aday modelinin olasılık eşiği"""
+    esik        aday modelinin olasılık eşiği
+    kimlik      verilirse `parametreler()`in sabit kimliği (`sabitle`)"""
 
     optionlar: pd.DataFrame
     egriler: dict
@@ -77,6 +138,7 @@ class Ogrenilen:
     p_ind: object = None
     carpanlar: dict = field(default_factory=dict)
     esik: float = aday.ESIK
+    kimlik: str | None = None
 
     def carpan(self, t) -> object:
         t = pd.Timestamp(t).normalize()
@@ -84,12 +146,27 @@ class Ogrenilen:
             raise KeyError(f"Ogrenilen.carpanlar'da {t.date()} karar anı yok (karar_anlari ile kurun)")
         return self.carpanlar[t]
 
-    def parametreler(self) -> dict:
+    def _ozetler(self) -> dict:
         return {"optionlar": ozet_hash(self.optionlar), "egriler": ozet_hash(self.egriler),
                 "belirsizlik": ozet_hash(self.belirsizlik), "modeller": ozet_hash(self.modeller),
                 "p_ind": ozet_hash(self.p_ind),
-                "carpanlar": ozet_hash(sorted(self.carpanlar.items(), key=lambda kv: kv[0])),
-                "esik": float(self.esik)}
+                "carpanlar": ozet_hash(sorted(self.carpanlar.items(), key=lambda kv: kv[0]))}
+
+    def parametreler(self) -> dict:
+        """Parça başına özet (+ eşik). `kimlik` varsa (`sabitle`) her parça o kimliği
+        taşır: DataFrame ve model pickle'ı gidiş-dönüşte bayt bayt aynı kalmayabilir,
+        yeniden yüklenen öğrenmenin koşu anahtarı değişmemeli."""
+        if self.kimlik is not None:
+            return {k: f"kimlik:{self.kimlik[:20]}" for k in OGRENILEN_PARCALARI} | {"esik": float(self.esik)}
+        return self._ozetler() | {"esik": float(self.esik)}
+
+    def sabitle(self) -> "Ogrenilen":
+        """İçerik özetlerini bir kez alıp `kimlik`e yazan kopya (diske yazılacak
+        öğrenme için; `oyun.hazirlik`). Zaten sabitse kendisi."""
+        if self.kimlik is not None:
+            return self
+        metin = json.dumps(self.parametreler(), sort_keys=True)
+        return dataclasses.replace(self, kimlik=hashlib.sha256(metin.encode("utf-8")).hexdigest())
 
 
 def karar_anlari(optionlar: pd.DataFrame, sezon: str, haftalar=HAFTALAR,
