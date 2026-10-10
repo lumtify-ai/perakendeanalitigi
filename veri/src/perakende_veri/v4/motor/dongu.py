@@ -175,6 +175,7 @@ def simule_et(
     operasyon_tohumu: int = sabitler.TOHUM,
     kayit_talep: bool = False,
     talep_tohumu: int | None = None,
+    gecmis_kaydi: bool = False,
 ) -> dict:
     """Motoru koşar; ham sonuçları (gün, hücre/SKU/mağaza indisli) döndürür.
 
@@ -189,6 +190,10 @@ def simule_et(
                       üretildi). Değer verilirse yalnız bu üç çekiliş
                       değişir: dünya (mağazalar, ürünler, beklenen talep,
                       sürprizler) ve operasyon çekilişleri aynı kalır
+    gecmis_kaydi      True ise `Gorunum` geçmiş alanlarını taşır
+                      (`satis_oncesi_gecmisi` [D, C] int32 ek bellek,
+                      `fiyat_gecmisi`, `stok_fotograflari`; bkz. `Gorunum`).
+                      Yalnız okur: çıktılar kayıtsız koşuyla birebir aynı
 
     Dönen sözlük: `satis` (gun, hucre, adet, tutar, indirim_tutari,
     kampanya_id = fiyatı belirleyen kampanyanın `kampanya` satır konumu,
@@ -256,6 +261,13 @@ def simule_et(
     kampanya_gecmisi = np.full((GECMIS_FIYAT, C), -1, dtype=np.int64)
     kampanya_id = kampanya_id_takvimi(w.kampanya, w.magazalar, w.optionlar, w.lam.gun_sayisi)
     talep_kaydi = np.zeros((D, C), dtype=np.int16) if kayit_talep else None
+    # Geçmiş kaydı (Gorunum'a; bkz. `gecmis_kaydi`): satış öncesi stok [D, C] ve
+    # gün başında kayıtlı fiyat değişimi sayısı (o güne kadarki kısım gün < d'dir).
+    satis_oncesi_kaydi = np.zeros((D, C), dtype=np.int32) if gecmis_kaydi else None
+    fiyat_gun_basi = [0]
+
+    def _salt_parca(p: tuple) -> tuple:
+        return (p[0], *(salt_okunur(np.asarray(a)) for a in p[1:]))
 
     def gorunum(d: int) -> Gorunum:
         acik_sip = tuple(
@@ -263,6 +275,13 @@ def simule_et(
              if k not in ("gerceklesen_gun", "hatali", "numune", "no")}
             for s in z.siparisler if s["gerceklesen_gun"] > d
         )
+        gecmis = {}
+        if gecmis_kaydi:
+            gecmis = {
+                "satis_oncesi_gecmisi": salt_okunur(satis_oncesi_kaydi[:d]),
+                "fiyat_gecmisi": tuple(_salt_parca(p) for p in kay.fiyat[:fiyat_gun_basi[0]]),
+                "stok_fotograflari": tuple(_salt_parca(p) for p in kay.stok),
+            }
         return Gorunum(
             dunya=w, gun=d, tarih=tarihler[d],
             magaza_stok=salt_okunur(z.stok), depo=salt_okunur(z.depo),
@@ -279,6 +298,7 @@ def simule_et(
             acik_magaza=salt_okunur(acik[d]), kapanacak=salt_okunur(kapanacak[d]),
             acik_siparisler=acik_sip,
             operasyon_tohumu=operasyon_tohumu,
+            **gecmis,
         )
 
     def siparis_ekle(s: dict) -> None:
@@ -450,6 +470,7 @@ def simule_et(
     # --- Günlük döngü ------------------------------------------------------
     for d in range(D):
         pazartesi = tarihler[d].dayofweek == 0
+        fiyat_gun_basi[0] = len(kay.fiyat)   # gün başında kayıtlı her değişim gün < d
 
         # 1) Fotoğraf
         gorunur = np.flatnonzero(
@@ -600,6 +621,8 @@ def simule_et(
 
         # 14) Satış
         stoklu = np.where(onl, z.depo[hs] > 0, z.stok > 0)
+        if satis_oncesi_kaydi is not None:
+            satis_oncesi_kaydi[d] = np.where(onl, 0, z.stok)   # ONL günün sonunda (16. adımdan sonra)
         satilan = satis_yap(talep, z.stok, z.depo, onl, hs)
         z.stok -= np.where(onl, 0, satilan)
         z.depo -= topla(hs[onl], satilan[onl], S)
@@ -667,6 +690,11 @@ def simule_et(
 
         # 17) Stoklu bayrağı
         z.stoklu_gecmisi[d] = stoklu
+        if satis_oncesi_kaydi is not None:
+            # ONL: ortak `gunluk_online` tanımı = ertesi sabahın depo stoğu
+            # (bugünün kapanışı) + bugünün net online satışı
+            o_c = np.flatnonzero(onl)
+            satis_oncesi_kaydi[d, o_c] = z.depo[hs[o_c]] + satilan[o_c] - iade[o_c]
 
     ham = {
         "satis": Kayit.tablo(kay.satis, "hucre", ["adet", "tutar", "indirim_tutari", "kampanya_id"]),

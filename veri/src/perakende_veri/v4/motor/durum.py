@@ -65,6 +65,23 @@ class Gorunum:
     `acik_siparisler` (henüz teslim edilmemiş siparişlerin kopyaları),
     `operasyon_tohumu` (motorun operasyon çekilişleri tohumu; politikanın
     kendi sayaç çekilişleri bununla tohumlanır).
+
+    Geçmiş kaydı (`simule_et(..., gecmis_kaydi=True)`; varsayılan kapalı,
+    alanlar `None`). Karar anı kestiricisinin o dünyanın kendi geçmişini
+    yayımlanan tablolardaki tanımla görmesi için; hepsi yayımlanan bilginin
+    karar anına dek olan kısmıdır:
+
+      `satis_oncesi_gecmisi` [gun, C] int32: ortak günlük tablonun
+          (`perakende_analitik.stok`) `satis_oncesi`si. Fiziksel hücre:
+          satıştan önceki raf (14. adım; `stoklu_gecmisi` bunun > 0'ıdır).
+          ONL: ertesi sabahın depo stoğu + günün net online satışı
+          (`gunluk_online`'ın tanımı: satış öncesi depo; aynı gün kapalı
+          mağazadan depoya dönen iade de buna girer).
+      `fiyat_gecmisi` gün < bugün fiyat değişim kaydı (ham `fiyat`):
+          parçalar `(gun, option [n], hat [n], oran [n])`, gün sırasıyla.
+      `stok_fotograflari` gün <= bugün pazartesi mağaza fotoğrafları (ham
+          `stok`; bugünün fotoğrafı günün hiçbir hareketinden önce
+          çekilir): parçalar `(gun, hucre [n], adet [n], stoklu_gun [n])`.
     """
 
     dunya: object
@@ -86,6 +103,9 @@ class Gorunum:
     kapanacak: np.ndarray
     acik_siparisler: tuple
     operasyon_tohumu: int = sabitler.TOHUM
+    satis_oncesi_gecmisi: np.ndarray | None = None
+    fiyat_gecmisi: tuple | None = None
+    stok_fotograflari: tuple | None = None
 
 
 # ---------------------------------------------------------------------------
