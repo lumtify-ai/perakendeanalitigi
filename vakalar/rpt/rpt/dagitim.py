@@ -30,8 +30,14 @@ kolda (b), (c), (d) bugünkü kuralla birebir aynı sonucu verir
 RPT'NİN VARIŞI. v4 görünümü gerçekleşen teslim gününü taşımaz. Kural her pazartesi
 açık RPT siparişlerini (`acik_siparisler`, tip `rpt`) izler: listeden düşen sipariş
 teslim edilmiştir (mal o gün depoya girmiştir). Gelen adet SKU başına
-min(sipariş adedi, depodaki stok): kalite kontrolde reddedilen adet depoya girmez,
-teslimden sonraki online satış depodan düşer.
+`gelen_adet` = min(sipariş adedi, depodaki stok) × (1 − tutma). Görünüm kalite
+reddini taşımaz: depo siparişten azsa (ret, teslimden sonraki online satış) depo
+sınırdır; depoda option'ın yedeği varsa ret düşülmez, siparişin tamamı gelmiş
+sayılır (yeniden lansman reddedilen adet kadar fazla ister; motor depoda olmayanı
+göndermez, `orantili_kes`).
+
+KOŞULAR. Nesne her koşunun başında (dünya değişince ya da gün geri gidince)
+durumunu sıfırlar: aynı nesne iki koşuda kullanılabilir, kayıt son koşunundur.
 
 SIZINTI. Yalnız `Gorunum` ve dünyanın kamuya açık alanları (çeşit yapısı, plan,
 option alanları) okunur; üreteci içe aktarmaz: Lumoda'nın kuralı argümandır
@@ -84,6 +90,12 @@ def hiz_hedefi(S: np.ndarray, F: np.ndarray, beta_gecmis: np.ndarray, beta_ileri
     return seviye * beta_ileri, var
 
 
+def gelen_adet(siparis: int, depo: int, tutma: float = 0.0) -> int:
+    """Varışta dağıtılacak adet: min(sipariş, depo) × (1 − tutma), yuvarlanmış
+    (modül notu: depo yedeği varsa kalite reddi düşülmez)."""
+    return int(round(min(int(siparis), max(int(depo), 0)) * (1 - tutma)))
+
+
 def en_buyuk_kalan(toplam: int, paylar: np.ndarray) -> np.ndarray:
     """`toplam` adedi paylara göre tam sayılara böler (en büyük kalan; eşitlikte
     önce gelen indis; v4 `plan.en_buyuk_kalan`'ın kopyası, testle kilitli)."""
@@ -112,19 +124,31 @@ class RPTDagitim:
         self.kural = kural
         self.oyun_sezonlari = tuple(oyun_sezonlari)
         self.tutma = (TUTMA_PAYI if kural == "d" else 0.0) if tutma is None else float(tutma)
+        self._w = None
+        self._son_gun = None
+        self._sifirla()
+
+    def _sifirla(self) -> None:
         self.bekleyen: dict = {}      # (option, sipariş günü) → açık RPT siparişinin kopyası
         self.gelen: set = set()       # RPT'si gelmiş option'lar
         self.olaylar: list = []       # (gün, option, olay, adet)
-        self._w = None
+
+    def _kosu_basi(self, g) -> None:
+        """Yeni koşu (dünya değişti ya da gün geri gitti): durumu sıfırla; dünya
+        değiştiyse yeniden kur."""
+        if self._w is not g.dunya or self._son_gun is None or g.gun <= self._son_gun:
+            if self._w is not g.dunya:
+                self._hazirla(g.dunya)
+            self._sifirla()
+        self._son_gun = int(g.gun)
 
     def parametreler(self) -> dict:
-        """Koşu önbelleği anahtarına girecek tanım (`motor.kos(parametreler=…)`)."""
+        """Koşu önbelleği anahtarına giren tanım (`motor.kos` kendiliğinden katar:
+        `motor.politika_kimligi`)."""
         return {"kural": self.kural, "tutma": self.tutma, "oyun_sezonlari": list(self.oyun_sezonlari),
                 "egriler_cx": ozet_hash(self.egriler_cx)}
 
     def _hazirla(self, w) -> None:
-        if self._w is w:
-            return
         self._w = w
         opt = w.optionlar
         self.idx = anlik.Indeks.kur(w)
@@ -136,7 +160,7 @@ class RPTDagitim:
         dagitilir = ~np.asarray(w.hucre_online) & ~np.asarray(w.hucre_outlet_akisi)
         self.hucre = {o: self.idx.hucre[o][dagitilir[self.idx.hucre[o]]] for o in self.oyun}
         self.beta = {}
-        for o in self.oyun:
+        for o in (self.oyun if self.kural != "a" else ()):
             e = self.egriler_cx[opt.at[o, "sezon_kodu"]]
             self.beta[o] = gunluk_agirlik(e, int(opt.at[o, "dalga"]),
                                           int(self.cikis[o] - self.lansman[o]) + HEDEF_GUN)
@@ -168,7 +192,7 @@ class RPTDagitim:
         depo = np.asarray(g.depo)
         toplam = 0
         for s, adet in zip(np.asarray(siparis["skular"]), np.asarray(siparis["adetler"])):
-            gelen = int(round(min(int(adet), int(depo[s])) * (1 - self.tutma)))
+            gelen = gelen_adet(int(adet), int(depo[s]), self.tutma)
             m = sku_c == s
             if not m.any() or gelen <= 0:
                 continue
@@ -180,10 +204,10 @@ class RPTDagitim:
         return toplam
 
     def __call__(self, g) -> np.ndarray:
+        self._kosu_basi(g)
         istek = np.asarray(self.temel(g), dtype=np.int64).copy()
         if self.kural == "a":
             return istek
-        self._hazirla(g.dunya)
         acik = {(int(s["option"]), int(s["siparis_gun"])): s for s in g.acik_siparisler
                 if s["tip"] == "rpt" and int(s["option"]) in self.oyun}
         yeni_gelen = [s for k, s in self.bekleyen.items() if k not in acik]

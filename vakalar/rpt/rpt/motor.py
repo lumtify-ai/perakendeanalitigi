@@ -48,6 +48,14 @@ LUMODA. Karar modülleri üreteci içe aktarmadığı için Lumoda'nın bugünk�
 kollara ve dağıtım kurallarına argüman olarak verilir: `lumoda("rpt")`,
 `lumoda("replenishment")` (v4 `LumodaRPT`, `lumoda_replenishment`).
 
+POLİTİKANIN KENDİ KİMLİĞİ. Enjekte edilen her politikanın `parametreler()`
+yöntemi varsa çıktısı, `temel` (sardığı politika; ör. kolun Lumoda kuralı,
+dağıtım kuralının bugünkü replenishment'ı) varsa onun türü ve kimliği
+(özyinelemeli) anahtara kendiliğinden girer (`politika_kimligi`; içerikte
+`politikalar`, yalnız boş değilse: Lumoda'nın varsayılan koşusunun anahtarı
+değişmez). Kollar (`politika.KOLLAR`, `kahin.Kahin`) ve dağıtım kuralları
+(`dagitim.KURALLAR`) öğrenilmiş verinin özetini `parametreler()`'de taşır.
+
 **Politikalar Python nesneleridir; anahtar onları `ad` + `parametreler`
 ile tanır.** Çağıran, politikanın davranışını değiştiren HER parametreyi
 (eşik, model türü, dağıtım kuralı, öğrenmenin dayandığı sezonlar, eğitim
@@ -413,15 +421,36 @@ def _tur_adi(p) -> str:
     return f"{type(p).__module__}.{type(p).__qualname__}"
 
 
+POLITIKA_DERINLIGI = 5
+
+
+def politika_kimligi(p, derinlik: int = POLITIKA_DERINLIGI) -> dict:
+    """Politikanın kendi beyan ettiği kimliği: `parametreler()` çıktısı ve sardığı
+    `temel` politikanın türü + kimliği (özyinelemeli). Beyanı olmayan politika `{}`."""
+    k = {}
+    f = getattr(p, "parametreler", None)
+    if callable(f):
+        k["parametreler"] = f()
+    t = getattr(p, "temel", None)
+    if t is not None:
+        if derinlik <= 0:
+            raise ValueError("politika_kimligi: `temel` zinciri çok derin")
+        k["temel"] = {"tur": _tur_adi(t), **politika_kimligi(t, derinlik - 1)}
+    return k
+
+
 def anahtar_icerigi(
     *, ad: str, parametreler: dict, talep_tohumu: int | None, operasyon_tohumu: int,
-    olcek: str, gun_sayisi: int | None, turler: dict,
+    olcek: str, gun_sayisi: int | None, turler: dict, politikalar: dict | None = None,
 ) -> dict:
-    """Koşuyu belirleyen her şey (bkz. modül belgesi); `meta`'ya da yazılır."""
+    """Koşuyu belirleyen her şey (bkz. modül belgesi); `meta`'ya da yazılır.
+    `politikalar`: kanca → `politika_kimligi` (boşsa içeriğe girmez)."""
+    ek = {"politikalar": _kanonik(politikalar)} if politikalar else {}
     return {
         "ad": ad,
         "parametreler": _kanonik(parametreler),
         "turler": _kanonik(turler),
+        **ek,
         "talep_tohumu": None if talep_tohumu is None else int(talep_tohumu),
         "operasyon_tohumu": int(operasyon_tohumu),
         "olcek": olcek,
@@ -581,9 +610,10 @@ def kos(
         raise ValueError(f"ölçek {sorted(OLCEKLER)}'den biri olmalı: {olcek!r}")
     politikalar = {"rpt": rpt, "replenishment": replenishment}
     turler = {a: _tur_adi(p) for a, p in politikalar.items() if p is not None}
+    kimlikler = {a: k for a, p in politikalar.items() if p is not None and (k := politika_kimligi(p))}
     icerik = anahtar_icerigi(ad=ad, parametreler=parametreler, talep_tohumu=talep_tohumu,
                              operasyon_tohumu=operasyon_tohumu, olcek=olcek, gun_sayisi=gun_sayisi,
-                             turler=turler)
+                             turler=turler, politikalar=kimlikler)
     anahtar = _ozet(icerik)
     if onbellek is not None:
         _artiklari_sil(onbellek)

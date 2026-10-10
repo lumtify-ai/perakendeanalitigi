@@ -176,5 +176,45 @@ def test_kahin_gelecegi_gorur(ogrenilen):
     r1, r2 = _rpt(_kos(k1), oyun), _rpt(_kos(k2), oyun)
     assert r1 and len({o for o, _, _ in r1}) == len(r1)
     assert r1 != r2
+    assert _rpt(_kos(k1), oyun) == r1          # aynı nesne ikinci koşuda: plan sıfırlanır
     # kesimden önce verilen kararlar da değişir: kâhin geleceği görür
     assert [r for r in r1 if r[1] < 805] != [r for r in r2 if r[1] < 805]
+
+
+def test_kos_anahtari_politikanin_kendi_kimligini_gorur(tmp_path, ogrenilen):
+    """`motor.kos` anahtarı çağıranın `parametreler`ine güvenmez: enjekte edilen
+    politikanın `parametreler()`i ve sardığı `temel`in türü/kimliği de girer. Dağıtım
+    kuralı, `temel` kuralı ya da öğrenilen bir parça değişince anahtar değişir; aynısı
+    önbellekten okunur."""
+    from conftest import duz_egri
+
+    from rpt import dagitim
+
+    temel_r, temel_d = motor.lumoda("rpt"), motor.lumoda("replenishment")
+
+    def baska_temel(g):
+        return temel_d(g)
+
+    cx = {s: duz_egri("cikis", [1, 2, 3]) for s in OYUN}
+
+    def kos(rpt, rep):
+        return motor.kos(rpt=rpt, replenishment=rep, ad="kimlik", parametreler={}, onbellek=tmp_path,
+                         olcek="kucuk", gun_sayisi=40)
+
+    ogr2 = politika.Ogrenilen(**{**ogrenilen.__dict__, "modeller": {s: SabitModel(0.3) for s in OYUN}})
+    durumlar = {
+        "taban": (politika.Oneri(temel_r, ogrenilen), dagitim.KURALLAR["b"](temel_d, cx)),
+        "kural": (politika.Oneri(temel_r, ogrenilen), dagitim.KURALLAR["c"](temel_d, cx)),
+        "temel": (politika.Oneri(temel_r, ogrenilen), dagitim.KURALLAR["b"](baska_temel, cx)),
+        "ogrenilen": (politika.Oneri(temel_r, ogr2), dagitim.KURALLAR["b"](temel_d, cx)),
+    }
+    anahtar = {ad: kos(*p).meta["anahtar"] for ad, p in durumlar.items()}
+    assert len(set(anahtar.values())) == len(anahtar), anahtar
+    tekrar = kos(politika.Oneri(temel_r, ogrenilen), dagitim.KURALLAR["b"](temel_d, cx))
+    assert tekrar.onbellekten and tekrar.meta["anahtar"] == anahtar["taban"]
+    k = tekrar.meta["politikalar"]
+    assert k["replenishment"]["temel"]["tur"].endswith("lumoda_replenishment")
+    assert k["rpt"]["parametreler"]["ogrenilen"] == ogrenilen.parametreler()
+    # Lumoda'nın varsayılan koşusunun içeriğinde politika kimliği yok (anahtarı değişmez)
+    assert "politikalar" not in motor.kos(ad="lumoda", parametreler={}, onbellek=None, olcek="kucuk",
+                                          gun_sayisi=20).meta

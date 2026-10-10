@@ -338,8 +338,16 @@ def durum_gorunumden(g, option_ids, idx: Indeks | None = None) -> pd.DataFrame:
     mağazalar). Envanter bileşenleri karar anındaki sırayla: magaza ve yolda bu
     sabahın varışlarından sonra (`magaza_stok`, `yolda`), depo bu sabahın
     teslimlerinden sonra, acik henüz teslim edilmemiş siparişler. Toplamları (envanter
-    pozisyonu) tablo yolununkiyle aynı zinciri sayar; fark yalnız bu sabah teslim
-    edilen siparişin kalite reddi (tablo yolunda açık siparişte tam adet)."""
+    pozisyonu, ip) tablo yolununkinden yalnız iki nedenle küçük kalır (testte adet
+    adet bağlanır):
+      * bu sabah teslim edilen siparişin kalite reddi: tablo yolunda sipariş açık
+        sayılır (tam adet), görünümde depoya ret düşülmüş girer;
+      * bu sabah RPT kararından önce mağazadan depoya yola çıkan mal (4. adım
+        kapanış transferi, 6. adım stok devri): tablo yolunda sabah fotoğrafında,
+        görünümde ne mağazada ne mağaza yoldasında (`yolda` yalnız mağazaya giden)
+        ne depoda.
+    Option'ın çıkış günü bunlara bir üçüncüsü eklenir (penceresi kapanan hücre o
+    sabahın fotoğrafında yoktur); çıkış günü karar haftası (h ≤ 6) değildir."""
     w = g.dunya
     idx = idx or Indeks.kur(w)
     harita = pd.Index(w.optionlar["option_id"].astype(str))

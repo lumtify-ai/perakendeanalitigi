@@ -44,6 +44,11 @@ class Kahin(KolRPT):
         self.plan: dict = {}          # option → (gün, adet)
         self.kum = None
 
+    def _sifirla(self) -> None:
+        super()._sifirla()
+        self.plan = {}
+        self.kum = None
+
     def parametreler(self) -> dict:
         return {**super().parametreler(), "haftalar": list(self.haftalar), "talep": self.talep_kimligi,
                 "p_ind": self.ogrenilen.parametreler()["p_ind"]}

@@ -29,6 +29,12 @@ görür. Sözleşme (`perakende_veri.v4.motor.durum.Gorunum`) yalnız kamuya aç
 alanları serbest bırakır; `GORUNUM_MODULLERI` dünyanın gizli alanlarının hiçbirine
 (`GIZLI_ALANLAR`, `GIZLI_ONEKLER`) öznitelik ya da sabit dizgeli `getattr` ile
 erişmez (AST; adı her nesnede yasaktır, yalnız dünyada değil).
+
+Tarayıcının YAKALAMADIKLARI (statik tarama sınırı; kod incelemesine kalır):
+`vars(w)` / `w.__dict__[...]` / `inspect.getmembers`, `operator.attrgetter("lam")`,
+sabit olmayan dizgeyle `getattr(w, ad)` (birleştirilmiş ya da değişkendeki ad),
+takma adla dolaşma (`f = getattr; f(w, "lam")`), `exec` / `eval`, ve gizli değeri
+taşıyan nesnenin kamuya açık bir adla argüman olarak verilmesi.
 """
 
 import ast

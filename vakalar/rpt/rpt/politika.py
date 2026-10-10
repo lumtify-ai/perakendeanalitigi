@@ -25,8 +25,10 @@ iki yol aynı girdide aynı kestirimi verir (`tests/test_anlik.py`).
 
 ÇEVRİMDIŞI ÖĞRENİLENLER VERİDİR (`Ogrenilen`): option tablosu, eğriler, belirsizlik
 (μ, σ), aday modelleri, p_ind, karar anı çarpanları, eşik. Kol onları argüman
-alır; `parametreler()` her birinin özetini (pickle sha256) verir ve çağıran onu
-`motor.kos(parametreler=…)`'e koyar: öğrenilen değişince koşu önbelleği de değişir.
+alır; `parametreler()` her birinin özetini (pickle sha256) verir ve `motor.kos` onu
+(sardığı `temel`in türüyle) anahtara kendiliğinden katar (`motor.politika_kimligi`):
+öğrenilen değişince koşu önbelleği de değişir. Aynı kol nesnesi iki koşuda
+kullanılabilir: koşu başında durumunu sıfırlar.
 
 SIZINTI. Kâhin dışındaki kollar yalnız `Gorunum`u, dünyanın kamuya açık alanlarını
 ve geçmiş sezonlardan öğrenilmiş veriyi kullanır; bu modül `kahin`'i, `motor`'u,
@@ -109,10 +111,22 @@ class KolRPT:
         self.oyun_sezonlari = tuple(oyun_sezonlari)
         self.kayit: list[dict] = []
         self._w = None
+        self._son_gun = None
+
+    def _sifirla(self) -> None:
+        """Koşu başı: kolun koşu içi durumu (alt sınıflar genişletir)."""
+        self.kayit = []
+
+    def _kosu_basi(self, g) -> None:
+        """Yeni koşu (dünya değişti ya da gün geri gitti): dünyayı kur, durumu
+        sıfırla. Aynı kol nesnesi iki koşuda kullanılabilir; kayıt son koşunundur."""
+        if self._w is not g.dunya or self._son_gun is None or g.gun <= self._son_gun:
+            if self._w is not g.dunya:
+                self._hazirla(g.dunya)
+            self._sifirla()
+        self._son_gun = int(g.gun)
 
     def _hazirla(self, w) -> None:
-        if self._w is w:
-            return
         self._w = w
         opt = w.optionlar
         self.oyun = ((opt["line"] == "Collection").to_numpy()
@@ -130,7 +144,7 @@ class KolRPT:
         return {}
 
     def __call__(self, g) -> dict:
-        self._hazirla(g.dunya)
+        self._kosu_basi(g)
         dis = {int(o): q for o, q in self.temel(g).items() if not self.oyun[o]}
         h_gun = g.gun - self.lansman
         aday_ = np.flatnonzero(self.oyun & (h_gun >= 0) & (h_gun % 7 == 0) & (np.asarray(g.rpt_sayisi) == 0))
@@ -142,7 +156,8 @@ class KolRPT:
                            "h": int((g.gun - self.lansman[o]) // 7), "adet": int(adet), **bilgi})
 
     def parametreler(self) -> dict:
-        """Koşu önbelleği anahtarına girecek tanım (`motor.kos(parametreler=…)`)."""
+        """Koşu önbelleği anahtarına giren tanım (`motor.kos` kendiliğinden katar:
+        `motor.politika_kimligi`)."""
         return {"kol": self.ad, "oyun_sezonlari": list(self.oyun_sezonlari)}
 
     def kayit_tablosu(self) -> pd.DataFrame:
@@ -164,7 +179,7 @@ class Mevcut(KolRPT):
     ad = "mevcut"
 
     def __call__(self, g) -> dict:
-        self._hazirla(g.dunya)
+        self._kosu_basi(g)
         sonuc = self.temel(g)
         for o, q in sorted(sonuc.items()):
             if self.oyun[o]:

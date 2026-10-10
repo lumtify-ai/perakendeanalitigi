@@ -130,15 +130,22 @@ def test_rpt_yokken_kurallar_etkisiz(rpt_yok_a, kural):
     assert rep.gelen == set() and rep.kayit_tablosu().empty
 
 
-def test_rpt_varisi_depodan_anlasilir(mevcut_a):
+@pytest.fixture(scope="module")
+def mevcut_c():
+    from rpt import motor, politika
+
+    return _kos(politika.Mevcut(motor.lumoda("rpt")), "c")
+
+
+def test_rpt_varisi_depodan_anlasilir(mevcut_a, mevcut_c):
     """Görünüm teslim gününü taşımaz; kural varışı açık siparişin düşmesinden anlar:
     her oyun RPT'si teslim gününden sonraki ilk pazartesi (teslim pazartesiyse o gün)
     "varis" olur, (c) aynı gün yeniden lansman dağıtır. Sevkiyat ilk varıştan önce
     bugünkü kuralla aynı, sonra farklı."""
-    from rpt import motor, politika
+    from rpt import motor
 
     ref, _ = mevcut_a
-    ham, rep = _kos(politika.Mevcut(motor.lumoda("rpt")), "c")
+    ham, rep = mevcut_c
     w = motor.dunya("kucuk")
     opt = w.optionlar
     oyun = set(np.flatnonzero((opt["line"] == "Collection").to_numpy()
@@ -183,3 +190,62 @@ def test_b_kurali_stoklu_gun_hizi(mevcut_a):
 
     assert repl(ham) != repl(ref)
     assert (rep.kayit_tablosu()["olay"] == "lansman").sum() == 0
+
+
+def test_d_kurali_yuzde_otuzu_tutar_ertesi_pazartesi_birakir(mevcut_c):
+    """(d) yeniden lansmanda gelenin ~%70'ini dağıtır ((c) tamamını); kalan %30 depoda
+    kalır ve ertesi pazartesi (b) ile çıkar: o hafta (d) (c)'den fazla gönderir."""
+    from rpt import motor, politika
+
+    ham_c, rep_c = mevcut_c
+    ham_d, rep_d = _kos(politika.Mevcut(motor.lumoda("rpt")), "d")
+    w = motor.dunya("kucuk")
+    oc, od = rep_c.kayit_tablosu(), rep_d.kayit_tablosu()
+    lc = oc[oc["olay"] == "lansman"].set_index("option")
+    ld = od[od["olay"] == "lansman"].set_index("option")
+    assert list(lc.index) == list(ld.index) and (lc["gun"] == ld["gun"]).all()
+    oran = ld["adet"].sum() / lc["adet"].sum()
+    assert 0.6 <= oran <= 0.8, oran
+    assert (ld["adet"] <= lc["adet"]).all()
+    ho = np.asarray(w.hucre_option)
+
+    def gonderilen(ham, o, gun):
+        sv = ham["sevkiyat"]
+        sv = sv[(sv["gun"] == gun) & (sv["tip"] == "replenishment")]
+        return int(sv["adet"][ho[sv["hedef_hucre"].to_numpy()] == o].sum())
+
+    ertesi = [(o, int(g) + 7) for o, g in lc["gun"].items() if int(g) + 7 < GUN]
+    assert ertesi
+    fazla_d = sum(gonderilen(ham_d, o, g) - gonderilen(ham_c, o, g) for o, g in ertesi)
+    assert fazla_d > 0
+
+
+def test_gelen_adet():
+    """Gelen = min(sipariş, depo) × (1 − tutma): depo siparişten azsa (kalite reddi,
+    teslimden sonraki online satış) depo; depoda yedek varsa ret düşülmez."""
+    assert dagitim.gelen_adet(100, 80) == 80
+    assert dagitim.gelen_adet(100, 130) == 100
+    assert dagitim.gelen_adet(100, 130, 0.30) == 70
+    assert dagitim.gelen_adet(100, -5) == 0
+
+
+def test_ayni_nesne_iki_kosuda(mevcut_c):
+    """Kol ve kural nesneleri koşu başında durumlarını sıfırlar: aynı nesnelerle ikinci
+    koşu ilkinin aynısı, kayıt ikiye katlanmaz."""
+    from perakende_veri.v4.motor import simule_et
+    from perakende_veri.v4.politika import Politikalar
+
+    from rpt import motor, politika
+
+    w = motor.dunya("kucuk")
+    kol = politika.Mevcut(motor.lumoda("rpt"))
+    rep = dagitim.KURALLAR["c"](motor.lumoda("replenishment"), _cx(w))
+    sonuc = []
+    for _ in range(2):
+        ham = simule_et(w, Politikalar(rpt=kol, replenishment=rep), gun_sayisi=GUN)
+        sonuc.append((ham, rep.kayit_tablosu(), kol.kayit_tablosu()))
+    (h1, r1, k1), (h2, r2, k2) = sonuc
+    pd.testing.assert_frame_equal(h1["sevkiyat"], h2["sevkiyat"])
+    pd.testing.assert_frame_equal(r1, r2)
+    pd.testing.assert_frame_equal(k1, k2)
+    pd.testing.assert_frame_equal(h1["sevkiyat"], mevcut_c[0]["sevkiyat"])
