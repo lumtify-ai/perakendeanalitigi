@@ -288,11 +288,22 @@ def _option_gunluk_toplam(plan) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 
-def talep_tahmini(plan: Lambda | LambdaOzeti, optionlar: pd.DataFrame) -> np.ndarray:
+def talep_tahmini(
+    plan: Lambda | LambdaOzeti,
+    optionlar: pd.DataFrame,
+    oran: float = 1.0,
+    oran_sezonu: str | None = None,
+) -> np.ndarray:
     """`[O]` sezon planı (plan λ'nın option'ın bütün hücreleri üzerinden
     [lansman, indirim) toplamı) × ILK_ALIM_PLAN_ORANI; MOQ/kapasite öncesi.
     DEVAMLI option'da 0 (sürekli tedarik motorda). Görev 11 bunu tedarikçi
-    seçiminden önce `lumoda_tedarikci_secimi`'ne verir."""
+    seçiminden önce `lumoda_tedarikci_secimi`'ne verir.
+
+    `oran` (varsayılan 1,0) yalnız `sezon_kodu == oran_sezonu` olan
+    sezonluk option'ların tahminini çarpar (ilk alımı planın bir kesri
+    kadar kurmak için); öteki option'lara dokunmaz. `oran == 1,0` iken
+    çarpma yapılmaz: çıktı bugünkü aritmetikle bayt bayt aynıdır.
+    """
     optionlar = optionlar.reset_index(drop=True)
     toplam = _option_gunluk_toplam(plan)
     N, O = toplam.shape
@@ -302,7 +313,11 @@ def talep_tahmini(plan: Lambda | LambdaOzeti, optionlar: pd.DataFrame) -> np.nda
     indirim = np.clip(optionlar["indirim_gun"].to_numpy(dtype=np.int64), 0, N)
     sezonluk = (optionlar["sezon_kodu"] != sabitler.DEVAMLI).to_numpy()
     sezon_plani = np.where(sezonluk, kum[indirim, idx] - kum[lansman, idx], 0.0)
-    return sezon_plani * sabitler.ILK_ALIM_PLAN_ORANI
+    tahmin = sezon_plani * sabitler.ILK_ALIM_PLAN_ORANI
+    if oran != 1.0:
+        secili = sezonluk & (optionlar["sezon_kodu"] == oran_sezonu).to_numpy()
+        tahmin = np.where(secili, tahmin * oran, tahmin)
+    return tahmin
 
 
 def ilk_alim(
@@ -311,14 +326,20 @@ def ilk_alim(
     tedarikci_idx: np.ndarray,
     gizli_tedarikci: pd.DataFrame,
     teshis: bool = False,
+    oran: float = 1.0,
+    oran_sezonu: str | None = None,
 ):
     """`[O]` ilk alım adedi (DEVAMLI 0).
 
-    `talep_tahmini` → en az tedarikçinin MOQ'su (menşe tablosu), 10'un
+    `talep_tahmini` (`oran`/`oran_sezonu` ile seçili sezonda ölçeklenmiş;
+    varsayılan 1,0 = ölçeksiz) → en az tedarikçinin MOQ'su (menşe tablosu), 10'un
     katına yukarı → tedarikçinin o sezon **kalan** kapasitesiyle sınırlı
     (option'lar indis sırasıyla kapasiteyi tüketir; kırpılan adet 10'un
     katına aşağı). Kalan kapasite MOQ'nun altındaysa MOQ sipariş edilir
     (MOQ'nun altına inilmez) ve `kapasite_asimi` işaretlenir.
+
+    Oran MOQ tabanından, yuvarlamadan ve kapasiteden **önce** işler; bu
+    yüzden düşük oranda option MOQ'da kalır (MOQ'nun altına inilmez).
 
     `teshis=True`: `(adet, DataFrame)` döner; DataFrame option başına
     `talep_tahmini`, `yuvarlanmis`, `ilk_alim`, `kapasite_kirpildi`,
@@ -326,7 +347,7 @@ def ilk_alim(
     """
     optionlar = optionlar.reset_index(drop=True)
     tedarikci_idx = np.asarray(tedarikci_idx)
-    tahmin = talep_tahmini(plan, optionlar)
+    tahmin = talep_tahmini(plan, optionlar, oran, oran_sezonu)
     sezonluk = (optionlar["sezon_kodu"] != sabitler.DEVAMLI).to_numpy()
     mense = gizli_tedarikci["mense"].to_numpy()[tedarikci_idx]
     moq = np.array([sabitler.MENSE_V4[m]["moq"] for m in mense], dtype=np.int64)

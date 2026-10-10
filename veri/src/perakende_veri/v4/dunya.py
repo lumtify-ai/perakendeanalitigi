@@ -356,8 +356,19 @@ def dunya_kur(
     olcek: Olcek = Olcek.TAM,
     tedarikci_secimi: TedarikciSecimi = lumoda_tedarikci_secimi,
     tohum: int = sabitler.TOHUM,
+    ilk_alim_orani: float = 1.0,
+    ilk_alim_sezonu: str = "AW25",
 ) -> Dunya:
     """Dünyayı kurar (bkz. modül docstring'i: akış tablosu, montaj sırası).
+
+    `ilk_alim_orani` (> 0, varsayılan 1,0): yalnız `sezon_kodu ==
+    ilk_alim_sezonu` olan sezonluk option'ların **talep tahmini** bu oranla
+    çarpılır (ilk alım planın bir kesri kadar kurulur); MOQ tabanı, 10'un
+    katına yuvarlama ve tedarikçi kapasitesi bundan sonra işler. Ölçeklenmiş
+    tahmin tedarikçi seçimine de gider (alıcı, aldığı kadarını kapasiteye
+    karşı tartar). Dünyanın geri kalanı (ürünler, mağazalar, λ, sürprizler)
+    ve çekiliş sırası değişmez; `1,0` iken hiçbir aritmetik değişmez:
+    yayımlanan v4 bayt bayt aynı üretilir.
 
     `tedarikci_secimi(rng, optionlar, tedarikciler, kapasite_gorunumu,
     talep_tahmini) -> [O]` (tedarikçi satır indisi) politikası enjekte
@@ -366,6 +377,8 @@ def dunya_kur(
     bildiği bilgidir; gecikme, hatalı oran, maliyet çarpanı sızmaz); kendi çocuk üretecini (`tedarikci_secimi`) alır, bu yüzden
     başka bir politika diğer bileşenlerin çekilişlerini değiştirmez.
     """
+    if not ilk_alim_orani > 0:
+        raise ValueError(f"ilk_alim_orani > 0 olmalı: {ilk_alim_orani}")
     rng = akislar(tohum)
 
     # --- Tam zincir çekilişleri ----------------------------------------------
@@ -394,7 +407,7 @@ def dunya_kur(
     )
     plan = plan_lambda(magazalar, gizli, olaylar, optionlar, urunler, hucre, gizli_talep)
     plan_oz = lambda_ozeti(plan, magazalar, optionlar)
-    tahmin = talep_tahmini(plan_oz, optionlar)
+    tahmin = talep_tahmini(plan_oz, optionlar, ilk_alim_orani, ilk_alim_sezonu)
 
     # --- Tedarikçi seçimi ve maliyeti ----------------------------------------
     ted_idx = np.asarray(
@@ -408,7 +421,10 @@ def dunya_kur(
     urunler, optionlar = _tedarikci_maliyeti(urunler, optionlar, tedarikciler, gizli_ted, ted_idx)
 
     # --- İlk alım, ilk siparişler --------------------------------------------
-    alim = ilk_alim(plan_oz, optionlar, ted_idx, gizli_ted)
+    alim = ilk_alim(
+        plan_oz, optionlar, ted_idx, gizli_ted,
+        oran=ilk_alim_orani, oran_sezonu=ilk_alim_sezonu,
+    )
     siparisler = ilk_siparisler(
         rng["siparis"], optionlar, urunler, alim, ted_idx, tedarikciler, gizli_ted
     )
