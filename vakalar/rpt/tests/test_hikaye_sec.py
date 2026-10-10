@@ -233,6 +233,21 @@ def test_ozellikler_oyuncak():
     assert a["depoda_pay"] == pytest.approx(150 / 190)
     # RPT'siz option yok; OPT-Q'nun ilk dağıtımı olmadığından taşıyan mağazası yok
     assert f.loc["OPT-Q", "tasiyan_magaza"] == 0
+    # mağazaya giden RPT aralığı (FIFO; online net satış 14): alt 40 − 14 = 26, üst min(40, 70) = 40
+    assert a["rpt_magazaya_alt"] == 26 and a["rpt_magazaya_ust"] == 40
+
+
+def test_plan_oku_acik_yol_ya_da_uyari(tmp_path, capsys):
+    """Plan yayımlanmaz (motordan gelir): CLI CSV'yi sessizce okumaz. Yol verilmezse açık
+    uyarı (stderr) ve None; verilen yol yoksa hata; varsa option_id → plan_sezon."""
+    assert hikaye_sec.plan_oku(None) is None
+    assert "plan yok" in capsys.readouterr().err
+    with pytest.raises(FileNotFoundError, match="plan"):
+        hikaye_sec.plan_oku(tmp_path / "yok.csv")
+    yol = tmp_path / "plan.csv"
+    yol.write_text("option_id,plan_sezon\nA,1500.5\nB,20\n", encoding="utf-8")
+    p = hikaye_sec.plan_oku(yol)
+    assert p["A"] == 1500.5 and p["B"] == 20 and len(p) == 2
 
 
 def test_gelis_durumu_oyuncak_bos_magaza():
@@ -325,6 +340,7 @@ def test_ozet_gercek_veride_tutarli(ozellik):
         assert s["rpt"]["outlete"] + s["rpt"]["depoda_kalan"] == s["rpt"]["depoda_cikista"]
         assert s["rpt"]["kalan_son"] == s["rpt"]["depo_son"] + s["rpt"]["raf_son"]
         assert s["rpt"]["bosa"] <= min(s["rpt"]["giren"], s["rpt"]["kalan_son"])
+        assert 0 <= s["rpt"]["magazaya_alt"] <= s["rpt"]["magazaya_ust"] <= s["rpt"]["cikisa_kadar"]
     assert hit["mense"] == "Yerli" and hit["dalga"] == 3 and hit["banu_tetik"]
     assert gec["mense"] == "Uzak Doğu" and gec["banu_tetik"]
     assert hikaye_sec.GELIS_ARALIGI[0] <= gec["rpt"]["indirime_kalan_gun"] <= hikaye_sec.GELIS_ARALIGI[1]

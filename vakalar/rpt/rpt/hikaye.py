@@ -34,7 +34,7 @@ sıranın sonuna girer) ve pencere sonu stoğu. Kaderin üç kovası, FIFO sıra
 
 FIFO, RPT'yi depodan en son çıkan mal sayar: çıkışa dek çıkan RPT'nin ALT sınırıdır.
 Çıkışa dek çıkanın mağazaya giden payı da bir aralıktır: alt sınır
-`rpt_magazaya_alt` = çıkışa dek çıkan − online net satış (hepsi RPT'den karşılandıysa
+`rpt_magazaya_alt` = çıkışa dek çıkan − online net satış (negatifse 0; hepsi RPT'den karşılandıysa
 mağazaya kalan), üst sınır `rpt_magazaya_ust` = çıkışa dek çıkan ve depodan mağazalara
 giden toplam sevkiyatın küçüğü. Partinin bilinmediği belirsizlik aralığıdır; yazı hangisini
 söylediğini belirtir.
@@ -116,7 +116,9 @@ def rpt_akibeti(t: dict, opt: pd.DataFrame, sezon: str) -> pd.DataFrame:
 
     Sütunlar: option_id, rpt (sipariş), red, rpt_giren, gelis, cikis_tarihi,
     depo_cikista, gelisten_cikisa_cikan (depodan mağazalara), online_gelisten_cikisa
-    (net online satış), cikis_sonrasi_cikan (depodan çıkış gününden itibaren çıkan),
+    (net online satış), cikis_sonrasi_cikan (depodan çıkış gününden itibaren outlet akışıyla
+    çıkan; `tip == 'outlet_akisi'`: çıkıştan sonra başka tiple çıkan nadir mal outlet'e
+    sayılmaz, FIFO'da depoda kalan kovasında kalır),
     stok_devri (depoya dönen), depo_son (pencerenin son pazartesisi depo stoğu),
     rpt_depoda_cikista, rpt_cikisa_kadar, rpt_magazaya_alt, rpt_magazaya_ust,
     rpt_outlete, rpt_depoda_kalan.
@@ -144,7 +146,8 @@ def rpt_akibeti(t: dict, opt: pd.DataFrame, sezon: str) -> pd.DataFrame:
     hedef = sv["hedef"].astype(str)
     depodan = sv[(kaynak_ == DEPO) & (hedef != DEPO)]
     arada = depodan[(depodan["tarih"] >= depodan["gelis"]) & (depodan["tarih"] < depodan["cikis_tarihi"])]
-    sonra = depodan[depodan["tarih"] >= depodan["cikis_tarihi"]]
+    sonra = depodan[(depodan["tarih"] >= depodan["cikis_tarihi"])
+                    & (depodan["tip"].astype(str) == "outlet_akisi")]
     devri = sv[(sv["tip"] == "stok_devri") & (hedef == DEPO) & (sv["tarih"] >= sv["cikis_tarihi"])]
     onl = t["satis"][t["satis"]["magaza_id"].astype(str) == ONLINE].merge(harita, on="urun_id").merge(
         o[["gelis", "cikis_tarihi"]].reset_index(), on="option_id")
@@ -160,6 +163,7 @@ def rpt_akibeti(t: dict, opt: pd.DataFrame, sezon: str) -> pd.DataFrame:
     onceden = o["depo_cikista"] - o["rpt_depoda_cikista"]
     o["rpt_outlete"] = np.clip(o["cikis_sonrasi_cikan"] - onceden, 0, o["rpt_depoda_cikista"])
     o["rpt_depoda_kalan"] = o["rpt_depoda_cikista"] - o["rpt_outlete"]
-    o["rpt_magazaya_alt"] = np.maximum(o["rpt_cikisa_kadar"] - o["online_gelisten_cikisa"], 0)
+    # online net satış negatifse (iade satıştan çok) depodan online'a çıkan mal yoktur: 0 sayılır
+    o["rpt_magazaya_alt"] = np.maximum(o["rpt_cikisa_kadar"] - o["online_gelisten_cikisa"].clip(lower=0), 0)
     o["rpt_magazaya_ust"] = np.minimum(o["rpt_cikisa_kadar"], o["gelisten_cikisa_cikan"])
     return o.reset_index()

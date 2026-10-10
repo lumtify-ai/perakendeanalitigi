@@ -1,399 +1,565 @@
-"""Raporun Faz B bölümleri: ADAY (4. yazı), MİKTAR (5. yazı), SONUÇ (6. yazı).
+"""Raporun B bölümleri (oyun): ADAY (4. yazı), MİKTAR (5. yazı), SONUÇ ve YOLLAR (6. yazı).
 
-`rapor.py` çağırır; tek başına da koşar:
+`rapor.py` çağırır (`hazirla_b`, sonra bölümler); tek başına koşmaz (A'nın verisine dayanır).
 
-    .venv/Scripts/python rapor_b.py
+Koşular `oyun`un önbelleğinden okunur (`oyun.dagitim_tablosu` / `tum_kollar` ile aynı
+anahtarlar: ızgara yeniden koşulmaz). `oyun.py` koşu kod özetindedir (Ruling R3); ölçüm
+yardımcılarının bu raporda gereken hâlleri burada kopyadır (`kollar_olc`: `oyun.ozet_tablosu`
++ option tabloları; `secim_kosulari`: `oyun.dagitim_tablosu` + koşular), oyun.py değişmez.
 
-Yol 0 (gerçek v3 talebi) burada baştan koşulur (~2 dk). Alternatif yolların
-aralıkları `cikti/yollar.json`'dan okunur (`python -m rpt.yollar` üretir);
-dosya yoksa bölüm bunu söyler.
+Ölçütler her koşunun gizli gerçeğinden (`olcutler`, `Kosu.gercek`); hakem burada yok.
+Kâhin (Ruling R7): aynı tohumla koşulmuş `rpt_yok` koşusunun talebini bilen kol, "RPT
+verilmeseydi gelecek talebi bilen"; zincir düzeyinde düşünür, üst sınır değildir.
 """
 
 import json
-import sys
-import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
 
-from rapor import alt, baslik, s, t_, y
-from rpt import aday, miktar, olcutler, oyun, yollar
+from rapor import (HAFTALAR, HIKAYE_SEZONU, KARAR_H, MENSELER, OYUN, alt, baslik, bolum, fark, fifo_denetimleri,
+                   mn, olcut_denetimleri, pay, s, t_, tl, y)
+from rpt import aday, dagitim, hikaye, kaynak, miktar, olcutler, oyun, yollar
 
-warnings.filterwarnings("ignore", message=".*generic.*unit.*", category=DeprecationWarning)
-warnings.filterwarnings("ignore", message=".*force_all_finite.*", category=FutureWarning)
-
-HIKAYE = {"yerli": "MDL190-HAK", "uzak": "MDL169-EKR"}
 KOL_ADI = {
-    "rpt_yok": "rpt_yok", "mevcut": "mevcut (Banu)", "frr2": "frr, h=2", "frr3": "frr, h=3",
-    "oneri": "oneri (LightGBM)", "oneri_lojistik": "oneri (lojistik)", "kahin": "kâhin",
+    "rpt_yok": "RPT yok", "mevcut": "Banu", "frr2": "FRR, h=2", "frr3": "FRR, h=3",
+    "oneri": "öneri (LightGBM)", "oneri_lojistik": "öneri (lojistik)", "kahin": "kâhin",
+}
+OZELLIK_ADI = {
+    "h": "karar haftası h", "str": "zincir STR'si", "stoklu_magaza_payi": "stoklu mağaza payı",
+    "kirik_magaza_payi": "kırık mağaza payı", "hiz_q1": "düzeltilmiş haftalık hız ÷ ilk alım",
+    "d_q1": "d kestirimi ÷ ilk alım", "frr_q1": "FRR kestirimi ÷ ilk alım", "kapsama": "stok kapsaması (hafta)",
+    "hafta_indirime": "indirime kalan hafta", "L": "tedarikçinin RPT süresi",
+    "kalan_tf": "gelişten sonra kalan tam fiyat talep payı", "ekstra_q1": "tahmini ek talep ÷ ilk alım",
+    "moq_oran": "MOQ ÷ tahmini ek talep", "uzak": "Uzak Doğu tedarikçisi",
 }
 
 
 @dataclass
 class VeriB:
-    H: dict
-    K: dict
+    secim: pd.DataFrame                    # SS24 dağıtım seçimi (kural başına sezon özeti)
+    en_iyi: str
+    K: dict                                # (kol, kural) → KosuKaydi
+    secim_kosulari: dict                   # kural → KosuKaydi (SS24)
+    o: dict = field(default_factory=dict)  # (kol, kural, sezon) → option tablosu (rpt_yok tabanlı)
+    oz: dict = field(default_factory=dict)  # (kol, kural, sezon) → sezon özeti
+    akibet: dict = field(default_factory=dict)  # (kol, kural, sezon) → FIFO akıbeti (koşunun tablolarından)
+    sinama: pd.DataFrame | None = None
+    yollar: dict | None = None
+    oyun_json: dict | None = None
+    hazirlik_onbellekten: bool = True
 
-    @property
-    def b(self):
-        return self.H["baglam"]
-
-    @property
-    def w(self):
-        return self.H["baglam"].dunya
-
-
-def hazirla_b(talep=None) -> VeriB:
-    from perakende_veri.v3.dunya import dunya_kur, talep_matrisi
-
-    w = dunya_kur()
-    H = oyun.hazirlik(w, talep if talep is not None else talep_matrisi(w))
-    K = oyun.tum_kollar(H)
-    return VeriB(H, K)
+    def onbellek_durumu(self) -> dict:
+        d = {"lumoda (hazırlık)": bool(self.hazirlik_onbellekten)}
+        d |= {f"{k}|{r}": bool(v.onbellekten) for (k, r), v in self.K.items() if (k, r) != ("mevcut", "a")}
+        d |= {f"seçim {r}": bool(v.onbellekten) for r, v in self.secim_kosulari.items()}
+        return d
 
 
-def _oid(v: VeriB, option_id: str) -> int:
-    return int(np.flatnonzero(v.w.optionlar["option_id"].to_numpy() == option_id)[0])
+FIFO_KOLLARI = [("mevcut", "a"), ("mevcut", "b"), ("mevcut", "c"), ("mevcut", "d"), ("frr3", "b"),
+                ("oneri", "b"), ("oneri_lojistik", "b"), ("kahin", "b")]
 
 
-def _tarih(v: VeriB, gun) -> str:
-    return t_(v.w.takvim["tarih"].iloc[int(gun)]) if gun is not None and gun >= 0 else "—"
+def _metin(df: pd.DataFrame) -> pd.DataFrame:
+    for c in df.columns:
+        if isinstance(df[c].dtype, pd.CategoricalDtype):
+            df[c] = df[c].astype(str)
+    return df
 
 
-# ---------------------------------------------------------------------
+def kosu_akibeti(kosu, opt: pd.DataFrame, sezon: str) -> pd.DataFrame:
+    """Bir koşunun RPT akıbeti (`hikaye.rpt_akibeti`, FIFO), koşunun kendi tablolarından:
+    sezonun Collection SKU'ları; `depo_stok` yalnız pazartesileri (yayımlanan yükleyiciyle aynı)."""
+    c = opt[(opt["sezon_kodu"] == sezon) & (opt["line"] == "Collection")]
+    u = _metin(kosu.tablo("urun", ["urun_id", "option_id"]))
+    u = u[u["option_id"].isin(set(c["option_id"].astype(str)))]
+    sku = list(u["urun_id"])
+    ds = _metin(kosu.tablo("depo_stok", ["tarih", "urun_id", "adet"], urunler=sku))
+    sa = _metin(kosu.tablo("satis", ["tarih", "magaza_id", "urun_id", "adet"], urunler=sku))
+    t = {
+        "urun": u,
+        "siparis": _metin(kosu.tablo("siparis", urunler=sku)),
+        "kalite_kontrol": _metin(kosu.tablo("kalite_kontrol")),
+        "depo_stok": ds[pd.to_datetime(ds["tarih"]).dt.dayofweek == 0].reset_index(drop=True),
+        "sevkiyat": _metin(kosu.tablo("sevkiyat", ["tarih", "varis_tarihi", "kaynak", "hedef", "urun_id", "adet", "tip"],
+                                      urunler=sku)),
+        "satis": sa[sa["magaza_id"] == kaynak.ONLINE].reset_index(drop=True),
+    }
+    return hikaye.rpt_akibeti(t, opt, sezon)
+
+
+def secim_kosulari(H) -> tuple[pd.DataFrame, dict]:
+    """`oyun.dagitim_tablosu`'nun kopyası (aynı koşu adları ve parametreler: önbellekten), koşularla."""
+    satir, kosular = [], {}
+    for kural in dagitim.KURAL_ADLARI:
+        rep = oyun.dagitim_politikasi(H, kural, (oyun.SECIM_SEZONU,))
+        k = oyun._kos(f"y{H.yol}_secim_{kural}", None, replenishment=rep,
+                      parametreler={"secim": oyun.SECIM_SEZONU, "kural": kural}, talep_tohumu=H.talep_tohumu,
+                      onbellek=H.onbellek, olcek=H.olcek)
+        oz = olcutler.sezon_ozeti(olcutler.ozet(k, oyun.SECIM_SEZONU))
+        kosular[kural] = k
+        satir.append({"kural": kural, **{c: oz[c] for c in (
+            "kar", "gelir", "karsilanmayan", "kalici_kayip", "satis_tf", "satis_ind", "rpt", "rpt_giren",
+            "rpt_bosa", "magazaya", "stoklu_pay_tf", "ikameye_giden")}})
+    return pd.DataFrame(satir), kosular
+
+
+def kollar_olc(K: dict, sezon: str, kahin_anahtari) -> tuple[dict, dict]:
+    """`oyun.ozet_tablosu`'nun kopyası; option tablolarını da döndürür."""
+    taban = olcutler.ozet(K[("rpt_yok", "a")], sezon)
+    kh = olcutler.ozet(K[kahin_anahtari], sezon, taban)
+    o, oz = {}, {}
+    for anahtar, k in K.items():
+        tab = kh if anahtar == kahin_anahtari else olcutler.ozet(k, sezon, taban)
+        o[anahtar] = tab
+        oz[anahtar] = olcutler.sezon_ozeti(tab, kh)
+    return o, oz
+
+
+def hazirla_b(va) -> VeriB:
+    H = va.H
+    secim, sk = secim_kosulari(H)
+    en_iyi = oyun.en_iyi_kural(secim)
+    K = oyun.tum_kollar(H, en_iyi=en_iyi, ilerleme=None)
+    vb = VeriB(secim=secim, en_iyi=en_iyi, K=K, secim_kosulari=sk, hazirlik_onbellekten=H.kosu.onbellekten)
+    for G in OYUN:
+        o, oz = kollar_olc(K, G, ("kahin", en_iyi))
+        for (kol, kural) in K:
+            vb.o[(kol, kural, G)] = o[(kol, kural)]
+            vb.oz[(kol, kural, G)] = oz[(kol, kural)]
+        for kol, kural in FIFO_KOLLARI:
+            if (kol, kural) in K:
+                vb.akibet[(kol, kural, G)] = kosu_akibeti(K[(kol, kural)], va.opt, G)
+    for kural, k in sk.items():
+        vb.akibet[("secim", kural, oyun.SECIM_SEZONU)] = kosu_akibeti(k, va.opt, oyun.SECIM_SEZONU)
+    vb.sinama = oyun.sinama(H, K[("rpt_yok", "a")])
+    vb.yollar = json.loads(yollar.CIKTI.read_text(encoding="utf-8")) if yollar.CIKTI.exists() else None
+    oj = oyun.CIKTI / "oyun.json"
+    vb.oyun_json = json.loads(oj.read_text(encoding="utf-8")) if oj.exists() else None
+    return vb
+
+
+def _kayit(vb: VeriB, kol: str, kural: str) -> pd.DataFrame:
+    k = vb.K[(kol, kural)].kayitlar.get("rpt")
+    return pd.DataFrame(columns=["gun", "option", "option_id", "h", "adet"]) if k is None else k
+
+
+def _mense(va, ids) -> pd.Series:
+    return va.opt.set_index("option_id").loc[list(ids), "mense"]
+
+
+# ---------------------------------------------------------------------------
 # ADAY (4. yazı)
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 
-def aday_bolumu(v: VeriB) -> None:
-    baslik("ADAY (4. yazı) — hangi ürün RPT'ye aday")
+def aday_bolumu(va, vb: VeriB, ek: list) -> None:
+    baslik("ADAY (4. yazı) — Hangi ürün RPT'ye aday")
     print("  Satır: Collection option'ı × karar pazartesisi h = 2…6, henüz RPT'si yokken.")
-    print("  Etiket: 'bu pazartesi max(MOQ, newsvendor) RPT verilseydi, gelen adetlerden en az MOQ/2")
-    print("  tam fiyattan satılır mıydı?' (i) gerçek talep ile, (ii) sonradan stoklu gün düzeltmeli")
-    print("  talep ile. Modeller (ii) ile, oyun sezonundan önce kapanmış sezonlarda eğitilir.")
-    print("  Sınama satırları rpt_yok kolundan (RPT'nin kendisi envanteri değiştirmesin diye).")
-    for G in v.b.oyun_sezonlari:
-        at = v.H["aday"][G]
-        e, t = at["egitim"], at["sinama"]
-        alt(f"{G} — eğitim {', '.join(sorted(set(v.w.optionlar['sezon_kodu'].to_numpy()[e['option']])))}"
-            f" ({len(e)} satır, {e['option'].nunique()} option), sınama {G} ({len(t)} satır)")
-        for ad, d in (("eğitim", e), ("sınama", t)):
-            print(f"  {ad}: pozitif (ii) {int(d['etiket_duz'].sum())} ({y(d['etiket_duz'].mean())}), "
-                  f"pozitif (i) {int(d['etiket_gercek'].sum())} ({y(d['etiket_gercek'].mean())}); "
-                  f"(i) ile (ii) aynı {y((d['etiket_duz'] == d['etiket_gercek']).mean())}; "
-                  f"(ii) pozitif, (i) negatif {int((d['etiket_duz'] & ~d['etiket_gercek']).sum())}, "
-                  f"tersi {int((~d['etiket_duz'] & d['etiket_gercek']).sum())}")
-        # Sınama satırları rpt_yok kolundan; gerçekleşen tarihle kıyas
-        km = v.H["kayit_mevcut"]
-        m = t[["option", "h", "x", "D", "acik"]].merge(km[["option", "h", "x", "D", "acik"]],
-                                                     on=["option", "h"], suffixes=("", "_g"))
-        print(f"  sınama satırlarının bugüne kadarki satışı (x) ve düzeltilmiş talebi (D) gerçekleşen tarihle "
-              f"aynı: x farklı {int((m['x'] != m['x_g']).sum())}/{len(m)}, D farklı "
-              f"{int(((m['D'] - m['D_g']).abs() > 1e-9).sum())}/{len(m)}. Yalnız envanter pozisyonu ayrılabilir: "
-              f"gerçekleşen tarihte Banu'nun verdiği RPT açık sipariş olarak görünür "
-              f"({int((m['acik'] != m['acik_g']).sum())} satır).")
-        if len(e) < 600:
-            print(f"  NOT: {G} eğitimi küçük ({len(e)} satır, {int(e['etiket_duz'].sum())} pozitif) — "
-                  f"sonuçlar kırılgan.")
-        m = v.b.modeller[G]
-        tahminler = {
-            "Banu kuralı (STR ≥ %55)": aday.banu_kurali(t, v.w),
-            "lojistik (p ≥ 0,5)": m.olasilik(t, "lojistik") >= 0.5,
-            "LightGBM (p ≥ 0,5)": m.olasilik(t, "lgbm") >= 0.5,
-            "[mükemmel: etiket (i)]": t["etiket_gercek"].to_numpy(bool),
+    print("  Etiket: 'bu pazartesi max(MOQ, newsvendor) RPT verilseydi, gelen maldan en az MOQ/2'si tam")
+    print("  fiyattan satılır mıydı?' (i) gerçek talep ile (sahada yok), (ii) sezon sonunda karar anı Basit'iyle")
+    print("  doldurulmuş talep ile (sahada kurulabilir; oyun sezonunun ilk lansman sabahında bilinenle).")
+    print("  Modeller (ii) ile, oyun sezonundan önce kapanmış sezonların satırlarıyla eğitilir; sınama")
+    print("  satırları rpt_yok kolunun dünyasından (kolun karar anında gördüğüyle), etiket (i) o koşunun talebinden.")
+    ogr = va.ogr
+    alt("Eğitim satırları ve iki etiketin uyumu")
+    for G in OYUN:
+        e = va.H.egitim[G]
+        u = aday.uyum(e)
+        m = ogr.modeller[G]
+        print(f"  {G} eğitimi ({', '.join(m.sezonlar)}; {s(len(e))} satır, {s(e['option_id'].nunique())} option): "
+              f"pozitif (ii) {s(u['pozitif_duz'])} ({y(pay(u['pozitif_duz'], u['n']))}), pozitif (i) "
+              f"{s(u['pozitif_gercek'])} ({y(pay(u['pozitif_gercek'], u['n']))})")
+        print(f"    ikisi pozitif {s(u['ikisi'])}, yalnız (i) {s(u['yalniz_gercek'])}, yalnız (ii) {s(u['yalniz_duz'])}, "
+              f"ikisi negatif {s(u['hicbiri'])}; aynı sonuç {y(u['uyum'])}, κ {s(u['kappa'], 3)}")
+        ek.append((f"{G} modeli eğitim satırı = eğitim tablosu", m.n == len(e) and m.pozitif == u["pozitif_duz"]))
+    for G in OYUN:
+        e = va.H.egitim[G]
+        alt(f"{G} eğitiminde pozitifler (ii) menşe × h (satır / pozitif)")
+        _mense_h_tablosu(e, "etiket_duz", va.opt.set_index("option_id")["mense"])
+
+    s_ = vb.sinama
+    for G in OYUN:
+        t = s_[s_["sezon_kodu"] == G]
+        alt(f"{G} sınaması (rpt_yok dünyası; {s(len(t))} satır = {s(t['option_id'].nunique())} option × "
+            f"{s(t['h'].nunique())} hafta)")
+        print(f"  pozitif (i) {s(t['etiket_gercek'].sum())} ({y(pay(t['etiket_gercek'].sum(), len(t)))})")
+        _mense_h_tablosu(t, "etiket_gercek", va.opt.set_index("option_id")["mense"])
+        tah = {
+            "Banu kuralı (STR ≥ %55, h 3–6)": t["banu"].to_numpy(bool),
+            "lojistik (p ≥ 0,5)": t["p_lojistik"].to_numpy() >= aday.ESIK,
+            "LightGBM (p ≥ 0,5)": t["p_lgbm"].to_numpy() >= aday.ESIK,
+            "mükemmel (etiket (i))": t["etiket_gercek"].to_numpy(bool),
         }
-        print(f"  {'model':26s} {'alarm':>5s} {'TP':>3s} {'FP':>4s} {'FN':>3s} {'isabet':>7s} "
-              f"{'duyarl.':>7s} {'yanlış alarm TL':>15s} {'kaçırma TL':>12s} | {'ilk alarm':>9s} "
-              f"{'ilk alarm kârı TL':>17s}")
-        for ad, tah in tahminler.items():
-            r = aday.degerlendir(tah, t, "gercek")
-            print(f"  {ad:26s} {r['tp'] + r['fp']:>5d} {r['tp']:>3d} {r['fp']:>4d} {r['fn']:>3d} "
-                  f"{y(r['isabet'], 0):>7s} {y(r['duyarlilik'], 0):>7s} {s(r['yanlis_alarm_tl']):>15s} "
-                  f"{s(r['kacirma_tl']):>12s} | {r['ilk_alarm_option']:>9d} {s(r['ilk_alarm_kar_tl']):>17s}")
-        print("  (etiket (i) ile; TL = sonradan bakış kârı; ilk alarm: option'ın ilk alarmında sipariş "
-              "verilseydi, en fazla bir RPT)")
-    alt("Lojistik regresyon katsayıları (SS25 modeli, ölçeklenmiş özellikler)")
-    kat = v.b.modeller["SS25"].katsayilar()
-    for ad, k in kat.items():
-        print(f"  {ad:20s} {s(k, 2):>6s}")
-    alt("Eğitim satırlarında pozitiflerin menşeye ve haftaya dağılımı (SS25 eğitimi)")
-    e = v.H["aday"]["SS25"]["egitim"]
-    for (uzak, h), g in e.groupby(["uzak", "h"]):
-        print(f"  {'Uzak Doğu' if uzak else 'Yerli':9s} h={int(h)}: {len(g):3d} satır, pozitif "
-              f"{int(g['etiket_duz'].sum())}")
+        print(f"  {'model':31s} {'alarm':>5s} {'TP':>4s} {'FP':>4s} {'FN':>4s} {'isabet':>7s} {'duyarl.':>7s} "
+              f"{'yanlış alarm TL':>16s} {'kaçırma TL':>15s} | {'ilk alarm':>9s} {'ilk alarm kârı TL':>18s}")
+        sonuc = {}
+        for ad, tt in tah.items():
+            r = aday.degerlendir(tt, t, "gercek")
+            sonuc[ad] = r
+            print(f"  {ad:31s} {s(r['tp'] + r['fp']):>5s} {s(r['tp']):>4s} {s(r['fp']):>4s} {s(r['fn']):>4s} "
+                  f"{y(r['isabet']):>7s} {y(r['duyarlilik']):>7s} {s(r['yanlis_alarm_tl']):>16s} "
+                  f"{s(r['kacirma_tl']):>15s} | {s(r['ilk_alarm_option']):>9s} {s(r['ilk_alarm_kar_tl']):>18s}")
+        mk = sonuc["mükemmel (etiket (i))"]["ilk_alarm_kar_tl"]
+        print("  ilk alarm kârı, mükemmelin: " + "; ".join(
+            f"{ad.split(' (')[0]} {y(pay(r['ilk_alarm_kar_tl'], mk))}" for ad, r in sonuc.items()
+            if not ad.startswith("mükemmel")))
+        print("  (TL: sonradan bakış kârı (i); yanlış alarm = alarm verilip etiketi negatif satırların zararı, "
+              "kaçırma = alarmsız pozitif satırların kârı; ilk alarm: option'ın ilk alarmında sipariş, en fazla bir RPT)")
+        print("  milyon TL: " + "; ".join(
+            f"{ad.split(' (')[0]} yanlış alarm {mn(r['yanlis_alarm_tl'], 1)}, kaçırma {mn(r['kacirma_tl'], 1)}, "
+            f"ilk alarm {mn(r['ilk_alarm_kar_tl'], 1)}" for ad, r in sonuc.items()))
+
+    for G in OYUN:
+        alt(f"Lojistik regresyon katsayıları ({G} modeli, ölçeklenmiş özellikler; büyükten küçüğe)")
+        kat = ogr.modeller[G].katsayilar()
+        for i, (ad, k) in enumerate(kat.items(), start=1):
+            print(f"  {i:2d}. {OZELLIK_ADI.get(ad, ad):42s} {s(k, 2):>6s}")
+        en = abs(kat.iloc[0])
+        st = kat["str"]
+        print(f"  zincir STR'si {list(kat.index).index('str') + 1}. sırada; |katsayı| en büyüğe "
+              f"oranı {s(bolum(abs(st), abs(en), 2, 2), 2)} (|{s(st, 2)}| / |{s(en, 2)}|)")
+
+    alt("Öneri kolu LightGBM ile ve lojistikle (aynı dağıtım)")
+    for G in OYUN:
+        a = _kayit(vb, "oneri", vb.en_iyi)
+        b = _kayit(vb, "oneri_lojistik", vb.en_iyi)
+        sa = set(a.loc[a["option_id"].map(_sezon_haritasi(va)) == G, "option_id"])
+        sb = set(b.loc[b["option_id"].map(_sezon_haritasi(va)) == G, "option_id"])
+        da = vb.oz[("oneri", vb.en_iyi, G)]["d_kar"]
+        db = vb.oz[("oneri_lojistik", vb.en_iyi, G)]["d_kar"]
+        print(f"  {G}: LightGBM {s(len(sa))} option, lojistik {s(len(sb))} option; ortak {s(len(sa & sb))}, yalnız "
+              f"LightGBM {s(len(sa - sb))}, yalnız lojistik {s(len(sb - sa))}; Δkâr LightGBM {tl(da)}, lojistik {tl(db)} "
+              f"(fark {tl(fark(db, da))})")
 
 
-# ---------------------------------------------------------------------
+def _ad(anahtar: str) -> str:
+    """"kol|kural" → okunur ad: "Banu / b"."""
+    kol, kural = anahtar.split("|")
+    return f"{KOL_ADI[kol]} / {kural}"
+
+
+def _sezon_haritasi(va) -> pd.Series:
+    return va.opt.set_index("option_id")["sezon_kodu"]
+
+
+def _mense_h_tablosu(d: pd.DataFrame, etiket: str, mense: pd.Series) -> None:
+    """Satır / pozitif, menşe × h (menşe option tablosundan)."""
+    d = d.assign(_m=d["option_id"].astype(str).map(mense).to_numpy())
+    print(f"    {'menşe':9s} " + " ".join(f"{'h=' + str(h):>9s}" for h in HAFTALAR) + f" {'toplam':>11s}")
+    for m in MENSELER:
+        g = d[d["_m"] == m]
+        if g.empty:
+            continue
+        print(f"    {m:9s} " + " ".join(
+            f"{s(len(g[g['h'] == h])) + '/' + s(g.loc[g['h'] == h, etiket].sum()):>9s}" for h in HAFTALAR)
+              + f" {s(len(g)) + '/' + s(g[etiket].sum()):>11s}")
+
+
+# ---------------------------------------------------------------------------
 # MİKTAR (5. yazı)
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 
-def miktar_bolumu(v: VeriB) -> None:
-    baslik("MİKTAR (5. yazı) — ne kadar, ne zaman")
-    w = v.w
-    opt = w.optionlar
-    alt("Kestirim belirsizliği (d katmanı, log(gerçek/kestirim), geçmiş sezonlardan)")
-    for G in v.b.oyun_sezonlari:
-        bel = v.b.belirsizlik[G]
-        print(f"  {G} ← {', '.join(bel.sezonlar)}: " + "; ".join(
-            f"h={h}: μ {s(bel.mu[h], 3)}, σ {s(bel.sigma[h], 3)}" for h in sorted(bel.mu)))
+def _hikaye_satiri(va, oid: str, h: int) -> pd.Series:
+    """Yayımlanan dünyanın (Banu'nun gördüğü) h. pazartesi sabahı: karar anı x, D (SANSÜR
+    katmanlarıyla aynı) + tablodan durum → `aday.ozellikler` satırı."""
+    ogr = va.ogr
+    o = va.opt.set_index("option_id").loc[oid]
+    G = o["sezon_kodu"]
+    k = va.katman[G]
+    k = k[(k["option_id"] == oid) & (k["h"] == h)]
+    karar = pd.Timestamp(k["karar_ani"].iloc[0])
+    kayit = k[["option_id", "h", "karar_ani", "x", "D", "stoklu_pay"]].assign(sezon_kodu=G, dalga=int(o["dalga"]))
+    durum = aday.durum_tablodan(va.t, karar, [oid])
+    kayit = kayit.merge(durum, on="option_id")
+    return aday.ozellikler(kayit, ogr.optionlar, ogr.egriler[G], ogr.belirsizlik[G], ogr.p_ind).iloc[0]
 
-    alt("Fiyat, maliyet, indirim fiyatı (Collection, oyun sezonları, option ortalaması)")
-    mask = v.b.oyun_maskesi()
-    p, c, pi = opt["liste_fiyati"].to_numpy()[mask], opt["alis_fiyati"].to_numpy()[mask], v.b.p_ind[mask]
-    print(f"  liste {s(p.mean())} TL, alış {s(c.mean())} TL (liste/alış {s((p / c).mean(), 2)}), "
-          f"indirim dönemi beklenen fiyat {s(pi.mean())} TL (listenin {y((pi / p).mean())})")
-    print(f"  Cu = liste − alış ≈ {s((p - c).mean())} TL; Co = alış − indirim fiyatı ≈ {s((c - pi).mean())} TL "
-          f"(indirimde satılırsa; negatifse indirimde satmak bile kârlı), hiç satılmazsa {s(c.mean())} TL")
-    print(f"  kritik oran (yalnız tam fiyat vs hiç satılmaz): Cu/(Cu+c) = {y(((p - c) / p).mean())}")
 
-    alt("Hikâye option'ları, h=3 pazartesisi: dört miktar")
-    print("  (gerçekleşen tarihin h=3 sabahı — HİKÂYE/SANSÜR bölümleriyle aynı x, D, d; rpt_yok kolunun "
-          "sabahıyla da aynı, h=3'e kadar RPT gelmediği için)")
-    kahin = v.K["rp"][("kahin", v.K["en_iyi"])]
-    for etiket, oid in HIKAYE.items():
-        o = _oid(v, oid)
-        G = opt.at[o, "sezon_kodu"]
-        # Gerçekleşen tarihin (Banu'nun gördüğü) h=3 sabahı; Faz A ile birebir
-        km = v.H["kayit_mevcut"]
-        km = km[(km["option"] == o) & (km["h"] == 3)]
-        if km.empty:
-            continue
-        r = aday.ozellikler(km, w, v.b.egriler[G], v.b.belirsizlik[G], v.b.p_ind).iloc[0]
-        e = v.b.egriler[G]
-        dalga = int(opt.at[o, "dalga"])
-        mu, sg = v.b.belirsizlik[G].al(3)
-        nv = miktar.newsvendor(r["D"], 3, int(r["L"]), r["W"], e[("duzeltilmis", "indirim")],
-                               e[("duzeltilmis", "cikis")], dalga, r["ip"], float(opt.at[o, "liste_fiyati"]),
-                               float(opt.at[o, "alis_fiyati"]), float(v.b.p_ind[o]), mu, sg, int(r["moq"]))
-        q_banu = miktar.banu(float(w.ilk_alim[o]), int(r["moq"]))
-        q_frr = miktar.frr(r["x"], e[("ham", "indirim")].k((dalga,), 3), float(w.ilk_alim[o]), int(r["moq"]))
-        plan = kahin.plan.get(o)
-        print(f"  {oid} ({opt.at[o, 'mense']}, RPT {int(r['L'])} hf, MOQ {s(r['moq'])}, Q1 {s(w.ilk_alim[o])}):")
-        print(f"    bugüne kadar x = {s(r['x'])}, D = {s(r['D'])}; d kestirimi {s(r['d_kestirim'])}; "
-              f"envanter pozisyonu {s(r['ip'])} (depo {s(r['depo'])}, mağaza {s(r['magaza'])}, açık {s(r['acik'])})")
-        print(f"    beklenen: geliş öncesi talep {s(nv['B'])}, gelişten indirime tam fiyat talep {s(nv['Xtf'])}, "
-              f"indirim dönemi {s(nv['Xind'])}")
-        print(f"    Banu %50: {s(q_banu)} · FRR: {s(q_frr)} · newsvendor: {s(nv['q'])} "
-              f"(kapısız en iyi {s(nv['q_serbest'])}; beklenen tam fiyat satış {s(nv['beklenen_tf'])}, "
-              f"indirimli {s(nv['beklenen_ind'])}, kâr {s(nv['beklenen_kar'])} TL)")
-        if plan:
-            print(f"    kâhin: {_tarih(v, plan[0])} (h={(plan[0] - opt.at[o, 'lansman_gun']) // 7}) {s(plan[1])} adet")
-        else:
-            print("    kâhin: RPT vermez")
+def miktar_bolumu(va, vb: VeriB, ek: list) -> None:
+    baslik("MİKTAR (5. yazı) — Ne kadar, ne zaman")
+    ogr = va.ogr
+    opt = ogr.optionlar
+    alt("Fiyat, maliyet, indirim dönemi beklenen fiyatı (Collection, option ortalaması)")
+    for ad, sez in (("AW24 + SS25", OYUN), *((G, (G,)) for G in OYUN)):
+        c = opt[(opt["line"] == "Collection") & opt["sezon_kodu"].isin(sez)]
+        p, cc = c["liste_fiyati"].astype(float), c["alis_fiyati"].astype(float)
+        pi = ogr.p_ind.reindex(c["option_id"].astype(str)).to_numpy(float)
+        P, C, PI = p.mean(), cc.mean(), float(np.mean(pi))
+        print(f"  {ad}: liste {tl(P)}, alış {tl(C)} (liste / alış {s(bolum(P, C), 2)}), indirim dönemi beklenen "
+              f"fiyat {tl(PI)} (indirim fiyatı / liste {y(pay(PI, P))})")
+        print(f"    Cu = liste − alış = {s(P)} − {s(C)} ≈ {tl(fark(C, P))}; Co (indirimde satılırsa) = alış − "
+              f"indirim fiyatı = {s(C)} − {s(PI)} ≈ {tl(fark(PI, C))}; Co (hiç satılmazsa) = alış {tl(C)}")
+        print(f"    kritik oran (tam fiyat vs hiç satılmaz) Cu / (Cu + alış) = {s(fark(C, P))} / "
+              f"({s(fark(C, P))} + {s(C)}) = {y(bolum(fark(C, P), fark(C, P) + round(C)))}")
+        print(f"    indirim fiyatı alışın üstünde olan option {s((pi > cc.to_numpy()).sum())}/{s(len(c))}")
+    alt("Kestirim belirsizliği: log(hedef / d kestirimi), geçmiş sezonlardan (hedef: Basit'le doldurulmuş talep)")
+    for G in OYUN:
+        b = ogr.belirsizlik[G]
+        print(f"  {G} ← {', '.join(b.sezonlar)}: " + "; ".join(
+            f"h={h}: μ {s(b.mu[h], 3)}, σ {s(b.sigma[h], 3)} (n={s(b.n[h])})" for h in sorted(b.mu)))
 
-    alt("Kollara göre RPT miktarı ve akıbeti (en iyi dağıtımla; yerli / Uzak Doğu)")
-    en = v.K["en_iyi"]
-    for G in v.b.oyun_sezonlari:
-        ops = oyun.oyun_optionlari(w, G)
-        taban = olcutler.option_olcutleri(w, v.K["ham"][("rpt_yok", "mevcut")], ops).set_index("option")
+    alt(f"Hikâye option'ları, {KARAR_H}. pazartesi (yayımlanan dünyanın sabahı, Banu'nun gördüğü)")
+    for oid in (va.hik.hit_option, va.hik.gec_option):
+        r = _hikaye_satiri(va, oid, KARAR_H)
+        o = opt.set_index("option_id").loc[oid]
+        G = o["sezon_kodu"]
+        e = ogr.egriler[G]
+        d = int(o["dalga"])
+        mu, sg = ogr.belirsizlik[G].al(KARAR_H)
+        nv = miktar.newsvendor(r["D"], KARAR_H, int(r["L"]), r["W"], e[("duzeltilmis", "indirim")],
+                               e[("duzeltilmis", "cikis")], d, r["ip"], r["p"], r["c"], r["p_ind"], mu, sg, int(r["moq"]))
+        q_banu = miktar.banu(float(o["ilk_alim"]), int(r["moq"]))
+        q_frr = miktar.frr(float(r["satilan"]), e[("ham", "indirim")].k((d,), KARAR_H), float(o["ilk_alim"]),
+                           int(r["moq"]))
+        print(f"  {oid} ({o['model_adi']} {o['renk']}; {o['mense']}, RPT {s(r['L'])} hafta, MOQ {s(r['moq'])}, "
+              f"ilk alım {s(o['ilk_alim'])}):")
+        print(f"    bugüne kadar brüt satış x {s(r['x'])}, düzeltilmiş talep D {s(r['D'])}; d kestirimi (lansman → indirim) "
+              f"{s(r['d_kestirim'])}; envanter pozisyonu {s(r['ip'])} (depo {s(r['depo'])} + mağaza {s(r['magaza'])} "
+              f"+ yolda {s(r['yolda'])} + açık sipariş {s(r['acik'])})")
+        print(f"    liste {tl(r['p'])}, alış {tl(r['c'])}, indirim fiyatı {tl(r['p_ind'])}; μ {s(mu, 3)}, σ {s(sg, 3)}")
+        print(f"    beklenen talep: bugünden RPT'nin gelişine {s(nv['B'])}, gelişten indirime tam fiyat {s(nv['Xtf'])}, "
+              f"indirim dönemi (gelişten sonra) {s(nv['Xind'])}")
+        print(f"    Banu (ilk alımın yarısı) {s(q_banu)} · FRR {s(q_frr)} · newsvendor {s(nv['q'])} (MOQ kapısız en iyi "
+              f"{s(nv['q_serbest'])}; beklenen tam fiyat satış {s(nv['beklenen_tf'])}, indirimli {s(nv['beklenen_ind'])}, "
+              f"kâr {tl(nv['beklenen_kar'])})")
+        ek.append((f"{oid}: newsvendor miktarı = aday özelliğinin q_nv'si", int(nv["q"]) == int(r["q_nv"])))
+        for kol in ("mevcut", "frr3", "oneri", "oneri_lojistik", "kahin"):
+            kk = _kayit(vb, kol, vb.en_iyi)
+            kk = kk[kk["option_id"] == oid]
+            if kk.empty:
+                print(f"    {KOL_ADI[kol]} / {vb.en_iyi}: RPT vermedi")
+                continue
+            x = kk.iloc[0]
+            ekb = f", p {s(x['p'], 2)}" if "p" in kk.columns and pd.notna(x.get("p")) else ""
+            print(f"    {KOL_ADI[kol]} / {vb.en_iyi}: {s(x['h'])}. pazartesi ({t_(_gun(va, x['gun']))}) {s(x['adet'])} "
+                  f"adet{ekb}")
+
+    alt("Ne zaman: kolların RPT kararları, karar haftasına ve menşeye göre (seçilen dağıtımla)")
+    sh = _sezon_haritasi(va)
+    for kol in ("mevcut", "frr3", "oneri", "oneri_lojistik", "kahin"):
+        kk = _kayit(vb, kol, vb.en_iyi)
+        for G in OYUN:
+            g = kk[kk["option_id"].map(sh) == G]
+            if g.empty:
+                print(f"  {KOL_ADI[kol]:17s} {G}: RPT yok")
+                continue
+            mm = _mense(va, g["option_id"]).to_numpy()
+            print(f"  {KOL_ADI[kol]:17s} {G}: {s(len(g))} RPT, {s(g['adet'].sum())} adet; h: " + ", ".join(
+                f"{int(h)}→{s(n)}" for h, n in g["h"].value_counts().sort_index().items()) + "; menşe: " + ", ".join(
+                f"{m} {s((mm == m).sum())}" for m in MENSELER if (mm == m).any()))
+
+    alt("Menşeye göre: RPT'li option'ların tabana (RPT yok) göre farkı (seçilen dağıtım)")
+    for G in OYUN:
         print(f"  {G}:")
-        for kol in ("mevcut", "frr2", "frr3", "oneri", "oneri_lojistik", "kahin"):
-            k = olcutler.option_olcutleri(w, v.K["ham"][(kol, en)], ops).set_index("option")
-            parca = []
-            for m in ("Yerli", "Uzak Doğu"):
-                km = k[(k["mense"] == m) & (k["rpt"] > 0)]
-                tm = taban.loc[km.index]
-                parca.append(f"{m} {len(km)} option / {s(km['rpt'].sum())} adet, ek tf {s((km['satis_tf'] - tm['satis_tf']).sum())}"
-                             f", ek ind {s((km['satis_ind'] - tm['satis_ind']).sum())}, Δkâr {s((km['kar'] - tm['kar']).sum())}")
-            print(f"    {KOL_ADI[kol]:18s} " + " | ".join(parca))
-
-    alt("oneri kolunun kararları (h, olasılık, miktar), SS25")
-    rp = v.K["rp"][("oneri", en)]
-    for gun, o, q, bilgi in rp.kayit:
-        if opt.at[o, "sezon_kodu"] != "SS25":
-            continue
-        print(f"  {opt.at[o, 'option_id']:12s} {opt.at[o, 'mense']:9s} h={int(bilgi['h'])} p={s(bilgi['p'], 2)} "
-              f"{s(q):>6s} adet ({_tarih(v, gun)})")
+        for kol in ("mevcut", "frr3", "oneri", "kahin"):
+            for kural in (("a", vb.en_iyi) if kol == "mevcut" else (vb.en_iyi,)):
+                o = vb.o[(kol, kural, G)]
+                rp = o[o["rpt"] > 0]
+                parca = []
+                for m in MENSELER:
+                    g = rp[rp["mense"] == m]
+                    parca.append(f"{m} {s(len(g))} opt / {s(g['rpt'].sum())} adet, ek tf {s(g['d_satis_tf'].sum())}, "
+                                 f"ek ind {s(g['d_satis_ind'].sum())}, Δkâr {tl(g['d_kar'].sum())}")
+                print(f"    {KOL_ADI[kol] + ' / ' + kural:17s} " + " | ".join(parca))
+                print(f"    {'':17s} RPT'li toplam Δkâr {tl(rp['d_kar'].sum())}; RPT'siz option'ların Δkârı "
+                      f"{tl(o.loc[o['rpt'] == 0, 'd_kar'].sum())}; sezon Δkârı {tl(o['d_kar'].sum())}")
 
 
-# ---------------------------------------------------------------------
+def _gun(va, gun) -> pd.Timestamp:
+    """Motor günü → tarih (takvim: dünyanın ısınma başlangıcından)."""
+    from rpt import motor
+    return pd.Timestamp(motor._gun_tarihi([int(gun)])[0])
+
+
+# ---------------------------------------------------------------------------
 # SONUÇ (6. yazı)
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 
-KOLON = [("rpt_option", "RPT opt", 0), ("rpt", "RPT adet", 0), ("rpt_magazaya", "mağazaya", 0),
-         ("rpt_depoda_kalan", "depoda kalan", 0), ("rpt_indirimden_sonra", "geç gelen", 0),
-         ("rpt_ek_tf", "ek tf satış", 0), ("rpt_ek_ind", "ek ind satış", 0),
-         ("kurtarilan_kayip", "kurtarılan kayıp", 0), ("kurtarilan_kayip_tl", "kurtarılan TL", 0),
-         ("delta_kar", "Δ brüt kâr TL", 0), ("yanlis_alarm", "yanlış alarm", 0),
-         ("kacirilan", "kaçırılan", 0), ("magazaya", "mağazaya toplam", 0), ("stoklu_pay_tf", "stoklu pay", 3)]
+def _fifo_satiri(ak: pd.DataFrame) -> str:
+    g = ak["rpt_giren"].sum()
+    return (f"giren {s(g)}: çıkışta depoda {s(ak['rpt_depoda_cikista'].sum())} ({y(pay(ak['rpt_depoda_cikista'].sum(), g))}), "
+            f"çıkışa dek çıkan {s(ak['rpt_cikisa_kadar'].sum())} (mağazaya {s(ak['rpt_magazaya_alt'].sum())}–"
+            f"{s(ak['rpt_magazaya_ust'].sum())}), outlet'e {s(ak['rpt_outlete'].sum())}, pencere sonu depoda "
+            f"{s(ak['rpt_depoda_kalan'].sum())}")
 
 
-def _kollar_tablosu(tab: pd.DataFrame, satirlar) -> None:
-    print("  " + f"{'kol':26s}" + "".join(f"{b:>17s}" for _, b, _ in KOLON))
-    for kol, kural in satirlar:
-        r = tab[(tab["kol"] == kol) & (tab["kural"] == kural)]
-        if r.empty:
-            continue
-        r = r.iloc[0]
-        ad = f"{KOL_ADI[kol]} / {kural}"
+KOLON = [("rpt_option", "RPT opt", 0), ("rpt", "RPT adet", 0), ("rpt_giren", "giren", 0),
+         ("rpt_bosa", "boşa (son)", 0), ("rpt_ek_tf", "ek tf", 0), ("rpt_ek_ind", "ek ind", 0),
+         ("kurtarilan", "kurtarılan", 0), ("kurtarilan_kalici", "kalıcı", 0), ("kurtarilan_ikame", "ikame", 0),
+         ("d_kar", "Δ kâr TL", 0), ("yanlis_alarm", "yanl. alarm", 0), ("kacirilan", "kaçırılan", 0),
+         ("magazaya", "mağazaya", 0), ("stoklu_pay_tf", "stoklu pay", 3)]
+
+
+def sonuc_bolumu(va, vb: VeriB, ek: list) -> None:
+    baslik("SONUÇ (6. yazı) — RPT geldi, mağazada satış sıfır")
+    en = vb.en_iyi
+    print("  Değerleme: gelir (gerçekleşen satış tutarı; markdown, kampanya, outlet dahil) − alış × depoya giren "
+          "(ilk alım + RPT − kalite reddi); pencere sonunda kalan stok 0 TL. Taban: RPT yok (aynı talep tohumu).")
+    print("  Kurtarılan kayıp = tabana göre karşılanmayan talebin düşüşü (kalıcı kayıp + başka ürüne ikame).")
+    print("  Kâhin: aynı tohumlu RPT yok koşusunun talebini bilen kol (RPT verilmeseydi gelecek talebi bilen); "
+          "zincir düzeyinde düşünür, üst sınır değildir.")
+
+    alt(f"Dağıtım kuralının seçimi (oyundan önce, {oyun.SECIM_SEZONU}; Banu'nun RPT'leri, dört kural)")
+    a0 = vb.secim.set_index("kural").loc["a", "kar"]
+    for r in vb.secim.itertuples(index=False):
+        ak = vb.akibet[("secim", r.kural, oyun.SECIM_SEZONU)]
+        print(f"  {r.kural}: {oyun.SECIM_SEZONU} Collection kârı {tl(r.kar)} ({mn(r.kar, 1)}; a'ya göre "
+              f"{tl(fark(a0, r.kar))}), karşılanmayan {s(r.karsilanmayan)} (kalıcı {s(r.kalici_kayip)}), tam fiyat "
+              f"satış {s(r.satis_tf)}, indirimli {s(r.satis_ind)}, mağazaya giden (bütün mal) {s(r.magazaya)}")
+        print(f"     RPT {s(r.rpt)} adet; {_fifo_satiri(ak)}; pencere sonu kalan RPT (boşa) {s(r.rpt_bosa)}")
+        ek += fifo_denetimleri(ak, f"seçim {r.kural}")
+    print(f"  seçilen kural: {en} (b stoklu gün hızı, c yeniden lansman, d c + %30 depoda tutma; a bugünkü kural, "
+          f"taban); oyun.json'daki seçim {vb.oyun_json['en_iyi'] if vb.oyun_json else '—'}")
+    if vb.oyun_json:
+        ek.append(("seçilen dağıtım kuralı = oyun.json", vb.oyun_json["en_iyi"] == en))
+
+    gec = va.hik.gec_option
+    alt(f"Geç gelen ({gec}): Banu'nun RPT'si her dağıtım kuralıyla")
+    t0 = vb.o[("rpt_yok", "a", HIKAYE_SEZONU)].set_index("option_id").loc[gec]
+    for kural in ("a", "b", "c", "d"):
+        o = vb.o[("mevcut", kural, HIKAYE_SEZONU)].set_index("option_id").loc[gec]
+        ak = vb.akibet[("mevcut", kural, HIKAYE_SEZONU)].set_index("option_id")
+        fifo = (f"çıkışta depoda {s(ak.loc[gec, 'rpt_depoda_cikista'])}, çıkışa dek çıkan "
+                f"{s(ak.loc[gec, 'rpt_cikisa_kadar'])} (mağazaya {s(ak.loc[gec, 'rpt_magazaya_alt'])}–"
+                f"{s(ak.loc[gec, 'rpt_magazaya_ust'])}), outlet'e {s(ak.loc[gec, 'rpt_outlete'])}"
+                if gec in ak.index else "RPT yok")
+        print(f"  {kural}: RPT {s(o['rpt'])} (giren {s(o['rpt_giren'])}), geldi {t_(o['rpt_teslim'])}; {fifo}; satış "
+              f"tf {s(o['satis_tf'])} ind {s(o['satis_ind'])}, karşılanmayan {s(o['karsilanmayan'])}, kâr {tl(o['kar'])} "
+              f"(RPT yoka göre {tl(o['d_kar'])})")
+    print(f"  RPT yok: satış tf {s(t0['satis_tf'])} ind {s(t0['satis_ind'])}, karşılanmayan {s(t0['karsilanmayan'])}, "
+          f"kâr {tl(t0['kar'])}")
+
+    for G in OYUN:
+        alt(f"Kollar — {G} (Collection, {s(len(vb.o[('rpt_yok', 'a', G)]))} option; taban RPT yok)")
+        _kollar_tablosu(vb, G)
+        t = vb.oz[("rpt_yok", "a", G)]
+        print(f"  taban (RPT yok): kâr {tl(t['kar'])} ({mn(t['kar'], 1)}), tam fiyat satış {s(t['satis_tf'])}, "
+              f"indirimli {s(t['satis_ind'])}, karşılanmayan {s(t['karsilanmayan'])} (kalıcı {s(t['kalici_kayip'])}, "
+              f"ikame {s(t['ikameye_giden'])}), pencere sonu kalan {s(t['kalan_son'])}")
+        print("  milyon TL Δkâr: " + "; ".join(
+            f"{KOL_ADI[k]}/{r} {mn(vb.oz[(k, r, G)]['d_kar'], 1)}" for k, r in oyun.kol_listesi(en) if (k, r) != ("rpt_yok", "a")))
+        for kol, kural in FIFO_KOLLARI:
+            ak = vb.akibet.get((kol, kural, G))
+            if ak is None or ak.empty:
+                continue
+            print(f"  FIFO {KOL_ADI[kol]} / {kural}: {_fifo_satiri(ak)}")
+            ek += fifo_denetimleri(ak, f"{kol}|{kural} {G}")
+        kh = vb.oz[("kahin", en, G)]["d_kar"]
+        print("  kâhinin Δkârının payı: " + "; ".join(
+            f"{KOL_ADI[k]}/{r} {y(pay(vb.oz[(k, r, G)]['d_kar'], kh))}" for k, r in
+            (("mevcut", "a"), ("mevcut", en), ("frr3", en), ("oneri", en), ("oneri_lojistik", en))))
+        da = vb.oz[("mevcut", "a", G)]["d_kar"]
+        db = vb.oz[("mevcut", en, G)]["d_kar"]
+        do = vb.oz[("oneri", en, G)]["d_kar"]
+        dag, kar = fark(da, db), fark(db, do)
+        print(f"  ayrıştırma: dağıtımın payı (Banu'nun RPT'leri, a → {en}) {tl(dag)} ({mn(dag, 1)}); kararın payı "
+              f"(Banu / {en} → öneri / {en}) {tl(kar)} ({mn(kar, 1)}); karar / dağıtım = {s(bolum(kar, dag), 2)}; "
+              f"toplam (Banu / a → öneri / {en}) {tl(fark(da, do))} ({mn(fark(da, do), 1)})")
+        o = vb.o[("oneri", en, G)]
+        rs = o.loc[o["rpt"] == 0, "d_kar"]
+        print(f"  RPT'siz option'lar (öneri / {en}): {s(len(rs))} option, Δkâr toplamı {tl(rs.sum())}, en büyük mutlak "
+              f"{tl(rs.abs().max())}. v4'te talep fiyata bağlı ve ikame var: RPT'li bir option'ın bulunurluğu "
+              f"komşu option'ların satışını değiştirir; RPT almayan option'ların kârı kollar arasında birebir aynı değil")
+        for (k_, r_), kk in vb.K.items():
+            ek += olcut_denetimleri(vb.o[(k_, r_, G)], vb.oz[(k_, r_, G)], f"{k_}|{r_} {G}")
+        # Banu kolu (mevcut, a) yayımlanan dünyadır: RPT'leri yayımlanan RPT'lerle aynı
+        yay = va.rpt_yay[va.rpt_yay["sezon_kodu"] == G]
+        m = vb.o[("mevcut", "a", G)]
+        ek.append((f"Banu / a {G}: RPT option ve adet = yayımlanan",
+                   int((m["rpt"] > 0).sum()) == yay["option_id"].nunique() and int(m["rpt"].sum()) == int(yay["adet"].sum())))
+        if G in va.akibet:
+            ya, ka = va.akibet[G], vb.akibet[("mevcut", "a", G)]
+            ek.append((f"Banu / a {G}: koşunun FIFO'su = yayımlanan tabloların FIFO'su",
+                       all(int(ya[c].sum()) == int(ka[c].sum()) for c in
+                           ("rpt_giren", "rpt_depoda_cikista", "rpt_cikisa_kadar", "rpt_outlete", "rpt_depoda_kalan"))))
+
+    hit = va.hik.hit_option
+    alt(f"Hit ({hit}) kollara göre")
+    for kol, kural in (("rpt_yok", "a"), ("mevcut", "a"), ("mevcut", en), ("frr3", en), ("oneri", en),
+                       ("oneri_lojistik", en), ("kahin", "a"), ("kahin", en)):
+        o = vb.o[(kol, kural, HIKAYE_SEZONU)].set_index("option_id").loc[hit]
+        lan = pd.Timestamp(va.opt.set_index("option_id").loc[hit, "lansman_tarihi"])
+        if o["rpt"] > 0:
+            h_ = (pd.Timestamp(o["rpt_siparis_tarihi"]) - lan).days / 7
+            ak = vb.akibet.get((kol, kural, HIKAYE_SEZONU))
+            fifo = ""
+            if ak is not None and hit in set(ak["option_id"]):
+                a_ = ak.set_index("option_id").loc[hit]
+                fifo = (f"; çıkışta depoda {s(a_['rpt_depoda_cikista'])}, outlet'e {s(a_['rpt_outlete'])}, mağazaya "
+                        f"{s(a_['rpt_magazaya_alt'])}–{s(a_['rpt_magazaya_ust'])}")
+            sip = (f"sipariş {t_(o['rpt_siparis_tarihi'])} ({s(h_)}. pazartesi) {s(o['rpt'])} adet, geldi "
+                   f"{t_(o['rpt_teslim'])} (lansman + {s((pd.Timestamp(o['rpt_teslim']) - lan).days / 7, 1)} hafta){fifo}")
+        else:
+            sip = "RPT yok"
+        print(f"  {KOL_ADI[kol] + ' / ' + kural:22s} {sip}; satış tf {s(o['satis_tf'])} ind {s(o['satis_ind'])}, "
+              f"karşılanmayan {s(o['karsilanmayan'])} (tam fiyat döneminde {s(o['karsilanmayan_tf'])}), pencere sonu kalan "
+              f"{s(o['kalan_son'])}, kâr {tl(o['kar'])}" + (f" (RPT yoka göre {tl(o['d_kar'])})" if "d_kar" in o else ""))
+
+
+def _kollar_tablosu(vb: VeriB, G: str) -> None:
+    print("  " + f"{'kol / kural':24s}" + "".join(f"{b:>13s}" for _, b, _ in KOLON))
+    for kol, kural in oyun.kol_listesi(vb.en_iyi):
+        r = vb.oz[(kol, kural, G)]
         hucre = []
         for k, _, od in KOLON:
-            val = r[k]
-            hucre.append(f"{y(val, 1) if k == 'stoklu_pay_tf' else s(val, od):>17s}")
-        print(f"  {ad:26s}" + "".join(hucre))
+            v = r.get(k, np.nan)
+            hucre.append(f"{y(v, 1) if k == 'stoklu_pay_tf' else s(v, od):>13s}")
+        print(f"  {KOL_ADI[kol] + ' / ' + kural:24s}" + "".join(hucre))
+    print("  (boşa (son): pencere sonunda depoda + rafta kalan, en çok giren RPT kadar; yanlış alarm: RPT'li option'ın "
+          "tam fiyat satışı tabana göre MOQ/2'den az arttı; kaçırılan: kâhinin RPT verip kâr ettiği, kolun RPT "
+          "vermediği option)")
 
 
-def sonuc_bolumu(v: VeriB) -> None:
-    baslik("SONUÇ (6. yazı) — RPT geldi, mağazada satış sıfır")
-    w = v.w
-    opt = w.optionlar
-    en = v.K["en_iyi"]
-    alt("Dağıtım kuralının seçimi (oyundan önce, SS24'te; Banu'nun RPT'leri)")
-    for r in v.K["secim"].itertuples(index=False):
-        print(f"  {r.kural:7s} SS24 Collection kârı {s(r.kar)} TL, kayıp satış {s(r.kayip)}, "
-              f"RPT mağazaya {s(r.rpt_magazaya)}, depoda kalan {s(r.rpt_depoda_kalan)}, tam fiyat satış {s(r.satis_tf)}")
-    print(f"  seçilen kural: {en}  (b = stoklu gün hızı, c = yeniden lansman, d = c + %30 depoda tutma)")
-    print("  Değerleme: gelir − (ilk alım + RPT) × alış; çıkışta kalan stok 0 TL. Taban: rpt_yok.")
+# ---------------------------------------------------------------------------
+# YOLLAR (6. yazı: şans mı)
+# ---------------------------------------------------------------------------
 
-    tablolar = {G: oyun.ozet_tablosu(w, v.K["ham"], G, ("kahin", en)) for G in v.b.oyun_sezonlari}
-    for G, tab in tablolar.items():
-        alt(f"Kollar — {G} (Collection, {len(oyun.oyun_optionlari(w, G))} option)")
-        _kollar_tablosu(tab, oyun.kol_listesi(en))
-        r0 = tab[(tab["kol"] == "rpt_yok")].iloc[0]
-        print(f"  taban (rpt_yok): kâr {s(r0['kar'])} TL, tam fiyat satış {s(r0['satis_tf'])}, "
-              f"kayıp {s(r0['kayip_tf'] + r0['kayip_ind'])} ({s(r0['kayip_tl'])} TL)")
-        k = tab.set_index(["kol", "kural"])
-        kahin = k.loc[("kahin", en), "delta_kar"]
-        for kol in ("mevcut", "frr3", "oneri"):
-            d = k.loc[(kol, en), "delta_kar"]
-            print(f"  {KOL_ADI[kol]} / {en}: kâhinin Δkârının {y(d / kahin) if kahin else '—'}'i")
-        ops = oyun.oyun_optionlari(w, G)
-        tb = olcutler.option_olcutleri(w, v.K["ham"][("rpt_yok", "mevcut")], ops).set_index("option")
-        kk = olcutler.option_olcutleri(w, v.K["ham"][("oneri", en)], ops).set_index("option")
-        rptsiz = kk["rpt"] == 0
-        gurultu = (kk["kar"] - tb["kar"])[rptsiz]
-        print(f"  gürültü sınaması: oneri/{en} kolunda RPT'siz {int(rptsiz.sum())} option'ın rpt_yok'a göre "
-              f"Δkârı toplam {s(gurultu.sum())} TL (en büyük mutlak {s(gurultu.abs().max())} TL). v3'te iade ve "
-              f"işlem indirimi (gün, hücre) başına tohumlanır, politikadan bağımsızdır: kol farkları yalnız "
-              f"RPT kararından ve dağıtımdan gelir")
-        print(f"  dağıtımın payı (Banu'nun RPT'leri): mevcut→{en} Δkâr "
-              f"{s(k.loc[('mevcut', en), 'delta_kar'] - k.loc[('mevcut', 'mevcut'), 'delta_kar'])} TL; "
-              f"kararın payı: mevcut/{en} → oneri/{en} "
-              f"{s(k.loc[('oneri', en), 'delta_kar'] - k.loc[('mevcut', en), 'delta_kar'])} TL")
-
-    alt("Hikâye: MDL169-EKR'nin 750 adedi (Banu'nun RPT'si) her dağıtım kuralıyla")
-    o = _oid(v, HIKAYE["uzak"])
-    for kural in ("mevcut", "b", "c", "d"):
-        r = olcutler.option_olcutleri(w, v.K["ham"][("mevcut", kural)], [o]).iloc[0]
-        print(f"  {kural:7s} RPT {s(r['rpt'])} geldi {_tarih(v, r['rpt_gelis_gun'])}; mağazaya {s(r['rpt_magazaya'])}, "
-              f"çıkışta depoda {s(r['rpt_depoda_kalan'])}; satış tf {s(r['satis_tf'])} ind {s(r['satis_ind'])}, "
-              f"kayıp {s(r['kayip_tf'] + r['kayip_ind'])}, kâr {s(r['kar'])} TL")
-    r = olcutler.option_olcutleri(w, v.K["ham"][("rpt_yok", "mevcut")], [o]).iloc[0]
-    print(f"  rpt_yok satış tf {s(r['satis_tf'])} ind {s(r['satis_ind'])}, kayıp {s(r['kayip_tf'] + r['kayip_ind'])}, "
-          f"kâr {s(r['kar'])} TL")
-
-    alt("Hikâye: MDL190-HAK kollara göre")
-    o = _oid(v, HIKAYE["yerli"])
-    for kol, kural in (("rpt_yok", "mevcut"), ("mevcut", "mevcut"), ("mevcut", en), ("frr3", en),
-                       ("oneri", en), ("kahin", en)):
-        r = olcutler.option_olcutleri(w, v.K["ham"][(kol, kural)], [o]).iloc[0]
-        siparis = (f"sipariş {_tarih(v, r['rpt_gun'])} (h={(r['rpt_gun'] - opt.at[o, 'lansman_gun']) // 7}) "
-                   f"{s(r['rpt'])} adet, geliş {_tarih(v, r['rpt_gelis_gun'])}; mağazaya {s(r['rpt_magazaya'])}, "
-                   f"depoda {s(r['rpt_depoda_kalan'])}" if r["rpt"] > 0 else "RPT yok")
-        print(f"  {KOL_ADI[kol] + ' / ' + kural:26s} {siparis}; satış tf {s(r['satis_tf'])} ind {s(r['satis_ind'])}, "
-              f"kayıp {s(r['kayip_tf'] + r['kayip_ind'])}, kâr {s(r['kar'])} TL")
-
-    alt("Alternatif talep yolları (aynı beklenen talep, farklı tohum)")
-    if not yollar.CIKTI.exists():
+def yollar_bolumu(va, vb: VeriB, ek: list) -> None:
+    baslik("YOLLAR (6. yazı) — Şans mı: aynı dünya, farklı müşteri akışı")
+    Y = vb.yollar
+    if Y is None:
         print("  cikti/yollar.json yok — önce: .venv/Scripts/python -m rpt.yollar")
+        ek.append(("yollar.json var", False))
         return
-    Y = json.loads(yollar.CIKTI.read_text(encoding="utf-8"))
-    print(f"  {len(Y)} yol; seçilen dağıtım kuralı: " + ", ".join(
-        f"{k}: {n}" for k, n in pd.Series([y_["en_iyi"] for y_ in Y.values()]).value_counts().items()))
-    for G in v.b.oyun_sezonlari:
-        print(f"  {G}:")
-        for anahtar, ad in (("mevcut|mevcut", "mevcut / mevcut"), ("mevcut|en_iyi", "mevcut / en iyi"),
-                            ("frr3|mevcut", "frr h=3 / mevcut"), ("frr3|en_iyi", "frr h=3 / en iyi"),
-                            ("oneri|en_iyi", "oneri / en iyi"), ("kahin|en_iyi", "kâhin / en iyi")):
-            d = np.array([y_["sezon"][G][anahtar]["delta_kar"] for y_ in Y.values() if anahtar in y_["sezon"][G]])
-            kk = np.array([y_["sezon"][G][anahtar]["kurtarilan_kayip"] for y_ in Y.values()
-                           if anahtar in y_["sezon"][G]])
-            if not len(d):
-                continue
-            print(f"    {ad:18s} Δkâr min {s(d.min())} · medyan {s(np.median(d))} · max {s(d.max())} TL "
-                  f"(pozitif {int((d > 0).sum())}/{len(d)}); kurtarılan kayıp medyan {s(np.median(kk))}")
-        fark = [y_["sezon"][G]["oneri|en_iyi"]["delta_kar"] - y_["sezon"][G]["mevcut|mevcut"]["delta_kar"]
-                for y_ in Y.values()]
-        fark_d = [y_["sezon"][G]["mevcut|en_iyi"]["delta_kar"] - y_["sezon"][G]["mevcut|mevcut"]["delta_kar"]
-                  for y_ in Y.values()]
-        print(f"    oneri/en iyi − mevcut/mevcut: medyan {s(np.median(fark))} TL, aynı yön "
-              f"{int((np.array(fark) > 0).sum())}/{len(fark)}; yalnız dağıtım (Banu'nun RPT'leri): medyan "
-              f"{s(np.median(fark_d))} TL, {int((np.array(fark_d) > 0).sum())}/{len(fark_d)}")
-
-
-def turetilmis_bolumu(v: VeriB, v_a=None) -> None:
-    """Yazılarda elle türetilen sayılar (kural: yayımlanan her sayı rapordan)."""
-    from rpt import hikaye, sansur
-
-    baslik("YAZI TÜRETİLMİŞLERİ — yazılarda kullanılan türetilmiş sayılar")
-    w = v.w
-    opt = w.optionlar
-    if v_a is not None:
-        oid = HIKAYE["yerli"]
-        o = v_a.opt.set_index("option_id").loc[oid]
-        p = v_a.panel[v_a.panel["option_id"] == oid].set_index("h")
-        k67 = p.loc[[6, 7], "kayip"]
-        print(f"  (1) {oid} h=6 + h=7 kayıp satış [gerçek]: {s(k67.iloc[0])} + {s(k67.iloc[1])} = {s(k67.sum())}")
-        r = hikaye.rpt_siparisleri(v_a.t, v_a.opt)
-        rpt = int(r.loc[r["option_id"] == oid, "adet"].sum())
-        print(f"  (2) {oid} Q1 + Banu RPT: {s(o['ilk_alim'])} + {s(rpt)} = {s(o['ilk_alim'] + rpt)}")
-        bitti = int(hikaye.bitis_haftasi(v_a.panel, v_a.opt)[oid])
-        mt = hikaye.magaza_tablosu(v_a.t, v_a.hh, oid, bitti).set_index("ad")
-        akm = mt.loc[[a for a in mt.index if "Akmerkez" in a][0], "satis"]
-        bag = mt.loc[[a for a in mt.index if "Bağdat" in a][0], "satis"]
-        print(f"  (3) h={bitti} mağaza tablosu: İstanbul Akmerkez satış ÷ İstanbul Bağdat Caddesi satış = "
-              f"{s(akm)} / {s(bag)} = {s(akm / bag, 1)}")
-        x3 = p.loc[p.index < 3, "satis"].sum()
-        print(f"  (4) {oid} h=3'e kadar satış ÷ Q1 = {s(x3)} / {s(o['ilk_alim'])} = {y(x3 / o['ilk_alim'])}")
-        c = v_a.hh[(v_a.hh["option_id"] == oid) & (v_a.hh["h"] < 3)]
-        k = sansur.duzeltilmis_talep(c, 3).iloc[0]
-        ham, duz, gercek = k["x"] / 3, k["D"] / 3, (c["satis"].sum() + c["kayip"].sum()) / 3
-        print(f"  (5) h=3 stoklu gün düzeltmesinin kapattığı ham→gerçek haftalık açığın payı: "
-              f"({s(duz, 1)} − {s(ham, 1)}) / ({s(gercek, 1)} − {s(ham, 1)}) = {y((duz - ham) / (gercek - ham), 0)}")
-        tab = v_a.hata["SS25"].set_index(["kesit", "katman", "h"])
-        d2, p2 = tab.loc[("tümü", "d", 2), "wape"], tab.loc[("tümü", "plan", 2), "wape"]
-        print(f"  (6) SS25 h=2: d katmanı WAPE ÷ plan WAPE = {y(d2)} / {y(p2)} = {s(d2 / p2, 2)}")
-    else:
-        print("  (1)–(6) Faz A verisi gerekir: rapor.py üzerinden koşun.")
-
-    en = v.K["en_iyi"]
-    print(f"  (7) Banu'nun RPT'leri menşeye göre, dağıtım {en} (AW24 + SS25):")
-    top = {}
-    for G in v.b.oyun_sezonlari:
-        ops = oyun.oyun_optionlari(w, G)
-        taban = olcutler.option_olcutleri(w, v.K["ham"][("rpt_yok", "mevcut")], ops).set_index("option")
-        k = olcutler.option_olcutleri(w, v.K["ham"][("mevcut", en)], ops).set_index("option")
-        for m in ("Yerli", "Uzak Doğu"):
-            km = k[(k["mense"] == m) & (k["rpt"] > 0)]
-            tm = taban.loc[km.index]
-            dk, dtf = (km["kar"] - tm["kar"]).sum(), (km["satis_tf"] - tm["satis_tf"]).sum()
-            a = top.setdefault(m, [0, 0.0, 0.0, 0])
-            a[0] += len(km); a[1] += dk; a[2] += dtf; a[3] += km["rpt"].sum()
-            print(f"      {G} {m:9s}: {len(km)} option, {s(km['rpt'].sum())} adet, Δkâr {s(dk)} TL, "
-                  f"ek tam fiyat satış {s(dtf)}")
-    for m, (n, dk, dtf, adet) in top.items():
-        print(f"      toplam {m:9s}: {n} option, {s(adet)} adet, Δkâr {s(dk)} TL, ek tam fiyat satış {s(dtf)}")
-    print("  (8) Collection kâr tabanı (rpt_yok) ve Banu'nun Δkârı:")
-    for G in v.b.oyun_sezonlari:
-        tab = oyun.ozet_tablosu(w, {k_: v.K["ham"][k_] for k_ in
-                                    [("rpt_yok", "mevcut"), ("mevcut", "mevcut"), ("mevcut", en)]}, G, None)
-        t = tab.set_index(["kol", "kural"])
-        taban = t.loc[("rpt_yok", "mevcut"), "kar"]
-        for kural in ("mevcut", en):
-            dk = t.loc[("mevcut", kural), "delta_kar"]
-            print(f"      {G}: taban {s(taban)} TL; Banu / {kural} Δkâr {s(dk)} TL = tabanın {y(dk / taban)}")
-
-
-def faz_b(v_a=None) -> VeriB:
-    v = hazirla_b()
-    aday_bolumu(v)
-    miktar_bolumu(v)
-    sonuc_bolumu(v)
-    turetilmis_bolumu(v, v_a)
-    return v
-
-
-if __name__ == "__main__":
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    faz_b()
+    yl = Y["yollar"]
+    en = Y["en_iyi"]
+    print(f"  {s(len(yl))} yol; talep tohumu: yol 0 yayımlanan dünya, yol p > 0 {Y['taban']} + p "
+          f"({', '.join(str(yl[k]['talep_tohumu']) for k in sorted(yl, key=int) if yl[k]['talep_tohumu'])}); "
+          f"dünya ve operasyon aynı, yalnız müşteri akışı değişir")
+    print(f"  dağıtım kuralı her yolda {en} (yol 0'ın {oyun.SECIM_SEZONU} seçimi; yollarda yeniden seçilmez); her yolda "
+          f"öğrenme (eğri, belirsizlik, aday modeli) o yolun gerçekleşen tarihinden yeniden yapılır")
+    for G in OYUN:
+        n = [yl[k]["ogrenme"][G]["egitim_satir"] for k in yl]
+        p = [yl[k]["ogrenme"][G]["egitim_pozitif"] for k in yl]
+        sg = [yl[k]["ogrenme"][G]["sigma"]["3"] for k in yl]
+        print(f"  {G} eğitimi yollar arasında: {s(min(n))}–{s(max(n))} satır, {s(min(p))}–{s(max(p))} pozitif; "
+              f"σ (h=3) {s(min(sg), 3)}–{s(max(sg), 3)}")
+    ciftler = [("mevcut|a", "Banu / a"), (f"mevcut|{en}", f"Banu / {en}"), (f"frr3|{en}", f"FRR h=3 / {en}"),
+               (f"oneri|{en}", f"öneri / {en}"), (f"kahin|{en}", f"kâhin / {en}")]
+    for G in OYUN:
+        alt(f"{G}: rpt_yok'a göre, {s(len(yl))} yol (min · medyan · max)")
+        for anahtar, ad in ciftler:
+            d = np.array([yl[k]["sezon"][G][anahtar]["d_kar"] for k in yl])
+            kk = np.array([yl[k]["sezon"][G][anahtar]["kurtarilan"] for k in yl])
+            bo = np.array([yl[k]["sezon"][G][anahtar]["rpt_bosa"] for k in yl])
+            ya = np.array([yl[k]["sezon"][G][anahtar]["yanlis_alarm"] for k in yl])
+            print(f"  {ad:15s} Δkâr {tl(d.min())} · {tl(np.median(d))} · {tl(d.max())} ({mn(d.min(), 1)} · "
+                  f"{mn(np.median(d), 1)} · {mn(d.max(), 1)}; pozitif {s((d > 0).sum())}/{s(len(d))}); kurtarılan "
+                  f"{s(kk.min())} · {s(np.median(kk))} · {s(kk.max())}; boşa RPT {s(bo.min())} · {s(np.median(bo))} · "
+                  f"{s(bo.max())}; yanlış alarm {s(ya.min())}–{s(ya.max())}")
+        oz = Y["ozet"][G]
+        print("  öneri önde (Δkâr, yol sayısı): " + "; ".join(
+            f"{_ad(r.split('|', 1)[1])} karşısında {s(v['onde'])}/{s(v['yol'])}" for r, v in oz.items() if r.startswith("oneri_onde")))
+        for a_, b_, ad in ((f"oneri|{en}", "mevcut|a", f"öneri / {en} − Banu / a"),
+                           (f"mevcut|{en}", "mevcut|a", f"yalnız dağıtım (Banu / {en} − Banu / a)"),
+                           (f"oneri|{en}", f"mevcut|{en}", f"yalnız karar (öneri / {en} − Banu / {en})")):
+            f_ = np.array([yl[k]["sezon"][G][a_]["d_kar"] - yl[k]["sezon"][G][b_]["d_kar"] for k in yl])
+            print(f"  {ad}: medyan {tl(np.median(f_))} ({mn(np.median(f_), 1)}), en küçük {tl(f_.min())}, pozitif "
+                  f"{s((f_ > 0).sum())}/{s(len(f_))}")
+        # yol 0 = bu raporun oyun koşuları
+        y0 = yl["0"]["sezon"][G]
+        for anahtar in [c for c, _ in ciftler] + ["rpt_yok|a"]:
+            kol, kural = anahtar.split("|")
+            ek.append((f"yollar.json yol 0 {G} {anahtar} = oyun koşusu",
+                       abs(y0[anahtar]["d_kar"] - vb.oz[(kol, kural, G)]["d_kar"]) < 1.0
+                       and y0[anahtar]["kurtarilan"] == vb.oz[(kol, kural, G)].get("kurtarilan", 0.0)))

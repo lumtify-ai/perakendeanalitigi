@@ -162,6 +162,35 @@ def test_rpt_akibeti_v4_akislarina_duyarli():
     assert ak3.loc["OPT-A", "rpt_outlete"] == 90
 
 
+def test_rpt_outlete_yalniz_outlet_akisi():
+    """Çıkıştan sonra depodan çıkan her mal outlet'e gitmez: elle transfer ya da başka bir
+    tip `rpt_outlete`'ye girmez (yalnız `tip == 'outlet_akisi'`)."""
+    t, opt = rpt_tablolari()
+    cikis = pd.Timestamp("2025-03-10")
+    ek = pd.DataFrame({"tarih": [cikis], "varis_tarihi": [cikis + pd.Timedelta(days=1)], "kaynak": ["DEPO"],
+                       "hedef": ["M1"], "urun_id": ["A-S"], "adet": [15], "tip": ["elle_transfer"],
+                       "paket_id": None})
+    t2 = dict(t)
+    t2["sevkiyat"] = pd.concat([t["sevkiyat"], ek], ignore_index=True)
+    ak = hikaye.rpt_akibeti(t2, opt, "SS25").set_index("option_id")
+    a = ak.loc["OPT-A"]
+    assert a["cikis_sonrasi_cikan"] == 130 and a["rpt_outlete"] == 130 and a["rpt_depoda_kalan"] == 20
+
+
+def test_rpt_magazaya_alt_online_iade_fazlasinda_ustu_asmaz():
+    """Gelişten çıkışa online net satış negatifse (iade satıştan çok) mağazaya giden alt sınır
+    çıkışa dek çıkanı aşmaz: online'ın negatif katkısı sayılmaz."""
+    t, opt = rpt_tablolari()
+    iade = pd.DataFrame({"tarih": [pd.Timestamp("2025-03-02")], "magaza_id": ["ONL"], "urun_id": ["A-S"],
+                         "adet": [-20], "tutar": [-5000.0], "indirim_tutari": [0.0], "kampanya_id": [None]})
+    t2 = dict(t)
+    t2["satis"] = pd.concat([t["satis"], iade[[c for c in iade.columns if c in t["satis"].columns]]],
+                            ignore_index=True)
+    a = hikaye.rpt_akibeti(t2, opt, "SS25").set_index("option_id").loc["OPT-A"]
+    assert a["online_gelisten_cikisa"] == 14 - 20
+    assert a["rpt_magazaya_alt"] == 40 and a["rpt_magazaya_ust"] == 40 and a["rpt_cikisa_kadar"] == 40
+
+
 @pytest.mark.veri
 def test_rpt_akibeti_tutarli(veri):
     t, opt = veri["t"], veri["opt"]

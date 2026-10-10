@@ -41,10 +41,13 @@ bütün ölçütleri (gevşemezler dahil) listeler.
 
 Bu modül gizli gerçeğe (üreteç, hakem, motor) dokunmaz: yalnız yayımlanan v4 tablolarını
 ve `aday` / `hikaye` / `kaynak` kurucularını kullanır. Gerçek talep rapora (Görev 10) kalır.
-Plan (`plan_sezon`) yayımlanmaz, motordan gelir: `ozet(..., plan=)` verilirse basılır.
+Plan (`plan_sezon`) yayımlanmaz, motordan gelir: `ozet(..., plan=)` verilirse basılır. Rapor
+planı `motor.politika_gorunumu(motor.dunya())`'dan okuyup verir (Ruling R8); CLI planı yalnız
+açık `--plan` CSV'siyle basar, verilmezse "plan yok" der (CSV'yi sessizce okumaz).
 """
 
 import argparse
+import sys
 from dataclasses import dataclass
 from itertools import combinations
 from pathlib import Path
@@ -169,8 +172,8 @@ def ozellikler(t: dict, opt: pd.DataFrame, hh: pd.DataFrame, sezon: str = SEZON,
     o = o.merge(r, on="option_id", how="left")
     o["banu_rpt"] = o["rpt"].notna()
     ak = hikaye.rpt_akibeti(t, opt, sezon)[["option_id", "gelis", "depo_cikista", "rpt_depoda_cikista",
-                                            "rpt_cikisa_kadar", "rpt_outlete", "rpt_depoda_kalan",
-                                            "depo_son"]]
+                                            "rpt_cikisa_kadar", "rpt_magazaya_alt", "rpt_magazaya_ust",
+                                            "rpt_outlete", "rpt_depoda_kalan", "depo_son"]]
     o = o.merge(ak, on="option_id", how="left")
     o["depoda_pay"] = o["rpt_depoda_cikista"] / o["rpt_giren"].where(o["rpt_giren"] > 0)
     # --- geldiği hafta mağaza durumu
@@ -400,6 +403,7 @@ def ozet(t: dict, opt: pd.DataFrame, hh: pd.DataFrame, f: pd.DataFrame, h: Hikay
                 "indirime_kalan_gun": int(r["rpt_gelis_gun"]),
                 "depo_cikista": int(r["depo_cikista"]), "depoda_cikista": int(r["rpt_depoda_cikista"]),
                 "depoda_pay": float(r["depoda_pay"]), "cikisa_kadar": int(r["rpt_cikisa_kadar"]),
+                "magazaya_alt": int(r["rpt_magazaya_alt"]), "magazaya_ust": int(r["rpt_magazaya_ust"]),
                 "outlete": int(r["rpt_outlete"]), "depoda_kalan": int(r["rpt_depoda_kalan"]),
                 "gelis_tasiyan": int(r["gelis_tasiyan"]), "gelis_bos": int(r["gelis_bos"]),
                 "gelis_satissiz": int(r["gelis_satissiz"]), "bos_pay": float(r["bos_pay"]),
@@ -436,6 +440,25 @@ def ozet(t: dict, opt: pd.DataFrame, hh: pd.DataFrame, f: pd.DataFrame, h: Hikay
 # ------------------------------------------------------------- CLI
 
 
+PLAN_YOK = ("plan yok: plan yayimlanmaz, motordan gelir (motor.politika_gorunumu); bu komut onu "
+            "kendiliginden okumaz. Plan icin --plan CSV (option_id,plan_sezon) verin; yazilarin "
+            "plan sayilari rapor.py'den gelir.")
+
+
+def plan_oku(yol: Path | None) -> pd.Series | None:
+    """`--plan` CSV'si (option_id, plan_sezon) → option_id → plan_sezon. Yol verilmezse açık
+    uyarı (stderr) ve None: plan yayımlanmaz, CSV sessizce okunmaz (bayat ya da eksik
+    olabilir; Ruling R8). Verilen yol yoksa FileNotFoundError."""
+    if yol is None:
+        print(PLAN_YOK, file=sys.stderr)
+        return None
+    yol = Path(yol)
+    if not yol.exists():
+        raise FileNotFoundError(f"plan dosyasi yok: {yol}")
+    return pd.read_csv(yol).set_index("option_id")["plan_sezon"]
+
+
+
 def _yaz(o: dict) -> None:
     for ad, baslik in (("hit", "HİT"), ("gec", "GEÇ GELEN")):
         s = o[ad]
@@ -460,7 +483,8 @@ def _yaz(o: dict) -> None:
             print(f"  gelis haftasi: tasiyan {r['gelis_tasiyan']} magaza, bos {r['gelis_bos']} (%{100 * r['bos_pay']:.1f}), "
                   f"bos ve son {SATISSIZ_GUN} gun satissiz {r['gelis_satissiz']}")
             print(f"  akibet (FIFO): cikista depoda {r['depoda_cikista']} (depo {r['depo_cikista']}; "
-                  f"giren adedin %{100 * r['depoda_pay']:.1f}), cikisa dek cikan {r['cikisa_kadar']}, "
+                  f"giren adedin %{100 * r['depoda_pay']:.1f}), cikisa dek cikan {r['cikisa_kadar']} "
+                  f"(magazaya {r['magazaya_alt']}-{r['magazaya_ust']}), "
                   f"outlete akan {r['outlete']}, pencere sonu depoda kalan {r['depoda_kalan']}")
             print(f"  pencere sonu: depo {r['depo_son']} + raf {r['raf_son']} = {r['kalan_son']} adet kalmis; "
                   f"satilmayan RPT (min(giren, kalan)) {r['bosa']}")
@@ -481,8 +505,9 @@ def main(argv: list[str] | None = None) -> dict:
                    help=f"secimi gecersiz kilar (varsayilan YURUTUCU_SECIMI {YURUTUCU_SECIMI})")
     a.add_argument("--adaylar", action="store_true", help="olcut merdivenine en yakin sahneleri listele")
     a.add_argument("--db", type=Path, default=None, help="v4 DuckDB dosyasi (varsayilan: ortak yol)")
-    a.add_argument("--plan", type=Path, default=Path(__file__).resolve().parents[1] / "cikti" / "plan_sezon.csv",
-                   help="option_id,plan_sezon CSV (varsa basilir; plan yayimlanmaz, motordan gelir)")
+    a.add_argument("--plan", type=Path, default=None,
+                   help="option_id,plan_sezon CSV (acik yol; verilmezse plan basilmaz. Plan yayimlanmaz, "
+                        "motordan gelir: rapor.py onu motor.politika_gorunumu'nden okur)")
     args = a.parse_args(argv)
     zorla = secim_ayristir(args.hikaye) if args.hikaye else None
 
@@ -490,9 +515,7 @@ def main(argv: list[str] | None = None) -> dict:
     opt = kaynak.optionlar(t)
     hh = kaynak.hucre_hafta(t, opt, (SEZON,))
     f = ozellikler(t, opt, hh)
-    plan = None
-    if args.plan.exists():
-        plan = pd.read_csv(args.plan).set_index("option_id")["plan_sezon"]
+    plan = plan_oku(args.plan)
     hb, gb = hit_bayraklari(f), gec_bayraklari(f)
     print(f"merdiven huni (hit): {huni(hb)}")
     print(f"merdiven huni (gec gelen): {huni(gb)}")

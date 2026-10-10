@@ -33,7 +33,9 @@ Oyunu koşmak (sıralı, saatler; makine uyanık kalmalı; koşular `cikti/kosul
     .venv/Scripts/python -m rpt.oyun            # yol 0: hazırlık, SS24 seçimi, 14 kol; cikti/oyun.json
     .venv/Scripts/python -m rpt.yollar          # 5 talep yolu × 5 kol; cikti/yollar.json
 
-Yazıların alıntıladığı bütün sayıları basmak (~2 dk; yol 0'ı baştan koşar):
+Yazıların alıntıladığı bütün sayıları basmak (~6 dk; oyun koşuları önbellekten, hakem önbelleği
+gerekir: `cd vakalar/ortak && .venv/Scripts/python -m perakende_analitik.hakem`). Korunum denetimi
+tutmazsa rapor hiçbir şey basmaz; plan `motor.politika_gorunumu`'ndan okunur:
 
     .venv/Scripts/python rapor.py > cikti/rapor.txt
 
@@ -67,7 +69,7 @@ motorunda, aynı müşteri akışıyla (`talep_tohumu`) yeniden oynatılır
 | `oyun.py` | `hazirlik(yol)`: yolun gerçekleşen tarihi (Lumoda koşusu; yol 0 = yayımlanan v4) ve ondan öğrenme (eğri, karar kaydı, μ/σ, p_ind, aday modelleri, karar anı çarpanları → `politika.Ogrenilen`; yol p > 0 kendi DuckDB'si ve günlük tablosuyla); `dagitim_secimi` (SS24'te dört kural); `tum_kollar` (14 kol × kural); `ozet_tablosu`; `sinama` (aday modelinin rpt_yok dünyasındaki sınama satırları) |
 | `olcutler.py` | Spec §4.4 ölçütleri, option düzeyinde, koşunun tablolarından ve gizli gerçeğinden: kâr (gerçekleşen fiyat, depoya giren mal), kurtarılan kayıp (kalıcı / ikame ayrı), boşa giden RPT, yanlış alarm; rpt_yok tabanına göre; `gercek_gunluk` (hakemden gerçek talep) |
 | `yollar.py` | 5 alternatif talep yolu (yol 0 yayımlanan), her yolda öğrenme + 5 kol, sıralı; `cikti/yollar.json` (min / medyan / max, "öneri kaç yolda önde") |
-| `rapor.py`, `rapor_b.py` | Yayımlanacak her sayı (HİKÂYE · KARAR · SANSÜR · ADAY · MİKTAR · SONUÇ) |
+| `rapor.py`, `rapor_b.py` | Yayımlanacak her sayı (HİKÂYE · KARAR · SANSÜR · ADAY · MİKTAR · SONUÇ · YOLLAR · ANLATI VARSAYIMLARI · KORUNUM); hakem yalnız burada |
 
 ## İlkeler
 
