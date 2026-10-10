@@ -29,9 +29,22 @@ const TANIM =
   'dağıtım kararlarını ölçülebilir hâle getirme işidir. Bu sitede her problem ' +
   'somut bir soruyla başlar, matematiksel modeliyle kurulur ve SQL ile Python ' +
   'çözümüyle uçtan uca gösterilir.'
+
+// Google arama sonucundaki site adını ana sayfanın WebSite kaydından okur.
+// Kayıt yalnız burada durur; başka sayfada tekrarı bir şey kazandırmaz.
+const isaretleme = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Perakende Analitiği',
+  alternateName: 'perakendeanalitigi.com',
+  url: new URL('/', Astro.site).href,
+  description: TANIM,
+  inLanguage: 'tr',
+  publisher: { '@type': 'Organization', name: 'Lumtify', url: 'https://lumtify.com' },
+}
 ---
 
-<Temel baslik="Perakende Analitiği" aciklama={TANIM} duzen="harita">
+<Temel baslik="Perakende Analitiği" aciklama={TANIM} isaretleme={isaretleme} duzen="harita">
   {/* Düz yazı 40rem ölçüde (.olcu); 72rem çerçeveyi yalnız süreç hattı kullanır. */}
   <div class="olcu">
     <h1>Perakende Analitiği</h1>

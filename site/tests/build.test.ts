@@ -293,6 +293,29 @@ describe('ana sayfa', () => {
     expect(govde).toMatch(/Perakende analitiği/)
   })
 
+  it('site adını WebSite olarak işaretler', () => {
+    // Google arama sonucundaki site adını ana sayfanın WebSite kaydından
+    // okur; kayıt yokken alan adını ya da tahmin ettiği bir adı basar.
+    const kayitlar = [...oku('index.html').matchAll(
+      /<script type="application\/ld\+json">(.*?)<\/script>/g,
+    )].map((m) => JSON.parse(m[1]))
+    const site = kayitlar.find((k) => k['@type'] === 'WebSite')
+    expect(site).toMatchObject({
+      name: 'Perakende Analitiği',
+      alternateName: 'perakendeanalitigi.com',
+      url: `${SITE}/`,
+      inLanguage: 'tr',
+    })
+  })
+
+  it('WebSite kaydı yalnız ana sayfadadır', () => {
+    // Google kaydı yalnız ana sayfada okur; başka sayfada tekrarı gürültü.
+    for (const { yol, html } of tumSayfalar()) {
+      if (yol === 'index.html') continue
+      expect(html, yol).not.toContain('"@type":"WebSite"')
+    }
+  })
+
   it('ağacın tamamını gösterir', () => {
     const html = oku('index.html')
     expect(html).toContain('href="/transfer/"')
