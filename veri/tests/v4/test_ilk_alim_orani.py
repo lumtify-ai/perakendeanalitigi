@@ -155,6 +155,36 @@ def test_dusuk_oranda_moq_tabani():
     assert (w.ilk_alim[sec] % sabitler.YUVARLAMA_ADET == 0).all()
 
 
+def test_oran_tedarikciyi_degistirmez(kucuk_dunya, yarim):
+    """Oran yalnız adedi değiştirir: tedarikçi atamasi, maliyet (urunler) ve
+    ilk siparişlerin tedarikçi/teslim günleri aynı (KUCUK)."""
+    _esit(kucuk_dunya.optionlar, yarim.optionlar, "optionlar")
+    _esit(kucuk_dunya.urunler, yarim.urunler, "urunler")
+    for a, b in zip(kucuk_dunya.ilk_siparisler, yarim.ilk_siparisler):
+        for k in ("tedarikci", "siparis_gun", "planlanan_gun", "gerceklesen_gun"):
+            assert a[k] == b[k], k
+
+
+@pytest.mark.yavas
+def test_tam_olcekte_tedarikci_alim_duzeyinden_bagimsiz():
+    """TAM dünyada 0,4 ve 1,0 alım düzeyi aynı tedarikçi atamasını, maliyeti
+    ve teslim sürelerini verir (`ted_idx` = ilk siparişlerin `tedarikci`'si
+    ve `optionlar.tedarikci_id`); yalnız adet değişir. Yalnız dünya kurulur,
+    simülasyon yok."""
+    w1 = dunya_kur(Olcek.TAM)
+    w4 = dunya_kur(Olcek.TAM, ilk_alim_orani=0.4)
+    _esit(w1.optionlar, w4.optionlar, "optionlar")
+    _esit(w1.urunler, w4.urunler, "urunler")
+    assert len(w1.ilk_siparisler) == len(w4.ilk_siparisler) > 0
+    for a, b in zip(w1.ilk_siparisler, w4.ilk_siparisler):
+        for k in ("option", "tedarikci", "siparis_gun", "planlanan_gun", "gerceklesen_gun"):
+            assert a[k] == b[k], k
+    sec = _secili(w1)
+    assert (w4.ilk_alim[sec] <= w1.ilk_alim[sec]).all()
+    assert w4.ilk_alim[sec].sum() < w1.ilk_alim[sec].sum()
+    np.testing.assert_array_equal(w4.ilk_alim[~sec], w1.ilk_alim[~sec])
+
+
 def test_gecersiz_oran():
     for kotu in (0.0, -0.5):
         with pytest.raises(ValueError):

@@ -364,9 +364,10 @@ def dunya_kur(
     `ilk_alim_orani` (> 0, varsayılan 1,0): yalnız `sezon_kodu ==
     ilk_alim_sezonu` olan sezonluk option'ların **talep tahmini** bu oranla
     çarpılır (ilk alım planın bir kesri kadar kurulur); MOQ tabanı, 10'un
-    katına yuvarlama ve tedarikçi kapasitesi bundan sonra işler. Ölçeklenmiş
-    tahmin tedarikçi seçimine de gider (alıcı, aldığı kadarını kapasiteye
-    karşı tartar). Dünyanın geri kalanı (ürünler, mağazalar, λ, sürprizler)
+    katına yuvarlama ve tedarikçi kapasitesi bundan sonra işler. Oran yalnız
+    ilk alım **adedini** değiştirir: tedarikçi seçimi ölçeklenmemiş tahmini
+    görür, yani tedarikçiler, maliyetler ve teslim süreleri alım düzeyinden
+    bağımsızdır. Dünyanın geri kalanı (ürünler, mağazalar, λ, sürprizler)
     ve çekiliş sırası değişmez; `1,0` iken hiçbir aritmetik değişmez:
     yayımlanan v4 bayt bayt aynı üretilir.
 
@@ -407,7 +408,7 @@ def dunya_kur(
     )
     plan = plan_lambda(magazalar, gizli, olaylar, optionlar, urunler, hucre, gizli_talep)
     plan_oz = lambda_ozeti(plan, magazalar, optionlar)
-    tahmin = talep_tahmini(plan_oz, optionlar, ilk_alim_orani, ilk_alim_sezonu)
+    tahmin = talep_tahmini(plan_oz, optionlar)
 
     # --- Tedarikçi seçimi ve maliyeti ----------------------------------------
     ted_idx = np.asarray(
