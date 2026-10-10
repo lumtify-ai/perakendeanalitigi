@@ -19,9 +19,13 @@ bu dosyayı okur. Okuyucular:
     carpanlar(con, yol, t)      karar anı çarpanları (`hazirlik.carpanlar_kapanmis`),
                                 kapanmış sezon kümesi başına diskte önbellekli
 
-Önbellek: `kaynak.json` çıktının hangi v4 dosyasından ve hangi pencereyle
-kurulduğunu tutar (mutlak yol, boyut, mtime); biri değişince dizindeki günlük
-ve çarpan dosyaları silinir, baştan kurulur. Çarpan dosyası adı kapanmış sezon
+Önbellek: `kaynak.json` çıktının hangi v4 dosyasından, hangi pencereyle ve hangi
+kodla kurulduğunu tutar (v4 dosyasının mutlak yolu, boyutu, mtime'ı; `kod_ozeti`:
+bu dosya + içe aktardığı ortak modüllerin kapanışı) ve kurulan tablonun içerik
+özetini (`gunluk_sha256`). Biri değişince çarpan dosyaları silinir, günlük tablo
+yeniden kurulur; yeni tablo bayt bayt eskisiyle aynıysa eski dosya (ve mtime'ı)
+korunur: aynı içerik, onu okuyan öğrenmenin önbelleğini (`oyun._ogrenme_anahtari`
+dosyanın mtime'ına bakar) boşuna geçersiz kılmaz. Çarpan dosyası adı kapanmış sezon
 kümesini taşır (`carpanlar_SS23-AW23.pkl`): çarpanlar yalnız o kümeyle değişir
 (`hazirlik.carpanlar_kapanmis`), bu yüzden sonraki bir karar anında kurulan
 dosya önceki bir anın kümesine karışmaz.
@@ -32,6 +36,8 @@ Gizli gerçeğe (`hakem`, `perakende_veri`, `rpt.motor`) dokunmaz.
 """
 
 import argparse
+import ast
+import hashlib
 import json
 import pickle
 import time
@@ -53,13 +59,78 @@ BASIT_OZELLIKLERI = list(hazirlik.KESTIRICI_OZELLIKLERI["basit"])
 GUNLUK_SUTUNLARI = list(hazirlik.GUNLUK_SUTUNLARI)
 
 
+ORTAK_PAKET = "perakende_analitik"
+ORTAK_KOKU = Path(hazirlik.__file__).resolve().parent
+
+
+# Kod özeti. `motor.ortak_kapanisi`'nın aynısı (AST); bu modül `rpt.motor`'u içe
+# aktaramaz (motor üreteci açar), yeni bir rpt modülü de motorun iki listesine
+# (KOSU_MODULLERI / KOSU_DISI) girmeden olamaz ve motor.py'yi değiştirmek bütün
+# koşu anahtarlarını değiştirir. Eşitlik testli (`test_kod_kapanisi_motorunkiyle_ayni`).
+
+def _ice_aktarimlar(yol: Path, paket_adi: str) -> set[str]:
+    agac = ast.parse(Path(yol).read_text(encoding="utf-8"), filename=str(yol))
+    adlar: set[str] = set()
+    for d in ast.walk(agac):
+        if isinstance(d, ast.Import):
+            adlar |= {a.name for a in d.names}
+        elif isinstance(d, ast.ImportFrom):
+            taban = ".".join([paket_adi] + ([d.module] if d.module else [])) if d.level else (d.module or "")
+            adlar.add(taban)
+            adlar |= {f"{taban}.{a.name}" for a in d.names}
+    return adlar
+
+
+def _ortak_adlari(adlar: set[str], kok: Path) -> set[str]:
+    on = ORTAK_PAKET + "."
+    return {a[len(on):].split(".")[0] for a in adlar if a.startswith(on)} & {y.stem for y in kok.glob("*.py")}
+
+
+def ortak_kapanisi(dosya: Path = Path(__file__), kok: Path = ORTAK_KOKU) -> list[str]:
+    """`dosya`nın içe aktardığı ortak modüller ve onların ortak paket içi içe
+    aktarma kapanışı (sıralı)."""
+    sira = _ortak_adlari(_ice_aktarimlar(dosya, "rpt"), kok)
+    gorulen: set[str] = set()
+    while sira:
+        m = sira.pop()
+        gorulen.add(m)
+        sira |= _ortak_adlari(_ice_aktarimlar(kok / f"{m}.py", ORTAK_PAKET), kok) - gorulen
+    return sorted(gorulen)
+
+
+def kod_dosyalari() -> dict[str, Path]:
+    """Günlük tabloyu ve çarpanları kuran kod: bu dosya + ortak kapanışı."""
+    d = {"rpt/hazirla.py": Path(__file__).resolve()}
+    d |= {f"ortak/{m}.py": ORTAK_KOKU / f"{m}.py" for m in ortak_kapanisi()}
+    return d
+
+
+def kod_ozeti() -> str:
+    """`kod_dosyalari`'nın göreli yol + içerik sha256'sı (satır sonları LF)."""
+    ozet = hashlib.sha256()
+    for ad, yol in sorted(kod_dosyalari().items()):
+        ozet.update(ad.encode("utf-8") + b"\0")
+        ozet.update(Path(yol).read_bytes().replace(b"\r\n", b"\n") + b"\0")
+    return ozet.hexdigest()
+
+
+def icerik_ozeti(yol: Path) -> str:
+    """Dosyanın bayt sha256'sı (günlük tablonun içerik parmak izi)."""
+    h = hashlib.sha256()
+    with open(yol, "rb") as f:
+        for parca in iter(lambda: f.read(1 << 22), b""):
+            h.update(parca)
+    return h.hexdigest()
+
+
 def _parmak_izi(db: Path) -> dict:
     bilgi = Path(db).stat()
     return {"yol": str(Path(db).resolve()), "boyut": bilgi.st_size, "mtime_ns": bilgi.st_mtime_ns}
 
 
 def _iz(db: Path) -> dict:
-    return {"db": _parmak_izi(db), "pencere": [PENCERE[0].isoformat(), PENCERE[1].isoformat()]}
+    """Günlük tabloyu belirleyen girdiler: v4 dosyası, pencere, kod."""
+    return {"db": _parmak_izi(db), "pencere": _iz_pencere(), "kod": kod_ozeti()}
 
 
 def _baglanti_dosyasi(con) -> Path | None:
@@ -69,8 +140,9 @@ def _baglanti_dosyasi(con) -> Path | None:
 
 
 def gunluk_yolu(cikti: Path = VARSAYILAN_CIKTI, con=None) -> Path:
-    """`gunluk.parquet`in yolu. Dosya ya da `kaynak.json` yoksa, ya da `con`un
-    dosyası kayıttakinden farklıysa (yol, boyut, mtime) `RuntimeError`."""
+    """`gunluk.parquet`in yolu. Dosya ya da `kaynak.json` yoksa, başka bir pencere
+    ya da başka bir kodla (`kod_ozeti`) kurulmuşsa, ya da `con`un dosyası
+    kayıttakinden farklıysa (yol, boyut, mtime) `RuntimeError`."""
     cikti = Path(cikti)
     yol, iz_yolu = cikti / GUNLUK, cikti / KAYNAK
     if not yol.exists() or not iz_yolu.exists():
@@ -78,6 +150,8 @@ def gunluk_yolu(cikti: Path = VARSAYILAN_CIKTI, con=None) -> Path:
     kayitli = json.loads(iz_yolu.read_text(encoding="utf-8"))
     if kayitli.get("pencere") != _iz_pencere():
         raise RuntimeError(f"{yol} başka bir pencereyle kurulmuş. Koşun: {KOMUT} --yeniden")
+    if kayitli.get("kod") != kod_ozeti():
+        raise RuntimeError(f"{yol} başka bir kodla (hazirla + ortak kapanışı) kurulmuş. Koşun: {KOMUT}")
     db = _baglanti_dosyasi(con) if con is not None else None
     if db is not None and kayitli.get("db") != _parmak_izi(db):
         raise RuntimeError(f"{yol} başka bir v4 dosyasından kurulmuş ({kayitli.get('db')}); "
@@ -160,27 +234,41 @@ def main(argv: list[str] | None = None) -> dict:
     yol, iz_yolu = cikti / GUNLUK, cikti / KAYNAK
     iz = _iz(a.db)
     eski = json.loads(iz_yolu.read_text(encoding="utf-8")) if iz_yolu.exists() else None
-    if eski != iz or a.yeniden:
-        for dosya in [yol, *cikti.glob("carpanlar_*.pkl")]:
-            if dosya.exists():
-                print(f"siliniyor: {dosya}", flush=True)
-                dosya.unlink()
+    eski_girdi = None if eski is None else {k: eski.get(k) for k in iz}
+    eski_ozet = None
+    if eski_girdi != iz or a.yeniden:
+        for dosya in cikti.glob("carpanlar_*.pkl"):
+            print(f"siliniyor: {dosya}", flush=True)
+            dosya.unlink()
         iz_yolu.unlink(missing_ok=True)
+        if yol.exists():
+            # Yeni tablo yanına kurulur; içerik aynıysa eski dosya korunur (bkz. modül notu)
+            eski_ozet = icerik_ozeti(yol)
     sonuc = {}
-    if yol.exists():
+    if yol.exists() and eski_ozet is None:
         print(f"gunluk: var, atlandi ({yol})", flush=True)
-    else:
-        con = ortak.baglan(a.db)
-        try:
-            print("gunluk: basliyor", flush=True)
-            t0 = time.perf_counter()
-            n = hazirlik.gunluk_yaz(con, yol, PENCERE)
-            sonuc = {"satir": n, "saniye": round(time.perf_counter() - t0, 1)}
-        finally:
-            con.close()
-        iz_yolu.write_text(json.dumps(iz, ensure_ascii=False, indent=2), encoding="utf-8")
-        (cikti / "hazirla_sure.json").write_text(json.dumps(sonuc, indent=2), encoding="utf-8")
-        print(f"gunluk: {sonuc}", flush=True)
+        return sonuc
+    hedef = yol if eski_ozet is None else cikti / ("yeni_" + GUNLUK)
+    con = ortak.baglan(a.db)
+    try:
+        print("gunluk: basliyor", flush=True)
+        t0 = time.perf_counter()
+        n = hazirlik.gunluk_yaz(con, hedef, PENCERE)
+        sonuc = {"satir": n, "saniye": round(time.perf_counter() - t0, 1)}
+    finally:
+        con.close()
+    ozet = icerik_ozeti(hedef)
+    if hedef != yol:
+        if ozet == eski_ozet:
+            print("gunluk: yeni tablo eskisiyle bayt bayt aynı; eski dosya korundu", flush=True)
+            hedef.unlink()
+        else:
+            print("gunluk: içerik değişti; eski dosya yenisiyle değiştirildi", flush=True)
+            hedef.replace(yol)
+        sonuc["ayni_icerik"] = ozet == eski_ozet
+    iz_yolu.write_text(json.dumps(iz | {"gunluk_sha256": ozet}, ensure_ascii=False, indent=2), encoding="utf-8")
+    (cikti / "hazirla_sure.json").write_text(json.dumps(sonuc, indent=2), encoding="utf-8")
+    print(f"gunluk: {sonuc}", flush=True)
     return sonuc
 
 

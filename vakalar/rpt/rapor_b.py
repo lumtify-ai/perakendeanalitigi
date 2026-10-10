@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 
 from rapor import (HAFTALAR, HIKAYE_SEZONU, KARAR_H, MENSELER, OYUN, alt, baslik, bolum, fark, fifo_denetimleri,
-                   mn, olcut_denetimleri, pay, s, t_, tl, y)
+                   mn, olcut_denetimleri, pay, s, t_, tl, urun_adi, y)
 from rpt import aday, dagitim, hikaye, kaynak, miktar, olcutler, oyun, yollar
 
 KOL_ADI = {
@@ -316,7 +316,7 @@ def miktar_bolumu(va, vb: VeriB, ek: list) -> None:
         q_banu = miktar.banu(float(o["ilk_alim"]), int(r["moq"]))
         q_frr = miktar.frr(float(r["satilan"]), e[("ham", "indirim")].k((d,), hh), float(o["ilk_alim"]),
                            int(r["moq"]))
-        print(f"  {oid} ({o['model_adi']} {o['renk']}; {o['mense']}, RPT {s(r['L'])} hafta, MOQ {s(r['moq'])}, "
+        print(f"  {oid} ({urun_adi(o['model_adi'])} {o['renk']}; {o['mense']}, RPT {s(r['L'])} hafta, MOQ {s(r['moq'])}, "
               f"ilk alım {s(o['ilk_alim'])}), {hh}. pazartesi; zincir STR {y(r['str'])}"
               f"{' (Banu eşiği aşılmış)' if r['str'] >= miktar.RPT_STR_ESIGI else ''}:")
         print(f"    bugüne kadar brüt satış x {s(r['x'])}, düzeltilmiş talep D {s(r['D'])}; d kestirimi (lansman → indirim) "
@@ -339,6 +339,9 @@ def miktar_bolumu(va, vb: VeriB, ek: list) -> None:
                 continue
             x = kk.iloc[0]
             ekb = f", p {s(x['p'], 2)}" if "p" in kk.columns and pd.notna(x.get("p")) else ""
+            if kol == "frr3" and "x" in kk.columns and pd.notna(x.get("x")):
+                ekb += (f"; kolun kendi dünyasında karar sabahına dek satış x {s(x['x'])} (yukarıdaki tablo yolu, "
+                        f"yayımlanan dünya: {s(r['satilan'])}; aynı formül, farklı x)")
             print(f"    {KOL_ADI[kol]} / {vb.en_iyi}: {s(x['h'])}. pazartesi ({t_(_gun(va, x['gun']))}) {s(x['adet'])} "
                   f"adet{ekb}")
 
@@ -436,7 +439,7 @@ def sonuc_bolumu(va, vb: VeriB, ek: list) -> None:
                 if gec in ak.index else "RPT yok")
         print(f"  {kural}: RPT {s(o['rpt'])} (giren {s(o['rpt_giren'])}), geldi {t_(o['rpt_teslim'])}; {fifo}; satış "
               f"tf {s(o['satis_tf'])} ind {s(o['satis_ind'])}, karşılanmayan {s(o['karsilanmayan'])}, kâr {tl(o['kar'])} "
-              f"(RPT yoka göre {tl(o['d_kar'])})")
+              f"(RPT yoka göre {tl(fark(t0['kar'], o['kar']))})")
     print(f"  RPT yok: satış tf {s(t0['satis_tf'])} ind {s(t0['satis_ind'])}, karşılanmayan {s(t0['karsilanmayan'])}, "
           f"kâr {tl(t0['kar'])}")
 
@@ -491,6 +494,7 @@ def sonuc_bolumu(va, vb: VeriB, ek: list) -> None:
 
 def _option_kollari(va, vb: VeriB, hit: str) -> None:
     en = vb.en_iyi
+    taban = vb.o[("rpt_yok", "a", HIKAYE_SEZONU)].set_index("option_id").loc[hit, "kar"]
     for kol, kural in (("rpt_yok", "a"), ("mevcut", "a"), ("mevcut", en), ("frr3", en), ("oneri", en),
                        ("oneri_lojistik", en), ("kahin", "a"), ("kahin", en)):
         o = vb.o[(kol, kural, HIKAYE_SEZONU)].set_index("option_id").loc[hit]
@@ -509,7 +513,8 @@ def _option_kollari(va, vb: VeriB, hit: str) -> None:
             sip = "RPT yok"
         print(f"  {KOL_ADI[kol] + ' / ' + kural:22s} {sip}; satış tf {s(o['satis_tf'])} ind {s(o['satis_ind'])}, "
               f"karşılanmayan {s(o['karsilanmayan'])} (tam fiyat döneminde {s(o['karsilanmayan_tf'])}), pencere sonu kalan "
-              f"{s(o['kalan_son'])}, kâr {tl(o['kar'])}" + (f" (RPT yoka göre {tl(o['d_kar'])})" if "d_kar" in o else ""))
+              f"{s(o['kalan_son'])}, kâr {tl(o['kar'])}" + (f" (RPT yoka göre {tl(fark(taban, o['kar']))})"
+                                                        if "d_kar" in o else ""))
 
 
 def _kollar_tablosu(vb: VeriB, G: str) -> None:
@@ -583,3 +588,12 @@ def yollar_bolumu(va, vb: VeriB, ek: list) -> None:
             ek.append((f"yollar.json yol 0 {G} {anahtar} = oyun koşusu",
                        abs(y0[anahtar]["d_kar"] - vb.oz[(kol, kural, G)]["d_kar"]) < 1.0
                        and y0[anahtar]["kurtarilan"] == vb.oz[(kol, kural, G)].get("kurtarilan", 0.0)))
+    an = yl["0"].get("anahtarlar")
+    if an is None:
+        print("  yol 0 kaydında koşu anahtarları yok (yollar.json bu alandan önce yazılmış); yol 0 yukarıda "
+              "ölçütleriyle oyun koşularına karşı denetlendi")
+    else:
+        for c, a in sorted(an.items()):
+            kol, kural = c.split("|")
+            if (kol, kural) in vb.K:
+                ek.append((f"yollar.json yol 0 {c} koşu anahtarı = oyun koşusu", a == vb.K[(kol, kural)].meta["anahtar"]))

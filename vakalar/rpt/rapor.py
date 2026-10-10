@@ -142,6 +142,16 @@ def mn(x, ondalik: int = 2) -> str:
     return "—" if _yok(x) else f"{s(float(x) / 1e6, ondalik)} milyon"
 
 
+def urun_adi(model_adi: str) -> str:
+    """Model adı, art arda yinelenen kelime bir kez ("Örgü Kemer Kemer" → "Örgü Kemer";
+    veride bazı aksesuar adları alt kategoriyi tekrarlar)."""
+    kelimeler: list[str] = []
+    for k in str(model_adi).split():
+        if not kelimeler or kelimeler[-1] != k:
+            kelimeler.append(k)
+    return " ".join(kelimeler)
+
+
 def t_(tarih) -> str:
     return pd.Timestamp(tarih).strftime("%Y-%m-%d") if not _yok(tarih) and pd.notna(tarih) else "—"
 
@@ -486,7 +496,7 @@ def _tedarik_ozeti(v: VeriA) -> None:
 def _sahne_ozeti(v: VeriA, ad: str, s_: dict) -> None:
     o = _o(v, s_["option_id"])
     g = v.gercek.set_index("option_id").loc[s_["option_id"]]
-    print(f"  {s_['model_adi']} {s_['renk']} ({s_['option_id']}; {s_['alt_kategori']}, {s_['sezon_kodu']}, "
+    print(f"  {urun_adi(s_['model_adi'])} {s_['renk']} ({s_['option_id']}; {s_['alt_kategori']}, {s_['sezon_kodu']}, "
           f"{s_['dalga']}. dalga)")
     print(f"  tedarikçi {s_['tedarikci']} ({s_['ulke']}, {s_['mense']}); RPT süresi {s_['rpt_hafta']} hafta; "
           f"MOQ {s(s_['moq'])}")
@@ -570,6 +580,34 @@ def _stoksuz_karsilastirma(m: pd.DataFrame) -> None:
           f"{s(az['gercek_talep'])} = {s(bolum(en['gercek_talep'], az['gercek_talep']), 2)} kat")
 
 
+def _sira(satis: pd.Series, magaza_id: str) -> tuple[int, int]:
+    """Mağazanın satış sırası (1 = en çok; eşitlikte en iyi sıra) ve mağaza sayısı."""
+    return int(satis.rank(ascending=False, method="min")[magaza_id]), len(satis)
+
+
+def _magaza_siralari(v: VeriA, hit: dict, gec: dict) -> None:
+    """Geç gelenin sahnesindeki mağazaların zincirdeki satış sırası: kemerde (lansmandan
+    RPT'nin geldiği haftanın pazartesisine; taşıyan bütün mağazalar arasında) ve
+    ceketde (lansmandan 4. pazartesiye ve bütün sezon, lansman → çıkış)."""
+    gid, hid = gec["option_id"], hit["option_id"]
+    gelis = v.f.set_index("option_id").loc[gid, "gelis"]
+    gd = hikaye_sec.gelis_durumu(v.t, v.hh, pd.DataFrame({"option_id": [gid], "gelis": [gelis]}))
+    k_satis = gd.set_index("magaza_id")["satis_toplam"]
+    ho = _o(v, hid)
+    son_h = int(np.ceil((pd.Timestamp(ho["cikis_tarihi"]) - pd.Timestamp(ho["lansman_tarihi"])).days / 7))
+    c4 = hikaye.magaza_tablosu(v.t, v.hh, hid, KARAR_H + 1).set_index("magaza_id")["satis"]
+    cs = hikaye.magaza_tablosu(v.t, v.hh, hid, son_h + 1).set_index("magaza_id")["satis"]
+    print(f"  bu mağazaların zincirdeki satış sırası (1 = en çok): kemer lansmandan geliş haftasına ({s(len(k_satis))} "
+          f"taşıyan mağaza); ceket lansmandan {KARAR_H + 1}. pazartesiye ({s(len(c4))} mağaza) ve bütün sezon "
+          f"(lansman → çıkış, {s(len(cs))} mağaza)")
+    for m in gec["magazalar"]:
+        i = m["magaza_id"]
+        sk, _ = _sira(k_satis, i)
+        c_ = (f"ceket {s(_sira(c4, i)[0])}. ({s(c4[i])} adet) / {s(_sira(cs, i)[0])}. ({s(cs[i])} adet)"
+              if i in c4.index and i in cs.index else "ceketi taşımadı")
+        print(f"    {m['ad']}: kemer {s(sk)}. ({s(k_satis[i])} adet); {c_}")
+
+
 def hikaye_bolumu(v: VeriA, ek: list) -> None:
     baslik("HİKÂYE (1. yazı) — Üçüncü Pazartesi")
     o = v.oz
@@ -583,7 +621,7 @@ def hikaye_bolumu(v: VeriA, ek: list) -> None:
     print(f"  seçim: hit {hit['option_id']}, geç gelen {gec['option_id']}; gevşeyen ölçüt: hit "
           f"{o['gevseyen']['hit'] or 'yok'}, geç gelen {o['gevseyen']['gec'] or 'yok'}")
 
-    alt(f"Hit — {hit['model_adi']} {hit['renk']}")
+    alt(f"Hit — {urun_adi(hit['model_adi'])} {hit['renk']}")
     _sahne_ozeti(v, "hit", hit)
     _rpt_satiri(v, hit)
     ho = _o(v, hit["option_id"])
@@ -647,7 +685,7 @@ def hikaye_bolumu(v: VeriA, ek: list) -> None:
     print(f"  [hakem] lansman → indirim karşılanmayan {s(sz['karsilanmayan'].sum())} (kalıcı "
           f"{s(sz['kalici_kayip'].sum())}, ikame {s(sz['ikameye_giden'].sum())})")
 
-    alt(f"Geç gelen — {gec['model_adi']} {gec['renk']} (6. yazının sahnesi)")
+    alt(f"Geç gelen — {urun_adi(gec['model_adi'])} {gec['renk']} (6. yazının sahnesi)")
     _sahne_ozeti(v, "gec", gec)
     _rpt_satiri(v, gec)
     go = _o(v, gec["option_id"])
@@ -665,6 +703,7 @@ def hikaye_bolumu(v: VeriA, ek: list) -> None:
           "lansmandan beri satış):")
     for m in gec["magazalar"]:
         print(f"    {m['ad']} ({m['tip']}): {s(m['stok'])} / {s(m['satis_28'])} / {s(m['satis_toplam'])}")
+    _magaza_siralari(v, hit, gec)
     gp = v.panel[v.panel["option_id"] == gec["option_id"]].set_index("h")
     gh = _haftalik_gercek(v, gec["option_id"])
     print(f"  haftalık seyir (h: satış / gerçek talep / karşılanmayan / mağazaya varan / depo / stoklu mağaza ÷ "
@@ -865,7 +904,7 @@ def sansur_bolumu(v: VeriA, ek: list) -> None:
         g = v.gercek.set_index("option_id").loc[oid]
         k = v.katman[HIKAYE_SEZONU]
         k = k[k["option_id"] == oid].set_index("h")
-        print(f"  {oid} ({oo['model_adi']} {oo['renk']}, {oo['mense']}): [hakem] gerçek {s(g['gercek_io'])}, plan "
+        print(f"  {oid} ({urun_adi(oo['model_adi'])} {oo['renk']}, {oo['mense']}): [hakem] gerçek {s(g['gercek_io'])}, plan "
               f"{s(oo['plan_sezon'])}, ilk alım {s(oo['ilk_alim'])}")
         for h in HAFTALAR:
             r = k.loc[h]
