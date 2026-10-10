@@ -10,7 +10,8 @@ durum: yayinda
 import T from '../../../../components/T.astro'
 
 Banu'nun kuralı bu ilkbahar-yazda 103 ürüne RPT verdi. Bunların 64'ü
-tutan ürünler değildi. Göze batan hata bu: tutmayan ürüne verilmiş,
+tutan ürünler değildi; gerçek talepleri planın bir buçuk katını
+geçmedi. Göze batan hata bu: tutmayan ürüne verilmiş,
 depoda bekleyen RPT. Bu yazı o sayının arkasındaki soruyu açıyor: bir
 ürünün RPT'ye aday olup olmadığına nasıl karar verilir? Sonunda kuralın
 asıl pahalı hatasının göze batmayan tarafta olduğunu göreceğiz.
@@ -95,7 +96,7 @@ haftalık tedarik süresi, eğriden ancak erken verilen siparişe pay
 bırakıyor.
 
 Banu'nun kuralı ürüne ilk kez üçüncü pazartesi bakıyor. Yerli üründe
-pencere o gün hâlâ açık. Uzak Doğu'da en verimli hafta çoktan geçmiş
+pencere o gün hâlâ açık. Uzak Doğu'da en verimli hafta geçmiş
 oluyor.
 
 ## Özellikler
@@ -133,6 +134,20 @@ görmüyor, çünkü ürüne ilk kez üçüncü pazartesi bakıyor. Modeller
 kuraldan daha çok alarm veriyor ve yine de daha az yanılıyor;
 pozitiflerin onda dokuza yakınını buluyorlar.
 
+Bu, girişteki sayıyla çelişiyor gibi görünebilir: kural 103 RPT'nin
+64'ünü tutmayan ürüne vermişti. İkisi ayrı sorular. Tutmak, gerçek
+talebin planın bir buçuk katını geçmesi. RPT'ye değmek, gelen malın en
+az MOQ'nun yarısı kadarının tam fiyattan satılması. Planı biraz aşan,
+ama RPT geldiğinde hâlâ satan bir ürün tutan sayılmaz, yine de RPT'yi
+hak eder. Etikete göre kuralın alarmları çoğunlukla doğru. Asıl hatası
+kaçırdığı 172 satır.
+
+Kaçırma oranı da birinci yazıdakinden yüksek görünüyor. Orada kural
+tutan ürünlerin üçte birini kaçırıyordu, burada pozitif satırların
+yarısından fazlasını. Ölçü farklı: satır düzeyinde, kuralın hiç bakmadığı
+ikinci pazartesiler de sayılıyor, kuralın ürünü sonradan yakaladığı
+haftadan önceki pozitif haftalar da.
+
 Satır sayıları paranın kendisi değil. Aynı sınavı TL ile de okuyabiliriz:
 her yanlış alarm, verilmemesi gereken bir siparişin sonradan bakıldığında
 kaybettirdiği kâr; her kaçan satır, verilmesi gereken siparişin
@@ -147,6 +162,13 @@ getirmediği kâr.
 Kuralın yanlış alarmları ucuz: 6,2 milyon TL. Kaçırdıkları 205,8 milyon
 TL. Modellerin yanlış alarmı kuralınkinin iki ila üç katı, ama
 kaçırdıklarının bedeli 10,4 ve 6,4 milyon TL.
+
+Bu tutarlar satır satır toplanıyor; aynı ürün üst üste haftalarda
+kaçırılınca bedeli her hafta yeniden yazılıyor. Kuralın kaçırma bedelinin
+mükemmel bir sınıflandırıcının bütün kârından büyük çıkması bu yüzden.
+Tablo hataların yönünü gösteriyor, büyüklüğünü değil. Paranın gerçek
+ölçüsü aşağıdaki ilk alarm tablosu: orada kural mükemmelin dörtte birini
+bırakıyor.
 
 Bir option'a sezonda en fazla bir RPT verildiğini varsayıp, her modelin
 bir option için **ilk** alarmında sipariş verildiğini düşünelim. RPT'lerin
@@ -170,7 +192,7 @@ ve %50,9 duyarlılıkla, lojistik regresyon %61,4 ve %91,3 ile, LightGBM
 %61,8 ve %95,0 ile. İlk alarm kârında kural mükemmelin %69,0'ını,
 lojistik regresyon %82,0'ını, LightGBM %80,0'ını alıyor. O sezonun
 modeli üç kapanmış sezonun 2.604 satırıyla ve 623 pozitifle eğitildi.
-Üç yıllık veri bir model kurmaya yetiyor.
+Üç kapanmış sezon bir model kurmaya yetiyor.
 
 ## Model neye bakıyor?
 
@@ -186,23 +208,25 @@ modeli üç kapanmış sezonun 2.604 satırıyla ve 623 pozitifle eğitildi.
 | Karar haftası | −0,97 |
 | MOQ ÷ tahmini ek talep | −0,90 |
 
-En büyük iki ağırlık zamanın kendisinde: **tedarik ne kadar sürüyor,
-indirime ne kadar kalmış?** Tedarik uzadıkça aday olma ihtimali düşüyor,
-indirime kalan hafta arttıkça yükseliyor. Banu'nun kuralının baktığı
-STR, on dört özelliğin on üçüncüsü; katsayısı 0,13, en büyük katsayının
-yirmide birinden küçük.
+Tabloyu okumadan önce bir uyarı. İlk üç özellik aynı takvimden türüyor:
+gelişten sonra kalan tam fiyat payı, tedarikçinin RPT süresinin, karar
+haftasının ve indirime kalan haftanın neredeyse bir fonksiyonu. Böyle
+özelliklerde tek bir katsayının işaretini tek başına okumak yanıltır.
+Kalan payın eksi görünmesi "kalan pay arttıkça aday olma ihtimali düşer"
+demek değil. Bu üçlüyü tek bir blok olarak okumak gerekir: **mal
+geldiğinde satacak zaman kalıyor mu?**
+
+Tablonun en ağır kısmı bu blok. Tedarik uzadıkça aday olma ihtimali
+düşüyor, indirime kalan hafta arttıkça yükseliyor. Stok kapsaması ve
+tedarikçinin en küçük partisinin kalan talebe oranı da daha küçük
+ağırlıkla aynı şeyi söylüyor: elde çok stok varsa ya da MOQ kalan talebe
+göre büyükse ihtimal düşüyor. Banu'nun kuralının baktığı STR, on dört
+özelliğin on üçüncüsü; katsayısı 0,13, en büyük katsayının yirmide
+birinden küçük.
 
 Bu, aday olmanın tanımını değiştiriyor. "Satıyor mu" sorusu önemli, ama
-belirleyici değil. Belirleyici olan iki soru: "mal geldiğinde satacak
-zaman kalıyor mu" ve "tedarikçinin üreteceği en küçük parti, kalan
-talebe göre ne kadar büyük".
-
-Tabloyu okurken bir uyarı. Özelliklerin bir kısmı aynı takvimden türüyor:
-tedarik süresi, indirime kalan hafta ve gelişten sonra kalan pay birlikte
-hareket ediyor. Böyle özelliklerde tek bir katsayının işaretini tek
-başına okumak yanıltır. Gelişten sonra kalan payın eksi görünmesi
-"kalan pay arttıkça aday olma ihtimali düşer" demek değil; ilk iki
-özellikle birlikte okunmalı.
+belirleyici değil. Belirleyici olan, malın geldiğinde satacak zaman
+bulup bulmayacağı.
 
 Uzak Doğu'dan gelmek ayrı bir özellik olarak küçük bir ağırlık taşıyor
 ve işareti sezona göre değişiyor: ilkbahar-yaz modelinde +0,42,
@@ -218,9 +242,9 @@ regresyonla da koşturuldu ve iki model neredeyse aynı siparişleri verdi.
 verdi; 76'sı ortak. İki modelin kâr farkı kârlarının %2'sinden az
 (altıncı yazıda).
 
-Ben olsam lojistiği seçerdim. Veri büyüdükçe esnek model az da olsa öne
-geçiyor, ama fark açıklanabilirlikten vazgeçmeye değecek kadar büyük
-değil. Lojistik regresyon bir buyer'a "bu ürün neden aday" sorusunun
+Ben olsam lojistiği seçerdim. LightGBM sınıflandırmada az farkla önde,
+ilk alarm kârında lojistik. Fark, açıklanabilirlikten vazgeçmeye değecek
+kadar büyük değil. Lojistik regresyon bir buyer'a "bu ürün neden aday" sorusunun
 cevabını tek tabloda veriyor. Replenishment dizisinin tezi burada da
 geçerli: karmaşıklık kendini ölçümle kazanmalı.
 
@@ -240,8 +264,8 @@ Sizin zincirinizde yalnız (ii) var. Modeli onunla eğitebilirsiniz, ama
 sınamak için de yine onu kullanmak zorundasınız; soruyu da cevap
 anahtarını da aynı kestirimden yazıyorsunuz. Lumoda'da iki etiketin
 yirmi satırın on dokuzunda aynı sonucu verdiğini gördük. Sizin verinizde
-bu oranı ölçemezsiniz. Yalnız, stoksuz günleri ne kadar doğru
-bulduğunuza bağlı olduğunu bilirsiniz.
+bu oranı ölçemezsiniz. Yalnız bu oranın, stoksuz günleri ne kadar doğru
+doldurduğunuza bağlı olduğunu bilirsiniz.
 
 Bir de maliyetin görünürlüğü var. Kuralın en pahalı hatası kaçırmak ve
 kaçırılan RPT hiçbir raporda görünmez. Tutmayan ürüne verilmiş RPT
