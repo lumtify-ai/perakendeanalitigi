@@ -24,7 +24,6 @@ import pytest
 
 # Henüz v4'e taşınmamış v2 testleri: modül adı -> taşınacağı görev
 GECICI_V2: dict[str, str] = {
-    "test_kalibrasyon": "Görev 9",
     "test_rapor": "Görev 12",
 }
 GECICI_V2_ILK = frozenset(GECICI_V2)  # muafiyet yalnız küçülür

@@ -1,174 +1,82 @@
-"""Oyun sonu ölçütleri.
+"""Koşu ölçütleri (asgari; Ruling R22, Görev 10 genişletir).
 
-`hesapla` bir `oyun.oyna` koşusunun sonunda çağrılır; bütün girdiler o
-koşunun ürettiği nesnelerdir (`motor.Durum`, `depo.Depo`, haftalık karar
-kayıtları, talep/gözlenen satış matrisleri). Döndürülen sözlüğün her
-değeri `float`'tır (JSON'a gider); bölme sıfıra gitmeye çalıştığında
-0.0 döner, NaN üretilmez.
+Her ölçüt bir koşunun (`motor.Kosu` ya da tembel `KosuKaydi`) gizli gerçeğinden
+ve tablolarından, bir pencerede (`[bas, bit]`, iki ucu dahil), fiziksel mağazalarda
+(online `ONL` hariç) hesaplanır. Bu modül motoru içe aktarmaz; koşu nesnesini
+çağıran verir (`tablo(ad, sutunlar)` ve `kayitlar`).
 
-Mağaza beden payı (`beden_sapmasi` için) `gecmis_satis` ayrı bir parametre
-olarak alınmaz: `gozlenen[:bas_gunu]` oyunun başlangıcına kadarki geçmişle
-bit bit aynıdır (`oyun.oyna` yalnız oyun günlerini üzerine yazar), bu
-yüzden `ihtiyac.magaza_beden_paylari(gozlenen, dunya, bas_gunu)` `oyna`
-başında hesaplanan `paylar` ile aynı sonucu verir.
+    bulunabilirlik     |talep > 0 ∧ kendi_satis > 0| / |talep > 0|, hücre-gün, yüzde.
+                       v2'nin "satış öncesi stoklu talepli gün / talepli gün"üne
+                       eşdeğer: raf stoğu ≥ 1 ve talep ≥ 1 ise hücre kendi talebinden
+                       en az birini satar; stoksuzsa kendi satışı 0'dır (gizli gerçek
+                       `kendi_satis`, ikame satışı hariç). Günlük stok yeniden kurulmaz.
+    toplama_maliyeti   Σ açık adet × `ACIK_TL_ADET` + Σ koli × `KOLI_TL`, kolun hafta
+                       tablosundan (`politika.hafta_tablosu`; pencere = kolun pencere
+                       pazartesileri). Anlatı varsayımı.
+    magaza_stok_son    pencerenin son pazartesi fotoğrafındaki (`stok`, `tarih ≤ bit`)
+                       fiziksel mağaza stoğu. Fotoğraf o sabah, hareketlerden önce
+                       çekilir (önceki gün sonu stoğu): son pazartesinin sevki girmez.
+                       Oyun penceresinin sonundan sonra fotoğraf yoktur; ölçü iki
+                       pencerede aynı tanımla alınsın diye son fotoğraf.
 """
 
-from typing import TYPE_CHECKING
+from datetime import date
 
 import numpy as np
+import pandas as pd
 
-from . import sabitler
-from .depo import Depo, depo_toplami
-from .dunya import Dunya
-from .ihtiyac import magaza_beden_paylari
-from .motor import Durum
-
-if TYPE_CHECKING:
-    from .oyun import OyunAyari
+from .kaynak import ONLINE
+from .politika import hafta_tablosu
+from .sabitler import ACIK_TL_ADET, KOLI_TL
 
 
-def _oran_yuzde(pay: float, payda: float) -> float:
-    return round(pay / payda * 100, 1) if payda > 0 else 0.0
+def _pencerede(df: pd.DataFrame, bas: date, bit: date) -> np.ndarray:
+    t = pd.to_datetime(df["tarih"]).dt.normalize()
+    return ((t >= pd.Timestamp(bas)) & (t <= pd.Timestamp(bit))).to_numpy()
 
 
-def hesapla(
-    durum: Durum,
-    dunya: Dunya,
-    depo: Depo,
-    haftalik: list[dict],
-    talep: np.ndarray,
-    gozlenen: np.ndarray,
-    baslangic_stok: float,
-    ayar: "OyunAyari",
-) -> dict[str, float]:
-    bas_gunu = dunya.gun(ayar.bas)
-    bit_gunu = dunya.gun(ayar.bit)
+def _fiziksel(df: pd.DataFrame) -> np.ndarray:
+    return (df["magaza_id"].astype(str) != ONLINE).to_numpy()
 
-    talep_adet = float(talep[bas_gunu : bit_gunu + 1].sum())
-    satis_adet = float(gozlenen[bas_gunu : bit_gunu + 1].sum())
-    kayip_adet = talep_adet - satis_adet
-    kayip_orani = _oran_yuzde(kayip_adet, talep_adet)
 
-    bulunabilirlik = _oran_yuzde(durum.stoklu_talepli_gun, durum.talepli_gun)
+def bulunabilirlik(gercek: pd.DataFrame, bas: date, bit: date) -> float:
+    """Yüzde (modül notu); pencerede talepli fiziksel hücre-gün yoksa 0."""
+    s = _pencerede(gercek, bas, bit) & _fiziksel(gercek) & (gercek["talep"].to_numpy() > 0)
+    payda = int(s.sum())
+    if payda == 0:
+        return 0.0
+    return 100.0 * int((s & (gercek["kendi_satis"].to_numpy() > 0)).sum()) / payda
 
-    kayitlar = durum.gonderilen_satis_gunleri
-    if kayitlar:
-        agirlik = np.array([r[3] for r in kayitlar], dtype=float)
-        sure = np.array([r[2] - r[1] for r in kayitlar], dtype=float)
-        satisa_donme_gun = round(float((agirlik * sure).sum() / agirlik.sum()), 1)
-        satilan_gonderilen = float(agirlik.sum())
-    else:
-        satisa_donme_gun = 0.0
-        satilan_gonderilen = 0.0
 
-    satilmayan_gonderilen = float(sum(adet for kuyruk in durum.fifo for _gelis, adet in kuyruk))
-    gonderilen_adet = satilan_gonderilen + satilmayan_gonderilen
+def toplama_maliyeti(hafta: pd.DataFrame) -> float:
+    """TL; `hafta` = `politika.hafta_tablosu(kosu)` (boşsa 0)."""
+    acik = float(hafta["acik_adet"].sum()) if "acik_adet" in hafta else 0.0
+    koli = float(hafta["koli_sayisi"].sum()) if "koli_sayisi" in hafta else 0.0
+    return acik * ACIK_TL_ADET + koli * KOLI_TL
 
-    koli_sayisi = float(sum(h["koli_sayisi"] for h in haftalik))
-    acik_adet = float(sum(h["acik_adet"] for h in haftalik))
-    toplama_maliyeti_tl = acik_adet * sabitler.ACIK_TL_ADET + koli_sayisi * sabitler.KOLI_TL
 
-    if haftalik:
-        ortalama_acik = acik_adet / len(haftalik)
-        acik_doluluk = _oran_yuzde(ortalama_acik, ayar.acik_kapasite)
-    else:
-        acik_doluluk = 0.0
+def magaza_stok_son(stok: pd.DataFrame, bit: date) -> float:
+    """Adet (modül notu); `bit`'e kadar fotoğraf yoksa `ValueError`."""
+    t = pd.to_datetime(stok["tarih"]).dt.normalize()
+    once = (t <= pd.Timestamp(bit)).to_numpy()
+    if not once.any():
+        raise ValueError(f"{bit} ya da öncesinde stok fotoğrafı yok")
+    son = t[once].max()
+    s = (t == son).to_numpy() & _fiziksel(stok)
+    return float(stok["adet"].to_numpy()[s].sum(dtype=np.int64))
 
-    magaza_stok_son = float(durum.stok.sum())
-    depo_kalan = float(depo_toplami(depo))
 
-    stok_oc = durum.stok[dunya.oc_hucre].astype(float)  # float[OC, 5]
-    oc_toplam = stok_oc.sum(axis=1)
-    stoklu = oc_toplam > 0
-
-    kirik_cift = int(np.count_nonzero(stoklu & (stok_oc[:, [1, 2, 3]] == 0).any(axis=1)))
-    stoklu_cift_sayisi = int(np.count_nonzero(stoklu))
-    bos_cift_sayisi = int(stoklu.size - stoklu_cift_sayisi)
-    kirik_cift_pay_yuzde = _oran_yuzde(kirik_cift, stoklu_cift_sayisi)
-
-    if stoklu.any():
-        paylar = magaza_beden_paylari(gozlenen, dunya, bas_gunu)
-        dagilim = np.zeros_like(stok_oc)
-        dagilim[stoklu] = stok_oc[stoklu] / oc_toplam[stoklu, None]
-        tvd = 0.5 * np.abs(dagilim[stoklu] - paylar[stoklu]).sum(axis=1)
-        beden_sapmasi = round(float(tvd.mean() * 100), 1)
-    else:
-        beden_sapmasi = 0.0
-
-    str_orani = _oran_yuzde(satis_adet, baslangic_stok + gonderilen_adet)
-
+def temel_olcutler(kosu, bas: date, bit: date) -> dict[str, float]:
+    """Kalibrasyonun ölçütleri: `bulunabilirlik`, `toplama_maliyeti_tl`,
+    `magaza_stok_son` ve haftalık toplamlar (`acik_adet`, `koli_sayisi`, `koli_adet`,
+    `gonderilen_adet`; kolun pencere pazartesileri)."""
+    hafta = hafta_tablosu(kosu)
+    toplam = {a: float(hafta[a].sum()) if a in hafta else 0.0
+              for a in ("acik_adet", "koli_sayisi", "koli_adet", "gonderilen_adet")}
     return {
-        "talep_adet": talep_adet,
-        "satis_adet": satis_adet,
-        "kayip_adet": kayip_adet,
-        "kayip_orani": kayip_orani,
-        "bulunabilirlik": bulunabilirlik,
-        "satisa_donme_gun": satisa_donme_gun,
-        "satilmayan_gonderilen": satilmayan_gonderilen,
-        "gonderilen_adet": gonderilen_adet,
-        "koli_sayisi": koli_sayisi,
-        "acik_adet": acik_adet,
-        "toplama_maliyeti_tl": toplama_maliyeti_tl,
-        "acik_doluluk": acik_doluluk,
-        "magaza_stok_son": magaza_stok_son,
-        "depo_kalan": depo_kalan,
-        "kirik_cift": float(kirik_cift),
-        "stoklu_cift_sayisi": float(stoklu_cift_sayisi),
-        "bos_cift_sayisi": float(bos_cift_sayisi),
-        "kirik_cift_pay_yuzde": kirik_cift_pay_yuzde,
-        "beden_sapmasi": beden_sapmasi,
-        "str": str_orani,
+        "bulunabilirlik": bulunabilirlik(kosu.tablo("gercek", ["tarih", "magaza_id", "talep", "kendi_satis"]),
+                                         bas, bit),
+        "toplama_maliyeti_tl": toplama_maliyeti(hafta),
+        "magaza_stok_son": magaza_stok_son(kosu.tablo("stok", ["tarih", "magaza_id", "adet"]), bit),
+        **toplam,
     }
-
-
-def _hucre_line(dunya: Dunya) -> np.ndarray:
-    """str[H]: her hücrenin line'ı, option-mağaza eşlemesinden türetilir."""
-    hucre_line = np.empty(len(dunya.hucre_urun), dtype=object)
-    for oc in range(len(dunya.oc_hucre)):
-        hucre_line[dunya.oc_hucre[oc]] = dunya.oc_line[oc]
-    return hucre_line
-
-
-def line_kirilimi(
-    durum: Durum,
-    dunya: Dunya,
-    talep: np.ndarray,
-    gozlenen: np.ndarray,
-    bas_gunu: int,
-    bit_gunu: int,
-) -> dict[str, dict[str, float]]:
-    """line → {talep_adet, satis_adet, kayip_orani, bulunabilirlik, magaza_stok_son}.
-
-    Toplam rakam NOS ile Collection'ı birbirine karıştırır: NOS'un stoğu
-    tanımı gereği bitmemeli, Collection ise sezonla gelip gider. Aynı
-    replenishment kuralının ikisine ne yaptığı ancak burada görülür.
-
-    Bulunabilirlik, talebin olduğu (hücre, gün) çiftlerinin kaçında rafta
-    mal bulunduğudur; `durum.stoklu_gunluk` satıştan ÖNCE yazıldığı için
-    ölçüm anı motorun kendi sayaçlarıyla aynıdır.
-    """
-    hucre_line = _hucre_line(dunya)
-    pencere = slice(bas_gunu, bit_gunu + 1)
-    talep_p = talep[pencere]
-    satis_p = gozlenen[pencere]
-    stoklu_p = durum.stoklu_gunluk[pencere]
-    talepli = talep_p > 0
-
-    sonuc: dict[str, dict[str, float]] = {}
-    for line in sorted({str(x) for x in hucre_line}):
-        sutun = hucre_line == line
-        t_adet = float(talep_p[:, sutun].sum())
-        # Satış gerçekleşen satış matrisinden gelir. "Stoklu gündeki talep"
-        # diye yaklaşık hesaplamak kısmi karşılamayı yanlış sayardı: stok 3
-        # iken talep 5 ise o gün 3 satılır, 5 değil.
-        karsilanan = float(satis_p[:, sutun].sum())
-        talepli_gun = int(talepli[:, sutun].sum())
-        stoklu_talepli = int((talepli[:, sutun] & stoklu_p[:, sutun]).sum())
-        sonuc[line] = {
-            "talep_adet": t_adet,
-            "satis_adet": karsilanan,
-            "kayip_orani": _oran_yuzde(t_adet - karsilanan, t_adet),
-            "bulunabilirlik": _oran_yuzde(stoklu_talepli, talepli_gun),
-            "magaza_stok_son": float(durum.stok[sutun].sum()),
-        }
-    return sonuc

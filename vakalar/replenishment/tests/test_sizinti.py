@@ -14,13 +14,6 @@ Tarama AST'dir: modül başı ve fonksiyon içi `import` / `from … import`
 `__import__(...)`. Pakete eklenen her modül iki listeden birinde olmalıdır
 (`test_her_modul_siniflandirilmis`).
 
-Geçici muafiyet: henüz v4'e taşınmamış v2 modülleri (testi `conftest.GECICI_V2`'de
-olan modül) yalnız v2 anlamındaki `replenishment.motor` içe aktarması (ve ad
-bugün yeni motoru gösterdiği için onun üstünden ulaşılanlar) için muaftır
-(v2 `kalibrasyon` eski motorun `baslangic_durumu`'nu içe aktarır). Modülün
-testi listeden çıkınca muafiyet kendiliğinden kalkar; başka yoldan
-`perakende_veri` ve hakem onlarda da yasaktır.
-
 GİZLİ ALANLAR. İçe aktarma kilidi motorun dünyasını kapatmaz: karar modülleri
 `Gorunum.dunya` üstünden dünyanın nesnesini görür. Sözleşme
 (`perakende_veri.v4.motor.durum.Gorunum`) yalnız kamuya açık alanları serbest
@@ -39,7 +32,6 @@ import ast
 from pathlib import Path
 
 import pytest
-from conftest import GECICI_V2
 
 import replenishment
 
@@ -119,25 +111,12 @@ def siniflandirilmamis(paket: Path) -> list[str]:
                   if y.stem not in KARAR_MODULLERI + IZINLI_MODULLER + ("__init__",))
 
 
-def _v2_muaf(modul: str, zincir: str, hedef: str) -> bool:
-    """Taşınmamış v2 modülünün eski `replenishment.motor` içe aktarması (ad
-    bugün yeni motoru gösterdiği için onun içe aktardıkları da)."""
-    if f"test_{modul}" not in GECICI_V2:
-        return False
-    return _altinda(hedef, f"{PAKET_ADI}.motor") or (zincir + " >").startswith(f"{modul} > motor >")
-
-
 # ---------------------------------------------------------------------------
 
 
 def test_paket_karar_modulleri_motoru_gormez():
     bulunan = ihlaller(PAKET)
-    kalici = {}
-    for modul, liste in bulunan.items():
-        geri = [(z, h) for z, h in liste if not _v2_muaf(modul, z, h)]
-        if geri:
-            kalici[modul] = geri
-    assert not kalici, f"karar modülü gizli gerçeğin kapısını içe aktarıyor: {kalici}"
+    assert not bulunan, f"karar modülü gizli gerçeğin kapısını içe aktarıyor: {bulunan}"
 
 
 def test_her_modul_siniflandirilmis():
@@ -186,17 +165,6 @@ def test_tarayici_ihlali_yakalar(tmp_path):
 def test_tarayici_tek_satir(tmp_path, metin):
     paket = _yaz(tmp_path / "replenishment", {"__init__": "", "motor": "", "politika": metin})
     assert "politika" in ihlaller(paket)
-
-
-def test_v2_muafiyeti_yalniz_motor_ve_yalniz_listedekiler():
-    v2 = "test_kalibrasyon" in GECICI_V2
-    assert _v2_muaf("kalibrasyon", "kalibrasyon", "replenishment.motor.x") == v2
-    assert _v2_muaf("kalibrasyon", "kalibrasyon > motor", "perakende_veri.v4") == v2
-    assert not _v2_muaf("kalibrasyon", "kalibrasyon", "perakende_veri.v4")
-    assert not _v2_muaf("kalibrasyon", "kalibrasyon > politika", "perakende_analitik.hakem")
-    assert not _v2_muaf("kalibrasyon", "kalibrasyon > motorlu", "perakende_veri")
-    assert not _v2_muaf("defter", "defter", "replenishment.motor")
-    assert not _v2_muaf("defter", "defter > motor", "perakende_veri")
 
 
 # ---------------------------------------------------------------------------
