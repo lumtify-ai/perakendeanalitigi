@@ -393,51 +393,111 @@ def ilk_pazartesi_lgbm(kosu, E: Eksen, katsayilar: dict, gs: ihtiyac.GuvenlikSto
 # ---------------------------------------------------------------------------
 
 
+YAS_GRUPLARI = ("lansmandan 0–13 gün", "lansmandan 14–27 gün", "lansmandan 28+ gün")
+YARILAR = {"ilk": "pencerenin ilk yarısı (hafta 1–9)", "ikinci": "pencerenin ikinci yarısı (hafta 10–18)"}
+SAYILAR = ["talepli", "bulunan", "talep", "karsilanmayan"]
+ALANLAR = ["kesit", "grup", "line", "yari", "beden", "pencerede", "hafta"]
+
+
+def lansman_grubu(line, sezon, lansman_tarihi, tarih) -> tuple[np.ndarray, np.ndarray]:
+    """(etiket, pencerede) dizileri. AW25 Collection'da lansmanı pencerede olanlar (dalga 2–3) "pencerede
+    lanse, lansmandan …" (`tarih` gününe göre yaş: 0–13 / 14–27 / 28+); öncekiler "AW25 dalga 1"; öteki
+    Collection "önceki sezonlar"; NOS / Basic / Outlet line adıyla. İlk dağıtım her kolda Lumoda'nındır:
+    kollar yeni lansmanların yalnız replenishment'ını farklı yapar."""
+    line = np.asarray(line).astype(str)
+    lans = pd.to_datetime(pd.Series(np.asarray(lansman_tarihi)))
+    col = line == "Collection"
+    aw25 = np.asarray(sezon).astype(str) == "AW25"
+    icinde = col & aw25 & (lans >= _ts(OYUN_BAS)).to_numpy()
+    yas = (pd.to_datetime(pd.Series(np.asarray(tarih))) - lans).dt.days.to_numpy()
+    yas_g = np.where(yas < 14, YAS_GRUPLARI[0], np.where(yas < 28, YAS_GRUPLARI[1], YAS_GRUPLARI[2]))
+    etiket = np.where(icinde, np.char.add("pencerede lanse, ", yas_g.astype(str)),
+                      np.where(col & aw25, "AW25 dalga 1", np.where(col, "önceki sezonlar", line)))
+    return etiket.astype(str), icinde
+
+
 def urun_gruplari(urun: pd.DataFrame) -> pd.DataFrame:
-    """urun_id indeksli: line, lansman grubu (`lansman`), beden sınıfı (`beden`), lansman tarihi.
-    Lansman grubu: AW25 Collection'da lansmanı pencerede olanlar "pencerede lanse" (dalga 2–3),
-    öncekiler "AW25 dalga 1"; öteki Collection "önceki sezonlar"; NOS / Basic / Outlet line adıyla."""
+    """urun_id indeksli: line, sezon, lansman tarihi, beden sınıfı (`beden`: çekirdek beden sırası 2–4,
+    kenar, tek beden)."""
     u = urun.copy()
     u["urun_id"] = u["urun_id"].astype(str)
-    lans = pd.to_datetime(u["lansman_tarihi"])
-    col = (u["line"] == "Collection").to_numpy()
-    aw25 = (u["sezon_kodu"] == "AW25").to_numpy()
-    icinde = (lans >= _ts(OYUN_BAS)).to_numpy()
-    u["lansman"] = np.where(col & aw25 & icinde, "pencerede lanse",
-                            np.where(col & aw25, "AW25 dalga 1",
-                                     np.where(col, "önceki sezonlar", u["line"].astype(str))))
     tek = (u["beden_seti"].astype(str) == "Standart").to_numpy()
     u["beden"] = np.where(tek, "tek beden", np.where(u["beden_sira"].isin(CEKIRDEK).to_numpy(), "çekirdek", "kenar"))
-    return u.set_index("urun_id")[["line", "lansman", "beden", "lansman_tarihi", "option_id", "dalga"]]
+    return u.set_index("urun_id")[["line", "sezon_kodu", "beden", "lansman_tarihi", "option_id", "dalga"]]
 
 
 def teshis_tablosu(gercek: pd.DataFrame, gruplar: pd.DataFrame, bas: date = OYUN_BAS) -> pd.DataFrame:
     """`gercek` (pencere, fiziksel): kesit × grup başına talepli hücre-gün (`talepli`), bulunabilir
-    hücre-gün (`bulunan`), `talep`, `karsilanmayan`. Kesitler: `lansman` (pencerede lanse
-    olanlar lansmandan bu yana gün 0–13 / 14–27 / 28+ diye ayrıca), `line_yari` (hafta 0–8 / 9+),
-    `line_beden`."""
+    hücre-gün (`bulunan`), `talep`, `karsilanmayan`; grubun alanları (`line`, `yari` "ilk"/"ikinci",
+    `beden`, `pencerede`, `hafta` 0…) açıkça. Kesitler: `lansman` (`lansman_grubu`, yaş satırın gününe
+    göre), `line_yari` (pencerenin ilk / ikinci yarısı: hafta 0–8 / 9+), `line_beden`, `hafta`."""
     uid = gercek["urun_id"].astype(str)
-    line = uid.map(gruplar["line"]).to_numpy()
-    lansman = uid.map(gruplar["lansman"]).to_numpy()
-    beden = uid.map(gruplar["beden"]).to_numpy()
-    yas = ((gercek["tarih"] - pd.to_datetime(uid.map(gruplar["lansman_tarihi"]))).dt.days).to_numpy()
-    yas_g = np.where(yas < 14, "lansmandan 0–13 gün", np.where(yas < 28, "lansmandan 14–27 gün", "lansmandan 28+ gün"))
-    lansman = np.where(lansman == "pencerede lanse", np.char.add("pencerede lanse, ", yas_g.astype(str)), lansman)
+    line = uid.map(gruplar["line"]).to_numpy().astype(str)
+    etiket, pencerede = lansman_grubu(line, uid.map(gruplar["sezon_kodu"]).to_numpy(),
+                                      uid.map(gruplar["lansman_tarihi"]).to_numpy(), gercek["tarih"].to_numpy())
+    beden = uid.map(gruplar["beden"]).to_numpy().astype(str)
     hafta = ((gercek["tarih"] - _ts(bas)).dt.days // 7).to_numpy()
-    yari = np.where(hafta < 9, "ilk 9 hafta", "son 9 hafta")
+    yari = np.where(hafta < 9, "ilk", "ikinci")
     talep = gercek["talep"].to_numpy(dtype=np.int64)
     kendi = gercek["kendi_satis"].to_numpy(dtype=np.int64)
-    kars = gercek["karsilanmayan"].to_numpy(dtype=np.int64)
-    ortak = pd.DataFrame({"talepli": talep > 0, "bulunan": (talep > 0) & (kendi > 0), "talep": talep, "karsilanmayan": kars})
+    sayi = {"talepli": talep > 0, "bulunan": (talep > 0) & (kendi > 0), "talep": talep,
+            "karsilanmayan": gercek["karsilanmayan"].to_numpy(dtype=np.int64)}
+    n = len(gercek)
+    bos, yok, hayir = np.full(n, ""), np.full(n, -1), np.zeros(n, dtype=bool)
+    lansman_line = np.where(np.isin(etiket, ["NOS", "Basic", "Outlet"]), line, "Collection")
+    yari_etiket = pd.Series(yari).map(YARILAR).to_numpy().astype(str)
+    kesitler = {
+        "lansman": dict(grup=etiket, line=lansman_line, yari=bos, beden=bos, pencerede=pencerede, hafta=yok),
+        "line_yari": dict(grup=np.char.add(np.char.add(line, " · "), yari_etiket), line=line, yari=yari, beden=bos,
+                          pencerede=hayir, hafta=yok),
+        "line_beden": dict(grup=np.char.add(np.char.add(line, " · "), beden), line=line, yari=bos, beden=beden,
+                           pencerede=hayir, hafta=yok),
+        "hafta": dict(grup=np.char.add("hafta ", np.char.zfill((hafta + 1).astype(str), 2)), line=bos, yari=bos,
+                      beden=bos, pencerede=hayir, hafta=hafta),
+    }
     parca = []
-    for kesit, anahtar in (("lansman", lansman), ("line_yari", np.char.add(np.char.add(line.astype(str), " · "), yari)),
-                           ("line_beden", np.char.add(np.char.add(line.astype(str), " · "), beden.astype(str)))):
-        t = ortak.groupby(anahtar).sum()
-        t.index.name = "grup"
-        parca.append(t.reset_index().assign(kesit=kesit))
+    for kesit, alan in kesitler.items():
+        df = pd.DataFrame({**alan, **sayi})
+        t = df.groupby(["grup", "line", "yari", "beden", "pencerede", "hafta"], sort=True)[SAYILAR].sum().reset_index()
+        parca.append(t.assign(kesit=kesit))
     sonuc = pd.concat(parca, ignore_index=True)
-    sonuc[["talepli", "bulunan", "talep", "karsilanmayan"]] = sonuc[["talepli", "bulunan", "talep", "karsilanmayan"]].astype(np.int64)
-    return sonuc[["kesit", "grup", "talepli", "bulunan", "talep", "karsilanmayan"]].sort_values(["kesit", "grup"], ignore_index=True)
+    sonuc[SAYILAR] = sonuc[SAYILAR].astype(np.int64)
+    return sonuc[ALANLAR + SAYILAR].sort_values(["kesit", "grup"], ignore_index=True)
+
+
+def oc_kirik(kosu, E: Eksen, tarih) -> tuple[np.ndarray, np.ndarray]:
+    """(stoklu [OC], kırık [OC]): `tarih` sabahı fotoğrafında, `olcutler.kirik_ciftler`'in tanımıyla (sorumlu
+    çift evreni; çiftin çeşidindeki çekirdek bedenlerden biri 0)."""
+    from replenishment import olcutler
+
+    st = _oku(kosu, "stok", ["tarih", "magaza_id", "urun_id", "adet"], tarih, tarih)
+    stok_c = olcutler._stok_c(st, E.idx, E.C)
+    evren = olcutler.cift_evreni(E.w, E.h, _ts(tarih))
+    oc = E.h.oc
+    cift = np.bincount(oc, evren, minlength=E.OC) > 0
+    stoklu = cift & (np.bincount(oc, np.where(evren, stok_c, 0), minlength=E.OC) > 0)
+    cekirdek = evren & np.isin(E.h.sku_beden[E.h.hucre_sku], olcutler.CEKIRDEK_BEDENLER)
+    eksik = np.bincount(oc, cekirdek & (stok_c <= 0), minlength=E.OC) > 0
+    return stoklu, stoklu & eksik
+
+
+def kirik_tablosu(kosu, E: Eksen, ara, son) -> pd.DataFrame:
+    """Kırık çift, teşhis gruplarına göre: `lansman` (son fotoğraf; yaş o güne göre) ve `line_yari` (ilk yarı
+    `ara` fotoğrafı = hafta 9'un sonu, ikinci yarı `son` fotoğrafı). Sütunlar: kesit, grup, stoklu, kirik."""
+    o = E.w.optionlar
+    op = E.h.oc_option
+    line = o["line"].to_numpy().astype(str)[op]
+    parca = []
+    for yari, tarih in (("ilk", ara), ("ikinci", son)):
+        stoklu, kirik = oc_kirik(kosu, E, tarih)
+        grup = np.char.add(np.char.add(line, " · "), YARILAR[yari])
+        parca.append(pd.DataFrame({"kesit": "line_yari", "grup": grup, "stoklu": stoklu, "kirik": kirik}))
+        if yari == "ikinci":
+            etiket, _ = lansman_grubu(line, o["sezon_kodu"].to_numpy()[op], o["lansman_tarihi"].to_numpy()[op],
+                                      np.full(len(op), _ts(tarih).to_datetime64()))
+            parca.append(pd.DataFrame({"kesit": "lansman", "grup": etiket, "stoklu": stoklu, "kirik": kirik}))
+    df = pd.concat(parca, ignore_index=True)
+    return df.groupby(["kesit", "grup"], sort=True)[["stoklu", "kirik"]].sum().astype(np.int64).reset_index()
 
 
 def grup_katkisi(a: pd.DataFrame, b: pd.DataFrame) -> pd.DataFrame:
@@ -455,9 +515,13 @@ def grup_katkisi(a: pd.DataFrame, b: pd.DataFrame) -> pd.DataFrame:
     pb, bb = oran(b)
     gr = sorted(set(pa.index) | set(pb.index))
     pa, ba, pb, bb = (x.reindex(gr).fillna(0.0) for x in (pa, ba, pb, bb))
-    return pd.DataFrame({"grup": gr, "pay_a": pa.to_numpy(), "bul_a": 100 * ba.to_numpy(), "pay_b": pb.to_numpy(),
-                         "bul_b": 100 * bb.to_numpy(),
-                         "katki": 100 * (pa * ba - pb * bb).to_numpy()})
+    sonuc = pd.DataFrame({"grup": gr, "pay_a": pa.to_numpy(), "bul_a": 100 * ba.to_numpy(), "pay_b": pb.to_numpy(),
+                          "bul_b": 100 * bb.to_numpy(), "katki": 100 * (pa * ba - pb * bb).to_numpy()})
+    alan = [c for c in ALANLAR if c not in ("kesit", "grup") and c in a.columns]
+    if alan:
+        ozn = pd.concat([a, b])[["grup"] + alan].drop_duplicates("grup")
+        sonuc = sonuc.merge(ozn, on="grup", how="left")
+    return sonuc
 
 
 def ortalama_magaza_stogu(kosu, bas: date = OYUN_BAS, bit: date = OYUN_BIT) -> float:
@@ -581,7 +645,8 @@ def yayimlanan_kur(sahne: dict | None) -> Yayimlanan:
             where u.line::varchar in ('NOS', 'Basic') and d.tarih::date between ? and ? and dayofweek(d.tarih) = 1
             group by 1 order by 1""", [bas, bit]).df()
         paket = con.execute("select paket_id::varchar as paket_id, beden_seti::varchar as beden_seti, "
-                            "sum(adet)::int as adet from paket group by 1, 2 order by 1").df()
+                            "sum(adet)::int as adet, string_agg(adet::varchar, '-' order by beden_sira) as dagilim "
+                            "from paket group by 1, 2 order by 1").df()
         from replenishment import kalibrasyon
 
         kal_n = kalibrasyon._pazartesi_sayisi(sabitler.KAL_BAS, sabitler.KAL_BIT)
@@ -627,6 +692,7 @@ class Veri:
     hedef: dict                         # koşu adı → HedefSonucu
     ilk: IlkPazartesi
     teshis: dict                        # koşu adı → teshis_tablosu
+    kirik: dict                         # koşu adı → kirik_tablosu
     ort_stok: dict                      # koşu adı → ortalama mağaza stoğu
     nb_depo: dict                       # koşu adı → nb_depo
     ilk_alim: dict                      # alım düzeyi → ilk_alim tablosu
@@ -642,6 +708,7 @@ class Veri:
     yol_kosulari: int
     tahmin_parametreleri: dict
     tahmin_ozet: dict                   # cikti/tahmin/yol0_ozet.json (eğitim ve doğrulama özeti)
+    bf_haftasi: int                     # Black Friday'in pencere haftası (0'dan; takvimden)
 
 
 def hazirla(cikti: Path = CIKTI) -> Veri:
@@ -688,13 +755,16 @@ def hazirla(cikti: Path = CIKTI) -> Veri:
     gruplar = urun_gruplari(_oku(ref, "urun", ["urun_id", "option_id", "line", "sezon_kodu", "dalga", "lansman_tarihi",
                                                "beden_seti", "beden_sira"]))
     nb = set(gruplar.index[gruplar["line"].isin(["NOS", "Basic"]).to_numpy()])
-    teshis, ort_stok, nbd = {}, {}, {}
+    teshis, kirik, ort_stok, nbd = {}, {}, {}, {}
+    pz = pazartesiler()
+    ara_foto, son_foto = pz[9], pz[-1]          # hafta 9'un sonu (10. pazartesi sabahı) ve son fotoğraf
     for ad in TESHIS_KOLLARI:
         k = ob.ac(ad, kayit=False)
         g = _oku(k, "gercek", ["tarih", "magaza_id", "urun_id", "talep", "kendi_satis", "karsilanmayan"], OYUN_BAS, OYUN_BIT)
         g = g[(g["magaza_id"].astype(str) != ONLINE).to_numpy()].reset_index(drop=True)
         teshis[ad] = teshis_tablosu(g, gruplar)
         del g
+        kirik[ad] = kirik_tablosu(k, E, ara_foto, son_foto)
         if ad in ("lumoda_kisitsiz",) + SINIR_KOLLARI:
             ort_stok[ad] = ortalama_magaza_stogu(k)
             nbd[ad] = nb_depo(k, nb)
@@ -721,10 +791,21 @@ def hazirla(cikti: Path = CIKTI) -> Veri:
     demo = senaryolar.uret(oy, onbellek=ob.dizin)
     yay = yayimlanan_kur(hk.get("sahne"))
     return Veri(oyun=oy, yollar=yl, kal=kal, hikaye=hk, esitlik=es, yayimlanan=yay, satistaki=satistaki,
-                katsayilar=katsayilar, hedef=hedef, ilk=ilk, teshis=teshis, ort_stok=ort_stok, nb_depo=nbd,
+                katsayilar=katsayilar, hedef=hedef, ilk=ilk, teshis=teshis, kirik=kirik, ort_stok=ort_stok, nb_depo=nbd,
                 ilk_alim=ilk_alim_t, plan=sezon_plani(E), defter_bas=defter_bas, depo_son=depo_s, uzl=uzl, stok_devri=devir, demo=demo,
                 olcum_kodu=oyun.olcum_kodu(_kal_nesnesi(kal), oyun.Ortam()), yollar_kodu=yollar_modulu.kod_ozeti(),
-                acilan=sorted(ob.acilan | ob_yol.acilan), yol_kosulari=len(yol_kayit), tahmin_parametreleri=dict(tahmin.PARAMETRELER), tahmin_ozet=tozet)
+                acilan=sorted(ob.acilan | ob_yol.acilan), yol_kosulari=len(yol_kayit), tahmin_parametreleri=dict(tahmin.PARAMETRELER), tahmin_ozet=tozet, bf_haftasi=bf_haftasi(E))
+
+
+def bf_haftasi(E: Eksen) -> int:
+    """Pencere içindeki Black Friday gününün hafta indisi (hafta 0 = ilk karar pazartesisinden 7 gün)."""
+    t = E.w.takvim
+    tarih = pd.to_datetime(t["tarih"]).dt.normalize()
+    m = t["black_friday_mi"].to_numpy(dtype=bool) & ((tarih >= _ts(OYUN_BAS)) & (tarih <= _ts(OYUN_BIT))).to_numpy()
+    gunler = tarih[m]
+    if len(gunler) != 1:
+        raise RuntimeError(f"pencerede tek Black Friday günü beklenirdi: {len(gunler)}")
+    return int((gunler.iloc[0] - _ts(OYUN_BAS)).days // 7)
 
 
 def _kal_nesnesi(kal: dict):

@@ -18,7 +18,6 @@ TL tam sayı (rapor DEMO bölümü aynı yuvarlamayla basar).
 
 import json
 import subprocess
-from datetime import date
 from pathlib import Path
 
 KOK = Path(__file__).resolve().parent
@@ -84,12 +83,12 @@ def sonuclar(oyun: dict, onbellek: Path = ONBELLEK) -> dict:
 
 
 def _surum() -> str:
+    """Kodun sürümü: HEAD'in kısa özeti (tarih yok: aynı commit'te iki üretim bayt bayt aynı)."""
     try:
-        sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True,
-                             cwd=KOK).stdout.strip()
+        return subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True,
+                              cwd=KOK).stdout.strip()
     except Exception:  # noqa: BLE001 — git yoksa yerel
-        sha = "yerel"
-    return f"{sha} {date.today().isoformat()}"
+        return "yerel"
 
 
 def uret(oyun: dict | None = None, onbellek: Path = ONBELLEK, surum: str | None = None) -> dict:

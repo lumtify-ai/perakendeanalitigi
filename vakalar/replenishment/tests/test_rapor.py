@@ -201,27 +201,50 @@ def _gruplar():
     return rapor_b.urun_gruplari(urun)
 
 
-def test_urun_gruplari():
+def test_urun_gruplari_ve_lansman_grubu():
     g = _gruplar()
-    assert g.loc["C1-M", "lansman"] == "pencerede lanse" and g.loc["C2-M", "lansman"] == "AW25 dalga 1"
-    assert g.loc["A1-STD", "lansman"] == "önceki sezonlar" and g.loc["N1-M", "lansman"] == "NOS"
     assert g.loc["C1-M", "beden"] == "çekirdek" and g.loc["C1-XS", "beden"] == "kenar"
     assert g.loc["A1-STD", "beden"] == "tek beden"
+    et, pen = rapor_b.lansman_grubu(g["line"], g["sezon_kodu"], g["lansman_tarihi"],
+                                    np.full(len(g), np.datetime64("2025-10-27")))
+    d = dict(zip(g.index, et))
+    assert d["C1-M"] == "pencerede lanse, lansmandan 28+ gün" and d["C2-M"] == "AW25 dalga 1"
+    assert d["A1-STD"] == "önceki sezonlar" and d["N1-M"] == "NOS"
+    assert list(pen) == [True, True, False, False, False]
+    et, _ = rapor_b.lansman_grubu(g["line"], g["sezon_kodu"], g["lansman_tarihi"],
+                                  np.full(len(g), np.datetime64("2025-10-01")))
+    assert et[0] == "pencerede lanse, lansmandan 0–13 gün"
 
 
-def test_teshis_tablosu_toplamlari_korur():
+def test_teshis_tablosu_toplamlari_ve_alanlari():
     gercek = pd.DataFrame({
         "tarih": pd.to_datetime(["2025-09-25", "2025-10-20", "2025-11-30", "2025-09-02", "2025-12-01", "2025-09-03"]),
         "urun_id": ["C1-M", "C1-XS", "C1-M", "C2-M", "N1-M", "A1-STD"],
         "talep": [3, 2, 1, 4, 5, 0], "kendi_satis": [3, 0, 1, 2, 5, 0], "karsilanmayan": [0, 2, 0, 2, 0, 0]})
     t = rapor_b.teshis_tablosu(gercek, _gruplar())
+    assert set(t["kesit"]) == {"lansman", "line_yari", "line_beden", "hafta"}
     for kesit, parca in t.groupby("kesit"):
         assert parca["talep"].sum() == 15 and parca["talepli"].sum() == 5 and parca["bulunan"].sum() == 4
+        assert parca["karsilanmayan"].sum() == 4
     lan = t[t["kesit"] == "lansman"].set_index("grup")
-    assert lan.loc["pencerede lanse, lansmandan 0–13 gün", "talep"] == 3          # 25 Eyl: 3. gün
+    assert lan.loc["pencerede lanse, lansmandan 0–13 gün", "talep"] == 3          # lansmandan 3. gün
     assert lan.loc["pencerede lanse, lansmandan 28+ gün", "talepli"] == 2
-    yari = t[t["kesit"] == "line_yari"].set_index("grup")
-    assert yari.loc["NOS · son 9 hafta", "talep"] == 5 and yari.loc["Collection · ilk 9 hafta", "talep"] == 9
+    assert bool(lan.loc["pencerede lanse, lansmandan 28+ gün", "pencerede"]) and not bool(lan.loc["NOS", "pencerede"])
+    assert lan.loc["NOS", "line"] == "NOS" and lan.loc["AW25 dalga 1", "line"] == "Collection"
+    yari = t[t["kesit"] == "line_yari"]
+    nos2 = yari[(yari["line"] == "NOS") & (yari["yari"] == "ikinci")]
+    assert len(nos2) == 1 and nos2["talep"].iloc[0] == 5
+    assert yari[(yari["line"] == "Collection") & (yari["yari"] == "ilk")]["talep"].sum() == 9
+    h = t[t["kesit"] == "hafta"].set_index("hafta")
+    assert h.loc[0, "talep"] == 4 and h.loc[0, "grup"] == "hafta 01" and h.loc[12, "talep"] == 1 and h.loc[13, "talep"] == 5   # 30 Kas (gün 90), 1 Ara (gün 91)
+
+
+def test_katki_grup_alanlarini_tasir():
+    gercek = pd.DataFrame({"tarih": pd.to_datetime(["2025-09-02", "2025-12-01"]), "urun_id": ["C2-M", "N1-M"],
+                           "talep": [4, 5], "kendi_satis": [2, 5], "karsilanmayan": [2, 0]})
+    t = rapor_b.teshis_tablosu(gercek, _gruplar())
+    kk = rapor_b.grup_katkisi(t[t["kesit"] == "line_yari"], t[t["kesit"] == "line_yari"])
+    assert set(kk.columns) >= {"line", "yari", "katki"} and (kk["katki"] == 0).all()
 
 
 def test_grup_katkisi_toplami_farka_esit():
