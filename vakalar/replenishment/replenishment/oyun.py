@@ -90,6 +90,7 @@ KIT_ALIM = 0.4
 DAHA_KIT_ALIM = 0.2
 KITLIK_ESIGI = 0.5            # puan: üç önceliğin bulunabilirlik aralığı bunun altındaysa kıtlık bağlamıyor
 ESITLIK_TARIHI = date(2025, 8, 4)
+DUCKDB_BELLEK = "6GB"         # DuckDB bellek sınırı: büyük günlük sorgular sınırı aşınca diske taşar
 
 
 def talep_tohumu(yol: int, taban: int = TALEP_TOHUM_TABANI) -> int | None:
@@ -285,6 +286,19 @@ class Ortam:
         return int(yol) == 0 and self.olcek == "tam"
 
 
+def baglan(db: Path, ortam: "Ortam"):
+    """`kaynak.baglan` + bellek sınırı (`DUCKDB_BELLEK`) ve geçici dizin (`cikti/duckdb_gecici`).
+    DuckDB'nin varsayılan sınırı RAM'in %80'i: makinenin kullanılabilir taahhüt belleği daha
+    azken büyük günlük sorgu (`stok.gunluk_magaza`, ~2,6 yıl) diske taşmak yerine "Allocation
+    failure" ile düşer. Sınır yalnız belleği yönetir, sonucu değiştirmez."""
+    con = kaynak.baglan(db)
+    gecici = Path(ortam.cikti) / "duckdb_gecici"
+    gecici.mkdir(parents=True, exist_ok=True)
+    con.execute(f"SET memory_limit='{DUCKDB_BELLEK}'")
+    con.execute(f"SET temp_directory='{gecici.as_posix()}'")
+    return con
+
+
 def veritabani_kur(kosu, db: Path, olcek: str = "tam") -> Path:
     """Koşunun yayımlanan biçimini (`motor.yayimlanan_bicim`) `db`'ye yazar (yayımlanan v4
     DuckDB'siyle aynı yol: tablo başına `CREATE TABLE … AS SELECT`; RPT kalıbı). Yanındaki
@@ -357,7 +371,7 @@ class Hazirlik:
             return yol
         t0 = time.perf_counter()
         yol.parent.mkdir(parents=True, exist_ok=True)
-        con = kaynak.baglan(self.db)
+        con = baglan(self.db, self.ortam)
         try:
             n = ortak_hazirlik.gunluk_yaz(con, yol, PENCERE)
         finally:
@@ -372,7 +386,7 @@ class Hazirlik:
             from perakende_analitik import hazirlik as ortak_hazirlik
 
             gunluk = self.gunluk()
-            con = kaynak.baglan(self.db)
+            con = baglan(self.db, self.ortam)
             try:
                 self._carpanlar = ortak_hazirlik.carpanlar_kapanmis(con, gunluk, self.ortam.pencere[0])
             finally:
@@ -391,7 +405,7 @@ def tahminci_hazirla(yol: int, db: Path, kaynak_kimligi: list, ortam: Ortam) -> 
         return tahmin.Tahminci.yukle(model), eski
     t0 = time.perf_counter()
     w = motor.dunya(ortam.olcek)
-    con = kaynak.baglan(db)
+    con = baglan(db, ortam)
     try:
         t, ozet = tahmin.cevrimdisi_egit(con, w, kaynak.harita_kur(w), EGITIM_BIT, ortam.tahmin_parametreleri)
     finally:
@@ -640,7 +654,7 @@ def esitlik_denetimi(ortam: Ortam | None = None, tarih: date = ESITLIK_TARIHI,
     if yak.X is None:
         raise RuntimeError(f"{tarih}: replenishment çağrılmadı (pazartesi değil mi?)")
     H = H or hazirlik(0, ortam)
-    con = kaynak.baglan(H.db)
+    con = baglan(H.db, ortam)
     try:
         anahtar = kaynak.hucre_anahtari(w)
         son = pd.Timestamp(tarih) - pd.Timedelta(days=1)
