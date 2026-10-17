@@ -78,8 +78,8 @@ Collection ise sezonla gelip gider. Sezon için bir kez alınır, biten
 biter. Bizim kurgumuzda Outlet de öyle, sezon için bir kez alınıyor.
 
 Şimdi aynı replenishment kuralını dördüne birden uygulayalım ve yalnız alım
-kararını değiştirelim. Depo sezonluk planın %40'ı kadar alırsa ne olur,
-tamamı kadar alırsa ne olur:
+kararını değiştirelim. Depo sezon için talep tahmininin %40'ı kadar alırsa
+ne olur, tamamı kadar alırsa ne olur:
 
 | Line | Bulunabilirlik (alım %40) | Bulunabilirlik (alım %100) |
 |---|---:|---:|
@@ -88,17 +88,16 @@ tamamı kadar alırsa ne olur:
 | Collection | %37,1 | %60,2 |
 | Outlet | %23,2 | %53,5 |
 
-Gerçekleşen alım bu oranlardan biraz sapıyor, çünkü tedarikçinin asgari
-adedi ve yuvarlama sonradan işliyor. %40 düzeyinde depoya giren ilk alım
-planın %37,5'i, %100 düzeyinde %93,1'i.
+Alım düzeyi talep tahminine uygulanıyor. Sezon planıyla kıyaslarsak depoya
+giren ilk alım %40 düzeyinde planın %37,5'i, %100 düzeyinde %93,1'i.
 
 Alımı %40'tan %100'e çıkarmak NOS ile Basic'te **neredeyse hiçbir şeyi
-değiştirmiyor**: biri 0,3, öteki 0,2 puan. Collection'da ise
-bulunabilirlik 23,1 puan, Outlet'te 30,3 puan artıyor.
+değiştirmiyor**: biri 0,3, öteki 0,2 puan. Bu bir sürpriz değil, kurgunun
+kendisinden geliyor. Alım kararı yalnız sezonluk alımı değiştiriyor; NOS
+ile Basic'in deposu sürekli besleniyor ve alım düzeyi ona dokunmuyor.
 
-Sebebi basit. NOS ile Basic'in deposu zaten sürekli besleniyor, sezon
-başındaki alım kararı onları ilgilendirmiyor. Collection'ın ise tek şansı
-var.
+Collection'da ise bulunabilirlik 23,1 puan, Outlet'te 30,3 puan artıyor.
+Collection'ın tek şansı var: sezon başında ne alındıysa o.
 
 Buradan çıkan kural: **bir ürünün replenishment stratejisini, o ürünün
 stoğunun nereden geldiği belirler.** Sürekli beslenen üründe sıkı çalışmak
@@ -118,13 +117,14 @@ Cevabı geçmişe bakarak ölçüyoruz. Bir özel günün satışını, öncesin
 sonrasındaki iki haftada haftanın aynı gününe denk gelen normal günlerle
 karşılaştırıyoruz. Lumoda'nın mağazalarında çıkan sonuç beklenenin tersi.
 Resmî tatil günlerinde mağaza normal bir günün 0,59 ile 0,62'si kadar
-satıyor. Beş üst kategorinin beşinde de resim aynı. Black Friday ise
+satıyor. Beş üst kategoride de tablo aynı. Black Friday ise
 bambaşka: o gün mağaza normal bir günün 3,24 ile 4,41 katı satıyor. En
 yüksek katsayı aksesuarda.
 
-Pars bunu tek cümleye indiriyor:
+Pars'ın özeti kısa:
 
-— Özel günün yönünü ölçün. Tatil mağazayı boşaltır, Black Friday doldurur.
+— Özel günün yönünü ölçün. Tatil müşteriyi evde tutar, Black Friday
+mağazaya doldurur.
 
 Hedef stok da bu katsayıyla ayarlanıyor. Tatil haftasında mağazaya daha az
 mal gider, Black Friday haftasında çok daha fazla. Her özel güne "raf dolu
