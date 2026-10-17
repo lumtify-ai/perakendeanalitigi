@@ -2,7 +2,7 @@
 `KAL_BIT`) parametre seçimi; oyun penceresine hiç bakmadan.
 
     tavan = referans_tavan(con)                        # koşusuz, yayımlanan veriden
-    k = kalibre_et(kos_fn, tavan)                      # ≤ 15 koşu
+    k = kalibre_et(kos_fn, tavan)                      # ≤ 18 koşu
     yaz(k, CIKTI / "kalibrasyon.json"); k = oku(...)
     ayar = k.referans_ayar()                           # oyun penceresinde referans nokta
 
@@ -28,7 +28,8 @@ bulunur. Gerçek koşucu `oyun.kalibrasyon_kosucusu` (`kural` kolu, yol 0, alım
    ucuz" (`maliyet_secimi`). C = A ∧ B, seçilen parametrelerle (koşulmaz; oyunun koli
    taraması ölçer). Seçilen koli kuralı: seçilmiş A ile B arasından aynı ölçüt.
 
-Bütçe 1 + 4 + 4 + 4 + 2 = 15 koşu. Seçimler yalnız pencere içi ölçütlerden.
+Bütçe 1 + 4 + 5 + 6 + 2 = 18 koşu (Ruling R25: ros 6 ve β 4 eklendi; "hedefe en yakın"
+seçimi ızgara kabalığına yenilmesin, β 3 ızgara ucuydu). Seçimler yalnız pencere içi ölçütlerden.
 
 **Referans tavan** (spec §3.5): `TAVAN_ORANI` × Lumoda'nın penceredeki haftalık
 ortalama replenishment adedi (yayımlanan `sevkiyat`, hedefi fiziksel mağaza), aşağı
@@ -54,9 +55,9 @@ from .sabitler import CIKTI, KAL_BAS, KAL_BIT, OYUN_BAS, OYUN_BIT, TAVAN_ORANI
 
 PENCERE = (KAL_BAS, KAL_BIT)
 SABIT_IZGARA = (1, 2, 3, 4)           # adet
-ROS_IZGARA = (3, 5, 7, 10)            # gün × hız
+ROS_IZGARA = (3, 5, 6, 7, 10)         # gün × hız (Ruling R25: 6 eklendi)
 ALFA_IZGARA = (0.4, 0.6)
-BETA_IZGARA = (2, 3)
+BETA_IZGARA = (2, 3, 4)               # Ruling R25: 4 eklendi (3 ızgara ucuydu)
 GAMA_IZGARA = (0.5, 0.75)
 ESIK_PUAN = 1.0                       # maliyet seçiminde en iyiye bulunabilirlik yakınlığı
 AILELER = ("sabit", "ros", "istatistik")

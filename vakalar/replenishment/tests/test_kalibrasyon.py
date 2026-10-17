@@ -93,16 +93,17 @@ class _Sahte:
         return {"bulunabilirlik": b, "toplama_maliyeti_tl": maliyet, "magaza_stok_son": 0.0}
 
     # (bulunabilirlik, maliyet): α küçük → daha çok koli, bulunabilirlik yüksek ve pahalı
-    A = {(0.4, 2): (93.0, 1000), (0.4, 3): (93.5, 900), (0.6, 2): (92.0, 800), (0.6, 3): (92.5, 700)}
+    A = {(0.4, 2): (93.0, 1000), (0.4, 3): (93.5, 900), (0.6, 2): (92.0, 800), (0.6, 3): (92.5, 700),
+         (0.4, 4): (93.0, 1100), (0.6, 4): (91.0, 1200)}
     B = {0.5: (93.0, 950), 0.75: (92.0, 850)}
 
 
 def test_kalibrasyon_penceresi_oyunu_gormez():
     """Her kalibrasyon koşusunda kol yalnız KAL_BAS…KAL_BIT'te etkin; hiçbir çağrı oyun
-    penceresine dokunmaz; bütçe ≤ 15 koşu; adlar benzersiz."""
+    penceresine dokunmaz; bütçe ≤ 18 koşu; adlar benzersiz."""
     s = _Sahte()
     kalibre_et(s, tavan=1234)
-    assert 0 < len(s.cagrilar) <= 15
+    assert 0 < len(s.cagrilar) <= 18
     assert all(a.pencere == (KAL_BAS, KAL_BIT) for _, a in s.cagrilar)
     assert all(a.pencere[1] < OYUN_BAS for _, a in s.cagrilar)
     adlar = [ad for ad, _ in s.cagrilar]
@@ -126,6 +127,18 @@ def test_kalibre_et_secimleri():
     assert k.koli["C"] == KoliKurali("C", alfa=0.6, beta=3, gamma=0.75)
     # seçilen koli: A* (92,5; 700) ve B* (92,0; 850) arasından, eşik 91,5: A ucuz
     assert k.secilen_koli == "A"
+
+
+def test_izgaralar_sabit():
+    """Ruling R25: ros 6 ve β 4 ızgarada; bütçe 1 + 4 + 5 + 6 + 2 = 18 TAM koşu."""
+    assert kalibrasyon.SABIT_IZGARA == (1, 2, 3, 4)
+    assert kalibrasyon.ROS_IZGARA == (3, 5, 6, 7, 10)
+    assert kalibrasyon.ALFA_IZGARA == (0.4, 0.6)
+    assert kalibrasyon.BETA_IZGARA == (2, 3, 4)
+    assert kalibrasyon.GAMA_IZGARA == (0.5, 0.75)
+    s = _Sahte()
+    kalibre_et(s, tavan=1234)
+    assert len(s.cagrilar) == 18
 
 
 def test_kalibre_et_ayarlari():
