@@ -250,14 +250,15 @@ def test_poisson_sapma():
 
 
 @pytest.mark.veri
-def test_egitim_suresi():
+def test_egitim_suresi(tmp_path):
     """Yol 0 eğitimi (yayımlanan DuckDB, `[2023-01-01, EGITIM_BIT)`): süre ve
     doğrulama sapması basılır (rapor ve kayıt defteri için); model doğrulamada
-    gecikme öngörülerinden iyi. Model `cikti/tahmin/yol0.json`'a yazılır."""
+    gecikme öngörülerinden iyi; kaydet/yükle gidiş-dönüşü kimliği korur. Oyunun
+    kullandığı model bu testin yan etkisi değildir: `python -m replenishment.oyun
+    hazirlik` (`oyun.tahminci_hazirla`) `cikti/tahmin/yol0.json`'u açıkça üretir."""
     import json
 
     from replenishment import motor   # test: dünyayı kurmak için (karar modülü değil)
-    from replenishment.sabitler import CIKTI
 
     if not kaynak.VERITABANI.exists():
         pytest.skip("v4 verisi yok (cd veri && python -m perakende_veri.v4.uret)")
@@ -272,8 +273,5 @@ def test_egitim_suresi():
     assert ozet["bit"] == EGITIM_BIT.isoformat() == "2025-08-17"
     assert ozet["dogrulama_sapma"] < min(ozet["dogrulama_sapma_lag1"], ozet["dogrulama_sapma_ort4"])
     assert t.kimlik == ozet["kimlik"]
-    (CIKTI / "tahmin").mkdir(parents=True, exist_ok=True)
-    t.kaydet(CIKTI / "tahmin" / "yol0.json")
-    (CIKTI / "tahmin" / "yol0_ozet.json").write_text(json.dumps(ozet, ensure_ascii=False, indent=1),
-                                                     encoding="utf-8")
-    assert Tahminci.yukle(CIKTI / "tahmin" / "yol0.json").kimlik == t.kimlik
+    t.kaydet(tmp_path / "yol0.json")
+    assert Tahminci.yukle(tmp_path / "yol0.json").kimlik == t.kimlik
