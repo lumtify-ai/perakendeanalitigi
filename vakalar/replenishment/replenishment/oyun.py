@@ -19,7 +19,8 @@ açıkça verilir (R20). Izgaranın her koşusu (`Kosum`) referans noktadan sapm
                  {kısıtsız (`Ayar.kisitsiz`), gevşek ×1,6, sıkı ×0,6} = 27
     tarama       referans + aileler (ros 6, istatistik); koli yok, B, C; öncelik ihtiyac, esit
                  @1,0 ve cover/ihtiyac/esit @0,4; tavan ×0,4 ve kısıtlı ∞ (×0,6 / ×1,6 demodan,
-                 ×1,0 referans); lumoda kısıtlı; kural_basit; tahmin_taban, tahmin = 17
+                 ×1,0 referans); lumoda kısıtlı; kural_basit; tahmin_taban, tahmin; ufuk
+                 (R30: ros güvenlik stoku 14 / 21 / 28 gün) = 20
     tarama_kit   öncelik cover/ihtiyac/esit @0,2: yalnız @0,4'te öncelik kıtlığı bağlamıyorsa
                  (`kitlik_karari`: üç önceliğin bulunabilirlik aralığı < `KITLIK_ESIGI` puan)
 
@@ -72,6 +73,7 @@ import pandas as pd
 
 from . import kalibrasyon, kaynak, motor, olcutler, politika, tahmin
 from .dagitim import KoliKurali
+from .ihtiyac import GuvenlikStoku
 from .politika import KOLLAR, Ayar
 from .sabitler import (
     ALIM_DUZEYLERI,
@@ -90,6 +92,7 @@ KIT_ALIM = 0.4
 DAHA_KIT_ALIM = 0.2
 KITLIK_ESIGI = 0.5            # puan: üç önceliğin bulunabilirlik aralığı bunun altındaysa kıtlık bağlamıyor
 ESITLIK_TARIHI = date(2025, 8, 4)
+UFUK_GUNLERI = (14, 21, 28)   # R30: ros güvenlik stoku ile 2–4 haftalık kapsama
 DUCKDB_BELLEK = "6GB"         # DuckDB bellek sınırı: büyük günlük sorgular sınırı aşınca diske taşar
 
 
@@ -161,6 +164,7 @@ class Kosum:
     tavan_kat  referans tavanın katı (∞ = tavan yok, kısıtlı)
     kisitsiz   `Ayar.kisitsiz` (tavan ∞, koli zorunluluğu yok)
     gs         güvenlik stoku ailesi (None: kalibrasyonun seçtiği)
+    gs_deger   ailenin değeri (None: kalibrasyonun o aile için seçtiği; ör. ros gün sayısı)
     koli       "yok" | "A" | "B" | "C" (None: kalibrasyonun seçtiği)
     oncelik    `dagit` önceliği (lumoda kolunda hep orantılı)
     yol        talep yolu (`talep_tohumu`)
@@ -172,6 +176,7 @@ class Kosum:
     tavan_kat: float = 1.0
     kisitsiz: bool = False
     gs: str | None = None
+    gs_deger: float | None = None
     koli: str | None = None
     oncelik: str = "cover"
     yol: int = 0
@@ -209,6 +214,9 @@ IZGARA: dict[str, tuple[Kosum, ...]] = {
         Kosum("kural_ref", "kural"),
         Kosum("kural_gs_ros", "kural", gs="ros"),
         Kosum("kural_gs_istatistik", "kural", gs="istatistik"),
+        # R30: kuralın hedefi max(7 günlük öngörü, ros × gün); 2–4 haftalık kapsama ile kural ile
+        # kısıtlı Lumoda bulunabilirlik–mağaza stoğu sınırında karşılaştırılır
+        *(Kosum(f"kural_ufuk_{d}", "kural", gs="ros", gs_deger=float(d)) for d in UFUK_GUNLERI),
         Kosum("kural_koli_yok", "kural", koli="yok"),
         Kosum("kural_koli_B", "kural", koli="B"),
         Kosum("kural_koli_C", "kural", koli="C"),
@@ -249,6 +257,8 @@ def ayar_kur(s: Kosum, kal: kalibrasyon.Kalibrasyon, pencere=(OYUN_BAS, OYUN_BIT
     """Kosum'un `Ayar`'ı: kalibrasyonun referans noktası + sapmalar. Tavan adet,
     ⌊referans × kat⌋ (∞ kat = tavan yok)."""
     gs = kal.gs[s.gs or kal.secilen_aile]
+    if s.gs_deger is not None:
+        gs = GuvenlikStoku(gs.aile, float(s.gs_deger))
     if s.kisitsiz:
         return Ayar(kisitsiz=True, gs=gs, oncelik=s.oncelik, pencere=tuple(pencere))
     koli_ad = s.koli or kal.secilen_koli
@@ -325,15 +335,16 @@ def veritabani_kur(kosu, db: Path, olcek: str = "tam") -> Path:
         con.unregister("gecici")
 
     try:
-        # Kirli kayıtlar yalnız bu üç tabloya eklenir (`kirlet`; aynı akış): üçü birlikte, sonra
-        # öteki tablolar tek tek (bütün tablolar aynı anda belleğe alınmaz)
+        # Kirli kayıtlar yalnız bu üç tabloya eklenir (`kirlet`; aynı akış): üçü birlikte kurulur,
+        # önce yazılıp bırakılır, sonra öteki tablolar tek tek (hepsi aynı anda belleğe alınmaz)
         kirli = motor.yayimlanan_bicim({a: kosu.tablo(a) for a in KIRLI_TABLOLAR}, olcek)
         if sorted(kirli) != sorted(KIRLI_TABLOLAR):
             raise RuntimeError(f"yayimlanan_bicim beklenmeyen tablolar döndürdü: {sorted(kirli)}")
+        for ad in KIRLI_TABLOLAR:
+            yaz(ad, kirli.pop(ad))
+        del kirli
         for ad in kosu.meta["tablolar"]:
-            if ad in kirli:
-                yaz(ad, kirli.pop(ad))
-            else:
+            if ad not in KIRLI_TABLOLAR:
                 yaz(ad, kosu.tablo(ad))
     finally:
         con.close()

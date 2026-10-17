@@ -458,7 +458,8 @@ def satisa_donme(kosu, w, bas: date, bit: date) -> dict[str, float]:
     h_hedef = _hucre(idx, sv["hedef"], sv["urun_id"])
     kol_hucre = np.unique(h_hedef[kol & (h_hedef >= 0)])
     if not len(kol_hucre):
-        return {"satisa_donme_gun": 0.0, "satilan_gonderilen": 0.0, "satilmayan_gonderilen": 0.0}
+        return {"satisa_donme_gun": 0.0, "satilan_gonderilen": 0.0, "satilmayan_gonderilen": 0.0,
+                "fifo_negatif_adet": 0.0}
 
     def ilgili(h):
         return np.isin(h, kol_hucre)

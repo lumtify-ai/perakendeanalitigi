@@ -47,7 +47,7 @@ def test_izgara_adlari_tekil():
 
 def test_izgara_butcesi():
     assert oyun.kosu_sayisi() <= 75
-    assert oyun.kosu_sayisi() == 1 + 27 + 17 + 3 + 4 * 5
+    assert oyun.kosu_sayisi() == 1 + 27 + 20 + 3 + 4 * 5
 
 
 def test_izgara_r28():
@@ -60,12 +60,14 @@ def test_izgara_r28():
     assert sum(s.kisitsiz for s in demo) == 9
     assert {s.tavan_kat for s in demo if not s.kisitsiz} == {1.6, 0.6}
     tarama = {s.ad: s for s in g["tarama"]}
-    assert len(tarama) == 17
+    assert len(tarama) == 20
     assert tarama["kural_ref"] == oyun.Kosum("kural_ref", "kural")
     assert {s.oncelik for s in tarama.values() if s.alim == 0.4} == {"cover", "ihtiyac", "esit"}
     assert {s.koli for s in tarama.values()} >= {"yok", "B", "C"}
     assert {s.gs for s in tarama.values()} >= {"ros", "istatistik"}
     assert {s.tavan_kat for s in tarama.values()} >= {0.4, math.inf}
+    ufuk = [(s.gs, s.gs_deger) for a, s in tarama.items() if a.startswith("kural_ufuk_")]
+    assert ufuk == [("ros", 14.0), ("ros", 21.0), ("ros", 28.0)]
     assert {s.kol for s in tarama.values()} == set(KOLLAR)
     assert {s.alim for s in g["tarama_kit"]} == {0.2}
 
@@ -259,3 +261,9 @@ def test_yollar_ayrisim():
     po = a["politika"]["kayip_orani"]
     assert po["yollar"] == {"0": 1, "1": 1, "2": -1} and po["medyan"] == 1
     assert a["politika"]["magaza_stok_son"]["medyan"] == pytest.approx(-10)
+
+
+def test_ayar_kur_ufuk_degeri():
+    a = oyun.ayar_kur(oyun.Kosum("kural_ufuk_21", "kural", gs="ros", gs_deger=21.0), _kal())
+    assert a.gs == GuvenlikStoku("ros", 21.0)
+    assert a.tavan == 25826.0 and a.koli == KoliKurali("A", alfa=0.4, beta=3) and a.oncelik == "cover"

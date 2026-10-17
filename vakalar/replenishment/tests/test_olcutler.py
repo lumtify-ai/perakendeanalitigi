@@ -296,9 +296,9 @@ def test_denetle():
 def test_fifo_negatif_sure_sayilir():
     """Akışlar fotoğrafla tutarsızsa (satış partinin varışından önce) birim sayılır, süre 0'a kırpılır."""
     t = _tablolar()
-    # M1 A-S'nin 09-01 fotoğrafı 3 yerine 0: 09-03 ve 09-05 satışları 09-02'de varan kol partisini
-    # tüketir (geç değil), 09-03'te 2 → süre 1 gün; tutarsızlık yok. Fotoğrafı 0 ve kol varışını
-    # 09-06'ya çekince 09-03 ve 09-05 satışları (5 adet; partide 4) önce düşer: 4 negatif
+    # M1 A-S: 09-01 fotoğrafı 0 ve kol partisinin (4 adet) varışı 09-06. Ondan önceki satışlar
+    # (09-03'te 2, 09-05'te 3) FIFO'da bu partiyle eşlenir ama partiden önce düşer: partinin 4
+    # adedi negatif süreli (fazla 1 satış hiçbir partiyle eşlenmez)
     t["stok"].loc[(t["stok"]["tarih"] == "2025-09-01") & (t["stok"]["urun_id"] == "A-S"), "adet"] = 0
     t["sevkiyat"].loc[0, "varis_tarihi"] = pd.Timestamp("2025-09-06")
     o = olcutler.hesapla(_kosu(tablolar=t), _dunya(), BAS2, BIT2)
