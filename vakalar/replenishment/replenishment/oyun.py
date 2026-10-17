@@ -5,6 +5,7 @@
     .venv/Scripts/python -m replenishment.oyun hazirlik        # yol 0: tahminci, günlük tablo, çarpanlar
     .venv/Scripts/python -m replenishment.oyun esitlik         # çevrimdışı ↔ Görünüm özellik eşitliği
     .venv/Scripts/python -m replenishment.oyun kalibrasyon     # cikti/kalibrasyon.json (Görev 9)
+    .venv/Scripts/python -m replenishment.oyun hikaye-girdi    # cikti/hikaye_girdi/ (Görev 11, R31)
 
 **Referans nokta** (R28): yol 0 (yayımlanan dünya), alım 1,0, kalibrasyonun seçtiği güvenlik
 stoku ailesi (`cikti/kalibrasyon.json`: sabit 4), koli kuralı (A α 0,4 β 3), referans tavan
@@ -56,6 +57,11 @@ eşitlik payı ve fark; `cikti/esitlik.json`.
 KALİBRASYON (Görev 9). `kalibrasyon.kalibre_et` koşuyu enjekte edilen `kos_fn(ad, ayar)`'a
 bırakır (Ruling R5). `kalibrasyon_kosucusu` `kural` kolunu verilen `Ayar`'la yol 0'da, alım
 1,0'da koşar ve kolun penceresinde ölçer (`olcutler.temel_olcutler`).
+
+HİKÂYE GİRDİSİ (Görev 11). `hikaye_sec` karar modülleri listesindedir, motoru göremez: koşulardan
+gerekenleri (`lumoda_kisitsiz`'in Lumoda istek kaydı ve sevkiyatı, R31'in iki kolunun option
+ölçütleri) `hikaye_girdisi_yaz` önbellekten okur ve `cikti/hikaye_girdi/`'ye yazar; koşu
+anahtarları `oyun.json`'dakilerle tutmalıdır.
 """
 
 import argparse
@@ -756,6 +762,112 @@ def kalibrasyon_kos(yol: Path = kalibrasyon.DOSYA) -> kalibrasyon.Kalibrasyon:
 
 
 # ---------------------------------------------------------------------------
+# Hikâye girdisi (Görev 11)
+# ---------------------------------------------------------------------------
+
+# R31: sahnenin dünyası (yayımlanan v4) ve aynı kısıttaki kural kolu
+HIKAYE_KOSULARI = {"lumoda": ESDEGERLIK, "kural": "demo_kural_a100_kisitsiz"}
+HIKAYE_GIRDI = "hikaye_girdi"
+_GERCEK_SUTUNLARI = ["tarih", "magaza_id", "urun_id", "talep", "kendi_satis", "karsilanmayan", "ikameye_giden",
+                     "kalici_kayip"]
+
+
+def _pencerede(df: pd.DataFrame, bas: date, bit: date, sutun: str = "tarih") -> np.ndarray:
+    t = pd.to_datetime(df[sutun]).dt.normalize()
+    return ((t >= pd.Timestamp(bas)) & (t <= pd.Timestamp(bit))).to_numpy()
+
+
+def option_olcutleri(gercek: pd.DataFrame, urun_option: pd.Series) -> pd.DataFrame:
+    """option başına `olcutler.musteri_olcutleri` (`gercek` pencerede ve fiziksel; çağıran süzer):
+    option_id indeksli `bulunabilirlik`, `kayip_orani`, `talep_adet`."""
+    o = gercek["urun_id"].astype(str).map(urun_option).to_numpy()
+    satir = {oid: olcutler.musteri_olcutleri(g) for oid, g in gercek.groupby(o, sort=True)}
+    return pd.DataFrame.from_dict(satir, orient="index")[["bulunabilirlik", "kayip_orani", "talep_adet"]]
+
+
+def hikaye_girdileri(lumoda_kosusu, kural_kosusu, w, bas: date = OYUN_BAS, bit: date = OYUN_BIT) -> dict:
+    """`hikaye_sec`'in koşulardan okuduğu her şey (o modül motoru görmez; sızıntı kilidi):
+
+    istekler     Lumoda'nın pencere pazartesilerindeki fiziksel mağaza istekleri (`Kaydedici`
+                 kaydı: gün, hücre indisi, adet → tarih, magaza_id, urun_id, istek; R4)
+    sevkiyat     koşunun depodan fiziksel mağazaya `replenishment` sevki (çıkış günü):
+                 tarih, magaza_id, urun_id, adet
+    kural_olcut  option başına iki kolun pencere ölçütü (R31): bulunabilirlik, kayip_orani,
+                 talep_adet; `_kural` / `_lumoda` sonekleriyle
+
+    `w` koşunun dünyası (hücre ekseni ve takvim; yalnız açık alanlar)."""
+    k = lumoda_kosusu.kayitlar.get("replenishment")
+    if k is None or not {"gun", "indis", "deger"} <= set(k.columns):
+        raise ValueError("Lumoda koşusunun replenishment kaydı yok (Kaydedici ile koşulmalı; R4)")
+    takvim = pd.to_datetime(w.takvim["tarih"]).dt.normalize().to_numpy()
+    hm = w.magazalar["magaza_id"].to_numpy().astype(str)[np.asarray(w.hucre_magaza)]
+    hs = w.urunler["urun_id"].to_numpy().astype(str)[np.asarray(w.hucre_sku)]
+    tarih = takvim[k["gun"].to_numpy(dtype=np.int64)]
+    p = (tarih >= np.datetime64(pd.Timestamp(bas))) & (tarih <= np.datetime64(pd.Timestamp(bit)))
+    c = k["indis"].to_numpy(dtype=np.int64)[p]
+    ist = pd.DataFrame({"tarih": tarih[p], "magaza_id": hm[c], "urun_id": hs[c],
+                        "istek": k["deger"].to_numpy(dtype=np.int64)[p]})
+    ist = ist[(ist["magaza_id"] != kaynak.ONLINE).to_numpy() & (ist["istek"] > 0).to_numpy()]
+
+    sv = lumoda_kosusu.tablo("sevkiyat", ["tarih", "hedef", "urun_id", "adet", "tip"])
+    sv = sv[_pencerede(sv, bas, bit) & (sv["tip"].astype(str) == "replenishment").to_numpy()
+            & (sv["hedef"].astype(str) != kaynak.ONLINE).to_numpy()]
+    sv = pd.DataFrame({"tarih": pd.to_datetime(sv["tarih"]).dt.normalize().to_numpy(),
+                       "magaza_id": sv["hedef"].astype(str).to_numpy(), "urun_id": sv["urun_id"].astype(str).to_numpy(),
+                       "adet": sv["adet"].to_numpy(dtype=np.int64)})
+    sv = sv.groupby(["tarih", "magaza_id", "urun_id"], as_index=False)["adet"].sum()
+
+    urun_option = pd.Series(w.urunler["option_id"].to_numpy().astype(str),
+                            index=w.urunler["urun_id"].to_numpy().astype(str))
+    parca = []
+    for rol, kosu in (("kural", kural_kosusu), ("lumoda", lumoda_kosusu)):
+        g = kosu.tablo("gercek", _GERCEK_SUTUNLARI)
+        g = g[_pencerede(g, bas, bit) & (g["magaza_id"].astype(str) != kaynak.ONLINE).to_numpy()]
+        parca.append(option_olcutleri(g, urun_option).add_suffix(f"_{rol}"))
+        del g
+    ko = parca[0].join(parca[1], how="outer").rename_axis("option_id").reset_index()
+    return {"istekler": ist.sort_values(["tarih", "urun_id", "magaza_id"], ignore_index=True),
+            "sevkiyat": sv, "kural_olcut": ko}
+
+
+def hikaye_girdisi_yaz(ortam: Ortam | None = None, kal: kalibrasyon.Kalibrasyon | None = None,
+                       kosumlar: dict | None = None) -> Path:
+    """R31 koşularını (`kosumlar`: rol → `Kosum`; varsayılan `HIKAYE_KOSULARI`) önbellekten okur,
+    anahtarlarını `oyun.json`'daki ölçülmüş kayıtla karşılaştırır (tutmazsa `RuntimeError`: sahne
+    ölçülmemiş bir koşudan kurulmasın) ve `hikaye_girdileri`'ni `<cikti>/hikaye_girdi/`'ye yazar
+    (Parquet + `kaynak.json`: rol → {ad, anahtar}, pencere)."""
+    ortam = ortam or Ortam()
+    kal = kal or kalibrasyon.oku()
+    if kosumlar is None:
+        tum = tum_kosumlar()
+        kosumlar = {rol: tum[ad] for rol, ad in HIKAYE_KOSULARI.items()}
+    kayit = _json_oku(Path(ortam.cikti) / "oyun.json").get("kosular", {})
+    kosular, kaynak_json = {}, {}
+    for rol, s in kosumlar.items():
+        if s.ad not in kayit:
+            raise RuntimeError(f"{s.ad} oyun.json'da yok: önce ızgara")
+        pol, parametreler, _ = politika_kur(s, None, kal, ortam)
+        k = motor.kos(pol, ad=s.ad, parametreler=parametreler, ilk_alim_orani=s.alim, talep_tohumu=talep_tohumu(s.yol),
+                      onbellek=ortam.onbellek, olcek=ortam.olcek, gun_sayisi=ortam.gun_sayisi, tembel=True)
+        if k.meta["anahtar"] != kayit[s.ad]["anahtar"]:
+            raise RuntimeError(f"{s.ad}: koşu anahtarı oyun.json'daki ölçülmüş kayıttan farklı (kod ya da veri "
+                               "değişmiş); önce ızgarayı yeniden ölçün")
+        kosular[rol], kaynak_json[rol] = k, {"ad": s.ad, "anahtar": k.meta["anahtar"]}
+    alimlar = {s.alim for s in kosumlar.values()}
+    if len(alimlar) != 1:
+        raise ValueError(f"hikâye koşuları aynı dünyada olmalı (alım düzeyi): {alimlar}")
+    w = motor.dunya(ortam.olcek, alimlar.pop())
+    bas, bit = ortam.pencere
+    girdi = hikaye_girdileri(kosular["lumoda"], kosular["kural"], w, bas, bit)
+    dizin = Path(ortam.cikti) / HIKAYE_GIRDI
+    dizin.mkdir(parents=True, exist_ok=True)
+    for ad, df in girdi.items():
+        df.to_parquet(dizin / f"{ad}.parquet", index=False)
+    _json_yaz(dizin / "kaynak.json", {"kosular": kaynak_json, "pencere": [str(bas), str(bit)]})
+    return dizin
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -771,6 +883,7 @@ def main(argv=None) -> None:
     hz = alt.add_parser("hazirlik", help="yolun tahmincisi (ve yol 0'da günlük tablo, çarpanlar)")
     hz.add_argument("--yol", type=int, default=0)
     alt.add_parser("esitlik", help="çevrimdışı ↔ Görünüm özellik eşitliği (cikti/esitlik.json)")
+    alt.add_parser("hikaye-girdi", help="hikaye_sec'in koşu girdisi (cikti/hikaye_girdi/; R31)")
     secim = ap.parse_args(argv)
     komut = secim.komut or "izgara"
     uyanik_tut()
@@ -788,6 +901,8 @@ def main(argv=None) -> None:
                           "dogrulama_sapma": H.tahmin_ozet.get("dogrulama_sapma")}, ensure_ascii=False))
     elif komut == "esitlik":
         print(json.dumps(esitlik_denetimi(), ensure_ascii=False, indent=1))
+    elif komut == "hikaye-girdi":
+        print(f"yazıldı: {hikaye_girdisi_yaz()}", flush=True)
     else:
         kos_hepsi(getattr(secim, "blok", "hepsi"), tut=False)
 

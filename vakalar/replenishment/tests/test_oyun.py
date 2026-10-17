@@ -267,3 +267,69 @@ def test_ayar_kur_ufuk_degeri():
     a = oyun.ayar_kur(oyun.Kosum("kural_ufuk_21", "kural", gs="ros", gs_deger=21.0), _kal())
     assert a.gs == GuvenlikStoku("ros", 21.0)
     assert a.tavan == 25826.0 and a.koli == KoliKurali("A", alfa=0.4, beta=3) and a.oncelik == "cover"
+
+
+# ---------------------------------------------------------------- hikâye girdisi (Görev 11, KÜÇÜK)
+
+
+def test_hikaye_kosulari_r31():
+    tum = oyun.tum_kosumlar()
+    k = oyun.HIKAYE_KOSULARI
+    assert k == {"lumoda": "lumoda_kisitsiz", "kural": "demo_kural_a100_kisitsiz"}
+    assert tum[k["kural"]].kisitsiz and tum[k["kural"]].alim == 1.0 and tum[k["kural"]].kol == "kural"
+    from replenishment import hikaye_sec
+    assert hikaye_sec.KOSULAR == k                                  # iki modül aynı koşuları okur
+
+
+def test_hikaye_girdisi(hazirlik1, ortam):
+    """Yol 1'in kısıtsız Lumoda'sı ve kısıtsız kural koşusundan girdi; `oyun.json` anahtarı
+    tutmazsa hata; `hikaye_sec.girdi_oku` geri okur."""
+    from replenishment import hikaye_sec, motor
+
+    kal = _kal(tavan=60)
+    kosumlar = {"lumoda": dict(oyun.yol_listesi(1))["lumoda_kisitsiz"],
+                "kural": oyun.Kosum("y1_kural_kisitsiz", "kural", kisitsiz=True, yol=1)}
+    kayit, kosular = {}, {}
+    for rol, s in kosumlar.items():
+        kosular[rol], kayit[s.ad] = oyun.kos_bir(s, hazirlik1, kal, ortam)
+    adlar = {rol: s.ad for rol, s in kosumlar.items()}
+    oyun_json = ortam.cikti / "oyun.json"
+    oyun._json_yaz(oyun_json, {"kosular": kayit})
+    dizin = oyun.hikaye_girdisi_yaz(ortam, kal, kosumlar)
+    bas, bit = ortam.pencere
+
+    lum = kosular["lumoda"]
+    assert lum.meta["anahtar"] == hazirlik1.lumoda.meta["anahtar"]
+    g = oyun.hikaye_girdileri(lum, kosular["kural"], motor.dunya("kucuk"), bas, bit)
+    ist, sv, ko = g["istekler"], g["sevkiyat"], g["kural_olcut"]
+    assert list(ist.columns) == ["tarih", "magaza_id", "urun_id", "istek"]
+    assert (ist["tarih"].dt.dayofweek == 0).all() and ist["tarih"].nunique() == 4
+    assert (ist["magaza_id"] != "ONL").all() and (ist["istek"] > 0).all()
+    # hücre eşlemesi: kısıtsız Lumoda'nın her sevki bir isteğe düşer ve onu aşmaz; kesim var
+    a = ["tarih", "magaza_id", "urun_id"]
+    m = sv.merge(ist, on=a, how="left")
+    assert m["istek"].notna().all() and (m["istek"] >= m["adet"]).all()
+    assert ist["istek"].sum() > sv["adet"].sum()
+    assert sv["adet"].sum() == kayit[kosumlar["lumoda"].ad]["olcutler"]["gonderilen_adet"]
+    # option ölçütleri: talep ağırlıklı toplam koşu ölçütünü verir
+    assert set(ko.columns) == {"option_id", "bulunabilirlik_kural", "bulunabilirlik_lumoda", "kayip_orani_kural",
+                               "kayip_orani_lumoda", "talep_adet_kural", "talep_adet_lumoda"}
+    for rol, s in kosumlar.items():
+        o = kayit[s.ad]["olcutler"]
+        assert ko[f"talep_adet_{rol}"].sum() == o["talep_adet"]
+        kayip = (ko[f"kayip_orani_{rol}"] * ko[f"talep_adet_{rol}"]).sum() / ko[f"talep_adet_{rol}"].sum()
+        assert kayip == pytest.approx(o["kayip_orani"])
+
+    # yazılan girdi aynı tablolar; hikaye_sec doğrulayarak okur
+    okunan = hikaye_sec.girdi_oku(dizin, oyun_json, kosular=adlar)
+    for ad in ("istekler", "sevkiyat", "kural_olcut"):
+        pd.testing.assert_frame_equal(okunan[ad], g[ad])
+    assert okunan["kaynak"]["kosular"] == {rol: {"ad": s.ad, "anahtar": kayit[s.ad]["anahtar"]}
+                                           for rol, s in kosumlar.items()}
+    with pytest.raises(RuntimeError):
+        hikaye_sec.girdi_oku(dizin, oyun_json)                         # R31 koşuları değil
+    # oyun.json'da başka anahtar: girdi kurulmaz
+    oyun._json_yaz(oyun_json, {"kosular": {**kayit, kosumlar["kural"].ad: {**kayit[kosumlar["kural"].ad],
+                                                                          "anahtar": "baska"}}})
+    with pytest.raises(RuntimeError, match="oyun.json"):
+        oyun.hikaye_girdisi_yaz(ortam, kal, kosumlar)
