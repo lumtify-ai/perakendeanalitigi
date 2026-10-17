@@ -299,9 +299,13 @@ def baglan(db: Path, ortam: "Ortam"):
     return con
 
 
+KIRLI_TABLOLAR = ("satis", "stok", "sevkiyat")     # `kirlet`'in dokunduğu tablolar
+
+
 def veritabani_kur(kosu, db: Path, olcek: str = "tam") -> Path:
     """Koşunun yayımlanan biçimini (`motor.yayimlanan_bicim`) `db`'ye yazar (yayımlanan v4
-    DuckDB'siyle aynı yol: tablo başına `CREATE TABLE … AS SELECT`; RPT kalıbı). Yanındaki
+    DuckDB'siyle aynı yol: tablo başına `CREATE TABLE … AS SELECT`; RPT kalıbı; tablolar tek tek, yalnız
+    kirletilen üçü birlikte belleğe alınır). Yanındaki
     `<db>.kosu` koşunun anahtarını tutar; aynı koşudan kurulmuşsa yeniden yazmaz."""
     import duckdb
 
@@ -311,18 +315,28 @@ def veritabani_kur(kosu, db: Path, olcek: str = "tam") -> Path:
     if db.exists() and iz.exists() and iz.read_text(encoding="utf-8") == anahtar:
         return db
     db.parent.mkdir(parents=True, exist_ok=True)
-    tablolar = motor.yayimlanan_bicim({a: kosu.tablo(a) for a in kosu.meta["tablolar"]}, olcek)
     gecici = db.with_name(db.name + ".yaziliyor")
     gecici.unlink(missing_ok=True)
     con = duckdb.connect(str(gecici))
+
+    def yaz(ad, df):
+        con.register("gecici", df)
+        con.execute(f"CREATE TABLE {ad} AS SELECT * FROM gecici")
+        con.unregister("gecici")
+
     try:
-        for ad, df in tablolar.items():
-            con.register("gecici", df)
-            con.execute(f"CREATE TABLE {ad} AS SELECT * FROM gecici")
-            con.unregister("gecici")
+        # Kirli kayıtlar yalnız bu üç tabloya eklenir (`kirlet`; aynı akış): üçü birlikte, sonra
+        # öteki tablolar tek tek (bütün tablolar aynı anda belleğe alınmaz)
+        kirli = motor.yayimlanan_bicim({a: kosu.tablo(a) for a in KIRLI_TABLOLAR}, olcek)
+        if sorted(kirli) != sorted(KIRLI_TABLOLAR):
+            raise RuntimeError(f"yayimlanan_bicim beklenmeyen tablolar döndürdü: {sorted(kirli)}")
+        for ad in kosu.meta["tablolar"]:
+            if ad in kirli:
+                yaz(ad, kirli.pop(ad))
+            else:
+                yaz(ad, kosu.tablo(ad))
     finally:
         con.close()
-    del tablolar
     iz.unlink(missing_ok=True)
     gecici.replace(db)
     iz.write_text(anahtar, encoding="utf-8")
@@ -442,9 +456,16 @@ def hazirlik(yol: int = 0, ortam: Ortam | None = None) -> Hazirlik:
 # ---------------------------------------------------------------------------
 
 
+# Ölçüm kodunun özeti içe aktarma anında bir kez: süreç sürerken diskteki dosya değişse de
+# kayıtlar o süreçte gerçekten koşan kodun özetini taşır
+OLCUTLER_OZETI = _dosya_ozeti(olcutler.__file__)
+OLCUM_SURUMU = 2
+
+
 def olcum_kodu(kal: kalibrasyon.Kalibrasyon, ortam: Ortam) -> str:
-    """Ölçümü belirleyen: ölçüt kodu, referans tavan (doluluk paydası), pencere."""
-    return _sha({"olcutler": _dosya_ozeti(olcutler.__file__), "tavan": kal.tavan,
+    """Ölçümü belirleyen: ölçüt kodu (içe aktarma anındaki), sürüm, referans tavan (doluluk
+    paydası), pencere."""
+    return _sha({"olcutler": OLCUTLER_OZETI, "surum": OLCUM_SURUMU, "tavan": kal.tavan,
                  "pencere": [str(p) for p in ortam.pencere]})
 
 
@@ -566,13 +587,13 @@ def kos_hepsi(blok: str = "hepsi", ortam: Ortam | None = None, kal: kalibrasyon.
     kayit["pencere"] = [str(p) for p in ortam.pencere]
     H = hazirlik(0, ortam)
     sonuc = {}
+    durum = {"alim": 1.0}            # hazırlık alım 1,0 dünyasını kurdu; bloklar arası izlenir
 
     def kos_liste(kosumlar, grup):
-        alim = None
         for s in _sirala(kosumlar):
-            if alim is not None and s.alim != alim:
-                motor.dunya.cache_clear()
-            alim = s.alim
+            if s.alim != durum["alim"]:
+                motor.dunya.cache_clear()     # iki TAM dünya aynı anda önbellekte tutulmaz
+                durum["alim"] = s.alim
             k, e = kos_bir(s, H, kal, ortam, kayit["kosular"].get(s.ad))
             kayit["kosular"][s.ad] = {"grup": grup, **e}
             _json_yaz(yol, kayit)

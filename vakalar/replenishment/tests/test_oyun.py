@@ -244,3 +244,18 @@ def test_esitlik_denetimi(ortam):
         assert f[s]["esit_pay"] == 1.0, s
     assert f["lag1"]["esit_pay"] > 0.95
     assert (ortam.cikti / "esitlik.json").exists()
+
+
+def test_yollar_ayrisim():
+    def y(kural, taban, tahmin):
+        def o(b):
+            return {"olcutler": {olc: 1.0 for olc in yollar.OZET_OLCUTLERI}
+                    | {"bulunabilirlik": b, "kayip_orani": 100 - b, "magaza_stok_son": 10 * b}}
+        return {"kosular": {"kural_ref": o(kural), "tahmin_taban_ref": o(taban), "tahmin_ref": o(tahmin)}}
+
+    a = yollar.ozetle({"0": y(70, 72, 71), "1": y(70, 69, 68), "2": y(70, 73, 74)})["ayrisim"]
+    og = a["ongoru"]["bulunabilirlik"]
+    assert og["yollar"] == {"0": 2, "1": -1, "2": 3} and og["medyan"] == 2 and (og["pozitif"], og["negatif"]) == (2, 1)
+    po = a["politika"]["kayip_orani"]
+    assert po["yollar"] == {"0": 1, "1": 1, "2": -1} and po["medyan"] == 1
+    assert a["politika"]["magaza_stok_son"]["medyan"] == pytest.approx(-10)

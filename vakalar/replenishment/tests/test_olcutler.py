@@ -291,3 +291,33 @@ def test_denetle():
     t["gercek"].loc[2, "kendi_satis"] = 4                    # talep 3
     with pytest.raises(AssertionError):
         olcutler.denetle(_kosu(tablolar=t))
+
+
+def test_fifo_negatif_sure_sayilir():
+    """Akışlar fotoğrafla tutarsızsa (satış partinin varışından önce) birim sayılır, süre 0'a kırpılır."""
+    t = _tablolar()
+    # M1 A-S'nin 09-01 fotoğrafı 3 yerine 0: 09-03 ve 09-05 satışları 09-02'de varan kol partisini
+    # tüketir (geç değil), 09-03'te 2 → süre 1 gün; tutarsızlık yok. Fotoğrafı 0 ve kol varışını
+    # 09-06'ya çekince 09-03 ve 09-05 satışları (5 adet; partide 4) önce düşer: 4 negatif
+    t["stok"].loc[(t["stok"]["tarih"] == "2025-09-01") & (t["stok"]["urun_id"] == "A-S"), "adet"] = 0
+    t["sevkiyat"].loc[0, "varis_tarihi"] = pd.Timestamp("2025-09-06")
+    o = olcutler.hesapla(_kosu(tablolar=t), _dunya(), BAS2, BIT2)
+    assert o["fifo_negatif_adet"] == 4
+    assert o["satisa_donme_gun"] == 0.0
+    assert olcutler.hesapla(_kosu(), _dunya(), BAS2, BIT2)["fifo_negatif_adet"] == 0
+
+
+def test_denetle_defter_kalemi_eksikse_hata():
+    eksik = _kol_kaydi()
+    eksik = eksik[~eksik["kalem"].isin(["uzl_kapali_adet", "defter_acik_adet"])]
+    with pytest.raises(AssertionError, match="kalem eksik"):
+        olcutler.denetle(_kosu(eksik))
+    # meta'ya göre defter tutan kol (kısıtsız Lumoda değil): gonderilen_adet de yoksa yine hata
+    yalin = _kol_kaydi()
+    yalin = yalin[yalin["kalem"].isin(["pazartesi", "istek_adet", "maske_disi_adet", "istek"])]
+    kosu = _kosu(yalin)
+    kosu.meta = {"politikalar": {"replenishment": {"parametreler": {"kol": "kural", "ayar": {"kisitsiz": True}}}}}
+    with pytest.raises(AssertionError, match="kalem eksik"):
+        olcutler.denetle(kosu)
+    kosu.meta = {"politikalar": {"replenishment": {"parametreler": {"kol": "lumoda", "ayar": {"kisitsiz": True}}}}}
+    olcutler.denetle(kosu)          # kısıtsız Lumoda defter tutmaz

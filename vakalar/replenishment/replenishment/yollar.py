@@ -15,7 +15,9 @@ seçilmez. Yol 0'ın koşuları ızgaranınkilerle aynı anahtardadır (önbelle
 Çıktı `cikti/yollar.json`: yol başına talep tohumu, tahmincinin özeti, kullanılan koşuların
 anahtarları ve ölçütleri (`kosular`: kısa ad → anahtar, ölçütler), "ozet": kol başına ölçütlerin
 yollar üstünde min / medyan / max'ı ve kol çiftlerinde "kaç yolda önde" sayıları
-(`KARSILASTIRMALAR`; bulunabilirlikte yüksek, maliyet ve stokta düşük olan önde). Koşular
+(`KARSILASTIRMALAR`; bulunabilirlikte yüksek, maliyet ve stokta düşük olan önde) ve spec §4.6
+ayrışımı (`ayrisim`: öngörü = tahmin_taban − kural, politika = tahmin − tahmin_taban; yol başına
+fark, medyan, yön sayıları). Koşular
 önbellekli olduğundan yarıda kalan iş kaldığı yerden sürer: her koşudan sonra yazılır; kaydı
 başka bir kodla (`kod_ozeti`) yazılmış yol yeniden hesaplanır (koşular yine önbellekten).
 """
@@ -38,6 +40,9 @@ OZET_OLCUTLERI = ("bulunabilirlik", "kayip_orani", "kalici_kayip_orani", "ikame_
 KARSILASTIRMALAR = (("tahmin_taban_ref", "kural_ref"), ("tahmin_ref", "kural_ref"),
                     ("tahmin_taban_ref", "tahmin_ref"), ("kural_ref", "lumoda_ref"),
                     ("tahmin_taban_ref", "lumoda_ref"), ("lumoda_kisitsiz", "lumoda_ref"))
+# Spec §4.6 ayrışımı: bileşen → (a, b), fark = a − b
+AYRISIM = {"ongoru": ("tahmin_taban_ref", "kural_ref"), "politika": ("tahmin_ref", "tahmin_taban_ref")}
+AYRISIM_OLCUTLERI = ("bulunabilirlik", "kayip_orani", "magaza_stok_son")
 YUKSEK_IYI = {"bulunabilirlik": True, "toplama_maliyeti_tl": False, "magaza_stok_son": False,
               "kayip_orani": False}
 
@@ -70,7 +75,25 @@ def ozetle(yollar: dict) -> dict:
         for olc, yuksek in YUKSEK_IYI.items():
             sayim[olc] = int(sum((x[olc] > z[olc]) if yuksek else (x[olc] < z[olc]) for x, z in ikili))
         oz["onde"][f"{a}|{b}"] = sayim
+    oz["ayrisim"] = ayrisim(yollar)
     return oz
+
+
+def ayrisim(yollar: dict) -> dict:
+    """Spec §4.6 ayrışımı, yol başına: öngörü = tahmin_taban − kural (aynı taban, öngörü farklı),
+    politika = tahmin − tahmin_taban (aynı öngörü, taban yok). Ölçüt başına yol farkları,
+    medyanı ve yön sayıları (fark > 0 / < 0)."""
+    sonuc = {}
+    for bilesen, (a, b) in AYRISIM.items():
+        sonuc[bilesen] = {}
+        for olc in AYRISIM_OLCUTLERI:
+            fark = {p: y["kosular"][a]["olcutler"][olc] - y["kosular"][b]["olcutler"][olc]
+                    for p, y in sorted(yollar.items()) if a in y.get("kosular", {}) and b in y.get("kosular", {})}
+            v = np.array(list(fark.values()), dtype=float)
+            sonuc[bilesen][olc] = {"yollar": fark, "n": int(len(v)),
+                                   "medyan": float(np.median(v)) if len(v) else None,
+                                   "pozitif": int((v > 0).sum()), "negatif": int((v < 0).sum())}
+    return sonuc
 
 
 def yol_kos(yol: int, kal: kalibrasyon.Kalibrasyon, ortam: oyun.Ortam, kayit: dict, yaz) -> dict:

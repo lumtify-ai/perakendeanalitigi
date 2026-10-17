@@ -71,6 +71,9 @@ penceredeki `replenishment` satırlarından: hepsi tek adet, koli yok):
                         partisi FIFO sırası; mağazadan sevkle giden birim satılmış sayılmaz
     satilan_gonderilen, satilmayan_gonderilen
                         kol sevkiyatının pencerede satılan / pencere sonunda hâlâ duran adedi
+    fifo_negatif_adet   FIFO'da çıkış günü partinin varışından önce düşen birim (kolun hücrelerinde,
+                        her parti ve çıkış türü): akışlar fotoğrafla tutarlıysa 0. Ortalamada bu
+                        birimlerin süresi 0'a kırpılır; sayı tutarsızlığın büyüklüğünü gösterir
     str                 penceredeki fiziksel satış (iade hariç, ikame dahil) / (pencere
                         başı mağaza stoğu + penceredeki mağaza girişleri)
 
@@ -335,7 +338,7 @@ def cift_evreni(w, harita, tarih) -> np.ndarray:
     acilis = pd.to_datetime(mag["acilis_tarihi"]).to_numpy()
     kapanis = pd.to_datetime(mag["kapanis_tarihi"]).to_numpy()
     acik_m = (np.isnat(acilis) | (acilis <= t.to_datetime64())) & (np.isnat(kapanis) | (kapanis > t.to_datetime64()))
-    outlet = np.asarray(getattr(w, "hucre_outlet_akisi", np.zeros(len(o), dtype=bool)), dtype=bool)
+    outlet = np.asarray(w.hucre_outlet_akisi, dtype=bool)
     hucre = (~harita.hucre_online) & ~outlet & (lans <= d) & (d < cik) & acik_m[harita.hucre_magaza]
     beden_say = np.bincount(harita.oc, hucre, minlength=len(harita.oc_magaza))
     return hucre & (beden_say[harita.oc] >= 2)
@@ -496,8 +499,11 @@ def satisa_donme(kosu, w, bas: date, bit: date) -> dict[str, float]:
     n = float(satilan["adet"].sum())
     gun_ort = float(((satilan["cikis_gun"] - satilan["giris_gun"]).clip(lower=0) * satilan["adet"]).sum()) / n \
         if n > 0 else 0.0
+    eslesen = p[p["cikis_tur"] != ""]
+    negatif = float(eslesen.loc[(eslesen["cikis_gun"] < eslesen["giris_gun"]).to_numpy(), "adet"].sum())
     return {"satisa_donme_gun": gun_ort, "satilan_gonderilen": n,
-            "satilmayan_gonderilen": float(k.loc[k["cikis_tur"] == "", "adet"].sum())}
+            "satilmayan_gonderilen": float(k.loc[k["cikis_tur"] == "", "adet"].sum()),
+            "fifo_negatif_adet": negatif}
 
 
 # ---------------------------------------------------------------------------
@@ -602,12 +608,23 @@ def line_kirilimi(kosu, w, bas: date = OYUN_BAS, bit: date = OYUN_BIT) -> pd.Dat
 # ---------------------------------------------------------------------------
 
 
+def _defter_tutar(kosu) -> bool:
+    """Meta'ya göre kol gölge defter tutuyor mu (kısıtsız Lumoda kolu tutmaz)."""
+    p = getattr(kosu, "meta", {}).get("politikalar", {}).get("replenishment", {}).get("parametreler", {})
+    kol = p.get("kol") if isinstance(p, dict) else None
+    if kol is None:
+        return False
+    return not (kol == "lumoda" and p.get("ayar", {}).get("kisitsiz"))
+
+
 def denetle(kosu) -> None:
     """Korunum: gizli gerçekte kendi satış ≤ talep, karşılanmayan = talep − kendi satış,
     0 ≤ kalıcı kayıp ≤ karşılanmayan; kol kaydında her pazartesi gölge defter
     (uzlaştırma sonrası kapalı + açık) − gönderilen = gönderim sonrası kapalı + açık.
     (Defterin depoyla değişmezi koşu içinde her uzlaştırmada denetlenir; bozulursa
-    koşu `AssertionError` ile durur.) `sevkiyatla_karsilastir` çağıranın işidir."""
+    koşu `AssertionError` ile durur.) Defter tutan kolun (kaydında `gonderilen_adet` olan, ya
+    da meta'sına göre kısıtsız Lumoda dışındaki her kol) kaydında `uzl_*` / `defter_*`
+    kalemleri yoksa da `AssertionError`. `sevkiyatla_karsilastir` çağıranın işidir."""
     g = kosu.tablo("gercek", ["talep", "kendi_satis", "karsilanmayan", "kalici_kayip"])
     t, k = g["talep"].to_numpy(np.int64), g["kendi_satis"].to_numpy(np.int64)
     kr, kk = g["karsilanmayan"].to_numpy(np.int64), g["kalici_kayip"].to_numpy(np.int64)
@@ -620,7 +637,11 @@ def denetle(kosu) -> None:
     del g
     if _kol_kaydi_mi(kosu):
         h = hafta_tablosu(kosu)
-        if {"uzl_kapali_adet", "uzl_acik_adet", "defter_kapali_adet"} <= set(h.columns):
+        gereken = {"uzl_kapali_adet", "uzl_acik_adet", "defter_kapali_adet", "defter_acik_adet", "gonderilen_adet"}
+        if "gonderilen_adet" in h.columns or _defter_tutar(kosu):
+            eksik = gereken - set(h.columns)
+            if eksik:
+                raise AssertionError(f"defter tutan kolun kaydında kalem eksik: {sorted(eksik)}")
             once = h["uzl_kapali_adet"] + h["uzl_acik_adet"] - h["gonderilen_adet"]
             sonra = h["defter_kapali_adet"] + h["defter_acik_adet"]
             if not np.allclose(once.to_numpy(float), sonra.to_numpy(float)):
