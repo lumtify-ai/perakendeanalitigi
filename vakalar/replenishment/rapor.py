@@ -1,586 +1,945 @@
-"""Yazıların alıntıladığı bütün sayıları basar. `cikti/` altındaki JSON'ları
-(kalibrasyon ve 21 yolun senaryoları) OKUR, sweep'i yeniden koşmaz.
+"""Depodan Mağazaya dizisinin (6 yazı, `/replenishment/depodan-magazaya/`) yayımlanacak BÜTÜN
+sayıları buradan basılır (v4).
 
-    .venv/Scripts/python rapor.py > cikti/rapor.txt
+    cd vakalar/replenishment
+    PYTHONIOENCODING=utf-8 .venv/Scripts/python rapor.py > cikti/rapor.txt
 
-Yazı düzenlerken tek kaynak budur (global-constraints: uydurma sayı yasak).
+Kalıcı kural: yazıya yeni bir sayı girmeden önce buraya eklenir; ortak sayı denetimi
+(`cd vakalar/ortak && .venv/Scripts/python -m perakende_analitik.sayi_denetimi --yazi
+../../site/src/content/yazi/replenishment/depodan-magazaya --rapor ../replenishment/cikti/rapor.txt`)
+yazılardaki her sayının bu çıktıda geçtiğini denetler. Sayılar Türkçe basılır (binlik nokta,
+ondalık virgül, `%12,3`, `−0,32`). Uydurma sayı yasaktır; elle konmuş anlatı sayıları yalnız
+ANLATI VARSAYIMLARI'ndadır ve orada etiketlidir. Raporda takvim tarihi geçer (izlenebilirlik);
+yazılar tarih ve yıl basmaz, mevsime göreli söyler.
 
-Merkez bölüm (=== 20 YOL ===) bir ayrıştırmadır, iki-yönlü bir kıyas değil:
-`tahmin_taban − kural` (aynı politika, farklı öngörü → ÖNGÖRÜ ETKİSİ) ve
-`tahmin − tahmin_taban` (aynı öngörü, farklı politika → POLİTİKA ETKİSİ)
-ayrı ayrı raporlanır (20 alternatif yol üzerinden min/medyan/max/aynı yön).
+Bölümler (`BOLUMLER`, bu sırayla; spec §5 + Ruling R33):
 
-`kirik_cift` hiçbir yerde tek başına basılmaz (stoksuz bir çift "kırık"
-sayılmaz — raf boşsa iyi görünmek yanıltıcıdır). Dürüst hali
-(`kirik_cift_pay_yuzde`, stoklu/boş çift sayılarıyla) yalnız yol 0'ın 27
-kadran senaryosu için var; bu senaryolar `_regen_yol0_dial.py` ile bir kez
-yeniden oynatılıp diske yazıldı (bkz. o script, task-11-report.md). Kalan
-yol0 senaryoları ve yol 1-20 eski (kirik_cift alanı olmayan) JSON'ları
-taşıyor; bu yüzden büyük tablolarda kirik metriği hiç basılmıyor.
+    VERİ                  mağazalar, option ve çift sayıları, karar sayısı, varış günleri, ilk haftanın satışı
+    DEPO                  alım düzeyleri (gerçekleşen ilk alım, planın yüzdesi), defterin koli / açık
+                          bölünmesi, pencere sonu depo, NOS / Basic havuzu, uzlaştırma kalemleri
+    KALİBRASYON           hedef bulunabilirlik, aileler, koli kuralları, referans tavan, özel gün katsayıları
+    YOL 0                 her koşunun bütün ölçütleri
+    LUMODA VE KURAL       R33: bulunabilirlik–mağaza stoğu sınırı, eşit stokta fark, farkın teşhisi
+    YOLLAR                5 talep yolu, ayrışım (öngörü / politika etkisi), "kaç yolda önde", LightGBM
+    LINE KIRILIMI         alım düzeyi, demo, kollar
+    KOLİ VE TAVAN         koli kuralları, koli yok, tavan taraması, kısıtın bağlamadığı tavan
+    ÖNCELİK               cover / ihtiyaç / eşit, iki alım düzeyinde; kıtlık kararı
+    KURAL HEDEFİ          hedef / gerçek talep, tabanın bağladığı çiftler, toplam ile max; ilk pazartesi
+    SANSÜR                düzeltmenin hedefe etkisi (sonuç etkisi ölçülmedi), hikâyenin boş raf örneği
+    BASİT                 karar anı Basit'i öngörüsüyle kural
+    HİKÂYE                sahne, mağaza bazlı denetim, o sabahın depo stoğu
+    DEMO                  27 bileşim
+    ANLATI VARSAYIMLARI
+    KORUNUM
+
+Rapor önce tampona yazılır; korunum tutmazsa ya da bir girdi eksikse (önbellekte olmayan koşu,
+bugünkü kodla yazılmamış kayıt) stdout'a tek satır gitmez, mesaj stderr'e, çıkış kodu 1. Basılan her
+fark, oran ve ara değer basılan işlenenlerden hesaplanır (`yuv`, `fark`, `bolum`, `ara_deger`).
+Ölçülen süre basılmaz: aynı girdiyle iki koşu bayt bayt aynıdır. Girdiler ve hesaplar `rapor_b.py`'de
+(motoru koşmaz; önbellekten).
 """
-import copy
-import json
-import statistics
-from pathlib import Path
 
-from replenishment import kaynak, sabitler
-from replenishment.dagitim import KoliKurali, dagit
-from replenishment.depo import Depo, depo_kur, tedarik_et
-from replenishment.dunya import dunya_kur
-from replenishment.gecmis import yol_baslangici
-from replenishment.ihtiyac import GuvenlikStoku, bedene_bol, magaza_beden_paylari
-from replenishment.kalibrasyon import Kalibrasyon
-from replenishment.kos import anlatim_kosulari, senaryo_anahtari, senaryolar
-from replenishment.motor import gunu_isle
-from replenishment.oyun import OyunAyari, oyna
-from replenishment.politika import KuralPolitikasi
+import argparse
+import contextlib
+import io
+import math
+import statistics
+import sys
+import warnings
 
 import numpy as np
+import pandas as pd
+
+import rapor_b
+from replenishment import sabitler
+
+warnings.filterwarnings("ignore", message=".*generic.*unit.*", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*force_all_finite.*", category=FutureWarning)
 
 CIKTI = sabitler.CIKTI
 
-# ---------------------------------------------------------------------
-# Saf yardımcılar (TDD: tests/test_rapor.py)
-# ---------------------------------------------------------------------
+# Hikâyedeki elle sayılar (1. yazı): veriden gelmez. Değer değişirse kayıt defterine yazılır.
+#   veli_giris_saati   Veli'nin isteği kaydettiği saat ("sabah sekizde")
+#   ali_giris_saati    Ali'nin aynı satıra ulaştığı saat
+ANLATI_VARSAYIMLARI = {"veli_giris_saati": "08:00", "ali_giris_saati": "08:40"}
 
 
-def yirmi_yol_ozeti(fark_listesi: list[float]) -> dict:
-    """(min, medyan, max, kaç yolun farkı pozitif, n). Boş liste kabul
-    edilmez (çağıran en az bir yol vermeli)."""
-    return {
-        "min": min(fark_listesi),
-        "medyan": statistics.median(fark_listesi),
-        "max": max(fark_listesi),
-        "pozitif": sum(1 for f in fark_listesi if f > 0),
-        "n": len(fark_listesi),
-    }
+# ---------------------------------------------------------------------------
+# Biçim
+# ---------------------------------------------------------------------------
+
+def _yok(x) -> bool:
+    if x is None or x is pd.NaT:
+        return True
+    try:
+        return bool(isinstance(x, (float, np.floating)) and np.isnan(x))
+    except TypeError:
+        return False
 
 
-def yol_metrik(veri: dict, yol: int, anahtar: str, metrik: str) -> float:
-    return veri[yol][anahtar][metrik]
+def _sifir_mi(metin: str) -> bool:
+    return metin.lstrip("-").replace(".", "").replace(",", "").strip("0") == ""
 
 
-def kombinasyon_farki(
-    veri: dict, yollar: list[int], eslesmeler: list[tuple[str, str]], metrik: str
-) -> list[float]:
-    """Her yol için `eslesmeler`deki (sağ, sol) anahtar çiftlerinin metrik
-    farkının ORTALAMASI — yol başına tek sayı (20 yolun özetini almadan
-    önce, aynı yolun birden çok alım/koli kombinasyonunu tek sayıya
-    indirger)."""
-    sonuc = []
-    for yol in yollar:
-        farklar = [
-            yol_metrik(veri, yol, sag, metrik) - yol_metrik(veri, yol, sol, metrik)
-            for sag, sol in eslesmeler
-        ]
-        sonuc.append(sum(farklar) / len(farklar))
-    return sonuc
+def s(x, ondalik: int = 0) -> str:
+    """Türkçe sayı: 1.234.567 · 0,55 · −3,2 (yuvarlanınca sıfır olan negatif işaretsiz)."""
+    if _yok(x):
+        return "—"
+    metin = f"{float(x):,.{ondalik}f}".replace(",", "_").replace(".", ",").replace("_", ".")
+    if _sifir_mi(metin):
+        metin = metin.lstrip("-")
+    return metin.replace("-", "−")
 
 
-def forecast_etkisi_eslesmeleri(alimlar: list[int], koliler: list[str]) -> list[tuple[str, str]]:
-    """ÖNGÖRÜ ETKİSİ: tahmin_taban − kural, aynı politika (koli kuralı +
-    ROS güvenlik stoku), farklı öngörü (LightGBM'e karşı kural formülü)."""
-    return [
-        (f"tahmin_taban|{a}|{k}|ros", f"kural|{a}|{k}|ros")
-        for a in alimlar for k in koliler
-    ]
+def y(x, ondalik: int = 1) -> str:
+    """Yüzde, x oran: 0,123 → %12,3; negatif → −%3,2."""
+    if _yok(x):
+        return "—"
+    return yd(100 * float(x), ondalik)
 
 
-def politika_etkisi_eslesmeleri(alimlar: list[int], koliler: list[str]) -> list[tuple[str, str]]:
-    """POLİTİKA ETKİSİ: tahmin − tahmin_taban, aynı öngörü (LightGBM),
-    farklı politika (taban yok ↔ kural kolunun tabanı var)."""
-    return [
-        (f"tahmin|{a}|{k}|-", f"tahmin_taban|{a}|{k}|ros")
-        for a in alimlar for k in koliler
-    ]
+def yd(x, ondalik: int = 1) -> str:
+    """Yüzde, x zaten yüzde: 65,102 → %65,1."""
+    if _yok(x):
+        return "—"
+    govde = s(abs(float(x)), ondalik)
+    return ("−%" if x < 0 and not _sifir_mi(govde) else "%") + govde
 
 
-def koli_farki_eslesmeleri(alimlar: list[int], ss: str, sol_koli: str, sag_koli: str) -> list[tuple[str, str]]:
-    """Kural kolunda iki koli kuralı arası fark (aynı ss ailesi), alım
-    oranları üzerinden."""
-    return [(f"kural|{a}|{sag_koli}|{ss}", f"kural|{a}|{sol_koli}|{ss}") for a in alimlar]
+def isaretli(x, ondalik: int = 0) -> str:
+    """İşaretli sayı: +1,23 · −0,32 · 0,00."""
+    metin = s(x, ondalik)
+    return metin if metin.startswith("−") or _sifir_mi(metin) else "+" + metin
 
 
-def ss_farki_eslesmeleri(alimlar: list[int], koliler: list[str], sol_ss: str, sag_ss: str) -> list[tuple[str, str]]:
-    """Kural kolunda iki güvenlik stoku ailesi arası fark, alım × koli
-    kombinasyonları üzerinden."""
-    return [
-        (f"kural|{a}|{k}|{sag_ss}", f"kural|{a}|{k}|{sol_ss}")
-        for a in alimlar for k in koliler
-    ]
+def tl(x, ondalik: int = 0) -> str:
+    return "—" if _yok(x) else f"{s(x, ondalik)} TL"
 
 
-# ---------------------------------------------------------------------
-# Disk okuma
-# ---------------------------------------------------------------------
+def yuv(x, ondalik: int = 0) -> float:
+    """`s(x, ondalik)`'ın bastığı değer."""
+    return float(f"{float(x):.{ondalik}f}")
 
 
-def _yol_yukle(cikti: Path, yol: int) -> dict[str, dict]:
-    """{senaryo_anahtari: olcutler} — o yolun cikti/yol{n}/ altındaki 45
-    dosyası."""
-    sonuc = {}
-    for senaryo in senaryolar():
-        anahtar = senaryo_anahtari(senaryo)
-        dosya = cikti / f"yol{yol}" / f"{anahtar.replace('|', '_')}.json"
-        sonuc[anahtar] = json.loads(dosya.read_text(encoding="utf-8"))
-    return sonuc
+def fark(a, b, ondalik: int = 0) -> float:
+    """b − a, ikisi de `ondalik` hanede basıldığı gibi."""
+    return yuv(yuv(b, ondalik) - yuv(a, ondalik), ondalik)
 
 
-def _kalibrasyon_yukle(cikti: Path) -> dict:
-    return json.loads((cikti / "kalibrasyon.json").read_text(encoding="utf-8"))
+def bolum(a, b, ondalik_a: int = 0, ondalik_b: int = 0) -> float | None:
+    """a / b, ikisi de basıldığı gibi."""
+    payda = yuv(b, ondalik_b)
+    return yuv(a, ondalik_a) / payda if payda else None
 
 
-# ---------------------------------------------------------------------
+def ara_deger(x, x1, y1, x2, y2, ondalik_x: int = 0, ondalik_y: int = 2) -> float:
+    """(x1, y1)–(x2, y2) doğrusunda x'in y'si; hepsi basıldığı gibi. x aralık dışındaysa ValueError
+    (dış değer kestirilmez)."""
+    x, x1, x2 = (yuv(v, ondalik_x) for v in (x, x1, x2))
+    y1, y2 = yuv(y1, ondalik_y), yuv(y2, ondalik_y)
+    if not min(x1, x2) <= x <= max(x1, x2) or x1 == x2:
+        raise ValueError(f"{x} aralığın ({x1}, {x2}) dışında")
+    return y1 + (y2 - y1) * (x - x1) / (x2 - x1)
+
+
+def kisitin_baglamadigi_tavan(noktalar, kisitsiz_bul: float, esik: float = 1.0, ondalik: int = 2):
+    """Spec §3.5: bulunabilirliği kısıtsızın `esik` puan yakınına gelen en küçük tarama noktası
+    (tavan katı; ∞ = sonsuz tavan, kısıtlı). Değerler basıldığı gibi; yoksa None."""
+    for kat, bul in sorted(noktalar, key=lambda n: n[0]):
+        if abs(yuv(bul, ondalik) - yuv(kisitsiz_bul, ondalik)) <= esik:
+            return kat
+    return None
+
+
+def yol_farklari(a: list, b: list, ondalik: int) -> dict:
+    """Yol başına a − b (basılan değerlerden), medyanı ve yön sayıları."""
+    f = [fark(bb, aa, ondalik) for aa, bb in zip(a, b)]
+    return {"farklar": f, "medyan": yuv(statistics.median(f), ondalik), "pozitif": sum(v > 0 for v in f),
+            "negatif": sum(v < 0 for v in f), "n": len(f)}
+
+
+def baslik(metin: str) -> None:
+    print(f"\n=== {metin} ===")
+
+
+def alt(metin: str) -> None:
+    print(f"\n--- {metin} ---")
+
+
+def tamponla(govde) -> tuple[int, str]:
+    """`govde()`yi stdout'u tamponlayarak koşar: (0, metin) ya da korunum bozulursa (1, "") ve mesaj
+    stderr'e."""
+    tampon = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(tampon):
+            govde()
+    except AssertionError as e:
+        print(e, file=sys.stderr)
+        return 1, ""
+    return 0, tampon.getvalue()
+
+
+def korunum(denetimler: list[tuple[str, bool]]) -> int:
+    """Denetimlerin hepsi tutmalı; tutmayanlar adlarıyla AssertionError. Döner: denetim sayısı."""
+    if not denetimler:
+        raise AssertionError("korunum: hiç denetim yok")
+    hatalar = [ad for ad, ok in denetimler if not bool(ok)]
+    if hatalar:
+        raise AssertionError("korunum bozuldu:\n  " + "\n  ".join(hatalar))
+    return len(denetimler)
+
+
+def hedef_denetimleri(h: rapor_b.HedefSonucu, tolerans: float = rapor_b.HEDEF_TOLERANSI) -> list[tuple[str, bool]]:
+    """Yeniden kurulan fiziksel hedef, kolun kaydettiği hedefin `tolerans` göreli yakınında (her pazartesi)."""
+    oran = np.abs(h.yeni_hedef / h.kayit_hedef - 1)
+    return [(f"{h.ad}: yeniden kurulan hedef = kayıt (%{100 * tolerans:g} içinde, {len(oran)} pazartesi)",
+             bool(len(oran) > 0 and (oran <= tolerans).all()))]
+
+
+# ---------------------------------------------------------------------------
+# Kısayollar
+# ---------------------------------------------------------------------------
+
+def K(v, ad: str) -> dict:
+    return v.oyun["kosular"][ad]
+
+
+def O(v, ad: str) -> dict:
+    return K(v, ad)["olcutler"]
+
+
+def L(v, ad: str) -> dict:
+    return {r["line"]: r for r in K(v, ad)["line"]}
+
+
+LINELAR = ("Collection", "NOS", "Basic", "Outlet")
+KOL_ADI = {"lumoda_kisitsiz": "Lumoda kısıtsız (yayımlanan dünya)", "lumoda_ref": "Lumoda kısıtlı",
+           "kural_ref": "kural (sabit 4 adet taban)", "kural_ufuk_14": "kural, ros 14 gün taban",
+           "kural_ufuk_21": "kural, ros 21 gün taban", "kural_ufuk_28": "kural, ros 28 gün taban",
+           "tahmin_taban_ref": "LightGBM + taban", "tahmin_ref": "yalnız LightGBM",
+           "kural_basit_ref": "kural, öngörü karar anı Basit'i", "kural_gs_ros": "kural, ros 6 gün taban",
+           "kural_gs_istatistik": "kural, istatistik taban"}
+
+BICIM = {  # ölçüt → (tür, ondalık): y yüzde, s sayı, t TL
+    "bulunabilirlik": ("y", 2), "talep_adet": ("s", 0), "satis_adet": ("s", 0), "kayip_orani": ("y", 2),
+    "ikame_payi": ("y", 1), "kalici_kayip_orani": ("y", 2), "gonderilen_adet": ("s", 0), "acik_adet": ("s", 0),
+    "koli_sayisi": ("s", 0), "koli_adet": ("s", 0), "toplama_maliyeti_tl": ("t", 0), "acik_doluluk_ort": ("y", 1),
+    "acik_doluluk_tepe": ("y", 1), "tavan_bagli_hafta_yuzde": ("y", 1), "hafta_sayisi": ("s", 0),
+    "kesilen_pay_yuzde": ("y", 1), "depo_bos_kayip_pay_yuzde": ("y", 1), "magaza_stok_son": ("s", 0),
+    "stoklu_cift": ("s", 0), "bos_cift": ("s", 0), "kirik_cift": ("s", 0), "kirik_cift_pay_yuzde": ("y", 1),
+    "beden_sapmasi": ("s", 1), "satisa_donme_gun": ("s", 1), "satilan_gonderilen": ("s", 0),
+    "satilmayan_gonderilen": ("s", 0), "fifo_negatif_adet": ("s", 0), "satis_fiziksel_adet": ("s", 0),
+    "str": ("y", 1),
+}
+
+
+def b(ad: str, x) -> str:
+    tur, n = BICIM.get(ad, ("s", 2))
+    return yd(x, n) if tur == "y" else tl(x, n) if tur == "t" else s(x, n)
+
+
+def _ayar_metni(k: dict) -> str:
+    a = k.get("ayar")
+    if a is None:
+        return "Lumoda kuralı, kısıt yok (motorun orantılı kesimi)"
+    koli = a["koli"]
+    koli_m = "koli zorunluluğu yok" if a["kisitsiz"] else (
+        "koli yok" if koli["ad"] == "yok" else f"koli {koli['ad']}")
+    tavan = "tavan yok" if a["tavan"] == "inf" else f"tavan {s(a['tavan'])}"
+    parca = [f"alım %{s(100 * k['alim'])}", koli_m, tavan]
+    if k["kol"] in ("kural", "kural_basit", "tahmin_taban"):
+        parca.append(f"taban {a['gs']['aile']} {s(a['gs']['deger'])}")
+    elif k["kol"] == "tahmin":
+        parca.append("taban yok")
+    parca.append("öncelik orantılı (Lumoda'nın isteği)" if k["kol"] == "lumoda" else f"öncelik {a['oncelik']}")
+    return " · ".join(parca)
+
+
+# ---------------------------------------------------------------------------
 # Bölümler
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+
+def veri_bolumu(v, ek) -> None:
+    yy = v.yayimlanan
+    m = yy.magazalar
+    ist = int(m["istanbul"].sum())
+    print("Kaynak: yayımlanan v4 tabloları (Lumoda'nın dünyası, kısıt yok) ve dünyanın açık alanları.")
+    print(f"mağaza: {s(len(m))} fiziksel + 1 online; İstanbul (Ali) {s(ist)}, Anadolu (Veli) {s(len(m) - ist)}")
+    pz = rapor_b.pazartesiler()
+    gun = (sabitler.OYUN_BIT - sabitler.OYUN_BAS).days + 1
+    print(f"oyun penceresi: {s(gun)} gün (sonbahar-kış sezonunun ilk dört ayı), {s(len(pz))} karar pazartesisi")
+    alt("pencerede etkin option (line)")
+    toplam = 0
+    for _, r in yy.etkin_option.iterrows():
+        print(f"  {r['line']:<11}{s(r['option']):>6}")
+        toplam += int(r["option"])
+    print(f"  {'toplam':<11}{s(toplam):>6}")
+    alt("satıştaki fiziksel mağaza–option çifti (option satışta, mağaza açık; pazartesi başına)")
+    c = list(v.satistaki.values())
+    print(f"  ortalama {s(np.mean(c))} · en az {s(min(c))} · en çok {s(max(c))} · {s(len(c))} pazartesinin "
+          f"toplamı {s(sum(c))} karar")
+    print(f"  ilk pazartesi {s(c[0])} · son pazartesi {s(c[-1])}")
+    alt("pencerede depodan fiziksel mağazaya replenishment (yayımlanan, Lumoda)")
+    print(f"  {'line':<11}{'adet':>12}{'çift':>8}{'sevk satırı':>13}")
+    for _, r in yy.repl.iterrows():
+        print(f"  {r['line']:<11}{s(r['adet']):>12}{s(r['cift']):>8}{s(r['satir']):>13}")
+    print(f"  {'toplam':<11}{s(yy.repl['adet'].sum()):>12}{s(yy.repl['cift'].sum()):>8}{s(yy.repl['satir'].sum()):>13}")
+    alt("varış süresi (replenishment, çıkıştan mağazaya)")
+    va = yy.varis
+    vt = int(va["adet"].sum())
+    for _, r in va.iterrows():
+        print(f"  {s(r['gun'])} gün: {s(r['adet'])} adet ({y(int(r['adet']) / vt)})")
+    print(f"  pencerede ilk dağıtım (yeni dalgalar, paketle): {s(yy.ilk_dagitim)} adet")
+    alt("ilk karar pazartesisinden önceki 7 gün (karar günü hariç), fiziksel mağaza satışı")
+    print(f"  satış yapan mağaza–option çifti {s(yy.son7['cift'])} · satış {s(yy.son7['adet'])} adet "
+          f"(temiz satış, iade düşülmez; yazıdaki SQL bloğunun sonucu)")
+    ek += [("varış toplamı ≤ replenishment toplamı", vt <= int(yy.repl["adet"].sum())),
+           ("satıştaki çift > 0 her pazartesi", min(c) > 0)]
 
 
-def _bolum_veri(dunya, con) -> None:
-    print("=== VERİ ===")
-    bas_gun, bit_gun = dunya.gun(sabitler.OYUN_BAS), dunya.gun(sabitler.OYUN_BIT)
-    gun_sayisi = bit_gun - bas_gun + 1
-    oc_sayisi = len(dunya.oc_hucre)
-    print(f"oyun dönemi: {gun_sayisi} gün · karar sayısı: {sabitler.KARAR_SAYISI}")
-    print(f"option-mağaza (OC) çifti: {oc_sayisi}")
-
-    line_option = {}
-    for line, opt in zip(dunya.oc_line, dunya.oc_option):
-        line_option.setdefault(line, set()).add(opt)
-    for line in sorted(line_option):
-        print(f"  line {line}: {len(line_option[line])} option")
-
-    acik_kapasite = _kalibrasyon_yukle(CIKTI)["acik_kapasite"]
-    haftalik_ort = kaynak.haftalik_sevkiyat_ortalamasi(
-        con, sabitler.OYUN_BAS, sabitler.OYUN_BIT, sabitler.KARAR_SAYISI
+def depo_bolumu(v, ek) -> None:
+    alt("alım düzeyleri: AW25 sezonluk option'larının gerçekleşen ilk alımı")
+    print("  (alım düzeyi talep tahminine uygulanır; MOQ tabanı ve 10'un katına yuvarlama sonra işler)")
+    tam = int(v.ilk_alim[1.0]["adet"].sum())
+    pl = v.plan.set_index("line")
+    plan_top = float(pl["plan"].sum())
+    print(f"  sezon planı (lansmandan indirime; dünyanın plan özeti): {s(plan_top)} adet (" + " · ".join(
+        f"{ln} {s(r['option'])} option {s(r['plan'])} adet" for ln, r in pl.iterrows()) + ")")
+    for alim in (0.4, 0.7, 1.0):
+        t = v.ilk_alim[alim]
+        top = int(t["adet"].sum())
+        satir = " · ".join(f"{r['line']} {s(r['option'])} option {s(r['adet'])} adet "
+                           f"(planın {yd(100 * bolum(r['adet'], pl.loc[r['line'], 'plan']), 1)})" for _, r in t.iterrows())
+        print(f"  alım %{s(100 * alim)}: {s(top)} adet = planın {yd(100 * bolum(top, plan_top), 1)}; %100 düzeyine oranı "
+              f"{yd(100 * bolum(top, tam), 1)} ({satir})")
+    alt("gölge defter, oyunun ilk pazartesisi (koli / açık bölünmesi, açık payı line başına)")
+    for alim in (0.4, 0.7, 1.0):
+        d = v.defter_bas[alim]
+        top = d["uzl_kapali_adet"] + d["uzl_acik_adet"]
+        print(f"  alım %{s(100 * alim)}: depo {s(top)} adet = kapalı {s(d['uzl_kapali_koli'])} koli "
+              f"({s(d['uzl_kapali_adet'])} adet) + açık {s(d['uzl_acik_adet'])} adet (açık {yd(100 * bolum(d['uzl_acik_adet'], top))})")
+    alt("pencerenin son günü depo stoğu (line)")
+    for ad in ("kural_ref", "kural_a040_oncelik_cover", "lumoda_ref"):
+        t = v.depo_son[ad]
+        satir = " · ".join(f"{r['line']} {s(r['adet'])} (stoğu 0 SKU {s(r['bos'])}/{s(r['sku'])})" for _, r in t.iterrows())
+        print(f"  {ad}: {satir}")
+    alt("NOS + Basic depo havuzu (yayımlanan, pencere pazartesileri)")
+    nb = v.yayimlanan.nb_depo
+    print(f"  ortalama {s(nb['adet'].mean())} adet · en az {s(nb['adet'].min())} · en çok {s(nb['adet'].max())} · "
+          f"stoğu 0 SKU payı ortalama {y(nb['bos_pay'].mean())}")
+    alt("gölge defterin uzlaştırma kalemleri (kural_ref, ilk pazartesiden sonraki 17 uzlaştırmanın toplamı)")
+    u = v.uzl.iloc[1:]
+    kalemler = (
+        ("teslim_adet", "tedarikçi teslimi (açık siparişlerin düşmesinden; kolide gelir, açık payı açığa)"),
+        ("teslim_kapali_koli", "  bunun kapalı koliye giden kısmı (koli)"),
+        ("teslim_acik_adet", "  bunun açığa giden kısmı (adet)"),
+        ("kendi_sevk_adet", "kolun kendi gönderimi (bir önceki pazartesi)"),
+        ("online_adet", "online satış (depodan; önce açıktan, tavana sayılmaz)"),
+        ("ilk_dagitim_kapali_adet", "ilk dağıtım (yeni dalgalar; kapalı koliden)"),
+        ("ilk_dagitim_acik_adet", "ilk dağıtımın kapalı koli kalmadığı için açıktan düşen kısmı"),
+        ("outlet_adet", "outlet akışı (önce açıktan)"),
+        ("aciklanamayan_arti_adet", "açıklanamayan artı (iade, kapanış dönüşü, sezon sonu stok devri; açığa)"),
+        ("aciklanamayan_eksi_adet", "açıklanamayan eksi (kalite reddi, açılış transferi; önce açıktan)"),
+        ("acilan_koli", "politika dışı çıkışlar için defterde açılan koli"),
     )
-    print(f"açık kapasite: {acik_kapasite:,} adet/hafta (haftalık v2 sevkiyat ortalaması "
-          f"{haftalik_ort:,.0f} × {sabitler.ACIK_KAPASITE_ORANI})")
-    print()
+    for a, aciklama in kalemler:
+        print(f"  {s(u['uzl_' + a].sum()):>12}  {aciklama}")
+    son = v.uzl.iloc[-1]
+    print(f"  pencere sonu defter: kapalı {s(son['uzl_kapali_koli'])} koli ({s(son['uzl_kapali_adet'])} adet), "
+          f"açık {s(son['uzl_acik_adet'])} adet (gönderimden önce)")
+    i = int(np.argmax(u["uzl_aciklanamayan_arti_adet"].to_numpy()))
+    r = u.iloc[i]
+    onceki, pzt = pd.Timestamp(r["tarih"]) - pd.Timedelta(days=7), pd.Timestamp(r["tarih"])
+    devir = v.stok_devri[(onceki, pzt)]
+    print(f"  en büyük açıklanamayan artı: {rapor_b._ts(pzt).date()} pazartesisi {s(r['uzl_aciklanamayan_arti_adet'])} adet; "
+          f"aynı hafta depoya varan sezon sonu stok devri {s(devir)} adet (biten sezonun Collection artığı "
+          f"mağazalardan depoya döner; kaydedicisi olmadığı için defter açıklanamayan artıya yazar)")
+    print("  not: aynı hafta aynı SKU'da artı ve eksi akışlar uzlaştırmada netleşir; kalemler brüt akışın alt sınırıdır.")
+    ek += [("en büyük açıklanamayan artıyı sezon sonu stok devri açıklıyor (devir ≤ artı, devir ≥ artının yarısı)",
+            0.5 * r["uzl_aciklanamayan_arti_adet"] <= devir <= r["uzl_aciklanamayan_arti_adet"])]
+    for alim in (0.4, 0.7):
+        ek.append((f"alım %{s(100 * alim)} ilk alımı %100 düzeyinden küçük",
+                   int(v.ilk_alim[alim]["adet"].sum()) < tam))
 
 
-def _bolum_depo(dunya) -> None:
-    from replenishment.depo import _line_per_option, _nos_alim, _tek_alim_maskesi
-
-    print("=== DEPO ===")
-    line_per_option = _line_per_option(dunya)
-    tek_alim = _tek_alim_maskesi(line_per_option)
-
-    for alim in sabitler.ALIM_ORANLARI:
-        depo = depo_kur(dunya, alim, sabitler.OYUN_BAS, sabitler.OYUN_BIT)
-        koli = int(depo.koli[tek_alim].sum())
-        acik = int(depo.acik[tek_alim].sum())
-        print(f"alım %{round(alim * 100)}: Collection+Outlet {koli:,} koli · {acik:,} açık adet")
-
-    nos_hedefi = _nos_alim(dunya, dunya.sezon[dunya.gun(sabitler.OYUN_BAS)])
-    nos_toplam = float(nos_hedefi[~tek_alim].sum())
-    print(f"NOS/Basic hedef (zincir plan talebinin {sabitler.TEDARIK_HEDEF_HAFTA} haftası): "
-          f"{nos_toplam:,.0f} adet")
-    print()
-
-
-def _bolum_kalibrasyon(kal: dict) -> None:
-    print("=== KALİBRASYON ===")
-    print("özel gün katsayıları (kategori → gün katsayısı):")
-    for kategori, deger in sorted(kal["katsayilar"].items()):
-        print(f"  {kategori}: {deger:.2f}")
-    print(f"hedef bulunabilirlik: %{kal['hedef_bulunabilirlik']:.1f}")
-    print(f"sabit seçilen: {kal['ss']['sabit']['deger']} adet · "
-          f"ros seçilen: {kal['ss']['ros']['deger']} gün")
-    print(f"varsayılan güvenlik stoku ailesi: {kal['varsayilan_ss']}")
-    for ad in ("A", "B", "C"):
-        k = kal["koli"][ad]
-        print(f"  koli {ad}: alfa={k['alfa']} beta={k['beta']} gama={k['gama']}")
-    print(f"açık kapasite: {kal['acik_kapasite']:,} adet/hafta")
-    print(f"tahmin parametreleri: {kal['tahmin_parametreleri']}")
-
-    print(f"ön oyun tablosu: {len(kal['tablo'])} satır")
-    asamalar: dict[str, list[dict]] = {}
-    for satir in kal["tablo"]:
-        asamalar.setdefault(satir["asama"], []).append(satir)
-    for asama, satirlar in asamalar.items():
-        en_iyi = max(satirlar, key=lambda s: s["bulunabilirlik"])
-        print(f"  {asama}: {len(satirlar)} satır · en yüksek bulunabilirlik "
-              f"%{en_iyi['bulunabilirlik']:.1f}")
-    print()
+def kalibrasyon_bolumu(v, ek) -> None:
+    k = v.kal
+    print("Pencere: oyundan bir yıl önceki aynı mevsim (oyun penceresiyle aynı uzunlukta, sızıntısız), yol 0, alım %100.")
+    tab = pd.DataFrame(k["tablo"])
+    hed = tab[tab["asama"] == "hedef"].iloc[0]
+    print(f"hedef bulunabilirlik: {yd(k['hedef_bulunabilirlik'], 2)} (istatistik ailesinin kısıtsız koşusu; "
+          f"mağaza stoğu {s(hed['magaza_stok_son'])})")
+    print(f"referans tavan: {s(k['tavan'])} adet/hafta = ⌊{s(sabitler.TAVAN_ORANI, 2)} × kalibrasyon penceresinde "
+          f"Lumoda'nın haftalık ortalama replenishment adedi {s(v.yayimlanan.kal_ort, 1)}⌋")
+    alt("güvenlik stoku aileleri (kısıtsız: tavan yok, koli zorunluluğu yok)")
+    for _, r in tab[tab["asama"].isin(["sabit", "ros"])].iterrows():
+        print(f"  {r['aile']:<11}{s(r['deger']):>4}: bulunabilirlik {yd(r['bulunabilirlik'], 2)} · mağaza stoğu "
+              f"{s(r['magaza_stok_son'])} · gönderilen {s(r['gonderilen_adet'])}")
+    gs = k["gs"]
+    print(f"  seçilen: sabit {s(gs['sabit']['deger'])} adet, ros {s(gs['ros']['deger'])} gün (hedefe en yakın); "
+          f"istatistik Z = 1,65 (parametresiz)")
+    secim = {a: tab[(tab["aile"] == a) & (tab["deger"] == gs[a]["deger"]) & (tab["koli"] == "kisitsiz")].iloc[0]
+             for a in ("sabit", "ros", "istatistik")}
+    for a, r in secim.items():
+        print(f"  {a}: bulunabilirlik {yd(r['bulunabilirlik'], 2)} · mağaza stoğu {s(r['magaza_stok_son'])}")
+    print(f"  aile seçimi (aynı hedefte en az stok): {k['secilen_aile']}")
+    alt("koli kuralları (referans tavan, seçilen aile; en iyinin 1 puan yakınında en ucuz)")
+    for _, r in tab[tab["asama"].str.startswith("koli")].iterrows():
+        par = f"α {s(r['alfa'], 1)} β {s(r['beta'])}" if r["koli"] == "A" else f"γ {s(r['gamma'], 2)}"
+        print(f"  {r['koli']} ({par}, taban {r['aile']}): bulunabilirlik {yd(r['bulunabilirlik'], 2)} · toplama "
+              f"{tl(r['toplama_maliyeti_tl'])} · koli {s(r['koli_sayisi'])} · açık {s(r['acik_adet'])}")
+    ka = k["koli"]
+    print(f"  seçilen: {k['secilen_koli']} (α {s(ka['A']['alfa'], 1)}, β {s(ka['A']['beta'])}); "
+          f"B (γ {s(ka['B']['gamma'], 2)}); C = A ∧ B kalibre edilmedi (R27: C ⊆ B, B'nin bulunabilirliğini aşamaz), "
+          f"oyunda ölçüldü; A'nın α'sı ızgaranın alt ucunda (R26)")
+    alt("özel gün katsayıları (pencere başına dek koşunun geçmişi; üst kategori, fiziksel mağazalar)")
+    kat = v.katsayilar
+    for ad in sorted(a for a in kat if "|" not in a):
+        print(f"  {ad:<16} resmî tatil günü {s(kat[ad], 2)} · Black Friday günü {s(kat.get(ad + '|black_friday'), 2)}")
+    print("  (katsayı: o günün kategori satışı ÷ ±14 gün içinde haftanın aynı gününe denk gelen normal günlerin ortalaması)")
+    ek.append(("referans tavan = ⌊oran × haftalık ortalama⌋",
+               k["tavan"] == math.floor(sabitler.TAVAN_ORANI * v.yayimlanan.kal_ort)))
 
 
-# `olcutler.hesapla`'nın döndürdüğü BÜTÜN anahtarlar (bkz. o dosyanın
-# return sözlüğü) — hiçbiri atlanmaz (rapor.py tek kaynak: yazıda geçen
-# hiçbir sayı bu listenin dışında kalamaz). 45 satır × 20 sütun tek satırlık
-# tablo olarak okunmaz; bu yüzden senaryo başına uzun biçim (long-form)
-# kullanılır, kol (arm) başına gruplanır. Kırık-çift üçlüsü (ruling 3)
-# `kirik_cift`'in HEMEN yanında basılır — ham sayı hiçbir yerde yalnız
-# görünmez.
-_YOL0_GRUPLARI = (
-    ("talep/satış", ("talep_adet", "satis_adet", "kayip_adet", "kayip_orani")),
-    ("servis", ("bulunabilirlik", "satisa_donme_gun", "str")),
-    ("sevkiyat", ("gonderilen_adet", "satilmayan_gonderilen", "koli_sayisi",
-                  "acik_adet", "depo_kalan")),
-    ("maliyet/doluluk", ("toplama_maliyeti_tl", "acik_doluluk")),
-    ("stok/dağılım", ("magaza_stok_son", "beden_sapmasi")),
-    ("kırık çift (dürüst)", ("kirik_cift", "stoklu_cift_sayisi", "bos_cift_sayisi",
-                             "kirik_cift_pay_yuzde")),
-)
+OLCUT_SIRASI = tuple(BICIM)
 
 
-def _bolum_yol0(veri_yol0: dict) -> None:
-    print("=== YOL 0 ===")
-    print("(bütün ölçütler, senaryo başına uzun biçim; kırık çift hiçbir "
-          "zaman stoklu/boş çift sayısı ve payı olmadan tek başına basılmaz)")
-    onceki_yontem = None
-    for senaryo in senaryolar():
-        if senaryo["yontem"] != onceki_yontem:
-            onceki_yontem = senaryo["yontem"]
-            print(f"-- kol: {onceki_yontem} --")
-        anahtar = senaryo_anahtari(senaryo)
-        o = veri_yol0[anahtar]
-        print(f"  {anahtar}")
-        for grup_adi, alanlar in _YOL0_GRUPLARI:
-            degerler = " · ".join(f"{a}={o[a]:,.1f}" for a in alanlar)
-            print(f"    {grup_adi}: {degerler}")
-    print()
+def yol0_bolumu(v, ek) -> None:
+    print("Her koşunun bütün ölçütleri (yol 0 = yayımlanan dünya; pencere, fiziksel mağazalar). Kırık çift her zaman")
+    print("stoklu ve boş çift sayısıyla birlikte; bulunabilirlik = talepli hücre-günlerin rafta mal bulunan payı.")
+    grup = None
+    for ad, k in v.oyun["kosular"].items():
+        if k["grup"] != grup:
+            grup = k["grup"]
+            alt(f"grup: {grup}")
+        o = k["olcutler"]
+        print(f"  {ad}  [{k['kol']}; {_ayar_metni(k)}]")
+        parca = [f"{a}={b(a, o[a])}" for a in OLCUT_SIRASI if a in o]
+        for i in range(0, len(parca), 6):
+            print("    " + " · ".join(parca[i:i + 6]))
+        ek += [(f"{ad}: satış ≤ talep", o["satis_adet"] <= o["talep_adet"]),
+               (f"{ad}: FIFO negatif süre yok", o["fifo_negatif_adet"] == 0),
+               (f"{ad}: ölçüm bugünkü ölçüm koduyla", k["olcum_kodu"] == v.olcum_kodu)]
+        if k["kol"] != "lumoda_kisitsiz":
+            ek.append((f"{ad}: kolun kaydı = sevkiyat (motor kesmedi)", k["sevkiyat_farki"] == 0))
 
 
-def _bolum_yirmi_yol(veri_yollari: dict, kal: dict) -> None:
-    print("=== 20 YOL ===")
-    yollar = list(range(1, sabitler.YOL_SAYISI + 1))
-    alimlar = [round(a * 100) for a in sabitler.ALIM_ORANLARI]
-    koliler = ["A", "B", "C"]
-    metrikler = ("kayip_orani", "bulunabilirlik", "satisa_donme_gun",
-                 "magaza_stok_son", "toplama_maliyeti_tl")
-
-    print("-- ÖNGÖRÜ ETKİSİ (tahmin_taban − kural, aynı politika/ROS, farklı öngörü) --")
-    for m in metrikler:
-        farklar = kombinasyon_farki(veri_yollari, yollar, forecast_etkisi_eslesmeleri(alimlar, koliler), m)
-        o = yirmi_yol_ozeti(farklar)
-        print(f"  {m}: min {o['min']:.2f} · medyan {o['medyan']:.2f} · max {o['max']:.2f} · "
-              f"pozitif {o['pozitif']}/{o['n']}")
-
-    print("-- POLİTİKA ETKİSİ (tahmin − tahmin_taban, aynı öngörü, farklı politika) --")
-    for m in metrikler:
-        farklar = kombinasyon_farki(veri_yollari, yollar, politika_etkisi_eslesmeleri(alimlar, koliler), m)
-        o = yirmi_yol_ozeti(farklar)
-        print(f"  {m}: min {o['min']:.2f} · medyan {o['medyan']:.2f} · max {o['max']:.2f} · "
-              f"pozitif {o['pozitif']}/{o['n']}")
-
-    varsayilan_ss = kal["varsayilan_ss"]
-    print(f"-- KOLİ KURALI (kural kolu, ss={varsayilan_ss}) --")
-    for sol, sag in (("A", "B"), ("A", "C")):
-        for m in metrikler:
-            farklar = kombinasyon_farki(
-                veri_yollari, yollar, koli_farki_eslesmeleri(alimlar, varsayilan_ss, sol, sag), m
-            )
-            o = yirmi_yol_ozeti(farklar)
-            print(f"  koli {sag}-{sol} · {m}: min {o['min']:.2f} · medyan {o['medyan']:.2f} · "
-                  f"max {o['max']:.2f} · pozitif {o['pozitif']}/{o['n']}")
-
-    print("-- GÜVENLİK STOKU AİLESİ (kural kolu) --")
-    for sol, sag in (("sabit", "ros"), ("sabit", "istatistik"), ("ros", "istatistik")):
-        for m in ("magaza_stok_son", "bulunabilirlik"):
-            farklar = kombinasyon_farki(
-                veri_yollari, yollar, ss_farki_eslesmeleri(alimlar, koliler, sol, sag), m
-            )
-            o = yirmi_yol_ozeti(farklar)
-            print(f"  {sag}-{sol} · {m}: min {o['min']:.2f} · medyan {o['medyan']:.2f} · "
-                  f"max {o['max']:.2f} · pozitif {o['pozitif']}/{o['n']}")
-    print()
+def _sinir_satiri(v, ad) -> dict:
+    o = O(v, ad)
+    return {"ad": ad, "bul": o["bulunabilirlik"], "stok": o["magaza_stok_son"], "ort": v.ort_stok[ad],
+            "donme": o["satisa_donme_gun"], "tl": o["toplama_maliyeti_tl"], "kirik": o["kirik_cift_pay_yuzde"],
+            "gon": o["gonderilen_adet"], "beden": o["beden_sapmasi"], "depo_bos": o["depo_bos_kayip_pay_yuzde"]}
 
 
-def _haftalik_detaylar(dunya, con, kal: Kalibrasyon, alim: float, koli_kurali, oncelik: str = "cover") -> list[dict]:
-    """Referans senaryoyu (yol 0, kural/varsayılan ss) `oyun.oyna` ile BİREBİR
-    aynı adımlarla hafta hafta oynatır, ama her karar gününde o haftanın
-    kararını üreten anlık görüntüyü de (ihtiyaç `n`, öngörü, stok, depo —
-    dağıtımdan HEMEN önceki hâl) saklar; gerçek `sevk` ile devam eder (yani
-    17. haftaya kadar gerçek yörüngeden sapma yok). Bu, tek bir günü değil,
-    tam sezonu oynatıp hangi haftada açık kapasitenin gerçekten dolduğunu
-    bulabilmek için gerekli — `oyun.oyna` bu ara durumları dışarı vermiyor."""
-    talep, gecmis_satis, baslangic = yol_baslangici(dunya, 0, con)
-    paylar = magaza_beden_paylari(gecmis_satis, dunya, dunya.gun(sabitler.OYUN_BAS))
-    politika = KuralPolitikasi(kal.ss[kal.varsayilan_ss], kal.katsayilar)
-    depo = depo_kur(dunya, alim, sabitler.OYUN_BAS, sabitler.OYUN_BIT)
+def _esit_stok(lum: dict, kurallar: list[dict], anahtar: str) -> tuple[float | None, tuple | None]:
+    """Kural sınırında (stoğa göre sıralı) Lumoda'nın stoğundaki bulunabilirlik (basılan değerlerden)."""
+    sira = sorted(kurallar, key=lambda r: yuv(r[anahtar]))
+    for a, c in zip(sira[:-1], sira[1:]):
+        if yuv(a[anahtar]) <= yuv(lum[anahtar]) <= yuv(c[anahtar]):
+            return ara_deger(lum[anahtar], a[anahtar], a["bul"], c[anahtar], c["bul"]), (a["ad"], c["ad"])
+    return None, None
 
-    bas_gun = dunya.gun(sabitler.OYUN_BAS)
-    bit_gun = dunya.gun(sabitler.OYUN_BIT)
-    karar_gunleri = [bas_gun + 7 * k for k in range(sabitler.KARAR_SAYISI)]
-    karar_sirasi = {g: k for k, g in enumerate(karar_gunleri)}
 
-    durum = copy.deepcopy(baslangic)
-    gozlenen = gecmis_satis.copy()
-    rng = np.random.default_rng(sabitler.IADE_TOHUM)
-    bekleyen_sevk = None
-    sonuc: list[dict] = []
-
-    for g in range(bas_gun, bit_gun + 1):
-        gelen = bekleyen_sevk
-        bekleyen_sevk = None
-        satis, _kayip = gunu_isle(durum, g, talep[g], gelen, None, rng)
-        gozlenen[g] = satis
-
-        k = karar_sirasi.get(g)
-        if k is None:
+def lumoda_bolumu(v, ek) -> None:
+    print("R33: Lumoda'nın bugünkü kuralı (planın 4 haftası, ölü stok kapısı) taban çizgisidir. Kısıtlı Lumoda ile kural,")
+    print("aynı depo kısıtında (koli A, referans tavan), bulunabilirlik–mağaza stoğu sınırında karşılaştırılır; kuralın")
+    print("hedef ufku kod değişmeden güvenlik stokuyla (ros × gün) genişletildi (R30).")
+    alt("sınır (yol 0)")
+    satirlar = [_sinir_satiri(v, ad) for ad in ("lumoda_kisitsiz",) + rapor_b.SINIR_KOLLARI]
+    print(f"  {'kol':<38}{'bulun.':>8}{'stok son':>10}{'ort. stok':>11}{'dönme':>7}{'toplama TL':>13}"
+          f"{'kırık %':>9}{'beden sap.':>11}{'gönderilen':>12}")
+    for r in sorted(satirlar, key=lambda r: r["stok"]):
+        print(f"  {KOL_ADI[r['ad']]:<38}{yd(r['bul'], 2):>8}{s(r['stok']):>10}{s(r['ort']):>11}{s(r['donme'], 1):>7}"
+              f"{s(r['tl']):>13}{yd(r['kirik'], 1):>9}{s(r['beden'], 1):>11}{s(r['gon']):>12}")
+    lum = next(r for r in satirlar if r["ad"] == "lumoda_ref")
+    ref = next(r for r in satirlar if r["ad"] == "kural_ref")
+    kurallar = [r for r in satirlar if r["ad"].startswith("kural")]
+    toplam = fark(ref["bul"], lum["bul"], 2)
+    print(f"  Lumoda kısıtlı − kural referans: {isaretli(toplam, 2)} puan bulunabilirlik; stok son "
+          f"{isaretli(fark(ref['stok'], lum['stok']))} adet ({yd(100 * (bolum(lum['stok'], ref['stok']) - 1), 1)}); "
+          f"satışa dönme {s(lum['donme'], 1)} / {s(ref['donme'], 1)} gün; toplama {isaretli(fark(ref['tl'], lum['tl']))} TL")
+    for anahtar, etiket in (("stok", "pencere sonu mağaza stoğu"), ("ort", "pencere ortalaması mağaza stoğu")):
+        yb, ara = _esit_stok(lum, kurallar, anahtar)
+        if yb is None:
+            print(f"  eşit {etiket}: Lumoda'nın stoğu kural sınırının dışında (dış değer kestirilmez)")
             continue
-        if k % 2 == 0:
-            tedarik_et(depo, dunya, g)
+        esit = yuv(yb, 2)
+        print(f"  eşit {etiket} ({s(lum[anahtar])}): kural sınırı {ara[0]} ile {ara[1]} arasında doğrusal → "
+              f"{yd(esit, 2)}; Lumoda {yd(lum['bul'], 2)}: eşit stokta fark {isaretli(fark(esit, lum['bul'], 2), 2)} puan; "
+              f"toplam farkın {isaretli(fark(ref['bul'], esit, 2), 2)} puanı stok düzeyinden")
+    alt("5 yolda Lumoda kısıtlı − kural referans (bulunabilirlik, puan)")
+    yl = v.yollar["yollar"]
+    f = yol_farklari([yl[p]["kosular"]["lumoda_ref"]["olcutler"]["bulunabilirlik"] for p in sorted(yl)],
+                     [yl[p]["kosular"]["kural_ref"]["olcutler"]["bulunabilirlik"] for p in sorted(yl)], 2)
+    print(f"  {' · '.join(isaretli(x, 2) for x in f['farklar'])}; medyan {isaretli(f['medyan'], 2)}; "
+          f"Lumoda önde {f['pozitif']}/{f['n']}")
 
-        gorulen = gozlenen.copy()
-        gorulen[g + 1:] = 0
-        hedef, ongoru = politika.hedef(gorulen, dunya, g, durum.stok, durum.stoklu_gunluk)
-        n = bedene_bol(hedef, paylar, durum.stok, dunya)
-
-        depo_once = Depo(koli=depo.koli.copy(), acik=depo.acik.copy())
-        stok_once = durum.stok.copy()
-
-        sevk = dagit(n, ongoru, durum.stok, depo, dunya, koli_kurali, kal.acik_kapasite, oncelik)
-        bekleyen_sevk = sevk.gelen
-
-        sonuc.append({
-            "hafta": k, "gun": g, "n": n, "ongoru": ongoru,
-            "stok": stok_once, "depo": depo_once,
-            "acik_adet": float(sevk.acik_adet),
-            "acik_kapasite_doldu": sevk.acik_adet >= kal.acik_kapasite,
-        })
-    return sonuc
-
-
-def _en_cok_talep_gören_option(dunya, n) -> tuple:
-    """(option_adi, oc_indeksleri) — o haftanın toplam mağaza ihtiyacı en
-    yüksek option'ı."""
-    O = len(dunya.optionlar)
-    ihtiyac_opt = np.zeros(O, dtype=np.int64)
-    np.add.at(ihtiyac_opt, dunya.oc_opt, n.sum(axis=1))
-    en_asan = int(np.argmax(ihtiyac_opt))
-    return dunya.optionlar[en_asan], np.where(dunya.oc_opt == en_asan)[0]
-
-
-def _oncelik_karsilastir(dunya, kal: Kalibrasyon, koli_kurali, hafta: dict, oc_secili) -> None:
-    for oncelik in ("cover", "ihtiyac", "esit"):
-        depo_kopya = Depo(koli=hafta["depo"].koli.copy(), acik=hafta["depo"].acik.copy())
-        sevk = dagit(hafta["n"], hafta["ongoru"], hafta["stok"], depo_kopya, dunya,
-                     koli_kurali, kal.acik_kapasite, oncelik)
-        print(f"  öncelik={oncelik}:")
-        for oc in oc_secili:
-            gonderilen = int(sevk.gelen[dunya.oc_hucre[oc]].sum())
-            print(f"    mağaza {dunya.oc_magaza[oc]}: {gonderilen} adet gönderildi")
-
-
-def _capraz_oncelik_ornekleri(dunya, con, kal: Kalibrasyon) -> None:
-    """3. yazı için iki örnek (yol 0, alım %60, kural/varsayılan ss, koli C).
-
-    Örnek 1 (ilk karar günü): brief'in "depo talebinin en çok aştığı
-    option"u KELİMESİ KELİMESİNE gerçekleşmiyor — bir sezonluk depo alımı
-    tek günün ihtiyacını hiçbir zaman aşmaz (depo daima günlük ihtiyaçtan
-    kat kat büyük). Bunun yerine o gün en çok mağaza talebi toplayan
-    option gösterilir; bu haftada üç öncelik kuralı ÖZDEŞ sonuç verir
-    çünkü açık kapasite ilk haftada henüz bağlayıcı değildir.
-
-    Örnek 2: açık kapasitenin GERÇEKTEN dolduğu ilk haftayı arar (cover
-    önceliğiyle referans yörünge boyunca) ve orada üç önceliğin farklı
-    mağazalara farklı adet gönderdiğini gösterir — 3. yazının ihtiyaç
-    duyduğu asıl örnek budur. Hiçbir hafta dolmazsa uydurma bir örnek
-    ÜRETİLMEZ; en yakın hafta adıyla bildirilir."""
-    koli_kurali = kal.koli["C"]
-    haftalar = _haftalik_detaylar(dunya, con, kal, sabitler.EN_SIKI_ALIM, koli_kurali, oncelik="cover")
-
-    ilk = haftalar[0]
-    option_adi, oc_secili = _en_cok_talep_gören_option(dunya, ilk["n"])
-    print("örnek 1: yol 0, alım %60, İLK karar günü. NOT: bu, brief'in tarif "
-          "ettiği 'depo talebini en çok aşan option' DEĞİLDİR — bir sezonluk "
-          "depo alımı hiçbir zaman tek günün ihtiyacını aşmaz; burada gösterilen "
-          f"o gün en çok mağaza talebi toplayan option: {option_adi}.")
-    print(f"  toplam mağaza ihtiyacı {int(ilk['n'][oc_secili].sum())} adet")
-    for oc in oc_secili:
-        print(f"  mağaza {dunya.oc_magaza[oc]}: ihtiyaç {int(ilk['n'][oc].sum())} adet")
-    _oncelik_karsilastir(dunya, kal, koli_kurali, ilk, oc_secili)
-    print("  not: üç öncelik burada özdeş sonuç verir — ilk haftada açık "
-          "kapasite henüz bağlayıcı değil (bkz. örnek 2).")
-
-    baglayan = next((h for h in haftalar if h["acik_kapasite_doldu"]), None)
-    if baglayan is None:
-        en_yakin = max(haftalar, key=lambda h: h["acik_adet"])
-        oran = en_yakin["acik_adet"] / kal.acik_kapasite * 100
-        print(f"\nörnek 2: referans senaryoda (yol 0, kural, alım %60, koli C, "
-              f"öncelik=cover) 17 karar haftasının HİÇBİRİNDE açık kapasite "
-              f"dolmadı — üç öncelik kuralı bu senaryoda sezon boyunca aynı "
-              f"sonucu üretir. En yakın hafta: {en_yakin['hafta'] + 1}. karar, "
-              f"{en_yakin['acik_adet']:.0f}/{kal.acik_kapasite} adet "
-              f"(kapasitenin %{oran:.1f}'i) — bu, uydurulmuş bir örnek DEĞİL, "
-              f"en yakın gerçek haftadır.")
-        return
-
-    option_adi2, oc_secili2 = _en_cok_talep_gören_option(dunya, baglayan["n"])
-    print(f"\nörnek 2: açık kapasitenin GERÇEKTEN dolduğu ilk hafta — "
-          f"{baglayan['hafta'] + 1}. karar (yol 0, kural, alım %60, koli C): "
-          f"cover önceliğiyle {baglayan['acik_adet']:.0f}/{kal.acik_kapasite} "
-          f"adet (kapasite doldu). O haftada en çok mağaza talebi toplayan "
-          f"option: {option_adi2}.")
-    for oc in oc_secili2:
-        print(f"  mağaza {dunya.oc_magaza[oc]}: ihtiyaç {int(baglayan['n'][oc].sum())} adet")
-    _oncelik_karsilastir(dunya, kal, koli_kurali, baglayan, oc_secili2)
+    alt("teşhis: talepli hücre-gün payı ve bulunabilirlik, gruplara göre (R33)")
+    kollar = ("lumoda_kisitsiz", "lumoda_ref", "kural_ref", "kural_ufuk_21", "kural_ufuk_28", "tahmin_taban_ref",
+              "tahmin_ref", "kural_basit_ref")
+    etiket = {"lansman": "lansman grubu (pencerede lanse = AW25 dalga 2–3, oyun içinde lanse edilenler)",
+              "line_yari": "line × pencere yarısı", "line_beden": "line × beden (çekirdek: beden sırası 2–4)"}
+    katki_toplam = {}
+    for kesit in ("lansman", "line_yari", "line_beden"):
+        print(f"\n  {etiket[kesit]}")
+        print(f"    {'grup':<44}{'pay':>7}" + "".join(f"{a:>18}" for a in kollar))
+        tablar = {a: v.teshis[a][v.teshis[a]["kesit"] == kesit].set_index("grup") for a in kollar}
+        ref_t = tablar["lumoda_ref"]
+        for g in ref_t.index:
+            pay = ref_t.loc[g, "talepli"] / ref_t["talepli"].sum()
+            print(f"    {g:<44}{y(pay):>7}" + "".join(
+                f"{yd(100 * t.loc[g, 'bulunan'] / t.loc[g, 'talepli'], 2) if g in t.index and t.loc[g, 'talepli'] else '—':>18}"
+                for t in tablar.values()))
+        for kural in ("kural_ufuk_21", "kural_ufuk_28", "kural_ref"):
+            kk = rapor_b.grup_katkisi(v.teshis["lumoda_ref"][v.teshis["lumoda_ref"]["kesit"] == kesit],
+                                      v.teshis[kural][v.teshis[kural]["kesit"] == kesit])
+            katki_toplam[(kesit, kural)] = kk
+            print(f"    Lumoda kısıtlı − {kural}, katkı (puan): " + " · ".join(
+                f"{g} {isaretli(x, 2)}" for g, x in zip(kk["grup"], kk["katki"])) + f" · toplam {isaretli(kk['katki'].sum(), 2)}")
+    alt("teşhisin özeti (Lumoda kısıtlı − kural, eşit stoğa en yakın kol ve referans)")
+    for kural in ("kural_ufuk_21", "kural_ufuk_28", "kural_ref"):
+        ly = katki_toplam[("line_yari", kural)].set_index("grup")["katki"]
+        la = katki_toplam[("lansman", kural)].set_index("grup")["katki"]
+        nb = float(ly[[g for g in ly.index if g.startswith(("NOS", "Basic"))]].sum())
+        nb_son = float(ly[[g for g in ly.index if g.startswith(("NOS", "Basic")) and "son" in g]].sum())
+        pl = float(la[[g for g in la.index if g.startswith("pencerede lanse")]].sum())
+        top = float(ly.sum())
+        print(f"  {kural}: toplam {isaretli(top, 2)} puan; NOS + Basic {isaretli(nb, 2)} (bunun son 9 haftası "
+              f"{isaretli(nb_son, 2)}); pencerede lanse edilen option'lar {isaretli(pl, 2)}; Collection'ın geri kalanı "
+              f"ve Outlet {isaretli(top - nb - pl, 2)}")
+    alt("NOS + Basic depo stoğu (son 9 pazartesi): depo boş mu?")
+    for ad in ("lumoda_ref", "kural_ref", "kural_ufuk_28"):
+        d = v.nb_depo[ad].iloc[9:]
+        print(f"  {ad}: ortalama {s(d['adet'].mean())} adet · stoğu 0 SKU payı ortalama {y(d['bos_pay'].mean(), 2)}")
+    print("  depo-boş kayıp payı (karşılanmayanın SKU'nun depo stoğu 0 iken olan payı): " + " · ".join(
+        f"{a} {yd(O(v, a)['depo_bos_kayip_pay_yuzde'], 1)}" for a in ("lumoda_ref", "kural_ref", "kural_ufuk_21", "kural_ufuk_28")))
+    alt("line kırılımı (sınır kolları)")
+    for ad in ("lumoda_ref", "kural_ref", "kural_ufuk_21", "kural_ufuk_28"):
+        li = L(v, ad)
+        print(f"  {ad:<15}" + " · ".join(f"{ln} {yd(li[ln]['bulunabilirlik'], 1)} (stok {s(li[ln]['magaza_stok_son'])}, "
+                                         f"gönderilen {s(li[ln]['gonderilen_adet'])})" for ln in LINELAR))
+    for a in kollar:
+        for kesit, t in v.teshis[a].groupby("kesit"):
+            o = O(v, a)
+            ek += [(f"teşhis {a} {kesit}: Σ talep = ölçüt", int(t["talep"].sum()) == int(o["talep_adet"])),
+                   (f"teşhis {a} {kesit}: Σ bulunan / Σ talepli = bulunabilirlik",
+                    abs(100 * t["bulunan"].sum() / t["talepli"].sum() - o["bulunabilirlik"]) < 1e-9)]
+    for (kesit, kural), kk in katki_toplam.items():
+        ek.append((f"katkılar toplamı = bulunabilirlik farkı ({kesit}, {kural})",
+                   abs(kk["katki"].sum() - (O(v, "lumoda_ref")["bulunabilirlik"] - O(v, kural)["bulunabilirlik"])) < 1e-6))
 
 
-def _kalibrasyon_nesnesi(kal_json: dict) -> Kalibrasyon:
-    """JSON'dan Kalibrasyon nesnesi; iki bölüm de aynı kurulumu kullanır."""
-    return Kalibrasyon(
-        katsayilar=kal_json["katsayilar"],
-        ss={ad: GuvenlikStoku(**d) for ad, d in kal_json["ss"].items()},
-        varsayilan_ss=kal_json["varsayilan_ss"],
-        koli={ad: KoliKurali(**d) for ad, d in kal_json["koli"].items()},
-        hedef_bulunabilirlik=kal_json["hedef_bulunabilirlik"],
-        acik_kapasite=kal_json["acik_kapasite"],
-        tahmin_parametreleri=kal_json["tahmin_parametreleri"],
-        tablo=kal_json["tablo"],
-    )
+YOL_OLCUTLERI = (("bulunabilirlik", 2), ("kayip_orani", 2), ("magaza_stok_son", 0), ("toplama_maliyeti_tl", 0),
+                 ("satisa_donme_gun", 1), ("kirik_cift_pay_yuzde", 1))
 
 
-def _bolum_anlatim(dunya, con, kal_json: dict) -> None:
-    print("=== ANLATIM ===")
-    kal = _kalibrasyon_nesnesi(kal_json)
-    kosullar = anlatim_kosulari(kal)
-    print("öncelik kuralları (yol 0, kural/varsayılan ss, alım %60, koli C):")
-    for oncelik, olcut in kosullar["oncelik"].items():
-        print(f"  {oncelik}: bulunabilirlik %{olcut['bulunabilirlik']:.1f} · "
-              f"kayıp %{olcut['kayip_orani']:.1f} · beden sapması %{olcut['beden_sapmasi']:.1f}")
+def yollar_bolumu(v, ek) -> None:
+    yl = v.yollar["yollar"]
+    p_sira = sorted(yl, key=int)
+    print(f"{s(len(p_sira))} talep yolu: yol 0 yayımlanan dünya, yol p > 0 aynı dünyada başka bir müşteri akışı "
+          "(talep tohumu); her yolda LightGBM o yolun geçmişiyle yeniden eğitilir, kalibrasyon yol 0'ınki.")
+    for p in p_sira:
+        t = yl[p]["tahmin"]
+        print(f"  yol {p}: LightGBM eğitim satırı {s(t['satir'])} · doğrulama Poisson sapması {s(t['dogrulama_sapma'], 3)} "
+              f"(son hafta {s(t['dogrulama_sapma_lag1'], 3)}, 4 hafta ortalaması {s(t['dogrulama_sapma_ort4'], 3)})")
+    kollar = v.yollar["kollar"]
+    for olc, n in YOL_OLCUTLERI:
+        alt(f"{olc} (yol 0 … {p_sira[-1]}; min / medyan / max basılan değerlerden)")
+        for kol in kollar:
+            d = [yl[p]["kosular"][kol]["olcutler"][olc] for p in p_sira]
+            yv = [yuv(x, n) for x in d]
+            print(f"  {kol:<17}" + " · ".join(s(x, n) for x in d) +
+                  f"  | min {s(min(yv), n)} · medyan {s(statistics.median(yv), n)} · max {s(max(yv), n)}")
+    alt("ayrışım (spec §4.6): öngörü etkisi = tahmin_taban − kural (aynı taban); politika etkisi = tahmin − tahmin_taban")
+    med = {}
+    for bilesen, (a, c) in {"öngörü": ("tahmin_taban_ref", "kural_ref"), "politika": ("tahmin_ref", "tahmin_taban_ref")}.items():
+        for olc, n in (("bulunabilirlik", 2), ("kayip_orani", 2), ("magaza_stok_son", 0), ("toplama_maliyeti_tl", 0)):
+            f = yol_farklari([yl[p]["kosular"][a]["olcutler"][olc] for p in p_sira],
+                             [yl[p]["kosular"][c]["olcutler"][olc] for p in p_sira], n)
+            med[(bilesen, olc)] = f["medyan"]
+            print(f"  {bilesen} · {olc}: " + " · ".join(isaretli(x, n) for x in f["farklar"]) +
+                  f" | medyan {isaretli(f['medyan'], n)} · artı {f['pozitif']}/{f['n']} · eksi {f['negatif']}/{f['n']}")
+    for olc in ("bulunabilirlik", "kayip_orani"):
+        o_, p_ = med[("öngörü", olc)], med[("politika", olc)]
+        print(f"  politika / öngörü (medyanlar, {olc}): {s(p_ / o_, 2) if o_ else '—'}")
+    alt("kaç yolda önde (bulunabilirlik yüksek, kayıp / maliyet / stok düşük olan önde; basılan değerlerden)")
+    from replenishment.yollar import KARSILASTIRMALAR, YUKSEK_IYI
 
-    print("açık TL duyarlılığı (aynı senaryo, koli+açık adet sabit, TL/adet değişken):")
-    for tl, maliyet in kosullar["acik_tl_duyarliligi"].items():
-        print(f"  {tl} TL/adet: {maliyet:,.0f} TL toplama maliyeti")
-
-    print("açık kapasite duyarlılığı (haftalık v2 sevkiyat ortalamasının oranı):")
-    for oran, olcut in kosullar["acik_kapasite_duyarliligi"].items():
-        print(f"  ×{oran}: bulunabilirlik %{olcut['bulunabilirlik']:.1f} · "
-              f"kayıp %{olcut['kayip_orani']:.1f}")
-
-    _capraz_oncelik_ornekleri(dunya, con, kal)
-    print()
-
-
-def _bolum_line(dunya, con, kal_json: dict) -> None:
-    """Referans senaryoyu line kırılımıyla raporlar.
-
-    Toplam rakam NOS ile Collection'ı birbirine karıştırıyor: NOS'un stoğu
-    tanımı gereği bitmemeli (tedarikçiden iki haftada bir tamamlanıyor),
-    Collection ise sezon başında bir kez alınıyor ve biten bitiyor. Aynı
-    kuralın ikisine ne yaptığı ancak burada görünür.
-    """
-    from replenishment.olcutler import line_kirilimi
-
-    print()
-    print("=== LINE KIRILIMI ===")
-    kal = _kalibrasyon_nesnesi(kal_json)
-    talep, gecmis_satis, baslangic = yol_baslangici(dunya, 0, con)
-    paylar = magaza_beden_paylari(gecmis_satis, dunya, dunya.gun(sabitler.OYUN_BAS))
-    politika = KuralPolitikasi(kal.ss["ros"], kal.katsayilar)
-    bas_gun, bit_gun = dunya.gun(sabitler.OYUN_BAS), dunya.gun(sabitler.OYUN_BIT)
-
-    for alim in (sabitler.EN_SIKI_ALIM, 0.80):
-        ayar = OyunAyari(alim, kal.koli["C"], kal.acik_kapasite)
-        durum = copy.deepcopy(baslangic)
-        sonuc = oyna(dunya, talep, gecmis_satis, durum, politika, ayar, paylar)
-        kirilim = line_kirilimi(durum, dunya, talep, sonuc.gozlenen, bas_gun, bit_gun)
-        print(f"referans: yol 0 · kural · ros · koli C · alım %{alim * 100:.0f}")
-        print(f"  {'line':12s}{'talep':>10s}{'satış':>10s}{'kayıp%':>9s}{'bulun.%':>9s}{'son stok':>10s}")
-        for line, d in kirilim.items():
-            print(
-                f"  {line:12s}{d['talep_adet']:10,.0f}{d['satis_adet']:10,.0f}"
-                f"{d['kayip_orani']:9.1f}{d['bulunabilirlik']:9.1f}{d['magaza_stok_son']:10,.0f}"
-            )
-
-
-def _bolum_koli(dunya, con, kal_json: dict) -> None:
-    """Koli kısıtının bedeli ne? Koliyi tamamen kapatıp ölçeriz.
-
-    Sezgi "koli bir kısıttır, açık adet daha isabetlidir" der. Ölçüm tersini
-    söylüyor: açık toplama haftalık kapasiteyle sınırlı olduğu için, koli
-    olmadan zincir istediği hacmi hiç taşıyamıyor.
-    """
-    print()
-    print("=== KOLİ KISITI ===")
-    kal = _kalibrasyon_nesnesi(kal_json)
-    talep, gecmis_satis, baslangic = yol_baslangici(dunya, 0, con)
-    paylar = magaza_beden_paylari(gecmis_satis, dunya, dunya.gun(sabitler.OYUN_BAS))
-    politika = KuralPolitikasi(kal.ss["ros"], kal.katsayilar)
-
-    print("referans: yol 0 · kural · ros · alım %80 · öncelik cover")
-    print(f"  {'kural':16s}{'bulun.%':>9s}{'kayıp%':>8s}{'koli':>9s}{'açık':>9s}"
-          f"{'gönderilen':>12s}{'maliyet TL':>13s}{'TL/adet':>9s}{'beden sapma%':>14s}")
-    for ad, kural in (("koli C + açık", kal.koli["C"]), ("yalnız açık", KoliKurali("yok"))):
-        ayar = OyunAyari(0.80, kural, kal.acik_kapasite)
-        sonuc = oyna(dunya, talep, gecmis_satis, copy.deepcopy(baslangic), politika, ayar, paylar)
-        o = sonuc.olcutler
-        birim = o["toplama_maliyeti_tl"] / o["gonderilen_adet"] if o["gonderilen_adet"] else 0.0
-        print(f"  {ad:16s}{o['bulunabilirlik']:9.1f}{o['kayip_orani']:8.1f}{o['koli_sayisi']:9,.0f}"
-              f"{o['acik_adet']:9,.0f}{o['gonderilen_adet']:12,.0f}{o['toplama_maliyeti_tl']:13,.0f}"
-              f"{birim:9.2f}{o['beden_sapmasi']:14.1f}")
-    print(f"  açık toplama tavanı: {kal.acik_kapasite:,}/hafta × {sabitler.KARAR_SAYISI} hafta "
-          f"= {kal.acik_kapasite * sabitler.KARAR_SAYISI:,} adet")
+    ondalik = {"bulunabilirlik": 2, "kayip_orani": 2, "toplama_maliyeti_tl": 0, "magaza_stok_son": 0}
+    for a, c in KARSILASTIRMALAR:
+        parca = []
+        for olc, yuksek in YUKSEK_IYI.items():
+            n = ondalik[olc]
+            say = sum((yuv(yl[p]["kosular"][a]["olcutler"][olc], n) > yuv(yl[p]["kosular"][c]["olcutler"][olc], n))
+                      if yuksek else
+                      (yuv(yl[p]["kosular"][a]["olcutler"][olc], n) < yuv(yl[p]["kosular"][c]["olcutler"][olc], n))
+                      for p in p_sira)
+            parca.append(f"{olc} {say}/{len(p_sira)}")
+        print(f"  {a} > {c}: " + " · ".join(parca))
+    alt("LightGBM (yol 0)")
+    pr = v.tahmin_parametreleri
+    print(f"  bir kez eğitilir (oyun sezonunun ilk lansmanından önceki gün dek, üç yıla yakın geçmiş); sezon içinde "
+          f"yeniden eğitilmez. Parametreler: {s(pr['num_leaves'])} yaprak, {s(pr['n_estimators'])} ağaç, öğrenme oranı "
+          f"{s(pr['learning_rate'], 2)}, yaprakta en az {s(pr['min_child_samples'])} örnek; amaç Poisson")
+    to = v.tahmin_ozet
+    print(f"  eğitim: {s(to['pazartesi'])} pazartesi, {s(to['satir'])} satır (fiziksel çift, hedef haftasında en az bir stoklu "
+          f"gün); doğrulama son {s(to['dogrulama_pazartesi'])} pazartesi, {s(to['dogrulama_satir'])} satır: hedef haftası "
+          f"satışı ortalaması {s(to['dogrulama_ortalama_y'], 2)} adet, tahmin ortalaması {s(to['dogrulama_ortalama_tahmin'], 2)}")
+    es = v.esitlik
+    fz = es["fiziksel"]
+    print(f"  karar anı eşitliği: {s(es['fiziksel_oc'])} fiziksel çiftte "
+          f"{s(sum(1 for x in fz.values() if x['esit_pay'] == 1.0))} / {s(len(fz))} özellik çevrimdışı ve Görünüm yolunda birebir; "
+          f"tahminlerin ortalama mutlak farkı {s(es['tahmin']['ort_mutlak_fark'], 4)}")
+    oyun_k = v.oyun["kosular"]
+    for kol in kollar:
+        ek.append((f"yollar.json yol 0 {kol} = oyun.json", yl["0"]["kosular"][kol]["anahtar"] == oyun_k[kol]["anahtar"]))
+    guncel = all(yl[p].get("kod") == v.yollar_kodu for p in p_sira)
+    print(f"  yollar.json'un kod özeti {'güncel' if guncel else 'eski (ölçüm dışı bir dosya, ör. oyun.py, sonradan değişti)'}; "
+          f"{s(v.yol_kosulari)} yol koşusu önbellekte bugünkü kodla, ölçümleri bugünkü ölçüm koduyla")
+    ek += [("yolların koşuları önbellekte (bugünkü kod, veri, sürüm)", v.yol_kosulari == len(p_sira) * len(kollar)),
+           ("yolların hepsi tamam", all(yl[p].get("tamam") for p in p_sira)),
+           ("yolların ölçümü bugünkü ölçüm koduyla",
+            all(yl[p]["kosular"][k]["olcum_kodu"] == v.olcum_kodu for p in p_sira for k in kollar))]
 
 
-def _bolum_kural_hedefi(dunya, con, kal_json: dict) -> None:
-    """Kural tabanlı yöntem sezon boyunca ne kadar istedi, gerçek talep neydi?
-
-    Hedef = max(öngörü, güvenlik stoku). Öngörü son 7 günün satışını stoklu
-    güne bölüp haftaya ölçekler. Kayıp satış hiçbir yere yazılmadığı için
-    öngörü yapısal olarak düşük kalır; güvenlik stoku tabanı bu açığın bir
-    kısmını kapatır. Ne kadarını kapattığı burada görünür.
-    """
-    print()
-    print("=== KURAL HEDEFİ ===")
-    kal = _kalibrasyon_nesnesi(kal_json)
-    talep, gecmis_satis, baslangic = yol_baslangici(dunya, 0, con)
-    paylar = magaza_beden_paylari(gecmis_satis, dunya, dunya.gun(sabitler.OYUN_BAS))
-    bas_gun = dunya.gun(sabitler.OYUN_BAS)
-    karar_gunleri = [bas_gun + 7 * k for k in range(sabitler.KARAR_SAYISI)]
-
-    print("referans: yol 0 · kural · koli C · alım %80 · öncelik cover")
-    print(f"  {'aile':12s}{'öngörü':>10s}{'hedef':>10s}{'gerçek talep':>14s}"
-          f"{'hedef/gerçek':>14s}{'tabanın bağladığı':>19s}")
-    for aile in ("sabit", "ros", "istatistik"):
-        politika = KuralPolitikasi(kal.ss[aile], kal.katsayilar)
-        ayar = OyunAyari(0.80, kal.koli["C"], kal.acik_kapasite)
-        durum = copy.deepcopy(baslangic)
-        # Oyunu oynat; her karar gününde politikanın gördüğü hâli kaydet.
-        izleme: list[tuple[float, float, int]] = []
-
-        class _Izleyen:
-            def hedef(self, gozlenen, d2, karar_gunu, stok, stoklu_gunluk=None):
-                h, o = politika.hedef(gozlenen, d2, karar_gunu, stok, stoklu_gunluk)
-                izleme.append((float(o.sum()), float(h.sum()), int((h > o + 1e-9).sum())))
-                return h, o
-
-        oyna(dunya, talep, gecmis_satis, durum, _Izleyen(), ayar, paylar)
-        ongoru_t = sum(x[0] for x in izleme)
-        hedef_t = sum(x[1] for x in izleme)
-        baglayan = sum(x[2] for x in izleme) / len(izleme)
-        gercek = sum(
-            float(talep[g + 1 : g + 8].sum()) for g in karar_gunleri
-        )
-        print(f"  {aile:12s}{ongoru_t:10,.0f}{hedef_t:10,.0f}{gercek:14,.0f}"
-              f"{hedef_t / gercek * 100:13.1f}%{baglayan:19,.0f}")
-    print(f"  not: 'tabanın bağladığı', güvenlik stokunun öngörüyü aştığı ve hedefi")
-    print(f"  belirlediği option-mağaza sayısının karar başına ortalamasıdır "
-          f"(toplam {len(dunya.oc_hucre):,} çift).")
+def _line_tablosu(v, ad: str, ek) -> None:
+    li = L(v, ad)
+    print(f"  {ad} [{_ayar_metni(K(v, ad))}]")
+    print(f"    {'line':<11}{'talep':>11}{'satış':>11}{'kayıp':>8}{'bulun.':>8}{'stok son':>10}{'gönderilen':>12}")
+    for ln in LINELAR:
+        r = li[ln]
+        print(f"    {ln:<11}{s(r['talep_adet']):>11}{s(r['satis_adet']):>11}{yd(r['kayip_orani'], 1):>8}"
+              f"{yd(r['bulunabilirlik'], 1):>8}{s(r['magaza_stok_son']):>10}{s(r['gonderilen_adet']):>12}")
+    ek.append((f"line {ad}: Σ talep = ölçüt", abs(sum(r["talep_adet"] for r in li.values()) - O(v, ad)["talep_adet"]) < 0.5))
 
 
-def main() -> None:
-    dunya = dunya_kur()
-    con = kaynak.baglan()
-    kal_json = _kalibrasyon_yukle(CIKTI)
+def line_bolumu(v, ek) -> None:
+    alt("alım düzeyi (kural, referans nokta: aynı koli, tavan, taban; yalnız alım farklı)")
+    _line_tablosu(v, "kural_a040_oncelik_cover", ek)
+    _line_tablosu(v, "kural_ref", ek)
+    a, c = L(v, "kural_a040_oncelik_cover"), L(v, "kural_ref")
+    print("  alım %40 → %100, bulunabilirlik (puan): " + " · ".join(
+        f"{ln} {isaretli(fark(a[ln]['bulunabilirlik'], c[ln]['bulunabilirlik'], 1), 1)}" for ln in LINELAR))
+    alt("demo kural kolları: line bulunabilirliği (alım × tavan)")
+    for tavan in ("kisitsiz", "gevsek", "siki"):
+        for alim in ("a040", "a070", "a100"):
+            ad = f"demo_kural_{alim}_{tavan}"
+            li = L(v, ad)
+            print(f"  {tavan:<9}{alim}: " + " · ".join(f"{ln} {yd(li[ln]['bulunabilirlik'], 1)}" for ln in LINELAR))
+        a, c = L(v, f"demo_kural_a040_{tavan}"), L(v, f"demo_kural_a100_{tavan}")
+        print(f"  {tavan:<9}%40 → %100: " + " · ".join(
+            f"{ln} {isaretli(fark(a[ln]['bulunabilirlik'], c[ln]['bulunabilirlik'], 1), 1)}" for ln in LINELAR))
+    alt("kollar (yol 0, referans nokta)")
+    for ad in ("lumoda_kisitsiz", "lumoda_ref", "kural_ufuk_28", "tahmin_taban_ref", "tahmin_ref", "kural_basit_ref"):
+        _line_tablosu(v, ad, ek)
 
-    _bolum_veri(dunya, con)
-    _bolum_depo(dunya)
-    _bolum_kalibrasyon(kal_json)
 
-    veri_yol0 = _yol_yukle(CIKTI, 0)
-    _bolum_yol0(veri_yol0)
+TAVAN_NOKTALARI = (("×0,4", 0.4, "kural_tavan_x040"), ("×0,6 (sıkı)", 0.6, "demo_kural_a100_siki"),
+                   ("×1,0 (referans)", 1.0, "kural_ref"), ("×1,6 (gevşek)", 1.6, "demo_kural_a100_gevsek"),
+                   ("∞ (kısıtlı, tavan yok)", math.inf, "kural_tavan_inf"))
 
-    veri_yollari = {yol: _yol_yukle(CIKTI, yol) for yol in range(1, sabitler.YOL_SAYISI + 1)}
-    _bolum_yirmi_yol(veri_yollari, kal_json)
 
-    _bolum_line(dunya, con, kal_json)
-    _bolum_koli(dunya, con, kal_json)
-    _bolum_kural_hedefi(dunya, con, kal_json)
-    _bolum_anlatim(dunya, con, kal_json)
+def koli_bolumu(v, ek) -> None:
+    alt("koli tanımı (yayımlanan `paket` tablosu; ilk dağıtımla aynı)")
+    for _, r in v.yayimlanan.paket.iterrows():
+        print(f"  {r['paket_id']} {r['beden_seti']}: {s(r['adet'])} adet")
+    print("  açık payı (depoya gelen partinin tam koli kurulabilen kısmından açık kalan): " + " · ".join(
+        f"{ln} {y(sabitler.ACIK_PAYI[ln], 0)}" for ln in LINELAR))
+    alt("koli kuralı (kural kolu, referans tavan; gönderim önce açık adet, kalan ihtiyaç için kural izin verirse tam koli)")
+    print(f"  {'kural':<9}{'gönderilen':>12}{'koli':>9}{'koli adet':>11}{'açık':>9}{'bulun.':>8}{'kayıp':>8}"
+          f"{'toplama TL':>12}{'TL/adet':>9}{'beden sap.':>11}{'stok son':>10}{'kırık %':>9}{'dönme':>7}")
+    for etiket, ad in (("A", "kural_ref"), ("B", "kural_koli_B"), ("C", "kural_koli_C"), ("koli yok", "kural_koli_yok")):
+        o = O(v, ad)
+        birim = bolum(o["toplama_maliyeti_tl"], o["gonderilen_adet"])
+        print(f"  {etiket:<9}{s(o['gonderilen_adet']):>12}{s(o['koli_sayisi']):>9}{s(o['koli_adet']):>11}{s(o['acik_adet']):>9}"
+              f"{yd(o['bulunabilirlik'], 1):>8}{yd(o['kayip_orani'], 1):>8}{s(o['toplama_maliyeti_tl']):>12}{s(birim, 2):>9}"
+              f"{s(o['beden_sapmasi'], 1):>11}{s(o['magaza_stok_son']):>10}{yd(o['kirik_cift_pay_yuzde'], 1):>9}"
+              f"{s(o['satisa_donme_gun'], 1):>7}")
+    a, yk = O(v, "kural_ref"), O(v, "kural_koli_yok")
+    tavan = v.kal["tavan"]
+    nh = int(a["hafta_sayisi"])
+    print(f"  koli yok − A: bulunabilirlik {isaretli(fark(a['bulunabilirlik'], yk['bulunabilirlik'], 1), 1)} puan; "
+          f"gönderilen {isaretli(fark(a['gonderilen_adet'], yk['gonderilen_adet']))} adet")
+    print(f"  açık toplama tavanı {s(tavan)} adet/hafta × {s(nh)} hafta = {s(tavan * nh)} adet; koli yokken taşınan "
+          f"{s(yk['gonderilen_adet'])} adet")
+    print(f"  B − C bulunabilirlik farkı {isaretli(fark(O(v, 'kural_koli_C')['bulunabilirlik'], O(v, 'kural_koli_B')['bulunabilirlik'], 2), 2)} puan; "
+          f"A − B {isaretli(fark(O(v, 'kural_koli_B')['bulunabilirlik'], a['bulunabilirlik'], 2), 2)} puan")
+    alt("tavan taraması (kural kolu; referans tavanın katları)")
+    print(f"  {'tavan':<24}{'adet/hafta':>11}{'bulun.':>8}{'kayıp':>8}{'açık':>10}{'koli':>9}{'dol. ort':>9}{'dol. tepe':>10}"
+          f"{'tavanda hafta':>14}{'toplama TL':>12}{'stok son':>10}")
+    noktalar = []
+    for etiket, kat, ad in TAVAN_NOKTALARI:
+        o = O(v, ad)
+        t = "—" if math.isinf(kat) else s(math.floor(tavan * kat))
+        bagli = round(o["tavan_bagli_hafta_yuzde"] * o["hafta_sayisi"] / 100)
+        print(f"  {etiket:<24}{t:>11}{yd(o['bulunabilirlik'], 2):>8}{yd(o['kayip_orani'], 1):>8}{s(o['acik_adet']):>10}"
+              f"{s(o['koli_sayisi']):>9}{yd(o['acik_doluluk_ort'], 1):>9}{yd(o['acik_doluluk_tepe'], 1):>10}"
+              f"{(s(bagli) + '/' + s(o['hafta_sayisi'])) if not math.isinf(kat) else '—':>14}{s(o['toplama_maliyeti_tl']):>12}"
+              f"{s(o['magaza_stok_son']):>10}")
+        noktalar.append((kat, o["bulunabilirlik"]))
+        ref_ayar = dict(K(v, "kural_ref")["ayar"])
+        ayar = dict(K(v, ad)["ayar"])
+        ek.append((f"tavan taraması {ad}: referans noktadan yalnız tavanla ayrılır",
+                   {**ayar, "tavan": None} == {**ref_ayar, "tavan": None}))
+    kz = O(v, "demo_kural_a100_kisitsiz")
+    print(f"  kısıtsız (tavan yok, koli zorunluluğu yok): bulunabilirlik {yd(kz['bulunabilirlik'], 2)} · açık "
+          f"{s(kz['acik_adet'])} · toplama {tl(kz['toplama_maliyeti_tl'])} · doluluk ort. (referans tavana) "
+          f"{yd(kz['acik_doluluk_ort'], 1)} · stok son {s(kz['magaza_stok_son'])}")
+    kat = kisitin_baglamadigi_tavan(noktalar, kz["bulunabilirlik"])
+    print("  kısıtın bağlamadığı tavan (tanım, spec §3.5): bulunabilirliği kısıtsızın 1 puan yakınına gelen en küçük "
+          "tarama noktası (basılan değerlerden)")
+    sonuc = "yok" if kat is None else ("∞" if math.isinf(kat) else f"×{s(kat, 1)} ({s(math.floor(tavan * kat))} adet/hafta)")
+    print(f"  sonuç: {sonuc}")
+    for etiket, kat_, ad in TAVAN_NOKTALARI:
+        print(f"    {etiket}: kısıtsızdan {isaretli(fark(kz['bulunabilirlik'], O(v, ad)['bulunabilirlik'], 2), 2)} puan")
+
+
+def oncelik_bolumu(v, ek) -> None:
+    print("Paylaştırma önceliği her iki aşamada (açık ve koli) sırayı belirler: cover (gönderimden sonra elindeki malı en")
+    print("kısa süre yetecek mağaza önce), ihtiyaç (en büyük ihtiyaç önce), eşit (o hafta en az almış olan önce).")
+    gruplar = {"%100": {"cover": "kural_ref", "ihtiyac": "kural_oncelik_ihtiyac", "esit": "kural_oncelik_esit"},
+               "%40": {o: f"kural_a040_oncelik_{o}" for o in ("cover", "ihtiyac", "esit")}}
+    for alim, kollar in gruplar.items():
+        alt(f"alım {alim}")
+        print(f"  {'öncelik':<9}{'bulun.':>8}{'kayıp':>8}{'beden sap.':>11}{'stok son':>10}{'kırık %':>9}{'depo-boş kayıp':>16}{'dönme':>7}")
+        bl = []
+        for o_, ad in kollar.items():
+            o = O(v, ad)
+            bl.append(o["bulunabilirlik"])
+            print(f"  {o_:<9}{yd(o['bulunabilirlik'], 2):>8}{yd(o['kayip_orani'], 2):>8}{s(o['beden_sapmasi'], 1):>11}"
+                  f"{s(o['magaza_stok_son']):>10}{yd(o['kirik_cift_pay_yuzde'], 1):>9}{yd(o['depo_bos_kayip_pay_yuzde'], 1):>16}"
+                  f"{s(o['satisa_donme_gun'], 1):>7}")
+        print(f"  aralık (en yüksek − en düşük bulunabilirlik): {s(fark(min(bl), max(bl), 2), 2)} puan")
+    kt = v.oyun["kitlik"]
+    alt("kıtlık kararı")
+    for a in ("a100", "a040"):
+        d = kt[a]
+        print(f"  alım %{s(int(a[1:]))}: kısıtsız kolda depo stoğundan kesilen istek payı {yd(d['kisitsiz_kesilen_pay_yuzde'], 1)}; "
+              f"kısıtsız kolda depo-boş kayıp payı {yd(d['kisitsiz_depo_bos_kayip_pay_yuzde'], 1)}")
+    print(f"  bağlayıcı (alım %40'ta öncelikler arası aralık ≥ {s(kt['esik_puan'], 1)} puan): "
+          f"{'evet' if kt['baglayici'] else 'hayır'}; daha kıt alım (%20) {'koşulmadı' if kt['baglayici'] else 'koşuldu'}")
+    o = O(v, "kural_ref")
+    bagli = round(o["tavan_bagli_hafta_yuzde"] * o["hafta_sayisi"] / 100)
+    print(f"  referans noktada açık toplama tavanının dolduğu hafta: {s(bagli)} / {s(o['hafta_sayisi'])}; doluluk "
+          f"ortalaması {yd(o['acik_doluluk_ort'], 1)}")
+    ek.append(("kıtlık kararı oyun.json'daki ölçümle aynı", abs(kt["a040"]["aralik"] - (max(
+        O(v, f"kural_a040_oncelik_{x}")["bulunabilirlik"] for x in ("cover", "ihtiyac", "esit")) - min(
+        O(v, f"kural_a040_oncelik_{x}")["bulunabilirlik"] for x in ("cover", "ihtiyac", "esit")))) < 1e-9))
+
+
+def _hedef_ozeti(h: rapor_b.HedefSonucu) -> dict:
+    n = len(h.pazartesi) - 1          # son pazartesinin hedef haftası pencereden taşar
+    sl = slice(0, n)
+    return {"n": n, **{a: float(getattr(h, a)[sl].sum()) for a in
+                       ("ongoru", "ongoru_ham", "gs_top", "hedef", "hedef_ham", "toplam", "talep")},
+            "baglayan": float(h.baglayan[sl].mean()), "baglayan_sifir": float(h.baglayan_sifir[sl].mean()),
+            "satistaki": float(h.satistaki[sl].mean())}
+
+
+def kural_hedefi_bolumu(v, ek) -> None:
+    print("Hedef = max(öngörü, güvenlik stoku); öngörü = son 7 günün satışı ÷ stoklu gün × 7 × hafta katsayısı.")
+    print("Çift düzeyinde hedef kolun kaydında yok: koşunun kendi tablolarından yeniden kurulur (rapor_b notu);")
+    print("satıştaki fiziksel çiftler (option satışta, mağaza açık). Gerçek talep: hedef haftası (ertesi gün + 7 gün),")
+    print("fiziksel mağazalar; son pazartesinin hedef haftası pencereden taştığı için ilk 17 pazartesi.")
+    for ad, h in v.hedef.items():
+        z = _hedef_ozeti(h)
+        alt(f"{ad} (taban {h.gs['aile']} {s(h.gs['deger'])})")
+        print(f"  {s(z['n'])} pazartesi: Σ öngörü {s(z['ongoru'])} · Σ güvenlik stoku {s(z['gs_top'])} · Σ hedef {s(z['hedef'])} "
+              f"· Σ gerçek talep {s(z['talep'])}")
+        print(f"  hedef stok / hedef haftasının gerçek talebi {y(bolum(z['hedef'], z['talep']))} · öngörü / gerçek talep "
+              f"{y(bolum(z['ongoru'], z['talep']))}")
+        print(f"  tabanın bağladığı çift (güvenlik stoku > öngörü): pazartesi başına ortalama {s(z['baglayan'])} / "
+              f"{s(z['satistaki'])} satıştaki çift ({y(bolum(z['baglayan'], z['satistaki']))}); bunların öngörüsü 0 olanı "
+              f"{s(z['baglayan_sifir'])} ({y(bolum(z['baglayan_sifir'], z['baglayan']))})")
+        print(f"  toplam ile max: Σ (öngörü + güvenlik stoku) {s(z['toplam'])} ; max'a oranı {y(bolum(z['toplam'], z['hedef']))} "
+              f"({isaretli(fark(z['hedef'], z['toplam']))} adet; yalnız hedef, sonuç etkisi ölçülmedi)")
+        esit = int(np.sum(np.isclose(h.yeni_hedef, h.kayit_hedef, rtol=1e-9, atol=1e-6)))
+        oran = np.abs(h.yeni_hedef / h.kayit_hedef - 1)
+        i = int(np.argmax(oran))
+        print(f"  yeniden kurma denetimi: kayıtla birebir pazartesi {s(esit)} / {s(len(oran))}; en büyük fark "
+              f"{rapor_b._ts(h.pazartesi[i]).date()} pazartesisi {yd(100 * oran[i], 2)}")
+        ek += hedef_denetimleri(h)
+    ref = v.hedef["kural_ref"]
+    alt("kural_ref, pazartesi başına (satıştaki çiftler)")
+    print(f"  {'#':>3} {'tarih':<11}{'satıştaki':>10}{'öngörü':>10}{'hedef':>10}{'talep':>10}{'bağlayan':>10}")
+    for i, p in enumerate(ref.pazartesi):
+        print(f"  {i + 1:>3} {str(rapor_b._ts(p).date()):<11}{s(ref.satistaki[i]):>10}{s(ref.ongoru[i]):>10}"
+              f"{s(ref.hedef[i]):>10}{s(ref.talep[i]):>10}{s(ref.baglayan[i]):>10}")
+    il = v.ilk
+    alt("ilk pazartesi: kural ve LightGBM öngörüsü (bütün kolların geçmişi aynı; satıştaki çiftler)")
+    print(f"  satıştaki çift {s(il.satistaki)} · gerçek talep (hedef haftası) {s(il.talep)}")
+    print(f"  öngörü: kural {s(il.kural_ongoru)} · LightGBM {s(il.lgbm_ongoru)} (LightGBM / kural {s(bolum(il.lgbm_ongoru, il.kural_ongoru), 3)})")
+    print(f"  hedef: kural (max(öngörü, taban)) {s(il.kural_hedef)} · LightGBM + taban {s(il.taban_hedef)} · yalnız LightGBM "
+          f"{s(il.lgbm_ongoru)}; kural / yalnız LightGBM {s(bolum(il.kural_hedef, il.lgbm_ongoru), 2)} kat")
+    print(f"  öngörü / gerçek talep: kural {y(bolum(il.kural_ongoru, il.talep))} · LightGBM {y(bolum(il.lgbm_ongoru, il.talep))}")
+    ek += [("ilk pazartesi LightGBM (fiziksel) = tahmin_ref kaydı", abs(il.lgbm_fiziksel / il.kayit_tahmin - 1) < 1e-6),
+           ("ilk pazartesi max(LightGBM, taban) (fiziksel) = tahmin_taban_ref kaydı", abs(il.taban_fiziksel / il.kayit_taban - 1) < 1e-6)]
+
+
+def sansur_bolumu(v, ek) -> None:
+    print("Sansür düzeltmesi: hız = satış ÷ stoklu gün (takvim günü değil). Sonuç etkisi (düzeltmesiz kural koşusu)")
+    print("ızgarada YOK: ölçülmedi; yazı v2'nin bulunabilirlik farkını kullanamaz. Hedef düzeyindeki etkisi aynı koşunun")
+    print("geçmişiyle hesaplanır (kural_ref; satıştaki çiftler, ilk 17 pazartesi).")
+    z = _hedef_ozeti(v.hedef["kural_ref"])
+    print(f"  Σ öngörü: düzeltmesiz {s(z['ongoru_ham'])} → düzeltmeli {s(z['ongoru'])} "
+          f"({yd(100 * (bolum(z['ongoru'], z['ongoru_ham']) - 1), 1)})")
+    print(f"  Σ hedef:  düzeltmesiz {s(z['hedef_ham'])} → düzeltmeli {s(z['hedef'])} "
+          f"({yd(100 * (bolum(z['hedef'], z['hedef_ham']) - 1), 1)})")
+    alt("hikâyenin boş raf örneği (yayımlanan dünya, sahnenin SKU'su, pencere)")
+    sa = v.hikaye["sansur"]
+    print(f"  {sa['ad']} ({sa['sku']}): {s(sa['takvim_gun'])} takvim günü, {s(sa['stoklu_gun'])} stoklu gün, satış {s(sa['satis'])}")
+    print(f"  hız: takvim gününe {s(sa['hiz_takvim'], 2)} · stoklu güne {s(sa['hiz_stoklu'], 2)} "
+          f"({s(bolum(sa['hiz_stoklu'], sa['hiz_takvim'], 2, 2), 1)} kat)")
+    ek.append(("boş raf örneği: satış = stoklu günlerdeki satış", sa["satis"] == sa["satis_stoklu"]))
+
+
+def basit_bolumu(v, ek) -> None:
+    print("kural_basit: kuralın öngörüsü yerine ortak paketin karar anı Basit'i (Satış Kaybı dizisinin kestiricisi;")
+    print("ham 7 gün × hafta katsayısı); taban, koli, tavan aynı. Yalnız yol 0.")
+    a, c = O(v, "kural_ref"), O(v, "kural_basit_ref")
+    for olc, n in (("bulunabilirlik", 2), ("kayip_orani", 2), ("kalici_kayip_orani", 2), ("magaza_stok_son", 0),
+                   ("toplama_maliyeti_tl", 0), ("satisa_donme_gun", 1), ("kirik_cift_pay_yuzde", 1), ("gonderilen_adet", 0)):
+        print(f"  {olc:<22} kural {b(olc, a[olc]):>14} · Basit {b(olc, c[olc]):>14} · fark {isaretli(fark(a[olc], c[olc], n), n)}")
+
+
+def hikaye_bolumu(v, ek) -> None:
+    hk = v.hikaye
+    sa = hk["sahne"]
+    print(f"Sahne (yayımlanan dünya, Lumoda'nın kısıtsız kuralı; seçim merdiveni R32): {sa['model_adi']} {sa['renk']} "
+          f"{sa['beden']} ({sa['sku']}, {sa['line']}, {sa['beden_seti']})")
+    print(f"  oyunun {s(sa['pazartesi_sirasi'])}. pazartesisi ({sa['pazartesi']}), lansmandan {s(sa['lansmandan_gun'])} gün sonra; "
+          f"hız penceresi {s(sa['hiz_penceresi_gun'])} gün önce / sonra")
+    print(f"  istek {s(sa['istek_toplam'])} adet ({s(sa['n_istek_magaza'])} mağaza: Ali {s(sa['n_ali_istek'])}, Veli "
+          f"{s(sa['n_veli_istek'])}); giden {s(sa['giden_toplam'])} adet")
+    d = v.yayimlanan.hikaye_depo
+    print(f"  depo stoğu (yayımlanan `depo_stok`, sabah fotoğrafı): o pazartesi {sa['sku']} {s(d['pazartesi']['sku'])} adet "
+          f"(option'ın bütün bedenleri {s(d['pazartesi']['option'])}); ertesi sabah {s(d['ertesi']['sku'])} adet")
+    print(f"  o pazartesi depodan çıkan replenishment: " + ", ".join(f"{m} {s(a)} adet" for m, a in d["sevk"].items()))
+    alt("mağazalar (istek, giden; stoklu gün hızı = satış ÷ stoklu gün, önce / sonra)")
+    print(f"  {'mağaza':<14}{'kişi':<6}{'istek':>6}{'giden':>6}   {'önce gün / satış / hız':<26}{'sonra gün / satış / hız':<26}")
+    for m in hk["sahne"]["magazalar"]:
+        on, so = m["once"], m["sonra"]
+        print(f"  {m['ad']:<14}{m['kisi']:<6}{s(m['istek']):>6}{s(m['giden']):>6}   "
+              f"{s(on['stoklu_gun']) + ' / ' + s(on['satis']) + ' / ' + s(on['hiz'], 2):<26}"
+              f"{s(so['stoklu_gun']) + ' / ' + s(so['satis']) + ' / ' + s(so['hiz'], 2):<26}")
+    g = sa["gruplar"]
+    for ad, et in (("ali_gitmeyen", "Ali'nin almayan mağazaları"), ("veli_giden", "Veli'nin alan mağazası")):
+        x = g[ad]
+        print(f"  {et} ({', '.join(x['magazalar'])}): önce {s(x['once']['hiz'], 2)} · sonra {s(x['hiz'], 2)} adet/stoklu gün")
+    kn = sa["kanit"]
+    print(f"  kanıt (grup hızı farkı, z): önce {s(kn['z_once'], 2)} · sonra {s(kn['z_sonra'], 2)}")
+    alt("mağaza bazında denetim (her almayan Ali mağazası her alan Veli mağazasından hızlı mı)")
+    mag = {m["magaza_id"]: m for m in sa["magazalar"]}
+    ali = [mag[m] for m in g["ali_gitmeyen"]["magazalar"]]
+    veli = [mag[m] for m in g["veli_giden"]["magazalar"]]
+    for donem, anahtar in (("önce", "once"), ("sonra", "sonra")):
+        en_yavas_ali = min(yuv(m[anahtar]["hiz"], 2) for m in ali)
+        en_hizli_veli = max(yuv(m[anahtar]["hiz"], 2) for m in veli)
+        print(f"  {donem}: en yavaş almayan Ali mağazası {s(en_yavas_ali, 2)} > en hızlı alan Veli mağazası "
+              f"{s(en_hizli_veli, 2)}: {'tutuyor' if en_yavas_ali > en_hizli_veli else 'tutmuyor'}")
+    ko = sa["kural_olcut"]
+    print(f"  ürün geneli (rapor sütunu, merdivende değil; R32): bütün pencerede bu option'da kural kısıtsız "
+          f"{yd(ko['bulunabilirlik_kural'], 2)}, Lumoda {yd(ko['bulunabilirlik_lumoda'], 2)} bulunabilirlik; kayıp "
+          f"{yd(ko['kayip_orani_kural'], 2)} / {yd(ko['kayip_orani_lumoda'], 2)}")
+    alt("seçim merdiveni")
+    print("  " + " → ".join(f"{a} {s(n)}" for a, n in hk["merdiven"]["huni"]))
+    print(f"  birebir aday {s(hk['merdiven']['rapor']['birebir'])}; bunlardan ürün genelinde kuralın iyi olduğu "
+          f"{s(hk['merdiven']['rapor']['birebir_kural_iyi'])}")
+    al = hk["alternatif"]
+    print(f"  alternatif: {al['model_adi']} {al['renk']} {al['beden']} ({al['sku']}), oyunun {s(al['pazartesi_sirasi'])}. "
+          f"pazartesisi; istek {s(al['istek_toplam'])}, giden {s(al['giden_toplam'])}")
+    ek += [("hikâye: mağaza istekleri toplamı = sahnenin isteği", sum(m["istek"] for m in sa["magazalar"]) == sa["istek_toplam"]),
+           ("hikâye: mağazaya gidenlerin toplamı = sahnenin gideni", sum(m["giden"] for m in sa["magazalar"]) == sa["giden_toplam"]),
+           ("hikâye: yayımlanan sevkiyat = sahnenin gideni (mağaza başına)",
+            d["sevk"] == {m["magaza_id"]: m["giden"] for m in sa["magazalar"] if m["giden"]}),
+           ("hikâye koşuları oyun.json'daki ölçülmüş kayıtlar",
+            all(v.oyun["kosular"][x["ad"]]["anahtar"] == x["anahtar"] for x in hk["kaynak"]["kosular"].values()))]
+
+
+def demo_bolumu(v, ek) -> None:
+    import senaryolar
+
+    print("Kadran: depo alımı × ihtiyaç hesabı × açık toplama tavanı (27 bileşim; yol 0, demo bloğu, yalnız önbellekten).")
+    print("Değerler sitedeki dosyayla aynı yuvarlamayla (yüzde ve gün bir ondalık, adet ve TL tam sayı).")
+    son = v.demo["sonuclar"]
+    olc = list(senaryolar.OZET_OLCUTLERI)
+    print(f"  {'bileşim':<26}" + "".join(f"{o:>22}" for o in olc))
+    for anahtar, g in son.items():
+        print(f"  {anahtar:<26}" + "".join(
+            f"{s(g['ozet'][o], senaryolar.OZET_OLCUTLERI[o]):>22}" for o in olc))
+    import json as _json
+
+    hedef = senaryolar.HEDEF
+    dosya = _json.loads(hedef.read_text(encoding="utf-8")) if hedef.exists() else {}
+    ek += [("demo: 27 bileşim", len(son) == 27),
+           ("demo: sitedeki dosya = raporun bileşimleri", dosya.get("sonuclar") == son and
+            dosya.get("parametreler") == v.demo["parametreler"])]
+
+
+def anlati_bolumu(v, ek) -> None:
+    print("Veriden gelmeyen, anlatı için konmuş değerler (varsayım; yazıda kesin sayı gibi sunulmaz):")
+    print("  açık payı (depoya gelen partinin açık kalan kısmı): " + " · ".join(
+        f"{ln} {y(p, 0)}" for ln, p in sabitler.ACIK_PAYI.items()))
+    print(f"  toplama maliyeti: açık adet başına {s(sabitler.ACIK_TL_ADET)} TL, koli başına {s(sabitler.KOLI_TL)} TL")
+    print(f"  tavan oranı: haftalık açık toplama tavanı = kalibrasyon penceresinde Lumoda'nın haftalık ortalama "
+          f"replenishment adedi × {s(sabitler.TAVAN_ORANI, 2)}")
+    for anahtar, deger in ANLATI_VARSAYIMLARI.items():
+        print(f"  {anahtar}: {deger} (1. yazının sahnesi)")
+    if v is not None:
+        o = O(v, "kural_ref")
+        alt("açık adet maliyetine duyarlılık (kural_ref; açık ve koli sayısı aynı, açık TL/adet değişken)")
+        for t in (5, 10, 20):
+            print(f"  açık {s(t)} TL/adet: toplama {tl(o['acik_adet'] * t + o['koli_sayisi'] * sabitler.KOLI_TL)}")
+        ek.append(("toplama maliyeti = açık × 10 + koli × 20 (kural_ref)",
+                   abs(o["acik_adet"] * sabitler.ACIK_TL_ADET + o["koli_sayisi"] * sabitler.KOLI_TL
+                       - o["toplama_maliyeti_tl"]) < 0.5))
+
+
+def korunum_bolumu(v, ek) -> None:
+    ek.append(("koşular önbellekten açıldı (motor koşmadı)", len(v.acilan) > 0))
+    n = korunum(ek)
+    print(f"  {s(n)} denetim tuttu: satış ≤ talep, kolun kaydı = sevkiyat, FIFO, ölçüm kodu, yollar = oyun, teşhis toplamları,")
+    print("  katkılar = fark, line toplamları, yeniden kurulan hedef = kayıt, ilk pazartesi LightGBM = kayıt, tavan taraması,")
+    print("  referans tavan, stok devri, hikâye (istek, gönderim, koşu anahtarları), demo dosyası, toplama maliyeti.")
+    print(f"  koşu önbelleği: {s(len(v.acilan))} koşu önbellekten açıldı (bugünkü kod, v4 dosyası ve sürümlerle; motor koşmadı)")
+
+
+BOLUMLER = [
+    ("VERİ", veri_bolumu), ("DEPO", depo_bolumu), ("KALİBRASYON", kalibrasyon_bolumu), ("YOL 0", yol0_bolumu),
+    ("LUMODA VE KURAL", lumoda_bolumu), ("YOLLAR", yollar_bolumu), ("LINE KIRILIMI", line_bolumu),
+    ("KOLİ VE TAVAN", koli_bolumu), ("ÖNCELİK", oncelik_bolumu), ("KURAL HEDEFİ", kural_hedefi_bolumu),
+    ("SANSÜR", sansur_bolumu), ("BASİT", basit_bolumu), ("HİKÂYE", hikaye_bolumu), ("DEMO", demo_bolumu),
+    ("ANLATI VARSAYIMLARI", anlati_bolumu), ("KORUNUM", korunum_bolumu),
+]
+
+
+def govde(v) -> None:
+    """Bütün bölümler sırasıyla; korunum en sonda (tutmazsa AssertionError)."""
+    print("Depodan Mağazaya (replenishment) — v4 raporu. Kaynak: oyun koşuları (cikti/kosular, cikti/oyun.json), "
+          "yollar (cikti/yollar.json), kalibrasyon, hikâye, yayımlanan v4 tabloları.")
+    ek: list = []
+    for ad, f in BOLUMLER:
+        baslik(ad)
+        f(v, ek)
+    korunum(ek)
+
+
+def main(argv: list[str] | None = None) -> int:
+    argparse.ArgumentParser(prog="rapor.py", description=__doc__.split("\n")[0]).parse_args(argv)
+    try:
+        with contextlib.redirect_stdout(sys.stderr):
+            v = rapor_b.hazirla()
+    except RuntimeError as e:
+        print(e, file=sys.stderr)
+        return 1
+    kod, metin = tamponla(lambda: govde(v))
+    if kod:
+        return kod
+    sys.stdout.write(metin)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    sys.exit(main())
