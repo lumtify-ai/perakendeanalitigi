@@ -18,30 +18,38 @@ bayrağından: İstanbul = Ali, değilse Veli):
 HIZ. Stoklu gün hızı = stoklu günlerdeki satış / stoklu gün (günlük tablo `stok.gunluk_magaza`:
 satış öncesi stok > 0, yani `durum != 'bos'`; brüt satış). Küme hızı havuzlanır (Σ satış /
 Σ stoklu mağaza-günü). `sonra`: pazartesiden başlayan `HIZ_GUN` gün; `once`: önceki
-`HIZ_GUN` gün (yalnız sıralama ve yazının bilgisi; ölçüt değil).
+`HIZ_GUN` gün (karar anında görünen geçmiş).
 
-ÖLÇÜTLER (`OLCUTLER`, huni sırası):
+ÖLÇÜTLER (`OLCUTLER`, huni sırası; Ruling R32):
 
     kesim        Lumoda'nın istekleri depoyu aşmış: istek toplamı > giden toplamı
                  (kısıtsız Lumoda'da fark yalnız depo stoğundan: orantılı kesim)    gevşemez
     iki_bolge    hem İstanbul hem Anadolu istemiş ve yön hikâyeninki: ≥ 1 ali_gitmeyen,
                  ≥ 1 veli_giden                                                     gevşemez
-    yavas_giden  sonraki `HIZ_GUN` günde veli_giden'in stoklu gün hızı ali_gitmeyen'inkinden
-                 düşük (iki yan da en az bir stoklu gün)                            3. gevşer
-    kural_iyi    R31: o option'da, oyun penceresinde `demo_kural_a100_kisitsiz` (kural,
-                 kısıtsız depo) `lumoda_kisitsiz`'den iyi: bulunabilirlik yüksek YA DA kayıp
-                 oranı düşük (`olcutler.musteri_olcutleri` tanımı; değer girdiden)  2. gevşer
+    once_de      kesimden önceki `HIZ_GUN` günde ali_gitmeyen'in stoklu gün hızı
+                 veli_giden'inkinden yüksek: Pars'ın kuralı ("kıt malı en hızlı satana")
+                 karar anında bilinenle malı Ali'ye gönderirdi                      3. gevşer
+    sonra_da     sonraki `HIZ_GUN` günde de ali_gitmeyen daha hızlı (iki yan da en az bir
+                 stoklu gün)                                                        2. gevşer
     bedenli      ürün bedenli (beden seti "Standart" değil): "bedenler biter"       1. gevşer
 
 Gevşetme (RPT / blok-transfer `hikaye_sec` kalıbı): sıkı aramada aday yoksa TEK ölçüt
 (`GEVSEK` sırasıyla), sonra ikili, üçlü küme gevşer; aday veren ilk küme seçilir. `gevseyen`
 seçilen sahnenin tutmadığı ölçütlerdir. Hiçbiri vermezse `LookupError` (huni mesajda).
-Sıra gerekçesi: `bedenli` hikâyenin süsü; `yavas_giden` sahnenin kendi dersi (yazı onu
-anlatır), `kural_iyi` oyunun kanıtı (sonraki yazılar).
+Sıra gerekçesi: `bedenli` hikâyenin süsü; `sonra_da` dersin teyidi; `once_de` dersin kendisi
+(Pars'ın kuralının karar anında kullanabildiği bilgi), en son gevşer.
 
-SIRA (aynı kümede): önce `once_de` (ali_gitmeyen kesimden önceki `HIZ_GUN` günde de daha hızlı:
-Pars'ın kuralı bilinen geçmişle de Ali'ye gönderirdi), sonra kanıt (iki yanın küçük stoklu
-mağaza-günü), hız oranı (ali / veli), kural farkı (bulunabilirlik puanı), pazartesi, SKU.
+RAPOR SÜTUNU `kural_iyi` (R31, R32: merdivende değil): o option'da, oyun penceresinde
+`demo_kural_a100_kisitsiz` (kural, kısıtsız depo) `lumoda_kisitsiz`'den iyi: bulunabilirlik
+yüksek YA DA kayıp oranı düşük (`olcutler.musteri_olcutleri` tanımı; değer girdiden). Bütün
+pencerenin option ölçütü kuralın yalın hedef düzeyini (R30) o pazartesinin dağıtım kararıyla
+karıştırdığı için ölçüt olmaktan çıktı; hunide ve `hikaye.json`'da basılır.
+
+SIRA (aynı kümede; R32): önce ölçek tercihi (`olcek`: istek toplamı ≥ `OLCEK_ISTEK` = bir koli
+ve giden ≥ 1; filtre değil), sonra kanıt (`kanit`): önce ve sonra pencerelerinin Poisson
+z'lerinin küçüğü, z = (h_ali − h_veli) / √(max(s_ali, 1) / g_ali² + max(s_veli, 1) / g_veli²)
+(h hız, s satış, g stoklu mağaza-günü): hız farkını, her hızın arkasındaki stoklu günü ve
+adedi tek sayıda tartar; sonra istek toplamı (büyük önce), pazartesi, SKU.
 
 `--hikaye OPTION:SKU` seçimi zorlar (SKU'nun en az ölçütü tutmayan pazartesisi); CLI'nin
 varsayılanı `YURUTUCU_SECIMI`. Alternatif: seçilen option dışarıda bırakılınca merdivenin
@@ -81,12 +89,15 @@ OYUN_DOSYASI = CIKTI / "oyun.json"
 HIKAYE_DOSYASI = CIKTI / "hikaye.json"
 DUCKDB_BELLEK = "6GB"
 
-OLCUTLER = ("kesim", "iki_bolge", "yavas_giden", "kural_iyi", "bedenli")
-GEVSEK = ("bedenli", "kural_iyi", "yavas_giden")            # gevşetme sırası
+OLCEK_ISTEK = 7                  # ölçek tercihi: istek toplamı ≥ bir koli (standart 7)
 
-# Yürütücünün seçimi (kullanıcı tam yetki verdi; okuma kapısında sunulur): merdivenin ilk
-# sırası, birebir (görev 11 raporu). (option_id, SKU); pazartesi SKU'dan seçilir.
-YURUTUCU_SECIMI = ("MDL0702-PDR", "MDL0702-PDR-S")
+OLCUTLER = ("kesim", "iki_bolge", "once_de", "sonra_da", "bedenli")     # R32
+GEVSEK = ("bedenli", "sonra_da", "once_de")                 # gevşetme sırası
+
+# Yürütücünün seçimi (kullanıcı tam yetki verdi; okuma kapısında sunulur): R32 merdiveninin ilk
+# sırası, birebir, iki pencerede de en güçlü kanıt (görev 11 düzeltme raporu). (option_id, SKU);
+# pazartesi SKU'dan seçilir.
+YURUTUCU_SECIMI = ("MDL0639-BEJ", "MDL0639-BEJ-XL")
 
 
 @dataclass
@@ -244,27 +255,45 @@ def ozellikler(tablo: pd.DataFrame, kural_olcut: pd.DataFrame, bas=OYUN_BAS) -> 
 
 def bayraklar(f: pd.DataFrame) -> pd.DataFrame:
     """Ölçüt bayrakları (bool, `OLCUTLER` sütunları; f ile aynı indeks). Tanımsız değer
-    (NaN hız, eksik ölçüt) ölçütü tutmaz."""
+    (NaN hız) ölçütü tutmaz."""
     return pd.DataFrame({
         "kesim": f["istek_toplam"] > f["giden_toplam"],
         "iki_bolge": (f["n_ali_gitmeyen"] > 0) & (f["n_veli_giden"] > 0),
-        "yavas_giden": f["hiz_veli"] < f["hiz_ali"],
-        "kural_iyi": (f["bulunabilirlik_kural"] > f["bulunabilirlik_lumoda"])
-                     | (f["kayip_orani_kural"] < f["kayip_orani_lumoda"]),
+        "once_de": f["once_hiz_ali"] > f["once_hiz_veli"],
+        "sonra_da": f["hiz_ali"] > f["hiz_veli"],
         "bedenli": f["beden_seti"].fillna("").astype(str) != "Standart",
     }, index=f.index)[list(OLCUTLER)].fillna(False).astype(bool)
 
 
+def kural_iyi(f: pd.DataFrame) -> pd.Series:
+    """Rapor sütunu (merdivende değil; R31, R32): option'da kural bulunabilirliği yüksek ya da
+    kayıp oranı düşük. Ölçüt yoksa False."""
+    return ((f["bulunabilirlik_kural"] > f["bulunabilirlik_lumoda"])
+            | (f["kayip_orani_kural"] < f["kayip_orani_lumoda"])).fillna(False).astype(bool)
+
+
+def _z(sat_a, sg_a, sat_v, sg_v) -> pd.Series:
+    ha, hv = _hiz(sat_a, sg_a), _hiz(sat_v, sg_v)
+    se = np.sqrt(np.maximum(sat_a, 1) / sg_a.where(sg_a > 0) ** 2 + np.maximum(sat_v, 1) / sg_v.where(sg_v > 0) ** 2)
+    return (ha - hv) / se
+
+
+def kanit(f: pd.DataFrame) -> pd.DataFrame:
+    """Kanıt sütunları: `z_once`, `z_sonra` (Poisson z; modül notu), `kanit` = küçüğü,
+    `olcek` (istek toplamı ≥ `OLCEK_ISTEK` ve giden ≥ 1)."""
+    zo = _z(f["once_sat_ali"], f["once_sg_ali"], f["once_sat_veli"], f["once_sg_veli"])
+    zs = _z(f["sat_ali"], f["sg_ali"], f["sat_veli"], f["sg_veli"])
+    return pd.DataFrame({"z_once": zo, "z_sonra": zs, "kanit": np.fmin(zo, zs),
+                         "olcek": (f["istek_toplam"] >= OLCEK_ISTEK) & (f["giden_toplam"] >= 1)}, index=f.index)
+
+
 def sirala(f: pd.DataFrame) -> pd.DataFrame:
-    """Aynı ölçüt kümesindeki adayların sırası (modül notu)."""
-    x = f.assign(
-        _once=(f["once_hiz_ali"] > f["once_hiz_veli"]).fillna(False),
-        _kanit=np.minimum(f["sg_ali"], f["sg_veli"]),
-        _oran=(f["hiz_ali"] / f["hiz_veli"]).fillna(0.0),
-        _kural=(f["bulunabilirlik_kural"] - f["bulunabilirlik_lumoda"]).fillna(-np.inf))
-    x = x.sort_values(["_once", "_kanit", "_oran", "_kural", "tarih", "urun_id"],
-                      ascending=[False, False, False, False, True, True], kind="stable")
-    return x.drop(columns=["_once", "_kanit", "_oran", "_kural"])
+    """Aynı ölçüt kümesindeki adayların sırası (modül notu): ölçek, kanıt, istek, pazartesi, SKU."""
+    k = kanit(f)
+    x = f.assign(_olcek=k["olcek"], _kanit=k["kanit"].fillna(-np.inf))
+    x = x.sort_values(["_olcek", "_kanit", "istek_toplam", "tarih", "urun_id"],
+                      ascending=[False, False, False, True, True], kind="stable")
+    return x.drop(columns=["_olcek", "_kanit"])
 
 
 def huni(bayrak: pd.DataFrame) -> list[tuple[str, int]]:
@@ -500,6 +529,7 @@ def ozet(h: Hikaye, tablo: pd.DataFrame, f: pd.DataFrame, mag: pd.DataFrame, uru
     bilgi = mag.assign(magaza_id=mag["magaza_id"].astype(str)).set_index("magaza_id")
     lansman = pd.Timestamp(u["lansman_tarihi"])
     b = bayraklar(f.loc[[r.name]]).iloc[0]
+    k = kanit(f.loc[[r.name]]).iloc[0]
     magazalar = [{
         "magaza_id": x["magaza_id"], "ad": bilgi.loc[x["magaza_id"], "ad"], "sehir": bilgi.loc[x["magaza_id"], "sehir"],
         "kisi": "Ali" if x["istanbul"] else "Veli", "istek": _sayi(x["istek"]), "giden": _sayi(x["giden"]),
@@ -528,7 +558,9 @@ def ozet(h: Hikaye, tablo: pd.DataFrame, f: pd.DataFrame, mag: pd.DataFrame, uru
         "ali_magazalari": h.ali_magazalari, "veli_magazalari": h.veli_magazalari,
         "giden": h.giden, "gitmeyen": h.gitmeyen,
         "olcutler": {c: bool(b[c]) for c in OLCUTLER}, "gevseyen": h.gevseyen, "alternatif": h.alternatif,
-        "once_de": bool(r["once_hiz_ali"] > r["once_hiz_veli"]),
+        "kural_iyi": bool(kural_iyi(f.loc[[r.name]]).iloc[0]),
+        "kanit": {"z_once": _sayi(k["z_once"]), "z_sonra": _sayi(k["z_sonra"]), "kanit": _sayi(k["kanit"]),
+                  "olcek": bool(k["olcek"])},
         "gruplar": {"ali_gitmeyen": grup(m["istanbul"] & (m["giden"] == 0)),
                     "veli_giden": grup(~m["istanbul"] & (m["giden"] > 0))},
         "kural_olcut": kural, "magazalar": magazalar,
@@ -577,7 +609,7 @@ def main(argv: list[str] | None = None) -> dict:
     con = kaynak.baglan(args.db)
     con.execute(f"SET memory_limit='{DUCKDB_BELLEK}'")
     con.execute("SET enable_progress_bar=false")
-    mag =kaynak.fiziksel_magazalar(con)
+    mag = kaynak.fiziksel_magazalar(con)
     urunler = con.execute("""
         select urun_id::varchar as urun_id, option_id::varchar as option_id, model_adi, renk, alt_kategori,
                line::varchar as line, beden, beden_seti, lansman_tarihi from urun""").df()
@@ -590,17 +622,25 @@ def main(argv: list[str] | None = None) -> dict:
     tablo = magaza_tablosu(istekler, g["sevkiyat"], satis, stoklu, mag)
     f = ozellikler(tablo, g["kural_olcut"])
     b = bayraklar(f)
+    ki = kural_iyi(f)
     funnel = huni(b)
     kumeler = merdiven_sayilari(b)
-    tekil = {c: int(b[c].sum()) for c in OLCUTLER}
-    print(f"merdiven huni: {funnel}")
+    tekil = {c: int(b[c].sum()) for c in OLCUTLER} | {"kural_iyi (rapor)": int(ki.sum())}
+    birebir = b.all(axis=1)
+    rapor = {"birebir": int(birebir.sum()), "birebir_kural_iyi": int((birebir & ki).sum()),
+             "birebir_olcek": int((birebir & kanit(f)["olcek"]).sum())}
+    print(f"merdiven huni: {funnel} + kural_iyi (rapor) {rapor['birebir_kural_iyi']}")
     print(f"tekil: {tekil}")
+    print(f"birebir adaylar: {rapor}")
     print("gevşetme kümeleri: " + ", ".join(f"{'+'.join(k) or 'sıkı'} {n}" for k, n in kumeler))
     if args.adaylar:
-        kol = ["tarih", "urun_id", "tutmayan", "gevseyen", "n_ali_gitmeyen", "n_veli_giden", "sg_ali", "sat_ali",
-               "sg_veli", "sat_veli", "once_hiz_ali", "once_hiz_veli", "bulunabilirlik_kural", "bulunabilirlik_lumoda"]
-        with pd.option_context("display.width", 250, "display.max_columns", 30):
-            print(en_yakin(f[b["kesim"] & b["iki_bolge"]], b)[kol].to_string(index=False))
+        kol = ["tarih", "urun_id", "tutmayan", "gevseyen", "istek_toplam", "giden_toplam", "n_ali_gitmeyen",
+               "n_veli_giden", "once_sg_ali", "once_sat_ali", "once_sg_veli", "once_sat_veli", "sg_ali", "sat_ali",
+               "sg_veli", "sat_veli", "z_once", "z_sonra", "kural_iyi"]
+        x = f[b["kesim"] & b["iki_bolge"]]
+        x = en_yakin(x, b).join(kanit(x)[["z_once", "z_sonra"]]).assign(kural_iyi=ki)
+        with pd.option_context("display.width", 300, "display.max_columns", 30):
+            print(x[kol].to_string(index=False))
 
     s = sec_ozellikten(f, zorla)
     alt = s["alternatif"]
@@ -612,6 +652,7 @@ def main(argv: list[str] | None = None) -> dict:
         "secim": {"yurutucu": ":".join(YURUTUCU_SECIMI), "zorla": args.hikaye, "merdiven_ilk": ilk,
                   "merdiven_ilk_pazartesi": s["ilk"]["tarih"].date().isoformat() if s["ilk"] is not None else None},
         "merdiven": {"olcutler": list(OLCUTLER), "gevsetme_sirasi": list(GEVSEK), "huni": funnel, "tekil": tekil,
+                     "rapor": rapor, "olcek_istek": OLCEK_ISTEK,
                      "kumeler": [{"gevseyen": list(k), "aday": n} for k, n in kumeler]},
         "sansur": _sansur(satis, stoklu, h, urunler, mag),
         "kaynak": g["kaynak"],
@@ -627,7 +668,8 @@ def main(argv: list[str] | None = None) -> dict:
         gr = sh["gruplar"][k]
         print(f"  {k}: {gr['magazalar']} stoklu gün {gr['stoklu_gun']}, satış {gr['satis']}, hız {gr['hiz']}; "
               f"önce hız {gr['once']['hiz']}")
-    print(f"  kural ölçütü: {sh['kural_olcut']}")
+    print(f"  kanıt: {sh['kanit']}")
+    print(f"  kural ölçütü (rapor): {sh['kural_olcut']}")
     print(f"  sansür: {o['sansur']}")
     print(f"yazıldı: {args.cikti}")
     return o

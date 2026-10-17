@@ -2,8 +2,9 @@
 
 Oyuncak veri: dört fiziksel mağaza (A1, A2 İstanbul = Ali; V1, V2 Anadolu = Veli),
 oyunun 2. pazartesisi (2025-09-08, indeks 1). Temel sahne `X-S` (option X, Kadın Harf):
-dört mağaza ister (14 adet), depo yalnız V1'e 2 adet verir (orantılı kesim); sonraki
-dört haftada V1 stokluyken A1–A2'den yavaş satar; `kural` X'te Lumoda'dan iyi.
+dört mağaza ister (14 adet), depo yalnız V1'e 2 adet verir (orantılı kesim); önceki ve
+sonraki dört haftada V1 stokluyken A1–A2'den yavaş satar (R32); `kural` X'te Lumoda'dan iyi
+(rapor sütunu).
 Her test temel sahneden tek bir şeyi bozar.
 """
 
@@ -26,6 +27,14 @@ MAG = pd.DataFrame({
     "bolge": ["Marmara", "Marmara", "İç Anadolu", "İç Anadolu"],
     "istanbul": [True, True, False, False],
 })
+
+
+# mağaza → (sonraki 28 gün stoklu gün, stoklu gün satışı, önceki 28 gün stoklu gün, satış)
+TEMEL = {"A1": (10, 2, 20, 2), "A2": (4, 1, 20, 2), "V1": (10, 0.5, 20, 1), "V2": (5, 1, 20, 1)}
+
+
+def _hiz(**degisen) -> dict:
+    return {**TEMEL, **degisen}
 
 
 def _istek(p, sku, option, beden_seti, istekler: dict) -> pd.DataFrame:
@@ -52,7 +61,7 @@ def _veri(sku="X-S", option="X", beden_seti="Kadın Harf", p=P0, istekler=None, 
     istekler = istekler or {"A1": 5, "A2": 3, "V1": 4, "V2": 2}
     gidenler = gidenler if gidenler is not None else {"V1": 2}
     # mağaza → (sonraki 28 gün stoklu gün, stoklu gün satışı, önceki 28 gün stoklu gün, satış)
-    hizlar = hizlar or {"A1": (10, 2, 20, 1), "A2": (4, 1, 20, 1), "V1": (10, 0.5, 20, 1), "V2": (5, 1, 20, 1)}
+    hizlar = hizlar or TEMEL
     sat, sto = [], []
     for m, (sg, sa, osg, osa) in hizlar.items():
         a, b = _gunluk(sku, m, p, sg, sa)
@@ -96,7 +105,7 @@ def _sec(v, zorla=None) -> hs.Hikaye:
 
 def test_temel_sahne_butun_olcutleri_tutar():
     b = _bayrak(_veri())
-    assert list(b.index) == list(hs.OLCUTLER)
+    assert list(b.index) == list(hs.OLCUTLER) == ["kesim", "iki_bolge", "once_de", "sonra_da", "bedenli"]
     assert b.all()
 
 
@@ -108,7 +117,9 @@ def test_ozellikler_sayilar():
     # Ali gitmeyen: A1 10 gün × 2 + A2 4 gün × 1 = 24 / 14 gün; Veli giden: V1 10 × 0,5 = 5 / 10
     assert (f["sg_ali"], f["sat_ali"], f["sg_veli"], f["sat_veli"]) == (14, 24, 10, 5)
     assert f["hiz_ali"] == pytest.approx(24 / 14) and f["hiz_veli"] == pytest.approx(0.5)
-    assert f["once_hiz_ali"] == pytest.approx(1.0) and f["once_hiz_veli"] == pytest.approx(1.0)
+    # önce: Ali 2 × 20 gün × 2 = 80 / 40; Veli V1 20 / 20
+    assert (f["once_sg_ali"], f["once_sat_ali"], f["once_sg_veli"], f["once_sat_veli"]) == (40, 80, 20, 20)
+    assert f["once_hiz_ali"] == pytest.approx(2.0) and f["once_hiz_veli"] == pytest.approx(1.0)
 
 
 def test_kesim_istek_depoyu_asmali():
@@ -122,14 +133,20 @@ def test_iki_bolge_ali_gitmeyen_veli_giden_ister():
     assert not _bayrak(_veri(gidenler={}))["iki_bolge"]                          # hiç gitmedi
 
 
-def test_yavas_giden_stoklu_gun_hizi():
-    hiz = {"A1": (10, 2, 20, 1), "A2": (4, 1, 20, 1), "V1": (10, 3, 20, 1), "V2": (5, 1, 20, 1)}
-    assert not _bayrak(_veri(hizlar=hiz))["yavas_giden"]                        # V1 daha hızlı
-    hiz = {"A1": (0, 2, 20, 1), "A2": (0, 1, 20, 1), "V1": (10, 0.5, 20, 1), "V2": (5, 1, 20, 1)}
-    assert not _bayrak(_veri(hizlar=hiz))["yavas_giden"]                        # Ali hiç stoklu değil: tanımsız
+def test_once_de_karar_anindaki_gecmis():
+    b = _bayrak(_veri(hizlar=_hiz(V1=(10, 0.5, 20, 3))))                       # V1 önceden hızlı
+    assert not b["once_de"] and b["sonra_da"]
+    b = _bayrak(_veri(hizlar=_hiz(A1=(10, 2, 0, 2), A2=(4, 1, 0, 2))))          # Ali önceden stoksuz
+    assert not b["once_de"]
 
 
-def test_yavas_giden_bos_gun_satisini_saymaz():
+def test_sonra_da_stoklu_gun_hizi():
+    b = _bayrak(_veri(hizlar=_hiz(V1=(10, 3, 20, 1))))                         # V1 sonra hızlı
+    assert not b["sonra_da"] and b["once_de"]
+    assert not _bayrak(_veri(hizlar=_hiz(A1=(0, 2, 20, 2), A2=(0, 1, 20, 2))))["sonra_da"]   # tanımsız
+
+
+def test_hiz_bos_gun_satisini_saymaz():
     """Stoksuz günde satış (varış günü) stoklu gün hızına girmez."""
     v = _veri()
     v["satis"].loc[(v["satis"]["magaza_id"] == "V1") & (v["satis"]["adet"] == 0), "adet"] = 9.0
@@ -137,13 +154,19 @@ def test_yavas_giden_bos_gun_satisini_saymaz():
     assert f["sat_veli"] == 5 and f["sg_veli"] == 10
 
 
-def test_kural_iyi_bulunabilirlik_ya_da_kayip():
-    assert _bayrak(_veri(olcut=(50.0, 60.0, 30.0, 40.0)))["kural_iyi"]          # yalnız kayıp iyi
-    assert _bayrak(_veri(olcut=(70.0, 60.0, 50.0, 40.0)))["kural_iyi"]          # yalnız bulunabilirlik iyi
-    assert not _bayrak(_veri(olcut=(50.0, 60.0, 50.0, 40.0)))["kural_iyi"]
-    v = _veri()
+def test_kural_iyi_rapor_sutunu_merdivende_degil():
+    assert "kural_iyi" not in hs.OLCUTLER and "kural_iyi" not in hs.GEVSEK
+
+    def ki(olcut):
+        return bool(hs.kural_iyi(_f(_veri(olcut=olcut))).iloc[0])
+
+    assert ki((50.0, 60.0, 30.0, 40.0))                                         # yalnız kayıp iyi
+    assert ki((70.0, 60.0, 50.0, 40.0))                                         # yalnız bulunabilirlik iyi
+    assert not ki((50.0, 60.0, 50.0, 40.0))
+    v = _veri(olcut=(50.0, 60.0, 50.0, 40.0))
+    assert _bayrak(v).all()                                                     # kural kötü, sahne birebir
     v["kural_olcut"]["option_id"] = "BASKA"
-    assert not _bayrak(v)["kural_iyi"]                                           # ölçüt yok
+    assert not hs.kural_iyi(_f(v)).iloc[0]                                      # ölçüt yok
 
 
 def test_bedenli():
@@ -153,50 +176,66 @@ def test_bedenli():
 def test_huni():
     v = _birlestir(_veri(), _veri(sku="X-M", gidenler={"A1": 5, "A2": 3, "V1": 4, "V2": 2}))
     h = dict(hs.huni(hs.bayraklar(_f(v))))
-    assert h == {"havuz": 2, "kesim": 1, "iki_bolge": 1, "yavas_giden": 1, "kural_iyi": 1, "bedenli": 1}
+    assert h == {"havuz": 2, "kesim": 1, "iki_bolge": 1, "once_de": 1, "sonra_da": 1, "bedenli": 1}
+
+
+def test_kanit_poisson_z():
+    k = hs.kanit(_f(_veri())).iloc[0]
+    # sonra: (24/14 − 0,5) / √(24/14² + 5/10²); önce: (2 − 1) / √(80/40² + 20/20²)
+    zs = (24 / 14 - 0.5) / np.sqrt(24 / 14**2 + 5 / 10**2)
+    zo = 1.0 / np.sqrt(80 / 40**2 + 20 / 20**2)
+    assert k["z_sonra"] == pytest.approx(zs) and k["z_once"] == pytest.approx(zo)
+    assert k["kanit"] == pytest.approx(min(zs, zo)) and k["olcek"]
+    k = hs.kanit(_f(_veri(hizlar=_hiz(V1=(10, 0, 20, 1))))).iloc[0]            # V1 hiç satmadı: s ≥ 1 sayılır
+    assert k["z_sonra"] == pytest.approx((24 / 14) / np.sqrt(24 / 14**2 + 1 / 10**2))
 
 
 # ---------------------------------------------------------------- merdiven
 
 
+def _iki(x: dict, z: dict) -> dict:
+    """İki sahne; kural ölçütü iki option için de temel değer."""
+    v = _birlestir(_veri(**x), _veri(**z))
+    v["kural_olcut"] = pd.concat([_veri(option=x.get("option", "X"))["kural_olcut"],
+                                  _veri(option=z.get("option", "Z"))["kural_olcut"]])
+    return v
+
+
 def test_merdiven_birebir_ilk_sira_kanit():
-    """İki birebir sahne: iki yanın küçük stoklu günü (kanıt) büyük olan önde."""
-    zayif = {"A1": (10, 2, 20, 1), "A2": (4, 1, 20, 1), "V1": (3, 0.5, 20, 1), "V2": (5, 1, 20, 1)}
-    v = _birlestir(_veri(), _veri(sku="Z-S", option="Z", hizlar=zayif))
-    v["kural_olcut"] = pd.concat([_veri()["kural_olcut"], _veri(option="Z")["kural_olcut"]])
+    """İki birebir sahne: kanıtı (iki pencerenin küçük z'si) büyük olan önde."""
+    v = _iki({}, {"sku": "Z-S", "option": "Z", "hizlar": _hiz(V1=(10, 1.5, 20, 1))})
     h = _sec(v)
     assert (h.option_id, h.sku, h.gevseyen) == ("X", "X-S", [])
     assert h.alternatif == "Z:Z-S"
 
 
-def test_merdiven_once_de_hizli_ali_one_gecer():
-    """Ali'nin mağazaları kesimden önceki dört haftada da hızlıysa (bilinenle de Ali'ye
-    gönderilirdi) sahne öne geçer, kanıtı daha zayıf olsa da."""
-    once = {"A1": (10, 2, 20, 3), "A2": (4, 1, 20, 3), "V1": (3, 0.5, 20, 1), "V2": (5, 1, 20, 1)}
-    v = _birlestir(_veri(), _veri(sku="Z-S", option="Z", hizlar=once))
-    v["kural_olcut"] = pd.concat([_veri()["kural_olcut"], _veri(option="Z")["kural_olcut"]])
-    assert _sec(v).sku == "Z-S"
+def test_merdiven_olcek_tercihi():
+    """İstek toplamı bir kolinin altındaki sahne, kanıtı güçlü olsa da geride kalır."""
+    guclu = _hiz(V1=(10, 0.1, 20, 0.5))
+    kucuk = {"sku": "Z-S", "option": "Z", "hizlar": guclu, "istekler": {"A1": 2, "A2": 1, "V1": 2, "V2": 1},
+             "gidenler": {"V1": 1}}
+    assert _sec(_iki({}, kucuk)).sku == "X-S"
+    buyuk = {**kucuk, "istekler": {"A1": 2, "A2": 2, "V1": 2, "V2": 1}}           # 7 = bir koli
+    assert _sec(_iki({}, buyuk)).sku == "Z-S"
 
 
 def test_gevsetme_sirasi_bedenli_once():
-    """Birebir sahne yok: biri yalnız `bedenli`yi, öteki yalnız `kural_iyi`yi tutmuyor →
+    """Birebir sahne yok: biri yalnız `bedenli`yi, öteki yalnız `sonra_da`yı tutmuyor →
     önce `bedenli` gevşer."""
-    v = _birlestir(_veri(sku="Y-STD", option="Y", beden_seti="Standart"),
-                   _veri(sku="X-S", option="X", olcut=(50.0, 60.0, 50.0, 40.0)))
-    v["kural_olcut"] = pd.concat([_veri(option="Y")["kural_olcut"],
-                                  _veri(olcut=(50.0, 60.0, 50.0, 40.0))["kural_olcut"]])
+    v = _iki({"sku": "Y-STD", "option": "Y", "beden_seti": "Standart"},
+             {"sku": "X-S", "option": "X", "hizlar": _hiz(V1=(10, 3, 20, 1))})
     h = _sec(v)
     assert (h.sku, h.gevseyen) == ("Y-STD", ["bedenli"])
     assert h.alternatif == "X:X-S"
 
 
-def test_gevsetme_sirasi_kural_yavastan_once():
-    yavas_degil = {"A1": (10, 2, 20, 1), "A2": (4, 1, 20, 1), "V1": (10, 3, 20, 1), "V2": (5, 1, 20, 1)}
-    v = _birlestir(_veri(sku="X-S", option="X", hizlar=yavas_degil),
-                   _veri(sku="Z-S", option="Z", olcut=(50.0, 60.0, 50.0, 40.0)))
-    v["kural_olcut"] = pd.concat([_veri()["kural_olcut"], _veri(option="Z", olcut=(50.0, 60.0, 50.0, 40.0))["kural_olcut"]])
+def test_gevsetme_sirasi_sonra_onceden_once():
+    """Biri yalnız `once_de`yi, öteki yalnız `sonra_da`yı tutmuyor → `sonra_da` gevşer
+    (karar anındaki bilgi en son gevşer)."""
+    v = _iki({"sku": "X-S", "option": "X", "hizlar": _hiz(V1=(10, 0.5, 20, 3))},
+             {"sku": "Z-S", "option": "Z", "hizlar": _hiz(V1=(10, 3, 20, 1))})
     h = _sec(v)
-    assert (h.sku, h.gevseyen) == ("Z-S", ["kural_iyi"])
+    assert (h.sku, h.gevseyen) == ("Z-S", ["sonra_da"])
 
 
 def test_gevsemezler_gevsemez_bulunamazsa_hata():
@@ -206,11 +245,9 @@ def test_gevsemezler_gevsemez_bulunamazsa_hata():
 
 
 def test_zorla():
-    yavas_degil = {"A1": (10, 2, 20, 1), "A2": (4, 1, 20, 1), "V1": (10, 3, 20, 1), "V2": (5, 1, 20, 1)}
-    v = _birlestir(_veri(), _veri(sku="Z-S", option="Z", hizlar=yavas_degil))
-    v["kural_olcut"] = pd.concat([_veri()["kural_olcut"], _veri(option="Z")["kural_olcut"]])
+    v = _iki({}, {"sku": "Z-S", "option": "Z", "hizlar": _hiz(V1=(10, 3, 20, 1))})
     h = _sec(v, zorla=("Z", "Z-S"))
-    assert (h.option_id, h.sku, h.gevseyen) == ("Z", "Z-S", ["yavas_giden"])
+    assert (h.option_id, h.sku, h.gevseyen) == ("Z", "Z-S", ["sonra_da"])
     assert h.alternatif == "X:X-S"
     with pytest.raises(LookupError):
         _sec(v, zorla=("Q", "Q-S"))                                  # havuzda yok
@@ -219,8 +256,7 @@ def test_zorla():
 
 
 def test_zorla_gevsemez_tutmasa_da_secer():
-    v = _birlestir(_veri(), _veri(sku="Z-S", option="Z", gidenler={"A1": 5, "A2": 3, "V1": 4, "V2": 2}))
-    v["kural_olcut"] = pd.concat([_veri()["kural_olcut"], _veri(option="Z")["kural_olcut"]])
+    v = _iki({}, {"sku": "Z-S", "option": "Z", "gidenler": {"A1": 5, "A2": 3, "V1": 4, "V2": 2}})
     h = _sec(v, zorla=("Z", "Z-S"))
     assert "kesim" in h.gevseyen and "iki_bolge" in h.gevseyen
 
@@ -304,4 +340,6 @@ def test_ozet_json_yazilabilir():
     a1 = o["magazalar"][0]
     assert (a1["istek"], a1["giden"], a1["kisi"], a1["sonra"]["stoklu_gun"]) == (5, 0, "Ali", 10)
     assert o["gruplar"]["ali_gitmeyen"]["hiz"] == pytest.approx(24 / 14)
-    assert o["kural_olcut"]["bulunabilirlik_kural"] == 70.0
+    assert o["kural_olcut"]["bulunabilirlik_kural"] == 70.0 and o["kural_iyi"]
+    assert o["olcutler"] == {c: True for c in hs.OLCUTLER} and o["kanit"]["olcek"]
+    assert o["kanit"]["kanit"] == pytest.approx(min(o["kanit"]["z_once"], o["kanit"]["z_sonra"]))
