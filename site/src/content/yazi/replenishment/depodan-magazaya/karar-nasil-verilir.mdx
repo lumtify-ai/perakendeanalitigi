@@ -21,8 +21,8 @@ dördüncü yazıda.
 **Sattıktan sonra göndermek.** Mağaza 10 adet sattı, siz de 10 adet
 gönderirsiniz. Güvenlidir, çünkü gönderdiğiniz her adedin arkasında
 gerçekleşmiş bir satış vardır. Sorunu şu: hep bir tur geriden gelirsiniz.
-Mal yola çıktığında raf zaten boştur. Boş kaldığı günlerde gelen müşteri de
-çoktan gitmiştir.
+Mal yola çıktığında raf zaten boştur ve Lumoda'da mal depodan mağazaya bir
+ile üç günde varıyor. O günlerde gelen müşteri çoktan gitmiştir.
 
 **Satmadan önce göndermek.** Önümüzdeki haftanın tahminine bakıp mal
 gönderirsiniz. Raf dolu kalır. Sorunu da ortada: yanılırsanız mal yanlış
@@ -64,32 +64,37 @@ bulgusu, emniyet payını nasıl tanımladığımızdan çıkacak.**
 
 Bu sorunun cevabı net ve ölçülebilir: değişir, hem de çok.
 
-Lumoda'daki 240 option dört <T k="option">line</T>'a ayrılıyor: Collection
-120, Basic 60, NOS 39, Outlet 21. Line, ürünün ticari rolünü anlatır.
+Sezonun bu dört ayında satışta olan 370 option dört <T k="option">line</T>'a
+ayrılıyor: Collection 210, Basic 80, NOS 40, Outlet 40. Line, ürünün ticari
+rolünü anlatır.
 
 NOS'un açılımı cevabı zaten veriyor: *never out of stock*. Bu ürünün stoğu
-tanım gereği bitmemeli. Tedarikçiden düzenli gelir. Bizim kurgumuzda depo
-iki haftada bir hedef seviyeye tamamlanıyor ve depoda sürekli 28.123
-adetlik bir havuz duruyor. Basic de benzer: yıl boyu satılan, moda riski
-düşük temel ürün.
+tanım gereği bitmemeli. Tedarikçiden sürekli gelir. Basic de benzer: yıl
+boyu satılan, moda riski düşük temel ürün. Bizim kurgumuzda NOS ile
+Basic'in deposunda pazartesi sabahları ortalama 778.221 adet duruyor.
+Stoğu sıfır olan SKU'ların payı %1,6.
 
-Collection ise sezonla gelip gider. Sezon başında bir kez alınır, biten
-biter. Outlet de zaten geçmiş sezondan kalan maldır.
+Collection ise sezonla gelip gider. Sezon için bir kez alınır, biten
+biter. Bizim kurgumuzda Outlet de öyle, sezon için bir kez alınıyor.
 
 Şimdi aynı replenishment kuralını dördüne birden uygulayalım ve yalnız alım
-kararını değiştirelim. Depo sezonluk plan talebinin %30'unu alırsa ne olur,
-%80'ini alırsa ne olur:
+kararını değiştirelim. Depo sezonluk planın %40'ı kadar alırsa ne olur,
+tamamı kadar alırsa ne olur:
 
-| Line | Bulunabilirlik (alım %30) | Bulunabilirlik (alım %80) |
+| Line | Bulunabilirlik (alım %40) | Bulunabilirlik (alım %100) |
 |---|---:|---:|
-| NOS | %74,1 | %73,7 |
-| Basic | %75,1 | %75,1 |
-| Collection | %39,7 | %62,4 |
-| Outlet | %41,0 | %61,8 |
+| NOS | %68,3 | %68,6 |
+| Basic | %68,4 | %68,6 |
+| Collection | %37,1 | %60,2 |
+| Outlet | %23,2 | %53,5 |
 
-Alımı %30'dan %80'e çıkarmak NOS ile Basic'te **hiçbir şeyi
-değiştirmiyor.** Collection ile Outlet'te ise bulunabilirlik 21 ila 23 puan
-artıyor.
+Gerçekleşen alım bu oranlardan biraz sapıyor, çünkü tedarikçinin asgari
+adedi ve yuvarlama sonradan işliyor. %40 düzeyinde depoya giren ilk alım
+planın %37,5'i, %100 düzeyinde %93,1'i.
+
+Alımı %40'tan %100'e çıkarmak NOS ile Basic'te **neredeyse hiçbir şeyi
+değiştirmiyor**: biri 0,3, öteki 0,2 puan. Collection'da ise
+bulunabilirlik 23,1 puan, Outlet'te 30,3 puan artıyor.
 
 Sebebi basit. NOS ile Basic'in deposu zaten sürekli besleniyor, sezon
 başındaki alım kararı onları ilgilendirmiyor. Collection'ın ise tek şansı
@@ -106,22 +111,30 @@ Collection'ın rafı boş kalır.
 
 ## Dört: özel gün öncesinde ne kadar derinlik?
 
-Bayram, Black Friday, yılbaşı. Bu günlerde satış artar ve rafın bu artışı
-karşılayacak kadar dolu olması gerekir. Peki ne kadar?
+Bayram, Black Friday, yılbaşı. Bu günlerde satışın arttığı düşünülür ve
+raf ona göre doldurulur. Peki gerçekten artıyor mu, ne kadar?
 
-Cevabı geçmişe bakarak ölçüyoruz. Bir tatil gününün satışını, haftanın aynı
-gününe denk gelen normal günlerle karşılaştırıyoruz. Lumoda'da bulduğumuz
-katsayılar şöyle: Alt Giyim 1,35 · Dış Giyim 1,40 · Üst Giyim 1,40. Yani
-tatil gününde kabaca yüzde kırk fazla satılıyor ve hedef stok da o kadar
-yükseltiliyor.
+Cevabı geçmişe bakarak ölçüyoruz. Bir özel günün satışını, öncesindeki ve
+sonrasındaki iki haftada haftanın aynı gününe denk gelen normal günlerle
+karşılaştırıyoruz. Lumoda'nın mağazalarında çıkan sonuç beklenenin tersi.
+Resmî tatil günlerinde mağaza normal bir günün 0,59 ile 0,62'si kadar
+satıyor. Beş üst kategorinin beşinde de resim aynı. Black Friday ise
+bambaşka: o gün mağaza normal bir günün 3,24 ile 4,41 katı satıyor. En
+yüksek katsayı aksesuarda.
 
-Burada dürüst olmam gerekiyor. Lumoda sentetik bir veri seti ve tatil
-çarpanı veriye 1,35 olarak **gömülü**. Bizim ölçümümüz bu gömülü değeri
-geri buldu. Bu, hesabın doğru çalıştığını gösterir. Ama sahada hiçbir
-katsayı bu kadar temiz çıkmaz. Gerçek hayatta her özel günün kendi
-karakteri vardır. Black Friday ile Cumhuriyet Bayramı aynı değildir. Bir
-bayramın arifesi ile ikinci günü aynı değildir. Bu yılın Black Friday'i de
-geçen yılınkine benzemek zorunda değildir.
+Pars bunu tek cümleye indiriyor:
+
+— Özel günün yönünü ölçün. Tatil mağazayı boşaltır, Black Friday doldurur.
+
+Hedef stok da bu katsayıyla ayarlanıyor. Tatil haftasında mağazaya daha az
+mal gider, Black Friday haftasında çok daha fazla. Her özel güne "raf dolu
+olsun" diye aynı derinliği yapan zincir, tatilde mağazaya satmayacağı malı
+yığar.
+
+Gerçek hayatta her özel günün kendi karakteri de vardır. Black Friday ile
+Cumhuriyet Bayramı aynı değildir. Bir bayramın arifesi ile ikinci günü aynı
+değildir. Bu yılın Black Friday'i de geçen yılınkine benzemek zorunda
+değildir.
 
 Pratikte ne yapılır? Katsayı geçmişten ölçülür. Sonra o kategoriyi bilen
 biri bakar ve gerekirse elle düzeltir. Bu, modele güvenmemek anlamına

@@ -624,9 +624,22 @@ describe('site geneli vaatler', () => {
     expect(kopru).toContain('hangi kaybın hangi masaya ait olduğunu')
     expect(kopru).not.toContain('başabaş eşiğini')
     // İçerik vermeyen dizi varsayılan (blok-transfer) paragraflarını basar.
-    const repl = oku('replenishment/depodan-magazaya/basari-nasil-olculur/index.html')
-    expect(repl).toContain('kargo tarifesi')
-    expect(repl).toContain('başabaş eşiğini')
+    const blok = oku('transfer/blok-transfer/basari-nasil-olculur/index.html')
+    expect(blok).toContain('kargo tarifesi')
+    expect(blok).toContain('başabaş eşiğini')
+  })
+
+  it('DM köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır (R29)', () => {
+    const html = oku('replenishment/depodan-magazaya/basari-nasil-olculur/index.html')
+    const kopru = html.slice(html.indexOf('lumtify-koprusu'), html.indexOf('</aside>', html.indexOf('lumtify-koprusu')))
+    expect(kopru).toContain('kaçının kolide, kaçının açıkta')
+    expect(kopru).toContain('bulunabilirliği doğru ölçecek bir hakem yoktur')
+    expect(kopru).toContain('binlerce mağaza–option çifti')
+    expect(kopru).toContain('iş zekâsı ve optimizasyonla')
+    expect(kopru).toContain('Let Us Make Trade Intelligent For You')
+    expect(kopru).toContain('hangi bedenden kaç adet')
+    expect(kopru).not.toContain('kargo tarifesi')
+    expect(kopru).not.toContain('başabaş eşiğini')
   })
 
   it('RPT köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır (R29)', () => {

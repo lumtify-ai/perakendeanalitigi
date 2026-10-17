@@ -162,4 +162,26 @@ Sıradaki problem RPT. Bu dizide kapsam dışında bıraktığımız, tedarikçi
 verilen tekrar siparişi. Orada soru "malı nereye göndereyim" değil, "bu
 maldan bir kez daha ürettireyim mi" olacak.
 
-<Lumtify />
+<Lumtify>
+
+Bu dizinin hesabı yayımlanabilir olması için sadeleştirildi. Lumoda'da her
+müşterinin ne istediği bir yerde yazılı duruyor; kuralı, modeli ve Lumoda'nın
+bugünkü yöntemini aynı müşteri akışında yarıştırabildik. Gerçek bir zincirde
+bulunabilirliği doğru ölçecek bir hakem yoktur: raf boşken gelip giden
+müşteriyi hiçbir kayıt tutmaz. Depo kayıtları da çoğu zaman bir SKU'nun
+kaçının kolide, kaçının açıkta durduğunu ve toplama ekibinin haftada kaç adet
+açık toplayabildiğini söylemez; biz bunları varsaydık. Karar ise her pazartesi
+binlerce mağaza–option çifti için verilir. Tek seferlik bir analizle değil,
+her hafta aynı kuralla işleyen bir rutinle yürür.
+
+<Fragment slot="son">
+
+Koli ile açık stoğu ve toplama kapasitesini kendi depo kayıtlarınızdan çıkarır,
+raf boşken kaybolan talebi kendi hareket kayıtlarınızdan kestirir ve bugünkü
+kuralınızı taban çizgisi alıp yeni yöntemi aynı stok düzeyinde karşılaştırır.
+Böylece her pazartesi hangi mağazaya hangi bedenden kaç adet gideceğini aynı
+hesapla söyler.
+
+</Fragment>
+
+</Lumtify>
