@@ -2,7 +2,7 @@
 
     .venv/Scripts/python senaryolar.py      # site/src/data/senaryolar/depodan-magazaya.json
 
-Kadran üç eksenli: depo alımı (planın %40 / %70 / %100'ü) × ihtiyaç hesabı (kural / LightGBM +
+Kadran üç eksenli: depo alımı (talep tahmininin %40 / %70 / %100'ü) × ihtiyaç hesabı (kural / LightGBM +
 taban / yalnız LightGBM) × açık toplama tavanı (kısıtsız / gevşek ×1,6 / sıkı ×0,6) = 27 bileşim;
 koşular oyun ızgarasının demo bloğu (`replenishment.oyun.IZGARA["demo"]`, Ruling R28): yol 0,
 kalibrasyonun seçtiği güvenlik stoku ailesi ve koli kuralı.
@@ -31,7 +31,7 @@ YONTEMLER = ("kural", "tahmin_taban", "tahmin")
 TAVANLAR = ("kisitsiz", "gevsek", "siki")
 
 PARAMETRELER = [
-    {"ad": "alim", "etiket": "Depo alımı (planın yüzdesi)", "degerler": list(ALIMLAR),
+    {"ad": "alim", "etiket": "Depo alımı (talep tahmininin yüzdesi)", "degerler": list(ALIMLAR),
      "deger_etiketleri": {str(a): f"%{a}" for a in ALIMLAR}},
     {"ad": "yontem", "etiket": "İhtiyaç hesabı", "degerler": list(YONTEMLER),
      "deger_etiketleri": {"kural": "kural tabanlı", "tahmin_taban": "LightGBM + taban kural",

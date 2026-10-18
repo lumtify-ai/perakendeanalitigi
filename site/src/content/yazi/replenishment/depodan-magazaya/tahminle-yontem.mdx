@@ -15,11 +15,12 @@ Kural 8,77 puan geride kaldı ve bu farkın 5,45 puanı ne kadar stok
 taşındığından geliyordu.
 
 Şimdi aynı işi makine öğrenmesiyle yapacağız ve aynı dört ayı, aynı müşteri
-akışıyla yeniden oynatacağız. Akla gelen ilk soru şu: kuralın öngörüsü kaba
-bir hesap, daha iyi bir öngörü sonucu değiştirmez mi?
+akışıyla yeniden oynatacağız. Sorumuz şu: kuralın öngörüsü kaba bir hesap,
+daha iyi bir öngörü sonucu değiştirmez mi?
 
-Baştan söyleyeyim: bu yazının bulgusu hangi yöntemin kazandığı değil. Daha
-iyi öngörü daha iyi sonuç getirmedi. Asıl bulgu, farkın nereden geldiği.
+Baştan söyleyeyim: bu yazıda önemli olan hangi yöntemin kazandığı değil.
+Daha iyi öngörü daha iyi sonuç getirmedi. Asıl mesele, farkın nereden
+geldiği.
 
 ## Model
 
@@ -47,16 +48,16 @@ Model dört ay boyunca yeni bir şey öğrenmiyor. Her pazartesi yalnız
 girdiler, yani son haftaların satışı yenileniyor; ağaçlar ilk pazartesi
 neyse son pazartesi de o.
 
-Hiperparametreler: 31 yaprak, 400 ağaç, öğrenme oranı 0,05. Bunları daha
-önceki bir denemede küçük bir ızgaradan seçmiştik, bu veride yeniden
-aramadık.
+Hiperparametreler: 31 yaprak, 400 ağaç, öğrenme oranı 0,05. Bunları başka
+bir veriyle yaptığımız bir denemede küçük bir ızgaradan seçmiştik, bu veride
+yeniden aramadık.
 
 Modelin kodu `vakalar/replenishment/replenishment/tahmin.py` içinde. Üç
 kolun tanımı `politika.py`'de, koşuların hepsi `oyun.py`'de, beş müşteri
 akışı `yollar.py`'de.
 
 "ML ile tahmin" denince kurulan standart model budur. Rakibi bilerek güçlü
-seçtik. Zayıf bir modeli yenmek kimseye bir şey kazandırmaz.
+seçtik. Zayıf bir modelle kıyaslamak kimseye bir şey öğretmez.
 
 ## Öngörüde model önde
 
@@ -70,11 +71,12 @@ dışarıda bıraktık, modeli öncekilerle eğittik ve o sekiz haftanın satı�
 | Son dört haftanın ortalaması | 3,866 |
 | Geçen haftanın satışı | 9,108 |
 
-Geçen haftanın satışı, kuralın öngörüsünün ham hâli. Kural onu stoklu güne
-bölüyor ve özel gün katsayısıyla düzeltiyor; bu tabloda o düzeltmeler yok.
-Yine de aradaki mesafe büyük.
+Bu tablo öngörüyü satışa karşı ölçüyor: doğrulama haftalarında gerçekleşen
+satışa. Geçen haftanın satışı, kuralın öngörüsünün ham hâli. Kural onu
+stoklu güne bölüyor ve özel gün katsayısıyla düzeltiyor; bu tabloda o
+düzeltmeler yok. Yine de aradaki mesafe büyük.
 
-Böyle bir yarışta ilk akla gelen bahane veri seyrekliğidir: haftada bir iki
+Böyle bir yarışta en sık duyulan bahane veri seyrekliğidir: haftada bir iki
 adet satan bir çiftte öğrenilecek bir örüntü yoktur, ortalama almakla model
 kurmak arasındaki fark kapanır. Bu veride o bahane geçmiyor. Doğrulama
 haftalarında rafta olan bir çift haftada ortalama 12,35 adet satıyor,
@@ -112,8 +114,8 @@ Felaket değil. Ama daha iyi öngörü daha iyi sonuç getirmedi. İlk pazartesi
 kuraldan çok daha fazla mal öngören model, dört ayın toplamında daha az mal
 gönderdi ve daha düşük bulunabilirlikle bitirdi.
 
-İlk akla gelen "demek ki ML işe yaramıyor" demek. Ama bu yanlış bir sonuç
-olurdu. Çünkü iki kolu karşılaştırırken aynı anda **iki şeyi**
+Buradan "demek ki ML işe yaramıyor" diye çıkmak kolay. Ama bu yanlış bir
+sonuç olurdu. Çünkü iki kolu karşılaştırırken aynı anda **iki şeyi**
 değiştirmiştik:
 
 1. Öngörüyü kim üretiyor: geçen haftanın satışı mı, LightGBM mi?
@@ -226,8 +228,8 @@ Yine de bulunabilirlikte kuralın önüne geçemedi: beş akışın dördünde g
 Beşinde de daha çok stokla bitiriyor. Dördüncü yazının ölçütüyle bakarsak bu
 bir kazanç değil: daha çok stokla biraz daha az bulunabilirlik.
 
-Nedenini bu deneyden söyleyemiyoruz. Söyleyebildiğimiz şu: veri seyrek
-değil, model de öngörüde kuraldan iyi. Üç kolda da depo aynı sınırda
+Nedenini bu deneyden söyleyemiyoruz. Söyleyebildiğimiz şu: veri ortalamada
+seyrek değil, model de öngörüde kuraldan iyi. Üç kolda da depo aynı sınırda
 çalışıyor; açık toplama tavanı haftaların %94,4'ünde dolu.
 
 Pars'ın bu konudaki cümlesi kısa:
@@ -249,8 +251,8 @@ taraf da değişebilir. Biz bunu ölçmedik.
 
 Tablodaki bir satır modelin lehine: toplama maliyeti. Yalnız LightGBM
 kuraldan 180.260 TL, LightGBM + taban 67.580 TL ucuz. Beş akışa bakınca yalnız
-LightGBM beşinde, LightGBM + taban dördünde kuraldan ucuz. Satışa dönme
-süresi de en kısa yalnız LightGBM'de.
+LightGBM beşinde, LightGBM + taban dördünde kuraldan ucuz. Bu akışta satışa
+dönme süresi de en kısa yalnız LightGBM'de.
 
 Yani yalnız LightGBM "yanlış" değil, sadece başka bir noktada duruyor: daha
 az mal gönderiyor, daha az toplama maliyeti çıkarıyor, daha çok satış
@@ -267,8 +269,9 @@ taşıyacağınızı. Kayıp oranında oradaki etki iki kat büyük.
 
 ## Sizin verinizde zor olan
 
-Bu yazıda öngörüyü gerçek talebe karşı ölçebildik. Bunu yapabildik, çünkü
-Lumoda'da raf boşken gelip giden müşteri de bir yerde yazılı duruyor. Sizin
+Bu yazıda doğrulama tablosu öngörüyü satışa karşı ölçtü; ilk pazartesinin
+tablosu ise gerçek talebe karşı. İkincisini yapabildik, çünkü Lumoda'da raf
+boşken gelip giden müşteri de bir yerde yazılı duruyor. Sizin
 verinizde öngörüyü ancak satışa karşı ölçebilirsiniz. Satış da raf boşken
 düşük görünür. Raf boşken düşen satışı iyi öngören bir model doğrulama
 tablosunda başarılı görünür, rafa yine az mal gönderir.

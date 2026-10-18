@@ -1,9 +1,9 @@
 {
- "surum": "aafa2ce",
+ "surum": "754656f",
  "parametreler": [
   {
    "ad": "alim",
-   "etiket": "Depo alımı (planın yüzdesi)",
+   "etiket": "Depo alımı (talep tahmininin yüzdesi)",
    "degerler": [
     40,
     70,

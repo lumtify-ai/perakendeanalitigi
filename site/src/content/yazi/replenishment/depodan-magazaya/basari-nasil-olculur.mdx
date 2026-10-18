@@ -71,8 +71,8 @@ yoktur.
 Dört kolda da çift sayısı aynı, değişen bunların kaçının stoklu kaldığı.
 Yalnız LightGBM'de çiftlerin 3.918'i dört ayın sonunda tamamen boş. Bu kolda
 kırık çift az, ama beden setini koruduğu için değil, ölçülecek raf
-bırakmadığı için. Paya bakınca sıralama tersine dönüyor: stoklu çiftlerinin
-%85,0'i kırık, üç kolun en kırığı o.
+bırakmadığı için. Paya bakınca sıralama tersine dönüyor: bu akışta stoklu
+çiftlerinin %85,0'i kırık, üç kolun en kırığı o.
 
 Lumoda'nın kırık payı ise dört kolun en düşüğü, %58,9. Buna aşağıda
 döneceğiz.
@@ -129,7 +129,8 @@ olan kuralla karşılaştırıyoruz. Dört ayın sonunda bu kuralın mağazalar�
 419.696 adet var, Lumoda'nınkilerde 428.097. Bulunabilirlik farkı 3,43
 puan. Bu bölümde "kural" dediğimde bu 21 günlük tabanlı kuralı
 kastediyorum. Farkı talep gruplarına dağıttık. Bir grubun katkısı, o gruptaki
-bulunabilirlik farkının grubun talepli günlerdeki payıyla çarpımı:
+bulunabilirlik farkının grubun talepli hücre-günler içindeki payıyla
+çarpımı:
 
 | Grup | Katkı (puan) |
 |---|---:|
@@ -150,12 +151,11 @@ haftalık katkılar −0,050 ve −0,045 puan. Üçüncü haftadan itibaren fark
 Lumoda'dan yana açılıyor ve dört ay ilerledikçe büyüyor. Black Friday
 haftasının katkısı +0,352 puan.
 
-Akla gelen şüphelilere sırayla bakalım.
+Şüphelilere sırayla bakalım.
 
 **Depo boş mu?** Değil. Lumoda kolunda NOS ile Basic'in deposunda, ikinci
 yarının pazartesi sabahlarında ortalama 872.902 adet duruyor. Stoğu sıfır
-olan SKU'ların payı %0,16. Tabanı 28 günlük satış olan kuralda bu depoda
-ortalama 920.527 adet var.
+olan SKU'ların payı %0,16.
 
 **Depo malı çıkaramıyor mu?** İki kolda da açık toplama tavanı her hafta
 dolu. İkisi de dört ayda aynı sayıda açık adet topluyor: 464.868. Koli
@@ -179,8 +179,11 @@ karşılaştırma onu ölçemez, çünkü ilk sevk iki kolda da aynı.
 bedenlere farklı yoldan bölüyor. Lumoda'nın isteği beden beden geliyor:
 planın o mağazanın o bedeni için önümüzdeki dört haftaya yazdığı sayıdan.
 Kural ise hedefi mağaza–option düzeyinde kurup mağazanın geçmiş beden
-payıyla bölüyor. Sayılar bu adayla çelişmiyor. Dört ayın sonunda stoklu
-çiftlerin Lumoda'da %58,9'u, kuralda %69,5'i kırık. Basic'in çekirdek
+payıyla bölüyor. Sayılar bu adayla çelişmiyor. Dört ayın sonunda Lumoda'da
+10.002 stoklu çiftin 5.887'si (%58,9), kuralda 10.744 stoklu çiftin
+7.470'i (%69,5) kırık. Boş çift Lumoda'da 2.773, kuralda 2.031. Lumoda'da
+boş çift biraz daha çok, ama kırık çift farkı boş çift farkından büyük;
+Lumoda'nın düşük kırık payı yalnız paydadan gelmiyor. Basic'in çekirdek
 bedenlerinde bulunabilirlik %81,24'e %74,38, kenar bedenlerinde %82,32'ye
 %77,01; fark çekirdekte biraz daha büyük.
 
@@ -226,6 +229,14 @@ konumda (alım %100, kısıtsız) LightGBM + taban kuralı 0,8 puan geçiyor,
 gevşek tavanda kural 1,2 puan önde. Bu tek bir müşteri akışında ölçüldü ve
 farklar bir puan dolayında; bundan bir ders çıkarmıyorum.
 
+Bir şey daha göreceksiniz: kuralda alım %40'ta ve %70'te kısıtsız konum,
+gevşek tavandan daha düşük bulunabilirlik veriyor (1,2 ve 0,6 puan). Bunun
+nedenini ayrıca ölçmedik.
+
+Kadrandaki kırık payı yalnız stoklu çiftler üzerinden hesaplanıyor, boş
+çiftleri göstermiyor. Yukarıdaki payda tablosunun uyarısı kadranda da
+geçerli.
+
 Kısıtsız konumun toplama maliyetine de takılmayın: orada bütün mal açık
 adet olarak sayılıyor, maliyet tanım gereği yüksek.
 
@@ -233,7 +244,7 @@ adet olarak sayılıyor, maliyet tanım gereği yüksek.
 
 Dürüstlük listesi, hepsi bir arada.
 
-**Kayıp satışı hiçbir yöntem göremiyor.** Stoklu güne bölme düzeltmesi
+**Kayıp satışı hiçbir yöntem doğrudan görmüyor.** Stoklu güne bölme düzeltmesi
 açığın bir kısmını kapatıyor, ama ilk 17 pazartesinde kuralın hedefi gerçek
 talebin %83,7'sinde kaldı. Uzun süre stoksuz kalan çiftte ölçülecek stoklu
 gün bile kalmıyor.
@@ -243,8 +254,8 @@ durduğu, haftalık açık toplama tavanı ve toplama maliyetleri (açık adet
 başına 10 TL, koli başına 20 TL) veriden gelmiyor. Tavanı, bir yıl önceki
 aynı mevsimde Lumoda'nın haftada ortalama gönderdiği replenishment adedinin
 dörtte biri olarak aldık. Kadran tavanın etkisini gösteriyor, maliyet
-varsayımlarının etkisini göstermiyor; onu üçüncü yazıda ayrıca hesapladık. Bu
-değerler yazıda kesin sayı diye sunulmuyor.
+varsayımlarının etkisini göstermiyor; onu üçüncü yazıda ayrıca hesapladık.
+Bunları kesin sayı değil, varsayım diye okuyun.
 
 **Kıtlık var.** Referans noktada açık toplama tavanı 18 haftanın 17'sinde
 doldu. Aynı kısıtlarla alım %40'ta, karşılanmayan talebin %41,7'si deponun
@@ -271,7 +282,7 @@ Ali ile Veli aynı depo satırı için kavga ediyordu ve ikisi de haklıydı.
 Pars'ın onlara söylediği şuydu: asıl mesele bu değil.
 
 Altı yazı sonra o cümlenin ne kadar geniş olduğunu görüyoruz. Biz de bu
-dizide birkaç kez asıl meselenin yanında durduk. Paylaştırma kuralını
+dizide birkaç kez asıl meseleyi başka yerde aradık. Paylaştırma kuralını
 ölçtük: kıtlıkta bile öncelikler arasındaki fark bir puanın altında kaldı,
 alım %100'de 0,43, alım %40'ta 0,88 puan. Koliyi bir kısıt sandık:
 kapatınca bulunabilirlik 27,3 puan düştü, kapasitenin kendisi çıktı. Makine
