@@ -137,10 +137,16 @@ def test_onbellek_anahtari_duyarli(tmp_path, monkeypatch):
     db.unlink()
     assert motor.onbellek_anahtari(**temel) != once
 
+    # Kütüphane sürümleri (duckdb dahil)
+    once = motor.onbellek_anahtari(**temel)
+    gercek_surum = motor._surum
+    monkeypatch.setattr(motor, "_surum", lambda p: "0.0.0" if p == "duckdb" else gercek_surum(p))
+    assert motor.onbellek_anahtari(**temel) != once
+
 
 def test_kod_kaynaklari_gercek_dosyalari_kapsar():
     """Gerçek kaynaklar: koşu modülleri ve ortak kapanış girer; ölçüm, kalibrasyon ve
-    hakem girmez; sürümler lightgbm ve scikit-learn'ü taşır."""
+    hakem girmez; sürümler lightgbm, scikit-learn ve duckdb'yi taşır."""
     adlar = motor.kod_dosyalari()
     for a in ("allocation/motor.py", "allocation/kaynak.py", "allocation/sabitler.py",
               "ortak/kaynak.py", "ortak/stok.py", "v4/motor/dongu.py", "v4/politika.py"):
@@ -149,7 +155,7 @@ def test_kod_kaynaklari_gercek_dosyalari_kapsar():
         assert a not in adlar, a
     surum = motor.anahtar_icerigi(ad="a", parametreler={}, talep_tohumu=None, operasyon_tohumu=1,
                                   olcek="tam", gun_sayisi=None, turler={})["surumler"]
-    assert surum["lightgbm"] and surum["scikit-learn"] and surum["numpy"]
+    assert surum["lightgbm"] and surum["scikit-learn"] and surum["numpy"] and surum["duckdb"]
 
 
 def _vaka_kapanisi(baslangic):
@@ -460,7 +466,9 @@ def test_takvim_kucuk_yeniden_oynatma(lumoda_kucuk, tmp_path):
     """`takvim(kosu)` Lumoda'nın kayıtlı RPT ve markdown kararlarından kurulur; o takvimi
     oynatan `rpt=` ve `markdown=` koşusu Lumoda koşusunun tablolarını ve gizli gerçeğini
     birebir üretir. Takvim pickle'lanır; kimliği içerikten (`sabitle`), gidiş-dönüşte
-    aynı, içerik değişince başka. Kayıtsız gün boş sözlük / sıfır matristir."""
+    aynı, içerik değişince başka. Kayıtsız gün boş sözlük / sıfır matristir. İçerik donar
+    (kimlik içerikten ayrılamaz); kimlik dışarıdan verilemez, pickle'daki saklı kimlik
+    içerikle sınanır."""
     t = motor.takvim(lumoda_kucuk)
     O = len(motor.dunya("kucuk").optionlar)
     assert t.option_sayisi == O
@@ -481,6 +489,27 @@ def test_takvim_kucuk_yeniden_oynatma(lumoda_kucuk, tmp_path):
     baska = motor.Takvim(rpt={k: dict(v) for k, v in t.rpt.items()} | {0: {1: 10}},
                          markdown=t.markdown, option_sayisi=O)
     assert baska.kimlik != t.kimlik
+
+    # Donmuş içerik: sözlükler salt okunur, diziler yazılamaz; girdi sözlüğü sonradan değişse
+    # de takvim değişmez
+    g_rpt, g_md = min(t.rpt), min(t.markdown)
+    with pytest.raises(TypeError):
+        s.rpt[g_rpt][next(iter(s.rpt[g_rpt]))] = 1
+    with pytest.raises(TypeError):
+        s.markdown[g_md] = np.zeros((O, 3))
+    with pytest.raises(ValueError, match="read-only"):
+        s.markdown[g_md][0, 0] = 0.5
+    girdi = {7: {1: 10}}
+    dondu = motor.Takvim(rpt=girdi, markdown={}, option_sayisi=O).sabitle()
+    girdi[7][1] = 99
+    assert dondu.rpt_gunu(7) == {1: 10} and dondu.kimlik == dondu._ozet()
+    # Kimlik dışarıdan verilemez; pickle'daki saklı kimlik içerikle tutmalı
+    with pytest.raises(TypeError):
+        motor.Takvim(rpt={}, markdown={}, option_sayisi=O, _kimlik="sahte")
+    _, (rpt, md, o_, kim) = s.__reduce__()
+    assert kim == s.kimlik
+    with pytest.raises(ValueError, match="kimlik"):
+        motor._takvim_geri(rpt, md, o_, "0" * 64)
 
     k = motor.kos(rpt=_OynatRPT(t), markdown=_OynatMarkdown(t), ad="takvimli", parametreler={},
                   onbellek=None, **KUCUK)
@@ -538,6 +567,31 @@ def test_kirpma_tablosu_oyuncak(dunya):
     with pytest.raises(RuntimeError, match="paket"):
         motor.kirpma_tablosu(motor.Kosu(tablolar={**k.tablolar, "sevkiyat": bozuk}, gercek=k.gercek,
                                         meta=k.meta, kayitlar=k.kayitlar), w=dunya)
+
+
+def test_kirpma_tablosu_kenar_durumlari(dunya):
+    """Boş ilk dağıtım kaydı (ilk karar gününden önce biten koşu; `Kaydedici`nin boş
+    tablosu) boş ama türlü tablo verir. Motor negatif isteği sıfıra kırptığı için negatif
+    karar kırpma sayılmaz. Hiç sevki olmayan kararlı option'ın her mağazası `giden 0`."""
+    k = _oyuncak_kosu(dunya)
+    bos = motor.Kosu(tablolar=k.tablolar, gercek=k.gercek, meta=k.meta,
+                     kayitlar={"ilk_dagitim": motor.Kaydedici(None).kayit_tablosu()})
+    t = motor.kirpma_tablosu(bos, w=dunya)
+    assert list(t.columns) == motor.KIRPMA_SUTUNLARI and len(t) == 0
+    assert t["istenen_paket"].dtype == np.int64 and t["giden_paket"].dtype == np.int64
+
+    kayit = pd.concat([k.kayitlar["ilk_dagitim"],
+                       pd.DataFrame({"gun": [1], "arg0": [2], "indis": [4], "deger": [-2]})],
+                      ignore_index=True)
+    negatif = motor.Kosu(tablolar=k.tablolar, gercek=k.gercek, meta=k.meta, kayitlar={"ilk_dagitim": kayit})
+    pd.testing.assert_frame_equal(motor.kirpma_tablosu(negatif, w=dunya), motor.kirpma_tablosu(k, w=dunya))
+
+    s = k.tablolar["sevkiyat"]
+    sevksiz = motor.Kosu(tablolar={**k.tablolar, "sevkiyat": s[s["tip"] != "ilk_dagitim"]},
+                         gercek=k.gercek, meta=k.meta, kayitlar=k.kayitlar)
+    t = motor.kirpma_tablosu(sevksiz, w=dunya)
+    assert t.to_dict("list") == {"option_id": ["OPT-A"] * 4, "magaza_id": ["M1", "M2", "M3", "M4"],
+                                 "istenen_paket": [3, 2, 1, 1], "giden_paket": [0, 0, 0, 0]}
 
 
 def test_kirpma_tablosu_kucuk(lumoda_kucuk):

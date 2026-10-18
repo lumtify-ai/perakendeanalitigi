@@ -64,8 +64,8 @@ silinir. Anahtar (`onbellek_anahtari`): `ad`, `parametreler` (kanonik JSON), enj
 edilen her yuvanın politika türü (sınıf / fonksiyon tam adı) ve kimliği, iki tohum, ölçek,
 gün sayısı, kod özeti (yalnız koşuyu etkileyen kaynaklar: `KOSU_MODULLERI`, onların ortak
 paket kapanışı, `perakende_veri/v4/**/*.py`; satır sonları LF), v4 DuckDB dosyasının
-parmak izi (ad, boyut, değişiklik zamanı), numpy / pandas / pyarrow / lightgbm /
-scikit-learn sürümü.
+parmak izi (ad, boyut, değişiklik zamanı), numpy / pandas / pyarrow / duckdb /
+lightgbm / scikit-learn sürümü.
 
 GEÇMİŞ KAYDI. Enjekte edilen politikalardan biri `gecmis_gerekir = True` taşıyorsa motor
 `gecmis_kaydi=True` ile koşar. Kayıt yalnız okur, çıktılar birebir aynıdır; anahtara
@@ -156,6 +156,9 @@ YUVALAR = ("ilk_dagitim", "replenishment", "rpt", "markdown")
 # Verilmediğinde Lumoda'nın kaydedicilerle sarılan kararları (Ruling R2: her koşuda)
 KAYDEDILENLER = ("ilk_dagitim", "rpt", "markdown")
 HAT_SAYISI = 3   # markdown çıktısı [O, 3]: normal / outlet / online hattı
+
+# Önbellek anahtarına sürümü giren kütüphaneler
+SURUM_PAKETLERI = ("numpy", "pandas", "pyarrow", "duckdb", "lightgbm", "scikit-learn")
 
 GERCEK_SUTUNLARI = ("talep", "kendi_satis", "karsilanmayan", "ikameye_giden", "kalici_kayip")
 _AD_DESENI = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
@@ -551,7 +554,7 @@ def anahtar_icerigi(
         "gun_sayisi": None if gun_sayisi is None else int(gun_sayisi),
         "kod": kod_ozeti(),
         "veri": veri_parmak_izi(),
-        "surumler": {p: _surum(p) for p in ("numpy", "pandas", "pyarrow", "lightgbm", "scikit-learn")},
+        "surumler": {p: _surum(p) for p in SURUM_PAKETLERI},
     }
 
 
@@ -889,6 +892,31 @@ def yayimlanan_bicim(tablolar: dict, olcek: str) -> dict:
 # ---------------------------------------------------------------------------
 
 
+class _SaltOkunur(Mapping):
+    """Salt okunur sözlük görünümü (`Takvim`'in içeriği; kendi kopyasını tutar)."""
+
+    def __init__(self, d):
+        self._d = dict(d)
+
+    def __getitem__(self, k):
+        return self._d[k]
+
+    def __iter__(self):
+        return iter(self._d)
+
+    def __len__(self):
+        return len(self._d)
+
+    def __repr__(self):
+        return f"_SaltOkunur({self._d!r})"
+
+
+def _salt_dizi(a, dtype) -> np.ndarray:
+    a = np.array(a, dtype=dtype)               # kopya
+    a.flags.writeable = False
+    return a
+
+
 @dataclass(frozen=True, eq=False)
 class Takvim:
     """Bir koşunun RPT ve markdown kararları, gün gün (`takvim(kosu)`).
@@ -900,28 +928,44 @@ class Takvim:
         option_sayisi  O
 
     Kayıtta olmayan gün boş sözlük / sıfır matristir (`rpt_gunu`, `markdown_gunu`;
-    politika o gün çağrıldıysa kararı buydu). Pickle'lanır. Kimlik İÇERİKTEN: `kimlik`
-    içerik özeti (SHA-256; sözlük sırası ve pickle baytı girmez), `sabitle()` onu bir kez
-    hesaplayıp saklayan kopya. Yeniden oynatan politika kimliği `parametreler()`ine koyar."""
+    politika o gün çağrıldıysa kararı buydu). İçerik kurulurken kopyalanır ve donar
+    (salt okunur sözlükler, yazılamaz diziler): sabitlenmiş kimlik içerikten ayrılamaz.
+    Pickle'lanır (geri yüklenirken içerik yeniden donar; saklı kimlik içerikle
+    sınanır, tutmazsa `ValueError`). Kimlik İÇERİKTEN: `kimlik` içerik özeti (SHA-256;
+    sözlük sırası ve pickle baytı girmez), `sabitle()` onu bir kez hesaplayıp saklayan
+    kopya; kimlik dışarıdan verilemez. Yeniden oynatan politika kimliği `parametreler()`ine
+    koyar."""
 
-    rpt: dict
-    markdown: dict
+    rpt: Mapping
+    markdown: Mapping
     option_sayisi: int
-    _kimlik: str | None = None
+    _kimlik: str | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
+        O = int(self.option_sayisi)
+        markdown = {}
         for gun, m in self.markdown.items():
-            if np.shape(m) != (self.option_sayisi, HAT_SAYISI):
-                raise ValueError(f"markdown[{gun}] [{self.option_sayisi}, {HAT_SAYISI}] olmalı: "
-                                 f"{np.shape(m)}")
+            if np.shape(m) != (O, HAT_SAYISI):
+                raise ValueError(f"markdown[{gun}] [{O}, {HAT_SAYISI}] olmalı: {np.shape(m)}")
+            markdown[int(gun)] = _salt_dizi(m, float)
+        rpt = {int(gun): _SaltOkunur({int(o): (int(v) if np.ndim(v) == 0 else _salt_dizi(v, np.int64))
+                                      for o, v in d.items()})
+               for gun, d in self.rpt.items()}
+        object.__setattr__(self, "option_sayisi", O)
+        object.__setattr__(self, "rpt", _SaltOkunur(rpt))
+        object.__setattr__(self, "markdown", _SaltOkunur(markdown))
+
+    def __reduce__(self):
+        rpt = {g: dict(d) for g, d in self.rpt.items()}
+        return (_takvim_geri, (rpt, dict(self.markdown), self.option_sayisi, self._kimlik))
 
     def rpt_gunu(self, gun: int) -> dict:
-        """Günün RPT kararı (kopya; kayıtsız gün `{}`)."""
+        """Günün RPT kararı (yazılabilir kopya; kayıtsız gün `{}`)."""
         return {o: (v.copy() if isinstance(v, np.ndarray) else v)
                 for o, v in self.rpt.get(int(gun), {}).items()}
 
     def markdown_gunu(self, gun: int) -> np.ndarray:
-        """Günün [O, 3] markdown oranı (kopya; kayıtsız gün sıfır)."""
+        """Günün [O, 3] markdown oranı (yazılabilir kopya; kayıtsız gün sıfır)."""
         m = self.markdown.get(int(gun))
         return np.zeros((self.option_sayisi, HAT_SAYISI)) if m is None else np.array(m, dtype=float)
 
@@ -944,7 +988,20 @@ class Takvim:
         """Kimliği bir kez hesaplayıp saklayan kopya (zaten sabitse kendisi)."""
         if self._kimlik is not None:
             return self
-        return dataclasses.replace(self, _kimlik=self._ozet())
+        t = Takvim(rpt=self.rpt, markdown=self.markdown, option_sayisi=self.option_sayisi)
+        object.__setattr__(t, "_kimlik", t._ozet())
+        return t
+
+
+def _takvim_geri(rpt, markdown, option_sayisi, kimlik) -> Takvim:
+    """Pickle'dan `Takvim`: içerik yeniden donar; saklı kimlik içerikle tutmalı."""
+    t = Takvim(rpt=rpt, markdown=markdown, option_sayisi=option_sayisi)
+    if kimlik is None:
+        return t
+    s = t.sabitle()
+    if s.kimlik != kimlik:
+        raise ValueError("Takvim: saklı kimlik içerikle tutmuyor")
+    return s
 
 
 def _kayit(kosu, ad: str) -> pd.DataFrame:
@@ -984,11 +1041,17 @@ def takvim(kosu, w=None) -> Takvim:
 KIRPMA_SUTUNLARI = ["option_id", "magaza_id", "istenen_paket", "giden_paket"]
 
 
+def _bos_kirpma() -> pd.DataFrame:
+    return pd.DataFrame({"option_id": pd.Series([], dtype=object), "magaza_id": pd.Series([], dtype=object),
+                         "istenen_paket": np.zeros(0, np.int64), "giden_paket": np.zeros(0, np.int64)})
+
+
 def _istenen(kayit: pd.DataFrame, w, kiyas_o: np.ndarray) -> pd.DataFrame:
     k = kayit[np.isin(kayit["arg0"].to_numpy(), kiyas_o)]
     t = pd.DataFrame({"option_id": w.optionlar["option_id"].to_numpy().astype(str)[k["arg0"].to_numpy()],
                       "magaza_id": w.magazalar["magaza_id"].to_numpy().astype(str)[k["indis"].to_numpy()],
-                      "istenen_paket": k["deger"].to_numpy(dtype=np.int64)})
+                      # motor negatif isteği sıfıra kırpar (`np.maximum(ilk_dagitim, 0)`)
+                      "istenen_paket": np.maximum(k["deger"].to_numpy(dtype=np.int64), 0)})
     return t.groupby(["option_id", "magaza_id"], as_index=False)["istenen_paket"].sum()
 
 
@@ -1007,6 +1070,8 @@ def _giden(kosu, w, kiyas: set) -> pd.DataFrame:
         "adet": s["adet"].to_numpy(dtype=np.int64),
     })
     s = s[s["option_id"].isin(kiyas)]
+    if not len(s):
+        return _bos_kirpma()[["option_id", "magaza_id", "giden_paket"]]
     p = kosu.tablo("paket", sutunlar=["paket_id", "beden_sira", "adet"])
     p = pd.DataFrame({"paket_id": p["paket_id"].astype(str).to_numpy(),
                       "beden_sira": p["beden_sira"].to_numpy(dtype=np.int64),
@@ -1051,8 +1116,9 @@ def kirpma_tablosu(kosu, w=None) -> pd.DataFrame:
         kiyas_o = o[np.asarray(tam)]
     else:
         kiyas_o = np.zeros(0, dtype=np.int64)
-    istenen = _istenen(kayit, w, kiyas_o) if len(kayit) else pd.DataFrame(
-        {"option_id": [], "magaza_id": [], "istenen_paket": []})
+    if not len(kiyas_o):                      # karar yok (ör. ilk karar gününden önce biten koşu)
+        return _bos_kirpma()
+    istenen = _istenen(kayit, w, kiyas_o)
     giden = _giden(kosu, w, set(w.optionlar["option_id"].to_numpy().astype(str)[kiyas_o]))
     t = istenen.merge(giden, on=["option_id", "magaza_id"], how="outer")
     t[["istenen_paket", "giden_paket"]] = t[["istenen_paket", "giden_paket"]].fillna(0)
