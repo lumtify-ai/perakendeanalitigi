@@ -120,17 +120,18 @@ sık boş rafla karşılayan da o.
 ## Lumoda'yla aradaki fark nerede?
 
 Dördüncü yazıda kuralı Lumoda'nın kuralıyla bulunabilirlik–stok eğrisi
-üzerinde karşılaştırmıştık. 8,77 puanlık farkın 5,45 puanı stok düzeyinden
-geliyordu. Lumoda'nın stok düzeyinde kalan fark 3,32 puandı. Bu farkın
+üzerinde karşılaştırmıştık. Tabanı yükseltip kurala Lumoda kadar stok
+verince 8,77 puanlık farkın 5,45 puanı kapanıyordu. Lumoda'nın stok
+düzeyinde kalan fark 3,32 puandı. Bu farkın
 nerede açıldığına bakacağımı söylemiştim.
 
 Bunun için Lumoda'yı stoğu ona en yakın kuralla, tabanı 21 günlük satış
 olan kuralla karşılaştırıyoruz. Dört ayın sonunda bu kuralın mağazalarında
 419.696 adet var, Lumoda'nınkilerde 428.097. Bulunabilirlik farkı 3,43
 puan. Bu bölümde "kural" dediğimde bu 21 günlük tabanlı kuralı
-kastediyorum. Farkı talep gruplarına dağıttık. Bir grubun katkısı, o gruptaki
-bulunabilirlik farkının grubun talepli hücre-günler içindeki payıyla
-çarpımı:
+kastediyorum. Farkı talep gruplarına dağıttık. Bir grubun katkısı, o
+gruptaki bulunabilirlik farkı ile grubun ağırlığının çarpımı. Ağırlık, bir
+mağazada bir bedene talep olan bütün günler içinde o gruba düşenlerin payı:
 
 | Grup | Katkı (puan) |
 |---|---:|
@@ -182,7 +183,7 @@ Kural ise hedefi mağaza–option düzeyinde kurup mağazanın geçmiş beden
 payıyla bölüyor. Sayılar bu adayla çelişmiyor. Dört ayın sonunda Lumoda'da
 10.002 stoklu çiftin 5.887'si (%58,9), kuralda 10.744 stoklu çiftin
 7.470'i (%69,5) kırık. Boş çift Lumoda'da 2.773, kuralda 2.031. Lumoda'da
-boş çift biraz daha çok, ama kırık çift farkı boş çift farkından büyük;
+boş çift daha çok, ama kırık çift farkı boş çift farkından büyük;
 Lumoda'nın düşük kırık payı yalnız paydadan gelmiyor. Basic'in çekirdek
 bedenlerinde bulunabilirlik %81,24'e %74,38, kenar bedenlerinde %82,32'ye
 %77,01; fark çekirdekte biraz daha büyük.
@@ -229,9 +230,10 @@ konumda (alım %100, kısıtsız) LightGBM + taban kuralı 0,8 puan geçiyor,
 gevşek tavanda kural 1,2 puan önde. Bu tek bir müşteri akışında ölçüldü ve
 farklar bir puan dolayında; bundan bir ders çıkarmıyorum.
 
-Bir şey daha göreceksiniz: kuralda alım %40'ta ve %70'te kısıtsız konum,
-gevşek tavandan daha düşük bulunabilirlik veriyor (1,2 ve 0,6 puan). Bunun
-nedenini ayrıca ölçmedik.
+Bir şey daha göreceksiniz: alım %40'ta ve %70'te kısıtsız konum, gevşek
+tavandan daha düşük bulunabilirlik veriyor. Üç yöntemin üçünde de böyle.
+Alım %40'ta fark kuralda 1,2, LightGBM + tabanda 0,9, yalnız LightGBM'de
+0,6 puan; alım %70'te üçünde de 0,6 puan. Bunun nedenini ayrıca ölçmedik.
 
 Kadrandaki kırık payı yalnız stoklu çiftler üzerinden hesaplanıyor, boş
 çiftleri göstermiyor. Yukarıdaki payda tablosunun uyarısı kadranda da
@@ -315,9 +317,9 @@ Bu dizinin hesabı yayımlanabilir olması için sadeleştirildi. Lumoda'da her
 müşterinin ne istediği bir yerde yazılı duruyor; kuralı, modeli ve Lumoda'nın
 bugünkü yöntemini aynı müşteri akışında yarıştırabildik. Gerçek bir zincirde
 bulunabilirliği doğru ölçecek bir hakem yoktur: raf boşken gelip giden
-müşteriyi hiçbir kayıt tutmaz. Depo kayıtları da çoğu zaman bir SKU'dan
-kaç adedin kolide, kaç adedin açıkta durduğunu ve toplama ekibinin haftada kaç adet
-açık toplayabildiğini söylemez; biz bunları varsaydık. Karar ise her pazartesi
+müşteriyi hiçbir kayıt tutmaz. Depo kayıtları da çoğu zaman bir SKU'nun
+kaç adedinin kolide, kaç adedinin açıkta durduğunu ve toplama ekibinin
+haftada kaç adet açık toplayabildiğini söylemez; biz bunları varsaydık. Karar ise her pazartesi
 binlerce mağaza–option çifti için verilir. Tek seferlik bir analizle değil,
 her hafta aynı kuralla işleyen bir rutinle yürür.
 

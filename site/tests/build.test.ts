@@ -632,7 +632,7 @@ describe('site geneli vaatler', () => {
   it('DM köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır (R29)', () => {
     const html = oku('replenishment/depodan-magazaya/basari-nasil-olculur/index.html')
     const kopru = html.slice(html.indexOf('lumtify-koprusu'), html.indexOf('</aside>', html.indexOf('lumtify-koprusu')))
-    expect(kopru).toContain('kaç adedin kolide, kaç adedin açıkta')
+    expect(kopru).toContain('kaç adedinin kolide, kaç adedinin açıkta')
     expect(kopru).toContain('bulunabilirliği doğru ölçecek bir hakem yoktur')
     expect(kopru).toContain('binlerce mağaza–option çifti')
     expect(kopru).toContain('iş zekâsı ve optimizasyonla')

@@ -552,7 +552,8 @@ def lumoda_bolumu(v, ek) -> None:
     for ad_ in ("lumoda_ref", "kural_ref", "kural_ufuk_28"):
         d = v.nb_depo[ad_].iloc[9:]
         print(f"  {ad_}: ortalama {s(d['adet'].mean())} adet · stoğu 0 SKU payı ortalama {y(d['bos_pay'].mean(), 2)}")
-    print("  depo-boş kayıp payı (karşılanmayanın SKU'nun depo stoğu 0 iken olan payı): " + " · ".join(
+    print("  depo-boş kayıp payı (bu başlığın kapsamı dışında: bütün pencere, bütün line'lar, fiziksel mağazalar; "
+          "karşılanmayanın SKU'nun depo stoğu 0 iken olan payı): " + " · ".join(
         f"{a} {yd(O(v, a)['depo_bos_kayip_pay_yuzde'], 1)}" for a in ("lumoda_ref", "kural_ref", "kural_ufuk_21", "kural_ufuk_28")))
     alt("line kırılımı (sınır kolları)")
     for ad_ in ("lumoda_ref", "kural_ref", "kural_ufuk_21", "kural_ufuk_28"):

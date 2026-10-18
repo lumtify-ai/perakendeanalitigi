@@ -2,7 +2,7 @@
 baslik: Tahminle Yöntem ve Dürüst Karşılaştırma
 tip: teknik
 sira: 5
-ozet: LightGBM ile mağaza–option tahmini kurduk ve kuralla yarıştırdık. Model öngörüde açıkça daha isabetli çıktı, sonuçta değil. Asıl bulgu hangisinin kazandığı değil.
+ozet: LightGBM ile mağaza–option tahmini kurduk ve kuralla yarıştırdık. Model öngörüde açıkça daha isabetli çıktı, sonuçta değil. Asıl mesele hangisinin kazandığı değil, farkın nereden geldiği.
 yazar: Sabri Suyunu
 durum: yayinda
 ---
@@ -114,8 +114,8 @@ Felaket değil. Ama daha iyi öngörü daha iyi sonuç getirmedi. İlk pazartesi
 kuraldan çok daha fazla mal öngören model, dört ayın toplamında daha az mal
 gönderdi ve daha düşük bulunabilirlikle bitirdi.
 
-Buradan "demek ki ML işe yaramıyor" diye çıkmak kolay. Ama bu yanlış bir
-sonuç olurdu. Çünkü iki kolu karşılaştırırken aynı anda **iki şeyi**
+Buradan "demek ki ML işe yaramıyor" diye bir sonuç çıkarmak kolay. Ama bu
+yanlış olurdu. Çünkü iki kolu karşılaştırırken aynı anda **iki şeyi**
 değiştirmiştik:
 
 1. Öngörüyü kim üretiyor: geçen haftanın satışı mı, LightGBM mi?
@@ -251,8 +251,9 @@ taraf da değişebilir. Biz bunu ölçmedik.
 
 Tablodaki bir satır modelin lehine: toplama maliyeti. Yalnız LightGBM
 kuraldan 180.260 TL, LightGBM + taban 67.580 TL ucuz. Beş akışa bakınca yalnız
-LightGBM beşinde, LightGBM + taban dördünde kuraldan ucuz. Bu akışta satışa
-dönme süresi de en kısa yalnız LightGBM'de.
+LightGBM beşinde, LightGBM + taban dördünde kuraldan ucuz. Yayımlanan
+müşteri akışında, yani tablodaki akışta, satışa dönme süresi de en kısa
+yalnız LightGBM'de.
 
 Yani yalnız LightGBM "yanlış" değil, sadece başka bir noktada duruyor: daha
 az mal gönderiyor, daha az toplama maliyeti çıkarıyor, daha çok satış

@@ -2,7 +2,8 @@
 
 Lumoda v4 sentetik verisi ve v4 motoru üstünde depodan mağazaya replenishment vakası.
 Sitedeki `/replenishment/depodan-magazaya/` dizisinin (6 yazı) ve demo kadranının bütün
-sayıları buradan, `cikti/rapor.txt`'ten çıkar. Tasarım:
+sayıları buradan, `cikti/rapor.txt`'ten çıkar (`cikti/` git dışıdır; dosyayı `rapor.py` yeniden
+üretir, aşağıdaki 8. adım). Tasarım:
 `docs/superpowers/specs/2026-10-10-depodan-magazaya-v4-design.md` (`docs/` ayrı depodur);
 uygulamadaki sapmalar ve kararlar o belgenin §12'sinde, yürütme kaydı
 `.superpowers/sdd/2026-10-10-dm-v4/progress.md` (Ruling R1–R40).
