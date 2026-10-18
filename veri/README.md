@@ -16,10 +16,10 @@ fonksiyonunu (`disa_aktar.yaz`) kullanır. Arşiv sürümlerden birini yeniden
 üretmek için o sürümün etiketini (`git checkout veri-v2` gibi) açıp oradaki
 README'yi izleyin.
 
-# v4
+## v4
 
 `python -m perakende_veri.v4.uret` → `veri/cikti/v4/` (DuckDB, Parquet,
-CSV). Tohum `2026`; üretim ~5 dakika (son koşu 319 sn). Tasarım:
+CSV). Tohum `2026`; üretim ~4–5 dakika (son koşu 249 sn). Tasarım:
 `docs/superpowers/specs/2026-09-27-veri-v4-cekirdek-design.md`. **Tablo
 sözlüğü, gizli gerçek ve politika enjeksiyonu için:
 [`src/perakende_veri/v4/README.md`](src/perakende_veri/v4/README.md).**
@@ -48,16 +48,16 @@ sözlüğü, gizli gerçek ve politika enjeksiyonu için:
 
 | Tablo | Satır |
 |---|---:|
-| `satis` | 17.917.462 |
-| `stok` | 10.324.671 |
-| `depo_stok` | 4.608.870 |
-| `sevkiyat` | 3.703.982 |
+| `satis` | 17.960.852 |
+| `stok` | 10.324.750 |
+| `depo_stok` | 4.579.488 |
+| `sevkiyat` | 3.735.796 |
 | `fiyat` | 120.850 |
-| `siparis` | 38.508 |
-| `kalite_kontrol` | 7.822 |
-| boyut ve plan tabloları (11 tablo) | 85 … 8.506 |
+| `siparis` | 38.686 |
+| `kalite_kontrol` | 7.846 |
+| boyut ve plan tabloları (11 tablo) | 12 … 8.506 |
 
-Ham CSV 1,63 GB; Parquet 131 MB; DuckDB 218 MB.
+Ham CSV 1,63 GB; Parquet 131 MB; DuckDB 219 MB.
 
 Testler: `pytest -m "not yavas"` (hızlı) ve `pytest -m yavas` (tam koşu:
 kalibrasyon bantları, öğrenilebilirlik). Sonuçlar v4 README'sinde.
@@ -130,7 +130,7 @@ A dahil ~19 dakika ve ~20 GB boş bellek ister.
 Testler: `pytest tests/v4/crm -m "not yavas"` ve `-m yavas` (bantlar,
 öğrenilebilirlik). Sonuçlar CRM README'sinde.
 
-# Lisans
+## Lisans
 
 Veri CC BY 4.0 ile dağıtılır (bkz. depo kökündeki `LICENSE-VERI`).
 Üretici kod MIT'dir.

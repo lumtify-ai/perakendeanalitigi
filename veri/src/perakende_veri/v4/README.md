@@ -107,7 +107,7 @@ bilmez.
 |---|---|---|
 | `satis` | tarih, magaza_id, urun_id, adet, tutar, indirim_tutari, kampanya_id | Günlük. **Negatif adet = iade.** ONL dahil. İkameyle gelen satış normal satış görünür. `kampanya_id` fiyatı belirleyen kampanya, yoksa boş. |
 | `fiyat` | hafta_baslangic, option_id, hat (normal / outlet / online), indirim_orani | **Haftalık panel:** option × pazartesi × hat, haftanın sonundaki markdown oranı. Kampanya ve işlem indirimi burada yok. |
-| `stok` | tarih, magaza_id, urun_id, adet, stoklu_gun | Fiziksel mağaza, pazartesi sabahı fotoğrafı. `stoklu_gun`: önceki 7 günde satışa açılırken rafta mal olan gün sayısı |
+| `stok` | tarih, magaza_id, urun_id, adet, stoklu_gun | Fiziksel mağaza, pazartesi sabahı fotoğrafı. `stoklu_gun`: önceki 7 günde satışa açılırken rafta mal olan gün sayısı. |
 | `depo_stok` | tarih, urun_id, adet | Depo, **günlük** fotoğraf. |
 | `sevkiyat` | tarih, varis_tarihi, kaynak, hedef, urun_id, adet, tip, paket_id | `tarih` çıkış günü. Çıkışı ya da varışı pencerede olan sevkler (2022-12-29…31'de çıkıp pencerede varanlar dahil). Kaynak ve hedef `magaza_id` ya da `DEPO`; `ONL` hiçbir sevkin ucu değildir. `paket_id` yalnız `ilk_dagitim`'da dolu, `paket.paket_id` ile birleşir. |
 
@@ -361,5 +361,5 @@ cd veri
 .venv/Scripts/python -m pytest -q -m yavas         # tam koşu: bantlar, öğrenilebilirlik
 ```
 
-Son koşu (eski sürümler kaldırıldıktan sonra): `-m "not veri and not yavas"` **686 geçti**
-(570 sn); yavaş takım ayrıca koşulur.
+Son koşu, eski sürümler kaldırıldıktan sonra: hızlı takım (`-m "not yavas"`,
+gerçek veri testleri hariç) **686 geçti** (570 sn).
