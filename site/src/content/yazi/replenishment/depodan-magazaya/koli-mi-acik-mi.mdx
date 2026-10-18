@@ -36,7 +36,7 @@ olmadığına bakacağız. Bu yazıda ölçtüğümüzde ne çıktığını anla
 
 ## Depo böyle çalışsaydı
 
-Paylaştırmayı ölçmek için önce paylaşılacak bir kıtlık lazım. Lumoda'nın
+Paylaştırmayı ölçmek için önce malın yetmemesi lazım. Lumoda'nın
 yayımlanan verisinde depo, istenen her adedi beden beden toplayabiliyor.
 Gerçek bir depo böyle çalışmaz. Bu yazı için depoya iki kural ekledik ve
 aynı dört ayı bu kurallarla yeniden oynattık. Sorumuz şu: depo böyle
@@ -59,9 +59,9 @@ varsayımımız, veriden gelmiyor. Bu yüzden yazının sonunda tavanı değişt
 sonucun nasıl değiştiğine de bakacağız.
 
 İki tanımı da baştan vereyim. **Bulunabilirlik**, bir mağazada bir bedene
-talep olan günlerin kaçında o bedenin rafta olduğu. **Kayıp oranı**,
+talep olan günlerin yüzde kaçında o bedenin rafta olduğu. **Kayıp oranı**,
 talebin karşılanamayan payı. Aksi söylenmedikçe sayılar referans noktadan:
-depo sezon için talep tahmininin tamamı kadar alıyor, tavan haftada 25.826
+depo sezonluk ürünlerde talep tahmininin tamamı kadar alıyor, tavan haftada 25.826
 adet, öncelik cover, koli kuralı da aşağıda anlatacağım A.
 
 ## Üçünü de kodladık
@@ -92,7 +92,8 @@ devreye girer. Belki de mal hep yetiyordur. Ona da baktık.
 
 ## Kavga çıkıyor
 
-Alımı kıstık: depo sezon için talep tahmininin %40'ı kadar alsın. Sonra
+Alımı kıstık: depo sezonluk ürünlerde talep tahmininin %40'ı kadar
+alsın. Sonra
 depo kısıtlarını tamamen kaldırdığımız bir denemede (koli zorunluluğu yok,
 tavan yok) şunu sorduk: mağazaların istediği malın ne kadarı depoda yoktu?
 
@@ -122,8 +123,7 @@ Kıtlığın bir yüzü daha var. Mal depoda olup rafta olmayabilir.
 Referans noktada dört ayın ikinci yarısına bakalım. NOS ile Basic'in
 deposunda pazartesi sabahları ortalama 976.335 adet duruyor, stoğu sıfır
 olan SKU'ların payı %0,35. Aynı dokuz haftada mağazalardaki bulunabilirlik
-Basic'te %60,29, NOS'ta %60,42. Son pazartesi sabahı, o haftanın
-gönderiminden önce, depoda 1.590.720 açık adet vardı. Bütün line'larda
+Basic'te %60,29, NOS'ta %60,42. Bütün line'larda
 karşılanmayan talebin %22,2'si deponun o bedende boş olduğu günlere denk
 geliyor; kalanında depoda mal vardı.
 
@@ -133,7 +133,7 @@ sistem malı istemiyor.
 Birinci şüpheli için tavana bakalım. Açık toplama tavanı referans
 noktada 18 haftanın 17'sinde doldu, doluluğun ortalaması %97,9. Depo
 gerçekten sınırda çalışıyor. Ama kısıtları tamamen kaldırdığımızda
-bulunabilirlik yalnız %66,73'e çıkıyor. Depo kısıtının bulunabilirliğe
+(ne koli zorunluluğu ne tavan) bulunabilirlik yalnız %66,73'e çıkıyor. Depo kısıtının bulunabilirliğe
 maliyeti 1,63 puan.
 
 İkinci şüpheliyi sonraki yazıda açacağız ama ipucu şimdiden belli. Kural
@@ -262,9 +262,9 @@ rafı daha sık boş bırakır.
 
 Bu yazının bütün sonuçları bir varsayıma yaslanıyor: depo haftada 25.826
 adet açık toplayabilir. Sayıyı Lumoda'nın verisinden türettik ama oranı biz
-seçtik. Bir yıl önceki aynı mevsimde Lumoda mağazalarına haftada ortalama
-103.305,4 adet replenishment göndermiş, tavanı bunun dörtte biri aldık. Sonra tavanı
-değiştirip aynı dört ayı yeniden oynattık:
+seçtik: tavanı, bir yıl önceki aynı mevsimde Lumoda'nın mağazalarına
+haftada ortalama gönderdiği replenishment adedinin dörtte biri olarak
+aldık. Sonra tavanı değiştirip aynı dört ayı yeniden oynattık:
 
 | Tavan | Haftada açık adet | Bulunabilirlik | Toplama maliyeti |
 |---|---:|---:|---:|
@@ -272,11 +272,14 @@ değiştirip aynı dört ayı yeniden oynattık:
 | Referansın 0,6 katı | 15.495 | %62,01 | 6.046.020 TL |
 | Referans | 25.826 | %65,10 | 7.673.800 TL |
 | Referansın 1,6 katı | 41.321 | %66,39 | 9.726.090 TL |
-| Tavan yok | — | %67,11 | 13.127.350 TL |
+| Tavan yok (koli kuralı geçerli) | — | %67,11 | 13.127.350 TL |
 
 Tavan sıkıştıkça bulunabilirlik düşüyor, gevşedikçe artıyor ama giderek
-daha az. Tavan 1,6 katına çıktığında kısıt artık bağlamıyor: bulunabilirlik,
-hiçbir depo kısıtı olmayan denemenin (%66,73) bir puan yakınına geliyor.
+daha az. Tavan 1,6 katına çıktığında kısıtın bulunabilirliğe maliyeti bir
+puanın altına iniyor: hiçbir depo kısıtı olmayan denemeden (%66,73) yalnız
+0,34 puan geride. Tavan yine de çoğu hafta doluyor. Tavanı tamamen
+kaldırıp koli kuralını yerinde bıraktığımız son satır ise kısıtsız
+denemeyi biraz geçiyor.
 
 Toplama maliyeti de varsayım. Açık adet başına 10 TL yerine 5 TL deseydik
 referans noktanın maliyeti 5.397.940 TL, 20 TL deseydik 12.225.520 TL

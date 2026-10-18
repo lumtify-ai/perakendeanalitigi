@@ -73,7 +73,7 @@ yöntemin en önemli parçası o.
 
 ## Güvenlik stoku: üç aile
 
-Sahada <T k="safety-stock">safety stock</T> üç farklı şekilde hesaplanır ve
+Sahada safety stock üç farklı şekilde hesaplanır ve
 üçünün de savunucusu vardır.
 
 **Sabit adet.** Her mağaza–option için bir taban: "bu üründen rafta en az şu
@@ -97,7 +97,9 @@ karar bir hafta sonra. Ders kitaplarının verdiği cevap bu.
 Parametreleri gözümüze göre seçmedik. Oyun dönemine hiç bakmadan, bir yıl
 önceki aynı mevsimde ayarladık. İstatistiksel ailenin ayarlanacak
 parametresi yok, Z sabit. Önce onu depo kısıtı olmadan oynattık ve
-bulunabilirliğini hedef aldık: %67,11. Sonra öteki iki ailede bu hedefe en
+bulunabilirliğini hedef aldık: %67,11. (Bu, bir yıl önceki dönemin sayısı.
+Üçüncü yazıdaki tablonun "tavan yok" satırında da %67,11 görünüyor ama o
+oyun dönemindeki başka bir koşu.) Sonra öteki iki ailede bu hedefe en
 yakın parametreyi aradık: sabit ailede 4 adet (%67,16), ROS'ta 6 gün
 (%67,14). Üçü aynı hedefte buluştuğuna göre oraya en az stokla varanı
 seçtik: 181.635 adetle sabit aile. Yazının geri kalanında "kural"
@@ -199,8 +201,9 @@ def kural_ongorusu(
     return son7 * oc_hafta_katsayisi(harita, takvim, karar_gunu, katsayilar)
 ```
 
-Bir çift son 28 günün yalnız 7'sinde stokluysa ve o 7 günde 14 adet
-sattıysa, hızı günde 0,5 değil **2**'dir. Arada dört kat fark var. Hiç
+Bir çift son yedi günün yalnız 2'sinde stokluysa ve o 2 günde 2 adet
+sattıysa, öngörü 2 değil **7** adettir: günde 1 adet, yedi gün. ROS
+tabanı aynı düzeltmeyi son 28 günün satışıyla yapıyor. Hiç
 stoklu günü olmayan çiftin hızı sıfır alınıyor: o pencere talep hakkında
 hiçbir şey söylemiyor ve kod bir sayı uydurmuyor. O çiftin hedefini taban
 belirliyor.
@@ -209,7 +212,10 @@ Koddaki "stoklu gün" tanımına dikkat edin. Bir mağaza–option çifti için
 stoklu gün, bedenlerinden en az birinin rafta olduğu ya da satış yaptığı
 gün. Satış varsa raf boş olamaz. Tanımın bir sınırı da var: M bitmiş ama
 öteki bedenler raftaysa o gün stoklu sayılıyor. Bu düzeltme beden
-düzeyindeki boşluğu görmüyor.
+düzeyindeki boşluğu görmüyor. İlk yazıdaki İstanbul 8'in 1,13'ü tek bir
+bedenin, XL'in hızıydı; mağaza–option düzeyinde çalışan bu düzeltme o
+sayıyı üretmez, çünkü XL bitmişken öteki bedenler raftaysa günü stoklu
+sayar.
 
 Bunun hile olmadığının altını çizeyim. Kayıp satış tablosuna dokunmuyoruz.
 O tabloyu yalnız hakem görüyor, karar veren yöntem görmüyor. Kullandığımız
@@ -224,7 +230,8 @@ Etkisini hedef düzeyinde ölçtük. İlk 17 pazartesinde düzeltme öngörüyü
 Stoklu güne bölmek kaba bir düzeltme. [Satış Kaybı
 dizisi](/is-zekasi/satis-kaybi/) stoksuz günün talebini daha dikkatli
 kestiren bir yöntem kurmuştu: Basit. Stoksuz günün iki yanındaki stoklu
-günlere bakıp o günün kaybını kestiriyor.
+günlere bakıp o günün kaybını kestiriyor. Karar anında ise yalnız geçmiş
+tarafı görüyor, çünkü sonraki günler henüz yaşanmadı.
 
 Kuralın öngörüsünü, karar anında hesaplanan Basit kestirimiyle değiştirdik:
 son yedi günün satışı artı Basit'in o günler için yazdığı kayıp, yine hafta
@@ -253,14 +260,10 @@ toplama tavanı), yalnız güvenlik stoku ailesini değiştirerek oynattık:
 | İstatistik, Z = 1,65 | %64,99 | 324.526 |
 | ROS, 6 gün | %64,00 | 317.083 |
 
-Sabit ile istatistik başa baş, ROS bir puan kadar geride. Bunu bir bulgu
-diye sunmayacağım: üçünü kalibrasyonda aynı bulunabilirliğe ayarladık,
-yakın çıkmaları beklenen şey.
-
-Bu tablodan çıkacak ders "hangi aile" sorusunda değil. Ders kitabındaki üç
-yöntem arasında seçim yapmak bu problemin en önemli kararı değil. Önemli
-olan, hangi aileyi seçerseniz seçin, tabanı ne kadar yüksek tuttuğunuz.
-Ona birazdan geleceğiz.
+Sabit ile istatistik başa baş, ROS bir puan kadar geride. Bundan bir ders
+çıkarmayacağım: üçünü kalibrasyonda aynı hedefe ayarladık, aynı hedefe
+ayarlanınca aileler de birbirine yaklaşıyor. Asıl düğme başka yerde:
+tabanın yüksekliği. Ona birazdan geleceğiz.
 
 ## Ve hâlâ yetmiyor
 
@@ -284,12 +287,12 @@ dizinin en şaşırtıcı bulgusu emniyet payını nasıl tanımladığımızdan
 Lumoda'nın kuralını hatırlayalım. Planın önümüzdeki dört hafta için o
 mağazaya yazdığı satış, eksi raftaki ve yoldaki stok. Son dört haftada hiç
 satmamış mağazaya istek yazılmaz. Bu kuralı da aynı depo kısıtlarıyla
-oynattık: aynı koli kuralı, aynı açık toplama tavanı.
+oynattık: aynı koli kuralı, aynı açık toplama tavanı. Kıt malı bölerken de
+Lumoda'nın bugünkü yöntemini kullandık: isteğe orantılı.
 
 Sonuç: bulunabilirlik Lumoda'nın kuralında %73,87, bizimkinde %65,10.
-Fark 8,77 puan.
-Aynı dört ayın beş farklı müşteri akışında da Lumoda önde; fark 7,54 ile
-8,77 puan arasında.
+Fark 8,77 puan. Aynı dört ayın beş farklı müşteri akışında da Lumoda
+önde; fark 7,54 ile 8,77 puan arasında.
 
 Ama bedeline bakın. Dört ayın sonunda Lumoda'nın mağazalarında 428.097 adet
 duruyor, bizimkilerde 311.819. Lumoda'nın mağaza stoğu bizimkinden %37,3
@@ -328,8 +331,8 @@ hesabından değil, ne kadar stok taşımaya razı olduğundan.
 İkinci yazıda verdiğim söz buydu. Emniyet payını "rafta en az dört adet"
 diye tanımlayınca kural yalın, hızlı dönen bir stokla çalışıyor ama talebin
 bir kısmını kaçırıyor. "Üç haftalık satış" diye tanımlayınca Lumoda'ya
-yaklaşıyor. Aile seçimi bir puan kadar
-oynatıyor. Tabanın yüksekliği, Lumoda'yla aradaki farkın 5,45 puanını
+yaklaşıyor. Aileler aynı hedefe ayarlandığı için birbirine yakın; asıl
+düğme tabanın yüksekliği. O düğme Lumoda'yla aradaki farkın 5,45 puanını
 kapatıyor.
 
 Bu bir tercih: ne kadar stok taşımak istiyorsunuz? Doğru cevap zincire göre
