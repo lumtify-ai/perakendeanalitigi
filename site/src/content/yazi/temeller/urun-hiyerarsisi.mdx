@@ -30,25 +30,25 @@ bakmasıyla.
 ## Bu üç şeyden hangisi ürün?
 
 Pelin planlama ekibine yeni girmiş, önünde ilk stok raporu. Satırlardan birinde
-şu yazıyor: `MDL003-SYH-M`. Yanında bir adet, bir tutar. Pelin bir süre bakıyor,
+şu yazıyor: `MDL0012-SYH-M`. Yanında bir adet, bir tutar. Pelin bir süre bakıyor,
 sonra Ali'ye dönüyor:
 
 — Bu ürün mü şimdi?
 
 Ali gülüyor, çünkü bu soruyu herkes soruyor ve cevabı herkesi şaşırtıyor:
 
-— Kime sorduğuna bağlı. Müşteriye sorarsan ürün **model**dir: MDL003, yani
+— Kime sorduğuna bağlı. Müşteriye sorarsan ürün **model**dir: MDL0012, yani
 "Balıkçı Yaka Kazak". Müşteri vitrinde onu görür, "şu kazak" der. Bana sorarsan
-ürün **option**'dır: MDL003-SYH, kazağın siyahı. Ben mağazaya renk gönderirim,
-kazak göndermem. Depoya sorarsan ürün **SKU**'dur: MDL003-SYH-M, siyah kazağın
+ürün **option**'dır: MDL0012-SYH, kazağın siyahı. Ben mağazaya renk gönderirim,
+kazak göndermem. Depoya sorarsan ürün **SKU**'dur: MDL0012-SYH-M, siyah kazağın
 M bedeni. Rafta duran, sayılan, taşınan şey odur.
 
 Üç düzey, üç ayrı iş:
 
 ```
-model    MDL003         tasarım — fiyat bu düzeyde belirlenir
-option   MDL003-SYH     model × renk — planlamanın ve transferin karar birimi
-SKU      MDL003-SYH-M   option × beden — en alt stok birimi
+model    MDL0012        tasarım — fiyat bu düzeyde belirlenir
+option   MDL0012-SYH    model × renk — planlamanın ve transferin karar birimi
+SKU      MDL0012-SYH-M  option × beden — en alt stok birimi
 ```
 
 Kimliğin okunabilir olmasına dikkat: SKU = ürün kodu – renk kodu – beden. Bir
@@ -67,17 +67,20 @@ içinde bir **dağılım** olarak gelir.
 ## Sayılar kulağa nasıl geliyor, aslında ne kadar?
 
 Bu sitedeki bütün vakalar Lumoda'yı kullanıyor — kurgusal, orta boy bir moda
-zinciri: 25 mağaza, 80 model. Seksen model kulağa az geliyor, değil mi? Bir
-Excel sayfasında rahat rahat yönetilir gibi.
+zinciri: 84 mağaza ve bir online kanal. Bir sezonda satışta olan model
+sayısı 148. Yüz kırk sekiz model kulağa az geliyor, değil mi? Bir Excel
+sayfasında rahat rahat yönetilir gibi.
 
-Gelin çarpalım. Her modelin ortalama üç rengi var: 240 option. Her option'ın
-beş bedeni: 1.200 SKU. Stok mağazada durduğuna göre asıl tablo mağaza çarpı
-ürün: 1.200 × 25 = **30.000 hücre**. Her hücrede ayrı bir soru: stok var mı,
-satıyor mu, duruyor mu? Transfer kararını option düzeyine çektiğinde bile
-240 × 25 = **6.000 hücreye** bakıyorsun — her hafta, yeniden.
+Gelin çarpalım. Her modelin ortalama iki buçuk rengi var: 370 option.
+Option'ların çoğu beş bedenli, aksesuarlar tek beden: 1.678 SKU. Stok mağazada
+durduğuna göre asıl tablo mağaza çarpı ürün: 1.678 × 84 = **140.952 hücre**.
+Her hücrede ayrı bir soru: stok var mı, satıyor mu, duruyor mu? Transfer
+kararını option düzeyine çektiğinde bile 370 × 84 = **31.080 hücreye**
+bakıyorsun — her hafta, yeniden.
 
-Seksen model böyle 30.000 hücre oluyor. Gerçek zincirlerde model sayısının
-seksen değil dört bin olduğunu, mağazanın 25 değil 400 olduğunu şimdilik bir
+Yüz kırk sekiz model böyle 140.952 hücre oluyor. Gerçek zincirlerde bir
+sezonun model sayısının yüz kırk sekiz değil dört bin olduğunu, mağazanın 84
+değil 400 olduğunu şimdilik bir
 dipnot olarak bırakıyorum; o çarpımı kendi yazısında yapacağız.
 
 ## Ağacın yukarısı: hiyerarşi ve line
@@ -89,9 +92,9 @@ cinsiyet             Kadın · Erkek · Unisex
   üst kategori       Üst Giyim · Alt Giyim · Dış Giyim
     alt kategori     Tişört · Gömlek · Pantolon · Mont · …
       line           Basic · Collection · NOS · Outlet
-        model        MDL003 "Balıkçı Yaka Kazak"
-          option     MDL003-SYH
-            SKU      MDL003-SYH-M
+        model        MDL0012 "Balıkçı Yaka Kazak"
+          option     MDL0012-SYH
+            SKU      MDL0012-SYH-M
 ```
 
 Cinsiyet ve kategori tanıdık; asıl açıklamaya değen katman **line**. Line,

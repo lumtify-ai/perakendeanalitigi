@@ -35,19 +35,23 @@ siteyi yeniden kurmaz.
 
 ## Veri seti
 
-Tek kurgusal moda perakende zinciri: 25 mağaza, 1.200 SKU (80 model × 3 renk ×
-5 beden), 2025 yılı. Bütün vakalar aynı evreni kullanır.
+Tek kurgusal moda perakende zinciri, Lumoda: 84 mağaza ve bir online kanal,
+2023–2025, 1.870 option (8.506 SKU). Bütün vakalar ve yazılar aynı evreni (v4)
+kullanır.
 
 Veri **tamamen sentetiktir**; hiçbir gerçek şirket verisi içermez. Üretim sabit
-tohumludur (42), yani aynı komut her zaman aynı veriyi üretir.
+tohumludur (2026), yani aynı komut her zaman aynı veriyi üretir.
 
-Üretilen dosyalar repoya girmez; sürüm etiketiyle GitHub Releases üzerinden
-CSV, Parquet ve tek dosya DuckDB olarak dağıtılır.
+Üretilen dosyalar repoya girmez; `veri-v4` etiketiyle GitHub Releases üzerinden
+CSV, Parquet ve tek dosya DuckDB olarak dağıtılır. Önceki sürümler (v1, v2, v3)
+arşiv olarak Releases'te duruyor; üretici kodları yalnız kendi etiketlerinde.
 
-Yeniden üretmek için:
+Yeniden üretmek için (çekirdek ve CRM katmanı):
 
 ```bash
-cd veri && pip install -e ".[dev]" && python -m perakende_veri.uret
+cd veri && pip install -e ".[dev]"
+python -m perakende_veri.v4.uret
+python -m perakende_veri.v4.crm.uret
 ```
 
 ## Lisans

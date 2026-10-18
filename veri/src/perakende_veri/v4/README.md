@@ -1,9 +1,8 @@
 # Lumoda v4 — çekirdek veri seti
 
 v4, sitenin haritasındaki 34 algoritmanın hepsini besleyebilecek tek veri
-setinin çekirdeğidir (spec'teki A parçası). v2 ve v3'ten bağımsız bir alt
-pakettir: onları içe aktarmaz, onlara dokunmaz. Yalnız kök
-`perakende_veri.disa_aktar.yaz` ortaktır.
+setinin çekirdeğidir (spec'teki A parçası). Paketteki tek veri sürümüdür;
+yalnız kök `perakende_veri.disa_aktar.yaz` ortaktır.
 
 - Tasarım: `docs/superpowers/specs/2026-09-27-veri-v4-cekirdek-design.md`
   (§11 uygulamadaki sapmalar).
@@ -108,7 +107,7 @@ bilmez.
 |---|---|---|
 | `satis` | tarih, magaza_id, urun_id, adet, tutar, indirim_tutari, kampanya_id | Günlük. **Negatif adet = iade.** ONL dahil. İkameyle gelen satış normal satış görünür. `kampanya_id` fiyatı belirleyen kampanya, yoksa boş. |
 | `fiyat` | hafta_baslangic, option_id, hat (normal / outlet / online), indirim_orani | **Haftalık panel:** option × pazartesi × hat, haftanın sonundaki markdown oranı. Kampanya ve işlem indirimi burada yok. |
-| `stok` | tarih, magaza_id, urun_id, adet, stoklu_gun | Fiziksel mağaza, pazartesi sabahı fotoğrafı. `stoklu_gun`: önceki 7 günde satışa açılırken rafta mal olan gün sayısı (v3 gibi). |
+| `stok` | tarih, magaza_id, urun_id, adet, stoklu_gun | Fiziksel mağaza, pazartesi sabahı fotoğrafı. `stoklu_gun`: önceki 7 günde satışa açılırken rafta mal olan gün sayısı |
 | `depo_stok` | tarih, urun_id, adet | Depo, **günlük** fotoğraf. |
 | `sevkiyat` | tarih, varis_tarihi, kaynak, hedef, urun_id, adet, tip, paket_id | `tarih` çıkış günü. Çıkışı ya da varışı pencerede olan sevkler (2022-12-29…31'de çıkıp pencerede varanlar dahil). Kaynak ve hedef `magaza_id` ya da `DEPO`; `ONL` hiçbir sevkin ucu değildir. `paket_id` yalnız `ilk_dagitim`'da dolu, `paket.paket_id` ile birleşir. |
 
@@ -228,7 +227,7 @@ tablolar = yayimla(dunya, ham)        # aynı 18 tablo, kirli
 |---|---|---|
 | `ilk_dagitim` | `(g, o) -> [M]` paket sayısı | ilk alımın %70'i, `magaza_plan` payıyla |
 | `paket_secimi` | `(g, o) -> [M]` paket indisi | set başına tek standart paket |
-| `replenishment` | `(g) -> [C]` adet | v3 kuralı: 28 günlük plan hedefi, ölü stok kapısı |
+| `replenishment` | `(g) -> [C]` adet | Lumoda kuralı: 28 günlük plan hedefi, ölü stok kapısı |
 | `rpt` | `(g) -> {option: adet}` | Banu'nun kuralı (3.–6. hafta, STR ≥ %55, ilk alımın %50'si) |
 | `markdown` | `(g) -> [O, 3]` oran | STR'ye bağlı kademe (%20/30/40/50/70), haftalık; %30 sezon indirimi tabanı `indirim_gun`'de başlar (motor pazartesiye ek o gün de çağırır) |
 | `acilis` | `(g, m) -> Transferler` | yalnız depodan, ne varsa |
@@ -358,9 +357,9 @@ ya da tohum 2026'da başka bir bandı kırıyordu.
 
 ```bash
 cd veri
-.venv/Scripts/python -m pytest -q -m "not yavas"   # hızlı: birim, yapı, v2/v3 kilitleri
+.venv/Scripts/python -m pytest -q -m "not yavas"   # hızlı: birim, yapı
 .venv/Scripts/python -m pytest -q -m yavas         # tam koşu: bantlar, öğrenilebilirlik
 ```
 
-Son koşu: hızlı takım **389 geçti** (232 sn; v2 ve v3 kilitleri dahil),
-yavaş takım **16 geçti** (214 sn).
+Son koşu (eski sürümler kaldırıldıktan sonra): `-m "not veri and not yavas"` **686 geçti**
+(570 sn); yavaş takım ayrıca koşulur.

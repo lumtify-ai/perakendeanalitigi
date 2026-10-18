@@ -408,9 +408,12 @@ describe('veri seti sayfası', () => {
     expect(oku('veri-seti/index.html')).not.toContain('kayip_satis')
   })
 
-  it("v4 release'ine bağlanır; v3 ve v2 bağlantıları yerinde kalır", () => {
+  it("v4 release'ine bağlanır; v1–v3 arşiv bağlantıları yerinde kalır", () => {
     const html = oku('veri-seti/index.html')
     expect(html).toContain('releases/tag/veri-v4')
+    expect(html).toContain('Önceki sürümler (arşiv)')
+    // Bütün diziler v4'te; eski "henüz taşınmadı" cümlesi geri gelmemeli.
+    expect(html).not.toContain('henüz v4')
     expect(html).toContain('releases/tag/veri-v3')
     expect(html).toContain('releases/tag/veri-v2')
     expect(html).toContain('releases/tag/veri-v1')

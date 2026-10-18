@@ -92,7 +92,6 @@ dahil); `-m veri` gerçek v4 dosyasını ister (3 test, ~8 dk: eşdeğerlik `lum
 yayımlanan tablolarla karşılaştırır, yol 0 LightGBM'i geçici dizinde yeniden eğitir). `tests/conftest.py`'deki `GECICI_V2` (v2'den kalan geçici atlama listesi) boştur ve yalnız
 küçülebilir (`tests/test_iskelet.py`).
 
-`cikti/yol0` … `cikti/yol20` v2 vakasının artığıdır; v4 okumaz, silinebilir.
 
 ## Önbellek katmanları
 
