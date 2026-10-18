@@ -2,7 +2,7 @@
 baslik: Kural Tabanlı Yöntem
 tip: teknik
 sira: 4
-ozet: Hedef stok nasıl kurulur, safety stock'un üç ailesi, ve stoksuz kalan mağazanın hızını ölçmenin yolu.
+ozet: Hedef stok nasıl kurulur, safety stock'un üç ailesi, stoksuz kalan mağazanın hızını ölçmenin yolu ve kuralın Lumoda'nın bugünkü yöntemiyle ilk yarışı.
 yazar: Sabri Suyunu
 durum: yayinda
 ---
@@ -13,16 +13,19 @@ import T from '../../../../components/T.astro'
 
 Aşağıdaki SQL ve Python parçaları örnek olsun diye yazılmadı.
 `vakalar/replenishment/` altındaki çalışan koddan alındı. Yazıdaki her sayı
-da o kodun `rapor.py` çıktısından geliyor.
+da o vakanın `rapor.py` çıktısından geliyor.
 
 Kural tabanlı yöntemin tamamı iki satıra sığar:
 
 ```
-hedef stok = max(öngörü, güvenlik stoku)
-ihtiyaç    = max(hedef − mevcut stok, 0)
+hedef stok = max(öngörü, güvenlik stoku)              her mağaza–option için
+ihtiyaç    = max(hedef × beden payı − raf − yolda, 0)   her beden için
 ```
 
-Yazının geri kalanı bu iki satırın içini doldurmaktan ibaret.
+Hedef mağaza–option düzeyinde kuruluyor. Beden payı, mağazanın aynı
+kategori ve beden setindeki ürünlerinin geçmiş satışından geliyor. Hedefin
+o bedene ayrılan kısmından raftaki ve yoldaki mal çıkarılınca kalan, o
+bedenin isteği. Yazının geri kalanı bu iki satırın içini doldurmaktan ibaret.
 
 ## Öngörü
 
@@ -30,82 +33,105 @@ Yazının geri kalanı bu iki satırın içini doldurmaktan ibaret.
 satışıdır:
 
 ```sql
--- Kural tabanlı öngörünün ham girdisi: son 7 günün satışı,
--- option-mağaza düzeyinde. Karar günü pazartesi; blok salı-pazartesi.
+-- Kural öngörüsünün ham girdisi: karar gününden önceki 7 günün satışı
+-- (karar günü hariç), fiziksel mağaza × option düzeyinde.
+-- $karar_gunu: karar pazartesisi. temiz_satis: satis tablosunun birebir
+-- tekrar eden satırları atılmış hâli.
 with son_hafta as (
     select s.magaza_id,
            u.option_id,
            sum(s.adet) as satis_7g
-    from satis s
+    from temiz_satis s
     join urun u using (urun_id)
-    where s.tarih between date '2025-08-26' and date '2025-09-01'
-      and s.adet > 0          -- negatif satırlar iade, talep değil
+    where s.adet > 0                  -- negatif satırlar iade, talep değil
+      and s.magaza_id <> 'ONL'        -- online kanal bu kararın dışında
+      and s.tarih::date between $karar_gunu - 7 and $karar_gunu - 1
     group by 1, 2
 )
-select count(*) as oc_sayisi, sum(satis_7g) as toplam_adet
+select count(*) as cift, sum(satis_7g) as adet
 from son_hafta;
 ```
 
-İlk karar gününden önceki hafta için bu sorgu **2.027** option-mağaza çifti
-ve **11.114** adet döndürüyor. Zincir o hafta bu kadar mal satmış.
+İlk karar pazartesisi için bu sorgu **10.700** mağaza–option çifti ve
+**154.403** adet döndürüyor. Fiziksel mağazalar o hafta bu kadar mal
+satmış.
 
-Bunun üstüne özel gün katsayısı geliyor. Önümüzdeki yedi günde tatil varsa
-hedef yükselir. Geçen yedi günde tatil vardıysa taban düşer. Katsayı bu iki
-pencerenin oranıdır. Lumoda'da ölçtüğümüz değerler: Alt Giyim 1,35, Dış
-Giyim ve Üst Giyim 1,40.
+Sorguda tarih yazılı değil, karar günü bir parametre. Pencere karar
+gününden önceki yedi gün. Karar günü pencereye girmiyor, çünkü pazartesi
+sabahı o günün satışı henüz yok.
+
+Bunun üstüne iki düzeltme geliyor. Birincisi özel gün. İkinci yazıda
+ölçtük: resmî tatilde mağaza normal bir günün 0,59 ile 0,62'si kadar
+satıyor, Black Friday'de 3,24 ile 4,41 katı. Öngörüyü bu katsayılarla
+önümüzdeki haftaya taşıyoruz: önümüzdeki yedi günün katsayıları toplanıyor,
+geçen yedi günün toplamına bölünüyor. Önümüzdeki haftada Black Friday
+varsa öngörü büyüyor. Geçen haftada tatil vardıysa da büyüyor, çünkü o
+haftanın satışı olduğundan düşük görünüyordu.
+
+İkinci düzeltme stoksuz günler için. Ona aşağıda ayrı bir başlık açacağım,
+yöntemin en önemli parçası o.
 
 ## Güvenlik stoku: üç aile
 
-Sahada safety stock üç farklı şekilde hesaplanır ve üçü de doğrudur.
+Sahada <T k="safety-stock">safety stock</T> üç farklı şekilde hesaplanır ve
+üçünün de savunucusu vardır.
 
-**Sabit adet.** Her option-mağaza için bir taban: "bu üründen rafta en az şu
+**Sabit adet.** Her mağaza–option için bir taban: "bu üründen rafta en az şu
 kadar dursun." Sahada buna minimum sergileme denir. En basit ve en kolay
 anlaşılan yöntem bu.
 
-**Satış hızına göre (ROS).** Günlük satış hızı × emniyet günü. Hızlı satan
-üründe taban yükselir, satmayan üründe yükselmez. Sektör "rate of sale"
-derken bu hesabı kastediyor.
+**Satış hızına göre (<T k="ros">ROS</T>).** Günlük satış hızı × emniyet
+günü. Hızlı satan üründe taban yükselir, satmayan üründe yükselmez. Hızı
+da aşağıda anlatacağım gibi stoklu güne bölerek ölçüyoruz.
 
 **İstatistiksel.** Talebin oynaklığından türetilir:
 
 <div class="matematik">
-  güvenlik stoku = Z × σ × √(tedarik süresi)
+  güvenlik stoku = Z × σ × √(süre)
 </div>
 
-Z, istenen hizmet seviyesinden gelir, %95 için 1,65'tir. σ haftalık
-satışın standart sapmasıdır. Ders kitaplarının verdiği cevap bu.
+Z, istenen hizmet düzeyinden gelir, %95 için 1,65'tir. σ son sekiz haftanın
+haftalık satışlarının standart sapması. Süre bir hafta, çünkü bir sonraki
+karar bir hafta sonra. Ders kitaplarının verdiği cevap bu.
 
-Parametreleri gözümüze göre seçmedik. Sezon öncesindeki bir dönemde, oyun
-dönemine hiç bakmadan ayarladık: sabit yöntemde 2 adet, ROS'ta 7 gün,
-istatistiksel yöntemde Z = 1,65. Bunun önemi şu: parametreyi sonucu
-gördükten sonra seçmek, sınavın sorularını kendin yazıp kendin çözmek
-gibidir.
+Parametreleri gözümüze göre seçmedik. Oyun dönemine hiç bakmadan, bir yıl
+önceki aynı mevsimde ayarladık. İstatistiksel ailenin ayarlanacak
+parametresi yok, Z sabit. Önce onu depo kısıtı olmadan oynattık ve
+bulunabilirliğini hedef aldık: %67,11. Sonra öteki iki ailede bu hedefe en
+yakın parametreyi aradık: sabit ailede 4 adet (%67,16), ROS'ta 6 gün
+(%67,14). Üçü aynı hedefte buluştuğuna göre oraya en az stokla varanı
+seçtik: 181.635 adetle sabit aile. Yazının geri kalanında "kural"
+dediğimde tabanı 4 adet olan bu kuralı kastediyorum.
+
+Parametreyi sonucu gördükten sonra seçmek, sınavın sorularını kendin yazıp
+kendin çözmek gibidir.
 
 ## Neden toplamıyoruz?
 
-İlk kurduğumuzda hedefi şöyle yazmıştık:
+Hedefi iki türlü yazabilirsiniz:
 
 ```
 hedef = öngörü + güvenlik stoku
+hedef = max(öngörü, güvenlik stoku)
 ```
 
-Mantıklı görünüyor ama sonuç mantıklı çıkmadı. Zincir sezon boyunca gerçek
-talebin epey üstünde mal taşıdı. Dönem sonunda mağazalarda 16.566 adet
-kaldı, toplama maliyeti de 622.570 TL'ye çıktı.
+Birincisi ders kitaplarına daha yakın görünür. Biz ikincisini
+kullanıyoruz. Gerekçe sahadan: güvenlik stoku bir **taban**dır, öngörünün
+üstüne eklenen bir yastık değildir. "Rafta en az dört adet dursun" demek,
+"tahminin üstüne dört adet daha koy" demek değildir. Minimum sergileme bir
+alt sınırdır.
 
-Hata aslında ortada. Güvenlik stoku bir **taban**dır, öngörünün üstüne
-eklenen bir yastık değildir. "Rafta en az iki adet dursun" demek, "tahminin
-üstüne iki adet daha koy" demek değildir. Sahadaki karşılığı minimum
-sergilemedir ve minimum bir alt sınırdır.
+Farkın büyüklüğünü hedef düzeyinde ölçtük. Hedefi öngörüyle tabanı
+toplayarak kursaydık, ilk 17 pazartesinin hedefleri max'la kurulanlardan
+%23,1 büyük olurdu: 678.840 adet fazla. Bunun bulunabilirliğe ve stoğa etkisini ölçmedik.
+Yalnız hedefin ne kadar şişeceğini biliyoruz.
 
-Düzeltince hedef `max(öngörü, güvenlik stoku)` oldu. Dönem sonu stok
-9.966'ya, maliyet 498.260 TL'ye indi.
-
-Taban ne sıklıkla devreye giriyor? ROS ailesinde her karar gününde ortalama
-**1.275** option-mağaza çiftinde güvenlik stoku öngörüden büyük çıkıyor ve
-hedefi o belirliyor. Toplam 2.472 çift var. Yani kararların yarısında sözü
-öngörü değil taban söylüyor. Bunlar çoğunlukla yavaş satan ya da o hafta
-hiç satmamış hücreler.
+Taban ne sıklıkla devreye giriyor? İlk 17 pazartesinde satıştaki çiftlerin
+pazartesi başına ortalama 14.572'sinin 6.227'sinde güvenlik stoku öngörüden
+büyük çıkıyor ve hedefi o belirliyor: %42,7. Bunların %48,6'sında öngörü
+sıfır. Geçen hafta hiç satmamış ya da hiç rafta olmamış çiftler bunlar.
+Yani kararların beşte ikisinden fazlasında sözü öngörü değil taban
+söylüyor.
 
 ## Asıl sorun: göremediğimiz talep
 
@@ -113,84 +139,224 @@ hiç satmamış hücreler.
 
 Öngörü geçmiş satışa bakıyor. Peki raf boşken ne oluyor? Müşteri gelir,
 ürünü bulamaz, çıkıp gider. Kasada hiçbir kayıt oluşmaz. O günün satışı
-sıfır yazılır ve sistem bunu "talep yoktu" diye okur.
+sıfır yazılır ve sistem bunu "talep yoktu" diye okur. Buna
+<T k="sansurlu-talep">sansürlü talep</T> deniyor.
 
 Sonuç bir kısır döngü. Stoksuz kalan mağaza yavaş görünür. Yavaş göründüğü
 için az mal alır. Az mal aldığı için yine stoksuz kalır. Raporda her şey
 yolunda görünür, çünkü kayıp hiçbir tabloya girmez.
 
-İlk yazıdaki Alsancak'ı hatırlayın. Geçen hafta 18 satmış, rafı sıfır. O
-18, Alsancak'ın talebi değildi. Alsancak'ın **stoğuydu**.
+İlk yazıdaki İstanbul 8'i hatırlayın. Fırfırlı Bluz'un XL'i, saydığımız
+119 takvim gününün yalnız 30'unda rafındaydı. Satışı takvim gününe bölen
+bir sistem onu günde 0,29 satan bir mağaza sanır. Rafta olduğu güne
+bölünce hız 1,13.
 
 ### Düzeltme: takvim gününe değil, stoklu güne böl
 
 Çözüm sandığınızdan basit. Hızı hesaplarken rafın boş olduğu günleri
-paydadan çıkarın:
+paydadan çıkarın. Kodda bu iş üç küçük fonksiyonla yapılıyor:
 
 ```python
-def hiz(satis_penceresi, stoklu_gun_penceresi):
-    """Satış hızı = satış / rafta mal olan gün sayısı.
+# replenishment/ihtiyac.py (kural_ongorusu'nun belge metni kısaltıldı)
 
-    Takvim gününe bölmek, rafın boş olduğu günleri 'satmadı' diye sayar
-    ve stoksuz kalan hücreyi yavaş gösterir.
-    """
-    satis = satis_penceresi.sum(axis=0)
-    stoklu = stoklu_gun_penceresi.sum(axis=0)
-    return np.divide(satis, stoklu, out=np.zeros_like(satis, dtype=float),
-                     where=stoklu > 0)
+def stoklu_gun(
+    stoklu: np.ndarray, satis: np.ndarray, harita: Harita, karar_gunu: int, gun: int
+) -> np.ndarray:
+    """float[OC]: `[karar−gun, karar−1]` içinde OC'nin stoklu gün sayısı —
+    hücrelerinden en az biri stoklu ya da satış yapmış gün (satış stoksuz
+    olmaz). Veri başından önceye taşan kısım sayılmaz."""
+    bas = max(karar_gunu - gun, 0)
+    sonuc = np.zeros(_oc_say(harita))
+    for d in range(bas, karar_gunu):
+        var = stoklu[d] | (satis[d] > 0)
+        gorulen = np.zeros(_oc_say(harita), dtype=bool)
+        gorulen[harita.oc[var]] = True
+        sonuc += gorulen
+    return sonuc
+
+
+def _hiz(toplam: np.ndarray, gunler: np.ndarray) -> np.ndarray:
+    """toplam / gün; gün 0 ise 0 (modül belgesi: sansürlü tam pencere)."""
+    hiz = np.zeros_like(toplam)
+    np.divide(toplam, gunler, out=hiz, where=gunler > 0)
+    return hiz
+
+
+def kural_ongorusu(
+    satis: np.ndarray,
+    harita: Harita,
+    karar_gunu: int,
+    katsayilar: dict[str, float],
+    stoklu: np.ndarray | None = None,
+    *,
+    takvim: pd.DataFrame,
+) -> np.ndarray:
+    """float[OC]: son 7 gün satışı × hafta katsayısı; `stoklu` verilirse
+    (son 7 gün satışı / son 7 günün stoklu günü) × 7 × hafta katsayısı."""
+    son7 = _pencere(satis, harita, karar_gunu - 7, karar_gunu)
+    if stoklu is not None:
+        son7 = _hiz(son7, stoklu_gun(stoklu, satis, harita, karar_gunu, 7)) * 7.0
+    return son7 * oc_hafta_katsayisi(harita, takvim, karar_gunu, katsayilar)
 ```
 
-Bir hücre son 28 günün sadece 7'sinde stokluysa ve o 7 günde 14 adet
-sattıysa, hızı günde 0,5 değil **2**'dir. Arada dört kat fark var.
+Bir çift son 28 günün yalnız 7'sinde stokluysa ve o 7 günde 14 adet
+sattıysa, hızı günde 0,5 değil **2**'dir. Arada dört kat fark var. Hiç
+stoklu günü olmayan çiftin hızı sıfır alınıyor: o pencere talep hakkında
+hiçbir şey söylemiyor ve kod bir sayı uydurmuyor. O çiftin hedefini taban
+belirliyor.
+
+Koddaki "stoklu gün" tanımına dikkat edin. Bir mağaza–option çifti için
+stoklu gün, bedenlerinden en az birinin rafta olduğu ya da satış yaptığı
+gün. Satış varsa raf boş olamaz. Tanımın bir sınırı da var: M bitmiş ama
+öteki bedenler raftaysa o gün stoklu sayılıyor. Bu düzeltme beden
+düzeyindeki boşluğu görmüyor.
 
 Bunun hile olmadığının altını çizeyim. Kayıp satış tablosuna dokunmuyoruz.
-O tabloyu sadece hakem görüyor, karar veren yöntem görmüyor. Kullandığımız
-tek şey mağazanın kendi stok kaydı. Gerçek zincirlerde bu veri zaten var.
+O tabloyu yalnız hakem görüyor, karar veren yöntem görmüyor. Kullandığımız
+tek şey mağazanın kendi günlük stok kaydı.
 
-Etkisi de küçük değil. Aynı senaryoda bulunabilirlik %61,5'ten **%67,8**'e
-çıktı.
+Etkisini hedef düzeyinde ölçtük. İlk 17 pazartesinde düzeltme öngörüyü
+%6,7, hedefi %5,3 büyütüyor. Bulunabilirliğe etkisini ayrıca ölçmedik,
+çünkü düzeltmesiz bir kural koşusu yapmadık.
 
-Bir sınırı var, onu da söyleyeyim. Oyun öncesi dönem için günlük stok
-geçmişimiz yok, Lumoda sadece haftalık stok fotoğrafı tutuyor. O günleri
-stoklu saydık. Bu temkinli bir varsayım, hızı olduğundan yüksek
-göstermiyor. Ama ilk haftaların kararları kısmen düzeltilmemiş kalıyor.
+### Bir adım ötesi: Satış Kaybı dizisinin kestiricisi
+
+Stoklu güne bölmek kaba bir düzeltme. [Satış Kaybı
+dizisi](/is-zekasi/satis-kaybi/) stoksuz günün talebini daha dikkatli
+kestiren bir yöntem kurmuştu: Basit. Stoksuz günün iki yanındaki stoklu
+günlere bakıp o günün kaybını kestiriyor.
+
+Kuralın öngörüsünü, karar anında hesaplanan Basit kestirimiyle değiştirdik:
+son yedi günün satışı artı Basit'in o günler için yazdığı kayıp, yine hafta
+katsayısıyla. Taban, koli, tavan aynı kaldı:
+
+| | Kural | Kural + Basit | Fark |
+|---|---:|---:|---:|
+| Bulunabilirlik | %65,10 | %68,07 | +2,97 puan |
+| Kayıp oranı | %38,89 | %35,52 | −3,37 puan |
+| Dört ayın sonunda mağaza stoğu | 311.819 | 333.931 | +22.112 adet |
+| Toplama maliyeti | 7.673.800 TL | 8.002.030 TL | +328.230 TL |
+
+Basit daha yüksek bulunabilirlik veriyor ama daha çok stokla. Bu farkın ne
+kadarının stoktan, ne kadarının daha iyi kestirimden geldiğini ayırmadık.
+Bunu yayımlanan müşteri akışında, tek bir senaryoda ölçtük. Yine de iki
+dizinin buluştuğu yer burası: kayıp kestirimi replenishment'ın girdisi.
 
 ## Üç aile yarışıyor
 
-Aynı sezonu, aynı talep üzerinde, sadece güvenlik stoku ailesini
-değiştirerek oynattık. Yirmi farklı talep senaryosunda farkların medyanı:
+Şimdi aynı dört ayı, üçüncü yazıdaki depo kısıtlarıyla (koli ve açık
+toplama tavanı), yalnız güvenlik stoku ailesini değiştirerek oynattık:
 
-| Karşılaştırma | Bulunabilirlik | Dönem sonu stok |
+| Aile | Bulunabilirlik | Dört ayın sonunda mağaza stoğu |
 |---|---:|---:|
-| ROS − sabit | +1,04 puan | +997 adet |
-| İstatistik − sabit | +0,41 puan | +197 adet |
-| İstatistik − ROS | −0,63 puan | −800 adet |
+| Sabit, 4 adet | %65,10 | 311.819 |
+| İstatistik, Z = 1,65 | %64,99 | 324.526 |
+| ROS, 6 gün | %64,00 | 317.083 |
 
-Yirmi senaryonun yirmisinde de yön aynı. ROS en yüksek bulunabilirliği
-veriyor ama karşılığında en çok stoğu da o taşıyor. Sıralama beklendiği
-gibi: taban ne kadar yüksekse raf o kadar dolu, depo o kadar yoğun.
+Sabit ile istatistik başa baş, ROS bir puan kadar geride. Bunu bir bulgu
+diye sunmayacağım: üçünü kalibrasyonda aynı bulunabilirliğe ayarladık,
+yakın çıkmaları beklenen şey.
 
-Ama farkların büyüklüğüne bakın. Üç aile arasındaki en büyük fark **bir
-puan**. Oysa geçen yazıda koliyi kapatmak bulunabilirliği 26 puan
-oynatmıştı. Sansür düzeltmesi 6 puan oynattı. Ders kitabındaki üç yöntem
-arasında seçim yapmak, bu problemdeki en önemsiz kararlardan biri.
+Bu tablodan çıkacak ders "hangi aile" sorusunda değil. Ders kitabındaki üç
+yöntem arasında seçim yapmak bu problemin en önemli kararı değil. Önemli
+olan, hangi aileyi seçerseniz seçin, tabanı ne kadar yüksek tuttuğunuz.
+Ona birazdan geleceğiz.
 
 ## Ve hâlâ yetmiyor
 
-Sezonun tamamına bakalım. Kural tabanlı yöntem on yedi karar boyunca toplam
-**176.387** adetlik hedef kurdu. Aynı dönemde gerçek talep **216.669**
-adetti.
+Önce kuralın kendisine bakalım. İlk 17 pazartesinde kural toplam
+**2.936.365** adetlik hedef kurdu. Bu hedeflerin örtmesi gereken haftalarda
+gerçek talep **3.507.584** adetti.
 
-Yani düzeltmeden sonra bile sistem gerçek talebin ancak **%81,4'ünü**
-istedi. Kalan %18,6 hiç istenmedi. İstenmediği için hiç gönderilmedi,
-müşteri de onu rafta hiç bulamadı.
+Yani sansür düzeltmesinden sonra bile hedef, gerçek talebin ancak
+**%83,7'si**. Öngörü tek başına %74,8'inde kalıyor; hedefi %83,7'ye taban
+çıkarıyor.
 
-Sebep yine sansür. Stoklu güne bölmek işe yarıyor ama sorunu tamamen
-çözmüyor. Bir hücre uzun süre stoksuz kaldıysa, ölçülecek stoklu gün bile
-kalmıyor. Kayıp satışı göremeyen hiçbir yöntem bu açığı tamamen kapatamaz.
-Ne bu yöntem kapatabilir ne de sonraki yazıda kuracağımız makine öğrenmesi
-modeli.
+Hedefi büyütmenin bir yolu var: tabanı yükseltmek.
 
-Sonraki yazıda tahmine geçiyoruz. LightGBM ile option-mağaza düzeyinde
-tahmin kuracağız ve aynı sezonu onunla oynatacağız. Beklentim modelin daha
-iyisini yapmasıydı. Sonuç beklediğim gibi çıkmadı.
+## Asıl kaldıraç: ne kadar stok
+
+İlk yazıda bir söz vermiştim: Lumoda'nın bugünkü yöntemi de bir kural,
+ikisini aynı depoyla yarıştıracağız. İkinci yazıda bir söz daha vermiştim:
+dizinin en şaşırtıcı bulgusu emniyet payını nasıl tanımladığımızdan
+çıkacak. İkisinin de vakti geldi.
+
+Lumoda'nın kuralını hatırlayalım. Planın önümüzdeki dört hafta için o
+mağazaya yazdığı satış, eksi raftaki ve yoldaki stok. Son dört haftada hiç
+satmamış mağazaya istek yazılmaz. Bu kuralı da aynı depo kısıtlarıyla
+oynattık: aynı koli kuralı, aynı açık toplama tavanı.
+
+Sonuç: bulunabilirlik Lumoda'nın kuralında %73,87, bizimkinde %65,10.
+Fark 8,77 puan.
+Aynı dört ayın beş farklı müşteri akışında da Lumoda önde; fark 7,54 ile
+8,77 puan arasında.
+
+Ama bedeline bakın. Dört ayın sonunda Lumoda'nın mağazalarında 428.097 adet
+duruyor, bizimkilerde 311.819. Lumoda'nın mağaza stoğu bizimkinden %37,3
+fazla. Mağazaya varan mal Lumoda'da ortalama 16,5 günde satılıyor, bizde
+7,5 günde. Toplama maliyeti de 943.300 TL fazla. Lumoda daha çok stokla
+daha çok satıyor.
+
+İki yöntemi tek bir sayıyla karşılaştırmak bu yüzden yanıltıcı. Doğru soru
+şu: aynı stokla hangisi daha çok bulunabilirlik veriyor?
+
+Kuralı daha çok stok tutacak hâle getirmek için koduna dokunmamız
+gerekmedi. Tabanı değiştirdik: ROS ailesinin emniyet gününü 14, 21 ve 28
+güne çıkardık. Böylece hedef, bir haftalık öngörü ile iki, üç ya da dört
+haftalık satışın büyüğü oluyor. Lumoda'nın dört haftalık hedefine benzeyen
+bir kural.
+
+| Yöntem | Bulunabilirlik | Dört ayın sonunda mağaza stoğu | Satışa dönme |
+|---|---:|---:|---:|
+| Kural, taban 4 adet | %65,10 | 311.819 | 7,5 gün |
+| Kural, taban 14 günlük satış | %69,34 | 397.033 | 13,8 gün |
+| Kural, taban 21 günlük satış | %70,44 | 419.696 | 16,7 gün |
+| Lumoda | %73,87 | 428.097 | 16,5 gün |
+| Kural, taban 28 günlük satış | %70,75 | 443.415 | 18,0 gün |
+
+Satışa dönme, mağazaya varan bir adedin satılana kadar geçen ortalama gün
+sayısı; yalnız satılan adetler üzerinden.
+
+Taban yükseldikçe kural da yükseliyor: 4 adetlik tabanla %65,10, 21 günlük
+tabanla %70,44. Lumoda'nın stok düzeyinde (428.097 adet) kuralın
+bulunabilirliğini 21 ve 28 günlük tabanların arasından doğrusal olarak
+okuyoruz: %70,55. Lumoda %73,87. Eşit stokta fark 3,32 puan.
+
+Yani 8,77 puanlık farkın 5,45 puanı stok düzeyinden geliyor. Kuralın
+hesabından değil, ne kadar stok taşımaya razı olduğundan.
+
+İkinci yazıda verdiğim söz buydu. Emniyet payını "rafta en az dört adet"
+diye tanımlayınca kural yalın, hızlı dönen bir stokla çalışıyor ama talebin
+bir kısmını kaçırıyor. "Üç haftalık satış" diye tanımlayınca Lumoda'ya
+yaklaşıyor. Aile seçimi bir puan kadar
+oynatıyor. Tabanın yüksekliği, Lumoda'yla aradaki farkın 5,45 puanını
+kapatıyor.
+
+Bu bir tercih: ne kadar stok taşımak istiyorsunuz? Doğru cevap zincire göre
+değişir. Ama karar verirken iki yöntemi tek sayıyla değil, bulunabilirlik
+ile stok arasındaki eğri üzerinde karşılaştırın.
+
+Geriye 3,32 puan kalıyor. Aynı stokla bile Lumoda'nın kuralı daha yüksek
+bulunabilirlik veriyor. Bu farkın nerede açıldığına son yazıda bakacağız.
+
+## Sizin verinizde zor olan
+
+Bu yazının en çok konuşulacak kısmı muhtemelen güvenlik stoku aileleri.
+Ama sizin verinizde zor olan büyük ihtimalle başka iki şey.
+
+Birincisi stoklu gün. Sansür düzeltmesi her mağaza, her ürün, her gün için
+"raf boş muydu" sorusuna cevap ister. Lumoda'da bu kayıt eksiksiz. Gerçek
+bir zincirde günlük stoğu kurmak ayrı bir iştir: sayım farkları, geç
+işlenen transferler, iadeler. Stoklu günü yanlış saydığınız yerde hız da
+yanlış çıkar.
+
+İkincisi karşılaştırmanın kendisi. Biz kuralı Lumoda'nın yöntemiyle aynı
+stokta karşılaştırabildik, çünkü iki yöntemi aynı müşteri akışında oynatıp
+bulunabilirliği ölçebildik. Sizin zincirinizde iki yöntemi aynı sezonda yan
+yana çalıştıramazsınız, raf boşken gelen müşteri de hiçbir yere yazılmaz.
+Bugünkü kuralınızı taban çizgisi alıp yenisini aynı stok düzeyinde
+karşılaştırmak en zor adım. En gerekli olanı da o.
+
+Sonraki yazıda tahmine geçiyoruz. LightGBM ile mağaza–option düzeyinde
+tahmin kuracağız ve aynı dört ayı onunla oynatacağız. Beklentim modelin
+daha iyisini yapmasıydı. Sonuç beklediğim gibi çıkmadı.

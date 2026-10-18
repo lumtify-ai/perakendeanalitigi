@@ -4,7 +4,8 @@ tip: anlatici
 sira: 3
 ozet: >-
   Sektörün en çok tartıştığı soru kısıtlı stoğun nasıl paylaştırılacağı.
-  Ölçtük ve bizim zincirimizde hiç fark etmedi. Asıl fark koliden çıktı.
+  Ölçtük; kıtlık olduğu hâlde paylaştırma kuralı bir puan bile oynatmadı.
+  Asıl fark koliden ve deponun açık toplama kapasitesinden çıktı.
 yazar: Sabri Suyunu
 durum: yayinda
 ---
@@ -29,8 +30,39 @@ vitrinden kaldırmak zorunda kalmasın.
 **Adil bir ölçüt bul.** İhtiyaca oranla dağıt, satış hızına göre sırala ya
 da geçen sefer alamayanı öne al.
 
-Üçü de savunulabilir. Ben de yıllarca bu tartışmanın içindeydim. Şimdi bu
-tartışmayı ölçtüğümüzde ne çıktığını anlatacağım.
+Üçü de savunulabilir. Ben de yıllarca bu tartışmanın içindeydim. Geçen
+yazının sonunda bir söz vermiştim: önce bunun gerçekten sizin sorununuz olup
+olmadığına bakacağız. Bu yazıda ölçtüğümüzde ne çıktığını anlatacağım.
+
+## Depo böyle çalışsaydı
+
+Paylaştırmayı ölçmek için önce paylaşılacak bir kıtlık lazım. Lumoda'nın
+yayımlanan verisinde depo, istenen her adedi beden beden toplayabiliyor.
+Gerçek bir depo böyle çalışmaz. Bu yazı için depoya iki kural ekledik ve
+aynı dört ayı bu kurallarla yeniden oynattık. Sorumuz şu: depo böyle
+çalışsaydı ne olurdu?
+
+**Birinci kural: mal ya kolide ya açıkta durur.**
+<T k="acik-adet">Açık adet</T>, bedenleri tek tek toplanabilen maldır.
+Mağazanın M bedeni bitmişse yalnız M gönderirsiniz. Koli ise kapalı
+pakettir, içinde ne varsa o gider. Lumoda'nın kolisi yedi adet, beden
+sırasıyla 1-2-2-1-1. Aksesuarda tek bedenden altı adet. Depoya gelen malın
+bir kısmını açıkta tuttuk: Collection ve Outlet'te %20'sini, NOS ile
+Basic'te %40'ını. Gerisi kolide.
+
+**İkinci kural: depo bir haftada sınırlı sayıda açık adet toplayabilir.**
+Bu tavanı haftada 25.826 adet aldık. Koliyi tavana saymadık, çünkü depo
+koliyi tek parça hareket ettiriyor.
+
+Açık payı, tavan ve az sonra göreceğiniz toplama maliyetleri bizim
+varsayımımız, veriden gelmiyor. Bu yüzden yazının sonunda tavanı değiştirip
+sonucun nasıl değiştiğine de bakacağız.
+
+İki tanımı da baştan vereyim. **Bulunabilirlik**, bir mağazada bir bedene
+talep olan günlerin kaçında o bedenin rafta olduğu. **Kayıp oranı**,
+talebin karşılanamayan payı. Aksi söylenmedikçe sayılar referans noktadan:
+depo sezon için talep tahmininin tamamı kadar alıyor, tavan haftada 25.826
+adet, öncelik cover, koli kuralı da aşağıda anlatacağım A.
 
 ## Üçünü de kodladık
 
@@ -42,129 +74,239 @@ Modelimizde paylaştırma önceliği bir ayar. Üç kuralı da yazdık:
 - **ihtiyac**: ihtiyacı en büyük olan önce alır.
 - **esit**: o hafta en az mal almış olan önce alır. Sırayla herkese.
 
-Sonra aynı sezonu, aynı talep üzerinde, sadece bu ayarı değiştirerek
-oynattık. Sonuç:
+Öncelik iki yerde sırayı belirliyor: açık adet dağıtılırken de, koli
+dağıtılırken de. Aynı dört ayı, aynı talep üzerinde, yalnız bu ayarı
+değiştirerek oynattık:
 
-| Öncelik | Bulunabilirlik | Kayıp satış | Beden sapması |
-|---|---:|---:|---:|
-| cover | %54,0 | %49,1 | %59,2 |
-| ihtiyac | %54,0 | %49,1 | %59,2 |
-| esit | %54,0 | %49,1 | %59,4 |
+| Öncelik | Bulunabilirlik | Kayıp oranı |
+|---|---:|---:|
+| cover | %65,10 | %38,89 |
+| ihtiyac | %65,28 | %38,22 |
+| esit | %64,85 | %40,57 |
 
-Fark yok.
+En iyiyle en kötü arasında 0,43 puan var. Pars'ın cümlesi, yani cover,
+birinci bile değil. Ama farklar yarım puanın altında.
 
-İlk işim hata aramak oldu. Kodu kontrol ettim, kural gerçekten
-uygulanıyordu. Sonra alımı kıstım ve depoya sezonluk planın %30'unu
-verdim. Yine fark yok. %10'a indirdim, yine yok. %5'e indirdim, yani
-deponun aldığı malı yirmide bire düşürdüm. Üç kural yine aynı sonucu
-verdi.
+İlk akla gelen açıklama şu: paylaştırma kuralı ancak mal yetmediğinde
+devreye girer. Belki de mal hep yetiyordur. Ona da baktık.
 
-## Neden?
+## Kavga çıkıyor
 
-Cevap ortaya çıkınca çok basitti: **o kavga hiç çıkmıyordu.**
+Alımı kıstık: depo sezon için talep tahmininin %40'ı kadar alsın. Sonra
+depo kısıtlarını tamamen kaldırdığımız bir denemede (koli zorunluluğu yok,
+tavan yok) şunu sorduk: mağazaların istediği malın ne kadarı depoda yoktu?
 
-Paylaştırma kuralı ancak mal yetmediğinde devreye girer. O hafta istenen
-malı depodaki stok karşılıyorsa kimin önce aldığı önemsizdir, herkes
-istediğini alır. Bizim zincirimizde neredeyse her hafta, neredeyse her
-üründe durum buydu.
+İsteğin %18,5'i depo stoğuna takıldı. Karşılanmayan talebin %44,3'ü de
+deponun o bedende boş olduğu günlere denk geldi. Alım %100'deyken bu
+oranlar %11,0 ve %27,2. Yani kavga çıkıyor, hem de sık.
 
-Şunu da ölçtük: açık toplama kapasitesi 17 karar haftasının hiçbirinde
-dolmadı. En yoğun hafta bile tavanın %82,1'inde kaldı. Depo da hiç
-boşalmadı. En sıkı senaryoda bile dönem sonunda depoda 26.797 adet kalmıştı.
+Üç önceliği bu kıt depoda, kısıtlarla birlikte yeniden yarıştırdık. Alım
+%40'ta cover %55,70, ihtiyac %55,74, esit %54,86 veriyor. Öncelikler
+arasındaki fark 0,88 puana çıktı ama yine bir puanın altında. Aynı
+öncelikle (cover) alımı %40'tan %100'e çıkarmak ise bulunabilirliği
+%55,70'ten %65,10'a taşıyor.
 
-Depoda mal vardı. Raflar boştu. Bulunabilirlik %54.
-
-Bu üç cümleyi bir kez daha okuyun, çünkü bu dizinin en önemli cümleleri
-olabilir. Zincirin derdi malı paylaştıramamak değildi. Derdi **yeterince mal
-istememekti.** Sistem her hafta geçen haftanın satışına bakıp mütevazı bir
-miktar istiyordu. Deponun dolu olması bu yüzden hiçbir işe yaramıyordu.
-
-Pars'ın bu konuda sık tekrarladığı bir söz var:
+Pars bunu şöyle özetliyor:
 
 — Bir kuralı iyileştirmeden önce o kuralın devreye girdiği anı bulun. O an
-hiç gelmiyorsa, iyileştirdiğiniz şey kafanızdaki bir senaryodur.
+geliyorsa sonucu ne kadar oynattığına bakın. Bu kural devreye giriyor ama
+sonucu bir puan bile oynatmıyor.
 
-## Asıl fark nereden çıktı?
+Kıtlık var, ama paylaştırma kuralı bir kaldıraç değil. Kıt malı kime
+verdiğiniz, ne kadar mal olduğunun yanında küçük kalıyor.
 
-Paylaştırma önceliği bir şey değiştirmedi. Peki ne değiştirdi?
+## Depoda mal var, raflar boş
 
-Koli.
+Kıtlığın bir yüzü daha var. Mal depoda olup rafta olmayabilir.
 
-Depodan mağazaya mal iki şekilde çıkar. **Açık adet**, bedenleri tek tek
-toplanmış maldır. Mağazanın M bedeni bitmişse sadece M gönderirsiniz.
-İsabetlidir. **Koli** ise kapalı pakettir. Bizim kurgumuzda 1-2-2-2-1
-asortili, sekiz adetlik bir koli. İçinde ne varsa o gider.
+Referans noktada dört ayın ikinci yarısına bakalım. NOS ile Basic'in
+deposunda pazartesi sabahları ortalama 976.335 adet duruyor, stoğu sıfır
+olan SKU'ların payı %0,35. Aynı dokuz haftada mağazalardaki bulunabilirlik
+Basic'te %60,29, NOS'ta %60,42. Son pazartesi sabahı, o haftanın
+gönderiminden önce, depoda 1.590.720 açık adet vardı. Bütün line'larda
+karşılanmayan talebin %22,2'si deponun o bedende boş olduğu günlere denk
+geliyor; kalanında depoda mal vardı.
 
-Sezgimiz şunu söyler: açık adet daha isabetli, koli ise bir kısıt. Madem
-öyle, koliyi tamamen kapatıp sadece açık adetle çalışalım. Bakalım ne
-oluyor:
+Raf boşken depo doluysa iki şüpheli var: ya depo malı çıkaramıyor ya
+sistem malı istemiyor.
+
+Birinci şüpheli için tavana bakalım. Açık toplama tavanı referans
+noktada 18 haftanın 17'sinde doldu, doluluğun ortalaması %97,9. Depo
+gerçekten sınırda çalışıyor. Ama kısıtları tamamen kaldırdığımızda
+bulunabilirlik yalnız %66,73'e çıkıyor. Depo kısıtının bulunabilirliğe
+maliyeti 1,63 puan.
+
+İkinci şüpheliyi sonraki yazıda açacağız ama ipucu şimdiden belli. Kural
+her pazartesi bir hedef stok kuruyor. Bu hedeflerin toplamı, örtmeleri
+gereken haftaların gerçek talebinin ancak %83,7'si. Sistem talebin tamamını
+istemiyor bile.
+
+## Koli kapasitenin kendisi
+
+Depo kısıtının maliyeti 1,63 puan dedik. Koliyi kapatırsak tablo
+değişiyor.
+
+Sezgimiz şunu söyler: açık adet isabetli, koli ise bir kısıt. Madem öyle,
+koliyi tamamen kapatıp yalnız açık adetle çalışalım:
 
 | | Koli + açık | Yalnız açık |
 |---|---:|---:|
-| Gönderilen | 102.488 | 44.817 |
-| Koli | 8.777 | 0 |
-| Açık adet | 32.272 | 44.817 |
-| Bulunabilirlik | %67,8 | %42,1 |
-| Kayıp satış | %35,2 | %60,7 |
-| Toplama maliyeti | 498.260 TL | 448.170 TL |
-| Adet başına maliyet | 4,86 TL | 10,00 TL |
+| Gönderilen adet | 1.543.082 | 455.172 |
+| Koli | 156.104 | 0 |
+| Kolideki adet | 1.087.910 | 0 |
+| Açık adet | 455.172 | 455.172 |
+| Bulunabilirlik | %65,1 | %37,8 |
+| Kayıp oranı | %38,9 | %65,2 |
+| Toplama maliyeti | 7.673.800 TL | 4.551.720 TL |
+| Adet başına maliyet | 4,97 TL | 10,00 TL |
 
-Koliyi kapatınca zincir taşıdığı malın yarısından fazlasını kaybetti.
-Bulunabilirlik 26 puan düştü.
+Koliyi kapatınca gönderilen mal 1.087.910 adet azaldı, bulunabilirlik 27,3
+puan düştü.
 
-Sebebi tabloda. Depo haftada 2.860 adetten fazla açık toplayamıyor. 17
-haftada bu tavan 48.620 adet ediyor. Zincir 102 bin adet taşımak istiyor
-ama açık adetle en fazla 44.817'sini taşıyabiliyor. Kalanı ya koliyle
-gidecek ya da hiç gitmeyecek.
+Sebebi tabloda. Açık adet iki sütunda da aynı: 455.172. Depo haftada
+25.826 adetten fazla açık toplayamıyor, 18 haftada bu 464.868 adet ediyor.
+Yalnız açıkla çalışan zincir tavana dayanıyor ve orada kalıyor. Gerisi ya
+koliyle gidecek ya hiç gitmeyecek.
 
 **Koli bir kısıt değil, kapasitenin kendisi.** Üstelik adet başına toplama
-maliyetini yarıdan fazla düşürüyor: 10,00 TL yerine 4,86 TL.
+maliyetini yarının altına indiriyor: 10,00 TL yerine 4,97 TL. Bu maliyetler
+de varsayım: açık adet başına 10 TL, koli başına 20 TL.
 
-## Koli ne zaman gönderilir?
+## Koli açılmaz
 
-Koli hacmi taşıyor ama bir bedeli var: içinde ne varsa onu gönderiyor.
-Mağazanın sadece M bedenine ihtiyacı varsa koli ona XS ile XL'i de getirir.
-O fazlalık rafta kalır, sayıma girer, sezon sonunda indirime gider.
+Ali tabloyu görünce aklındakini söylüyor:
+
+— Koli bu kadar işe yarıyorsa bir adım daha atalım. Mağazamın yalnız M'yle
+L'ye ihtiyacı varsa koliyi depoda açalım, M'yle L'yi gönderelim, gerisini
+açık stoğa ekleyelim.
+
+Pars başını iki yana sallıyor:
+
+— Mağazaya replenishment yaparken koli açılmaz. Depoda mal ya kolide durur
+ya açıkta. Önce açığa bakarsın. M ile L açıkta varsa açıktan gider. Yoksa
+koliye bakarsın. Koli kuralı izin veriyorsa tam koli gider, vermiyorsa o
+hafta gitmez.
+
+— Açsak ne olur?
+
+— Koli açmak ayrı bir iş. Biri koliyi açar, bedenleri ayırır, kalanı açık
+stoğa sayar. Bunun işçiliği de maliyeti de ayrı. Açmadan gönderirsen bu
+sefer mağazaya istemediği beden gider. M ile L lazım, ama kolide XS, S ve
+XL de var. Onlar rafta bekler, mağazanın stoğu şişer.
+
+— Peki koli açmak sık sık gerekiyorsa?
+
+— O zaman sorun depoda değil, diyor Pars. Ya sipariş yanlış verilmiş ya
+beden analizi yanlış yapılmış. Mağazaların beden ihtiyacına uymayan koli
+almışsınız demektir.
+
+Kurduğumuz model de böyle çalışıyor. Önce açık adet gidiyor, açık stok ve
+haftalık tavan yettiğince. Kalan ihtiyaç için, koli kuralı izin veriyorsa
+tam koli. Hiçbir koli açılmıyor.
+
+## Koli ne zaman gider?
 
 Replenishment'ın en çok ihmal edilen kararı burada: *bu mağazaya koli
-gidecek mi, gitmeyecek mi?* Tek bedende ihtiyaç var diye sekiz adetlik koli
-gönderilmez. Ama sekiz adedin altısı gerçekten lazımsa gönderilir.
+gidecek mi, gitmeyecek mi?* Tek bedende ihtiyaç var diye yedi adetlik koli
+gönderilmez. Ama yedi adedin çoğu gerçekten lazımsa gönderilir.
 
-Biz üç kural yazdık:
+Üç kural yazdık:
 
-- **A: eşik ve fazlalık.** Toplam ihtiyaç kolinin belli bir oranını
-  geçiyorsa ve hiçbir bedendeki fazlalık belirlenen sınırı aşmıyorsa koli
+- **A: eşik ve fazlalık.** Kalan ihtiyaç kolinin belli bir oranına
+  ulaşıyorsa ve hiçbir bedende fazlalık belli bir sınıra varmıyorsa koli
   gider.
-- **B: karşılama oranı.** Kolideki sekiz adedin en az belli bir kısmı
-  gerçek bir ihtiyacı karşılıyorsa koli gider.
+- **B: karşılama oranı.** Kolideki adetlerin en az belli bir kısmı gerçek
+  bir ihtiyacı karşılıyorsa koli gider.
 - **C: ikisi birden.**
 
-Eşikleri de gözümüze göre seçmedik. Sezon öncesindeki bir dönemde, oyun
-dönemine hiç bakmadan ayarladık. A'da toplam ihtiyacın kolinin %40'ını
-geçmesi ve hiçbir bedendeki fazlalığın 3 adede ulaşmaması gerekiyor. B'de
-kolinin en az yarısının ihtiyaca denk gelmesi gerekiyor.
+Eşikleri oyun dönemine bakmadan, bir yıl önceki aynı mevsimde seçtik.
+Ölçütümüz bulunabilirlik ve toplama maliyetiydi: en yüksek bulunabilirliğin
+bir puan yakınındaki en ucuz kural. A'da kalan ihtiyacın kolinin beşte
+ikisine ulaşması ve hiçbir bedende fazlalığın 3 adede varmaması gerekiyor.
+B'de kolinin en az yarısının bir ihtiyaca denk gelmesi. C'yi ayrıca
+ayarlamadık, A ile B'nin şartlarını birlikte uyguladık.
 
-Üç kuralın sonucu birbirine çok yakın çıktı. Bulunabilirlikte aralarındaki
-fark 0,2 puanın altında. Yani kolinin **gidip gitmemesi** büyük fark
-yaratıyor, hangi eşikle karar verdiğiniz ise küçük.
+Sonucu anlamak için bir ayrıntı önemli. Bizim kolide bir bedende en çok iki
+adet var, yani A'nın fazlalık şartı yedi adetlik kolide hiç devreye
+girmiyor. Seçtiğimiz A pratikte şunu söylüyor: kolinin hangi bedenleri
+getirdiğine bakma, yedi adedin üçü kadar ihtiyaç varsa gönder. B daha
+titiz. Yedi adedin en az dördünün bir ihtiyacı karşılamasını istiyor.
+Pars'ın kuralına yakın olan B.
 
-Bu da sektörde sık görülen bir dengesizliğe işaret ediyor. Koli eşiklerini
-ayarlamak için günlerini harcayan ekipler vardır. Oysa o eşiklerle
-kazanılacak her şey, deponun bir günde kaç adet açık toplayabildiği
-sorusunun yanında küçük kalır.
+Tablodaki satışa dönme, mağazaya varan bir adedin satılana kadar geçen
+ortalama gün sayısı; yalnız satılan adetler üzerinden:
+
+| Kural | Bulunabilirlik | Gönderilen koli | Dört ayın sonunda mağaza stoğu | Satışa dönme |
+|---|---:|---:|---:|---:|
+| A | %65,1 | 156.104 | 311.819 | 7,5 gün |
+| B | %58,8 | 116.647 | 195.918 | 3,4 gün |
+| C | %58,7 | 115.983 | 195.282 | 3,4 gün |
+
+A ile B arasında 6,30 puan var. C, B'den ancak 0,10 puan ayrılıyor.
+Bulunabilirlikte kazanan açıkça A. Ama bunu daha çok koliyle, mağazada
+daha çok stokla ve daha yavaş dönen malla yapıyor. Kalibrasyonda mağaza
+stoğu ölçütümüzde yoktu, A'nın eşiği de denediğimiz en gevşek değerde
+kaldı. Stoğu da ölçüte koysaydık seçim değişebilirdi.
+
+Eşiğin kendisi de az şey değil. Kalibrasyon döneminde A'nın oranını beşte
+ikiden beşte üçe çıkarmak bulunabilirliği %65,80'den %56,58'e
+düşürüyordu.
+
+Buradan çıkan şu: **koli kuralı, bulunabilirlik ile stok arasında bir
+tercihtir.** Kolinin gidip gitmeyeceğine hangi ölçütle ve hangi eşikle
+karar verdiğiniz puanlarca fark yaratıyor. Gevşek kural rafı daha sık
+dolu tutar, mağazada daha çok stok bırakır. Titiz kural stoğu yalın tutar,
+rafı daha sık boş bırakır.
+
+## Tavan sizin deponuzda kaç?
+
+Bu yazının bütün sonuçları bir varsayıma yaslanıyor: depo haftada 25.826
+adet açık toplayabilir. Sayıyı Lumoda'nın verisinden türettik ama oranı biz
+seçtik. Bir yıl önceki aynı mevsimde Lumoda mağazalarına haftada ortalama
+103.305,4 adet replenishment göndermiş, tavanı bunun dörtte biri aldık. Sonra tavanı
+değiştirip aynı dört ayı yeniden oynattık:
+
+| Tavan | Haftada açık adet | Bulunabilirlik | Toplama maliyeti |
+|---|---:|---:|---:|
+| Referansın 0,4 katı | 10.330 | %59,91 | 5.158.140 TL |
+| Referansın 0,6 katı | 15.495 | %62,01 | 6.046.020 TL |
+| Referans | 25.826 | %65,10 | 7.673.800 TL |
+| Referansın 1,6 katı | 41.321 | %66,39 | 9.726.090 TL |
+| Tavan yok | — | %67,11 | 13.127.350 TL |
+
+Tavan sıkıştıkça bulunabilirlik düşüyor, gevşedikçe artıyor ama giderek
+daha az. Tavan 1,6 katına çıktığında kısıt artık bağlamıyor: bulunabilirlik,
+hiçbir depo kısıtı olmayan denemenin (%66,73) bir puan yakınına geliyor.
+
+Toplama maliyeti de varsayım. Açık adet başına 10 TL yerine 5 TL deseydik
+referans noktanın maliyeti 5.397.940 TL, 20 TL deseydik 12.225.520 TL
+olurdu.
+
+Şimdi soru sizde. Sizin deponuz haftada kaç adet açık toplayabiliyor?
+Haftalık sevkiyatınızın dörtte biri mi, yarısı mı? Bir SKU'nun kaç adedi
+kolide, kaç adedi açıkta duruyor? Depo kayıtları bunları çoğu zaman
+doğrudan söylemez. Bizim burada varsaydığımız şeyi siz kendi deponuzdan
+ölçmek zorundasınız. Bu sayılar olmadan koli kuralı da paylaştırma önceliği
+de havada kalır.
 
 ## Bu yazıdan akılda kalması gereken üç şey
 
-**Bir.** Paylaştırma kuralını tartışmadan önce mal gerçekten yetmiyor mu,
-ona bakın. Depoda mal varken raf boşsa sorununuz paylaştırma değildir.
+**Bir.** Kıtlık olsa bile paylaştırma kuralı büyük bir kaldıraç değil. Üç
+önceliğin farkı alım %100'deyken 0,43, alım %40'tayken 0,88 puan. Kıt malı
+kime verdiğinizi tartışmadan önce ne kadar mal olduğuna ve sistemin ne
+kadar istediğine bakın.
 
-**İki.** Koli bir kısıt değil, kapasitedir. Açık toplama isabetlidir ama
-pahalıdır ve bir tavanı vardır.
+**İki.** Koli bir kısıt değil, kapasitedir. Koliyi kapatmak bulunabilirliği
+27,3 puan düşürüyor. Ama koli açılmaz: önce açık adet, sonra kuralın izin
+verdiği tam koli.
 
-**Üç.** Kolinin gidip gitmemesi önemlidir. Hangi eşikle karar verdiğiniz o
-kadar önemli değildir.
+**Üç.** Koli kuralı bir tercihtir. Gevşek kural daha yüksek bulunabilirlik
+verir, bedelini mağazadaki stokla ödersiniz.
 
-Sonraki yazıda kural tabanlı yöntemi baştan sona kuracağız: safety stock'un
-üç ayrı ailesi, son yedi günün satışı, özel gün katsayısı. O yazıda dizinin
-asıl sorusuyla da yüzleşeceğiz. Stoksuz kalan mağazanın talebini hiç
-göremiyorsak, o mağazanın satış hızını nasıl ölçeceğiz?
+Bu yazıda bir sayıyı sonraya bıraktık: kuralın hedefi gerçek talebin
+%83,7'sinde kalıyor. Sonraki yazıda kural tabanlı yöntemi baştan sona
+kuracağız: son yedi günün satışı, özel gün katsayısı, güvenlik stokunun üç
+ailesi. Stoksuz kalan mağazanın talebini hiç göremiyorsak hızını nasıl
+ölçeceğimizi de orada konuşacağız. İlk yazıda verdiğim sözü de orada
+tutmaya başlayacağız: kuralı Lumoda'nın bugünkü yöntemiyle aynı depoda
+yarıştıracağız.
