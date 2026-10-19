@@ -1,5 +1,5 @@
 {
- "surum": "ad983cb",
+ "surum": "c665d28",
  "parametreler": [
   {
    "ad": "pay",
@@ -13,7 +13,7 @@
    "deger_etiketleri": {
     "lumoda": "plan payı (Lumoda)",
     "esit": "herkese eşit",
-    "benzer": "Mağazanın geçmiş payı",
+    "benzer": "mağazanın geçmiş payı",
     "tahmin": "LightGBM tahmini"
    }
   },

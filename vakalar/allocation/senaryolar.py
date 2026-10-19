@@ -34,7 +34,7 @@ TUTMALAR = (0, 15, 30)
 
 PARAMETRELER = [
     {"ad": "pay", "etiket": "İlk dağıtımın pay kaynağı", "degerler": list(PAYLAR),
-     "deger_etiketleri": {"lumoda": "plan payı (Lumoda)", "esit": "herkese eşit", "benzer": "Mağazanın geçmiş payı",
+     "deger_etiketleri": {"lumoda": "plan payı (Lumoda)", "esit": "herkese eşit", "benzer": "mağazanın geçmiş payı",
                           "tahmin": "LightGBM tahmini"}},
     {"ad": "tutma", "etiket": "Depoda tutulan pay", "degerler": list(TUTMALAR),
      "deger_etiketleri": {str(t): f"%{t}" for t in TUTMALAR}},
