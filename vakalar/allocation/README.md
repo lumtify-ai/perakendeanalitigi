@@ -30,3 +30,41 @@ Bütün komutlar `vakalar/allocation` içinden, vakanın `.venv`'iyle; Windows k
   (TAM bir koşu tepe ~8 GB bellek).
 - Hızlı testler: `.venv/Scripts/python -m pytest -q -m "not veri"`. `veri` işaretli testler
   gerçek v4 dosyasını ve TAM dünyayı kurar (yavaş).
+
+## Benzer ürün hiyerarşisi
+
+`benzer` kolu yeni bir option'ın mağaza payını, ona benzeyen geçmiş Collection option'larının o
+mağazadaki göreli hızından alır (`allocation/benzer.py`). Benzerlik açık öznitelik hiyerarşisiyle,
+en özelden en genele (`benzer.HIYERARSI`):
+
+| düzey | eşleşen öznitelikler |
+|---|---|
+| 0 | alt kategori × fiyat segmenti × kalıp |
+| 1 | alt kategori × fiyat segmenti |
+| 2 | alt kategori |
+| 3 | üst kategori |
+| 4 | mağazanın bütün geçmiş Collection'ı |
+
+Seçilen düzey, yeni option'la bütün sütunlarında eşleşen en az `en_az` geçmiş option'ı olan ilk
+düzeydir; o düzeyde gözlemi olmayan mağaza bir üst düzeye düşer. SS option'ları yalnız SS
+sezonlarından öğrenir (`mevsim="SS"`). **Eşik `en_az = 10`** (kalibrasyonun seçimi, aşağıda).
+
+## Kalibrasyon
+
+    .venv/Scripts/python -m allocation.oyun kalibrasyon      # cikti/kalibrasyon.json (~24 dk)
+
+SS24'te, oyun sezonuna (SS25) bakmadan (`allocation/kalibrasyon.py`, spec §4.1):
+
+- **Koşusuz** (~1 dk): SS24'ün ilk karar gününde (2024-02-09) kapanmış tek Collection sezonu SS23'le
+  öğrenilir, SS24 Collection'ın yayımlanan veriden ölçülen ilk 6 hafta payına karşı mağaza payı
+  WAPE'si (ilk alım ağırlıklı) ile seçilir: `benzer`'in eşiği (`en_az` ∈ {3, 5, 10} → 10),
+  LightGBM'in `num_leaves` ∈ {15, 31} × `min_child_samples` ∈ {20, 50} (→ 31, 50), belirsizlik
+  ölçüsü (kaynağın option WAPE'siyle Spearman'ı en yüksek: `benzer_dk`).
+- **Simülasyon** (7 TAM koşu + önbellekli `lumoda`, ~23 dk): `benzer` ve `tahmin` tavanlı /
+  tavansız; en iyisi (sezon boyu bulunabilirlik, 0,3 puandan yakınsa daha az sezon sonu kalan)
+  kapsama tavanını (açık) ve belirsizliğin tabanını (`tahmin`) verir; `belirsizlik` γ ∈ {0,5; 1; 2}
+  → 2.
+
+Seçimler, WAPE'ler ve koşu ölçütleri `cikti/kalibrasyon.json`'da; Görev 8'in ızgarası değerleri
+oradan okur. Kalibrasyonun iki ölçütünün (bulunabilirlik, sezon sonu kalan) tanımı
+`allocation/oyun.py`'nin modül notunda.
