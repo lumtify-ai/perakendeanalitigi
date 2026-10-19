@@ -5,10 +5,10 @@ ingilizce: Hold-back
 ---
 
 Depoda tutma, ilk sevkiyatta gönderilebilecek paketlerin bir kısmını
-depoda bırakmaktır. Oran, ilk alımın değil, o gün gönderilebilecek
-paketlerin yüzdesidir. Gönderilebilecek paket sayısını en az stoğu olan
-beden belirler; bu yüzden depoda kalan malın ilk alıma oranı bedenden
-bedene değişir.
+depoda bırakmaktır. Bu pay, ilk alımın değil, o gün gönderilebilecek
+paketlerin yüzdesidir. Gönderilebilecek paket sayısını, depodaki stoğu
+pakette kendi payına göre en önce biten beden belirler; bu yüzden depoda
+kalan malın ilk alıma oranı bedenden bedene değişir.
 
 Bu mal, satış başladıktan sonra replenishment'la ihtiyacı çıkan
 mağazalara gider. Yanlış tahmine karşı bir sigortadır. Bedeli de vardır:

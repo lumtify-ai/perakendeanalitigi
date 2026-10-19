@@ -11,8 +11,8 @@ esanlam:
 gideceğine verilen karardır. Ürünün henüz hiç satışı olmadığı için karar
 plana ve benzer ürünlerin geçmişine dayanır.
 
-Kararın birimi pakettir (koli): bedenleri sabit oranda karışık, kapalı bir
-kutu. İlk sevkiyatta koli açılmaz. Lumoda'da beş bedenli bir setin paketi
+Kararın birimi pakettir: bedenleri sabit oranda karıştırılmış kapalı bir
+koli. İlk sevkiyatta koli açılmaz. Lumoda'da beş bedenli bir setin paketi
 yedi adettir, beden sırasıyla 1-2-2-1-1.
 
 Malın tamamı gönderilmek zorunda değildir. Bir kısmı depoda tutulur ve

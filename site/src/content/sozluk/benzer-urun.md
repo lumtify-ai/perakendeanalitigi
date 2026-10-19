@@ -10,4 +10,4 @@ onların mağaza mağaza nasıl sattığını yeni ürüne taşır.
 
 Yöntemin kalitesi, ürünlerin özelliklerinin ne kadar düzgün kaydedildiğine
 bağlıdır. Geçmiş ürünler stoksuz kaldığı günlerde satış yapamaz. Bu yüzden
-satış, toplam güne değil ürünün rafta bulunduğu günlere bölünür.
+satış, toplam gün sayısına değil ürünün rafta bulunduğu günlere bölünür.
