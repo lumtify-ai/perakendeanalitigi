@@ -605,6 +605,7 @@ describe('site geneli vaatler', () => {
       'replenishment/depodan-magazaya/basari-nasil-olculur/index.html',
       'rpt/tekrar-siparis/rpt-geldi/index.html',
       'is-zekasi/satis-kaybi/kaybin-sahibi/index.html',
+      'allocation/ilk-sevkiyat/basari-nasil-olculur/index.html',
     ]
 
     const gecenler = tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))
@@ -658,14 +659,19 @@ describe('site geneli vaatler', () => {
     expect(kopru).not.toContain('başabaş eşiğini')
   })
 
-  // İlk Sevkiyat dizisinin köprüsü 6. yazıda (basari-nasil-olculur) durur;
-  // yazı henüz yok. Görev 13 bu satırı RPT/DM testinin kalıbıyla etkinleştirir:
-  // oku('allocation/ilk-sevkiyat/basari-nasil-olculur/index.html'), köprü
-  // dilimi; dizinin kendi giriş ve kapanış cümleleri, kanonik cümleler
-  // ('iş zekâsı ve optimizasyonla', 'Let Us Make Trade Intelligent For You'),
-  // varsayılan paragraflar yok ('kargo tarifesi', 'başabaş eşiğini'). Aynı
-  // görev sayfayı yukarıdaki BEKLENEN_KOPRU_SAYFALARI listesine ekler.
-  it.todo('İlk Sevkiyat köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır')
+  it('İlk Sevkiyat köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır', () => {
+    const html = oku('allocation/ilk-sevkiyat/basari-nasil-olculur/index.html')
+    const kopru = html.slice(html.indexOf('lumtify-koprusu'), html.indexOf('</aside>', html.indexOf('lumtify-koprusu')))
+    expect(kopru).toContain('verisi dağınıktır')
+    expect(kopru).toContain('başka bir hiyerarşide tutulur')
+    expect(kopru).toContain('söyleyecek bir hakem yoktur')
+    expect(kopru).toContain('her dalgada binlerce mağaza')
+    expect(kopru).toContain('iş zekâsı ve optimizasyonla')
+    expect(kopru).toContain('Let Us Make Trade Intelligent For You')
+    expect(kopru).toContain('kaç paket gideceğini')
+    expect(kopru).not.toContain('kargo tarifesi')
+    expect(kopru).not.toContain('başabaş eşiğini')
+  })
 
   it('köprüde kalın cümle ile sonraki cümle arasında boşluk var', () => {
     for (const { yol, html } of tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))) {

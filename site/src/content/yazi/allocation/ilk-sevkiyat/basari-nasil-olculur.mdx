@@ -2,9 +2,269 @@
 baslik: Başarı Nasıl Ölçülür
 tip: sonuc
 sira: 6
-ozet: İlk sevkiyatın sonucu sezon sonunda görünür. Hangi ölçüte bakılır ve farkın ne kadarı ilk sevkiyatın eseridir?
+ozet: >-
+  İlk sevkiyatın sonucu sezon sonunda görünür ve o zaman başka kararlarla
+  karışmıştır. Hangi ölçüt neyi söylüyor, farkın ne kadarı ilk sevkiyatın
+  kendi eseri, sonuç başka müşteri akışlarında da tutuyor mu ve tek paketin
+  bedeli ne?
 yazar: Sabri Suyunu
-durum: hazirlaniyor
+durum: yayinda
 ---
 
-Bu yazı hazırlanıyor.
+import Demo from '../../../../components/Demo.astro'
+import Lumtify from '../../../../components/Lumtify.astro'
+import T from '../../../../components/T.astro'
+
+Beş yazı boyunca ilk sevkiyatı parçalarına ayırdık: kime, ne kadar, ne
+kadarı depoda. Kolları kurduk, aynı malla yarıştırdık. Şimdi hesabı
+topluyoruz.
+
+İlk sevkiyatı ölçmenin zor bir yanı var. Kararın sonucu hemen görünmez.
+Sezon bitince görünür, ama o zamana kadar replenishment, tekrar sipariş ve
+indirim de devreye girmiştir. Sezon sonundaki tabloda neyin ilk sevkiyatın
+eseri olduğunu ayırmak ayrı bir iş.
+
+## Sezon sonunda neye bakılır?
+
+Altı ölçüt kullandık.
+
+**Bulunabilirlik.** Fiziksel bir mağazada bir bedene talep olan günlerin
+yüzde kaçında o beden raftaydı? Bunu sezonun tamamı için ve ilk dört hafta
+için ayrı ölçüyoruz.
+
+**Kayıp oranı.** Karşılanamayan talebin toplam talebe oranı. Bunu yalnız
+hakem görüyor; hiçbir kol karar verirken kullanmıyor.
+
+**<T k="str">Tam fiyat STR</T>.** Malın ne kadarının indirime girmeden
+satıldığı.
+
+**Markdown.** İndirimin tutarı, brüt olarak. Ne kadar indirim yapıldığını
+söyler, kârı değil.
+
+**Brüt kâr.** Net satıştan alış maliyeti düşülünce kalan. Markdown brüt,
+brüt kâr net bir tutar; ikisi toplanmaz.
+
+**Sezon sonunda elde kalan.** Sezon kapanırken mağazalarda ve depoda kalan
+mal, zincire giren toplam malın yüzdesi olarak.
+
+Ana kolların hepsi aynı malı gönderiyor (depoda ek mal tutmadan, tavansız):
+
+| | Eşit | Lumoda (plan payı) | Mağazanın geçmiş payı | Model | Kahin |
+|---|---:|---:|---:|---:|---:|
+| Bulunabilirlik | %67,62 | %68,98 | %69,51 | %70,41 | %71,23 |
+| İlk 4 hafta | %96,13 | %96,47 | %96,62 | %96,87 | %97,30 |
+| Kayıp oranı | %37,72 | %35,10 | %35,05 | %33,31 | %31,60 |
+| Tam fiyat STR | %51,33 | %52,69 | %52,85 | %53,99 | %54,41 |
+| Sezon sonunda elde kalan | %22,23 | %19,77 | %19,65 | %17,74 | %17,06 |
+| Markdown | 48.307.748 TL | 49.133.132 TL | 49.482.072 TL | 49.640.390 TL | 49.270.893 TL |
+| Brüt kâr | 519.113.339 TL | 534.433.105 TL | 535.147.736 TL | 550.029.513 TL | 563.610.800 TL |
+
+İlk dört haftada herkes iyi görünüyor: en kötüsü %96,13, en iyisi %97,30.
+Fark sezon içinde açılıyor. Sezonun tamamında eşit ile kahin arasında 3,6
+puan var. İlk sevkiyatı ilk haftaların bulunabilirliğiyle ölçen biri, bu
+farkın hiçbirini görmez.
+
+Markdown satırı öteki satırların sırasını izlemiyor. Model Lumoda'dan
+biraz daha çok indirim yapıyor, beş müşteri akışının beşinde de. Brüt
+kârda ise açıkça önde. Daha çok mal satan kol indirim döneminde de daha
+çok satıyor olabilir; bunu ayrıca ayırmadık. Markdown tutarını tek başına
+başarı ölçütü yapmamak için iyi bir örnek.
+
+## Farkın ne kadarı ilk sevkiyatın eseri?
+
+Lumoda'nın tekrar sipariş kuralı mağazalara gönderilen malın ne kadarının
+satıldığına bakıyor, indirim kuralı da öyle. İlk sevkiyat değişince ikisi
+de tepki veriyor. Bir kolun farkı, kendi kararından mı, yoksa o kararın
+tetiklediği RPT ve indirimden mi geliyor?
+
+Bunu ayırmak için kolları bir kez daha koşturduk, bu sefer RPT
+siparişlerini ve indirim oranlarını Lumoda'nın koşusundan aynen alarak.
+Bu sabit takvimde toplam mal da aynı. Sabit takvimdeki fark, ilk
+sevkiyatın doğrudan etkisi; geri kalanı tepkinin payı. Bulunabilirlikte,
+Lumoda'ya göre, puan olarak:
+
+| | Toplam | Doğrudan | Tepki |
+|---|---:|---:|---:|
+| Eşit | −1,36 | −1,01 | −0,35 |
+| Mağazanın geçmiş payı | +0,53 | +0,56 | −0,03 |
+| Model | +1,43 | +1,43 | 0,00 |
+| Kahin | +2,25 | +1,96 | +0,29 |
+
+Mağazanın geçmiş payında ve modelde farkın neredeyse tamamı ilk
+sevkiyatın kendisinden. Tepkinin payı yalnız iki uçta görünüyor: eşit
+dağıtımda RPT ve indirim zararı biraz büyütüyor, kahinde kazancı biraz
+artırıyor. Yani bu vakada, model ile plan arasındaki farkı tekrar
+sipariş ve indirim açıklamıyor; dağıtımın kendisi açıklıyor.
+
+## Başka müşteri akışlarında da tutuyor mu?
+
+Bütün bu sonuçlar tek bir müşteri akışından. Aynı dünyada dört akış daha
+kurduk ve beş kolu her birinde yeniden koşturduk. Her yolda mağazanın
+geçmiş payı ve model o yolun geçmişinden yeniden öğreniyor, kahin o yolun
+gizli gerçeğini kullanıyor.
+
+Bir sınırı baştan söyleyeyim. Yollar yalnız müşteri akışını değiştiriyor:
+hangi müşterinin hangi gün gelip ne aldığını, bulamadığında başka bir
+ürüne geçip geçmediğini. Ürünlerin başarısı her yolda aynı. Yani bu,
+rastlantıya karşı bir sınama; bir ürünün tutup tutmamasının başka türlü
+olduğu bir sezona karşı değil.
+
+Bulunabilirlikte, beş yol:
+
+| Karşılaştırma | Kaç yolda önde | Farkın yol medyanı |
+|---|---:|---:|
+| Eşit − Lumoda | 0/5 | −1,4 puan |
+| Mağazanın geçmiş payı − Lumoda | 5/5 | +0,8 puan |
+| Model − Lumoda | 5/5 | +1,5 puan |
+| Model − mağazanın geçmiş payı | 5/5 | +0,8 puan |
+| Kahin − model | 5/5 | +0,8 puan |
+| Kahin − Lumoda | 5/5 | +2,2 puan |
+
+Sıra hiç değişmiyor: beş yolun beşinde kahin, model, mağazanın geçmiş
+payı, plan, eşit. Model, elde kalan malda, kayıp oranında, tam fiyat
+STR'de ve brüt kârda da beş yolun beşinde Lumoda'nın önünde; markdown
+tutarında ise beşinde de geride.
+
+## Kahinin sınırı
+
+Kahin, gizli gerçeği bilseydik ne olacağını gösteriyor: her mağazaya ilk
+altı haftanın gerçek talebiyle orantılı mal. Gerçek hayatta böyle bir
+bilgi yok. Ama "kime" sorusunun aynı malla ne kadar kazandırabileceğine bir
+üst sınır çiziyor: yolların medyanında Lumoda'nın 2,2 puan önü.
+
+Model bu sınırın yarısından fazlasını kapatıyor. Geri kalanı ise
+neredeyse kusursuz bir payla bile sınırlı. Payı doğru bilmek, sezonun
+geri kalanında olan şeyleri değiştirmiyor.
+
+Pars bunu dizinin başından beri söylüyordu:
+
+— İlk sevkiyatın hakemi yok; sezon bitince bile neyin onun eseri olduğunu
+ayırmak gerekir.
+
+## Tek paketin bedeli
+
+Sezon sonundaki kaybın büyük bir kısmı malın yanlış mağazaya gitmesinden
+değil, yanlış bedenden gelmesinden. Bunu şöyle ölçtük: karşılanmayan
+talebin, o beden rafta yokken aynı mağazada aynı ürünün başka bir
+bedeninin rafta olduğu günlere düşen kısmı. Müşteri ürünü buluyor,
+bedenini bulamıyor.
+
+Lumoda'da kaybın %42,3'ü böyle; talebe göre 14,85 puanlık bir kayıp. Her
+şeyi gönderen kollarda bu pay %42,5 ile %43,6 arasında: eşit, mağazanın
+geçmiş payı, model, kahin. "Kime"yi değiştiren hiçbir kol beden kaybını
+azaltmıyor, kahin bile.
+
+Azaltan tek şey depoda tutmak. Model payıyla `U`'nun %30'unu tutan kolda
+beden kaybının payı %32,6'ya, tavanın gizlice depoda bıraktığı malla
+%32,8'e iniyor. Depoda tutulan paketler her bedeni paketin oranında depoda
+bırakıyor; sezon içinde biten bedeni tamamlayacak mal kalıyor.
+
+Asıl çözüm ise başka bir kararda: paketin kendisinde. Lumoda'da her beden
+setinin tek bir paketi var, 1-2-2-1-1. İkinci yazıda gördük: ilk alım
+bedenlere bu oranda bölünmüyor, en küçük beden önce bitiyor, depoda
+çoğunlukla üçüncü ve dördüncü beden kalıyor. Hangi mağazaya hangi beden
+karışımıyla paket gideceği, haritadaki Assortment Planning aşamasının
+"Beden analizi (PrePack optimizasyonu)" algoritmasının konusu. Bu dizi o
+kararın bedelini ölçtü, çözmedi.
+
+## Bu ölçümler nerede yetersiz?
+
+Dürüstlük listesi, hepsi bir arada.
+
+**Örneklem içi seçim.** "En iyi pay" (model) ve tutma karşılaştırmaları
+oyun sezonunda seçildi ve aynı sezonda ölçüldü. Bunlar örneklem içi
+ölçümler; gelecek bir sezon için verilmiş bir kararın sınaması değil.
+Kalibrasyonu bir önceki ilkbahar-yaz sezonunda, oyun sezonuna bakmadan
+yaptık.
+
+**Yollar yalnız müşteri akışı.** Beş yolun beşinde aynı sıra, ürünlerin
+başarısı sabitken. Bir ürünün başka türlü tuttuğu bir sezonda ne olacağını
+bu sınama söylemiyor.
+
+**Kahin gerçek değil.** "Gizli gerçeği bilseydik" kolu. Gerçek hayatta
+böyle bir kol kurulamaz; burada yalnız bir üst sınır.
+
+**Belirsizliğin eğrisi başka bir tabanla seçildi.** Belirsizliğe göre
+tutmanın dikliğini kalibrasyonda tavanlı bir modelle seçtik, oyunda
+taban tavansızdı. Seçimi yeniden sınamadık.
+
+**Erken okuma yok.** İlk dalganın satışını ikinci ve üçüncü dalganın
+kararında kullanmadık. Kollar sezon içinde öğrenmiyor.
+
+**Transfer kurmadık.** İlk sevkiyatın hatasını düzeltmenin bir yolu da
+mağazalar arası transfer. Bu dizide yalnız Lumoda'nın kendi küçük elle
+transferleri var (Lumoda'nın koşusunda 3.551 adet). Yanlış mağazaya
+gitmiş malın nasıl kurtarıldığını
+[Blok Transfer](/transfer/blok-transfer/) dizisi anlatıyor.
+
+**Markdown brüt, brüt kâr net.** İki para satırı aynı şeyi ölçmüyor;
+toplanmaz.
+
+**Tek zincir, tek sezon.** Lumoda'nın tek bir ilkbahar-yaz sezonunun
+Collection ürünleri. Başka bir ürün karması, başka bir mağaza ağı başka
+sonuçlar verebilir.
+
+## Kadranı kendiniz çevirin
+
+Aşağıdaki kadran iki şeyi bir araya getiriyor: ilk sevkiyatın pay kaynağı
+(plan payı, herkese eşit, benzer ürün, LightGBM tahmini) ve depoda tutulan
+pay (`U`'nun %0'ı, %15'i ya da %30'u). Kadrandaki "benzer ürün", üçüncü
+yazıda mağazanın geçmiş payı dediğimiz kol. Bütün sayılar yayımlanan
+müşteri akışındaki gerçek koşulardan geliyor. Sayfa açıldığında hepsi
+hazır, tarayıcıda hiçbir hesap yapılmıyor.
+
+Kadran beş ölçüt gösteriyor: bulunabilirlik, tam fiyat STR, sezon sonunda
+elde kalan, kayıp oranı ve replenishment adedi.
+
+<Demo dizi="ilk-sevkiyat" />
+
+Kadranla oynarken şuna dikkat edin. Depoda tutma arttıkça kollar
+arasındaki fark daralıyor. Tutma %0'da model Lumoda'nın 1,4 puan önünde,
+%15'te 0,9, %30'da 0,5. Eşit dağıtımın açığı da −1,4'ten −0,4'e iniyor.
+Depoda bekleyen mal, ilk payın hatasının bir kısmını sezon içinde
+kapatıyor. Bunun bedeli replenishment adedinde görünüyor: plan payıyla
+tutma %0'dan %30'a çıkınca replenishment 370.692 adetten 583.690 adede
+çıkıyor. İlk kararın yükünü sezonun geri kalanı taşıyor.
+
+## Baştaki soru
+
+İzmir 4'ün arka deposunda 415 elbise duruyordu, Erzurum 2 daha fazlasını
+istiyordu. Ali "plan böyle diyor" demişti ve kimse kural dışı bir şey
+yapmamıştı.
+
+Altı yazı sonra elimizde şunlar var. Plan payı eşitten iyi; plan bir şey
+biliyor. Mağazanın geçmiş payı plandan biraz iyi, çünkü aynı şeyi biliyor.
+Mağaza mağaza tahmin yapan bir model aynı malla planın önünde, beş yolun
+beşinde. Payı neredeyse kusursuz bilmek bile sezonun hepsini çözmüyor.
+Depoda mal tutmak işe yarıyor, payınız ne kadar kötüyse o kadar çok. Ve
+kaybın büyük bir kısmı, hiçbir "kime" kararının dokunamadığı bir yerde:
+paketin bedenlerinde.
+
+İlk sevkiyat, satış görmeden verilen tek karar. Onu daha iyi vermek
+mümkün. Ama ne kadar iyi verdiğinizi bilmek için, sezon bittiğinde neyin
+onun eseri olduğunu ayırmanız gerekiyor. Bu dizinin asıl işi de buydu. 🙂
+
+<Lumtify>
+
+Bu dizinin hesabı yayımlanabilir olması için sadeleştirildi. Lumoda'da her
+ürünün öznitelikleri eksiksiz, plan ile satış aynı kategori ağacında ve
+her mağazanın gerçek talebi bir yerde yazılı duruyor; kuralı, modeli ve
+kahini aynı müşteri akışında yarıştırabildik. Gerçek bir ERP'de öznitelik
+verisi dağınıktır, plan başka bir hiyerarşide tutulur ve bir ilk
+sevkiyatın iyi olup olmadığını söyleyecek bir hakem yoktur: sezon
+kapandığında sonuç replenishment'la, tekrar siparişle ve indirimle
+karışmıştır. Karar ise her dalgada binlerce mağaza × option için verilir.
+Tek seferlik bir analizle değil, her dalgada aynı kuralla işleyen bir
+rutinle yürür.
+
+<Fragment slot="son">
+
+Ürün kaydınızı ve planınızı aynı ağaca bağlar, geçmiş sezonların talebini
+kendi stok kayıtlarınızdan sansürü düzelterek çıkarır, bugünkü kuralınızı
+taban çizgisi alıp yeni yöntemi aynı malla karşılaştırır. Böylece her
+dalgada hangi mağazaya kaç paket gideceğini ve ne kadarının depoda
+kalacağını aynı hesapla söyler.
+
+</Fragment>
+
+</Lumtify>

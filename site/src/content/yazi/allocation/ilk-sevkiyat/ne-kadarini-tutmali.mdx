@@ -110,7 +110,7 @@ replenishment kurduk. Adı `hiz`: son iki
 haftanın satışını o günlerin stoklu gün sayısına bölüyor, dört haftalık
 hedef kuruyor, raftaki ve yoldaki malı düşüyor. Ölü stok kapısı yok.
 Yalnız bu vakanın ürünlerinde çalışıyor; öteki ürünlerde Lumoda'nın
-kuralına (`temel(g)`) devrediyor:
+kuralına (`temel(g)`) başvuruyor:
 
 ```python
 # allocation/politika.py (HizReplenishment.__call__)
@@ -146,8 +146,6 @@ replenishment'ının önünde: plan payıyla +3,68, +3,67, +3,42 ve
 +3,13 puan; modelle +3,51, +3,47, +3,41 ve +3,08 puan (t = %0, %15, %30,
 %45). Her tutma düzeyinde üç puanın üstünde.
 
-{/* YOLLAR: hiz − Lumoda farkının kaç yolda korunduğu buraya (yol sonuçları gelince) */}
-
 Bu farkın bir kısmının nereden geldiği de belli. `hiz` depodaki malı
 mağazalara daha istekli gönderiyor; online'a daha az kalıyor. Plan payıyla
 t = %0'da online satış 237.708 adetten 180.750'ye düşüyor. Bulunabilirliği
@@ -165,8 +163,9 @@ kazandırıyor.
 Bir sınır da var. Model payı ve `hiz` birlikteyken %45 fazla geliyor:
 bulunabilirlik t = %30'da en yüksek (%74,76), t = %45'te geriliyor
 (%74,61); sezon sonunda elde kalan mal t = %45'te t = %0'a göre 1,28 puan
-artıyor. Aynı dönüş Lumoda'nın replenishment'ında da var: model payıyla
-elde kalan mal t = %30'da %17,06, t = %45'te %17,79.
+artıyor. Lumoda'nın replenishment'ında da elde kalan mal aynı dönüşü
+yapıyor: model payıyla t = %30'da %17,06, t = %45'te %17,79. Orada
+bulunabilirlik ise artmaya devam ediyor: %71,35'ten %71,53'e.
 
 ## Belirsizliğe göre tutmak
 

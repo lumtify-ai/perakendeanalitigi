@@ -173,7 +173,7 @@ hakemi kullanmıyoruz: gerçek payın yerine, yayımlanan satıştan sansürü
 düzeltilmiş talebi koyuyoruz.
 
 Bir önceki ilkbahar-yaz sezonunda, hiçbir şey koşmadan, yalnız yayımlanan
-veriden: Lumoda'nın pay hatası 0,2363, eşit dağıtımın 0,2924. Oyun
+veriden: Lumoda'nın pay hatası 0,236, eşit dağıtımın 0,292. Oyun
 sezonunda: 0,235'e karşı 0,297. Fark iki sezonda da aynı yönde ve benzer
 büyüklükte. Plan bir şey biliyor.
 
@@ -223,29 +223,29 @@ değerini alıyor; hiç geçmişi olmayan aday ortalama mağaza sayılıyor.
 
 | En az benzer ürün | Pay hatası |
 |---|---:|
-| 3 | 0,2558 |
-| 5 | 0,2494 |
-| 10 | 0,2433 |
-| 20 | 0,2377 |
-| 40 | 0,2350 |
-| 80 | 0,2347 |
+| 3 | 0,256 |
+| 5 | 0,249 |
+| 10 | 0,243 |
+| 20 | 0,238 |
+| 40 | 0,235 |
+| 80 | 0,235 |
 
-Eşik büyüdükçe hata düşüyor; en büyük eşikte bile hâlâ biraz düşüyor,
-yalnız artık neredeyse düz. Yani benzerlik ne kadar gevşekse o kadar iyi.
+Eşik büyüdükçe hata düşüyor; 40'tan sonra düz kalıyor, ama yeniden
+yükselmiyor. Yani benzerlik ne kadar gevşekse o kadar iyi.
 En olası açıklama gürültü: birkaç benzer ürünün mağaza mağaza satışı rastlantıyla
 dolu, çok ürünün ortalaması bu rastlantıyı siliyor. Ama bu kadar geniş bir
 küme artık "benzer" sayılmaz.
 
-{/* RAPOR: benzer düzeyleri */}
-Seçilen eşikte, oyun sezonundaki yeni ürünlerin çoğu için "benzer",
-aynı üst kategorinin bütün geçmiş ürünleri oluyor; kalanı için mağazanın
-bütün geçmiş ilkbahar-yaz Collection'ı. Bu kola dürüst bir ad koyalım: benzer ürün
+Seçilen eşikte, oyun sezonunun 210 yeni ürününün 143'ü için "benzer",
+aynı üst kategorinin bütün geçmiş ürünleri oluyor; kalan 67'si için
+mağazanın bütün geçmiş ilkbahar-yaz Collection'ı. Daha özel düzeylerin
+hiçbiri tek bir üründe bile seçilmiyor. Bu kola dürüst bir ad koyalım: benzer ürün
 değil, **mağazanın geçmiş payı**. Yazının geri kalanında da öyle
 anacağım.
 
 Mağazanın kategorideki geçmiş payı, Lumoda'nın planına çok benzeyen bir
 şey. Planın da tanıdığı düzey mağaza ile üst kategori. Sonuçlar da
-yakın: kalibrasyonda 0,2347'ye karşı Lumoda 0,2363; oyun sezonunda 0,229'a
+yakın: kalibrasyonda 0,235'e karşı Lumoda 0,236; oyun sezonunda 0,229'a
 karşı 0,235. Bulunabilirlikte mağazanın geçmiş payı Lumoda'nın 0,5 puan
 önünde: %69,5'e karşı %69,0.
 
@@ -352,7 +352,13 @@ depoda ek mal tutmadan gönderiyor:
 | Lumoda (plan payı) | 0,235 | %68,98 | %19,77 | 534.433.105 TL |
 | Mağazanın geçmiş payı | 0,229 | %69,51 | %19,65 | 535.147.736 TL |
 
-{/* YOLLAR: plan payının eşitten, mağazanın geçmiş payının Lumoda'dan kaç yolda önde olduğu buraya (yol sonuçları gelince) */}
+Bu üç kolu dört müşteri akışında daha koşturduk. Her yolda ürünlerin
+başarısı aynı, yalnız müşterilerin hangi gün hangi mağazaya gelip ne
+aldığı değişiyor; yani bu, farklı ürün başarılarına değil, rastlantıya
+karşı bir sınama. Eşit dağıtım beş yolun beşinde plan payının gerisinde
+(bulunabilirlikte medyan −1,4 puan). Mağazanın geçmiş payı beş yolun
+beşinde Lumoda'nın önünde (medyan +0,8 puan); yayımlanan akıştaki +0,5,
+beş yolun en küçüğü.
 
 Plan payı eşitten açıkça iyi. Mağazanın geçmiş payı plandan biraz iyi,
 ama ikisi de aynı şeyi biliyor: hangi mağazanın büyük olduğunu. İkisi de
