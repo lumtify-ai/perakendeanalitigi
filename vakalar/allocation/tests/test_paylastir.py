@@ -100,13 +100,13 @@ def test_ust_sinir_lumoda_payi_baglar(dunya):
     assert paylastir.ust_sinir(_gorunum(w, depo), 2, h) == 100
 
 
-def test_ust_sinir_tam_sayi_aritmetigi(dunya):
-    """ilk alım × 0,70 ÷ paket adedi tam bölünürken kayan nokta 1 eksik verir
-    (700 × 0,70 = 489,99… // 7 = 69 değil, 70); U tam sayı hesabıyla 70."""
+def test_ust_sinir_lumoda_kayan_nokta_yuvarlamasini_devralir(dunya):
+    """t = 0 kolu Lumoda'nın toplamını ister (R11): ilk terim Lumoda'nın kayan nokta ifadesidir.
+    700 × 0,70 // 7 kayan noktada 69'dur (tam değer 70); U 69 olmalı."""
     assert 700 * 0.70 // 7 == 69.0            # kayan nokta tuzağının kendisi
     w = _dunya_ilk_alim(dunya, 2, 700)
-    assert paylastir.ust_sinir(_gorunum(w), 2, harita_kur(w)) == 70
-    assert isinstance(paylastir.ust_sinir(_gorunum(w), 2, harita_kur(w)), int)
+    u = paylastir.ust_sinir(_gorunum(w), 2, harita_kur(w))
+    assert u == 69 and isinstance(u, int)
 
 
 def test_ust_sinir_aksesuar_tek_beden(dunya):
@@ -410,23 +410,27 @@ def test_gercek_paket_icerigi_paket_tablosuyla(gercek_dunya):
 
 
 @pytest.mark.veri
-def test_gercek_ust_sinir_depo_bol(gercek_dunya):
-    """Depo bolken U = tam sayı ⌊ilk alım × 0,70 ÷ paket adedi⌋; Lumoda'nın kayan nokta toplamıyla
-    en çok 1 paket farkeder (U büyük olandır)."""
+def test_gercek_ust_sinir_lumoda_toplamina_esit(gercek_dunya):
+    """Depo bolken U'nun ilk terimi, her SS25 Collection option'ında, Lumoda'nın `toplam`ıdır
+    (v4 `lumoda_ilk_dagitim`'deki ifade: ilk_alim * ILK_DAGITIM_PAYI // paket adedi)."""
+    from perakende_veri.v4.politika import paket_tablosu
     from perakende_veri.v4.sabitler import ILK_DAGITIM_PAYI
+    from allocation.kaynak import oyun_optionlari
     assert sabitler.LUMODA_ILK_PAYI == ILK_DAGITIM_PAYI
     w = gercek_dunya
     h = harita_kur(w)
     g = _gorunum(w)
-    fark = 0
-    for o in range(len(w.optionlar)):
-        u = paylastir.ust_sinir(g, o, h)
-        pk = paylastir.paket_adedi(w, o)
-        assert u == int(w.ilk_alim[o]) * 7 // (10 * pk)
-        kayan = int(w.ilk_alim[o] * ILK_DAGITIM_PAYI // pk)
-        assert u - kayan in (0, 1)
-        fark += u != kayan
-    print(f"U, Lumoda'nın kayan nokta toplamından {fark}/{len(w.optionlar)} option'da 1 paket büyük")
+    _, set_idx, icerik = paket_tablosu(w.paketler)
+    secili = oyun_optionlari(w, sabitler.OYUN_SEZONU)
+    assert len(secili) == 210
+    kayan = 0
+    for o in secili:
+        pk = int(icerik[set_idx[w.optionlar.at[o, "beden_seti"]]].sum())
+        toplam = int(w.ilk_alim[o] * ILK_DAGITIM_PAYI // pk)       # lumoda_ilk_dagitim'deki satır
+        assert paylastir.ust_sinir(g, o, h) == toplam
+        kayan += toplam != int(w.ilk_alim[o]) * 7 // (10 * pk)
+    print(f"U = Lumoda toplamı, {len(secili)} option; {kayan} option'da tam değerden 1 paket küçük")
+    assert kayan == 36
 
 
 @pytest.mark.veri
@@ -444,7 +448,7 @@ def test_gercek_ust_sinir_depo_bedenlere_bolunmus(gercek_dunya):
         depo[skular] = np.floor(w.ilk_alim[o] * pay).astype(np.int64)
         u = paylastir.ust_sinir(_gorunum(w, depo), o, h)
         assert u == min(int(depo[skular[b]]) // int(c) for b, c in enumerate(paylastir.paket_icerigi(w, o)))
-        assert u <= int(w.ilk_alim[o]) * 7 // (10 * 7)
+        assert u <= int(w.ilk_alim[o] * sabitler.LUMODA_ILK_PAYI // 7)
 
 
 class _Vekil:

@@ -10,10 +10,12 @@ yalnız `Gorunum`un (`depo`, `kapanacak`, `acik_magaza`, `dunya`) ve dünyanın 
 
     U = min( ⌊ilk_alim × LUMODA_ILK_PAYI ÷ paket_adedi⌋ ,  min_b ⌊depo_b ÷ içerik_b⌋ )
 
-İlk terim tam sayı (kesir) aritmetiğiyle hesaplanır. Lumoda'nın `lumoda_ilk_dagitim`'i aynı
-terimi kayan noktayla hesaplar (`ilk_alim * 0.70 // paket_adedi`); `ilk_alim × 0,70` tam
-bölünen durumlarda kayan nokta bir eksik verir (ör. 700 × 0,70 ÷ 7 -> 69). Bu modülün `U`'su
-tam değeri verir; fark yalnız bu durumlarda ve en çok 1 pakettir.
+İlk terim Lumoda'nın `lumoda_ilk_dagitim`'indeki ifadenin aynısıdır, kayan noktayla
+(`int(ilk_alim * 0.70 // paket_adedi)`), bilerek: t = 0 kolunun toplamı Lumoda'nın fiilî
+toplamına bire bir eşit olmalı (Ruling R11), bu yüzden Lumoda'nın yuvarlamasını da devralır.
+`ilk_alim × 0,70` paket adedine tam bölündüğünde kayan nokta bir eksik verir (700 × 0,70 // 7
+-> 69, tam değer 70); gerçek v4'te SS25 Collection'ın 36 option'ında böyledir. Tam sayı
+aritmetiğiyle hesaplanan değer o option'larda 1 paket büyük olurdu.
 
 **Aday kümesi** `lumoda_ilk_dagitim`'inkiyle aynıdır (kopyalanmış mantık; testte karşılaştırılır).
 
@@ -37,7 +39,6 @@ Pay toplamı 0 ise (aday ve pozitif paylı mağaza yoksa) hiçbir mağazaya pake
 vermeyen kol kendi geri düşüşünü seçer (eşit paylaştırma ya da boş).
 """
 
-from fractions import Fraction
 
 import numpy as np
 import pandas as pd
@@ -84,8 +85,8 @@ def ust_sinir(g, o: int, harita) -> int:
     """Option `o` için gönderilebilir üst sınır `U` (paket); modül notuna bakın."""
     w = g.dunya
     sira, icerik = _paket_satirlari(w, o)
-    pay = Fraction(repr(float(sabitler.LUMODA_ILK_PAYI)))    # 0.7 -> 7/10 (kayan nokta kaymasız)
-    u = int(pay * int(w.ilk_alim[o]) // int(icerik.sum()))
+    # Lumoda'nın ifadesi bit bit aynı (kayan nokta; bkz. modül notu): np.int64 * float // int
+    u = int(w.ilk_alim[o] * sabitler.LUMODA_ILK_PAYI // int(icerik.sum()))
     skular = np.flatnonzero(harita.sku_option == o)
     sku_beden = dict(zip(harita.sku_beden_sira[skular].tolist(), skular.tolist()))
     for b, c in zip(sira.tolist(), icerik.tolist()):
