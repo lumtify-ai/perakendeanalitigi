@@ -665,7 +665,7 @@ describe('site geneli vaatler', () => {
   // ('iş zekâsı ve optimizasyonla', 'Let Us Make Trade Intelligent For You'),
   // varsayılan paragraflar yok ('kargo tarifesi', 'başabaş eşiğini'). Aynı
   // görev sayfayı yukarıdaki BEKLENEN_KOPRU_SAYFALARI listesine ekler.
-  it.todo('İlk Sevkiyat köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır (R29)')
+  it.todo('İlk Sevkiyat köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır')
 
   it('köprüde kalın cümle ile sonraki cümle arasında boşluk var', () => {
     for (const { yol, html } of tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))) {

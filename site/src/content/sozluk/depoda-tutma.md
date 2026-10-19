@@ -1,14 +1,15 @@
 ---
 terim: Depoda tutma
-kisa: İlk alımın, ilk sevkiyatta gönderilmeyip sezon içinde satışa göre dağıtılmak üzere depoda bırakılan payı.
+kisa: İlk sevkiyatta gönderilebilecek paketlerin bir kısmını mağazalara göndermeyip depoda bırakmak. Bu mal satış görüldükçe dağıtılır.
 ingilizce: Hold-back
-esanlam:
-  - depo payı
 ---
 
-Depoda tutma, ilk alımın bir kısmını ilk sevkiyatta göndermeyip depoda
-bırakmaktır. Bu mal, satış başladıktan sonra replenishment'la ihtiyacı
-görülen mağazalara gider.
+Depoda tutma, ilk sevkiyatta gönderilebilecek paketlerin bir kısmını
+depoda bırakmaktır. Oran, ilk alımın değil, o gün gönderilebilecek
+paketlerin yüzdesidir. Gönderilebilecek paket sayısını en az stoğu olan
+beden belirler; bu yüzden depoda kalan malın ilk alıma oranı bedenden
+bedene değişir.
 
-Tutulan mal yanlış tahmine karşı bir sigortadır. Bedeli de vardır: depoda
-duran mal satmaz ve ilk haftalarda raf daha ince kalır.
+Bu mal, satış başladıktan sonra replenishment'la ihtiyacı çıkan
+mağazalara gider. Yanlış tahmine karşı bir sigortadır. Bedeli de vardır:
+depoda duran mal mağazada satmaz ve ilk haftalarda rafta daha az mal olur.
