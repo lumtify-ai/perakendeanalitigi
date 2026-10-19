@@ -48,7 +48,8 @@ def sentetik(n_option: int = 45, tohum: int = 7, ilk: int = 0, stoksuz=()) -> pd
         oz = _oznitelik(o)
         olcek = rng.uniform(0.7, 1.4)
         for m in range(M):
-            t = 12.0 * MAG_CARPAN[m] * ALT_CARPAN[oz["alt_kategori"]]                 * EGILIM.get(m, {}).get(oz["alt_kategori"], 1.0) * olcek * rng.uniform(0.8, 1.25)
+            t = (12.0 * MAG_CARPAN[m] * ALT_CARPAN[oz["alt_kategori"]]
+                 * EGILIM.get(m, {}).get(oz["alt_kategori"], 1.0) * olcek * rng.uniform(0.8, 1.25))
             if (o, m) in stoksuz:
                 satir.append({"option": o, "magaza": m, "satis": 3, "stoklu_gun": 0, "talep": np.nan, **oz})
             else:
@@ -185,7 +186,7 @@ def test_kimlik_icerikten():
     # sabitlenmemiş de aynı içerik özeti
     d = tahmin.Tahminci.egit(t, MAGAZALAR, HIZLI)
     assert d.kimlik == a.kimlik
-    # yeniden eğitim aynı model (tohum, tek iş parçacığı sayısı sabit)
+    # yeniden eğitim aynı model (tohum ve iş parçacığı sayısı sabit)
     assert tahmin.Tahminci.egit(sentetik(), MAGAZALAR, HIZLI).kimlik == a.kimlik
     # içerik değişince kimlik değişir: parametre, veri
     assert tahmin.Tahminci.egit(t, MAGAZALAR, {**HIZLI, "n_estimators": 61}).kimlik != a.kimlik
@@ -193,6 +194,50 @@ def test_kimlik_icerikten():
     # eğitilmiş model gidiş-dönüşte aynı tahmini verir
     x = tahmin.ozellikler(_yeni_satirlar(), MAGAZALAR, a.gecmis_karisim)
     np.testing.assert_array_equal(a.tahmin(x), c.tahmin(x))
+
+
+def test_kimlik_satir_sirasindan_bagimsiz():
+    """Aynı satırlar karışık sırada: karışım payları (kayan nokta toplamı) ve LightGBM eşikleri aynı,
+    model metni ve kimlik birebir aynı (kimlik koşu önbelleği anahtarına girer)."""
+    t = sentetik(n_option=60)
+    a = tahmin.Tahminci.egit(t, MAGAZALAR, HIZLI)
+    for tohum in (1, 2):
+        karisik = t.sample(frac=1.0, random_state=tohum)
+        b = tahmin.Tahminci.egit(karisik, MAGAZALAR, HIZLI)
+        assert b.model.model_to_string() == a.model.model_to_string()
+        assert b.kimlik == a.kimlik
+        pd.testing.assert_frame_equal(b.gecmis_karisim, a.gecmis_karisim)
+        assert b.dogrulama == a.dogrulama
+    # eğitim özelliklerinin sırası da kanonik (option, magaza)
+    X, y = tahmin.egitim_ozellikleri(t.sample(frac=1.0, random_state=3), MAGAZALAR)
+    X0, y0 = tahmin.egitim_ozellikleri(t, MAGAZALAR)
+    pd.testing.assert_frame_equal(X, X0)
+    np.testing.assert_array_equal(y, y0)
+
+
+def test_bilinmeyen_parametre_reddedilir():
+    t = sentetik(n_option=12)
+    with pytest.raises(ValueError, match="parametre"):
+        tahmin.Tahminci.egit(t, MAGAZALAR, {**HIZLI, "max_depth": 3})
+    with pytest.raises(ValueError, match="parametre"):
+        tahmin.Tahminci.egit(t, MAGAZALAR, {k: v for k, v in HIZLI.items() if k != "n_estimators"})
+    with pytest.raises(ValueError, match="parametre"):
+        tahmin.dogrula(sentetik(), MAGAZALAR, {**HIZLI, "reg_alpha": 1.0})
+
+
+def test_tek_satir_tahmini_toplu_tahminle_ayni():
+    """Bir satırı tek başına tahmin etmek, tam bir kümenin içinde tahmin etmekle aynı (kategori
+    listeleri çağrıya göre kurulur; LightGBM modelin listesine eşler). Görülmemiş değer dahil."""
+    m = tahmin.Tahminci.egit(sentetik(n_option=60), MAGAZALAR, HIZLI)
+    parti = pd.concat([
+        _yeni_satirlar(500),
+        _yeni_satirlar(501).assign(renk="hic-gorulmedi", kalip="yeni-kalip"),
+        _yeni_satirlar(502).assign(alt_kategori="Bluz", sezon_kodu="AW25"),
+    ], ignore_index=True)
+    toplu = m.tahmin(tahmin.ozellikler(parti, MAGAZALAR, m.gecmis_karisim))
+    for i in range(len(parti)):
+        tek = m.tahmin(tahmin.ozellikler(parti.iloc[[i]], MAGAZALAR, m.gecmis_karisim))
+        np.testing.assert_allclose(tek, toplu[[i]], rtol=0, atol=1e-12)
 
 
 def test_tahmin_sozlesmesi():

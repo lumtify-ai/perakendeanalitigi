@@ -67,6 +67,7 @@ DOGRULAMA_TOHUMU = 7
 EN_AZ_DOGRULAMA_OPTION = 5
 
 VARSAYILAN = {"num_leaves": 31, "learning_rate": 0.05, "n_estimators": 400, "min_child_samples": 20}
+PARAMETRE_ANAHTARLARI = ("num_leaves", "learning_rate", "n_estimators", "min_child_samples")
 _LGBM_SABIT = {
     "objective": "poisson",
     "seed": 0,
@@ -83,8 +84,11 @@ _LGBM_SABIT = {
 
 
 def _kullanilabilir(tablo: pd.DataFrame) -> pd.DataFrame:
-    """Eğitime ve karışıma girebilen satırlar: stoklu günü olan, talebi bilinen."""
-    return tablo[(tablo["stoklu_gun"] > 0).to_numpy() & tablo["talep"].notna().to_numpy()]
+    """Eğitime ve karışıma girebilen satırlar: stoklu günü olan, talebi bilinen; (option, magaza)
+    sırasıyla, indeks 0..n-1. Kanonik sıra şart: kayan nokta toplamları (karışım payları) satır
+    sırasına bağlıdır ve son basamaktaki fark LightGBM eşiklerini, dolayısıyla `kimlik`i değiştirir."""
+    t = tablo[(tablo["stoklu_gun"] > 0).to_numpy() & tablo["talep"].notna().to_numpy()]
+    return t.sort_values(["option", "magaza"], kind="stable", ignore_index=True)
 
 
 def karisim(tablo: pd.DataFrame) -> pd.DataFrame:
@@ -175,11 +179,11 @@ def egitim_ozellikleri(tablo: pd.DataFrame, magazalar: pd.DataFrame,
 
     Karışım özellikleri option'a göre katlamalıdır (modül notu): satırın payı, kendi katının
     option'ları dışındaki satırlardan hesaplanır. Satır sırası `tablo`nunki (kullanılabilir olanlar)."""
-    t = _kullanilabilir(tablo).reset_index(drop=True)
+    t = _kullanilabilir(tablo)
     if len(t) == 0:
         return ozellikler(t, magazalar, karisim(t)), np.zeros(0)
     katlar = t["option"].map(option_katlari(t["option"].to_numpy(), kat)).to_numpy()
-    X = ozellikler(t, magazalar, karisim(t))
+    X = ozellikler(t, magazalar, karisim(t.iloc[:0]))      # karışım sütunları aşağıda katlarla doldurulur
     pay = np.full((len(t), len(PAY_SUTUNLARI)), np.nan)
     for k in np.unique(katlar):
         ic = katlar == k
@@ -207,11 +211,14 @@ def _kanonik(parametreler: dict) -> str:
 
 def _egit_model(tablo: pd.DataFrame, magazalar: pd.DataFrame,
                 parametreler: dict) -> tuple[lgb.Booster, pd.DataFrame]:
-    """(Booster, tablonun geçmiş karışımı); tablo boş ya da hedefi sıfırsa ValueError."""
+    """(Booster, tablonun geçmiş karışımı); tablo boş ya da hedefi sıfırsa, parametre anahtarları
+    `PARAMETRE_ANAHTARLARI`ndan farklıysa ValueError."""
+    if set(parametreler) != set(PARAMETRE_ANAHTARLARI):
+        raise ValueError(f"parametre anahtarları {sorted(PARAMETRE_ANAHTARLARI)} olmalı: {sorted(parametreler)}")
     X, y = egitim_ozellikleri(tablo, magazalar)
     if len(y) == 0 or y.sum() <= 0:
         raise ValueError("eğitim hedefi boş ya da tamamı sıfır")
-    p = {k: parametreler[k] for k in ("num_leaves", "learning_rate", "min_child_samples")}
+    p = {k: parametreler[k] for k in PARAMETRE_ANAHTARLARI if k != "n_estimators"}
     veri = lgb.Dataset(X, label=y, categorical_feature=KATEGORIK, free_raw_data=True)
     model = lgb.train({**p, **_LGBM_SABIT}, veri, num_boost_round=int(parametreler["n_estimators"]))
     return model, karisim(tablo)
@@ -233,7 +240,7 @@ def dogrula(tablo: pd.DataFrame, magazalar: pd.DataFrame, parametreler: dict = V
       sapma_pay_model / _taban    her tutulan option'ın tahmini o option'ın gerçek toplamına
                                   ölçeklenmiş (yalnız mağaza payları)
     ayrıca satır / option sayıları ve ortalama hedef / tahmin."""
-    t = _kullanilabilir(tablo).reset_index(drop=True)
+    t = _kullanilabilir(tablo)
     optionlar = np.unique(t["option"].to_numpy())
     if dislanan is None:
         n = int(round(DOGRULAMA_PAYI * len(optionlar)))
