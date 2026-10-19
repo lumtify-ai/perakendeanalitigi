@@ -15,6 +15,9 @@ okunursa test patlar (`harita_kur` ve politikalar bunlara dokunmamalı).
         4 C   SS25 Outlet    d1   Unisex Üst Giyim  Unisex Harf  (5)
         5 X   SS25 Collection d3  Aksesuar          Standart     (1)
 
+                alt kategori, fiyat segmenti, kalıp, kumaş, renk, desen, liste fiyatı ve
+                `ilk_alim` (açık alanlar) `_OZNITELIKLER` / `_ILK_ALIM`'da
+
     hücreler    fiziksel mağaza × Collection SKU'ları, MO × Outlet SKU'ları, ONL × bütün SKU'lar
     paketler    5 bedenli setlerde 1-2-2-1-1 (= 7), Standart tek beden (6)
     takvim      2025-02-03 (pazartesi, gün 0) – 2025-02-23, 21 gün
@@ -71,6 +74,18 @@ _OPTIONLAR = [   # option_id, sezon, line, dalga, ust_kategori, cinsiyet, beden_
     ("OPT-C", "SS25", "Outlet", 1, "Üst Giyim", "Unisex", "Unisex Harf", 5),
     ("OPT-X", "SS25", "Collection", 3, "Aksesuar", "Unisex", "Standart", 1),
 ]
+# option'ların açık öznitelikleri (`optionlar` satır sırasıyla) ve ilk alımı (`ilk_alim`)
+_OZNITELIK_SUTUNLARI = ("alt_kategori", "fiyat_segmenti", "kalip", "kumas", "renk", "desen",
+                        "liste_fiyati")
+_OZNITELIKLER = [
+    ("Bluz", "orta", "regular", "pamuk", "Beyaz", "düz", 499.99),
+    ("Pantolon", "orta", "slim", "denim", "Mavi", "düz", 899.99),
+    ("Tişört", "giriş", "regular", "pamuk", "Siyah", "düz", 299.99),
+    ("Ceket", "üst", "oversize", "yün", "Bej", "ekose", 1499.99),
+    ("Sweatshirt", "giriş", "relaxed", "pamuk", "Gri", "baskılı", 399.99),
+    ("Şapka", "giriş", "standart", "pamuk", "Siyah", "düz", 199.99),
+]
+_ILK_ALIM = [700, 1400, 2100, 1400, 700, 600]
 _SEZON = [   # sezon, dalga, lansman, indirim_baslangic, cikis (yayımlanan v4'ten)
     ("SS23", 1, "2023-02-13", "2023-07-03", "2023-08-28"),
     ("SS23", 2, "2023-03-20", "2023-07-03", "2023-08-28"),
@@ -123,6 +138,8 @@ def oyuncak_dunya() -> OyuncakDunya:
     optionlar["lansman_tarihi"] = [lansman[(sz, int(d))] for sz, d in
                                    zip(optionlar["sezon_kodu"], optionlar["dalga"])]
     optionlar["cikis_tarihi"] = [cikis[sz] for sz in optionlar["sezon_kodu"]]
+    for s, degerler in zip(_OZNITELIK_SUTUNLARI, zip(*_OZNITELIKLER)):
+        optionlar[s] = list(degerler)
 
     sku_satir, sku_option, sku_payi = [], [], []
     for o, (oid, *_rest, n) in enumerate(_OPTIONLAR):
@@ -165,7 +182,8 @@ def oyuncak_dunya() -> OyuncakDunya:
         hucre_magaza=hm, hucre_sku=hs, hucre_option=sku_option[hs],
         hucre_online=hm == onl_m,
         hucre_outlet_akisi=np.array([_MAGAZALAR[m][4] == "Outlet" for m in hm]),
-        sku_option=sku_option, sku_beden_payi=np.array(sku_payi), gun_sayisi=len(takvim))
+        sku_option=sku_option, sku_beden_payi=np.array(sku_payi), ilk_alim=np.array(_ILK_ALIM),
+        gun_sayisi=len(takvim))
 
 
 @pytest.fixture
