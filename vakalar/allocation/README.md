@@ -84,7 +84,7 @@ Oyun sezonu SS25'in Collection option'ları (`allocation/oyun.py`, spec §4.5). 
 çünkü sonrakiler pay bloğunun seçtiği "en iyi" kola bakar (`cikti/secim.json`): `esdegerlik`
 (`lumoda`, yayımlanan v4'ün kendisi) → `pay` (esit, benzer ve tahmin tavanlı / tavansız, kahin; t =
 0) → `eslesik` (benzer ve tahmin tavansız, t = tavanlı hâlinin depoda bıraktığı pay: tavanın "kime"
-etkisi aynı malla) → `sabit_takvim` (lumoda'nın RPT ve markdown kararlarıyla) → `tutma` (t ∈ {0; 0,15;
+etkisi aynı malla) → `sabit_takvim` (lumoda'nın RPT ve markdown kararlarıyla; benzer ve tahmin tavansız) → `tutma` (t ∈ {0; 0,15;
 0,30; 0,45} × {lumoda_tut, en iyi} × replenishment {Lumoda, hiz}) → `strateji` (belirsizlik, t̄ = %30)
 → `demo`. "En iyi" tavansız benzer ve tahminden seçilir (ikisi de Lumoda'yla aynı malı gönderir;
 tavanlı kol U'nun bir kısmını depoda bırakır, örtük bir tutma koludur); tutma ekseni, belirsizliğin

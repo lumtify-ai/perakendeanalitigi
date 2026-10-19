@@ -116,7 +116,12 @@ def test_cozum_ve_imza():
     assert c == {"kol": "belirsizlik", "taban": "tahmin", "tutma": None, "tavan": False, "repl": "lumoda",
                  "takvim": False, "yol": 0}
     assert oyun.cozumle(tum["pay_kahin"], KAL, None)["tavan"] is False
-    assert oyun.cozumle(tum["sabit_benzer"], {**KAL, "tavan": False}, None)["tavan"] is False
+    # sabit takvimin benzer ve tahmini tavansız (R46), kalibrasyonun tavanı açıkken de; tepkili karşılığı
+    # pay_*_tavansiz ile yalnız takvimde ayrışır
+    for k in ("benzer", "tahmin"):
+        cs = oyun.cozumle(tum[f"sabit_{k}"], {**KAL, "tavan": True}, None)
+        assert cs["tavan"] is False and cs["takvim"] is True
+        assert {**cs, "takvim": False} == oyun.cozumle(tum[f"pay_{k}_tavansiz"], KAL, None)
     with pytest.raises(RuntimeError, match="en iyi"):
         oyun.cozumle(tum["tut_eniyi_t15"], KAL, None)
     imzalar = {im(a) for a in tum}

@@ -21,7 +21,8 @@ kalibrasyonun seçimi (`kalibrasyon.json`), yalnız benzer ve tahminde etkin.
                   etkisi (aynı mal), eşleşik ↔ tavansız t 0 = tutmanın etkisi
     sabit_takvim  lumoda_takvimli (lumoda'nın RPT ve markdown kararlarını oyun option'larında
                   yeniden oynatır; eşdeğerlik testiyle aynı koşu) + esit, benzer, tahmin, kahin aynı
-                  takvimle (`politika.TakvimRPT`, `TakvimMarkdown`)
+                  takvimle (`politika.TakvimRPT`, `TakvimMarkdown`); benzer ve tahmin tavansız (aynı mal,
+                  Ruling R46: tepkili karşılığı pay_*_tavansiz)
     tutma         t ∈ TUTMA_DUZEYLERI × pay {lumoda_tut, en iyi} × replenishment {Lumoda, hiz}
                   (16; t = 0 dahil: lumoda_tut t = 0 Lumoda'nın U'ya sığdırılmış hâli, Ruling R28)
     strateji      belirsizlik: pay en iyiden (tavansız), t_o option başına (t̄ = %30); karşılığı
@@ -280,7 +281,8 @@ IZGARA: dict[str, tuple[Kosum, ...]] = {
     "eslesik": tuple(Kosum(f"es_{k}", k, tutma=None, tavan=False, tutma_kaynagi=f"pay_{k}_tavanli")
                      for k in TAVANLI),
     "sabit_takvim": (Kosum(TAKVIMLI, "lumoda", takvim=True), Kosum("sabit_esit", "esit", takvim=True),
-                     Kosum("sabit_benzer", "benzer", takvim=True), Kosum("sabit_tahmin", "tahmin", takvim=True),
+                     Kosum("sabit_benzer", "benzer", takvim=True, tavan=False),
+                     Kosum("sabit_tahmin", "tahmin", takvim=True, tavan=False),
                      Kosum("sabit_kahin", "kahin", takvim=True)),
     "tutma": _tutma(),
     "strateji": (Kosum("belirsizlik", "belirsizlik"),),
