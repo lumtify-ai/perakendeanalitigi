@@ -181,6 +181,36 @@ def test_endeks_kimligi_icerikten():
         e.goreli[0, 0] = 9.0
 
 
+def test_kimlik_satir_sirasindan_bagimsiz_gercel_talep():
+    """Gerçel (tamsayı olmayan) talepte de satır sırası kimliği ve öğrenilenleri bit bit
+    değiştirmez (kayan nokta toplamı sıraya bağlıdır; `ogren` kanonik sırayla toplar)."""
+    rng = np.random.default_rng(7)
+    optionlar = []
+    for o in range(50):
+        magazalar = np.flatnonzero(rng.random(84) < 0.8)
+        optionlar.append({"o": o, "kalip": ["A", "B", "C"][o % 3],
+                          "fiyat_segmenti": ["orta", "üst"][o % 2],
+                          "ilk_alim": float(rng.integers(500, 5000)),
+                          "talep": {int(m): float(rng.gamma(2.0, 7.3)) for m in magazalar}})
+    t = _tablo(optionlar)
+    e = benzer.ogren(t, en_az=3)
+    aday = np.ones(84, dtype=bool)
+    endeks, _, mutlak = e.endeks(YENI, aday)
+    for tohum in range(10):
+        k = benzer.ogren(t.sample(frac=1.0, random_state=tohum).reset_index(drop=True), en_az=3)
+        assert k.kimlik == e.kimlik
+        for ad in ("talep", "goreli", "ilk_alim", "option"):
+            assert getattr(k, ad).tobytes() == getattr(e, ad).tobytes(), ad
+        en2, _, mu2 = k.endeks(YENI, aday)
+        assert en2.tobytes() == endeks.tobytes() and mu2.tobytes() == mutlak.tobytes()
+
+
+def test_ogren_cift_satir_reddedilir():
+    t = _tablo([{"o": 1, "talep": {0: 30, 1: 10}}])
+    with pytest.raises(ValueError, match="birden çok"):
+        benzer.ogren(pd.concat([t, t.iloc[[0]]], ignore_index=True), 1)
+
+
 def test_belirsizlik():
     ayni = _tablo([
         {"o": 1, "talep": {0: 30, 1: 10, 2: 20, 3: 20}},

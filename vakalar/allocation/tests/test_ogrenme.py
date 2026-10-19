@@ -304,6 +304,24 @@ def test_ogrenme_karar_sonrasini_gormez(gecmis):
         pd.testing.assert_frame_equal(once, ogrenme.ogrenme_tablosu(bozuk, w, karar))
 
 
+def test_ogrenme_karar_sonrasi_ilk_dagitimi_gormez(gecmis):
+    """Kapanmış sezonun option'ına karar gününden sonra varan bir ilk dağıtım satırı (daraltmada
+    düşmez) tabloya girmez. M4'ün GA ilk dağıtımı silinir; karardan sonra M4'e GA varışı eklenir:
+    süzgeç olmasa (GA, M4) çifti tabloya girerdi (ya da pencere matrisin dışına taşardı)."""
+    w, t = gecmis
+    karar = pd.Timestamp("2025-02-01")
+    sv = t["sevkiyat"]
+    m4_ga = (sv["hedef"] == "M4") & sv["urun_id"].str.startswith("OPT-GA-") & (sv["tip"] == "ilk_dagitim")
+    assert m4_ga.any()
+    varissiz = {**t, "sevkiyat": sv[~m4_ga.to_numpy(dtype=bool)].reset_index(drop=True)}
+    once = ogrenme.ogrenme_tablosu(varissiz, w, karar)
+    assert ((once["option"] == GA) & (once["magaza"] == M4)).sum() == 0
+    gec = sv[m4_ga.to_numpy(dtype=bool)].iloc[[0]].copy()
+    gec["tarih"], gec["varis_tarihi"] = pd.Timestamp("2025-02-03"), pd.Timestamp("2025-02-05")
+    sonra = {**varissiz, "sevkiyat": pd.concat([varissiz["sevkiyat"], gec], ignore_index=True)}
+    pd.testing.assert_frame_equal(once, ogrenme.ogrenme_tablosu(sonra, w, karar))
+
+
 # ---------------------------------------------------------------- gerçek veri
 
 

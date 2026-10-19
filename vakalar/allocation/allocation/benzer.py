@@ -206,7 +206,12 @@ def ogren(tablo: pd.DataFrame, en_az: int, mevsim: str | None = None) -> Endeks:
 
     Gözlem = `stoklu_gun > 0` ve talebi tanımlı satır. `mevsim` ("SS" / "AW") verilirse yalnız o
     mevsimin sezonları (`sezon_kodu` öneki). Mağaza ekseni tablonun en büyük mağaza indisine
-    kadardır; sorguda aday dizisinin uzunluğuna genişler."""
+    kadardır; sorguda aday dizisinin uzunluğuna genişler.
+
+    Kayan noktalı her toplama (option ortalaması) satır sırasından bağımsızdır: tablo önce
+    (option, mağaza) sırasına dizilir, ortalama `[K, M]` matrisin satırında mağaza sırasıyla
+    alınır; böylece `kimlik` yalnız içeriğe bağlıdır. Bir (option, mağaza) çifti birden çok
+    gözlem satırı taşıyamaz (`ValueError`)."""
     if int(en_az) < 1:
         raise ValueError(f"en_az >= 1 olmalı: {en_az}")
     if mevsim is not None and mevsim not in MEVSIMLER:
@@ -214,15 +219,19 @@ def ogren(tablo: pd.DataFrame, en_az: int, mevsim: str | None = None) -> Endeks:
     t = tablo[(tablo["stoklu_gun"] > 0).to_numpy() & tablo["talep"].notna().to_numpy()]
     if mevsim is not None:
         t = t[t["sezon_kodu"].astype(str).str.startswith(mevsim).to_numpy()]
-    ort = t.groupby("option")["talep"].mean()
-    optionlar = np.sort(ort.index[ort.to_numpy() > 0].to_numpy().astype(np.int64))
-    t = t[t["option"].isin(optionlar).to_numpy()]
+    t = t.sort_values(["option", "magaza"], kind="stable", ignore_index=True)
+    if t.duplicated(["option", "magaza"]).any():
+        raise ValueError("ogren: aynı (option, mağaza) için birden çok gözlem satırı")
+    tum = np.unique(t["option"].to_numpy().astype(np.int64))
     M = int(t["magaza"].max()) + 1 if len(t) else 0
-    K = len(optionlar)
-    talep = np.full((K, M), np.nan)
-    sira = np.searchsorted(optionlar, t["option"].to_numpy())
-    talep[sira, t["magaza"].to_numpy()] = t["talep"].to_numpy(dtype=np.float64)
-    goreli = talep / ort.reindex(optionlar).to_numpy()[:, None] if K else talep
+    talep = np.full((len(tum), M), np.nan)
+    talep[np.searchsorted(tum, t["option"].to_numpy()), t["magaza"].to_numpy()] = (
+        t["talep"].to_numpy(dtype=np.float64))
+    # satır başına en az bir gözlem var (tum gözlemli option'lardan); toplama mağaza sırasıyla
+    ort = np.nansum(talep, axis=1) / (~np.isnan(talep)).sum(axis=1) if len(tum) else np.zeros(0)
+    tut = ort > 0                       # hiç satmamış option bilgi taşımaz
+    optionlar, talep, ort = tum[tut], talep[tut], ort[tut]
+    goreli = talep / ort[:, None]
     ilk = t.drop_duplicates("option").set_index("option").reindex(optionlar)
     return Endeks(en_az=int(en_az), option=optionlar,
                   oznitelik={s: ilk[s].astype(str).to_numpy() for s in SUTUNLAR},
