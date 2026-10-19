@@ -42,11 +42,17 @@ Kolların etkin ayarı (etkisiz alanlar kapalı yazılır) `parametreler()`'e gi
 **Kayıt** (`kayit_tablosu()`, motor `kayitlar["ilk_dagitim"]`). `motor.Kaydedici` biçimi
 (`gun`, `arg0` = option, `indis` = mağaza, `deger` = paket; `kirpma_tablosu` bunu okur) ve
 karar başına sütunlar: `kol` (kendi kararı mı), `U`, `toplam`, `t`, `duzey` (benzerin
-hiyerarşi düzeyi; yoksa −1), `tavan_baglayan` (tavanında paket alan mağaza sayısı),
-`geri_dusus`. Kendi kararında her aday mağaza bir satırdır (paket 0 da), Lumoda'ya devredilen
-kararda yalnız paket alan mağazalar (`kol = False`, karar sütunları −1 / NaN). Nesne tek
-koşuluktur: motor `baglan` çağırırsa kayıt sıfırlanır; çağırmadan ikinci koşuda kullanılan
-nesne (gün geri gider) `RuntimeError` verir.
+hiyerarşi düzeyi; yoksa −1), `tavanda` (tavan uygulanmış ve paketi tavanına eşit mağaza
+sayısı; tavan olmasa da o kadar alacak mağazayı da sayar, "tavanı bağlayan"dan geniştir),
+`geri_dusus`. Kendi kararında her aday mağaza bir satırdır (paket 0 da); aday mağazası hiç
+olmayan kendi kararı tek bir nöbetçi satırdır (`indis = −1`, `deger = 0`, karar sütunları dolu;
+`motor.kirpma_tablosu` `indis < 0` satırlarını atar). Lumoda'ya devredilen kararda yalnız paket
+alan mağazalar (`kol = False`, karar sütunları −1 / NaN).
+
+**Her koşuya bir kol nesnesi.** Kayıt nesne kurulurken boştur. Motor `baglan`'ı yalnız
+Lumoda kaydedicisi kalan koşularda çağırır (kayıt orada da sıfırlanır); ilk dağıtım, RPT ve
+markdown'ın üçü de enjekte edilen (sabit takvimli) koşuda çağırmaz. Bu yüzden nesne yeniden
+kullanılmamalıdır: ikinci koşuda gün geri gittiği için `RuntimeError` verir.
 
 **`hiz` replenishment'ı** (`HizReplenishment(temel, harita, sezon)`, spec §3.5). `sezon`un `LINE`
 hücrelerinde, ilk dağıtımı bitmiş (`ilk_dagitim_gun < gün`), fiziksel (ONL ve outlet akışı
@@ -87,7 +93,7 @@ from allocation.paylastir import TAVANSIZ, aday_maskesi, paket_adedi, paylastir,
 
 KOLLAR = {"lumoda_tut", "esit", "benzer", "tahmin", "kahin", "belirsizlik"}
 KAYIT_SUTUNLARI = ["gun", "arg0", "indis", "deger", "kol", "U", "toplam", "t", "duzey",
-                   "tavan_baglayan", "geri_dusus"]
+                   "tavanda", "geri_dusus"]
 _BASAMAK = 9    # kayan nokta gürültüsünü eleyen yuvarlama (⌊U(1−t)⌋, ⌈öngörü ÷ paket⌉)
 
 
@@ -143,11 +149,11 @@ class IlkDagitimKolu:
         self.temel = temel
         self.harita = harita
         self.ayar = Ayar() if ayar is None else ayar
-        self._kayit: list[dict] = []
+        self._kayit: list[dict] = []        # her koşuya yeni nesne (modül notu)
 
     # --- motor arayüzü ------------------------------------------------------
     def baglan(self, kaydediciler: dict) -> None:
-        """Motor koşu başında çağırır: kayıt sıfırlanır (aynı nesne yeni koşuda baştan)."""
+        """Motor koşu başında (Lumoda kaydedicisi kalan koşularda) çağırır: kayıt sıfırlanır."""
         self._kayit = []
 
     def kendi_mi(self, o: int) -> bool:
@@ -196,7 +202,7 @@ class IlkDagitimKolu:
             baglayan = int((aday & (tavan < TAVANSIZ) & (paket > 0) & (paket >= tavan)).sum())
         self._kayit.append({"gun": int(g.gun), "o": o, "paket": paket.copy(), "kol": True, "aday": aday.copy(),
                             "U": int(U), "toplam": toplam, "t": float(t), "duzey": int(duzey),
-                            "tavan_baglayan": baglayan, "geri_dusus": bool(geri)})
+                            "tavanda": baglayan, "geri_dusus": bool(geri)})
         return paket
 
     # --- alt sınıfların kancaları -------------------------------------------
@@ -234,23 +240,26 @@ class IlkDagitimKolu:
             p = e["paket"]
             if e["kol"]:
                 m = np.flatnonzero(e["aday"] | (p != 0))
-                ek = {s: e[s] for s in ("U", "toplam", "t", "duzey", "tavan_baglayan", "geri_dusus")}
+                if not len(m):
+                    m = np.array([-1])               # nöbetçi: aday yok, karar özeti kalsın
+                ek = {s: e[s] for s in ("U", "toplam", "t", "duzey", "tavanda", "geri_dusus")}
             else:
                 m = np.flatnonzero(p)
-                ek = {"U": -1, "toplam": -1, "t": np.nan, "duzey": -1, "tavan_baglayan": -1, "geri_dusus": False}
+                ek = {"U": -1, "toplam": -1, "t": np.nan, "duzey": -1, "tavanda": -1, "geri_dusus": False}
             if not len(m):
                 continue
             n = len(m)
             parcalar.append(pd.DataFrame({
                 "gun": np.full(n, e["gun"], dtype=np.int64), "arg0": np.full(n, e["o"], dtype=np.int64),
-                "indis": m.astype(np.int64), "deger": p[m].astype(np.int64), "kol": np.full(n, e["kol"]),
+                "indis": m.astype(np.int64), "deger": np.where(m >= 0, p[m], 0).astype(np.int64),
+                "kol": np.full(n, e["kol"]),
                 **{s: np.full(n, v) for s, v in ek.items()}}))
         if not parcalar:
             return pd.DataFrame({s: pd.Series(dtype=t) for s, t in zip(
                 KAYIT_SUTUNLARI, ["int64"] * 4 + ["bool", "int64", "int64", "float64", "int64", "int64", "bool"])})
         df = pd.concat(parcalar, ignore_index=True)[KAYIT_SUTUNLARI]
         return df.astype({"U": np.int64, "toplam": np.int64, "t": np.float64, "duzey": np.int64,
-                          "tavan_baglayan": np.int64, "kol": bool, "geri_dusus": bool})
+                          "tavanda": np.int64, "kol": bool, "geri_dusus": bool})
 
 
 class LumodaTutKol(IlkDagitimKolu):
@@ -380,9 +389,12 @@ class BelirsizlikKol(IlkDagitimKolu):
         self.t_o = MappingProxyType(t)
 
     def parametreler(self) -> dict:
+        # t_o tabanın `Ayar.tutma`'sını geçersiz kılar: iki yerde de yok sayılır (aynı davranan
+        # iki kol aynı anahtarı alsın)
         ayar = {**self.etkin_ayar(), "tutma": None}
-        return {"kol": self.ad, "ayar": ayar, "taban": {"tur": type(self.taban).__qualname__,
-                                                        **self.taban.parametreler()},
+        taban = self.taban.parametreler()
+        taban = {**taban, "ayar": {**taban["ayar"], "tutma": None}}
+        return {"kol": self.ad, "ayar": ayar, "taban": {"tur": type(self.taban).__qualname__, **taban},
                 "t_o": sorted([o, v] for o, v in self.t_o.items())}
 
     def _tutma(self, g, o):

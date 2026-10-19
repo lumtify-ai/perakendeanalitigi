@@ -1047,7 +1047,8 @@ def _bos_kirpma() -> pd.DataFrame:
 
 
 def _istenen(kayit: pd.DataFrame, w, kiyas_o: np.ndarray) -> pd.DataFrame:
-    k = kayit[np.isin(kayit["arg0"].to_numpy(), kiyas_o)]
+    # indis < 0: mağazası olmayan karar özeti (politika kolunun nöbetçi satırı), istek değil
+    k = kayit[np.isin(kayit["arg0"].to_numpy(), kiyas_o) & (kayit["indis"].to_numpy() >= 0)]
     t = pd.DataFrame({"option_id": w.optionlar["option_id"].to_numpy().astype(str)[k["arg0"].to_numpy()],
                       "magaza_id": w.magazalar["magaza_id"].to_numpy().astype(str)[k["indis"].to_numpy()],
                       # motor negatif isteği sıfıra kırpar (`np.maximum(ilk_dagitim, 0)`)

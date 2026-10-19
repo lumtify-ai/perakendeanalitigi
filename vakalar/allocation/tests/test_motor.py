@@ -585,6 +585,14 @@ def test_kirpma_tablosu_kenar_durumlari(dunya):
                       ignore_index=True)
     negatif = motor.Kosu(tablolar=k.tablolar, gercek=k.gercek, meta=k.meta, kayitlar={"ilk_dagitim": kayit})
     pd.testing.assert_frame_equal(motor.kirpma_tablosu(negatif, w=dunya), motor.kirpma_tablosu(k, w=dunya))
+    # indis < 0: kolun nöbetçi satırı (aday mağazası olmayan karar özeti) istek sayılmaz
+    kayit = pd.concat([k.kayitlar["ilk_dagitim"],
+                       pd.DataFrame({"gun": [1], "arg0": [2], "indis": [-1], "deger": [0]})],
+                      ignore_index=True)
+    nobetci = motor.Kosu(tablolar=k.tablolar, gercek=k.gercek, meta=k.meta, kayitlar={"ilk_dagitim": kayit})
+    pd.testing.assert_frame_equal(motor.kirpma_tablosu(nobetci, w=dunya), motor.kirpma_tablosu(k, w=dunya))
+    istenen = motor._istenen(kayit, dunya, np.array([2]))
+    assert sorted(istenen["magaza_id"]) == ["M1", "M2", "M3", "M4"]      # −1 son mağazaya (ONL) düşmez
 
     s = k.tablolar["sevkiyat"]
     sevksiz = motor.Kosu(tablolar={**k.tablolar, "sevkiyat": s[s["tip"] != "ilk_dagitim"]},

@@ -182,7 +182,7 @@ def test_esit_tavansiz(dunya, h, temel):
     assert out.sum() == U and out[4:].sum() == 0
     assert out[:4].max() - out[:4].min() <= 1
     k = kol.kayit_tablosu()
-    assert (k["tavan_baglayan"] == 0).all() and (k["duzey"] == -1).all()
+    assert (k["tavanda"] == 0).all() and (k["duzey"] == -1).all()
     assert sorted(k["indis"]) == [0, 1, 2, 3]
 
 
@@ -217,7 +217,7 @@ def test_benzer_tavan_baglar(dunya, h, temel):
     U = paylastir.ust_sinir(g, A, h)
     assert out[1] == tavan[1] and out.sum() == U and (out[:4] <= tavan).all()
     k = kol.kayit_tablosu()
-    assert (k["tavan_baglayan"] == 1).all() and (k["duzey"] == 0).all()
+    assert (k["tavanda"] == 1).all() and (k["duzey"] == 0).all()
     acik = BenzerKol(temel, h, Ayar(tavan=False), endeks=e)(g, A)
     assert acik[1] > 20 and acik.sum() == U
     np.testing.assert_array_equal(acik, paylastir.paylastir(U, np.where(aday, endeks, 0), aday))
@@ -227,7 +227,7 @@ def test_benzer_tavan_baglar(dunya, h, temel):
     out = kucuk(g, A)
     assert out.sum() < U and (out[:4] == 1).sum() >= 1
     k = kucuk.kayit_tablosu()
-    assert (k["tavan_baglayan"] == 4).all() and (k["toplam"] == U).all()
+    assert (k["tavanda"] == 4).all() and (k["toplam"] == U).all()
 
     # öngörü yok: yalnız aday olmayan MO'nun geçmişi var
     yok = _endeks([_tablo_satiri(0, 4, 50.0)])
@@ -336,6 +336,12 @@ def test_belirsizlik_ortalama_tbar(dunya, h, temel):
     p = kol.parametreler()
     assert p["kol"] == "belirsizlik" and p["taban"]["kol"] == "esit" and p["ayar"]["tutma"] is None
     assert len(p["t_o"]) == 3 and kol.temel is temel
+    assert p["taban"]["ayar"]["tutma"] is None
+    # tabanın tutma'sı t_o'yla geçersiz: aynı davranan iki kol aynı kimlik
+    t_o = {oid[o]: t[o] for o in t}
+    baska = BelirsizlikKol(EsitKol(temel, h, Ayar(en_az_gosterim=False, tutma=0.15)), t_o)
+    assert baska.parametreler() == p
+    assert BelirsizlikKol(EsitKol(temel, h, Ayar(en_az_gosterim=True)), t_o).parametreler() != p
     assert taban.kayit_tablosu().empty           # taban kararı belirsizliğin kaydında
 
     with pytest.raises(KeyError, match="OPT-B"):
@@ -364,6 +370,14 @@ def test_kayit_ve_yeniden_kullanim(dunya, h, temel):
     kol.baglan({})
     assert kol.kayit_tablosu().empty
     kol(_gorunum(dunya, gun=9), A)
+
+    # aday mağazası olmayan kendi kararı: tek nöbetçi satır (indis −1, paket 0, özet dolu)
+    bos_kol = EsitKol(temel, h)
+    out = bos_kol(_gorunum(dunya, kapanacak=range(M)), A)
+    assert not out.any()
+    k = bos_kol.kayit_tablosu()
+    assert len(k) == 1 and k["indis"].iloc[0] == -1 and k["deger"].iloc[0] == 0 and k["kol"].iloc[0]
+    assert k["U"].iloc[0] == paylastir.ust_sinir(_gorunum(dunya), A, h) == k["toplam"].iloc[0]
 
     oid = dunya.optionlar["option_id"]
     kollar = list(_kollar(temel, h).values())
@@ -582,7 +596,7 @@ def _kucuk_kahin(kucuk):
 
 
 @pytest.mark.parametrize("ad,t", [("esit", 0.0), ("esit", 0.45), ("lumoda_tut", 0.0), ("lumoda_tut", 0.30),
-                                  ("benzer", 0.0), ("kahin", 0.15)])
+                                  ("benzer", 0.0), ("kahin", 0.15), ("belirsizlik", None)])
 def test_kol_motorca_kirpilmaz(kucuk, ad, t):
     """Kısa KÜÇÜK koşu, oyun sezonu SS23'e çekilmiş: kolun her SS23 Collection kararı U'ya
     sığar, motor tek paket kırpmaz (`kirpma_tablosu` oyun option'larında boş); aynı koşuda
@@ -590,8 +604,11 @@ def test_kol_motorca_kirpilmaz(kucuk, ad, t):
     (tavan bağlamadıkça)."""
     from allocation import motor
 
-    ayar = Ayar(sezon=SEZON, tutma=t)
+    ayar = Ayar(sezon=SEZON, tutma=t or 0.0)
+    oidler = kucuk.w.optionlar["option_id"].to_numpy()[kucuk.oyun]
+    t_o = dict(zip(oidler, np.random.default_rng(5).uniform(0, 2 * sabitler.BELIRSIZLIK_TBAR, len(oidler))))
     kol = {"esit": lambda: EsitKol(kucuk.lumoda, kucuk.h, ayar),
+           "belirsizlik": lambda: BelirsizlikKol(EsitKol(kucuk.lumoda, kucuk.h, ayar), t_o),
            "lumoda_tut": lambda: LumodaTutKol(kucuk.lumoda, kucuk.h, ayar),
            "benzer": lambda: BenzerKol(kucuk.lumoda, kucuk.h, ayar, endeks=_kucuk_endeks(kucuk)),
            "kahin": lambda: KahinKol(kucuk.lumoda, kucuk.h, ayar, erken_talep=_kucuk_kahin(kucuk))}[ad]()
@@ -601,7 +618,10 @@ def test_kol_motorca_kirpilmaz(kucuk, ad, t):
     kendi = kayit[kayit["kol"]]
     assert set(kendi["arg0"]) == set(kucuk.oyun.tolist())
     ozet = kendi.groupby("arg0").agg(U=("U", "first"), toplam=("toplam", "first"), giden=("deger", "sum"),
-                                     baglayan=("tavan_baglayan", "first"))
+                                     baglayan=("tavanda", "first"))
+    if t is None:      # belirsizlik: option başına t_o
+        t = kendi.groupby("arg0")["t"].first().to_numpy()
+        np.testing.assert_allclose(t, [t_o[oidler[list(kucuk.oyun).index(o)]] for o in ozet.index])
     assert (ozet["toplam"] == np.floor(np.round(ozet["U"] * (1 - t), 9))).all()
     assert (ozet["giden"] <= ozet["toplam"]).all()
     assert (ozet.loc[ozet["baglayan"] == 0, "giden"] == ozet.loc[ozet["baglayan"] == 0, "toplam"]).all()
