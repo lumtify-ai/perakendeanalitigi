@@ -105,16 +105,25 @@ def test_lumoda_yayimlanan_v4_ile_ayni():
 
 
 @pytest.mark.veri
-@pytest.mark.skip(reason="Görev 6")
 def test_takvim_yeniden_oynatma_esdeger():
-    """`lumoda` koşusunun takvimini `rpt=` ve `markdown=` ile yeniden oynatan koşu
-    (Görev 6'nın `TakvimRPT` / `TakvimMarkdown`'ı) aynı 18 tabloyu üretir."""
+    """`lumoda` koşusunun takvimini oyun sezonunun Collection option'larında `rpt=` ve
+    `markdown=` ile yeniden oynatan koşu (`TakvimRPT` / `TakvimMarkdown`; öteki option'lar
+    Lumoda'nın tepkili kararı, sabit takvim kollarının üretim biçimi) aynı 18 tabloyu ve aynı
+    gizli gerçeği üretir."""
     from allocation.politika import TakvimMarkdown, TakvimRPT
 
     _veri_yoksa_atla()
     tk = motor.takvim(_lumoda()).sabitle()
-    k = motor.kos(rpt=TakvimRPT(tk), markdown=TakvimMarkdown(tk), ad="lumoda_takvimli",
+    oyun = kaynak.oyun_optionlari(motor.dunya(), sabitler.OYUN_SEZONU)
+    assert len(oyun) == 210
+    assert any(o in d for d in tk.rpt.values() for o in oyun)
+    k = motor.kos(rpt=TakvimRPT(motor.lumoda("rpt"), tk, oyun),
+                  markdown=TakvimMarkdown(motor.lumoda("markdown"), tk, oyun), ad="lumoda_takvimli",
                   parametreler={}, onbellek=motor.KOSU_DIZINI, tembel=True)
+    print(f"\nkoşu: {'önbellekten' if k.onbellekten else 'yeni'}; motor {k.meta.get('motor_sn')} sn, "
+          f"toplam {k.meta.get('sure_sn')} sn; tepe bellek {k.meta.get('tepe_bellek_gb')} GB")
+    assert k.meta["turler"] == {"rpt": "allocation.politika.TakvimRPT",
+                                "markdown": "allocation.politika.TakvimMarkdown"}
     _yayimlanan_ile_ayni(k.tablolar)
     gercek = _lumoda().tablo("gercek", sutunlar=list(motor.GERCEK_SUTUNLARI))
     yeni = k.tablo("gercek", sutunlar=list(motor.GERCEK_SUTUNLARI))
