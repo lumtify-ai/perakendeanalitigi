@@ -9,7 +9,7 @@ durum: yayinda
 
 import T from '../../../../components/T.astro'
 
-Geçen yazıda Pars ilk sevkiyatı tek cümleyle tanımlamıştı: ürün tek bir
+Geçen yazıyı tek cümleyle bitirmiştik: ilk sevkiyat, ürün tek bir
 satış görmeden verilen ve sezonun geri kalanının düzeltmeye çalıştığı
 karar. Bu yazıda o kararı parçalarına ayırıyoruz. Formül yok; kuralı
 üçüncü yazıda, modeli dördüncü yazıda kuracağız. Bu yazının işi, o
@@ -20,9 +20,10 @@ formüllerin hangi sorulara cevap vereceğini netleştirmek.
 Bir <T k="option">option</T>'ın <T k="ilk-sevkiyat">ilk sevkiyatı</T> üç sorunun cevabıdır.
 
 **Kime?** Ürünü hangi mağazalar alacak? Lumoda'da bu sorunun bir kısmı
-kararın öncesinde cevaplanmış: her option'ın aday
-mağazaları belli. Bir option en az 16, en çok 39 mağazaya gidebiliyor;
-ortalama 25,5. Bütün option'larda 5.354 (option, mağaza) çifti var. İlk
+kararın öncesinde cevaplanmış: her option'ın aday mağazaları belli. Bir option en az 16, en çok 39 mağazaya gidebiliyor;
+ortalama 25,5. Bütün option'larda 5.354 (option, mağaza) çifti var.
+Lansmana kadar açılacak bir mağaza da adaydır, üstelik onun hiç geçmişi
+yoktur. İlk
 sevkiyat bu çiftlerin dışına çıkmaz, ama bir adaya hiç mal göndermemek de
 bir cevaptır.
 
@@ -50,12 +51,14 @@ hep yedinin katı? İzmir 4'e 448, Erzurum 2'ye 112.
 — Ben mağazaya adet göndermiyorum, demişti Ali. Paket gönderiyorum.
 
 Lumoda'da beş bedenli bir ürünün <T k="koli">paketi</T> yedi adettir,
-beden sırasıyla 1-2-2-1-1. Tek bedenli aksesuarda paket aynı bedenden altı
+beden sırasıyla 1-2-2-1-1 (beden setlerini
+[Ürün Hiyerarşisi](/temeller/urun-hiyerarsisi/) yazısı anlatıyor). Tek
+bedenli aksesuarda paket aynı bedenden altı
 adettir. Depo paketi tek parça olarak toplar, mağaza tek parça olarak
 teslim alır. İlk sevkiyatta koli açılmaz.
 
 Bunun nedeni hız ve maliyet. Bir dalgada bütün mağazalara aynı anda mal
-hazırlayan bir depo, bedenleri tek tek sayamaz. Koliyle açık adet arasındaki
+hazırlayan bir depo, bedenleri tek tek saymaya vakit bulamaz. Koliyle açık adet arasındaki
 farkın sezon içinde neye mal olduğunu
 [Depodan Mağazaya](/replenishment/depodan-magazaya/koli-mi-acik-mi/)
 dizisinde ölçmüştük. Burada kural sabit: "ne kadar" sorusunun cevabı adet
@@ -101,7 +104,7 @@ Gönderilmeyen mal beden beden şöyle dağılıyor:
 | 4 | %24,0 | 1 | %59,1 |
 | 5 (en büyük) | %12,0 | 1 | %18,1 |
 
-En küçük bedenden depoda fiilen tek adet kalmıyor (%0,0); aradaki küçük
+En küçük bedenden depoda neredeyse hiç kalmıyor (%0,0); aradaki küçük
 fark kalite kontrolde ayrılan mal. Dördüncü bedenin ise yarısından fazlası
 depoda.
 
@@ -111,36 +114,37 @@ hiç, dördüncü bedende yarıdan fazlası demek.
 Pelin tabloya bir süre bakıyor.
 
 — Yani sigorta dediğimiz malın çoğu üçüncü ve dördüncü bedende duruyor. Bir
-mağazada en küçük beden biterse depodan gönderecek bir şey yok.
+mağazada en küçük beden biterse, tekrar sipariş gelene kadar depodan
+gönderecek bir şey yok.
 
 — Yok. Toplamdaki oran doğru, ama müşteri toplam almıyor, beden alıyor.
 
-İşin tuhaf bir yanı daha var. Sezon içinde bir bedeni biten mağazalarda
-ilk biten beden en sık dördüncü beden (%31,1). Depoda en çok mal kalan
-beden, mağazada en sık ilk biten beden. Bu iki gerçeği yan yana koymak
-kolay, aralarındaki bağı kurmak değil. Altıncı yazıda beden uyumsuzluğunun bedelini ölçerken buraya geri
-döneceğiz.
+Bir şey daha var. Sezon içinde bir bedeni biten (mağaza, ürün)
+çiftlerinde ilk biten beden en sık dördüncü beden (%31,1). Depoda en çok
+mal kalan beden, mağazada en sık ilk biten beden. Bu iki gerçeği yan yana
+koymak kolay, aralarındaki bağı kurmak değil. Altıncı yazıda beden
+uyumsuzluğunun bedelini ölçerken buraya geri döneceğiz.
 
 ## Kısıtlar
 
-Üç sorunun cevabı serbest değil. Kural hangisi olursa olsun, birkaç sınırın
-içinde kalmak zorunda.
+Üç sorunun cevabı serbest değil. Bir kuralın içinde kalması gerekebilecek
+birkaç sınır var.
 
 **Aday mağazalar.** Mal yalnız adaylara gider ve pay da adaylar arasında
-hesaplanır. Bu masum görünen ayrıntı geçen yazının elbisesini açıklıyor:
-İzmir 4'ün kategori planındaki payı %5,1'di, elbiseye aday 25 mağazanın
-içinde %10,3'e çıktı. Aday kümesi ne kadar küçükse, büyük mağazanın payı o
-kadar büyür.
+hesaplanır. Geçen yazının elbisesinde İzmir 4'ün kategori planındaki payı
+%5,1'di, elbiseye aday 25 mağazanın içinde %10,3'e çıktı. Aday kümesi
+küçüldükçe herkesin payı aynı oranda büyür. Mağazalar arasındaki oran
+değişmez; onu plan koyar.
 
 **En az gösterim.** Bir mağazaya ürün gidecekse, rafta görünecek kadar
-gitmeli. Tek bedenle asılan bir ürün satmaz, müşteri bedenini bulamayıp
+gitmeli. Tek bedenle asılan bir ürün az satar, müşteri bedenini bulamayıp
 çıkar. Paket bunu kendiliğinden kısmen sağlıyor: tek bir paket her bedenden
 en az bir adet demek. Lumoda'nın kuralında bunun dışında bir en az gösterim
 kuralı yok.
 
 **Kapsama tavanı.** Fikir şu: bir mağazaya ilk haftalarda satabileceğinden
-fazlası gitmesin. İzmir 4'ün 415 elbisesi tam bu kısıtın olmadığı yerde birikti.
-Lumoda'nın kuralında tavan yok. Fikir basit görünüyor; tavanın gerçekte
+fazlası gitmesin. İzmir 4'ün 415 elbisesini görünce akla ilk gelen kısıt
+bu. Lumoda'nın kuralında tavan yok. Fikir basit görünüyor; tavanın gerçekte
 neyi değiştirdiğini ölçmek o kadar basit değil. Üçüncü yazıda ölçeceğiz.
 
 ## Sektörün üç hatası
@@ -148,9 +152,11 @@ neyi değiştirdiğini ölçmek o kadar basit değil. Üçüncü yazıda ölçec
 **Kategori planını ürün payı sanmak.** Plan bir mağazanın o kategoriden ne
 kadar satacağını bilir. Bu ürünün o mağazada tutup tutmayacağını bilmez.
 Hata planı kullanmak değil, planın payını ürünün payı sanmaktır. Her ürün
-kategorisinin ortalaması değildir. Bodycon Elbise İzmir'de tutmadı, aynı
-mağazada Salopet Tulum tuttu. Ürünün kendisine bakan bir model planı aynı
-malla geçiyor; ne kadar geçtiğini dördüncü yazıda göreceğiz.
+kategorisinin ortalaması değildir. Bodycon Elbise İzmir 4'te tutmadı, aynı
+mağazada Salopet Tulum tuttu. Yanlış mağazaya giden malı sonradan taşımanın
+neye mal olduğunu [Blok Transfer](/transfer/blok-transfer/) dizisi
+anlatıyor. Mağaza mağaza tahmin yapan bir model planı aynı malla geçiyor;
+ne kadar ve neyi görerek geçtiğini dördüncü yazıda göreceğiz.
 
 **Herkese eşit göndermek.** Ürün hakkında hiçbir şey bilmiyorsak herkese
 eşit verelim; ilk bakışta adil görünür. Ölçtük. Aynı malı Lumoda'nın plan
@@ -166,25 +172,24 @@ bedenin rafta olduğunu söyler:
 | Brüt kâr | 534.433.105 TL | 519.113.339 TL |
 
 Tablonun her satırında plan payı önde. Dört haftada ilk gelenin beşte
-birini bile satmayan çift, eşit dağıtımda 1.498 (%28,0), plan payıyla 1.065
-(%19,9). Plan en azından bir şeyi biliyor:
-büyük mağaza büyük mağazadır.
+birini bile satamayan çift sayısı eşit dağıtımda 1.498 (%28,0), plan
+payıyla 1.065 (%19,9). Plan en azından bir şeyi biliyor: büyük mağaza büyük
+mağazadır.
 
-**Depoda hiç tutmamak ya da hepsini tutmak.** Hiç tutmayan zincir ikinci
-şansını baştan harcar. Erzurum 2 gibi bir mağaza ikinci haftada daha
+**Depoda hiç tutmamak ya da hepsini tutmak.** Hiç tutmayan zincir
+elindeki yedeği baştan harcar. Erzurum 2 gibi bir mağaza ikinci haftada daha
 fazlasını istediğinde gönderecek mal kalmaz. Hepsini tutan zincir ise
 sezonu boş raflarla açar; depoda duran mal mağazada satmaz. Doğru oran
-ikisinin arasında bir yerde. Az önce gördük ki tek paketle bu oran bir de
-bedenden bedene değişiyor. Ne kadarını tutmak gerektiğini beşinci yazıda
+ikisinin arasında bir yerde. Az önce gördük ki paket tek tip olunca bu oran
+bir de bedenden bedene değişiyor. Ne kadarını tutmak gerektiğini beşinci yazıda
 ölçüyoruz.
 
 ## Üç soru, tek gece
 
 Bu üç sorunun hiçbiri tek başına zor değil. Zor olan, üçünün her dalgada
 tek bir gecede, sezon boyunca 210 option ve 5.354 çift için, tek bir satış
-görülmeden cevaplanması.
-Üstelik paket sabit oldukça, toplamda verdiğiniz cevap bedende başka bir
-şeye dönüşür.
+görülmeden cevaplanması. Üstelik paket değişmedikçe, toplamda verdiğiniz
+cevap bedende başka bir şeye dönüşür.
 
 Sonraki yazıda Lumoda'nın kuralını açıyoruz: plan payı nasıl hesaplanıyor,
 <T k="benzer-urun">benzer ürünlerin</T> geçmişi ne kadar işe yarıyor ve bir
