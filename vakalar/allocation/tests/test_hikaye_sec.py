@@ -43,11 +43,11 @@ def ilk(option="P", adetler=None, ad="Bluz Bej", ust="Üst Giyim") -> pd.DataFra
                          "adet": list(a.values()), "varis": V})
 
 
-def satis(option="P", tasan=5, biten=9, ek=()) -> pd.DataFrame:
+def satis(option="P", tasan=5, biten=9, istanbul=59, ek=()) -> pd.DataFrame:
     s = [(option, "A1", gun(3), tasan), (option, "A1", gun(28), 50),   # 28. gün pencere dışı
          (option, "A1", gun(-1), 30),                                  # varıştan önce
          (option, "A2", gun(2), biten), (option, "A2", gun(14), 5),     # 14. gün pencere dışı
-         (option, "A4", gun(5), 10), (option, "I1", gun(1), 59), (option, "A2", gun(4), -3)]
+         (option, "A4", gun(5), 10), (option, "I1", gun(1), istanbul), (option, "A2", gun(4), -3)]
     s += list(ek)
     return pd.DataFrame(s, columns=["option_id", "magaza_id", "tarih", "adet"])
 
@@ -89,6 +89,32 @@ def test_olcut1_en_buyuk_pay_istanbulda_ise_pay_sirasi_gevser():
     assert h.tasan_magaza == "Ankara 1"
     assert h.gevseyen == list(hs.MERDIVEN[2].gevseyen)
     assert "1: payda ilk 3" in h.gevseyen
+
+
+def test_olcut3_istanbulda_tasan_magaza_secilmez():
+    # İstanbul 1 malı yığmış ve satmamış (taşan olmanın bütün öteki ölçütleri tutuyor: sıra 1,
+    # %3 satış, plan sırası 2, kol %25): yalnız Veli ölçütü dışarıda bırakır
+    i, s = ilk(adetler={"I1": 150}), satis(istanbul=5)
+    k = kol(adetler={"I1": 30})
+    h = hs.hucreler(i, s, MAG, plan(), k).set_index("magaza_id")
+    assert (h.loc["I1", "pay_sirasi"], h.loc["I1", "satis_28"], h.loc["I1", "plan_sirasi"]) == (1, 5, 2)
+    assert not h.loc["I1", "veli"]
+    t = hs.adaylar(i, s, MAG, plan(), k, hs.MERDIVEN[0])
+    assert len(t) == 0                                   # basamak 0'da Veli'nin taşanı yok
+    h = sec(i=i, s=s, k=k)
+    assert h.tasan_magaza == "Ankara 1" and h.gevseyen == list(hs.MERDIVEN[2].gevseyen)
+
+
+def test_olcut4_plani_olmayan_tasan_sira_0():
+    # Ankara 1'in SS25 Üst Giyim planı yok: sıra 0, plan ölçütü düşene dek taşan olamaz
+    p = plan()
+    p = p[~((p["magaza_id"] == "A1") & (p["sezon_kodu"] == "SS25") & (p["ust_kategori"] == "Üst Giyim"))]
+    assert hs.hucreler(ilk(), satis(), MAG, p, kol()).set_index("magaza_id").loc["A1", "plan_sirasi"] == 0
+    for b in hs.MERDIVEN[:3]:
+        assert hs.adaylar(ilk(), satis(), MAG, p, kol(), b).empty
+    h = sec(p=p)
+    assert h.tasan_magaza == "Ankara 1" and h.tasan_plan_sirasi == 0
+    assert h.gevseyen == list(hs.MERDIVEN[3].gevseyen)
 
 
 def test_olcut1_outlet_mağaza_aday_toplamina_ve_sirasina_girmez():
@@ -327,6 +353,11 @@ def test_cli_hikaye_json(tmp_path, capsys, takma):
     assert j["alternatif_sahne"]["gevseyen"] == list(hs.MERDIVEN[1].gevseyen)
     assert j["kol"] == {"kol": "tahmin", "ad": "tut_eniyi_t00" if takma else "pay_tahmin_tavanli"}
     assert j["magaza_idleri"] == {"tasan": "A1", "biten": "A2"}
+    kol_k = j["kaynak"]["kol"]
+    assert j["kaynak"]["lumoda"] == {"ad": "lumoda", "dizin": "lumoda_" + "a" * 20, "anahtar": "a" * 64,
+                                     "anahtar_kaynagi": "cikti/oyun.json", "ayni": None}
+    assert kol_k["dizin"] == "pay_tahmin_tavanli_" + "b" * 20 and kol_k["anahtar_kaynagi"] == "cikti/oyun.json"
+    assert kol_k["ayni"] == ("pay_tahmin_tavanli" if takma else None)
     assert j["aday_sayilari"] == [1, 2, 2, 2, 2]
     assert "P" in capsys.readouterr().out
 

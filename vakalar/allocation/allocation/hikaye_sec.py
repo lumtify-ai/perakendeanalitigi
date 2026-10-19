@@ -1,4 +1,5 @@
-"""Hikâye seçimi (spec §6): 1. yazının ("Plan Böyle Diyor") sahnesi, yayımlanan veriden.
+"""Hikâye seçimi (spec §6): 1. yazının ("Plan Böyle Diyor") sahnesi, ızgaranın `lumoda` koşusundan
+(yayımlanan v4'ün kendisi; önbellekteki temiz tabloları) ve en iyi kolun koşusundan.
 
     .venv/Scripts/python -m allocation.hikaye_sec                   # cikti/hikaye.json
     .venv/Scripts/python -m allocation.hikaye_sec --hikaye MDL0702-BRD --adaylar
@@ -111,7 +112,7 @@ class HikayeBulunamadi(RuntimeError):
 
 
 # ---------------------------------------------------------------------------
-# Yardımcı tablolar (yayımlanan biçimden)
+# Yardımcı tablolar (yayımlanan şemadaki tablolardan: koşunun tabloları ya da DuckDB)
 # ---------------------------------------------------------------------------
 
 
@@ -289,8 +290,8 @@ def sec(ilk: pd.DataFrame, satis: pd.DataFrame, mag: pd.DataFrame, plan: pd.Data
     ilk        Lumoda'nın ilk dağıtımı: option_id, ad, ust_kategori, magaza_id, adet, varis
                (`ilk_tablosu`)
     satis      option_id, magaza_id, tarih, adet (`satis_tablosu`)
-    mag        yayımlanan `magaza` (magaza_id, ad, sehir, tip)
-    plan       yayımlanan `magaza_plan` (sezon_kodu, magaza_id, ust_kategori, satis_hedefi)
+    mag        `magaza` tablosu (magaza_id, ad, sehir, tip)
+    plan       `magaza_plan` tablosu (sezon_kodu, magaza_id, ust_kategori, satis_hedefi)
     kol_kaydi  en iyi kolun ilk dağıtımı: option_id, magaza_id, adet"""
     n, r, alt = _secim(basamaklar(ilk, satis, mag, plan, kol_kaydi, sezon), zorla)
     return _hikaye(n, r, alt)
@@ -326,9 +327,13 @@ def _json_oku(yol: Path) -> dict:
     return json.loads(yol.read_text(encoding="utf-8"))
 
 
-def _kosu(oyun: dict, ad: str, onbellek: Path) -> Path:
+def _kosu(oyun: dict, ad: str, onbellek: Path) -> tuple[Path, dict]:
+    """Koşunun önbellek dizini ve kaynak kaydı (anahtar `cikti/oyun.json`'dan; takma ad izlenir)."""
     e = oyun["kosular"][ad]
-    return kosu_dizini(onbellek, e.get("ayni", ad), e["anahtar"])
+    taban = e.get("ayni", ad)
+    d = kosu_dizini(onbellek, taban, e["anahtar"])
+    return d, {"ad": ad, "dizin": d.name, "anahtar": e["anahtar"], "anahtar_kaynagi": "cikti/oyun.json",
+               "ayni": e.get("ayni")}
 
 
 def _ozet(t: pd.DataFrame, n: int = 10) -> str:
@@ -347,7 +352,7 @@ def main(argv=None) -> None:
 
     oyun = _json_oku(a.cikti / "oyun.json")
     secim = _json_oku(a.cikti / "secim.json")
-    d_lum, d_kol = _kosu(oyun, "lumoda", a.onbellek), _kosu(oyun, secim["ad"], a.onbellek)
+    (d_lum, k_lum), (d_kol, k_kol) = _kosu(oyun, "lumoda", a.onbellek), _kosu(oyun, secim["ad"], a.onbellek)
     urun = _tablo(d_lum, "urun", ["urun_id", "option_id", "model_adi", "renk", "ust_kategori", "sezon_kodu", "line"])
     skular = set(_oyun_urunleri(urun, sabitler.OYUN_SEZONU)["urun_id"])
     sv = ["tip", "hedef", "urun_id", "adet", "varis_tarihi"]
@@ -368,7 +373,7 @@ def main(argv=None) -> None:
     icerik = {
         "sezon": sabitler.OYUN_SEZONU, "line": sabitler.LINE, "zorla": a.hikaye,
         "kol": {"kol": secim["kol"], "ad": secim["ad"]},
-        "kaynak": {"lumoda": d_lum.name, "kol": d_kol.name},
+        "kaynak": {"lumoda": k_lum, "kol": k_kol},
         "basamak": n, "sahne": asdict(h), "alternatif_sahne": alt_sahne,
         "magaza_idleri": {"tasan": str(r["tasan_magaza_id"]), "biten": str(r["biten_magaza_id"])},
         "ayrinti": ayrinti, "aday_sayilari": [len(t) for t in tablolar],
