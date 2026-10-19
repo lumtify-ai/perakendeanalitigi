@@ -26,7 +26,8 @@ düşmez), `c_o` çıkış günü (hariç; o gün outlet akışı). Mağaza "fiz
 **Para** (`satis`, satış tarihi < çıkış; bütün mağazalar ve online):
 
     tam_fiyat_str          v4 kalibrasyon tanımı (`veri/tests/v4/test_kalibrasyon.py::collection_str`):
-                           100 × kampanyasız, pozitif, satışın hattında (online / outlet / normal)
+                           100 × kampanyasız, pozitif, satışın hattında (v4 `hat_indisi`: ONL
+                           online, outlet akışı hücresi outlet, öteki normal)
                            ilk markdown haftasından önce satılan adet ÷ teslim alınan ilk + RPT
                            sipariş adedi (kalite reddi düşülmez; v4'teki gibi)
     markdown_tl            markdown kaynaklı indirim: pozitif satış satırlarının `indirim_tutari`,
@@ -53,7 +54,9 @@ düşmez), `c_o` çıkış günü (hariç; o gün outlet akışı). Mağaza "fiz
                            penceresi sonundaki devri outlet akışının kalanıdır, ikinci kez sayılmaz
     kalan_depo_adet        çıkışta depodan outlet'e akış + çıkıştan sonra depoya eklenen
                            (`kalan_depo_ek_adet`: koşunun son depo fotoğrafındaki stok − o güne dek
-                           varan bütün stok devri; çıkış sonrası RPT varışı, online iadesi). Çıkmış
+                           varan, çıkıştan sonraki bütün stok devri; çıkış sonrası RPT varışı,
+                           online iadesi). Çıkıştan önceki stok devri (sezon içinde kapanan
+                           mağaza) depoya döner, yeniden dağıtılır ya da çıkışta akar: kalan değil. Çıkmış
                            option'ın depo stoğu depoda kalır (motor): tutma kollarının depoda
                            bıraktığı mal da çıkışta outlet akışıyla buraya girer. Çıkışı koşunun
                            son depo fotoğrafından önce olmayan option'da ek 0
@@ -90,7 +93,12 @@ girmez):
                            stoklu olduğu SKU-günlerdeki kısmı ÷ Σ karşılanmayan
     depoda_kalan_beden_b   beş bedenli option'larda beden sırası b'nin ilk dağıtımdan sonra depoda
                            kalan payı: option'ın son ilk dağıtım sevkinin ertesi sabahı depo
-                           stoğu ÷ (o stok + ilk dağıtım adedi), option'lar toplanarak
+                           stoğu ÷ (o stok + ilk dağıtım adedi), option'lar toplanarak (depoda
+                           fiilen duran: kalite reddi düşülmüş)
+    alimdan_kalan_beden_b  aynı bedenin ilk alıma göre gönderilmeyen payı: (teslim edilmiş `ilk`
+                           sipariş adedi − ilk dağıtım adedi) ÷ teslim edilmiş `ilk` sipariş
+                           adedi (kalite reddi kalan sayılır; Lumoda'nın "%30 tutuyoruz"unun
+                           ölçeği, spec §0/9)
     ilk_tukenen_beden_b    ilk dağıtım alan beş bedenli çiftlerde, varıştan sonra rafı ilk biten
                            (gün içinde biten ya da boş) bedenin dağılımı (aynı gün birden çok beden
                            biterse eşit bölünür); `tukenen_hucre_yuzde` en az bir bedeni biten çift
@@ -162,16 +170,25 @@ class Kapsam:
         self.lansman = _gun(w.optionlar["lansman_tarihi"])
         self.cikis = _gun(w.optionlar["cikis_tarihi"])
         self.beden_sayisi = np.bincount(harita.sku_option, minlength=O)
-        tip = w.magazalar["tip"].astype(str).to_numpy()
-        self.online = tip == "Online"
-        self.outlet = tip == "Outlet"
+        self.online = w.magazalar["tip"].astype(str).to_numpy() == "Online"
+        # outlet akışı hücreleri (mağaza × SKU anahtarı): v4'ün outlet fiyat hattı
+        oc = np.asarray(w.hucre_outlet_akisi, dtype=bool)
+        self._outlet_hucre = harita.hucre_magaza[oc] * len(self.urunler) + harita.hucre_sku[oc]
 
     def sku(self, urun_id: pd.Series) -> np.ndarray:
         return _kodla(urun_id, self.urunler)
 
-    def option(self, urun_id: pd.Series) -> np.ndarray:
-        s = self.sku(urun_id)
+    def sku_optioni(self, s: np.ndarray) -> np.ndarray:
+        """SKU indisinin option indisi (−1 → −1)."""
         return np.where(s >= 0, self.harita.sku_option[np.maximum(s, 0)], -1)
+
+    def option(self, urun_id: pd.Series) -> np.ndarray:
+        return self.sku_optioni(self.sku(urun_id))
+
+    def outlet_hucresi(self, m: np.ndarray, s: np.ndarray) -> np.ndarray:
+        """(mağaza, SKU) indisleri outlet akışı hücresi mi (`w.hucre_outlet_akisi`)."""
+        k = m.astype(np.int64) * len(self.urunler) + s
+        return (m >= 0) & (s >= 0) & np.isin(k, self._outlet_hucre)
 
     def magaza(self, magaza_id: pd.Series) -> np.ndarray:
         return _kodla(magaza_id, self.magazalar)
@@ -241,11 +258,13 @@ def _kalan(sevkiyat: pd.DataFrame, k: Kapsam, depo: pd.DataFrame | None) -> dict
     """Sezon sonu kalanın bileşenleri (modül notu)."""
     o = k.option(sevkiyat["urun_id"])
     sv = sevkiyat[k.kapsamda(o)]
+    sv_o = o[k.kapsamda(o)]
     tip = sv["tip"].astype(str).to_numpy()
     adet = sv["adet"].to_numpy(dtype=np.int64)
     kaynak_depo = (sv["kaynak"].astype(str) == "DEPO").to_numpy()
     akis = tip == "outlet_akisi"
-    devir = tip == "stok_devri"
+    # çıkıştan önceki devir (ör. sezon içinde kapanan mağaza) depoya döner ve yeniden dağıtılır: kalan değil
+    devir = (tip == "stok_devri") & (_gun(sv["tarih"]) >= k.cikis[sv_o])
     fiz_devir = devir & k.fiziksel(k.magaza(sv["kaynak"]))
     sonuc = {"akis_magaza": int(adet[akis & ~kaynak_depo].sum()), "akis_depo": int(adet[akis & kaynak_depo].sum()),
              "devir_fiziksel": int(adet[fiz_devir].sum()), "depo_ek": 0}
@@ -254,7 +273,6 @@ def _kalan(sevkiyat: pd.DataFrame, k: Kapsam, depo: pd.DataFrame | None) -> dict
         cikmis = k.secili & (k.cikis < T)
         do = k.option(depo["urun_id"])
         son = depo[(_gun(depo["tarih"]) == T) & k.kapsamda(do) & cikmis[np.maximum(do, 0)]]
-        sv_o = o[k.kapsamda(o)]
         varan = devir & sv["varis_tarihi"].notna().to_numpy()
         varan &= _gun(sv["varis_tarihi"].fillna(pd.Timestamp("2262-01-01"))) < T
         varan &= cikmis[np.maximum(sv_o, 0)]
@@ -341,10 +359,10 @@ def _musteri(gercek: pd.DataFrame, k: Kapsam, bas: np.ndarray) -> dict[str, floa
     return sonuc
 
 
-def _hat(m: np.ndarray, k: Kapsam) -> np.ndarray:
-    """Satışın fiyat hattı (v4 `hat_indisi`; Collection'da outlet mağazası = outlet akışı hücresi)."""
-    mm = np.maximum(m, 0)
-    return np.where(k.online[mm], "online", np.where(k.outlet[mm], "outlet", "normal"))
+def _hat(m: np.ndarray, s: np.ndarray, k: Kapsam) -> np.ndarray:
+    """Satışın fiyat hattı (v4 `motor.satis.hat_indisi`): ONL online, outlet akışı hücresi outlet,
+    öteki normal."""
+    return np.where(k.online[np.maximum(m, 0)], "online", np.where(k.outlet_hucresi(m, s), "outlet", "normal"))
 
 
 def _para(satis: pd.DataFrame, fiyat: pd.DataFrame, k: Kapsam, alinan_siparis: int) -> dict[str, float]:
@@ -354,7 +372,7 @@ def _para(satis: pd.DataFrame, fiyat: pd.DataFrame, k: Kapsam, alinan_siparis: i
     s, o, t = satis[sec].reset_index(drop=True), o[sec], t[sec]
     m = k.magaza(s["magaza_id"])
     onl = k.online[np.maximum(m, 0)]
-    hat = _hat(m, k)
+    hat = _hat(m, k.sku(s["urun_id"]), k)
     adet = s["adet"].to_numpy(dtype=np.int64)
     tutar = s["tutar"].to_numpy(dtype=float)
     indirim = s["indirim_tutari"].to_numpy(dtype=float)
@@ -445,6 +463,8 @@ def _kayit_olcutleri(kosu, w, k: Kapsam) -> dict[str, float]:
     kendi = kayit[kayit["kol"].to_numpy(dtype=bool) & k.secili[kayit["arg0"].to_numpy()]]
     if kirpilan or len(kirp):
         raise RuntimeError(f"korunum: kolun kararını motor kırptı ({len(kirp)} (option, mağaza), {kirpilan} adet)")
+    if (kendi.groupby("arg0")["gun"].nunique() > 1).any():
+        raise RuntimeError("korunum: kol bir option için birden çok ilk dağıtım kararı verdi")
     oz = kendi.groupby("arg0").agg(toplam=("toplam", "first"), tavanda=("tavanda", "first"),
                                     giden=("deger", "sum"), aday=("indis", lambda i: bool((i >= 0).any())))
     if (oz["giden"] > oz["toplam"]).any():
@@ -480,7 +500,7 @@ def _beden(gunluk: pd.DataFrame, gercek: pd.DataFrame, ilk: pd.DataFrame, k: Kap
            ) -> dict[str, float]:
     h = k.harita
     s, m = k.sku(gunluk["urun_id"]), k.magaza(gunluk["magaza_id"])
-    o = np.where(s >= 0, h.sku_option[np.maximum(s, 0)], -1)
+    o = k.sku_optioni(s)
     t = _gun(gunluk["tarih"])
     oo = np.maximum(o, 0)
     sec = k.kapsamda(o) & k.fiziksel(m) & (t >= bas[oo]) & (t < k.cikis[oo]) & (k.beden_sayisi[oo] >= 2)
@@ -526,11 +546,12 @@ def _beden(gunluk: pd.DataFrame, gercek: pd.DataFrame, ilk: pd.DataFrame, k: Kap
     return sonuc
 
 
-def _depoda_kalan_beden(sevkiyat: pd.DataFrame, depo: pd.DataFrame, k: Kapsam) -> dict[str, float]:
+def _depoda_kalan_beden(sevkiyat: pd.DataFrame, depo: pd.DataFrame, siparis: pd.DataFrame, k: Kapsam
+                        ) -> dict[str, float]:
     h = k.harita
     sv = sevkiyat[(sevkiyat["tip"].astype(str) == "ilk_dagitim").to_numpy()]
     s = k.sku(sv["urun_id"])
-    o = np.where(s >= 0, h.sku_option[np.maximum(s, 0)], -1)
+    o = k.sku_optioni(s)
     sec = k.kapsamda(o) & (k.beden_sayisi[np.maximum(o, 0)] == BES_BEDEN)
     sv = pd.DataFrame({"o": o[sec], "s": s[sec], "t": _gun(sv["tarih"])[sec],
                       "adet": sv["adet"].to_numpy(dtype=np.int64)[sec]})
@@ -544,11 +565,21 @@ def _depoda_kalan_beden(sevkiyat: pd.DataFrame, depo: pd.DataFrame, k: Kapsam) -
     d = d[d["t"].to_numpy() == son.reindex(d["o"]).to_numpy()]
     kalan = d.groupby("s")["adet"].sum().reindex(giden.index, fill_value=0)
     b = h.sku_beden_sira[giden.index.to_numpy()]
+    # ilk alıma göre: teslim edilmiş `ilk` sipariş adedi (kalite reddinden önce) − ilk dağıtım
+    sp = siparis[(siparis["tip"].astype(str) == "ilk").to_numpy() & siparis["gerceklesen_teslim"].notna().to_numpy()]
+    ss = k.sku(sp["urun_id"])
+    so = k.sku_optioni(ss)
+    bes = k.kapsamda(so) & (k.beden_sayisi[np.maximum(so, 0)] == BES_BEDEN)
+    alim = pd.Series(sp["adet"].to_numpy(dtype=np.int64)[bes]).groupby(ss[bes]).sum()
+    alim_b = alim.groupby(h.sku_beden_sira[alim.index.to_numpy()]).sum()
+    giden_b = giden.groupby(b).sum()
     sonuc = {}
     for bb in range(1, BES_BEDEN + 1):
         m = b == bb
         sonuc[f"depoda_kalan_beden_{bb}"] = _oran(int(kalan.to_numpy()[m].sum()),
                                                    int(kalan.to_numpy()[m].sum() + giden.to_numpy()[m].sum()))
+        a = int(alim_b.get(bb, 0))
+        sonuc[f"alimdan_kalan_beden_{bb}"] = _oran(a - int(giden_b.get(bb, 0)), a)
     return sonuc
 
 
@@ -586,7 +617,7 @@ def hesapla(kosu, w, harita, sezon: str = sabitler.OYUN_SEZONU) -> dict[str, flo
     sonuc.update({"ilk_dagitim_adet": float(adet[tip == "ilk_dagitim"].sum()),
                   "replenishment_adet": float(adet[tip == "replenishment"].sum()),
                   "elle_transfer_adet": float(adet[(tip == "elle_transfer") & once].sum())})
-    sonuc |= _depoda_kalan_beden(sevk, depo, k)
+    sonuc |= _depoda_kalan_beden(sevk, depo, siparis, k)
     del siparis, kalite, depo
 
     satis = kosu.tablo("satis", SATIS, urunler=k.skular)

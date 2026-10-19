@@ -94,7 +94,7 @@ bloğundan sonra koşulur (yol 0 onun koşularıdır).
 4 hafta), kayıp, tam fiyat STR (v4 kalibrasyon tanımı), markdown tutarı, sezon sonu kalan, brüt
 kâr, düzeltme yükü (replenishment, elle transfer, RPT), dağıtım isabeti (erken birincil talep
 payına karşı WAPE, oturan ve hızlı biten hücre), beden ölçütleri (kırık çift, beden kaybı, depoda
-kalan ve ilk tükenen beden) ve korunum. **Markdown tutarı** yalnız markdown kaynaklı indirimdir:
+kalan beden (depodaki stoğa ve ilk alıma göre) ve ilk tükenen beden) ve korunum. **Markdown tutarı** yalnız markdown kaynaklı indirimdir:
 kampanyasız satış satırlarının `indirim_tutari`'sı, option'ın o hattaki haftalık markdown oranı
 sıfırdan büyükken. Kampanya indirimi (kampanya oranı markdown'ı aşınca satır kampanyalıdır) ve
 işlem indirimi (yalnız markdown ve kampanya 0 iken çıkar) girmez.

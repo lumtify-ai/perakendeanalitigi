@@ -606,7 +606,7 @@ def kos_hepsi(blok: str = "hepsi", ortam: Ortam | None = None, kal: dict | None 
 
     def kos_tek(s: Kosum, grup: str) -> None:
         k, e = kos_bir(s, G, kal, secim, kosular.get(s.ad))
-        kosular[s.ad] = {"grup": grup, **e}
+        kosular[s.ad] = {**e, "grup": grup}       # eski kaydın grubu değil, bu bloğunki
         gecerli.add(s.ad)
         if tut:
             sonuc[s.ad] = k

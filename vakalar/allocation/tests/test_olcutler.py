@@ -58,6 +58,7 @@ def _sevkiyat():
     s += [("2025-02-08", "2025-02-11", "DEPO", "M2", u, n, "ilk_dagitim", "PKT01") for u, n in zip(A, PAKET)]
     s += [("2025-03-03", "2025-03-04", "DEPO", "M1", "OPT-A-3", 5, "replenishment", None),
           ("2025-04-01", "2025-04-02", "M1", "M2", "OPT-A-2", 1, "elle_transfer", None),
+          ("2025-05-05", "2025-05-06", "M1", "DEPO", "OPT-A-1", 2, "stok_devri", None),     # sezon içi: kalan değil
           ("2025-08-25", "2025-08-26", "M1", "MO", "OPT-A-1", 10, "outlet_akisi", None),
           ("2025-08-25", "2025-08-26", "DEPO", "MO", "OPT-A-2", 20, "outlet_akisi", None),
           ("2025-08-27", "2025-08-28", "M1", "DEPO", "OPT-A-1", 3, "stok_devri", None),
@@ -155,7 +156,8 @@ def test_olcutler_oyuncak(w, monkeypatch):
     assert o["kayip_orani"] == pytest.approx(60.0)
     assert o["ikame_payi"] == pytest.approx(50.0) and o["kalici_kayip_orani"] == pytest.approx(30.0)
 
-    # mal akışı: teslim alınan 250 − hatalı 25; kalan = mağaza (10 akış + 3 devir) + depo (20 akış + 4 ek)
+    # mal akışı: teslim alınan 250 − hatalı 25; kalan = mağaza (10 akış + 3 devir) + depo (20 akış + 4 ek);
+    # sezon içindeki 2'lik devir ne kalana girer ne depo ekinden düşülür
     assert (o["toplam_mal"], o["rpt_adet"]) == (225.0, 50.0)
     assert (o["kalan_magaza_adet"], o["kalan_depo_adet"], o["kalan_depo_ek_adet"]) == (13.0, 24.0, 4.0)
     assert o["sezon_sonu_kalan_yuzde"] == pytest.approx(100 * 37 / 225)
@@ -163,6 +165,8 @@ def test_olcutler_oyuncak(w, monkeypatch):
     # depoda kalan beden: depo ÷ (depo + ilk dağıtım) = 1/4, 2/8, 10/16, 12/15, 3/6
     for b, v in zip(range(1, 6), [25.0, 25.0, 62.5, 80.0, 50.0]):
         assert o[f"depoda_kalan_beden_{b}"] == pytest.approx(v), b
+    # ilk alıma göre: (teslim edilmiş ilk sipariş − ilk dağıtım) ÷ ilk sipariş; A-1 100 − 3, A-2 100 − 6
+    assert [o[f"alimdan_kalan_beden_{b}"] for b in range(1, 6)] == pytest.approx([97.0, 94.0, 0.0, 0.0, 0.0])
 
     # para: tam fiyat 2 + 6 + 4 (online) ÷ 250 sipariş; markdown 180 + 90; kâr = tutar − 100 × adet
     assert o["tam_fiyat_str"] == pytest.approx(100 * 12 / 250)
@@ -195,6 +199,9 @@ def test_olcutler_korunum(w, monkeypatch):
     eksik = _ilk_kaydi().assign(toplam=4, U=4)
     with pytest.raises(RuntimeError, match="az"):
         olcutler.hesapla(_kosu(w, eksik), w, h, "SS25")
+    iki_karar = pd.concat([_ilk_kaydi(), _ilk_kaydi().assign(gun=6, deger=0)], ignore_index=True)
+    with pytest.raises(RuntimeError, match="birden çok"):
+        olcutler.hesapla(_kosu(w, iki_karar), w, h, "SS25")
     lumoda = _ilk_kaydi(m1=3)[["gun", "arg0", "indis", "deger"]]
     lumoda = lumoda[lumoda["deger"] > 0]
     o = olcutler.hesapla(_kosu(w, lumoda), w, h, "SS25")
