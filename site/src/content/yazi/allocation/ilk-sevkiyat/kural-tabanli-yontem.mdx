@@ -22,8 +22,8 @@ yayımlanan tablolar üzerinde koşuyor. Yazıdaki her sayı vakanın rapor
 ## Bütün yöntemlerin ortak iskeleti
 
 Bu dizide yarışan her yöntemi bir "kol" diye kuruyoruz. Kollar bir option
-için aynı adımları atıyor; birbirinden yalnız malı mağazalara hangi
-payla böldükleri ayrılıyor:
+için aynı adımları atıyor. Kolları birbirinden ayıran tek şey, malı
+mağazalara hangi payla böldükleri:
 
 ```python
 # allocation/politika.py (IlkDagitimKolu.__call__; kayıt satırları çıkarıldı)
@@ -36,9 +36,9 @@ paket, tavan, duzey, geri = self._karar(g, o, aday, U, t, toplam)
 
 `aday`, Lumoda'nın aday mağazaları; kod Lumoda'nın tanımını aynen
 kopyalıyor. `U`, geçen yazıda konuştuğumuz gönderilebilecek en çok paket.
-`t` depoda tutulan pay. Bu yazıda t sıfır: her kol `U`'nun tamamını,
-toplamda 824.165 adet gönderiyor. Yani bu yazıdaki karşılaştırmada mal
-aynı, değişen tek şey malın kime gittiği.
+`t` depoda tutulan pay. Ana karşılaştırmada t sıfır: her kol `U`'nun
+tamamını, toplamda 824.165 adet gönderiyor. Yani mal aynı, değişen tek şey
+malın kime gittiği.
 
 `U`'nun kodu kısa:
 
@@ -66,8 +66,9 @@ beden" dediğimiz şeyin kodu bu `min`.
 
 Paylar paketlere en büyük kalan yöntemiyle çevriliyor: herkes payının tam
 kısmını alıyor, artan paketler kesri en büyük olanlara gidiyor. Bizim
-kollarımızda bir de en az gösterim var: payı bir paketin altında kalan aday
-ya bir paket alıyor ya hiç. Lumoda'nın kuralında bu yok.
+kollarımızda bir de en az gösterim var: payı bir paketin altında kalan
+adaylar artan paketleri önce alıyor; böylece mal yettiği sürece her aday en
+az bir paket görüyor. Lumoda'nın kuralında bu yok.
 
 ## Lumoda'nın kuralı: plan payı
 
@@ -132,14 +133,15 @@ order by i.ilk_adet desc;
 `$option_id` yerine ilk yazının elbisesini (`MDL0553-IND`) koyunca sorgu
 25 mağaza döndürüyor. En üstte İzmir 4: 448 adet, 18.132 hedef. Erzurum 2'de
 112 adet, 4.631 hedef. İki pay sütunu mağaza mağaza neredeyse aynı;
-aradaki küçük farkı paket yuvarlaması yapıyor. Kural, kendi deyişiyle,
-plan böyle diyor diye dağıtıyor.
+aradaki küçük farkı paket yuvarlaması yapıyor. Kural, ilk yazıdaki gibi,
+plan böyle dediği için böyle dağıtıyor.
 
-Plan payının bir karakteri var: malı yoğunlaştırıyor. Bir option'ın en
-büyük mağazası, medyanda option'ın %9,1'ini alıyor; en yüksek %15,2.
-Herkese eşit bölseydik bu payın medyanı %4,0 olurdu. İlk adet ile ilk dört
-haftanın satışı arasındaki korelasyon 0,58: plan yönü biliyor, ayrıntıyı
-bilmiyor.
+Plan payının bir huyu var: malı yoğunlaştırıyor. Option'ların yarısında en
+büyük mağaza malın en az %9,1'ini alıyor; en uçta %15,2. Herkese eşit
+bölseydik bu payın medyanı %4,0 olurdu. İlk adet ile ilk dört haftanın
+satışı arasındaki korelasyon 0,58. Bunu fazla okumamak gerekiyor: mağaza
+ancak kendisine gönderilen kadar satabilir, yani bu ilişkinin bir kısmını
+ilk sevkiyatın kendisi kuruyor.
 
 ## Herkese eşit
 
@@ -160,8 +162,8 @@ olsun istedik.
 
 Kolları neyle karşılaştıracağımızı da burada tanımlayalım. Her option
 için kolun mağaza paylarını, o mağazaların ilk altı haftadaki gerçek talep
-paylarıyla karşılaştırıyoruz. Farkların mutlak değerinin yarısı, payın ne
-kadar yanlış yere gittiğini söylüyor: 0 tamamen aynı paylar, 1 tamamen
+paylarıyla karşılaştırıyoruz. Mağaza mağaza farkların mutlak değerlerini
+toplayıp ikiye bölünce, payın ne kadarının yanlış yere gittiği çıkıyor: 0 tamamen aynı paylar, 1 tamamen
 ayrık. Option'ları ilk alımlarıyla ağırlıklandırıp ortalamasını alıyoruz.
 Buna pay hatası diyeceğim (sektörde WAPE diye geçer).
 
@@ -194,7 +196,8 @@ HIYERARSI = (("alt_kategori", "fiyat_segmenti", "kalip"), ("alt_kategori", "fiya
 ```
 
 Yeni ürün için, yeterince çok benzeri olan ilk düzey seçiliyor. Son düzey
-boş: mağazanın bütün geçmiş Collection'ı. Seçim tek satır:
+boş: mağazanın bütün geçmiş ilkbahar-yaz Collection'ı. Benzer ürün kolu
+yalnız geçmiş ilkbahar-yaz sezonlarından öğreniyor. Seçim tek satır:
 
 ```python
 # allocation/benzer.py (Endeks._hesap)
@@ -230,12 +233,13 @@ değerini alıyor; hiç geçmişi olmayan aday ortalama mağaza sayılıyor.
 Eşik büyüdükçe hata düşüyor; en büyük eşikte bile hâlâ biraz düşüyor,
 yalnız artık neredeyse düz. Yani benzerlik ne kadar gevşekse o kadar iyi.
 En olası açıklama gürültü: birkaç benzer ürünün mağaza mağaza satışı rastlantıyla
-dolu, çok ürünün ortalaması bu rastlantıyı siliyor. Ama çok ürünün
-ortalaması artık o kadar da benzer değil.
+dolu, çok ürünün ortalaması bu rastlantıyı siliyor. Ama bu kadar geniş bir
+küme artık "benzer" sayılmaz.
 
+{/* RAPOR: benzer düzeyleri */}
 Seçilen eşikte, oyun sezonundaki yeni ürünlerin çoğu için "benzer",
 aynı üst kategorinin bütün geçmiş ürünleri oluyor; kalanı için mağazanın
-bütün geçmiş Collection'ı. Bu kola dürüst bir ad koyalım: benzer ürün
+bütün geçmiş ilkbahar-yaz Collection'ı. Bu kola dürüst bir ad koyalım: benzer ürün
 değil, **mağazanın geçmiş payı**. Yazının geri kalanında da öyle
 anacağım.
 
@@ -265,8 +269,9 @@ sku_talep = np.where(sku_stoklu >= EN_AZ_STOKLU_GUN, oran, sku_satis.astype(np.f
 
 Çok az stoklu günü olan bedende oran güvenilmez, satış olduğu gibi
 alınıyor. Hiç stoklu günü olmayan beden hesaba girmiyor. Satış Kaybı
-dizisinin kestiricisi burada kullanılmıyor; stoklu güne bölmek daha kaba
-ama karar anında elde olan bilgiyle yapılabiliyor. Bedeli de var: ürünün
+dizisinin kestiricisini burada kullanmadık. Stoklu güne bölmek daha kaba
+(haftanın gününe, ürünün yaşına bakmıyor), ama geçmiş sezonların kapanmış
+kaydıyla doğrudan hesaplanıyor. Bedeli de var: ürünün
 bittiği gün tam bir stoklu gün sayılıyor. Bu düzeltmenin etkisini ayrıca
 ölçmedik. Bir sonraki yazıdaki model de aynı düzeltilmiş talepten
 öğreniyor.
@@ -316,19 +321,24 @@ depoda tutmanın etkisi. Bulunabilirlikte, puan olarak:
 | Model | +1,0 | 0,0 | +1,0 |
 
 İki ondalıkla bakınca da değişen bir şey yok: tavanın "kime" etkisi −0,18
-ve +0,02 puan. Mağazanın geçmiş payında 5.146, modelde 4.733 (option,
-mağaza) çiftinde mağaza tavanında duruyor. Tavan bu kadar çok yerde devrede,
-ama mağazalar arasındaki dağılımı neredeyse hiç değiştirmiyor. Kazancın hepsi, tavanın
+ve +0,02 puan. Modelde tavanın "kime" etkisi öteki ölçütlerde biraz ters
+bile: sezon sonunda elde kalan +0,45 puan, tam fiyat STR −0,56 puan.
+
+Neden böyle? 5.354 aday çiftin 5.146'sında, mağazanın geçmiş payıyla,
+mağaza tavanında duruyor; modelde 4.733'ünde. Tavan neredeyse her yerde
+devredeyse, malı bir mağazadan ötekine kaydırmıyor, toplamı kesiyor.
+Paylar da neredeyse hiç değişmiyor: tavanlı kolun pay hatası eşleşik koldan
+yalnız +0,004 ve +0,001 farklı. Bulunabilirlikteki kazancın hepsi, tavanın
 depoda bıraktığı maldan geliyor.
 
 Pars bunu tek cümleye indiriyor:
 
-— Tavan mağazanın ne kadar alacağını değil, ne kadarını depoda bırakacağını
-değiştirdi.
+— Tavan malın mağazalar arasında nasıl bölündüğünü değil, ne kadarının
+depoda kaldığını değiştirdi.
 
 Bu yüzden dizinin geri kalanında yöntemleri tavansız, aynı malla
-karşılaştırıyoruz. Depoda tutmayı da gizli bir yan etki olarak değil,
-kendi başına bir düğme olarak beşinci yazıda kuracağız.
+karşılaştırıyoruz. Depoda tutmayı da gizli bir yan etki olarak değil, ayrı
+bir karar olarak beşinci yazıda kuracağız.
 
 ## Üç kural, aynı mal
 

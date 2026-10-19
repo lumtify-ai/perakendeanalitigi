@@ -13,8 +13,8 @@ durum: yayinda
 import T from '../../../../components/T.astro'
 
 Geçen yazıda benzer ürünü elle tanımladık. Kalibrasyon bize en iyi
-"benzer"in neredeyse hiç benzer olmadığını söyledi: mağazanın kategorideki
-geçmiş payı. Bu yazıda benzerliği tanımlamayı bırakıp bir modele
+"benzer"in neredeyse hiç benzer olmadığını söyledi: mağazanın geçmişteki
+kaba payı. Bu yazıda benzerliği tanımlamayı bırakıp bir modele
 öğretiyoruz.
 
 Yöntemin iskeleti geçen yazıdakiyle aynı. Aday mağazalar, gönderilecek
@@ -29,10 +29,8 @@ her mağazada ilk altı haftada ne sattığı belli. Bunu bir tabloya
 altı haftalık talebi. Talep geçen yazıdaki gibi stoksuz günlere göre
 düzeltilmiş.
 
-Her satırın yanına üç tür bilgi koyuyoruz. Ürünün öznitelikleri: kategori,
-kalıp, fiyat, renk gibi. Mağazanın kendisi: tipi, bölgesi, büyüklüğü. Bir de
-mağazanın geçmişte ne tür ürün sattığı: geçmiş talebinin ne kadarı bu
-ürünün alt kategorisine, kalıbına, fiyat segmentine düşmüş.
+Her satırın yanına üç tür bilgi koyuyoruz: ürünün kaydındaki öznitelikler,
+mağazanın kendisi, bir de mağazanın geçmişte ne tür ürün sattığı.
 
 Kodda özellik listesi şu:
 
@@ -51,7 +49,7 @@ OZELLIKLER = [
 ```
 
 Bu tabloya tek bir LightGBM modeli kuruyoruz. Amaç fonksiyonu Poisson,
-çünkü hedef bir sayım. Model yalnız karar gününde kapanmış sezonlardan
+çünkü talep bir sayım. Model yalnız karar gününde kapanmış sezonlardan
 öğreniyor; ilkbahar-yaz ile sonbahar-kış ayrı model değil, mevsim bir
 özellik.
 
@@ -81,7 +79,7 @@ for k in np.unique(katlar):
 Tahmin anında ise karışım bütün geçmişten hesaplanıyor; yeni ürün zaten o
 geçmişin içinde değil.
 
-Modelin bu ürünü neyle bildiğini de doğru adlandıralım. Model bu ürünü hiç
+Modelin neye dayandığını da doğru söyleyelim. Model bu ürünü hiç
 görmedi. Tek tek benzerlerini de seçmedi. Gördüğü şey, geçmişte hangi
 mağazanın ne tür üründen ne kadar sattığıydı.
 
@@ -107,10 +105,11 @@ dönüştüğü.
 Bir kol daha ekliyoruz: kahin. Kahin, her mağazanın ilk altı haftadaki
 gerçek talebini biliyor. Bu bilgi aynı müşteri akışının başka bir
 koşusunda ölçülmüş; yani kahin, gizli gerçeği bilseydik ne olacağının
-cevabı. Gerçek hayatta böyle bir kol yok. Burada "kime" sorusunun
-ulaşılabilecek tavanını göstermek için var.
+cevabı. Payı bu talebe orantılı veriyor; bunun en iyi dağıtım olduğu
+kanıtlanmış değil. Gerçek hayatta böyle bir kol yok. Burada payı neredeyse
+kusursuz bilseydik ne olacağını göstermek için var.
 
-Beş kol, aynı mal, aynı sezon:
+Beş kol, aynı ilk sevkiyat, aynı sezon:
 
 | | Pay hatası | Bulunabilirlik | Sezon sonunda elde kalan | Tam fiyat <T k="str">STR</T> | Brüt kâr |
 |---|---:|---:|---:|---:|---:|
@@ -123,7 +122,7 @@ Beş kol, aynı mal, aynı sezon:
 {/* YOLLAR: modelin Lumoda'dan kaç yolda önde olduğu buraya (yol sonuçları gelince) */}
 
 Sıra beklendiği gibi: kahin, model, mağazanın geçmiş payı, plan, eşit.
-Model aynı malla planın 1,4 puan önünde. Sezon sonunda elde kalan mal 2,03
+Model aynı malla bulunabilirlikte planın 1,4 puan önünde. Sezon sonunda elde kalan mal 2,03
 puan az, brüt kâr 15.596.408 TL fazla.
 
 Kahin ile plan arasındaki farkı, kolların ne kadar kapattığıyla ölçelim.
@@ -132,12 +131,12 @@ Mağazanın geçmiş payı bulunabilirlik farkının %23'ünü, pay hatası fark
 
 İki sayı arasındaki uçuruma dikkat. Model pay hatasının yalnız dörtte
 birinden biraz fazlasını kapatıyor, bulunabilirliğin ise üçte ikiye yakınını.
-Payı mükemmel bilmek gerekmiyor gibi görünüyor; büyük hataları düzeltmek,
-kazancın çoğunu getiriyor.
+Pay hatasındaki ilk iyileşme bulunabilirliğe çok şey getiriyor; payı
+kusursuza yaklaştırmanın getirisi giderek azalıyor.
 
-Büyük hatalar da ortada. İlk sevkiyat alan çiftlerden dört haftada ilk
-gelenin beşte birini bile satamayanlar planda 1.065 (%19,9), modelde 940
-(%17,6), kahinde 441 (%8,2).
+İlk sevkiyat alan çiftlerden dört haftada ilk gelenin beşte birini bile
+satamayanlar planda 1.065 (%19,9), modelde 940 (%17,6); kahinde 441
+(%8,2).
 
 ## Kahinin sınırı
 
@@ -149,10 +148,13 @@ Bu dizinin en önemli bulgularından biri bu. Malın mağazalar arasında doğru
 bölünmesi, sezonun kalanını çözmüyor. Kahinde bile kaybın beden kaynaklı
 payı plandakiyle aynı düzeyde: %42,8'e karşı %42,3. Kahin mağazayı doğru
 seçiyor, ama paketin bedenlerini değiştirmiyor. Sezon içinde gelen
-replenishment, tekrar sipariş ve indirim de aynı kurallarla işliyor.
+replenishment, tekrar sipariş ve indirim de aynı kurallarla işliyor. Kahinin
+2,2 puanının içinde bile tekrar sipariş ve indirimin tepkisinden gelen bir
+pay var: 1,9 puanı dağıtımın kendisinden, 0,3 puanı o tepkiden. Beden
+uyumsuzluğunun bedelini altıncı yazıda ölçeceğiz.
 
 — Payı doğru bilmek sezonun hepsini çözmüyor, diyor Pars. Ama aynı malla
-kime sorusunu çözmenin ne kazandırdığını artık biliyoruz: en fazla bu kadar.
+payı kusursuza yakın bilmenin ne kazandırdığını artık biliyoruz: bu kadar.
 
 ## Elbiseye dönüş
 
@@ -175,9 +177,8 @@ ancak bu kayıt kadar iyi olur. Lumoda'da kayıt eksiksiz; sizinkinde ilk iş
 muhtemelen kaydı düzeltmek.
 
 İkincisi plan ile satışın aynı hiyerarşide tutulmaması. Lumoda'da plan,
-satış ve ürün aynı kategori ağacını konuşuyor: planın üst kategorisi,
-ürünün üst kategorisiyle birebir eşleşiyor. Pek
-çok zincirde plan başka bir sistemde, başka bir kategori ağacıyla tutulur.
+satış ve ürün aynı kategori ağacını kullanıyor: planın üst kategorisi,
+ürünün üst kategorisiyle birebir eşleşiyor. Pek çok zincirde plan başka bir sistemde, başka bir kategori ağacıyla tutulur.
 İkisini eşleştirmeden ne planı ne modeli ölçebilirsiniz.
 
 Bir de bu yazının kendi dersi var. Pay ne kadar iyileşirse iyileşsin,

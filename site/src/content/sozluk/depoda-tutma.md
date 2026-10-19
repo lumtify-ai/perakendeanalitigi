@@ -5,8 +5,9 @@ ingilizce: Hold-back
 ---
 
 Depoda tutma, ilk sevkiyatta gönderilebilecek paketlerin bir kısmını
-depoda bırakmaktır. Bu dizide bu pay, ilk alımın değil, o gün
-gönderilebilecek paketlerin yüzdesidir. Gönderilebilecek paket sayısını,
+depoda bırakmaktır. Bu dizide depoda tutulan pay, ilk alımın değil, o gün
+gönderilebilecek paketlerin yüzdesidir; Lumoda'nın kendi kuralı ise ilk
+alımın yüzdesinden söz eder. Gönderilebilecek paket sayısını,
 depodaki stoğu pakette kendi payına göre en önce biten beden belirler; bu
 yüzden depoda kalan malın ilk alıma oranı bedenden bedene değişir.
 
