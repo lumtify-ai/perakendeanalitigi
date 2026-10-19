@@ -658,6 +658,15 @@ describe('site geneli vaatler', () => {
     expect(kopru).not.toContain('başabaş eşiğini')
   })
 
+  // İlk Sevkiyat dizisinin köprüsü 6. yazıda (basari-nasil-olculur) durur;
+  // yazı henüz yok. Görev 13 bu satırı RPT/DM testinin kalıbıyla etkinleştirir:
+  // oku('allocation/ilk-sevkiyat/basari-nasil-olculur/index.html'), köprü
+  // dilimi; dizinin kendi giriş ve kapanış cümleleri, kanonik cümleler
+  // ('iş zekâsı ve optimizasyonla', 'Let Us Make Trade Intelligent For You'),
+  // varsayılan paragraflar yok ('kargo tarifesi', 'başabaş eşiğini'). Aynı
+  // görev sayfayı yukarıdaki BEKLENEN_KOPRU_SAYFALARI listesine ekler.
+  it.todo('İlk Sevkiyat köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır (R29)')
+
   it('köprüde kalın cümle ile sonraki cümle arasında boşluk var', () => {
     for (const { yol, html } of tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))) {
       expect(html, yol).toContain('</strong> Adı da oradan geliyor')
