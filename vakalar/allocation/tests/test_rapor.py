@@ -263,3 +263,76 @@ def test_kol_karar_ozeti():
     assert list(oz.index) == [0, 1]                                    # Lumoda'ya devredilen 7 yok
     assert oz.loc[0, "U"] == 6 and oz.loc[0, "giden"] == 5 and oz.loc[0, "aday"] == 3 and oz.loc[0, "tavanda"] == 1
     assert oz.loc[1, "aday"] == 0 and oz.loc[1, "giden"] == 0           # adaysız karar: nöbetçi satır
+
+
+# ------------------------------------------------------------- R50: SORU aritmetiği ve etiketler
+
+
+def _bul(v, ad, deger, kalan=None):
+    o = v.oyun["kosular"][ad]["olcutler"]
+    o["bulunabilirlik"] = deger
+    if kalan is not None:
+        o["sezon_sonu_kalan_yuzde"] = kalan
+
+
+def _soru(metin: str, n: int) -> str:
+    return next(x for x in metin.splitlines() if x.startswith(f"SORU {n} · "))
+
+
+def test_soru3_toplam_kime_arti_tutma():
+    v = sahte_rapor.tam_veri()
+    _bul(v, "pay_benzer_tavansiz", 69.51, 19.65)       # basılan 69,5 / 19,6
+    _bul(v, "es_benzer", 70.64, 18.22)                 # 70,6 / 18,2
+    _bul(v, "pay_benzer_tavanli", 70.46, 18.12)        # 70,5 / 18,1
+    kod, metin = rapor.tamponla(lambda: rapor.govde(v))
+    assert kod == 0
+    s3 = _soru(metin, 3)
+    assert "bulunabilirlik toplam +1,0 = kime −0,1 + tutma +1,1" in s3
+    assert "kalan toplam −1,5 = kime −0,1 + tutma −1,4" in s3
+
+
+def test_soru8_dogrudan_arti_tepki():
+    v = sahte_rapor.tam_veri()
+    k = v.oyun["kosular"]
+    _bul(v, "lumoda", 68.98)
+    k["lumoda_takvimli"]["olcutler"] = dict(k["lumoda"]["olcutler"])
+    _bul(v, "pay_tahmin_tavansiz", 70.41)
+    _bul(v, "sabit_tahmin", 70.41)
+    _bul(v, "pay_kahin", 71.23)
+    _bul(v, "sabit_kahin", 70.94)
+    kod, metin = rapor.tamponla(lambda: rapor.govde(v))
+    assert kod == 0
+    s8 = _soru(metin, 8)
+    assert "tahmin +1,4 = +1,4 doğrudan + 0,0 tepki (doğrudan %100)" in s8
+    assert "kahin +2,2 = +1,9 doğrudan + +0,3 tepki (doğrudan %86)" in s8
+
+
+def test_soru6_en_dusuk_tutma_kosularindan_ve_etiket_cozumden():
+    v = sahte_rapor.tam_veri()
+    v.oyun["kosular"]["tut_lumoda_t45_hiz"]["olcutler"]["beden_kayip_payi"] = 20.0
+    v.oyun["kosular"]["pay_esit"]["olcutler"]["beden_kayip_payi"] = 60.0
+    s6 = _soru(rapor.tamponla(lambda: rapor.govde(v))[1], 6)
+    assert "en düşük tut_lumoda_t45_hiz %20,0 (depoda tutan)" in s6
+    assert "en yüksek pay_esit %60,0 (her şeyi gönderen)" in s6
+    assert rapor.depoda_tutar({"cozum": {"tutma": 0.0, "tavan": True}})
+    assert rapor.depoda_tutar({"cozum": {"tutma": None, "tavan": False}})
+    assert not rapor.depoda_tutar({"cozum": {"tutma": 0.0, "tavan": False}})
+
+
+def test_soru5_sinyal_yalniz_esikle():
+    kal = {"gamma_bulunabilirlik_araligi_puan": 0.0316, "gamma_esik_puan": 0.3, "belirsizlik_spearman": 0.1067}
+    assert "ölçünün sinyali zayıf" in rapor.sinyal_metni(kal) and "0,03 puan < eşik 0,3" in rapor.sinyal_metni(kal)
+    assert "zayıf" not in rapor.sinyal_metni({**kal, "gamma_bulunabilirlik_araligi_puan": 0.5})
+    assert rapor.sinyal_metni({"belirsizlik_spearman": 0.1}) == "Spearman 0,100"
+
+
+def test_yol_bir_ondalik_medyan_iki_ondaligin_yuvarlamasi():
+    v = sahte_rapor.tam_veri()
+    for p, (a, c) in enumerate([(69.51, 68.98), (69.75, 69.01), (69.46, 68.75), (69.31, 68.71), (69.81, 68.95)]):
+        y_ = v.yollar["yollar"][str(p)]["kosular"]
+        y_["benzer"]["olcutler"] = {**y_["benzer"]["olcutler"], "bulunabilirlik": a}
+        y_["lumoda"]["olcutler"] = {**y_["lumoda"]["olcutler"], "bulunabilirlik": c}
+    metin = rapor.tamponla(lambda: rapor.govde(v))[1]
+    satir = next(x for x in metin.splitlines() if x.startswith("  benzer − lumoda: +0,5 ·"))
+    assert "| medyan +0,7 ·" in satir                 # iki ondalıklı medyan +0,71 → +0,7 (+0,8 değil)
+    assert "medyan fark +0,71" in metin

@@ -379,7 +379,8 @@ def veri_bolumu(v, ek) -> None:
            ("VERİ: dalgaların option toplamı = kuralın option sayısı", top["option"] == k["option"]),
            ("VERİ: Lumoda'nın gönderdiği = kural − motorun kırptığı", k["kural_adet"] - k["kirpilan_adet"]
             == int(lo["ilk_dagitim_adet"])),
-           ("VERİ: U kuralı aşmaz", k["U_kural_ustu"] == 0)]
+           ("VERİ: U kuralı aşmaz", k["U_kural_ustu"] == 0),
+           ("VERİ: Lumoda'nın gönderdiği = U (t = 0)", int(lo["ilk_dagitim_adet"]) == k["U_adet"])]
 
 
 def kural_bolumu(v, ek) -> None:
@@ -605,17 +606,19 @@ def yollar_bolumu(v, ek) -> None:
             onde = f["pozitif"] if YUKSEK_IYI[olc] else f["negatif"]
             parca.append(f"{olc} {onde}/{f['n']} yolda önde (medyan fark {isaretli(f['medyan'], n)})")
         print(f"  {a} − {c}: " + " · ".join(parca))
-    alt("bulunabilirlik farkının yol medyanı, bir ondalık (basılan bir ondalıklı değerlerden)")
+    alt("bulunabilirlik farkı, bir ondalık (iki ondalıklı farkların ve medyanın yuvarlaması: tek nicelik, tek değer)")
     for a, c in ciftler:
         if "kahin" in (a, c) and not all(yb.get(p) for p in p_sira if int(p) > 0):
             continue
-        f = yol_farklari(deger[(a, "bulunabilirlik")], deger[(c, "bulunabilirlik")], 1)
-        print(f"  {a} − {c}: " + " · ".join(isaretli(x, 1) for x in f["farklar"]) + f" | medyan {isaretli(f['medyan'], 1)} · "
-              f"{a} önde {f['pozitif']}/{f['n']}, geride {f['negatif']}/{f['n']}")
+        f = yol_farklari(deger[(a, "bulunabilirlik")], deger[(c, "bulunabilirlik")], 2)
+        print(f"  {a} − {c}: " + " · ".join(isaretli(yuv(x, 1), 1) for x in f["farklar"])
+              + f" | medyan {isaretli(yuv(f['medyan'], 1), 1)} · {a} önde {f['pozitif']}/{f['n']}, geride {f['negatif']}/{f['n']}")
     k0 = yollar["0"]["kosular"] if "0" in yollar else {}
     for kisa, e in k0.items():
         ek.append((f"yollar: yol 0 {kisa} = oyun.json ({e.get('ad')})",
                    e.get("ad") in v.oyun["kosular"] and e["anahtar"] == v.oyun["kosular"][e["ad"]]["anahtar"]))
+    ek += [(f"yollar: yol {p} {k_} tavansız (R44)", yollar[p]["kosular"][k_].get("cozum", {}).get("tavan") is False)
+           for p in p_sira for k_ in ("benzer", "tahmin")]
     ek += [("yollar: hepsi tamam", all(yollar[p].get("tamam") for p in p_sira)),
            ("yollar: 5 yol", len(p_sira) == sabitler.YOL_SAYISI),
            ("yollar: kayıt bugünkü kodla (yollar.kod_ozeti)", all(yollar[p].get("kod") == v.yollar_kodu for p in p_sira))]
@@ -695,6 +698,7 @@ def sabit_takvim_bolumu(v, ek) -> None:
     print("bütün kollar aynı malı gönderir; tepkili karşılık aynı kol ve aynı tavanla (`pay_karsiligi`).")
     lu, lt = O(v, "lumoda"), O(v, "lumoda_takvimli")
     ayni = all(abs(float(lu[a]) - float(lt[a])) < 1e-9 for a in lu)
+    ek += [(f"SABİT TAKVİM: {a} tavansız (R46)", K(v, a)["cozum"].get("tavan") is False) for a in ("sabit_benzer", "sabit_tahmin")]
     print(f"  lumoda_takvimli = lumoda (bütün ölçütler, yeniden oynatma eşdeğerliği): {'evet' if ayni else 'hayır'}")
     ek.append(("SABİT TAKVİM: lumoda_takvimli bütün ölçütlerde lumoda", ayni and set(lu) == set(lt)))
     satirlar = []
@@ -747,6 +751,12 @@ def tutma_bolumu(v, ek) -> None:
     print("Replenishment: Lumoda'nın kuralı (ölü stok kapısıyla) ya da hiz (son 14 günün stoklu gün hızı × 28 gün, kapısız; yalnız oyun hücreleri).")
     print("Online aynı depodan satar: tutma online satışını da değiştirir (sütun).")
     lu = O(v, "lumoda")
+    sec = v.secim or {}
+    for t in sabitler.TUTMA_DUZEYLERI:
+        for repl in ("lumoda", "hiz"):
+            c = K(v, _tut_adi("eniyi", t, repl))["cozum"]
+            ek.append((f"TUTMA: {_tut_adi('eniyi', t, repl)} kolu ve tavanı secim.json'un en iyisi",
+                       c.get("kol") == sec.get("kol") and c.get("tavan") == sec.get("tavan")))
     sonuc = {}
     for kaynak in ("lumoda", "eniyi"):
         for repl in ("lumoda", "hiz"):
@@ -823,8 +833,24 @@ def strateji_bolumu(v, ek) -> None:
          f"({isaretli(fark(oa['bulunabilirlik'], oc['bulunabilirlik'], 2), 2)} puan, {yon(oc['bulunabilirlik'], oa['bulunabilirlik'], True, 2)}) · "
          f"kalan {yd(oc['sezon_sonu_kalan_yuzde'], 2)} / {yd(oa['sezon_sonu_kalan_yuzde'], 2)} "
          f"({yon(oc['sezon_sonu_kalan_yuzde'], oa['sezon_sonu_kalan_yuzde'], False, 2)}) · tam STR {yd(oc['tam_fiyat_str'], 2)} / "
-         f"{yd(oa['tam_fiyat_str'], 2)} ({yon(oc['tam_fiyat_str'], oa['tam_fiyat_str'], True, 2)}); ölçünün sinyali zayıf "
-         f"(Spearman {s(v.kal.get('belirsizlik_spearman'), 3)})")
+         f"{yd(oa['tam_fiyat_str'], 2)} ({yon(oc['tam_fiyat_str'], oa['tam_fiyat_str'], True, 2)}); {sinyal_metni(v.kal)}")
+
+
+def sinyal_metni(kal: dict) -> str:
+    """Belirsizlik ölçüsünün sinyali, kalibrasyon.json'un kendi eşiğiyle: γ'ların bulunabilirlik aralığı
+    `gamma_esik_puan`'ın altındaysa eğrinin dikliği sonucu değiştirmedi (zayıf); Spearman yanında basılır."""
+    ara, esik, rho = kal.get("gamma_bulunabilirlik_araligi_puan"), kal.get("gamma_esik_puan"), kal.get("belirsizlik_spearman")
+    if ara is None or esik is None:
+        return f"Spearman {s(rho, 3)}"
+    zayif = yuv(ara, 2) < yuv(esik, 1)
+    return (f"kalibrasyonda γ'ların bulunabilirlik aralığı {s(ara, 2)} puan {'<' if zayif else '≥'} eşik {s(esik, 1)}: "
+            f"{'ölçünün sinyali zayıf' if zayif else 'eğrinin dikliği sonucu değiştirdi'} (Spearman {s(rho, 3)})")
+
+
+def depoda_tutar(e: dict) -> bool:
+    """Koşu U'nun bir kısmını depoda bırakır mı (çözümden): t > 0, t option başına (belirsizlik) ya da tavanlı."""
+    c = e.get("cozum", {})
+    return c.get("tutma") is None or bool(c.get("tutma")) or bool(c.get("tavan"))
 
 
 def isabet_bolumu(v, ek) -> None:
@@ -877,17 +903,25 @@ def beden_bolumu(v, ek) -> None:
         bk[et] = yuv(o["kayip_orani"], 2) * yuv(o["beden_kayip_payi"], 1) / 100
         print(f"  {et:<18}{yd(o['kirik_cift_pay_yuzde'], 1):>9}{yd(o['beden_kayip_payi'], 1):>18}{yd(o['kayip_orani'], 2):>8}"
               f"{s(bk[et], 2):>16}{yd(o['tukenen_hucre_yuzde'], 1):>15}")
-    tutanlar = [("eşleşik benzer", "es_benzer"), ("eşleşik tahmin", "es_tahmin"), ("en iyi t %30", "tut_eniyi_t30")]
-    print("  depoda tutan tavansız kollar (aynı pay kaynağı, t > 0): " + " · ".join(
-        f"{et} kırık {yd(O(v, ad)['kirik_cift_pay_yuzde'], 1)}, beden kaybı payı {yd(O(v, ad)['beden_kayip_payi'], 1)}"
-        for et, ad in tutanlar))
-    pay = {et: O(v, ad)["beden_kayip_payi"] for et, ad in kollar}
-    en_az, en_cok = min(pay, key=lambda k: yuv(pay[k], 1)), max(pay, key=lambda k: yuv(pay[k], 1))
-    hepsi = [k for k in ("esit", "benzer tavansız", "tahmin tavansız", "kahin") if k in pay]
-    soru(6, f"Beden uyumsuzluğu kaybın ne kadarı, hangi kol onu azaltamıyor? Beden kaybı payı Lumoda {yd(pay['lumoda'], 1)} "
-         f"(beden kaynaklı kayıp {s(bk['lumoda'], 2)} puan); en düşük {en_az} {yd(pay[en_az], 1)}, en yüksek {en_cok} "
-         f"{yd(pay[en_cok], 1)} (aralık {s(fark(pay[en_az], pay[en_cok], 1), 1)} puan; en düşükler depoda tutan kollar); t = 0'da her şeyi gönderen kollar "
-         f"({', '.join(hepsi)}) {yd(min(pay[k] for k in hepsi), 1)}–{yd(max(pay[k] for k in hepsi), 1)}")
+    havuz = [a for a, e in v.oyun["kosular"].items() if "ayni" not in e and e.get("grup") in ("esdegerlik", "pay", "eslesik",
+                                                                                              "tutma", "strateji")]
+    if any(a not in v.gecerli for a in havuz):
+        raise Eksik(*[a for a in havuz if a not in v.gecerli])
+    havuz = [a for a in havuz if a != "pay_kahin" or kahin_olculur(v)]
+    deg = {a: O(v, a)["beden_kayip_payi"] for a in havuz}
+    tutan = [a for a in havuz if depoda_tutar(K(v, a))]
+    gonderen = [a for a in havuz if a not in tutan]
+    alt("beden kaybı payı: her şeyi gönderen ↔ depoda tutan koşular (t > 0, t option başına ya da tavanlı; çözümden)")
+    for et, grup in (("her şeyi gönderen", gonderen), ("depoda tutan", tutan)):
+        print(f"  {et} ({s(len(grup))} koşu): " + " · ".join(f"{a} {yd(deg[a], 1)}" for a in grup))
+    en_az = min(havuz, key=lambda a: (yuv(deg[a], 1), a))
+    en_cok = max(havuz, key=lambda a: (yuv(deg[a], 1), a))
+    etiket = lambda a: "depoda tutan" if a in tutan else "her şeyi gönderen"  # noqa: E731
+    aralik = lambda g: f"{yd(min(deg[a] for a in g), 1)}–{yd(max(deg[a] for a in g), 1)}" if g else "—"  # noqa: E731
+    soru(6, f"Beden uyumsuzluğu kaybın ne kadarı, hangi kol onu azaltamıyor? Beden kaybı payı Lumoda {yd(deg['lumoda'], 1)} "
+         f"(beden kaynaklı kayıp {s(bk['lumoda'], 2)} puan); en düşük {en_az} {yd(deg[en_az], 1)} ({etiket(en_az)}), en yüksek "
+         f"{en_cok} {yd(deg[en_cok], 1)} ({etiket(en_cok)}); her şeyi gönderen {s(len(gonderen))} koşu {aralik(gonderen)}, "
+         f"depoda tutan {s(len(tutan))} koşu {aralik(tutan)}")
     alt("beden beden depoda kalan (beş bedenli option'lar; beden sırası 1 → 5)")
     for et, ad in kollar[:1] + [("en iyi, t %30 (tut_eniyi_t30)", "tut_eniyi_t30")]:
         o = O(v, ad)

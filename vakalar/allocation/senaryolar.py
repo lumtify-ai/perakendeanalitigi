@@ -2,7 +2,7 @@
 
     .venv/Scripts/python senaryolar.py      # site/src/data/senaryolar/ilk-sevkiyat.json
 
-Kadran iki eksenli: ilk dağıtımın pay kaynağı (Lumoda'nın plan payı / eşit / benzer ürün / LightGBM)
+Kadran iki eksenli: ilk dağıtımın pay kaynağı (Lumoda'nın plan payı / eşit / mağazanın geçmiş payı (benzer kolu, R25) / LightGBM)
 × depoda tutulan pay (gönderilebilir üst sınır U'ya göre %0 / %15 / %30; spec §0/9) = 12 bileşim.
 Koşular oyun ızgarasındandır (spec §4.5 demo bloğu): yol 0, replenishment, RPT ve markdown
 Lumoda'nın tepkili kararı, benzer ve tahmin tavansız (aynı mal; Ruling R43). Hangi bileşimin hangi
@@ -34,7 +34,7 @@ TUTMALAR = (0, 15, 30)
 
 PARAMETRELER = [
     {"ad": "pay", "etiket": "İlk dağıtımın pay kaynağı", "degerler": list(PAYLAR),
-     "deger_etiketleri": {"lumoda": "plan payı (Lumoda)", "esit": "herkese eşit", "benzer": "benzer ürün",
+     "deger_etiketleri": {"lumoda": "plan payı (Lumoda)", "esit": "herkese eşit", "benzer": "Mağazanın geçmiş payı",
                           "tahmin": "LightGBM tahmini"}},
     {"ad": "tutma", "etiket": "Depoda tutulan pay", "degerler": list(TUTMALAR),
      "deger_etiketleri": {str(t): f"%{t}" for t in TUTMALAR}},

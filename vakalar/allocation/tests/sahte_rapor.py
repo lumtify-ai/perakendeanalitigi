@@ -170,11 +170,13 @@ def _yollar(kosular: dict) -> dict:
         for kisa, s_ in oyun.yol_listesi(p, KAL):
             if p == 0:
                 e = kosular[s_.ad]
-                k[kisa] = {"ad": s_.ad, "anahtar": e["anahtar"], "olcum_kodu": "olcum", "olcutler": e["olcutler"]}
+                k[kisa] = {"ad": s_.ad, "anahtar": e["anahtar"], "olcum_kodu": "olcum", "olcutler": e["olcutler"],
+                           "cozum": e["cozum"]}
             else:
                 o = _olcutler(p + len(k))
                 o["talep_adet"] += 100 * p                      # yolun müşteri akışı farklı
-                k[kisa] = {"ad": s_.ad, "anahtar": f"y{p}{kisa}" + "b" * 50, "olcum_kodu": "olcum", "olcutler": o}
+                k[kisa] = {"ad": s_.ad, "anahtar": f"y{p}{kisa}" + "b" * 50, "olcum_kodu": "olcum", "olcutler": o,
+                           "cozum": oyun.cozumle(s_, KAL, None)}
         yollar[str(p)] = {"kod": "yolkod", "tamam": True, "talep_tohumu": oyun.talep_tohumu(p), "kosular": k,
                           "girdi": {"ogrenme_satir": 15859, "karar_gunu": "2025-02-07",
                                     "kaynak": "yayimlanan" if p == 0 else k["lumoda"]["anahtar"],
