@@ -56,8 +56,8 @@ Lumoda). Önce `lumoda` (referans; yayımlanan dünya, önbellekli, seçime girm
     3. belirsizlik (t̄ = `BELIRSIZLIK_TBAR`), γ ∈ `GAMMA_IZGARASI` (3 koşu); en iyisinin γ'sı
 
 `secim`: sezon boyu bulunabilirliği en yüksek olanın `ESIK_PUAN` (0,3) puandan az gerisindekiler
-arasında sezon sonu kalanı en düşük olan (eşitlikte ilk). Ölçütlerin tanımı `oyun` modülünde
-(`bulunabilirlik`, `sezon_sonu_kalan_yuzde`; Görev 8'in `olcutler`'iyle aynı tanım).
+arasında sezon sonu kalanı en düşük olan (eşitlikte ilk). Ölçütlerin tanımı `olcutler` modülünde
+(`bulunabilirlik`, `sezon_sonu_kalan_yuzde`; oyunun ölçütleriyle aynı tanım).
 """
 
 import json
@@ -273,6 +273,30 @@ def _normal(pay: np.ndarray, aday: np.ndarray) -> np.ndarray:
     return np.where(t > 0, p / np.where(t > 0, t, 1.0), esit)
 
 
+def _adaylar(w, harita, opt: np.ndarray) -> np.ndarray:
+    """[n, M] option'ların aday yaklaşığı (`aday_yaklasik`), `opt` sırasıyla."""
+    if not len(opt):
+        return np.zeros((0, len(w.magazalar)), bool)
+    return np.stack([aday_yaklasik(w, harita, o) for o in opt])
+
+
+def _olculer(benzer_pay: np.ndarray, duzey: np.ndarray, dk: np.ndarray, tahmin_pay: np.ndarray,
+             aday: np.ndarray) -> dict[str, np.ndarray]:
+    """`BELIRSIZLIK_OLCULERI`'nin option başına değerleri (modül notu)."""
+    ayrisma = 0.5 * np.abs(_normal(benzer_pay, aday) - _normal(tahmin_pay, aday)).sum(axis=1)
+    return {"benzer_dk": dk, "benzer_duzey": duzey, "benzer_tahmin_ayrisma": ayrisma}
+
+
+def belirsizlik_olculeri(endeks, tahminci, w, harita, optionlar) -> dict[str, np.ndarray]:
+    """`optionlar`ın (indis, bu sırayla) belirsizlik ölçüleri, öğrenilmiş `endeks` ve `tahminci` ile,
+    kolun karar öncesi aday yaklaşığında (`kosusuz`'un hesabı; Görev 8 oyun sezonunun `t_o`'su için)."""
+    opt = np.asarray(optionlar, dtype=np.int64)
+    oz = ogrenme.option_oznitelikleri(w, opt)
+    aday = _adaylar(w, harita, opt)
+    benzer_pay, duzey, dk = _benzer_hesap(endeks, oz, aday)
+    return _olculer(benzer_pay, duzey, dk, _tahmin_pay(tahminci, w, oz, aday), aday)
+
+
 def _lumoda_payi(tablolar, w, optionlar) -> pd.DataFrame:
     """Yayımlanan `sevkiyat`'tan Lumoda'nın gerçekleşen ilk dağıtım adedi (bağlam)."""
     s = tablolar["sevkiyat"]
@@ -298,7 +322,7 @@ def kosusuz(tablolar: Mapping[str, pd.DataFrame], w, *, sezon: str = sabitler.KA
     harita = kaynak.harita_kur(w)
     opt = kaynak.oyun_optionlari(w, sezon)
     oz = ogrenme.option_oznitelikleri(w, opt)
-    aday = np.stack([aday_yaklasik(w, harita, o) for o in opt]) if len(opt) else np.zeros((0, len(w.magazalar)), bool)
+    aday = _adaylar(w, harita, opt)
     ilk_alim = pd.Series(np.asarray(w.ilk_alim, dtype=float)[opt], index=opt)
     satirlar: list[dict] = []
 
@@ -344,8 +368,7 @@ def kosusuz(tablolar: Mapping[str, pd.DataFrame], w, *, sezon: str = sabitler.KA
     kaynak_pay = benzer_pay_m if kaynak_ad == "benzer" else tahmin_pay_m
 
     # belirsizlik ölçüleri: kaynağın option WAPE'siyle Spearman
-    ayrisma = 0.5 * np.abs(_normal(benzer_pay_m, aday) - _normal(tahmin_pay_m, aday)).sum(axis=1)
-    olculer = {"benzer_dk": dk, "benzer_duzey": duzey, "benzer_tahmin_ayrisma": ayrisma}
+    olculer = _olculer(benzer_pay_m, duzey, dk, tahmin_pay_m, aday)
     ow = option_wape(_uzun(opt, kaynak_pay, aday), gercek).reindex(opt).to_numpy()
     rho = {}
     for ad in BELIRSIZLIK_OLCULERI:

@@ -293,8 +293,10 @@ def _sevk(satirlar):
 def test_kal_olcutleri_oyuncak(dunya):
     """Oyuncak dünyada SS25 Collection (A, B, X): bulunabilirlik fiziksel mağazalarda, option'ın ilk
     dağıtım varışından çıkışına (hariç); sezon sonu kalan = çıkıştaki outlet akışı + fiziksel
-    hücrelerin stok devri ÷ (teslim alınan ilk alım + RPT)."""
-    from allocation import kaynak, oyun
+    hücrelerin stok devri ÷ (teslim alınan ilk alım + RPT). Ölçütler Görev 8'de `olcutler`'e taşındı
+    (tek tanım): Görev 7'nin sayıları aynı kalır (depo eki çıkıştan sonraki depo fotoğrafı yoksa 0)."""
+    from allocation import kaynak
+    from allocation import olcutler as oyun
 
     h = kaynak.harita_kur(dunya)
     opt = kaynak.oyun_optionlari(dunya, "SS25")
@@ -326,3 +328,6 @@ def test_kal_olcutleri_oyuncak(dunya):
 
     assert oyun.bulunabilirlik(gercek, sevk, dunya, h, opt) == pytest.approx(100 * 2 / 3)
     assert oyun.sezon_sonu_kalan_yuzde(sevk, siparis, kalite, dunya, h, opt) == pytest.approx(100 * 33 / 225)
+    # çıkıştan önceki depo fotoğrafı eke girmez (koşu çıkışa varmadıysa ek 0)
+    depo = pd.DataFrame({"tarih": pd.to_datetime(["2025-08-24"]), "urun_id": ["OPT-A-1"], "adet": [50]})
+    assert oyun.sezon_sonu_kalan_yuzde(sevk, siparis, kalite, dunya, h, opt, depo) == pytest.approx(100 * 33 / 225)

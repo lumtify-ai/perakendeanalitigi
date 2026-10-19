@@ -70,6 +70,34 @@ SS24'te, oyun sezonuna (SS25) bakmadan (`allocation/kalibrasyon.py`, spec §4.1)
   → 2. Üç γ'nın bulunabilirliği 0,03 puan içinde (eşitlik bandı 0,3): γ sezon sonu kalanla seçildi,
   eğri dikliği SS24'te pratikte etkisiz.
 
-Seçimler, WAPE'ler ve koşu ölçütleri `cikti/kalibrasyon.json`'da; Görev 8'in ızgarası değerleri
-oradan okur. Kalibrasyonun iki ölçütünün (bulunabilirlik, sezon sonu kalan) tanımı
-`allocation/oyun.py`'nin modül notunda.
+Seçimler, WAPE'ler ve koşu ölçütleri `cikti/kalibrasyon.json`'da; oyun ızgarası değerleri oradan
+okur. Kalibrasyonun iki ölçütü (bulunabilirlik, sezon sonu kalan) oyunun ölçütleriyle tek tanımdır
+(`allocation/olcutler.py`).
+
+## Oyun ızgarası
+
+    .venv/Scripts/python -m allocation.oyun                      # bütün bloklar sırayla (cikti/oyun.json)
+    .venv/Scripts/python -m allocation.oyun izgara --blok pay    # tek blok; --ad <koşu> yalnız o koşu
+    .venv/Scripts/python -m allocation.yollar                    # 5 talep yolu (cikti/yollar.json)
+
+Oyun sezonu SS25'in Collection option'ları (`allocation/oyun.py`, spec §4.5). Bloklar bu sırayla koşar,
+çünkü sonrakiler pay bloğunun seçtiği "en iyi" kola bakar (`cikti/secim.json`): `esdegerlik`
+(`lumoda`, yayımlanan v4'ün kendisi) → `pay` (esit, benzer ve tahmin tavanlı / tavansız, kahin; t =
+0) → `sabit_takvim` (lumoda'nın RPT ve markdown kararlarıyla) → `tutma` (t ∈ {0; 0,15; 0,30; 0,45}
+× {lumoda_tut, en iyi} × replenishment {Lumoda, hiz}) → `strateji` (belirsizlik, t̄ = %30) → `demo`.
+Çözümü aynı iki koşu adı (ör. demo'daki en iyi kol ile tutma ekseninin aynı noktası) bir kez
+koşulur. Koşular sıralı ve önbellekli (`cikti/kosular/`, koşu başına ~150 MB); yarıda kalan ızgara
+aynı komutla kaldığı yerden sürer (`cikti/ilerleme.jsonl`), makine uyumaz. Yollar ızgaranın pay
+bloğundan sonra koşulur (yol 0 onun koşularıdır).
+
+**Ölçütlerin tanımları** `allocation/olcutler.py`'nin modül notunda: bulunabilirlik (sezon boyu ve ilk
+4 hafta), kayıp, tam fiyat STR (v4 kalibrasyon tanımı), markdown tutarı, sezon sonu kalan, brüt
+kâr, düzeltme yükü (replenishment, elle transfer, RPT), dağıtım isabeti (erken birincil talep
+payına karşı WAPE, oturan ve hızlı biten hücre), beden ölçütleri (kırık çift, beden kaybı, depoda
+kalan ve ilk tükenen beden) ve korunum. **Markdown tutarı** yalnız markdown kaynaklı indirimdir:
+kampanyasız satış satırlarının `indirim_tutari`'sı, option'ın o hattaki haftalık markdown oranı
+sıfırdan büyükken. Kampanya indirimi (kampanya oranı markdown'ı aşınca satır kampanyalıdır) ve
+işlem indirimi (yalnız markdown ve kampanya 0 iken çıkar) girmez.
+
+`hiz` replenishment'ı kapanış kararı verilmiş mağazaya kapanışa dek gönderir (Lumoda'nın kuralı
+gibi; `allocation/politika.py`).
