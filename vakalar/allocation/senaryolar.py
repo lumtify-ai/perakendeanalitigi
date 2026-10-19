@@ -5,10 +5,10 @@
 Kadran iki eksenli: ilk dağıtımın pay kaynağı (Lumoda'nın plan payı / eşit / benzer ürün / LightGBM)
 × depoda tutulan pay (gönderilebilir üst sınır U'ya göre %0 / %15 / %30; spec §0/9) = 12 bileşim.
 Koşular oyun ızgarasındandır (spec §4.5 demo bloğu): yol 0, replenishment, RPT ve markdown
-Lumoda'nın tepkili kararı, benzer ve tahmin kalibrasyonun tavan seçimiyle. Hangi bileşimin hangi
+Lumoda'nın tepkili kararı, benzer ve tahmin tavansız (aynı mal; Ruling R43). Hangi bileşimin hangi
 koşu olduğu `cikti/oyun.json`'un `demo` alanındadır (`oyun.demo_haritasi`: Lumoda %0 =
 `lumoda`, Lumoda %15 / %30 = `tut_lumoda_t15` / `_t30`, öteki %0'lar pay bloğu, %15 / %30 demo
-bloğu ya da tutma ekseninin aynı koşusu).
+bloğu ya da tutma ekseninin aynı koşusu; tahmin %15 / %30 = `tut_eniyi_t15` / `_t30`).
 
 **Yalnız önbellekten.** Değerler `cikti/oyun.json`'daki ölçülmüş kayıtlardan okunur; her kaydın
 koşusu `cikti/kosular/<ad>_<anahtar[:20]>/meta.json`'da aynı anahtarla durmalıdır (takma adda

@@ -1,0 +1,157 @@
+{
+ "surum": "2bddb57",
+ "parametreler": [
+  {
+   "ad": "pay",
+   "etiket": "İlk dağıtımın pay kaynağı",
+   "degerler": [
+    "lumoda",
+    "esit",
+    "benzer",
+    "tahmin"
+   ],
+   "deger_etiketleri": {
+    "lumoda": "plan payı (Lumoda)",
+    "esit": "herkese eşit",
+    "benzer": "benzer ürün",
+    "tahmin": "LightGBM tahmini"
+   }
+  },
+  {
+   "ad": "tutma",
+   "etiket": "Depoda tutulan pay",
+   "degerler": [
+    0,
+    15,
+    30
+   ],
+   "deger_etiketleri": {
+    "0": "%0",
+    "15": "%15",
+    "30": "%30"
+   }
+  }
+ ],
+ "sonuclar": {
+  "lumoda|0": {
+   "ozet": {
+    "bulunabilirlik": 69.0,
+    "tam_fiyat_str": 52.7,
+    "sezon_sonu_kalan_yuzde": 19.8,
+    "kayip_orani": 35.1,
+    "replenishment_adet": 370692
+   },
+   "satirlar": []
+  },
+  "lumoda|15": {
+   "ozet": {
+    "bulunabilirlik": 70.1,
+    "tam_fiyat_str": 54.0,
+    "sezon_sonu_kalan_yuzde": 18.8,
+    "kayip_orani": 33.5,
+    "replenishment_adet": 477899
+   },
+   "satirlar": []
+  },
+  "lumoda|30": {
+   "ozet": {
+    "bulunabilirlik": 70.8,
+    "tam_fiyat_str": 55.0,
+    "sezon_sonu_kalan_yuzde": 17.8,
+    "kayip_orani": 32.3,
+    "replenishment_adet": 583690
+   },
+   "satirlar": []
+  },
+  "esit|0": {
+   "ozet": {
+    "bulunabilirlik": 67.6,
+    "tam_fiyat_str": 51.3,
+    "sezon_sonu_kalan_yuzde": 22.2,
+    "kayip_orani": 37.7,
+    "replenishment_adet": 374572
+   },
+   "satirlar": []
+  },
+  "esit|15": {
+   "ozet": {
+    "bulunabilirlik": 69.5,
+    "tam_fiyat_str": 53.3,
+    "sezon_sonu_kalan_yuzde": 19.8,
+    "kayip_orani": 34.9,
+    "replenishment_adet": 488736
+   },
+   "satirlar": []
+  },
+  "esit|30": {
+   "ozet": {
+    "bulunabilirlik": 70.4,
+    "tam_fiyat_str": 54.6,
+    "sezon_sonu_kalan_yuzde": 18.5,
+    "kayip_orani": 33.4,
+    "replenishment_adet": 593207
+   },
+   "satirlar": []
+  },
+  "benzer|0": {
+   "ozet": {
+    "bulunabilirlik": 69.5,
+    "tam_fiyat_str": 52.9,
+    "sezon_sonu_kalan_yuzde": 19.6,
+    "kayip_orani": 35.0,
+    "replenishment_adet": 368760
+   },
+   "satirlar": []
+  },
+  "benzer|15": {
+   "ozet": {
+    "bulunabilirlik": 70.4,
+    "tam_fiyat_str": 54.1,
+    "sezon_sonu_kalan_yuzde": 18.6,
+    "kayip_orani": 33.4,
+    "replenishment_adet": 475386
+   },
+   "satirlar": []
+  },
+  "benzer|30": {
+   "ozet": {
+    "bulunabilirlik": 71.0,
+    "tam_fiyat_str": 55.0,
+    "sezon_sonu_kalan_yuzde": 17.7,
+    "kayip_orani": 32.3,
+    "replenishment_adet": 582112
+   },
+   "satirlar": []
+  },
+  "tahmin|0": {
+   "ozet": {
+    "bulunabilirlik": 70.4,
+    "tam_fiyat_str": 54.0,
+    "sezon_sonu_kalan_yuzde": 17.7,
+    "kayip_orani": 33.3,
+    "replenishment_adet": 363599
+   },
+   "satirlar": []
+  },
+  "tahmin|15": {
+   "ozet": {
+    "bulunabilirlik": 71.0,
+    "tam_fiyat_str": 55.0,
+    "sezon_sonu_kalan_yuzde": 17.4,
+    "kayip_orani": 32.3,
+    "replenishment_adet": 467760
+   },
+   "satirlar": []
+  },
+  "tahmin|30": {
+   "ozet": {
+    "bulunabilirlik": 71.3,
+    "tam_fiyat_str": 55.5,
+    "sezon_sonu_kalan_yuzde": 17.1,
+    "kayip_orani": 31.6,
+    "replenishment_adet": 574005
+   },
+   "satirlar": []
+  }
+ }
+}

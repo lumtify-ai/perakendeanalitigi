@@ -6,9 +6,7 @@ ozet: >-
   Yeni bir ürün henüz hiç satış görmeden hangi mağazaya kaç paket gider ve
   ne kadarı depoda kalır? Kategori planına bakan kural, benzer ürünlerin
   geçmişi ve bir tahmin modeli aynı sezonda yarışır.
-# Spec §8 demo: true ister; src/data/senaryolar/ilk-sevkiyat.json gelene
-# kadar false (Demo.astro dosyasız demo sayfasında build'i durdurur).
-demo: false
+demo: true
 ---
 
 Bu dizi, sezon başında yeni bir ürünün mağazalara ilk sevkiyatını baştan

@@ -349,6 +349,11 @@ def hazirla(cikti: Path = CIKTI, onbellek: Path = ONBELLEK, taslak: bool = False
         v.bagimsizlik = bagimsizlik(w, harita, ob, "lumoda", adlar)
         if v.yollar is not None:
             v.yol_bagimsizlik, yol_ob = {}, None
+            for p in range(sabitler.YOL_SAYISI):
+                y = v.yollar.get("yollar", {}).get(str(p), {})
+                for kisa in oyun.YOL_KOLLARI:
+                    if kisa not in y.get("kosular", {}):
+                        yok(f"yol {p} {kisa}: yollar.json'da ölçülmüş kayıt yok (yollar bitmedi)")
             for p, y in sorted(v.yollar.get("yollar", {}).items(), key=lambda x: int(x[0])):
                 kayit = {k["ad"]: k for k in y.get("kosular", {}).values()}
                 yol_ob = Onbellek(kayit, onbellek, ob.guncel)

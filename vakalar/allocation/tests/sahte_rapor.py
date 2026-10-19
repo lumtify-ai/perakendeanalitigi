@@ -13,6 +13,8 @@ from allocation import oyun, sabitler
 
 U_ADET = 824_165
 KIRPILAN = 14_357
+TAVAN_KALAN = 100_000
+ES_T = round(TAVAN_KALAN / U_ADET, 3)          # eşleşik tutma: tavanlının depoda bıraktığı pay
 KAL = {
     "sezon": "SS24", "karar_gunu": "2024-02-09", "en_az": 80, "tavan": True, "gamma": 2.0, "tbar": 0.3,
     "belirsizlik_taban": "tahmin", "belirsizlik_olcusu": "benzer_tahmin_ayrisma", "belirsizlik_spearman": 0.1067,
@@ -88,13 +90,13 @@ def _kosular(secim: dict) -> dict:
     for i, (blok, kosumlar) in enumerate(oyun.IZGARA.items()):
         for j, k in enumerate(kosumlar):
             if k.tutma_kaynagi is not None:                  # eşleşik tutma: kos_hepsi'nin çözdüğü t
-                k = dataclasses.replace(k, tutma=0.2)
+                k = dataclasses.replace(k, tutma=ES_T)
             c = oyun.cozumle(k, KAL, secim)
             o = _olcutler(len(kosular))
             if c["kol"] == "lumoda":
                 o["kirpilan_adet"] = float(KIRPILAN)
             elif c["tavan"]:
-                o["tavan_kalan_adet"], o["ilk_dagitim_adet"] = 100_000.0, float(U_ADET - 100_000)
+                o["tavan_kalan_adet"], o["ilk_dagitim_adet"] = float(TAVAN_KALAN), float(U_ADET - TAVAN_KALAN)
                 o["tavan_baglayan"] = 4000.0
             if c["tutma"]:
                 o["ilk_dagitim_adet"] = float(round(U_ADET * (1 - c["tutma"])))
@@ -149,8 +151,9 @@ def _hikaye(kosular: dict) -> dict:
          "tasan_plan_sirasi": 1, "kol_tasan_adet": 70, "kol_biten_adet": 364, "oturan": 415, "biten_oran": 102 / 112,
          "tasan_pay": 448 / 4368, "biten_pay": 112 / 4368, "toplam": 4368, "magaza_sayisi": 3}
     return {"kol": {"kol": "tahmin", "ad": "pay_tahmin_tavansiz"}, "basamak": 0,
-            "kaynak": {"lumoda": f"lumoda_{kosular['lumoda']['anahtar'][:20]}",
-                       "kol": f"pay_tahmin_tavansiz_{kosular['pay_tahmin_tavansiz']['anahtar'][:20]}"},
+            "kaynak": {a: {"ad": ad, "dizin": f"{ad}_{kosular[ad]['anahtar'][:20]}", "anahtar": kosular[ad]["anahtar"],
+                           "anahtar_kaynagi": "cikti/oyun.json", "ayni": None}
+                       for a, ad in (("lumoda", "lumoda"), ("kol", "pay_tahmin_tavansiz"))},
             "sahne": {"gevseyen": []}, "ayrinti": a, "aday_sayilari": [1, 4, 6, 7, 9],
             "alternatif_sahne": {"option_id": "MDL0564-KRM", "ad": "Regular Fit Gömlek Kiremit", "basamak": 1,
                                  "gevseyen": ["1: 28 günde satış ≤ %20"], "tasan_magaza": "Antalya 3",
@@ -190,7 +193,10 @@ def _demo(kosular: dict) -> dict:
 def tam_veri() -> rapor_b.Veri:
     secim = _secim()
     kosular = _kosular(secim)
-    oyun_k = {"kosular": kosular, "belirsizlik_gamma": 2.0,
+    es = {f"es_{k}": {"kaynak": f"pay_{k}_tavanli", "anahtar": kosular[f"pay_{k}_tavanli"]["anahtar"], "tutma": ES_T,
+                      "ham": TAVAN_KALAN / U_ADET, "U_adet": U_ADET, "giden_adet": U_ADET - TAVAN_KALAN}
+          for k in ("benzer", "tahmin")}
+    oyun_k = {"kosular": kosular, "belirsizlik_gamma": 2.0, "eslesik_tutma": es,
               "girdi": {"belirsizlik": {"olcu": "benzer_tahmin_ayrisma", "gamma": 2.0, "t_en_az": 0.04,
                                         "t_en_cok": 0.58, "t_ortalama": 0.3}}}
     yayimlanan = {
@@ -240,8 +246,12 @@ def boz(v: rapor_b.Veri, bozma: str) -> None:
         k["pay_esit"]["olcutler"]["satis_adet"] = k["pay_esit"]["olcutler"]["talep_adet"] + 1
     elif bozma == "yol0_anahtar_farkli":
         v.yollar["yollar"]["0"]["kosular"]["esit"]["anahtar"] = "x" * 64
+    elif bozma == "eslesik_kaynagi_farkli":
+        v.oyun["eslesik_tutma"]["es_tahmin"]["anahtar"] = "y" * 64
+    elif bozma == "eslesik_mal_farkli":
+        k["es_benzer"]["olcutler"]["ilk_dagitim_adet"] -= 10_000
     elif bozma == "hikaye_kaynagi_farkli":
-        v.hikaye["kaynak"]["lumoda"] = "lumoda_baska"
+        v.hikaye["kaynak"]["lumoda"]["anahtar"] = "baska"
     else:
         raise ValueError(bozma)
 
