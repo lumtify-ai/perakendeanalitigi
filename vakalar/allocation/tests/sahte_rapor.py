@@ -20,7 +20,8 @@ KAL = {
     "belirsizlik_taban": "tahmin", "belirsizlik_olcusu": "benzer_tahmin_ayrisma", "belirsizlik_spearman": 0.1067,
     "kaynak": "tahmin", "izgara_ucunda": ["en_az"], "gamma_bulunabilirlik_araligi_puan": 0.0316,
     "gamma_kalan_araligi_puan": 0.1756, "gamma_esik_puan": 0.3,
-    "hiyerarsi": [["alt_kategori", "fiyat_segmenti", "kalip"], ["alt_kategori"], []],
+    "hiyerarsi": [["alt_kategori", "fiyat_segmenti", "kalip"], ["alt_kategori", "fiyat_segmenti"], ["alt_kategori"],
+                  ["ust_kategori"], []],
     "tahmin_parametreleri": {"num_leaves": 63, "learning_rate": 0.05, "n_estimators": 400, "min_child_samples": 100},
     "cevrimdisi": [
         {"asama": "taban", "aday": "lumoda", "wape": 0.2363, "n_option": 210, "secildi": False, "en_az": None,
@@ -172,9 +173,12 @@ def _yollar(kosular: dict) -> dict:
                 k[kisa] = {"ad": s_.ad, "anahtar": e["anahtar"], "olcum_kodu": "olcum", "olcutler": e["olcutler"]}
             else:
                 o = _olcutler(p + len(k))
+                o["talep_adet"] += 100 * p                      # yolun müşteri akışı farklı
                 k[kisa] = {"ad": s_.ad, "anahtar": f"y{p}{kisa}" + "b" * 50, "olcum_kodu": "olcum", "olcutler": o}
         yollar[str(p)] = {"kod": "yolkod", "tamam": True, "talep_tohumu": oyun.talep_tohumu(p), "kosular": k,
-                          "girdi": {"ogrenme_satir": 15859, "karar_gunu": "2025-02-07"}}
+                          "girdi": {"ogrenme_satir": 15859, "karar_gunu": "2025-02-07",
+                                    "kaynak": "yayimlanan" if p == 0 else k["lumoda"]["anahtar"],
+                                    "endeks": f"endeks{p}", "tahminci": f"tahminci{p}"}}
     return {"n": sabitler.YOL_SAYISI, "taban": sabitler.TALEP_TOHUM_TABANI, "kollar": list(oyun.YOL_KOLLARI),
             "yollar": yollar}
 
@@ -198,7 +202,7 @@ def tam_veri() -> rapor_b.Veri:
           for k in ("benzer", "tahmin")}
     oyun_k = {"kosular": kosular, "belirsizlik_gamma": 2.0, "eslesik_tutma": es,
               "girdi": {"belirsizlik": {"olcu": "benzer_tahmin_ayrisma", "gamma": 2.0, "t_en_az": 0.04,
-                                        "t_en_cok": 0.58, "t_ortalama": 0.3}}}
+                                        "t_en_cok": 0.57, "t_ortalama": 0.3}}}
     yayimlanan = {
         "dalga": pd.DataFrame({"dalga": [1, 2, 3], "option": [66, 75, 69], "ilk_alim": [421290, 430550, 346450],
                                "teslim": [421290, 430550, 346450], "ilk_dagitim": [289439, 296319, 238407],
@@ -228,7 +232,8 @@ def tam_veri() -> rapor_b.Veri:
         oyun=oyun_k, kal=copy.deepcopy(KAL), secim=secim, hikaye=_hikaye(kosular), yollar=yol, demo=demo,
         demo_dosya=copy.deepcopy(demo), olcum_kodu="olcum", gecerli=gecerli,
         yol_gecerli={(p, k) for p, y in yol["yollar"].items() for k in y["kosular"]}, yayimlanan=yayimlanan,
-        kural=kural, hucreler=_hucreler(), plan=plan, bagimsizlik=bag,
+        kural=kural, hucreler=_hucreler(), plan=plan, bagimsizlik=bag, benzer_duzey={1: 10, 3: 133, 4: 67},
+        belirsizlik_t={"option": 210, "t_en_az": 0.04, "t_en_cok": 0.57, "t_ortalama": 0.3},
         yol_bagimsizlik={str(p): True for p in range(1, sabitler.YOL_SAYISI)}, yollar_kodu="yolkod",
         acilan={"lumoda", "pay_esit"})
 
@@ -250,6 +255,8 @@ def boz(v: rapor_b.Veri, bozma: str) -> None:
         v.oyun["eslesik_tutma"]["es_tahmin"]["anahtar"] = "y" * 64
     elif bozma == "eslesik_mal_farkli":
         k["es_benzer"]["olcutler"]["ilk_dagitim_adet"] -= 10_000
+    elif bozma == "yol_girdisi_yol0dan":
+        v.yollar["yollar"]["3"]["girdi"]["kaynak"] = "yayimlanan"
     elif bozma == "hikaye_kaynagi_farkli":
         v.hikaye["kaynak"]["lumoda"]["anahtar"] = "baska"
     else:

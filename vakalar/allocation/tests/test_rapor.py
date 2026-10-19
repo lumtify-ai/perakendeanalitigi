@@ -166,6 +166,8 @@ def test_tam_rapor_sekiz_soru_ve_korunum(capsys):
     soru3 = next(s_ for s_ in metin.splitlines() if s_.startswith("SORU 3 · "))
     assert "kime" in soru3 and "tutma" in soru3                    # tavan eşleşik tutmayla ayrışır (R43)
     assert "R29" not in metin
+    assert "tavanıyla koşuldu" not in metin and "Ruling R46" in metin
+    assert "genel (bütün Collection) 67" in metin and "5/5 yolda önde" in metin
     assert "denetim tuttu" in metin
     # iki kez aynı çıktı (süre basılmaz)
     assert rapor.tamponla(lambda: rapor.govde(sahte_rapor.tam_veri()))[1] == metin
@@ -182,7 +184,8 @@ def test_tam_rapor_sayilari_turkce(capsys):
 
 @pytest.mark.parametrize("bozma", ["takvimli_farkli", "sabit_rpt_farkli", "demo_dosyasi_farkli",
                                    "satis_talebi_asar", "yol0_anahtar_farkli", "hikaye_kaynagi_farkli",
-                                   "eslesik_kaynagi_farkli", "eslesik_mal_farkli"])
+                                   "eslesik_kaynagi_farkli", "eslesik_mal_farkli",
+                                   "yol_girdisi_yol0dan"])
 def test_tam_rapor_korunum_bozulunca_bos(bozma, capsys):
     v = sahte_rapor.tam_veri()
     sahte_rapor.boz(v, bozma)

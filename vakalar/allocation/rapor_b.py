@@ -195,6 +195,27 @@ def kol_karar_ozeti(kayit: pd.DataFrame) -> pd.DataFrame:
                          "tavanda": g["tavanda"].first()}).reset_index()
 
 
+def benzer_duzeyleri(kayit: pd.DataFrame) -> dict[int, int]:
+    """Benzer kolunun kendi kararlarında option başına kullandığı hiyerarşi düzeyi (`duzey`, 0 = en ince;
+    `kalibrasyon.json` `hiyerarsi` sırası) → option sayısı. Bir option'da tek düzey olmalı."""
+    k = kayit[kayit["kol"].to_numpy(dtype=bool)]
+    g = k.groupby("arg0")["duzey"]
+    if (g.nunique() > 1).any():
+        raise RuntimeError("benzer: bir option'ın kararında birden çok hiyerarşi düzeyi")
+    return {int(d): int(n) for d, n in g.first().value_counts().sort_index().items()}
+
+
+def tutma_ozeti(kayit: pd.DataFrame, w) -> dict:
+    """Bir kolun kendi kararlarındaki tutma oranı t (option başına; politika kaydının `t` sütunu): en az, en
+    çok ve ilk alımla ağırlıklı ortalama. Belirsizlik kolunun fiilen uyguladığı t_o (oyun.json'un `girdi`
+    alanı koşuyu yapan sürecin bilgisidir; kayıt koşunun kendisidir)."""
+    k = kayit[kayit["kol"].to_numpy(dtype=bool)]
+    t = k.groupby("arg0")["t"].first()
+    a = np.asarray(w.ilk_alim, dtype=float)[t.index.to_numpy()]
+    return {"option": int(len(t)), "t_en_az": float(t.min()), "t_en_cok": float(t.max()),
+            "t_ortalama": float((t.to_numpy() * a).sum() / a.sum())}
+
+
 def lumoda_kurali(w, lumoda: motor.KosuKaydi, esit: motor.KosuKaydi) -> dict:
     """Oyun option'larında: Lumoda'nın kuralının paketi (ilk alım × 0,70 ÷ paket adedi), U (eşit
     kolun kaydından; t = 0'da her kol aynı U'yu görür), aday kümesi, motorun Lumoda'yı kırpması."""
@@ -285,6 +306,8 @@ class Veri:
     hucreler: pd.DataFrame | None = None
     plan: pd.DataFrame | None = None
     bagimsizlik: dict | None = None
+    benzer_duzey: dict | None = None      # benzer kolunun option başına hiyerarşi düzeyi → option sayısı
+    belirsizlik_t: dict | None = None     # belirsizlik koşusunun kararlarındaki t_o özeti
     yol_bagimsizlik: dict | None = None
     yollar_kodu: str | None = None
     acilan: set = field(default_factory=set)
@@ -344,6 +367,10 @@ def hazirla(cikti: Path = CIKTI, onbellek: Path = ONBELLEK, taslak: bool = False
         v.kural = lumoda_kurali(w, lum, ob.ac("pay_esit"))
         v.hucreler = kural_hucreleri(lum)
         v.plan = plan_tablosu(lum)
+        if "pay_benzer_tavansiz" in v.gecerli:
+            v.benzer_duzey = benzer_duzeyleri(ob.ac("pay_benzer_tavansiz").kayitlar["ilk_dagitim"])
+        if "belirsizlik" in v.gecerli:
+            v.belirsizlik_t = tutma_ozeti(ob.ac("belirsizlik").kayitlar["ilk_dagitim"], w)
         adlar = sorted(a for a in v.gecerli if a != "lumoda" and "ayni" not in kosular[a]
                        and kosular[a].get("grup") in BAGIMSIZLIK_GRUPLARI)
         v.bagimsizlik = bagimsizlik(w, harita, ob, "lumoda", adlar)

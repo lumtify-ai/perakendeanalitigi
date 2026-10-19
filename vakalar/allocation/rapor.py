@@ -428,15 +428,15 @@ def kalibrasyon_bolumu(v, ek) -> None:
     t = pd.DataFrame(k["cevrimdisi"])
     alt("koşusuz seçim")
     for _, r in t[t["asama"] == "taban"].iterrows():
-        print(f"  {r['aday']:<10} WAPE {s(r['wape'], 4)} ({s(r['n_option'])} option)")
+        print(f"  {r['aday']:<10} WAPE {s(r['wape'], 3)} ({s(r['n_option'])} option)")
     bz = t[t["asama"] == "benzer"]
-    print("  benzer (en az örnek eşiği): " + " · ".join(f"{s(r['en_az'])} → {s(r['wape'], 4)}" for _, r in bz.iterrows()))
+    print("  benzer (en az örnek eşiği): " + " · ".join(f"{s(r['en_az'])} → {s(r['wape'], 3)}" for _, r in bz.iterrows()))
     print(f"  seçilen en_az {s(k['en_az'])}; ızgara ucunda: {', '.join(k.get('izgara_ucunda') or []) or 'yok'} "
           f"(kenarda kalan seçim; Ruling R25)")
     print("  benzer hiyerarşisi: " + " → ".join(" × ".join(d) if d else "genel" for d in k["hiyerarsi"]))
     tm = t[t["asama"] == "tahmin"].sort_values("wape", kind="stable")
     for _, r in tm.head(4).iterrows():
-        print(f"  tahmin num_leaves {s(r['num_leaves'])} × min_child_samples {s(r['min_child_samples'])}: WAPE {s(r['wape'], 4)}"
+        print(f"  tahmin num_leaves {s(r['num_leaves'])} × min_child_samples {s(r['min_child_samples'])}: WAPE {s(r['wape'], 3)}"
               f"{' (seçilen)' if r['secildi'] else ''}")
     tp = k["tahmin_parametreleri"]
     print(f"  LightGBM (Poisson): {s(tp['num_leaves'])} yaprak, {s(tp['n_estimators'])} ağaç, öğrenme oranı "
@@ -559,10 +559,23 @@ def yollar_bolumu(v, ek) -> None:
           f"{yl['taban']} + p). Yalnız Poisson ve ikame çekilişleri değişir; ürün sürprizleri (λ) sabittir (spec §0/13):")
     print("dayanıklılık örnekleme gürültüsünedir, farklı ürün başarılarına değil. Her yolda benzer endeksi ve LightGBM o yolun")
     print("Lumoda geçmişinden yeniden öğrenilir, kahin o yolun Lumoda gizli gerçeğinden; kalibrasyon yol 0'ınki.")
+    print("Kollar aynı malı gönderir (t = 0; benzer ve tahmin tavansız, Ruling R44).")
     for p in p_sira:
         g = yollar[p].get("girdi", {})
+        lo = yollar[p]["kosular"]["lumoda"]["olcutler"]
         print(f"  yol {p}: talep tohumu {yollar[p]['talep_tohumu'] if yollar[p]['talep_tohumu'] is not None else 'yayımlanan'} · "
-              f"öğrenme satırı {s(g.get('ogrenme_satir'))} · karar günü {g.get('karar_gunu', '—')}")
+              f"Lumoda koşusunun talebi (oyun hücreleri) {s(lo['talep_adet'])} adet · öğrenme satırı {s(g.get('ogrenme_satir'))} · "
+              f"karar günü {g.get('karar_gunu', '—')}")
+    tohum = [yollar[p]["talep_tohumu"] for p in p_sira]
+    ek += [("yollar: talep tohumları farklı", len(set(map(str, tohum))) == len(p_sira)),
+           ("yollar: Lumoda koşularının talebi yoldan yola farklı",
+            len({yollar[p]["kosular"]["lumoda"]["olcutler"]["talep_adet"] for p in p_sira}) == len(p_sira)),
+           ("yollar: her yolun öğrenilmiş girdileri o yolun Lumoda koşusundan (yol 0 yayımlanan)",
+            all(yollar[p].get("girdi", {}).get("kaynak") == ("yayimlanan" if int(p) == 0 else yollar[p]["kosular"]["lumoda"]["anahtar"])
+                for p in p_sira)),
+           ("yollar: benzer endeksi ve LightGBM yoldan yola farklı",
+            len({yollar[p].get("girdi", {}).get("endeks") for p in p_sira}) == len(p_sira)
+            and len({yollar[p].get("girdi", {}).get("tahminci") for p in p_sira}) == len(p_sira))]
     yb = v.yol_bagimsizlik or {}
     print("  kahinin bağımsızlığı (y<p>_kahin ↔ y<p>_lumoda erken birincil talep): " + " · ".join(
         f"yol {p} {'tutuyor' if yb.get(p) else 'tutmuyor'}" for p in p_sira if int(p) > 0))
@@ -578,10 +591,10 @@ def yollar_bolumu(v, ek) -> None:
             yv = [yuv(x, n) for x in deger[(k, olc)]]
             print(f"  {k:<8}" + " · ".join(s(x, n) for x in yv) +
                   f"  | min {s(min(yv), n)} · medyan {s(statistics.median(yv), n)} · max {s(max(yv), n)}")
-    alt("kaç yolda önde (bulunabilirlik, STR, brüt kâr yüksek; kalan, kayıp, WAPE düşük olan önde; basılan değerlerden)")
-    from allocation.yollar import KARSILASTIRMALAR
-
-    for a, c in KARSILASTIRMALAR:
+    alt(f"kaç yolda önde (k/{s(len(p_sira))}: bulunabilirlik, STR, brüt kâr yüksek; kalan, kayıp, WAPE, markdown düşük olan "
+        "önde; basılan değerlerden)")
+    ciftler = [(a, c) for i, a in enumerate(kollar) for c in kollar[:i]]
+    for a, c in ciftler:
         if "kahin" in (a, c) and not all(yb.get(p) for p in p_sira if int(p) > 0):
             continue
         parca = []
@@ -590,8 +603,15 @@ def yollar_bolumu(v, ek) -> None:
                 continue
             f = yol_farklari(deger[(a, olc)], deger[(c, olc)], n)
             onde = f["pozitif"] if YUKSEK_IYI[olc] else f["negatif"]
-            parca.append(f"{olc} {onde}/{f['n']} (medyan fark {isaretli(f['medyan'], n)})")
+            parca.append(f"{olc} {onde}/{f['n']} yolda önde (medyan fark {isaretli(f['medyan'], n)})")
         print(f"  {a} − {c}: " + " · ".join(parca))
+    alt("bulunabilirlik farkının yol medyanı, bir ondalık (basılan bir ondalıklı değerlerden)")
+    for a, c in ciftler:
+        if "kahin" in (a, c) and not all(yb.get(p) for p in p_sira if int(p) > 0):
+            continue
+        f = yol_farklari(deger[(a, "bulunabilirlik")], deger[(c, "bulunabilirlik")], 1)
+        print(f"  {a} − {c}: " + " · ".join(isaretli(x, 1) for x in f["farklar"]) + f" | medyan {isaretli(f['medyan'], 1)} · "
+              f"{a} önde {f['pozitif']}/{f['n']}, geride {f['negatif']}/{f['n']}")
     k0 = yollar["0"]["kosular"] if "0" in yollar else {}
     for kisa, e in k0.items():
         ek.append((f"yollar: yol 0 {kisa} = oyun.json ({e.get('ad')})",
@@ -671,8 +691,8 @@ def sabit_takvim_bolumu(v, ek) -> None:
     print("Sabit takvim: lumoda koşusunun RPT siparişleri ve markdown oranları oyun option'larında aynen yeniden oynatılır;")
     print("öteki option'lar Lumoda. Kolların ilk dağıtımı aynı; RPT ve markdown dağıtıma tepki vermez, toplam mal aynıdır.")
     print("Ayrışım (basılan değerlerden): toplam fark = tepkili kol − lumoda; doğrudan = sabit kol − lumoda_takvimli;")
-    print("tepki = toplam − doğrudan (RPT ve markdown'ın dağıtıma tepkisinin payı). Benzer ve tahmin burada kalibrasyonun")
-    print("tavanıyla koşuldu (tepkili karşılığı da aynı tavanla); tavanın örtük tutması iki tarafta da var.")
+    print("tepki = toplam − doğrudan (RPT ve markdown'ın dağıtıma tepkisinin payı). Benzer ve tahmin tavansız (Ruling R46):")
+    print("bütün kollar aynı malı gönderir; tepkili karşılık aynı kol ve aynı tavanla (`pay_karsiligi`).")
     lu, lt = O(v, "lumoda"), O(v, "lumoda_takvimli")
     ayni = all(abs(float(lu[a]) - float(lt[a])) < 1e-9 for a in lu)
     print(f"  lumoda_takvimli = lumoda (bütün ölçütler, yeniden oynatma eşdeğerliği): {'evet' if ayni else 'hayır'}")
@@ -773,21 +793,27 @@ def tutma_bolumu(v, ek) -> None:
 
 def strateji_bolumu(v, ek) -> None:
     a, c = "tut_eniyi_t30", "belirsizlik"
-    bilgi = (v.oyun.get("girdi") or {}).get("belirsizlik")
+    bilgi = v.belirsizlik_t
     print(f"Belirsizliğe göre tutma (strateji-oneri): pay tavansız en iyi koldan ({secim_adi(v)}; R43); t option başına, belirsiz")
     print("option daha çok depoda. Karşılığı aynı kolla sabit t = %30 (tut_eniyi_t30). İkisi de SS25'te ölçülür: örneklem içi.")
     print(f"t_o = clip(t̄ · (u_o / ū)^γ, 0, 2t̄), ilk alımla ağırlıklı ortalaması t̄ = {yd(100 * v.kal.get('tbar', 0.3), 0)}; "
           f"ölçü {v.kal['belirsizlik_olcusu']} (kalibrasyonda Spearman {s(v.kal.get('belirsizlik_spearman'), 3)}).")
     if bilgi:
-        print(f"  oyunda γ {s(bilgi['gamma'], 1)} · t aralığı {s(bilgi['t_en_az'], 2)}–{s(bilgi['t_en_cok'], 2)} · ilk alımla ağırlıklı "
-              f"ortalama {s(bilgi['t_ortalama'], 3)}")
-        ek.append(("STRATEJİ: t_o'nun ağırlıklı ortalaması t̄", abs(bilgi["t_ortalama"] - v.kal.get("tbar", 0.3)) < 1e-6))
+        print(f"  oyunda γ {s(v.oyun.get('belirsizlik_gamma'), 1)} · koşunun kararlarındaki t (belirsizlik kaydı, "
+              f"{s(bilgi['option'])} option): {s(bilgi['t_en_az'], 2)}–{s(bilgi['t_en_cok'], 2)} · ilk alımla ağırlıklı ortalama "
+              f"{s(bilgi['t_ortalama'], 3)}")
+        ek.append(("STRATEJİ: kayıttaki t_o'ların ilk alımla ağırlıklı ortalaması t̄",
+                   abs(bilgi["t_ortalama"] - v.kal.get("tbar", 0.3)) < 1e-6))
+        eski = (v.oyun.get("girdi") or {}).get("belirsizlik")
+        if eski:
+            ek.append(("STRATEJİ: kayıttaki t aralığı oyun.json girdisiyle aynı",
+                       abs(eski["t_en_az"] - bilgi["t_en_az"]) < 1e-9 and abs(eski["t_en_cok"] - bilgi["t_en_cok"]) < 1e-9))
         print(f"  not: γ kalibrasyon sezonunda {v.kal.get('belirsizlik_taban')} "
               f"{'tavanlı' if v.kal.get('tavan') else 'tavansız'} tabanla seçildi; oyunda taban tavansız (R43). γ'lar arasındaki "
               f"bulunabilirlik farkı orada {s(v.kal.get('gamma_bulunabilirlik_araligi_puan'), 2)} puandı: seçim bu tabana "
               "taşınabilir sayıldı, yeniden sınanmadı")
     else:
-        raise Eksik("oyun.json girdi.belirsizlik")
+        raise Eksik("belirsizlik (karar kaydı)")
     _kiyas_tablosu(v, [("sabit t %30", a), ("belirsizlik", c)])
     _mal_tablosu(v, [("sabit t %30", a), ("belirsizlik", c)])
     oa, oc = O(v, a), O(v, c)
@@ -828,6 +854,15 @@ def isabet_bolumu(v, ek) -> None:
     print("  oyun sezonunda WAPE − lumoda: " + " · ".join(
         f"{et} {isaretli(fark(lu['pay_wape'], O(v, ad)['pay_wape'], 3), 3)}" for et, ad in kollar[1:]))
     print(f"  aynı malı gönderen ana kollar (R43): {pk['benzer']}, {pk['tahmin']}; tavanlılar TAVAN'da ayrışır")
+    bd = v.benzer_duzey
+    if bd is None:
+        raise Eksik("pay_benzer_tavansiz (düzey kaydı)")
+    hy = v.kal["hiyerarsi"]
+    toplam = sum(bd.values())
+    print(f"  benzer kolunun option başına kullandığı hiyerarşi düzeyi (pay_benzer_tavansiz kaydı, en az örnek {s(v.kal['en_az'])}): "
+          + " · ".join(f"{' × '.join(d) if d else 'genel (bütün Collection)'} {s(bd.get(i, 0))}" for i, d in enumerate(hy))
+          + f" (toplam {s(toplam)} option)")
+    ek.append(("İSABET: benzer düzey dağılımı bütün oyun option'larını kapsar", v.kural is None or toplam == v.kural["option"]))
 
 
 def beden_bolumu(v, ek) -> None:
