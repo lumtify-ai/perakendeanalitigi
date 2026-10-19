@@ -101,3 +101,13 @@ işlem indirimi (yalnız markdown ve kampanya 0 iken çıkar) girmez.
 
 `hiz` replenishment'ı kapanış kararı verilmiş mağazaya kapanışa dek gönderir (Lumoda'nın kuralı
 gibi; `allocation/politika.py`).
+
+## Hikâye
+
+    .venv/Scripts/python -m allocation.hikaye_sec                       # cikti/hikaye.json
+    .venv/Scripts/python -m allocation.hikaye_sec --hikaye OPTION --adaylar
+
+1. yazının sahnesi (spec §6): ızgaranın `lumoda` koşusundan ve en iyi kolun (`cikti/secim.json`)
+koşusundan, önbellekten okunur (koşu yapmaz). Merdiven, gevşetme sırası ve tanımlar
+`allocation/hikaye_sec.py`'nin modül notunda; seçilen basamak, gevşeyen ölçütler ve alternatif
+sahne `cikti/hikaye.json`'da.
