@@ -7,7 +7,7 @@ p`): talebin Poisson ve ikame çekilişleri değişir, ürün sürprizleri (λ),
 çekilişleri aynıdır. Her yol kendi gerçekleşen tarihini Lumoda'yla üretir (`y<p>_lumoda`), benzer
 ürün endeksini ve LightGBM'i o tarihin yayımlanan biçiminden yeniden öğrenir, kahinin erken
 birincil talebini o yolun `lumoda` gizli gerçeğinden alır (`oyun.Girdi`) ve dört kolu koşar: esit,
-benzer, tahmin (kalibrasyonun tavanıyla), kahin; t = 0 (`oyun.yol_listesi`). Kalibrasyon yol 0'ınkidir
+benzer, tahmin (ikisi tavansız: Lumoda'yla aynı mal, Ruling R44), kahin; t = 0 (`oyun.yol_listesi`). Kalibrasyon yol 0'ınkidir
 (oyundan önceki karar, yol başına yeniden seçilmez). Yol 0'ın koşuları ızgaranın pay bloğuyla aynı
 anahtardadır (önbellekten; ölçümleri `cikti/oyun.json`'dan).
 

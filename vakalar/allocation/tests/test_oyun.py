@@ -36,8 +36,16 @@ def test_izgara_adlari_tekil():
     yol_adlari = [s.ad for p in range(1, sabitler.YOL_SAYISI) for _, s in oyun.yol_listesi(p, KAL)]
     assert len(yol_adlari) == len(set(yol_adlari)) and not set(yol_adlari) & set(adlar)
     assert all(motor._AD_DESENI.match(a) for a in adlar + yol_adlari)
-    assert [s.ad for _, s in oyun.yol_listesi(0, KAL)] == ["lumoda", "pay_esit", "pay_benzer_tavanli",
-                                                           "pay_tahmin_tavanli", "pay_kahin"]
+    assert [s.ad for _, s in oyun.yol_listesi(0, KAL)] == ["lumoda", "pay_esit", "pay_benzer_tavansiz",
+                                                           "pay_tahmin_tavansiz", "pay_kahin"]
+    # yollarda benzer ve tahmin tavansız (R44), kalibrasyonun tavanı ne olursa olsun; yol 0 ile aynı çözüm
+    for p in range(sabitler.YOL_SAYISI):
+        for kal in (KAL, {**KAL, "tavan": True}):
+            c = {k: oyun.cozumle(s, kal, None) for k, s in oyun.yol_listesi(p, kal)}
+            assert c["benzer"]["tavan"] is False and c["tahmin"]["tavan"] is False, p
+            assert all(v["yol"] == p and v["tutma"] == 0.0 for v in c.values())
+    y0 = {k: {**oyun.cozumle(s, KAL, None), "yol": 1} for k, s in oyun.yol_listesi(0, KAL)}
+    assert y0 == {k: oyun.cozumle(s, KAL, None) for k, s in oyun.yol_listesi(1, KAL)}
     assert list(oyun.IZGARA) == list(oyun.BLOK_SIRASI)
     tut = oyun.IZGARA["tutma"]
     assert {(s.kol, s.tutma, s.repl) for s in tut} == {

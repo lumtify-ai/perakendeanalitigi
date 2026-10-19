@@ -301,14 +301,15 @@ def lumoda_adi(yol: int) -> str:
 
 
 def yol_listesi(yol: int, kal: dict) -> list[tuple[str, Kosum]]:
-    """(kısa ad, `Kosum`): yol 0'da ızgaranın koşuları (aynı anahtar), yol p'de `y<p>_` önekiyle."""
+    """(kısa ad, `Kosum`): yol 0'da ızgaranın koşuları (aynı anahtar), yol p'de `y<p>_` önekiyle. benzer ve
+    tahmin tavansız (Ruling R44: aynı mal; tavanın etkisi yol 0'da eslesik bloğunda). `kal` imza uyumu için."""
     if int(yol) == 0:
-        tavan = "tavanli" if kal["tavan"] else "tavansiz"
         tum = tum_kosumlar()
-        adlar = {"lumoda": ESDEGERLIK, "esit": "pay_esit", "benzer": f"pay_benzer_{tavan}",
-                 "tahmin": f"pay_tahmin_{tavan}", "kahin": "pay_kahin"}
+        adlar = {"lumoda": ESDEGERLIK, "esit": "pay_esit", "benzer": "pay_benzer_tavansiz",
+                 "tahmin": "pay_tahmin_tavansiz", "kahin": "pay_kahin"}
         return [(k, tum[adlar[k]]) for k in YOL_KOLLARI]
-    return [(k, Kosum(lumoda_adi(yol) if k == "lumoda" else f"y{yol}_{k}", k, yol=int(yol))) for k in YOL_KOLLARI]
+    return [(k, Kosum(lumoda_adi(yol) if k == "lumoda" else f"y{yol}_{k}", k, yol=int(yol),
+                      tavan=False if k in TAVANLI else None)) for k in YOL_KOLLARI]
 
 
 def kosu_sayisi() -> dict[str, int]:

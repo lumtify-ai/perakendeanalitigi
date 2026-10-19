@@ -92,7 +92,8 @@ tabanı ve demo'nun benzer / tahmin kolları tavansızdır.
 Çözümü aynı iki koşu adı (ör. demo'daki en iyi kol ile tutma ekseninin aynı noktası) bir kez
 koşulur. Koşular sıralı ve önbellekli (`cikti/kosular/`, koşu başına ~150 MB); yarıda kalan ızgara
 aynı komutla kaldığı yerden sürer (`cikti/ilerleme.jsonl`), makine uyumaz. Yollar ızgaranın pay
-bloğundan sonra koşulur (yol 0 onun koşularıdır).
+bloğundan sonra koşulur (yol 0 onun koşularıdır); yollarda benzer ve tahmin tavansızdır (aynı
+mal; tavanın etkisi yol 0'da `eslesik` bloğunda).
 
 **Ölçütlerin tanımları** `allocation/olcutler.py`'nin modül notunda: bulunabilirlik (sezon boyu ve ilk
 4 hafta), kayıp, tam fiyat STR (v4 kalibrasyon tanımı), markdown tutarı, sezon sonu kalan, brüt
