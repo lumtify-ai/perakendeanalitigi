@@ -27,14 +27,14 @@ def _kosular() -> dict:
     """Izgaranın demo noktalarını taşıyan sahte oyun.json kayıtları (takma ad dahil)."""
     k = {"lumoda": _cozum("lumoda", 0.0), "pay_esit": _cozum("esit", 0.0),
          "pay_benzer_tavanli": _cozum("benzer", 0.0, True), "pay_benzer_tavansiz": _cozum("benzer", 0.0),
-         "pay_tahmin_tavanli": _cozum("tahmin", 0.0, True)}
+         "pay_tahmin_tavanli": _cozum("tahmin", 0.0, True), "pay_tahmin_tavansiz": _cozum("tahmin", 0.0)}
     for t in (0.15, 0.30):
         k[f"tut_lumoda_t{round(t * 100):02d}"] = _cozum("lumoda_tut", t)
         k[f"tut_lumoda_t{round(t * 100):02d}_hiz"] = {**_cozum("lumoda_tut", t), "repl": "hiz"}
-        k[f"tut_eniyi_t{round(t * 100):02d}"] = _cozum("tahmin", t, True)
+        k[f"tut_eniyi_t{round(t * 100):02d}"] = _cozum("tahmin", t)          # tavansız en iyi (R43)
         k[f"demo_esit_t{round(t * 100):02d}"] = _cozum("esit", t)
-        k[f"demo_benzer_t{round(t * 100):02d}"] = _cozum("benzer", t, True)
-        k[f"demo_tahmin_t{round(t * 100):02d}"] = _cozum("tahmin", t, True)
+        k[f"demo_benzer_t{round(t * 100):02d}"] = _cozum("benzer", t)
+        k[f"demo_tahmin_t{round(t * 100):02d}"] = _cozum("tahmin", t)
     return {ad: {"cozum": c} for ad, c in k.items()}
 
 
@@ -86,8 +86,8 @@ def test_bilesimler_dogru_kosudan(tmp_path):
     k = oyun_k["kosular"]
     s = senaryolar.sonuclar(oyun_k, onbellek)
     beklenen = {"lumoda|0": "lumoda", "lumoda|15": "tut_lumoda_t15", "lumoda|30": "tut_lumoda_t30",
-                "esit|0": "pay_esit", "esit|30": "demo_esit_t30", "benzer|0": "pay_benzer_tavanli",
-                "benzer|15": "demo_benzer_t15", "tahmin|0": "pay_tahmin_tavanli"}
+                "esit|0": "pay_esit", "esit|30": "demo_esit_t30", "benzer|0": "pay_benzer_tavansiz",
+                "benzer|15": "demo_benzer_t15", "tahmin|0": "pay_tahmin_tavansiz"}
     for anahtar, ad in beklenen.items():
         assert s[anahtar]["ozet"]["bulunabilirlik"] == round(k[ad]["olcutler"]["bulunabilirlik"], 1), anahtar
     # tahmin %15 (en iyi = tahmin): tutma ekseninin aynı koşusu

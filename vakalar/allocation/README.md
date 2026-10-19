@@ -83,8 +83,12 @@ okur. Kalibrasyonun iki ölçütü (bulunabilirlik, sezon sonu kalan) oyunun öl
 Oyun sezonu SS25'in Collection option'ları (`allocation/oyun.py`, spec §4.5). Bloklar bu sırayla koşar,
 çünkü sonrakiler pay bloğunun seçtiği "en iyi" kola bakar (`cikti/secim.json`): `esdegerlik`
 (`lumoda`, yayımlanan v4'ün kendisi) → `pay` (esit, benzer ve tahmin tavanlı / tavansız, kahin; t =
-0) → `sabit_takvim` (lumoda'nın RPT ve markdown kararlarıyla) → `tutma` (t ∈ {0; 0,15; 0,30; 0,45}
-× {lumoda_tut, en iyi} × replenishment {Lumoda, hiz}) → `strateji` (belirsizlik, t̄ = %30) → `demo`.
+0) → `eslesik` (benzer ve tahmin tavansız, t = tavanlı hâlinin depoda bıraktığı pay: tavanın "kime"
+etkisi aynı malla) → `sabit_takvim` (lumoda'nın RPT ve markdown kararlarıyla) → `tutma` (t ∈ {0; 0,15;
+0,30; 0,45} × {lumoda_tut, en iyi} × replenishment {Lumoda, hiz}) → `strateji` (belirsizlik, t̄ = %30)
+→ `demo`. "En iyi" tavansız benzer ve tahminden seçilir (ikisi de Lumoda'yla aynı malı gönderir;
+tavanlı kol U'nun bir kısmını depoda bırakır, örtük bir tutma koludur); tutma ekseni, belirsizliğin
+tabanı ve demo'nun benzer / tahmin kolları tavansızdır.
 Çözümü aynı iki koşu adı (ör. demo'daki en iyi kol ile tutma ekseninin aynı noktası) bir kez
 koşulur. Koşular sıralı ve önbellekli (`cikti/kosular/`, koşu başına ~150 MB); yarıda kalan ızgara
 aynı komutla kaldığı yerden sürer (`cikti/ilerleme.jsonl`), makine uyumaz. Yollar ızgaranın pay

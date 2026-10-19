@@ -2,6 +2,7 @@
 yok, koşu yok). Sayılar uydurmadır; yalnız raporun biçimini, bölümlerini ve denetimlerini sınar."""
 
 import copy
+import dataclasses
 
 import numpy as np
 import pandas as pd
@@ -76,16 +77,18 @@ def _olcutler(i: int) -> dict:
 
 
 def _secim() -> dict:
-    return {"kol": "tahmin", "tavan": True, "ad": "pay_tahmin_tavanli", "esik_puan": 0.3, "kural": "kural metni",
-            "adaylar": [{"ad": "pay_benzer_tavanli", "kol": "benzer", "bulunabilirlik": 70.46, "sezon_sonu_kalan_yuzde": 18.12},
-                        {"ad": "pay_tahmin_tavanli", "kol": "tahmin", "bulunabilirlik": 71.37,
-                         "sezon_sonu_kalan_yuzde": 17.84}]}
+    return {"kol": "tahmin", "tavan": False, "ad": "pay_tahmin_tavansiz", "esik_puan": 0.3, "kural": "kural metni",
+            "adaylar": [{"ad": "pay_benzer_tavansiz", "kol": "benzer", "bulunabilirlik": 69.51, "sezon_sonu_kalan_yuzde": 19.65},
+                        {"ad": "pay_tahmin_tavansiz", "kol": "tahmin", "bulunabilirlik": 70.41,
+                         "sezon_sonu_kalan_yuzde": 17.74}]}     # Ruling R43: tavansız en iyi
 
 
 def _kosular(secim: dict) -> dict:
     kosular = {}
     for i, (blok, kosumlar) in enumerate(oyun.IZGARA.items()):
         for j, k in enumerate(kosumlar):
+            if k.tutma_kaynagi is not None:                  # eşleşik tutma: kos_hepsi'nin çözdüğü t
+                k = dataclasses.replace(k, tutma=0.2)
             c = oyun.cozumle(k, KAL, secim)
             o = _olcutler(len(kosular))
             if c["kol"] == "lumoda":
@@ -103,7 +106,7 @@ def _kosular(secim: dict) -> dict:
             kosular[k.ad] = {"grup": blok, "kosum": {"ad": k.ad}, "cozum": c, "imza": oyun.imza(c),
                              "anahtar": f"{len(kosular):04d}" + "a" * 60, "olcum_kodu": "olcum", "olcutler": o}
     kosular["lumoda_takvimli"]["olcutler"] = copy.deepcopy(kosular["lumoda"]["olcutler"])
-    for ad, taban in (("tut_eniyi_t00", "pay_tahmin_tavanli"), ("demo_tahmin_t15", "tut_eniyi_t15"),
+    for ad, taban in (("tut_eniyi_t00", "pay_tahmin_tavansiz"), ("demo_tahmin_t15", "tut_eniyi_t15"),
                       ("demo_tahmin_t30", "tut_eniyi_t30")):
         kosular[ad] = {**kosular[taban], "grup": kosular[ad]["grup"], "ayni": taban}
     return kosular
@@ -145,9 +148,9 @@ def _hikaye(kosular: dict) -> dict:
          "tasan_ilk_adet": 448, "tasan_satis_28": 33, "biten_ilk_adet": 112, "biten_satis_14": 102,
          "tasan_plan_sirasi": 1, "kol_tasan_adet": 70, "kol_biten_adet": 364, "oturan": 415, "biten_oran": 102 / 112,
          "tasan_pay": 448 / 4368, "biten_pay": 112 / 4368, "toplam": 4368, "magaza_sayisi": 3}
-    return {"kol": {"kol": "tahmin", "ad": "pay_tahmin_tavanli"}, "basamak": 0,
+    return {"kol": {"kol": "tahmin", "ad": "pay_tahmin_tavansiz"}, "basamak": 0,
             "kaynak": {"lumoda": f"lumoda_{kosular['lumoda']['anahtar'][:20]}",
-                       "kol": f"pay_tahmin_tavanli_{kosular['pay_tahmin_tavanli']['anahtar'][:20]}"},
+                       "kol": f"pay_tahmin_tavansiz_{kosular['pay_tahmin_tavansiz']['anahtar'][:20]}"},
             "sahne": {"gevseyen": []}, "ayrinti": a, "aday_sayilari": [1, 4, 6, 7, 9],
             "alternatif_sahne": {"option_id": "MDL0564-KRM", "ad": "Regular Fit Gömlek Kiremit", "basamak": 1,
                                  "gevseyen": ["1: 28 günde satış ≤ %20"], "tasan_magaza": "Antalya 3",

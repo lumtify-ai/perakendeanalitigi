@@ -7,6 +7,7 @@ KÜÇÜK testleri motoru gerçekten koşar: tam pencere (oyun sezonu SS25, ~10 s
 """
 
 import json
+from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
@@ -20,7 +21,7 @@ KAL = {"en_az": 80, "tahmin_parametreleri": {"num_leaves": 63, "learning_rate": 
                                              "min_child_samples": 100},
        "tavan": True, "gamma": 2.0, "belirsizlik_olcusu": "benzer_tahmin_ayrisma", "belirsizlik_spearman": 0.107,
        "tbar": 0.3}
-SECIM = {"kol": "tahmin", "tavan": True, "ad": "pay_tahmin_tavanli"}
+SECIM = {"kol": "tahmin", "tavan": False, "ad": "pay_tahmin_tavansiz"}     # Ruling R43: tavansız en iyi
 
 
 # ---------------------------------------------------------------------------
@@ -42,12 +43,23 @@ def test_izgara_adlari_tekil():
     assert {(s.kol, s.tutma, s.repl) for s in tut} == {
         (k, t, r) for k in ("lumoda_tut", "eniyi") for t in sabitler.TUTMA_DUZEYLERI for r in ("lumoda", "hiz")}
     assert oyun.IZGARA["esdegerlik"][0].ad == "lumoda" and oyun.IZGARA["sabit_takvim"][0].ad == "lumoda_takvimli"
+    # eşleşik tutma: tavansız kol, t kaynağın (aynı kolun tavanlı pay koşusu) kaydından (R43)
+    es = {s.ad: s for s in oyun.IZGARA["eslesik"]}
+    assert {a: (s.kol, s.tavan, s.tutma, s.tutma_kaynagi) for a, s in es.items()} == {
+        "es_benzer": ("benzer", False, None, "pay_benzer_tavanli"),
+        "es_tahmin": ("tahmin", False, None, "pay_tahmin_tavanli")}
+    assert all(s.tutma_kaynagi in {k.ad for k in oyun.IZGARA["pay"]} for s in es.values())
+    assert oyun.BLOK_SIRASI.index("eslesik") > oyun.BLOK_SIRASI.index("pay")
+    # demo'nun tahmin kolları tavansız
+    assert all(s.tavan is False for s in oyun.IZGARA["demo"] if s.kol in oyun.TAVANLI)
 
 
 def test_izgara_butcesi():
-    """Yol 0 ≤ 45 koşu adı (aynı koşu iki adla sayılır: üst sınır), toplam ≤ 80 (spec §4.5)."""
+    """Yol 0 ≤ 45 koşu adı (aynı koşu iki adla sayılır: üst sınır), toplam ≤ 80 (spec §4.5). R43 sonrası
+    37 ad (eslesik 2 eklendi), 3'ü takma ad; yollar 20."""
     n = oyun.kosu_sayisi()
     assert n["yol0"] <= 45 and n["toplam"] <= 80
+    assert (n["yol0"], n["yollar"]) == (37, 20)
     assert n["yollar"] == (sabitler.YOL_SAYISI - 1) * len(oyun.YOL_KOLLARI)
 
 
@@ -58,18 +70,34 @@ def test_kosum_denetimi():
         oyun.Kosum("x", "lumoda", tutma=0.15)
     with pytest.raises(ValueError):
         oyun.Kosum("x", "lumoda", repl="hiz")
+    with pytest.raises(ValueError, match="eşleşik"):
+        oyun.Kosum("x", "benzer", tutma=None, tavan=True, tutma_kaynagi="pay_benzer_tavanli")
+    with pytest.raises(ValueError, match="eşleşik"):
+        oyun.Kosum("x", "esit", tutma=None, tavan=False, tutma_kaynagi="pay_esit")
+    with pytest.raises(ValueError, match="boş"):
+        oyun.Kosum("x", "benzer", tutma=None)
 
 
 def test_cozum_ve_imza():
-    """En iyi `secim`'den, tavan boşsa kalibrasyonun seçimi, tavansız kollarda tavan kapalı; belirsizlikte
-    tutma yok. Aynı çözüm aynı imza: tut_eniyi_t00 = pay bloğunun en iyisi, demo_<en iyi>_t15 =
-    tut_eniyi_t15; ötekiler farklı."""
+    """En iyi `secim`'den (kolu ve tavanı: R43'te tavansız), tavan boşsa kalibrasyonun seçimi, tavansız
+    kollarda tavan kapalı; belirsizlikte tutma yok. Aynı çözüm aynı imza: tut_eniyi_t00 = pay bloğunun
+    tavansız en iyisi, demo_<en iyi>_t15 = tut_eniyi_t15; ötekiler farklı. Eşleşik tutma çözülmeden
+    imzalanamaz."""
     tum = oyun.tum_kosumlar()
+    es_t = {"es_benzer": 0.209, "es_tahmin": 0.341}
+    tum.update({a: replace(tum[a], tutma=v) for a, v in es_t.items()})
 
     def im(ad, secim=SECIM, kal=KAL):
         return oyun.imza(oyun.cozumle(tum[ad], kal, secim))
 
-    assert im("tut_eniyi_t00") == im("pay_tahmin_tavanli")
+    assert im("tut_eniyi_t00") == im("pay_tahmin_tavansiz")
+    assert im("tut_eniyi_t00") != im("pay_tahmin_tavanli")
+    assert oyun.cozumle(tum["tut_eniyi_t15"], KAL, SECIM)["tavan"] is False     # kalibrasyonun tavanı True
+    assert oyun.cozumle(tum["tut_eniyi_t15"], KAL, {**SECIM, "tavan": True})["tavan"] is True
+    assert oyun.cozumle(tum["es_tahmin"], KAL, None) == {"kol": "tahmin", "taban": None, "tutma": 0.341,
+                                                       "tavan": False, "repl": "lumoda", "takvim": False, "yol": 0}
+    with pytest.raises(RuntimeError, match="çözülmedi"):
+        oyun.cozumle(oyun.tum_kosumlar()["es_benzer"], KAL, None)
     assert im("demo_tahmin_t15") == im("tut_eniyi_t15")
     benzer = {**SECIM, "kol": "benzer"}
     assert im("demo_benzer_t30", benzer) == im("tut_eniyi_t30", benzer)
@@ -77,7 +105,7 @@ def test_cozum_ve_imza():
     assert im("pay_tahmin_tavansiz") != im("pay_tahmin_tavanli")
     assert im("pay_esit") != im("sabit_esit") != im("tut_lumoda_t00")
     c = oyun.cozumle(tum["belirsizlik"], KAL, SECIM)
-    assert c == {"kol": "belirsizlik", "taban": "tahmin", "tutma": None, "tavan": True, "repl": "lumoda",
+    assert c == {"kol": "belirsizlik", "taban": "tahmin", "tutma": None, "tavan": False, "repl": "lumoda",
                  "takvim": False, "yol": 0}
     assert oyun.cozumle(tum["pay_kahin"], KAL, None)["tavan"] is False
     assert oyun.cozumle(tum["sabit_benzer"], {**KAL, "tavan": False}, None)["tavan"] is False
@@ -88,23 +116,24 @@ def test_cozum_ve_imza():
 
 
 def _kayit(ad, kol, tavan, b, kalan):
-    return ad, {"grup": "pay", "cozum": {"kol": kol, "tavan": tavan}, "anahtar": ad,
+    return ad, {"grup": "pay", "cozum": {"kol": kol, "tavan": tavan, "tutma": 0.0, "takvim": False,
+                                         "repl": "lumoda"}, "anahtar": ad,
                 "olcutler": {"bulunabilirlik": b, "sezon_sonu_kalan_yuzde": kalan}}
 
 
 def test_secim_yap():
-    """Kalibrasyonun tavanıyla benzer ve tahmin; bulunabilirlik farkı 0,3 puandan azsa az kalan kazanır."""
-    k = dict([_kayit("pay_benzer_tavanli", "benzer", True, 75.0, 24.0),
-              _kayit("pay_tahmin_tavanli", "tahmin", True, 75.2, 25.0),
-              _kayit("pay_tahmin_tavansiz", "tahmin", False, 80.0, 20.0),
+    """Tavansız benzer ve tahmin (R43; kalibrasyonun tavanı ne olursa olsun); bulunabilirlik farkı 0,3
+    puandan azsa az kalan kazanır; tavanlı kollar ve öteki kollar aday değil."""
+    k = dict([_kayit("pay_benzer_tavansiz", "benzer", False, 75.0, 24.0),
+              _kayit("pay_tahmin_tavansiz", "tahmin", False, 75.2, 25.0),
+              _kayit("pay_tahmin_tavanli", "tahmin", True, 80.0, 20.0),
               _kayit("pay_esit", "esit", False, 90.0, 10.0)])
     s = oyun.secim_yap(k, KAL)
-    assert (s["kol"], s["ad"], s["tavan"]) == ("benzer", "pay_benzer_tavanli", True)
-    k["pay_tahmin_tavanli"]["olcutler"]["bulunabilirlik"] = 75.4
-    assert oyun.secim_yap(k, KAL)["kol"] == "tahmin"
-    k.update([_kayit("pay_benzer_tavansiz", "benzer", False, 79.9, 19.0)])
-    assert oyun.secim_yap(k, {**KAL, "tavan": False})["ad"] == "pay_benzer_tavansiz"
-    del k["pay_benzer_tavanli"]
+    assert (s["kol"], s["ad"], s["tavan"]) == ("benzer", "pay_benzer_tavansiz", False)
+    k["pay_tahmin_tavansiz"]["olcutler"]["bulunabilirlik"] = 75.4
+    assert oyun.secim_yap(k, KAL)["ad"] == "pay_tahmin_tavansiz"
+    assert oyun.secim_yap(k, {**KAL, "tavan": False})["ad"] == "pay_tahmin_tavansiz"
+    del k["pay_benzer_tavansiz"]
     with pytest.raises(RuntimeError, match="eksik"):
         oyun.secim_yap(k, KAL)
 
@@ -122,14 +151,15 @@ def test_demo_haritasi():
     tum = oyun.tum_kosumlar()
     kosular = {}
     for ad in ("lumoda", "pay_esit", "pay_benzer_tavanli", "pay_benzer_tavansiz", "pay_tahmin_tavanli",
+               "pay_tahmin_tavansiz",
                "tut_lumoda_t15", "tut_lumoda_t30", "tut_eniyi_t15", "tut_eniyi_t30", "tut_eniyi_t15_hiz",
                "demo_esit_t15", "demo_esit_t30", "demo_benzer_t15", "demo_benzer_t30", "sabit_esit"):
         kosular[ad] = {"cozum": oyun.cozumle(tum[ad], KAL, SECIM)}
     h = oyun.demo_haritasi(kosular, KAL)
     assert h["lumoda"] == {"0": "lumoda", "0.15": "tut_lumoda_t15", "0.3": "tut_lumoda_t30"}
     assert h["esit"] == {"0": "pay_esit", "0.15": "demo_esit_t15", "0.3": "demo_esit_t30"}
-    assert h["benzer"] == {"0": "pay_benzer_tavanli", "0.15": "demo_benzer_t15", "0.3": "demo_benzer_t30"}
-    assert h["tahmin"] == {"0": "pay_tahmin_tavanli", "0.15": "tut_eniyi_t15", "0.3": "tut_eniyi_t30"}
+    assert h["benzer"] == {"0": "pay_benzer_tavansiz", "0.15": "demo_benzer_t15", "0.3": "demo_benzer_t30"}
+    assert h["tahmin"] == {"0": "pay_tahmin_tavansiz", "0.15": "tut_eniyi_t15", "0.3": "tut_eniyi_t30"}
 
 
 def test_talep_tohumu():
@@ -161,7 +191,8 @@ def kucuk(tmp_path_factory):
     tum = oyun.tum_kosumlar()
     kosular = {"lumoda": G.lumoda}
     kayitlar = {}
-    for ad in ("pay_esit", "pay_kahin", "pay_tahmin_tavanli", "tut_lumoda_t15_hiz", "sabit_esit", "belirsizlik"):
+    for ad in ("pay_esit", "pay_kahin", "pay_tahmin_tavanli", "pay_tahmin_tavansiz", "tut_lumoda_t15_hiz",
+               "sabit_esit", "belirsizlik"):
         k, e = oyun.kos_bir(tum[ad], G, KAL, SECIM)
         kosular[ad], kayitlar[ad] = k, e
     return SimpleNamespace(ortam=ortam, G=G, kosular=kosular, kayitlar=kayitlar, dizin=d)
@@ -184,6 +215,7 @@ def test_kucuk_kablolama(kucuk):
     assert tahmin["ayar"]["tavan"] is True and tahmin["tahminci"] == kucuk.G.tahminci.kimlik
     bel = k["belirsizlik"].meta["politikalar"]["ilk_dagitim"]["parametreler"]
     assert bel["taban"]["kol"] == "tahmin" and len(bel["t_o"]) == len(kucuk.G.optionlar)
+    assert bel["taban"]["ayar"]["tavan"] is False                        # tavansız en iyi (R43)
     t = np.array([v for _, v in bel["t_o"]])
     assert t.min() >= 0 and t.max() <= 2 * sabitler.BELIRSIZLIK_TBAR + 1e-12
     assert k["pay_kahin"].meta["politikalar"]["ilk_dagitim"]["parametreler"]["kol"] == "kahin"
@@ -245,9 +277,58 @@ def test_kucuk_takma_ad(kucuk):
         oyun.IZGARA.clear()
         oyun.IZGARA.update(eski)
     d = json.loads(ortam.oyun_yolu.read_text(encoding="utf-8"))["kosular"]
-    assert d["tut_eniyi_t00"]["ayni"] == "pay_tahmin_tavanli"
-    assert d["tut_eniyi_t00"]["anahtar"] == d["pay_tahmin_tavanli"]["anahtar"]
+    assert d["tut_eniyi_t00"]["ayni"] == "pay_tahmin_tavansiz"
+    assert d["tut_eniyi_t00"]["anahtar"] == d["pay_tahmin_tavansiz"]["anahtar"]
     assert not list((kucuk.dizin / "kosular").glob("tut_eniyi_t00_*"))
+
+
+def _beklenen_eslesik(kosu, w):
+    """Test içi bağımsız hesap: 1 − Σ (paket × paket adedi) gönderilen ÷ Σ U × paket adedi."""
+    from allocation.paylastir import paket_adedi
+
+    r = kosu.kayitlar["ilk_dagitim"]
+    opt = set(kaynak.oyun_optionlari(w, "SS25").tolist())
+    U = giden = 0
+    for o, g in r[r["kol"] & r["arg0"].isin(opt)].groupby("arg0"):
+        pk = paket_adedi(w, int(o))
+        U += int(g["U"].iloc[0]) * pk
+        giden += int(g["deger"].sum()) * pk
+    return round(1 - giden / U, 3), U, giden
+
+
+def test_kucuk_eslesik_tutma(kucuk):
+    """Eşleşik tutma (R43): t kaynağın (pay_tahmin_tavanli) kaydından, oyun.json'a yazılır; es_tahmin
+    tavansız tahmin kolu bu t ile koşar (kayıtta toplam = ⌊U(1 − t)⌋); kaynak koşu önbellekten doğrulanır."""
+    ortam, w = kucuk.ortam, kucuk.G.w
+    kayit = json.loads(ortam.oyun_yolu.read_text(encoding="utf-8"))
+    for ad, e in kucuk.kayitlar.items():
+        kayit["kosular"][ad] = {"grup": "pay", **e}
+    oyun.json_yaz(ortam.oyun_yolu, kayit)
+    oyun.json_yaz(ortam.secim_yolu, SECIM)
+    t, U, giden = _beklenen_eslesik(kucuk.kosular["pay_tahmin_tavanli"], w)
+    assert oyun.eslesik_tutma(kucuk.kosular["pay_tahmin_tavanli"], w, kucuk.G.harita)["tutma"] == t
+    with pytest.raises(ValueError, match="kol"):
+        oyun.eslesik_tutma(kucuk.kosular["lumoda"], w, kucuk.G.harita)
+    sonuc = oyun.kos_hepsi("eslesik", ortam, KAL, girdi=kucuk.G, adlar=["es_tahmin"])
+    d = json.loads(ortam.oyun_yolu.read_text(encoding="utf-8"))
+    es = d["eslesik_tutma"]["es_tahmin"]
+    assert (es["kaynak"], es["tutma"], es["U_adet"], es["giden_adet"]) == ("pay_tahmin_tavanli", t, U, giden)
+    assert es["anahtar"] == kucuk.kayitlar["pay_tahmin_tavanli"]["anahtar"]
+    e = d["kosular"]["es_tahmin"]
+    assert e["grup"] == "eslesik" and e["kosum"]["tutma"] == t and e["kosum"]["tutma_kaynagi"] == "pay_tahmin_tavanli"
+    assert e["cozum"] == {"kol": "tahmin", "taban": None, "tutma": t, "tavan": False, "repl": "lumoda",
+                          "takvim": False, "yol": 0}
+    if t == 0.0:                                  # tavan KÜÇÜK'te bağlamadıysa tavansız t 0'ın kendisi
+        assert e["ayni"] == "pay_tahmin_tavansiz"
+    else:
+        k = sonuc["es_tahmin"]
+        ayar = k.meta["politikalar"]["ilk_dagitim"]["parametreler"]["ayar"]
+        assert (ayar["tutma"], ayar["tavan"]) == (t, False)
+        r = k.kayitlar["ilk_dagitim"]
+        oz = r[r["kol"] & (r["t"] == t)].groupby("arg0").agg(U=("U", "first"), toplam=("toplam", "first"))
+        assert len(oz) and (oz["toplam"] == np.floor(np.round(oz["U"] * (1 - t), 9))).all()
+        assert e["olcutler"]["kirpilan_adet"] == 0.0
+    assert "belirsizlik" in d["notlar"] and "tavanlı" in d["notlar"]["belirsizlik"]
 
 
 # ---------------------------------------------------------------------------

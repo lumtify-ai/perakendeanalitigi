@@ -16,24 +16,29 @@ kalibrasyonun seçimi (`kalibrasyon.json`), yalnız benzer ve tahminde etkin.
 
     esdegerlik    lumoda: Lumoda + kaydediciler, yayımlanan v4'ün kendisi (tests/test_esdegerlik.py)
     pay           esit, benzer tavanlı / tavansız, tahmin tavanlı / tavansız, kahin (t = 0)
+    eslesik       es_benzer, es_tahmin: tavansız kol, t = aynı kolun tavanlı pay koşusunun depoda
+                  bıraktığı pay (`eslesik_tutma`; Ruling R43). Tavanlı ↔ eşleşik = tavanın "kime"
+                  etkisi (aynı mal), eşleşik ↔ tavansız t 0 = tutmanın etkisi
     sabit_takvim  lumoda_takvimli (lumoda'nın RPT ve markdown kararlarını oyun option'larında
                   yeniden oynatır; eşdeğerlik testiyle aynı koşu) + esit, benzer, tahmin, kahin aynı
                   takvimle (`politika.TakvimRPT`, `TakvimMarkdown`)
     tutma         t ∈ TUTMA_DUZEYLERI × pay {lumoda_tut, en iyi} × replenishment {Lumoda, hiz}
                   (16; t = 0 dahil: lumoda_tut t = 0 Lumoda'nın U'ya sığdırılmış hâli, Ruling R28)
-    strateji      belirsizlik: pay ve tavan en iyiden, t_o option başına (t̄ = %30); karşılığı
-                  tut_eniyi_t30
-    demo          esit, benzer, tahmin × DEMO_TUTMA'nın t > 0'ları (öteki demo noktaları
-                  başka bloklarda; `demo_haritasi`)
+    strateji      belirsizlik: pay en iyiden (tavansız), t_o option başına (t̄ = %30); karşılığı
+                  tut_eniyi_t30. γ SS24'te tavanlı tabanla kalibre edildi (oyun.json `notlar`)
+    demo          esit, benzer, tahmin × DEMO_TUTMA'nın t > 0'ları; benzer ve tahmin tavansız
+                  (öteki demo noktaları başka bloklarda; `demo_haritasi`)
 
-"En iyi" (`secim_yap`, Ruling R29): pay bloğunun benzer ve tahmin kollarından (kalibrasyonun tavan
-seçimiyle) `kalibrasyon.secim` kuralıyla (bulunabilirliği en yüksek olanın 0,3 puandan az
-gerisindekiler arasında sezon sonu kalanı en düşük olan); pay bloğundan sonra `cikti/secim.json`.
-tutma, strateji ve demo bunu okur: ızgara blok sırasıyla koşar (`BLOK_SIRASI`).
+"En iyi" (`secim_yap`, Ruling R43; R29'un yerine): pay bloğunun tavansız benzer ve tahmin
+kollarından (ikisi de Lumoda'yla aynı malı, ⌊U⌋'yu gönderir: fark yalnız "kime"; tavanlı kol
+U'nun bir kısmını depoda bırakır, örtük bir tutma kolu olur) `kalibrasyon.secim` kuralıyla
+(bulunabilirliği en yüksek olanın 0,3 puandan az gerisindekiler arasında sezon sonu kalanı en düşük
+olan); `cikti/secim.json`. tutma, strateji ve demo bunu okur; seçim her çağrıda oyun.json'daki pay
+kayıtlarından yeniden kurulur (dosya eskiyse üstüne yazılır), kayıt yoksa dosyadan okunur.
 
 **Aynı koşu iki adla** (`imza`): kolun çözülmüş tanımı (en iyi, kalibrasyonun tavanı, etkisiz
 alanlar) aynı olan iki `Kosum` bir kez koşulur; ikincisinin kaydı `ayni` alanıyla ilkine bağlanır
-(ör. tut_eniyi_t00 = pay bloğundaki en iyi, demo_<en iyi>_t15 = tut_eniyi_t15).
+(ör. tut_eniyi_t00 = pay bloğundaki tavansız en iyi, demo_<en iyi>_t15 = tut_eniyi_t15).
 
 **Girdiler** (`Girdi`, yol başına, tembel; sonuçları kollara `parametreler()` üstünden girer):
 öğrenme tablosu oyun sezonunun en erken ilk dağıtım kararı gününde (`kalibrasyon.karar_gunu`)
@@ -67,20 +72,21 @@ import hashlib
 import json
 import sys
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from allocation import benzer, kalibrasyon, kaynak, motor, ogrenme, olcutler, sabitler, tahmin
+from allocation.paylastir import paket_adedi
 from allocation.politika import (Ayar, BelirsizlikKol, BenzerKol, EsitKol, HizReplenishment, KahinKol,
                                  LumodaTutKol, TahminKol, TakvimMarkdown, TakvimRPT)
 
 ILERLEME = sabitler.CIKTI / "ilerleme.jsonl"
 ESDEGERLIK = "lumoda"
 TAKVIMLI = "lumoda_takvimli"
-BLOK_SIRASI = ("esdegerlik", "pay", "sabit_takvim", "tutma", "strateji", "demo")
+BLOK_SIRASI = ("esdegerlik", "pay", "eslesik", "sabit_takvim", "tutma", "strateji", "demo")
 SECIM_GEREKEN = ("tutma", "strateji", "demo")
 KOLLAR = ("lumoda", "lumoda_tut", "esit", "benzer", "tahmin", "kahin", "belirsizlik", "eniyi")
 TAVANLI = ("benzer", "tahmin")
@@ -225,18 +231,22 @@ class Kosum:
     kol     `KOLLAR`: "lumoda" (Lumoda'nın kendisi), "lumoda_tut", "esit", "benzer", "tahmin",
             "kahin", "belirsizlik" (taban en iyi), "eniyi" (`secim.json`'un kolu)
     tutma   t (U'ya göre; belirsizlikte yok sayılır, t_o)
-    tavan   kapsama tavanı; None kalibrasyonun seçimi (yalnız benzer ve tahminde etkin)
+    tavan   kapsama tavanı; None kalibrasyonun seçimi (yalnız benzer ve tahminde etkin; en iyi ve
+            belirsizlikte `secim`'in tavanı)
     repl    "lumoda" | "hiz" (`politika.HizReplenishment`)
     takvim  sabit takvim: lumoda koşusunun RPT ve markdown kararları oyun option'larında
-    yol     talep yolu (`talep_tohumu`)"""
+    yol     talep yolu (`talep_tohumu`)
+    tutma_kaynagi  eşleşik tutma: t bu pay koşusunun (aynı kolun tavanlı hâli) depoda bıraktığı
+            paydır (`eslesik_tutma`); `tutma` None kalır, `kos_hepsi` çözer"""
 
     ad: str
     kol: str
-    tutma: float = 0.0
+    tutma: float | None = 0.0
     tavan: bool | None = None
     repl: str = "lumoda"
     takvim: bool = False
     yol: int = 0
+    tutma_kaynagi: str | None = None
 
     def __post_init__(self):
         if self.kol not in KOLLAR:
@@ -245,6 +255,10 @@ class Kosum:
             raise ValueError(f"bilinmeyen replenishment: {self.repl!r}")
         if self.kol == "lumoda" and (self.tutma or self.repl != "lumoda"):
             raise ValueError("lumoda kolu Lumoda'nın kendisidir: tutma ve hiz için lumoda_tut")
+        if self.tutma_kaynagi is not None and (self.kol not in TAVANLI or self.tavan is not False):
+            raise ValueError("eşleşik tutma yalnız tavansız benzer ve tahminde")
+        if self.tutma is None and self.tutma_kaynagi is None:
+            raise ValueError("tutma yalnız eşleşik tutmada (tutma_kaynagi) boş olabilir")
 
 
 def _t(t: float) -> str:
@@ -263,13 +277,15 @@ IZGARA: dict[str, tuple[Kosum, ...]] = {
             Kosum("pay_benzer_tavanli", "benzer", tavan=True), Kosum("pay_benzer_tavansiz", "benzer", tavan=False),
             Kosum("pay_tahmin_tavanli", "tahmin", tavan=True), Kosum("pay_tahmin_tavansiz", "tahmin", tavan=False),
             Kosum("pay_kahin", "kahin")),
+    "eslesik": tuple(Kosum(f"es_{k}", k, tutma=None, tavan=False, tutma_kaynagi=f"pay_{k}_tavanli")
+                     for k in TAVANLI),
     "sabit_takvim": (Kosum(TAKVIMLI, "lumoda", takvim=True), Kosum("sabit_esit", "esit", takvim=True),
                      Kosum("sabit_benzer", "benzer", takvim=True), Kosum("sabit_tahmin", "tahmin", takvim=True),
                      Kosum("sabit_kahin", "kahin", takvim=True)),
     "tutma": _tutma(),
     "strateji": (Kosum("belirsizlik", "belirsizlik"),),
-    "demo": tuple(Kosum(f"demo_{k}_{_t(t)}", k, tutma=t) for k in ("esit", "benzer", "tahmin")
-                  for t in sabitler.DEMO_TUTMA if t > 0),
+    "demo": tuple(Kosum(f"demo_{k}_{_t(t)}", k, tutma=t, tavan=False if k in TAVANLI else None)
+                  for k in ("esit", "benzer", "tahmin") for t in sabitler.DEMO_TUTMA if t > 0),
 }
 
 # Yollar (`allocation.yollar`): yol başına koşulan kollar (kısa ad → yol 0'daki ızgara koşusu)
@@ -309,11 +325,18 @@ def cozumle(s: Kosum, kal: dict, secim: dict | None) -> dict:
     if kol in ("eniyi", "belirsizlik"):
         if secim is None:
             raise RuntimeError(f"{s.ad}: en iyi kol seçilmedi (önce pay bloğu; cikti/secim.json)")
+    if s.tutma is None and kol != "belirsizlik":
+        raise RuntimeError(f"{s.ad}: eşleşik tutma çözülmedi ({s.tutma_kaynagi}; kos_hepsi çözer)")
     taban = secim["kol"] if kol == "belirsizlik" else None
+    if kol in ("eniyi", "belirsizlik"):
+        tavan = bool(secim["tavan"])                 # en iyinin kendi tavanı (R43: tavansız)
+        tavan_kol = secim["kol"]
+    else:
+        tavan = bool(kal["tavan"] if s.tavan is None else s.tavan)
+        tavan_kol = kol
     if kol == "eniyi":
         kol = secim["kol"]
-    tavan_kol = taban or kol
-    tavan = bool(kal["tavan"] if s.tavan is None else s.tavan) if tavan_kol in TAVANLI else False
+    tavan = tavan if tavan_kol in TAVANLI else False
     tutma = None if kol == "belirsizlik" else float(s.tutma)
     return {"kol": kol, "taban": taban, "tutma": tutma, "tavan": tavan, "repl": s.repl, "takvim": bool(s.takvim),
             "yol": int(s.yol)}
@@ -533,13 +556,37 @@ def kos_bir(s: Kosum, G: Girdi, kal: dict, secim: dict | None, onceki: dict | No
     return k, kayit
 
 
+def eslesik_tutma(kosu, w, harita, sezon: str = sabitler.OYUN_SEZONU) -> dict:
+    """Tavanlı bir kol koşusunun depoda bıraktığı pay, kolun ilk dağıtım kaydından (Ruling R43):
+    oyun option'larında t = 1 − Σ gönderilen ÷ Σ U, adetle (paket × paket adedi), 0,001'e
+    yuvarlanmış. Kayıt kolun değilse (`kol` sütunu yok) `ValueError`."""
+    kayit = kosu.kayitlar.get("ilk_dagitim")
+    if kayit is None or "kol" not in kayit.columns:
+        raise ValueError("eşleşik tutma: koşunun ilk dağıtım kaydı bir kolun değil")
+    opt = kaynak.oyun_optionlari(w, sezon)
+    kendi = kayit[kayit["kol"].to_numpy(dtype=bool) & np.isin(kayit["arg0"].to_numpy(), opt)]
+    oz = kendi.groupby("arg0").agg(U=("U", "first"), giden=("deger", "sum"))
+    pk = np.array([paket_adedi(w, int(o)) for o in oz.index], dtype=np.int64)
+    U = int((oz["U"].to_numpy(dtype=np.int64) * pk).sum())
+    giden = int((oz["giden"].to_numpy(dtype=np.int64) * pk).sum())
+    if U <= 0:
+        raise ValueError("eşleşik tutma: oyun option'larında U yok")
+    ham = 1.0 - giden / U
+    t = round(ham, 3)
+    if not 0.0 <= t < 1.0:
+        raise ValueError(f"eşleşik tutma [0, 1) dışında: {t}")
+    return {"tutma": t, "ham": ham, "U_adet": U, "giden_adet": giden, "U_paket": int(oz["U"].sum()),
+            "giden_paket": int(oz["giden"].sum()), "option": int(len(oz))}
+
+
 def secim_yap(kosular: dict, kal: dict) -> dict:
-    """Pay bloğunun benzer ve tahmin kollarından (kalibrasyonun tavanıyla) en iyisi (Ruling R29;
-    `kalibrasyon.secim`)."""
+    """Pay bloğunun tavansız benzer ve tahmin kollarından en iyisi (Ruling R43; `kalibrasyon.secim`).
+    `kal` imza uyumu için (kullanılmaz)."""
     adaylar = []
     for ad, e in kosular.items():
         c = e.get("cozum", {})
-        if e.get("grup") == "pay" and c.get("kol") in TAVANLI and c.get("tavan") == bool(kal["tavan"]):
+        if (e.get("grup") == "pay" and "ayni" not in e and c.get("kol") in TAVANLI and c.get("tavan") is False
+                and c.get("tutma") == 0.0 and not c.get("takvim") and c.get("repl") == "lumoda"):
             o = e["olcutler"]
             adaylar.append({"ad": ad, "kol": c["kol"], "tavan": c["tavan"], "bulunabilirlik": o["bulunabilirlik"],
                             "sezon_sonu_kalan_yuzde": o["sezon_sonu_kalan_yuzde"], "anahtar": e["anahtar"]})
@@ -549,20 +596,20 @@ def secim_yap(kosular: dict, kal: dict) -> dict:
     en_iyi = kalibrasyon.secim(adaylar)
     return {"kol": en_iyi["kol"], "tavan": en_iyi["tavan"], "ad": en_iyi["ad"], "adaylar": adaylar,
             "esik_puan": kalibrasyon.ESIK_PUAN,
-            "kural": "bulunabilirliği en yüksek olanın esik_puan'dan az gerisindekiler arasında sezon sonu "
-                     "kalanı en düşük olan (eşitlikte benzer)"}
+            "kural": "tavansız benzer ve tahmin (aynı mal, Ruling R43); bulunabilirliği en yüksek olanın "
+                     "esik_puan'dan az gerisindekiler arasında sezon sonu kalanı en düşük olan (eşitlikte benzer)"}
 
 
 def demo_haritasi(kosular: dict, kal: dict) -> dict:
     """Demo kadranı: pay {lumoda, esit, benzer, tahmin} × `DEMO_TUTMA` → koşu adı (çözümden; benzer ve
-    tahmin kalibrasyonun tavanıyla; bulunmayan nokta None)."""
+    tahmin tavansız, Ruling R43; bulunmayan nokta None). `kal` imza uyumu için."""
     adlar = {}
     for ad, e in kosular.items():
         c = e.get("cozum", {})
         if c.get("yol") != 0 or c.get("takvim") or c.get("repl") != "lumoda":
             continue
         kol = c.get("kol")
-        if kol in TAVANLI and c.get("tavan") != bool(kal["tavan"]):
+        if kol in TAVANLI and c.get("tavan") is not False:
             continue
         adlar.setdefault((kol, c.get("tutma")), ad)
     harita = {}
@@ -599,8 +646,22 @@ def kos_hepsi(blok: str = "hepsi", ortam: Ortam | None = None, kal: dict | None 
                  kalibrasyon={a: kal.get(a) for a in ("en_az", "tahmin_parametreleri", "tavan", "gamma",
                                                        "belirsizlik_olcusu", "belirsizlik_spearman", "tbar")},
                  belirsizlik_gamma=belirsizlik_gammasi(kal))
+    kayit["notlar"] = {
+        "en_iyi": "tavansız benzer ve tahminden (aynı mal; Ruling R43). Tavanlı kollar U'nun bir kısmını "
+                  "depoda bırakır; tavanın etkisi eslesik bloğunda",
+        "belirsizlik": "taban tavansız en iyi; γ SS24'te tavanlı tabanla kalibre edildi (kalibrasyon.json "
+                       "belirsizlik_taban, tavan; Ruling R43)",
+        "eslesik": "es_<kol>: tavansız kol, t = pay_<kol>_tavanli'nin depoda bıraktığı pay (eslesik_tutma)"}
     G = girdi or Girdi(0, ortam, kal)
     secim = json_oku(ortam.secim_yolu) or None
+    try:                                   # pay kayıtları varsa seçim onlardan (dosya eskiyse düzelir)
+        yeni = secim_yap(kosular, kal)
+    except RuntimeError:
+        pass
+    else:
+        if yeni != secim:
+            json_yaz(ortam.secim_yolu, yeni)
+        secim = yeni
     tum = tum_kosumlar()
     sonuc, gecerli = {}, set()            # gecerli: bu süreçte koşulmuş / önbellekten doğrulanmış
 
@@ -611,8 +672,25 @@ def kos_hepsi(blok: str = "hepsi", ortam: Ortam | None = None, kal: dict | None 
         if tut:
             sonuc[s.ad] = k
 
+    def cozulmus(s: Kosum) -> Kosum:
+        """Eşleşik tutmanın t'si kaynağın (tavanlı pay koşusu) kaydından; oyun.json `eslesik_tutma`."""
+        if s.tutma_kaynagi is None:
+            return s
+        ka = s.tutma_kaynagi
+        if ka not in gecerli:
+            kos_tek(tum[ka], kosular.get(ka, {}).get("grup", "pay"))
+        an = kosular[ka]["anahtar"]
+        k = motor._oku_tembel(motor._dizin(ortam.onbellek, ka, an), an)
+        if k is None:
+            raise RuntimeError(f"{s.ad}: kaynak koşu {ka} önbellekte yok")
+        es = eslesik_tutma(k, G.w, G.harita, ortam.sezon)
+        kayit.setdefault("eslesik_tutma", {})[s.ad] = {"kaynak": ka, "anahtar": an, **es}
+        print(f"{s.ad}: t = {es['tutma']} ({ka}: {es['giden_adet']:,} / {es['U_adet']:,} adet)", flush=True)
+        return replace(s, tutma=es["tutma"])
+
     def kos_liste(kosumlar, grup):
         for s in kosumlar:
+            s = cozulmus(s)
             im = imza(cozumle(s, kal, secim))
             taban = next((a for a, e in kosular.items()
                           if a != s.ad and e.get("imza") == im and "ayni" not in e), None)
@@ -620,7 +698,7 @@ def kos_hepsi(blok: str = "hepsi", ortam: Ortam | None = None, kal: dict | None 
                 kos_tek(s, grup)
             else:
                 if taban not in gecerli:          # eski kayıt: önce tabanın kendisi (önbellekten)
-                    kos_tek(tum[taban], kosular[taban]["grup"])
+                    kos_tek(cozulmus(tum[taban]), kosular[taban]["grup"])
                 kosular[s.ad] = {**kosular[taban], "grup": grup, "kosum": asdict(s), "ayni": taban}
                 _ilerleme(s.ad, 0.0, True, ortam.ilerleme_yolu, ayni=taban)
             kayit["girdi"] = G.bilgi
