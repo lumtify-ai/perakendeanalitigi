@@ -168,8 +168,8 @@ ayrık. Option'ları ilk alımlarıyla ağırlıklandırıp ortalamasını alıy
 Buna pay hatası diyeceğim (sektörde WAPE diye geçer).
 
 Oyun sezonunda gerçek talep payını hakem biliyor, kollar bilmiyor. Bu
-yalnız Lumoda gibi sentetik bir zincirde ölçülebilen bir şey. Kalibrasyonda
-hakemi kullanmıyoruz: gerçek payın yerine, yayımlanan satıştan sansürü
+yalnız Lumoda gibi sentetik bir zincirde ölçülebilen bir şey. Pay hatasının
+kalibrasyonunda hakemi kullanmıyoruz: gerçek payın yerine, yayımlanan satıştan sansürü
 düzeltilmiş talebi koyuyoruz.
 
 Bir önceki ilkbahar-yaz sezonunda, hiçbir şey koşmadan, yalnız yayımlanan
@@ -244,7 +244,7 @@ değil, **mağazanın geçmiş payı**. Yazının geri kalanında da öyle
 anacağım.
 
 Mağazanın kategorideki geçmiş payı, Lumoda'nın planına çok benzeyen bir
-şey. Planın da tanıdığı düzey mağaza ile üst kategori. Sonuçlar da
+şey. Plan da tam bu düzeyde kurulur: mağaza × üst kategori. Sonuçlar da
 yakın: kalibrasyonda 0,235'e karşı Lumoda 0,236; oyun sezonunda 0,229'a
 karşı 0,235. Bulunabilirlikte mağazanın geçmiş payı Lumoda'nın 0,53 puan
 önünde: %69,51'e karşı %68,98.
@@ -311,22 +311,23 @@ yönlendirmesi ve depoda mal bırakması.
 
 Oyun sezonunda bu ikisini ayırdık. Tavansız kolu bir kez daha koşturduk,
 bu sefer tavanlı kolun depoda bıraktığı kadar malı kendimiz tutarak.
-Tavanlı kol ile bu eşleşik kol neredeyse aynı malı gönderiyor; aradaki fark yalnız
-tavanın "kime"ye etkisi. Eşleşik kol ile tavansız kol arasındaki fark ise
-depoda tutmanın etkisi. Bulunabilirlikte, puan olarak:
+Tavanlı kol ile bu eşleşik kol neredeyse aynı malı gönderiyor. Aradaki
+fark tavanın dağıtım biçiminden geliyor: malı hangi mağazaya gönderdiği, bir
+de hangi ürünü daha çok depoda bıraktığı (eşleşik kol her üründe aynı oranı
+tutuyor). Eşleşik kol ile tavansız kol arasındaki fark ise depoda tutmanın
+etkisi. Bulunabilirlikte, puan olarak:
 
-| | Toplam | Kime | Depoda tutma |
+| | Toplam | Dağıtım biçimi | Depoda tutma |
 |---|---:|---:|---:|
-| Mağazanın geçmiş payı | +1,0 | −0,1 | +1,1 |
-| Model | +1,0 | 0,0 | +1,0 |
+| Mağazanın geçmiş payı | +0,95 | −0,18 | +1,13 |
+| Model | +0,96 | +0,02 | +0,94 |
 
-Bulunabilirliği iki ondalıkla okuyunca da değişen bir şey yok: tavanın
-"kime" etkisi −0,18 ve +0,02 puan. Modelde tavanın "kime" etkisi öteki
-ölçütlerde biraz ters bile: sezon sonunda elde kalan +0,45 puan,
+Tavanın dağıtım biçiminden gelen fark iki kolda da sıfıra yakın. Modelde
+öteki ölçütlerde biraz ters bile: sezon sonunda elde kalan +0,45 puan,
 <T k="str">tam fiyat STR</T> −0,56 puan.
 
-Neden böyle? 5.354 aday çiftin mağazanın geçmiş payında 5.146'sı,
-modelde 4.733'ü tavanında duruyor. Tavan neredeyse her yerde
+Neden böyle? Mağazanın geçmiş payı kolunda 5.354 aday çiftin 5.146'sı
+tavanına dayanmış; modelde 4.733'ü. Tavan neredeyse her yerde
 devredeyse, malı bir mağazadan ötekine kaydırmıyor, toplamı kesiyor.
 Paylar da neredeyse hiç değişmiyor: tavanlı kolun pay hatası eşleşik koldan
 yalnız +0,004 ve +0,001 farklı. Bulunabilirlikteki kazancın hepsi, tavanın
@@ -344,7 +345,9 @@ bir karar olarak beşinci yazıda kuracağız.
 ## Üç kural, aynı mal
 
 Bu yazının üç kolunu yan yana koyalım. Üçü de aynı malı, tavansız ve
-depoda ek mal tutmadan gönderiyor:
+depoda ek mal tutmadan gönderiyor. Aynı mal derken ilk sevkiyatı
+kastediyorum: sezon içinde RPT her kolun satışına ayrıca tepki veriyor,
+beşinci yazı buna dönüyor.
 
 | | Pay hatası | Bulunabilirlik | Sezon sonunda elde kalan | Brüt kâr |
 |---|---:|---:|---:|---:|

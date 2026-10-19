@@ -35,14 +35,15 @@ Rapor önce tampona yazılır; korunum tutmazsa ya da bir girdi eksikse (önbell
 bugünkü kodla yazılmamış kayıt, ölçülmemiş ızgara noktası) stdout'a tek satır gitmez, mesaj stderr'e,
 çıkış kodu 1. `--taslak` eksik girdiye dayanan satırları "[eksik: …]" diye geçer ve sonda listeler
 (çıkış kodu 2; bu çıktı yazılara kaynak olamaz). Basılan her fark, oran ve ara değer basılan
-işlenenlerden hesaplanır (`yuv`, `fark`, `bolum`). Ölçülen süre basılmaz: aynı girdiyle iki koşu bayt
+işlenenlerden hesaplanır (`yuv`, `fark`, `bolum`); bir ondalıklı fark iki ondalıklı farkın bir kez
+yuvarlanmışıdır (`fark1`, Ruling R50 ve R53: aynı büyüklüğe tek değer). Ölçülen süre basılmaz: aynı girdiyle iki koşu bayt
 bayt aynıdır. Girdiler `rapor_b.py`'de (motoru koşmaz; önbellekten).
 
 Okuma notları (Ruling R43): "en iyi" kol pay bloğunun tavansız benzer ve tahmin kollarından seçilir (aynı
 mal); tutma ekseni, belirsizliğin tabanı ve demo bu tavansız kolla kurulur. En iyinin seçimi, tutma ve
 strateji SS25'te ölçülür, yani örneklem içidir: rapor onları ölçüm olarak basar, örneklem dışı karar diye
-değil. Tavanın etkisi eşleşik tutma koşularıyla ayrıştırılır (tavanlı ↔ eşleşik = "kime", eşleşik ↔ t 0 =
-depoda tutma). Belirsizliğin γ'sı kalibrasyon sezonunda tavanlı tabanla seçildi (STRATEJİ'de not).
+değil. Tavanın etkisi eşleşik tutma koşularıyla ayrıştırılır (tavanlı ↔ eşleşik = tavanın dağıtım
+biçimi, eşleşik ↔ t 0 = depoda tutma). Belirsizliğin γ'sı kalibrasyon sezonunda tavanlı tabanla seçildi (STRATEJİ'de not).
 `markdown_tl` brüt indirim tutarıdır, `brut_kar_tl` net satış − alış maliyetidir: ikisi toplanmaz.
 """
 
@@ -52,6 +53,7 @@ import io
 import statistics
 import sys
 import warnings
+from decimal import ROUND_HALF_UP, Decimal
 
 import numpy as np
 import pandas as pd
@@ -132,6 +134,18 @@ def fark(a, b, ondalik: int = 0) -> float:
     return yuv(yuv(b, ondalik) - yuv(a, ondalik), ondalik)
 
 
+def tek_ondalik(x2) -> float:
+    """İki ondalıklı değerin bir kez, yarımda sıfırdan uzağa yuvarlanmışı: +0,95 → +1,0, −0,35 → −0,4 (ondalık
+    aritmetikle; ikili kayan noktanın 0,95 → 0,9 sapması olmadan)."""
+    return float(Decimal(f"{float(x2):.2f}").quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
+
+
+def fark1(a, b) -> float:
+    """b − a, bir ondalık: iki ondalıklı farkın (`fark(a, b, 2)`) bir kez yuvarlanmışı (Ruling R50, R53). Aynı
+    büyüklüğün iki ondalıklı ve bir ondalıklı biçimi raporda tek değerdir; bir ondalıklı düzeylerin farkı değildir."""
+    return tek_ondalik(fark(a, b, 2))
+
+
 def bolum(a, b, ondalik_a: int = 0, ondalik_b: int = 0) -> float | None:
     """a / b, ikisi de basıldığı gibi."""
     payda = yuv(b, ondalik_b)
@@ -148,7 +162,7 @@ def yon(a, b, yuksek_iyi: bool, ondalik: int) -> str:
 
 def kapanan_pay(kol, lumoda, kahin, ondalik: int) -> float | None:
     """Kahinle Lumoda arasındaki farkın kolun kapattığı payı: (kol − lumoda) ÷ (kahin − lumoda),
-    basılan değerlerden; kapatılacak fark yoksa None."""
+    `ondalik` hanede basılan değerlerden (bulunabilirlikte iki ondalık, R53); kapatılacak fark yoksa None."""
     payda = fark(lumoda, kahin, ondalik)
     return fark(lumoda, kol, ondalik) / payda if payda else None
 
@@ -516,7 +530,7 @@ def yol0_bolumu(v, ek) -> None:
 
     lu, es = O(v, "lumoda"), O(v, "pay_esit")
     soru(1, "Lumoda'nın plan payı eşit dağıtımdan iyi mi (aynı mal, t = 0)? Lumoda / eşit (plan payının yönü): bulunabilirlik "
-         f"{yd(lu['bulunabilirlik'], 1)} / {yd(es['bulunabilirlik'], 1)} ({isaretli(fark(es['bulunabilirlik'], lu['bulunabilirlik'], 1), 1)} puan, "
+         f"{yd(lu['bulunabilirlik'], 1)} / {yd(es['bulunabilirlik'], 1)} ({isaretli(fark1(es['bulunabilirlik'], lu['bulunabilirlik']), 1)} puan, "
          f"{yon(lu['bulunabilirlik'], es['bulunabilirlik'], True, 1)}) · sezon sonu kalan {yd(lu['sezon_sonu_kalan_yuzde'], 1)} / "
          f"{yd(es['sezon_sonu_kalan_yuzde'], 1)} ({yon(lu['sezon_sonu_kalan_yuzde'], es['sezon_sonu_kalan_yuzde'], False, 1)}) · tam fiyat STR "
          f"{yd(lu['tam_fiyat_str'], 1)} / {yd(es['tam_fiyat_str'], 1)} ({yon(lu['tam_fiyat_str'], es['tam_fiyat_str'], True, 1)}) · brüt kâr "
@@ -526,18 +540,18 @@ def yol0_bolumu(v, ek) -> None:
     kahin = kahin_olculur(v)
     for et, ad in (("benzer", pk["benzer"]), ("tahmin", pk["tahmin"])):
         o = O(v, ad)
-        parca = (f"{et} {yd(o['bulunabilirlik'], 1)} ({isaretli(fark(lu['bulunabilirlik'], o['bulunabilirlik'], 1), 1)} puan), "
+        parca = (f"{et} {yd(o['bulunabilirlik'], 1)} ({isaretli(fark1(lu['bulunabilirlik'], o['bulunabilirlik']), 1)} puan), "
                  f"WAPE {s(o['pay_wape'], 3)}")
         if kahin:
             kh = O(v, "pay_kahin")
-            kp = kapanan_pay(o["bulunabilirlik"], lu["bulunabilirlik"], kh["bulunabilirlik"], 1)
+            kp = kapanan_pay(o["bulunabilirlik"], lu["bulunabilirlik"], kh["bulunabilirlik"], 2)
             kw = kapanan_pay(o["pay_wape"], lu["pay_wape"], kh["pay_wape"], 3)
             parca += (f", kahinle Lumoda arasındaki farktan kapanan: bulunabilirlik {y(kp, 0) if kp is not None else '—'}, "
                       f"WAPE {y(kw, 0) if kw is not None else '—'}")
         soru2.append(parca)
     if kahin:
         kh = O(v, "pay_kahin")
-        kahin_m = (f"kahin {yd(kh['bulunabilirlik'], 1)} ({isaretli(fark(lu['bulunabilirlik'], kh['bulunabilirlik'], 1), 1)} puan), "
+        kahin_m = (f"kahin {yd(kh['bulunabilirlik'], 1)} ({isaretli(fark1(lu['bulunabilirlik'], kh['bulunabilirlik']), 1)} puan), "
                    f"WAPE {s(kh['pay_wape'], 3)}")
     else:
         kahin_m = "kahin ölçülemedi (erken talebin bağımsızlığı tutmadı)"
@@ -611,8 +625,8 @@ def yollar_bolumu(v, ek) -> None:
         if "kahin" in (a, c) and not all(yb.get(p) for p in p_sira if int(p) > 0):
             continue
         f = yol_farklari(deger[(a, "bulunabilirlik")], deger[(c, "bulunabilirlik")], 2)
-        print(f"  {a} − {c}: " + " · ".join(isaretli(yuv(x, 1), 1) for x in f["farklar"])
-              + f" | medyan {isaretli(yuv(f['medyan'], 1), 1)} · {a} önde {f['pozitif']}/{f['n']}, geride {f['negatif']}/{f['n']}")
+        print(f"  {a} − {c}: " + " · ".join(isaretli(tek_ondalik(x), 1) for x in f["farklar"])
+              + f" | medyan {isaretli(tek_ondalik(f['medyan']), 1)} · {a} önde {f['pozitif']}/{f['n']}, geride {f['negatif']}/{f['n']}")
     k0 = yollar["0"]["kosular"] if "0" in yollar else {}
     for kisa, e in k0.items():
         ek.append((f"yollar: yol 0 {kisa} = oyun.json ({e.get('ad')})",
@@ -630,6 +644,14 @@ TAVAN_OLCUTLER = (("ilk_dagitim_adet", "ilk dağıtım", 0), ("bulunabilirlik", 
                   ("pay_wape", "WAPE", 3), ("replenishment_adet", "repl.", 0))
 
 
+def ayrisim(parca: list[tuple[str, float]], ek_metin: str = "") -> str:
+    """"toplam +0,95 = biçim −0,18 + tutma +1,13 (bir ondalıkla +1,0 / −0,2 / +1,1)": iki ondalıklı ayrışım (toplanır)
+    ve her parçanın bir ondalıklı biçimi, iki ondalıklının bir kez yuvarlanmışı (R53; bir ondalıkta toplam tutmayabilir)."""
+    (et0, x0), *kalan = parca
+    govde = f"{et0} {isaretli(x0, 2)} = " + " + ".join(f"{et} {isaretli(x, 2)}" for et, x in kalan)
+    return govde + f" (bir ondalıkla {' / '.join(isaretli(tek_ondalik(x), 1) for _, x in parca)}{ek_metin})"
+
+
 def _satir(etiket: str, o: dict, olcutler) -> str:
     return f"  {etiket:<28}" + "".join(f"{(yd(o[m], n) if BICIM[m][0] == 'y' else s(o[m], n)):>14}" for m, _, n in olcutler)
 
@@ -638,8 +660,10 @@ def tavan_bolumu(v, ek) -> None:
     print("Kapsama tavanı (yalnız benzer ve tahmin): mağazaya en çok öngörülen ilk 6 haftalık talep kadar (paket yukarı")
     print("yuvarlanır, en az 1); tavan bağlarsa artan paket öteki mağazalara, herkes tavandaysa kalan depoda kalır. Tavanlı kol")
     print("U'nun bir kısmını depoda bırakır, yani örtük bir tutma kolu olur. Ayrışım (Ruling R43): eşleşik koşu (es_<kol>) aynı")
-    print("kolun tavansız hâlidir, t = tavanlı koşunun depoda bıraktığı pay; tavanlı − eşleşik = tavanın \"kime\" etkisi (aynı")
-    print("mal), eşleşik − tavansız t 0 = depoda tutmanın etkisi. Farklar basılan değerlerden.")
+    print("kolun tavansız hâlidir, t = tavanlı koşunun depoda bıraktığı pay; tavanlı − eşleşik = tavanın dağıtım biçimi (aynı")
+    print("toplam mal; malı hangi mağazaya gönderdiği ve hangi option'da daha çok tuttuğu: eşleşik her option'da aynı t'yi")
+    print("tutar), eşleşik − tavansız t 0 = depoda tutmanın etkisi. Farklar basılan değerlerden; bir ondalıklı biçim iki")
+    print("ondalıklı farkın bir kez yuvarlanmışıdır (Ruling R53).")
     es_t = v.oyun.get("eslesik_tutma") or {}
     sat = []
     for kol in ("benzer", "tahmin"):
@@ -654,7 +678,7 @@ def tavan_bolumu(v, ek) -> None:
         print(f"  {'koşu':<28}" + "".join(f"{bas:>14}" for _, bas, _ in TAVAN_OLCUTLER))
         for etk, o in (("tavansız t 0", oa), (f"eşleşik ({e_})", oe), ("tavanlı", oc)):
             print(_satir(etk, o, TAVAN_OLCUTLER))
-        for etk, x, z in (("tavanlı − eşleşik (kime)", e_, c), ("eşleşik − tavansız (tutma)", a, e_),
+        for etk, x, z in (("tavanlı − eşleşik (biçim)", e_, c), ("eşleşik − tavansız (tutma)", a, e_),
                           ("tavanlı − tavansız (toplam)", a, c)):
             print(f"  {etk}: " + " · ".join(f"{bas} {isaretli(fark(O(v, x)[m], O(v, z)[m], n), n)}"
                                            for m, bas, n in TAVAN_OLCUTLER))
@@ -667,19 +691,16 @@ def tavan_bolumu(v, ek) -> None:
                (f"TAVAN: {e_} ilk dağıtımı tavanlınınkinin U'ya göre %0,5 yakınında (aynı mal)",
                 abs(oe["ilk_dagitim_adet"] - oc["ilk_dagitim_adet"]) <= 0.005 * et["U_adet"]),
                (f"TAVAN: {e_} U'su tavansız kolunki", int(et["U_adet"]) == int(oa["ilk_dagitim_adet"] + oa["tavan_kalan_adet"]))]
-        sat.append(f"{kol} (depoda kalan U'ya oranı {y(et['tutma'], 1)}): bulunabilirlik toplam "
-                   f"{isaretli(fark(oa['bulunabilirlik'], oc['bulunabilirlik'], 1), 1)} = kime "
-                   f"{isaretli(fark(oe['bulunabilirlik'], oc['bulunabilirlik'], 1), 1)} + tutma "
-                   f"{isaretli(fark(oa['bulunabilirlik'], oe['bulunabilirlik'], 1), 1)}; kalan toplam "
-                   f"{isaretli(fark(oa['sezon_sonu_kalan_yuzde'], oc['sezon_sonu_kalan_yuzde'], 1), 1)} = kime "
-                   f"{isaretli(fark(oe['sezon_sonu_kalan_yuzde'], oc['sezon_sonu_kalan_yuzde'], 1), 1)} + tutma "
-                   f"{isaretli(fark(oa['sezon_sonu_kalan_yuzde'], oe['sezon_sonu_kalan_yuzde'], 1), 1)}")
+        sat.append(f"{kol} (depoda kalan U'ya oranı {y(et['tutma'], 1)}): " + "; ".join(
+            f"{et_m} " + ayrisim([("toplam", fark(oa[m], oc[m], 2)), ("biçim", fark(oe[m], oc[m], 2)),
+                                   ("tutma", fark(oa[m], oe[m], 2))])
+            for m, et_m in (("bulunabilirlik", "bulunabilirlik"), ("sezon_sonu_kalan_yuzde", "kalan"))))
     sm = {r_["ad"]: r_ for r_ in v.kal.get("simulasyon", [])}
     kal = []
     for kol in ("benzer", "tahmin"):
         a, c = sm.get(f"kal_{kol}_tavansiz"), sm.get(f"kal_{kol}_tavanli")
         if a and c:
-            kal.append(f"{kol} {isaretli(fark(a['bulunabilirlik'], c['bulunabilirlik'], 1), 1)}")
+            kal.append(f"{kol} {isaretli(fark1(a['bulunabilirlik'], c['bulunabilirlik']), 1)}")
     soru(3, "Kapsama tavanı tek başına ne kazandırır? Tavanlı − tavansız, eşleşik tutmayla ayrışmış (SS25, yol 0; puan): "
          + " · ".join(sat) + (f"; kalibrasyon sezonunda tavanlı − tavansız bulunabilirlik {', '.join(kal)} puan (ayrışmamış)"
                               if kal else ""))
@@ -725,11 +746,12 @@ def sabit_takvim_bolumu(v, ek) -> None:
             pay = bolum(dog, top, n, n)
             print(f"    {m:<24} toplam {isaretli(top, n)} = doğrudan {isaretli(dog, n)} + tepki {isaretli(tep, n)}"
                   f"{'' if pay is None else f' (doğrudan payı {y(pay, 0)})'}")
-        top = fark(lu["bulunabilirlik"], ot["bulunabilirlik"], 1)
-        dog = fark(lt["bulunabilirlik"], os_["bulunabilirlik"], 1)
-        pay = bolum(dog, top, 1, 1)
-        oz.append(f"{kol}{' tavanlı' if tepkili.endswith('_tavanli') else ''} {isaretli(top, 1)} = {isaretli(dog, 1)} doğrudan + {isaretli(yuv(top - dog, 1), 1)} tepki"
-                  f"{'' if pay is None else f' (doğrudan {y(pay, 0)})'}")
+        top = fark(lu["bulunabilirlik"], ot["bulunabilirlik"], 2)
+        dog = fark(lt["bulunabilirlik"], os_["bulunabilirlik"], 2)
+        pay = bolum(dog, top, 2, 2)                     # tablodaki "doğrudan payı" ile aynı hesap
+        oz.append(f"{kol}{' tavanlı' if tepkili.endswith('_tavanli') else ''} " + ayrisim(
+            [("toplam", top), ("doğrudan", dog), ("tepki", yuv(top - dog, 2))],
+            "" if pay is None else f"; doğrudan payı {y(pay, 0)}"))
     soru(8, "Kolların farkının ne kadarı dağıtımın kendisinden, ne kadarı RPT ve markdown'ın tepkisinden? Bulunabilirlik farkı "
          "(puan, kol − Lumoda): " + " · ".join(oz))
 
@@ -795,8 +817,8 @@ def tutma_bolumu(v, ek) -> None:
             en_iyi_t = max(dz, key=lambda x: (x[1], -x[0]))[0]
             t0, t30 = sonuc[(kaynak, repl, 0.0)], sonuc[(kaynak, repl, 0.30)]
             parca.append(f"{'Lumoda payı' if kaynak == 'lumoda' else 'en iyi pay'} × {repl}: t %0 → %30 "
-                         f"{isaretli(fark(t0['bulunabilirlik'], t30['bulunabilirlik'], 1), 1)} puan bulunabilirlik, "
-                         f"{isaretli(fark(t0['sezon_sonu_kalan_yuzde'], t30['sezon_sonu_kalan_yuzde'], 1), 1)} puan kalan; "
+                         f"{isaretli(fark1(t0['bulunabilirlik'], t30['bulunabilirlik']), 1)} puan bulunabilirlik, "
+                         f"{isaretli(fark1(t0['sezon_sonu_kalan_yuzde'], t30['sezon_sonu_kalan_yuzde']), 1)} puan kalan; "
                          f"en yüksek bulunabilirlik t {yd(100 * en_iyi_t, 0)}")
     soru(4, "Depoda tutmanın değeri nedir ve replenishment'a bağlı mı (Lumoda ↔ hiz)? " + " · ".join(parca))
 
@@ -1019,6 +1041,12 @@ def demo_bolumu(v, ek) -> None:
         print(f"  tutma %{t}: kol − Lumoda bulunabilirlik " + " · ".join(
             f"{p} {isaretli(fark(lu['bulunabilirlik'], son[senaryolar.anahtar(p, t)]['ozet']['bulunabilirlik'], 1), 1)}"
             for p in senaryolar.PAYLAR[1:]))
+    alt("kadranın koşularından kol − Lumoda bulunabilirlik, iki ondalık (kadran düzeyleri bir ondalıkla gösterir; "
+        "yukarıdaki farklar o basılan düzeylerin farkıdır)")
+    bul = lambda p, t: O(v, v.oyun["kosular"][(ad := senaryolar.kosu_adi(v.oyun, p, t))].get("ayni", ad))["bulunabilirlik"]  # noqa: E731
+    for t in senaryolar.TUTMALAR:
+        print(f"  tutma %{t}: " + " · ".join(f"{p} {isaretli(fark(bul('lumoda', t), bul(p, t), 2), 2)}"
+                                             for p in senaryolar.PAYLAR[1:]))
     dosya = v.demo_dosya or {}
     ek += [("DEMO: 12 bileşim", len(son) == 12),
            ("DEMO: sitedeki dosya = raporun bileşimleri",

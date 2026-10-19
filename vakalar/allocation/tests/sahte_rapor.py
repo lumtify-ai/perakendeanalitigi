@@ -202,7 +202,7 @@ def tam_veri() -> rapor_b.Veri:
     es = {f"es_{k}": {"kaynak": f"pay_{k}_tavanli", "anahtar": kosular[f"pay_{k}_tavanli"]["anahtar"], "tutma": ES_T,
                       "ham": TAVAN_KALAN / U_ADET, "U_adet": U_ADET, "giden_adet": U_ADET - TAVAN_KALAN}
           for k in ("benzer", "tahmin")}
-    oyun_k = {"kosular": kosular, "belirsizlik_gamma": 2.0, "eslesik_tutma": es,
+    oyun_k = {"kosular": kosular, "belirsizlik_gamma": 2.0, "eslesik_tutma": es, "demo": oyun.demo_haritasi(kosular, KAL),
               "girdi": {"belirsizlik": {"olcu": "benzer_tahmin_ayrisma", "gamma": 2.0, "t_en_az": 0.04,
                                         "t_en_cok": 0.57, "t_ortalama": 0.3}}}
     yayimlanan = {

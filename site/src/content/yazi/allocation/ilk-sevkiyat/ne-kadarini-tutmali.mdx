@@ -27,10 +27,13 @@ yüzde otuzu depoda bekler. İkinci yazıda bu cümlenin bedende ne demek
 olduğunu gördük. Tek paket en küçük bedenin neredeyse hepsini mağazaya
 gönderiyor, depoda kalan mal çoğunlukla üçüncü ve dördüncü beden.
 
-Bir şey daha var. Kuralın istediği yüzde yetmiş, tam olarak paketlenebilen
-malın sınırı. En küçük beden bittiği anda başka paket kurulamıyor. Yani
-Lumoda aslında "yüzde otuzunu tutuyorum" demiyor, "paketlenebilen her şeyi
-gönderiyorum" diyor. Depoda kalan, pakete sığmayan mal.
+Bir şey daha var. Beş bedenli ürünlerde kuralın istediği yüzde yetmiş, tam
+olarak paketlenebilen malın sınırı. En küçük beden bittiği anda başka paket
+kurulamıyor. Yani bu ürünlerde Lumoda aslında "yüzde otuzunu tutuyorum"
+demiyor, "paketlenebilen her şeyi gönderiyorum" diyor. Depoda kalan,
+pakete sığmayan mal. Tek bedenli aksesuarda paket aynı bedenden altı
+adet; orada depoda kalanı paketleme değil, kuralın yüzde yetmişi
+belirliyor.
 
 Bu yüzden bu dizide <T k="depoda-tutma">depoda tutma</T> oranını ilk
 alıma göre değil, o gün gönderilebilecek paketlere göre tanımlıyoruz.
@@ -68,7 +71,7 @@ bir kısmı mağazada değil, online'da.
 
 İkincisi tekrar sipariş. Lumoda'nın RPT kuralı mağazalara gönderilen malın
 ne kadarının satıldığına bakıyor. Daha az gönderince bu oran yükseliyor ve
-kural daha çok RPT veriyor: t = %0'da 343.680 adet, t = %30'da 389.120.
+kural daha çok RPT siparişi veriyor: t = %0'da 343.680 adet, t = %30'da 389.120.
 Zincirdeki toplam mal da 1.515.866 adetten 1.560.786'ya çıkıyor. Yani
 tutma kıyasında mal tam olarak aynı değil. Kazancın ne kadarının bu ek
 RPT'den geldiğini bu vakada ayırmadık. RPT'nin nasıl çalıştığını
@@ -94,7 +97,7 @@ Pars bunu şöyle söylüyor:
 şansı da replenishment kullanır.
 
 Üçüncü yazıdaki kapsama tavanını hatırlayın. Onun kazancının hepsi depoda
-bıraktığı maldan geliyordu: mağazanın geçmiş payında +1,1, modelde +1,0
+bıraktığı maldan geliyordu: mağazanın geçmiş payında +1,13, modelde +0,94
 puan. Tavan, bilmeden bir tutma kuralıydı.
 
 ## Tuttuğun malı kim dağıtıyor?
@@ -203,7 +206,7 @@ Muhtemel nedeni ölçüde. Kalibrasyonda bu belirsizlik ölçüsünün, payın
 gerçekte ne kadar yanıldığıyla sıra korelasyonu (Spearman) yalnız 0,107.
 Üstelik denediğimiz üç ölçünün en iyisi buydu; ötekilerin korelasyonu
 −0,030 çıktı ya da hesaplanamadı. Ölçü, yanılacağımız ürünü pek seçemiyor;
-seçemeyen bir ölçüye göre tutmak da sabit tutmaktan iyi bir şey yapmıyor. Bir de eğrinin dikliğini
+seçemeyen bir ölçüye göre tutmak da sabit tutmaktan daha iyi sonuç vermiyor. Bir de eğrinin dikliğini
 kalibrasyonda tavanlı bir modelle seçtik, oyunda taban tavansızdı. Orada
 dikliklerin arasındaki fark zaten 0,03 puandı; seçimi yeniden sınamadık.
 

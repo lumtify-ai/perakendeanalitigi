@@ -42,6 +42,18 @@ def test_farklar_basilan_degerlerden():
     assert rapor.bolum(1, 0) is None
 
 
+def test_bir_ondalik_iki_ondaligin_bir_kez_yuvarlanmasi():
+    # R53: yarımda sıfırdan uzağa, ondalık aritmetikle (ikili kayan nokta 0,95'i 0,9'a, 1,45'i 1,4'e indirirdi)
+    for x2, x1 in ((0.95, 1.0), (-0.35, -0.4), (0.25, 0.3), (2.25, 2.3), (1.45, 1.5), (0.84, 0.8), (-0.18, -0.2),
+                   (0.02, 0.0), (-0.03, 0.0)):
+        assert rapor.tek_ondalik(x2) == pytest.approx(x1)
+    assert rapor.isaretli(rapor.tek_ondalik(-0.03), 1) == "0,0"
+    # aynı büyüklük: iki ondalıklı fark +2,25 → bir ondalık +2,3; bir ondalıklı düzeylerin farkı 71,2 − 69,0 = 2,2 olurdu
+    assert rapor.fark(68.98, 71.23, 2) == pytest.approx(2.25)
+    assert rapor.fark1(68.98, 71.23) == pytest.approx(2.3) and rapor.fark(68.98, 71.23, 1) == pytest.approx(2.2)
+    assert rapor.fark1(76.0, 74.13) == pytest.approx(-1.9)
+
+
 def test_yon_basilan_degerlerden():
     assert rapor.yon(71.372, 68.977, True, 1) == "önde"
     assert rapor.yon(17.844, 19.771, False, 2) == "önde"
@@ -164,7 +176,7 @@ def test_tam_rapor_sekiz_soru_ve_korunum(capsys):
         assert len(satirlar) == 1, (n, satirlar)
     assert "[eksik" not in metin and "TASLAK" not in metin
     soru3 = next(s_ for s_ in metin.splitlines() if s_.startswith("SORU 3 · "))
-    assert "kime" in soru3 and "tutma" in soru3                    # tavan eşleşik tutmayla ayrışır (R43)
+    assert "biçim" in soru3 and "tutma" in soru3                   # tavan eşleşik tutmayla ayrışır (R43)
     assert "R29" not in metin
     assert "tavanıyla koşuldu" not in metin and "Ruling R46" in metin
     assert "genel (bütün Collection) 67" in metin and "5/5 yolda önde" in metin
@@ -279,7 +291,7 @@ def _soru(metin: str, n: int) -> str:
     return next(x for x in metin.splitlines() if x.startswith(f"SORU {n} · "))
 
 
-def test_soru3_toplam_kime_arti_tutma():
+def test_soru3_toplam_bicim_arti_tutma():
     v = sahte_rapor.tam_veri()
     _bul(v, "pay_benzer_tavansiz", 69.51, 19.65)       # basılan 69,5 / 19,6
     _bul(v, "es_benzer", 70.64, 18.22)                 # 70,6 / 18,2
@@ -287,8 +299,11 @@ def test_soru3_toplam_kime_arti_tutma():
     kod, metin = rapor.tamponla(lambda: rapor.govde(v))
     assert kod == 0
     s3 = _soru(metin, 3)
-    assert "bulunabilirlik toplam +1,0 = kime −0,1 + tutma +1,1" in s3
-    assert "kalan toplam −1,5 = kime −0,1 + tutma −1,4" in s3
+    # iki ondalıkla toplanır; bir ondalıklı biçim iki ondalıklının bir kez yuvarlanmışı (R53): −0,18 → −0,2,
+    # bir ondalıklı düzeylerin farkı (70,5 − 70,6 = −0,1) değil
+    assert "bulunabilirlik toplam +0,95 = biçim −0,18 + tutma +1,13 (bir ondalıkla +1,0 / −0,2 / +1,1)" in s3
+    assert "kalan toplam −1,53 = biçim −0,10 + tutma −1,43 (bir ondalıkla −1,5 / −0,1 / −1,4)" in s3
+    assert "tavanlı − eşleşik (biçim): ilk dağıtım" in metin and "bulun. −0,18" in metin
 
 
 def test_soru8_dogrudan_arti_tepki():
@@ -303,8 +318,11 @@ def test_soru8_dogrudan_arti_tepki():
     kod, metin = rapor.tamponla(lambda: rapor.govde(v))
     assert kod == 0
     s8 = _soru(metin, 8)
-    assert "tahmin +1,4 = +1,4 doğrudan + 0,0 tepki (doğrudan %100)" in s8
-    assert "kahin +2,2 = +1,9 doğrudan + +0,3 tepki (doğrudan %86)" in s8
+    assert "tahmin toplam +1,43 = doğrudan +1,43 + tepki 0,00 (bir ondalıkla +1,4 / +1,4 / 0,0; doğrudan payı %100)" in s8
+    # +2,25 → +2,3 ve +1,96 → +2,0 (bir ondalıklı düzeylerden +2,2 ve +1,9 değil); doğrudan payı tablodakiyle aynı hesap
+    assert "kahin toplam +2,25 = doğrudan +1,96 + tepki +0,29 (bir ondalıkla +2,3 / +2,0 / +0,3; doğrudan payı %87)" in s8
+    assert "toplam +2,25 = doğrudan +1,96 + tepki +0,29 (doğrudan payı %87)" in metin
+    assert "+ +" not in s8
 
 
 def test_soru6_en_dusuk_tutma_kosularindan_ve_etiket_cozumden():
@@ -336,3 +354,28 @@ def test_yol_bir_ondalik_medyan_iki_ondaligin_yuvarlamasi():
     satir = next(x for x in metin.splitlines() if x.startswith("  benzer − lumoda: +0,5 ·"))
     assert "| medyan +0,7 ·" in satir                 # iki ondalıklı medyan +0,71 → +0,7 (+0,8 değil)
     assert "medyan fark +0,71" in metin
+
+
+# ------------------------------------------------------------- R53: bir büyüklük, bir değer
+
+
+def test_soru2_fark_ve_kapanan_pay_iki_ondalikli_farktan():
+    v = sahte_rapor.tam_veri()
+    _bul(v, "lumoda", 68.98)
+    v.oyun["kosular"]["lumoda_takvimli"]["olcutler"] = dict(v.oyun["kosular"]["lumoda"]["olcutler"])
+    _bul(v, "pay_benzer_tavansiz", 69.51)
+    _bul(v, "pay_kahin", 71.23)
+    s2 = _soru(rapor.tamponla(lambda: rapor.govde(v))[1], 2)
+    assert "kahin %71,2 (+2,3 puan)" in s2                      # +2,25'in yuvarlanmışı
+    assert "benzer %69,5 (+0,5 puan)" in s2
+    assert "kapanan: bulunabilirlik %24" in s2                  # 0,53 ÷ 2,25 (bir ondalıkla 0,5 ÷ 2,2 = %23 olurdu)
+
+
+def test_soru4_bir_ondalik_tablodaki_iki_ondaligin_yuvarlamasi():
+    v = sahte_rapor.tam_veri()
+    _bul(v, "tut_lumoda_t00", 68.98, 19.77)
+    _bul(v, "tut_lumoda_t30", 70.85, 17.77)
+    metin = rapor.tamponla(lambda: rapor.govde(v))[1]
+    assert "t %30 − t %0: bulunabilirlik +1,87 · kalan −2,00" in metin
+    s4 = _soru(metin, 4)
+    assert "Lumoda payı × lumoda: t %0 → %30 +1,9 puan bulunabilirlik, −2,0 puan kalan" in s4   # 70,8 − 69,0 = 1,8 değil

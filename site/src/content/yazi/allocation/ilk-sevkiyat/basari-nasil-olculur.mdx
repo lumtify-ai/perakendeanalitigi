@@ -98,8 +98,8 @@ dağıtımda RPT ve indirim zararı biraz büyütüyor, kahinde kazancı biraz
 artırıyor. Yani bu vakada, model ile plan arasındaki farkı tekrar
 sipariş ve indirim açıklamıyor; dağıtımın kendisi açıklıyor.
 
-Bunu ayırabilmemiz Lumoda'nın sentetik bir zincir olmasından. Pars bunu tek
-cümleye indiriyor:
+Bunu ayırabilmemizin nedeni, Lumoda'nın sentetik bir zincir olması. Pars
+bunu tek cümleye indiriyor:
 
 — İlk sevkiyatın hakemi yok; sezon bitince bile neyin onun eseri olduğunu
 ayırmak gerekir.
@@ -156,9 +156,10 @@ Mağazaya](/replenishment/depodan-magazaya/) dizisindeki kırık setin
 kayıptaki karşılığı.
 
 Lumoda'da kaybın %42,3'ü böyle; talebe göre 14,85 puanlık bir kayıp.
-Gönderilebilecek her paketi gönderen sekiz koşunun hepsinde (plan payı,
-eşit, mağazanın geçmiş payı, model ve kahin; plan payı ve model ayrıca
-`hiz` replenishment'ıyla) bu pay %42,3 ile %43,9 arasında. "Kime"yi değiştiren hiçbir kol beden kaybını
+Gönderilebilecek her paketi gönderen sekiz koşunun hepsinde bu pay %42,3
+ile %43,9 arasında: plan payı iki kez (Lumoda'nın kendi koşusu ve `U`'ya
+sığdırılmış hâli), eşit, mağazanın geçmiş payı, model ve kahin; plan payı
+ve model bir de `hiz` replenishment'ıyla. "Kime"yi değiştiren hiçbir kol beden kaybını
 azaltmıyor, kahin bile.
 
 Azaltan tek şey depoda tutmak. Depoda mal tutan on yedi koşuda pay %28,7
@@ -168,9 +169,9 @@ tavanlı modelde, yani tavanın gizlice depoda bıraktığı malla, %32,8.
 Paket depoda tutulunca her bedenden paketteki oranda mal depoda kalıyor;
 sezon içinde biten bedeni tamamlayacak mal oluyor.
 
-Asıl çözüm ise başka bir kararda: paketin kendisinde. Lumoda'da her
-[beden setinin](/temeller/urun-hiyerarsisi/) tek bir paketi var,
-1-2-2-1-1. İkinci yazıda gördük: ilk alım
+Asıl çözüm ise başka bir kararda: paketin kendisinde. Lumoda'da beş
+bedenli ürünlerin [beden setinin](/temeller/urun-hiyerarsisi/) tek bir
+paketi var, 1-2-2-1-1. İkinci yazıda gördük: ilk alım
 bedenlere bu oranda bölünmüyor, en küçük beden önce bitiyor, depoda
 çoğunlukla üçüncü ve dördüncü beden kalıyor. Hangi mağazaya hangi beden
 karışımıyla paket gideceği, haritadaki Assortment Planning aşamasının
@@ -194,6 +195,13 @@ bu sınama söylemiyor.
 **Kahin gerçek değil.** "Gizli gerçeği bilseydik" kolu. Gerçek hayatta
 böyle bir kol kurulamaz; burada yalnız bir ölçek. Orantılı payın en iyi
 dağıtım olduğu da kanıtlanmış değil.
+
+**Kalibrasyonun iki seçimi hakemle puanlandı.** Tavanı açık seçmemiz ve
+belirsizlik eğrisinin dikliği, bir önceki ilkbahar-yaz sezonunun
+simülasyonlarından geliyor. O simülasyonları gizli talebe göre ölçülen
+bulunabilirlikle puanladık. Oyun sezonuna bakmadık, ama sahada böyle bir
+hakem yok; gerçek bir zincirde bu iki seçimin başka yoldan sınanması
+gerekir.
 
 **Belirsizliğin eğrisi başka bir tabanla seçildi.** Belirsizliğe göre
 tutmanın dikliğini kalibrasyonda tavanlı bir modelle seçtik, oyunda
@@ -231,8 +239,9 @@ elde kalan, kayıp oranı ve replenishment adedi.
 
 Kadranla oynarken şuna dikkat edin. Depoda tutma arttıkça kollar
 arasındaki fark daralıyor. Tutma %0'da model Lumoda'nın 1,4 puan önünde,
-%15'te 0,9, %30'da 0,5. Eşit dağıtımın açığı da 1,4 puandan 0,4 puana
-iniyor. Depoda bekleyen mal, ilk payın hatasının bir kısmını sezon içinde
+%15'te 0,9, %30'da 0,5. Eşit dağıtımın açığı da kadranda 1,4 puandan 0,4
+puana iniyor. Kadran düzeyleri bir ondalıkla gösteriyor; koşuların
+kendisinde bu açık 1,36 puandan 0,49 puana iniyor. Depoda bekleyen mal, ilk payın hatasının bir kısmını sezon içinde
 kapatıyor; onu mağazaya replenishment taşıyor. Bunun bedeli replenishment adedinde görünüyor: plan payıyla
 tutma %0'dan %30'a çıkınca replenishment 370.692 adetten 583.690 adede
 çıkıyor. İlk kararın yükünü sezonun geri kalanı taşıyor.

@@ -6,13 +6,13 @@ mağazaya, hangi pakete gideceği. Sitedeki `/allocation/ilk-sevkiyat/` dizisini
 kadranının bütün sayıları buradan, `cikti/rapor.txt`'ten çıkar (`cikti/` git dışıdır; dosyayı
 `rapor.py` yeniden üretir, aşağıdaki 6. adım). Tasarım:
 `docs/superpowers/specs/2026-10-19-ilk-sevkiyat-design.md` (`docs/` ayrı depodur); uygulamadaki
-sapmalar ve kararlar o belgenin §12'sinde (Ruling R1–R50).
+sapmalar ve kararlar o belgenin §12'sinde (Ruling R1–R53).
 
 İlk sevkiyat burada **bir dalganın ilk dağıtımıdır**: depoya gelen malın ne kadarının satış
 görülmeden mağazalara paket paket gideceği. Karar dalga başına tek seferdir; kollar yalnız bu kararı
 değiştirir. Lumoda'nın bugünkü kuralı taban çizgisidir: option'ın ilk alımının %70'i, mağazanın
 planındaki (sezon × üst kategori) satış hedefi payıyla, en büyük kalanla. Karşılaştırılan kollar:
-eşit dağıtım, benzer ürün (kural tabanlı), LightGBM, kahin (gerçek erken talebi bilen üst sınır);
+eşit dağıtım, benzer ürün (kural tabanlı), LightGBM, kahin (gerçek erken talebi bilen ölçek);
 kapsama tavanı, depoda tutma ve belirsizliğe göre tutma bu kollara eklenen ayarlardır. Oyun sezonu
 SS25, line Collection, 210 option, üç dalga.
 
@@ -129,11 +129,14 @@ Ayrıntı `allocation/olcutler.py`'nin modül notunda; ölçütler yüzde, `pay_
   olan payı: |talep > 0 ∧ kendi_satis > 0| ÷ |talep > 0| (DM R22). `bulunabilirlik_ilk4` aynısı
   varıştan ilk 28 günde. Küçük bir yanlılığı vardır (DM R27): `kendi_satis` gelen ikame satışını
   düşer; yanlılık bütün kollarda aynı yöndedir.
-- **Erken pencere.** Her (fiziksel mağaza, option) için ilk dağıtım varışından 42 gün; sezonun
-  indirim başlangıcından 29 gün önce kesilir (SS25: 2025-06-01; SS24: 2024-06-02, Ruling R5).
-  Kahinin girdisi, benzer endeksi ve LightGBM'in hedefi bu pencerenin (stoksuz günler sansür
-  düzeltmeli) birincil talebidir. `pay_wape` = option başına mağaza payı (ilk dağıtım adedi) ile erken
-  birincil talep payı arasında Σ|fark| ÷ 2, ilk alımla ağırlıklı.
+- **Erken pencere.** 42 gün; sezonun indirim başlangıcından 29 gün önce kesilir (SS25: 2025-06-01;
+  SS24: 2024-06-02, Ruling R5). İki ayrı kullanımı var. Kahinin girdisi ve `pay_wape`'nin hedefi:
+  option'ın **lansmanından** başlayan pencerede gizli gerçeğin birincil talebi (`talep` sütunu;
+  sansürsüz, düzeltme yok; `olcutler.erken_birincil_talep`, kahin için `lumoda` koşusundan). Benzer
+  endeksinin ve LightGBM'in hedefi: her (fiziksel mağaza, option) için ilk dağıtım **varışından**
+  başlayan pencerede, yayımlanan satıştan stoklu gün hızıyla sansür düzeltmeli talep
+  (`ogrenme.erken_talep`, R3). `pay_wape` = option başına mağaza payı (ilk dağıtım adedi) ile
+  lansmandan erken birincil talep payı arasında Σ|fark| ÷ 2, ilk alımla ağırlıklı.
 - **`U` ve `t`.** `U` = min(Lumoda'nın kuralı, depodaki en dar bedenin paket sayısı), paket cinsinden:
   kural ⌊ilk alım × 0,70 ÷ paket adedi⌋ (Lumoda'nın kayan nokta ifadesi, R11). Tutma oranı `t`
   `U`'ya göredir: kol ⌊U × (1 − t)⌋ paket gönderir, kalanı depoda kalır. `t = 0` Lumoda'nın fiilî
@@ -272,4 +275,4 @@ içi olduğu anlamına gelir; rapor ve yazılar bunları örneklem dışı karar
   kaybı pencere sonu fotoğraflarına bağlı ölçütlerdir.
 - **Tutma online'ı da değiştirir.** Aynı depodan online satar; tutmanın bulunabilirlik kazancı fiziksel
   mağazalardadır, brüt kâr ve tam fiyat STR online'ı da içerir (`online_satis` ayrı sütun).
-- Kayıtlı sapmalar için bkz. spec §12.1 (Ruling R1–R50).
+- Kayıtlı sapmalar için bkz. spec §12.1 (Ruling R1–R53).
