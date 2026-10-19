@@ -76,9 +76,12 @@ from allocation.politika import Ayar, BelirsizlikKol, BenzerKol, TahminKol
 
 DOSYA = sabitler.CIKTI / "kalibrasyon.json"
 
-EN_AZ_IZGARASI = (3, 5, 10)
-NUM_LEAVES = (15, 31)
-MIN_CHILD_SAMPLES = (20, 50)
+# Ruling R24: ilk ızgaranın ({3, 5, 10}, {15, 31} × {20, 50}) seçimleri uçtaydı; genişletildi
+# ({3..40}, {15, 31, 63} × {20..200}); en_az 40 ve num_leaves 63 yine uçta çıktı, o yönde bir
+# kez daha uzatıldı (80, 127) ve orada durdu
+EN_AZ_IZGARASI = (3, 5, 10, 20, 40, 80)
+NUM_LEAVES = (15, 31, 63, 127)
+MIN_CHILD_SAMPLES = (20, 50, 100, 200)
 GAMMA_IZGARASI = (0.5, 1.0, 2.0)
 BELIRSIZLIK_OLCULERI = ("benzer_dk", "benzer_duzey", "benzer_tahmin_ayrisma")
 ESIK_PUAN = 0.3            # seçimde bulunabilirlik eşitliği (puan)
@@ -486,8 +489,37 @@ def _kayitlar(df: pd.DataFrame) -> list[dict]:
     return [{s: _json_degeri(v) for s, v in r.items()} for r in df.to_dict("records")]
 
 
+def izgara_ucundakiler(c: Cevrimdisi) -> list[str]:
+    """Izgaranın ucunda seçilen parametreler (Ruling R24: uçta seçim ızgaranın yanlış yerde olduğunu
+    gösterir; son ızgarada da uçta kalan buraya yazılır)."""
+    uc = []
+    for ad, deger, izgara in (("en_az", c.en_az, EN_AZ_IZGARASI),
+                              ("num_leaves", c.tahmin_parametreleri.get("num_leaves"), NUM_LEAVES),
+                              ("min_child_samples", c.tahmin_parametreleri.get("min_child_samples"),
+                               MIN_CHILD_SAMPLES)):
+        if deger in (min(izgara), max(izgara)):
+            uc.append(ad)
+    return uc
+
+
+def _secilen_spearman(tablo: pd.DataFrame) -> float | None:
+    if tablo.empty or "asama" not in tablo:
+        return None
+    r = tablo[(tablo["asama"] == "belirsizlik").to_numpy() & tablo["secildi"].to_numpy(dtype=bool)]
+    return float(r["spearman"].iloc[0]) if len(r) else None
+
+
+def _gamma_araligi(tablo: pd.DataFrame, sutun: str) -> float | None:
+    if tablo.empty or "asama" not in tablo:
+        return None
+    g = tablo.loc[(tablo["asama"] == "gamma").to_numpy(), sutun]
+    return float(g.max() - g.min()) if len(g) else None
+
+
 def sozluk(c: Cevrimdisi, s: Simulasyon) -> dict:
-    """JSON'a giden biçim (Görev 8 bunu okur)."""
+    """JSON'a giden biçim (Görev 8 bunu okur). Belirsizlik sinyalinin gücü açıkça yazılır:
+    seçilen ölçünün Spearman'ı ve γ koşularının bulunabilirlik / sezon sonu kalan aralığı (puan;
+    aralık `ESIK_PUAN`'dan küçükse γ seçimi eşitlik kuralıyla, sezon sonu kalandan verilmiştir)."""
     return {
         "sezon": sabitler.KAL_SEZONU,
         "karar_gunu": None if c.karar_gunu is None else pd.Timestamp(c.karar_gunu).date().isoformat(),
@@ -500,6 +532,13 @@ def sozluk(c: Cevrimdisi, s: Simulasyon) -> dict:
         "gamma": float(s.gamma),
         "belirsizlik_taban": s.belirsizlik_taban,
         "tbar": sabitler.BELIRSIZLIK_TBAR,
+        "izgara": {"en_az": list(EN_AZ_IZGARASI), "num_leaves": list(NUM_LEAVES),
+                   "min_child_samples": list(MIN_CHILD_SAMPLES), "gamma": list(GAMMA_IZGARASI)},
+        "izgara_ucunda": izgara_ucundakiler(c),
+        "belirsizlik_spearman": _secilen_spearman(c.tablo),
+        "gamma_bulunabilirlik_araligi_puan": _gamma_araligi(s.tablo, "bulunabilirlik"),
+        "gamma_kalan_araligi_puan": _gamma_araligi(s.tablo, "sezon_sonu_kalan_yuzde"),
+        "gamma_esik_puan": ESIK_PUAN,
         "cevrimdisi": _kayitlar(c.tablo),
         "simulasyon": _kayitlar(s.tablo),
     }

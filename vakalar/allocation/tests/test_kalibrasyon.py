@@ -198,7 +198,8 @@ class _SahteKos:
 def _cevrimdisi():
     ids = ["O1", "O2", "O3"]
     return kalibrasyon.Cevrimdisi(
-        en_az=5, tahmin_parametreleri=dict(kalibrasyon.tahmin.VARSAYILAN), belirsizlik_olcusu="benzer_dk",
+        en_az=5, tahmin_parametreleri={**kalibrasyon.tahmin.VARSAYILAN, "num_leaves": 63, "min_child_samples": 100},
+        belirsizlik_olcusu="benzer_dk",
         tablo=pd.DataFrame(), kaynak="benzer", karar_gunu=pd.Timestamp("2024-02-09"), endeks=None,
         tahminci=None, belirsizlik=pd.Series([0.2, 0.5, 1.0], index=ids),
         agirlik=pd.Series([1000.0, 2000.0, 1500.0], index=ids))
@@ -249,9 +250,28 @@ def test_json_gidis_donus(tmp_path):
     yol = kalibrasyon.yaz(c, s, tmp_path / "k.json", sure_sn=1.5)
     d = kalibrasyon.oku(yol)
     assert d["en_az"] == 5 and d["tavan"] is True and d["gamma"] == 1.0
-    assert d["tahmin_parametreleri"] == kalibrasyon.tahmin.VARSAYILAN
+    assert d["tahmin_parametreleri"] == {**kalibrasyon.tahmin.VARSAYILAN, "num_leaves": 63, "min_child_samples": 100}
     assert d["belirsizlik_olcusu"] == "benzer_dk" and d["belirsizlik_taban"] == "benzer"
     assert d["sezon"] == "SS24" and d["karar_gunu"] == "2024-02-09" and d["sure_sn"] == 1.5
+    assert d["izgara"]["en_az"] == list(kalibrasyon.EN_AZ_IZGARASI) and d["izgara_ucunda"] == []
+    assert d["belirsizlik_spearman"] is None and d["gamma_bulunabilirlik_araligi_puan"] is None
+
+
+def test_json_belirsizlik_gucu_ve_uc_secim(tmp_path):
+    """Seçilen ölçünün Spearman'ı, γ koşularının aralığı ve ızgara ucundaki seçim JSON'da açık."""
+    c = _cevrimdisi()
+    c = kalibrasyon.Cevrimdisi(**{**c.__dict__, "en_az": max(kalibrasyon.EN_AZ_IZGARASI), "tablo": pd.DataFrame([
+        {"asama": "belirsizlik", "aday": "benzer_dk", "spearman": 0.05, "secildi": False},
+        {"asama": "belirsizlik", "aday": "benzer_tahmin_ayrisma", "spearman": 0.11, "secildi": True}])})
+    s = kalibrasyon.Simulasyon(tavan=True, gamma=2.0, belirsizlik_taban="tahmin", tablo=pd.DataFrame([
+        {"asama": "tavan", "bulunabilirlik": 60.0, "sezon_sonu_kalan_yuzde": 30.0},
+        {"asama": "gamma", "bulunabilirlik": 75.70, "sezon_sonu_kalan_yuzde": 24.59},
+        {"asama": "gamma", "bulunabilirlik": 75.74, "sezon_sonu_kalan_yuzde": 24.56}]))
+    d = kalibrasyon.oku(kalibrasyon.yaz(c, s, tmp_path / "k.json"))
+    assert d["belirsizlik_spearman"] == pytest.approx(0.11)
+    assert d["gamma_bulunabilirlik_araligi_puan"] == pytest.approx(0.04)
+    assert d["gamma_kalan_araligi_puan"] == pytest.approx(0.03)
+    assert d["izgara_ucunda"] == ["en_az"]
 
 
 # ---------------------------------------------------------------- oyun'un kalibrasyon ölçütleri

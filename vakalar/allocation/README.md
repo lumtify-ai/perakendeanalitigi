@@ -47,23 +47,28 @@ en özelden en genele (`benzer.HIYERARSI`):
 
 Seçilen düzey, yeni option'la bütün sütunlarında eşleşen en az `en_az` geçmiş option'ı olan ilk
 düzeydir; o düzeyde gözlemi olmayan mağaza bir üst düzeye düşer. SS option'ları yalnız SS
-sezonlarından öğrenir (`mevsim="SS"`). **Eşik `en_az = 10`** (kalibrasyonun seçimi, aşağıda).
+sezonlarından öğrenir (`mevsim="SS"`). **Eşik `en_az = 80`** (kalibrasyonun seçimi, aşağıda; SS23'te 210
+Collection option'ı var). Pay WAPE'si eşik büyüdükçe düşer ve 40'tan sonra düzleşir (0,2350 →
+0,2347); seçim ızgaranın ucunda kaldı (Ruling R24).
 
 ## Kalibrasyon
 
-    .venv/Scripts/python -m allocation.oyun kalibrasyon      # cikti/kalibrasyon.json (~24 dk)
+    .venv/Scripts/python -m allocation.oyun kalibrasyon      # cikti/kalibrasyon.json (~20 dk)
 
 SS24'te, oyun sezonuna (SS25) bakmadan (`allocation/kalibrasyon.py`, spec §4.1):
 
 - **Koşusuz** (~1 dk): SS24'ün ilk karar gününde (2024-02-09) kapanmış tek Collection sezonu SS23'le
   öğrenilir, SS24 Collection'ın yayımlanan veriden ölçülen ilk 6 hafta payına karşı mağaza payı
-  WAPE'si (ilk alım ağırlıklı) ile seçilir: `benzer`'in eşiği (`en_az` ∈ {3, 5, 10} → 10),
-  LightGBM'in `num_leaves` ∈ {15, 31} × `min_child_samples` ∈ {20, 50} (→ 31, 50), belirsizlik
-  ölçüsü (kaynağın option WAPE'siyle Spearman'ı en yüksek: `benzer_dk`).
-- **Simülasyon** (7 TAM koşu + önbellekli `lumoda`, ~23 dk): `benzer` ve `tahmin` tavanlı /
+  WAPE'si (ilk alım ağırlıklı) ile seçilir: `benzer`'in eşiği (`en_az` ∈ {3, 5, 10, 20, 40, 80} →
+  80), LightGBM'in `num_leaves` ∈ {15, 31, 63, 127} × `min_child_samples` ∈ {20, 50, 100, 200}
+  (→ 63, 100), belirsizlik ölçüsü (kaynağın option WAPE'siyle Spearman'ı en yüksek:
+  `benzer_tahmin_ayrisma`, ρ ≈ 0,11; sinyal zayıf). Izgaralar R24 ile genişletildi: ilk
+  ızgaranın seçimleri uçtaydı, uçta kalan yönde bir kez daha uzatıldı ve orada durdu.
+- **Simülasyon** (7 TAM koşu + önbellekli `lumoda`, ~18 dk): `benzer` ve `tahmin` tavanlı /
   tavansız; en iyisi (sezon boyu bulunabilirlik, 0,3 puandan yakınsa daha az sezon sonu kalan)
   kapsama tavanını (açık) ve belirsizliğin tabanını (`tahmin`) verir; `belirsizlik` γ ∈ {0,5; 1; 2}
-  → 2.
+  → 2. Üç γ'nın bulunabilirliği 0,03 puan içinde (eşitlik bandı 0,3): γ sezon sonu kalanla seçildi,
+  eğri dikliği SS24'te pratikte etkisiz.
 
 Seçimler, WAPE'ler ve koşu ölçütleri `cikti/kalibrasyon.json`'da; Görev 8'in ızgarası değerleri
 oradan okur. Kalibrasyonun iki ölçütünün (bulunabilirlik, sezon sonu kalan) tanımı

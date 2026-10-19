@@ -210,7 +210,9 @@ def main(argv=None) -> None:
     if a.komut == "kalibrasyon":
         d = kalibrasyon_kos()
         print(json.dumps({k: d[k] for k in ("en_az", "tahmin_parametreleri", "kaynak", "belirsizlik_olcusu",
-                                            "tavan", "gamma", "belirsizlik_taban", "sure_sn")},
+                                            "tavan", "gamma", "belirsizlik_taban", "izgara_ucunda",
+                                            "belirsizlik_spearman", "gamma_bulunabilirlik_araligi_puan",
+                                            "sure_sn")},
                          ensure_ascii=False), flush=True)
 
 
