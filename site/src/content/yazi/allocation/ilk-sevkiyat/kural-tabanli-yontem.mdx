@@ -67,8 +67,8 @@ beden" dediğimiz şeyin kodu bu `min`.
 Paylar paketlere en büyük kalan yöntemiyle çevriliyor: herkes payının tam
 kısmını alıyor, artan paketler kesri en büyük olanlara gidiyor. Bizim
 kollarımızda bir de en az gösterim var: payı bir paketin altında kalan
-adaylar artan paketleri önce alıyor; böylece mal yettiği sürece her aday en
-az bir paket görüyor. Lumoda'nın kuralında bu yok.
+adaylar artan paketleri önce alıyor; paket kalmazsa hiç almıyor. Yani
+böyle bir aday ya bir paket alıyor ya hiç. Lumoda'nın kuralında bu yok.
 
 ## Lumoda'nın kuralı: plan payı
 
@@ -320,12 +320,13 @@ depoda tutmanın etkisi. Bulunabilirlikte, puan olarak:
 | Mağazanın geçmiş payı | +1,0 | −0,1 | +1,1 |
 | Model | +1,0 | 0,0 | +1,0 |
 
-İki ondalıkla bakınca da değişen bir şey yok: tavanın "kime" etkisi −0,18
-ve +0,02 puan. Modelde tavanın "kime" etkisi öteki ölçütlerde biraz ters
-bile: sezon sonunda elde kalan +0,45 puan, tam fiyat STR −0,56 puan.
+Bulunabilirliği iki ondalıkla okuyunca da değişen bir şey yok: tavanın
+"kime" etkisi −0,18 ve +0,02 puan. Modelde tavanın "kime" etkisi öteki
+ölçütlerde biraz ters bile: sezon sonunda elde kalan +0,45 puan,
+<T k="str">tam fiyat STR</T> −0,56 puan.
 
-Neden böyle? 5.354 aday çiftin 5.146'sında, mağazanın geçmiş payıyla,
-mağaza tavanında duruyor; modelde 4.733'ünde. Tavan neredeyse her yerde
+Neden böyle? 5.354 aday çiftin mağazanın geçmiş payında 5.146'sı,
+modelde 4.733'ü tavanında duruyor. Tavan neredeyse her yerde
 devredeyse, malı bir mağazadan ötekine kaydırmıyor, toplamı kesiyor.
 Paylar da neredeyse hiç değişmiyor: tavanlı kolun pay hatası eşleşik koldan
 yalnız +0,004 ve +0,001 farklı. Bulunabilirlikteki kazancın hepsi, tavanın

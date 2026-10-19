@@ -4,16 +4,20 @@ tip: teknik
 sira: 5
 ozet: >-
   Depoda mal tutmak işe yarıyor; ilk payınız ne kadar kötüyse o kadar çok.
-  Ama tuttuğunuz malın değerini, onu sezon içinde kimin nasıl dağıttığı
-  belirliyor. Belirsizliğe göre tutmak ise burada sabit tutmayı geçmedi.
+  Tutmanın değeri hangi replenishment'la dağıtıldığına pek bağlı çıkmadı;
+  replenishment kuralının kendisi ise raftaki bulunabilirliği tutma
+  oranından çok değiştirdi. Belirsizliğe göre tutmak burada sabit tutmayı
+  geçmedi.
 yazar: Sabri Suyunu
 durum: yayinda
 ---
 
 import T from '../../../../components/T.astro'
 
-Üç yazı boyunca "kime" sorusunu konuştuk. Her karşılaştırmada kollar aynı
-malı gönderdi; değişen yalnız malın hangi mağazaya gittiğiydi. Bu yazıda
+Üç yazı boyunca "kime" sorusunu konuştuk. Önceki yazılarda kollar ilk
+sevkiyatta aynı malı gönderdi (tavan dışında); değişen yalnız malın hangi
+mağazaya gittiğiydi. Sezon içindeki toplam mal ise tekrar siparişin
+tepkisiyle koldan kola biraz değişti. Bu yazıda
 üçüncü soruya geçiyoruz: ne kadarı depoda kalmalı?
 
 ## Lumoda gerçekte ne kadar tutuyor?
@@ -30,8 +34,8 @@ gönderiyorum" diyor. Depoda kalan, pakete sığmayan mal.
 
 Bu yüzden bu dizide <T k="depoda-tutma">depoda tutma</T> oranını ilk
 alıma göre değil, o gün gönderilebilecek paketlere göre tanımlıyoruz.
-İkinci yazıdaki `U` bu sayıydı. Bir kol `U`'nun t kadarını tutuyor, kalanını
-gönderiyor. Lumoda'nın bugünkü hâli bu tanımla t = %0: gönderilebilecek
+İkinci yazıdaki `U` bu sayıydı. Bir kol `U`'nun t oranındaki kısmını
+tutuyor, kalanını gönderiyor. Lumoda'nın bugünkü hâli bu tanımla t = %0: gönderilebilecek
 her paketi gönderiyor. t = %30 dediğimizde ilk sevkiyat 824.165 adetten
 576.291 adede iniyor; aradaki mal her bedenden, paketin oranında, depoda
 kalıyor.
@@ -52,7 +56,7 @@ Bulunabilirlik t arttıkça artıyor: %0'dan %30'a 1,87 puan, %45'e 2,34
 puan. Sezon sonunda elde kalan mal da azalıyor.
 
 İkinci yazıda bir korkudan söz etmiştim: malı depoda tutan zincir sezonu
-boş raflarla açar. Burada öyle olmuyor. İlk dört haftanın bulunabilirliği
+boş raflarla açar. Burada %45'e kadar öyle olmuyor. İlk dört haftanın bulunabilirliği
 de t ile birlikte hafifçe artıyor. Gönderilen mal azalınca bile ilk
 haftaların rafı dolu kalıyor, sonraki haftalarda da depodaki mal ihtiyacı
 çıkan mağazaya gidebiliyor.
@@ -101,10 +105,12 @@ replenishment'ın ne kadar iyi çalıştığına bağlı olmalı.
 
 Lumoda'nın replenishment'ı planın önümüzdeki dört haftasına bakıyor; ilk
 dört haftasını geçmiş bir hücre son dört haftada hiç satmadıysa ona mal
-göndermiyor. Bunu sınamak için
-vakanın içine ikinci, basit bir replenishment kurduk. Adı `hiz`: son iki
+göndermiyor. Bunu sınamak için vakanın içine ikinci, basit bir
+replenishment kurduk. Adı `hiz`: son iki
 haftanın satışını o günlerin stoklu gün sayısına bölüyor, dört haftalık
-hedef kuruyor, raftaki ve yoldaki malı düşüyor. Ölü stok kapısı yok:
+hedef kuruyor, raftaki ve yoldaki malı düşüyor. Ölü stok kapısı yok.
+Yalnız bu vakanın ürünlerinde çalışıyor; öteki ürünlerde Lumoda'nın
+kuralına (`temel(g)`) devrediyor:
 
 ```python
 # allocation/politika.py (HizReplenishment.__call__)
@@ -133,9 +139,10 @@ Dört bileşimin hepsini aynı eksende koşturduk:
 | Model | hiz | %73,92 | %74,76 | +0,84 |
 
 İki şey görünüyor. Birincisi, tutmanın değeri replenishment'a pek bağlı
-değil: `hiz` altında biraz küçük, ama aynı düzeyde. İkincisi ve daha
-büyüğü, replenishment'ın kendisi. Aynı payla ve aynı t'de `hiz`,
-Lumoda'nın replenishment'ının önünde: plan payıyla +3,68, +3,67, +3,42 ve
+değil: `hiz` altında biraz küçük, ama aynı düzeyde. İkincisi, fiziksel
+mağazalardaki bulunabilirlikte replenishment'ın kendisi tutmadan daha
+büyük fark yaratıyor. Aynı payla ve aynı t'de `hiz`, Lumoda'nın
+replenishment'ının önünde: plan payıyla +3,68, +3,67, +3,42 ve
 +3,13 puan; modelle +3,51, +3,47, +3,41 ve +3,08 puan (t = %0, %15, %30,
 %45). Her tutma düzeyinde üç puanın üstünde.
 
@@ -144,13 +151,22 @@ Lumoda'nın replenishment'ının önünde: plan payıyla +3,68, +3,67, +3,42 ve
 Bu farkın bir kısmının nereden geldiği de belli. `hiz` depodaki malı
 mağazalara daha istekli gönderiyor; online'a daha az kalıyor. Plan payıyla
 t = %0'da online satış 237.708 adetten 180.750'ye düşüyor. Bulunabilirliği
-fiziksel mağazalarda ölçüyoruz, online'ı ayrı. Yine de toplam brüt kâr
-`hiz`'de yüksek: 534.431.649 TL'ye karşı 540.706.283 TL.
+fiziksel mağazalarda ölçüyoruz, online'ı ayrı.
 
-Bir sınır da var. Model payı ve `hiz` birlikteyken bulunabilirlik t = %30'da
-en yüksek (%74,76), t = %45'te geriliyor (%74,61); sezon sonunda elde
-kalan mal t = %45'te t = %0'a göre 1,28 puan artıyor. Replenishment iyi
-çalıştığında fazla tutmanın getirisi bitiyor.
+Başka ölçütlerde tablo değişiyor. Plan payıyla ve Lumoda'nın
+replenishment'ıyla t'yi %0'dan %30'a çıkarmak brüt kârı 32.324.346 TL,
+tam fiyat STR'yi 2,31 puan artırıyor; sezon sonunda elde kalan malı 2,00
+puan azaltıyor. t = %0'da replenishment'ı `hiz`'e çevirmek ise brüt kârı
+534.431.649 TL'den 540.706.283 TL'ye çıkarıyor, tam fiyat STR'yi
+%52,69'dan %52,37'ye indiriyor, elde kalan malı 1,09 puan azaltıyor. Brüt
+kârda ve tam fiyat STR'de tutmak, replenishment'ı değiştirmekten daha çok
+kazandırıyor.
+
+Bir sınır da var. Model payı ve `hiz` birlikteyken %45 fazla geliyor:
+bulunabilirlik t = %30'da en yüksek (%74,76), t = %45'te geriliyor
+(%74,61); sezon sonunda elde kalan mal t = %45'te t = %0'a göre 1,28 puan
+artıyor. Aynı dönüş Lumoda'nın replenishment'ında da var: model payıyla
+elde kalan mal t = %30'da %17,06, t = %45'te %17,79.
 
 ## Belirsizliğe göre tutmak
 
@@ -170,7 +186,9 @@ t = np.clip(tbar * oran ** float(gamma), 0.0, 2 * tbar)
 ```
 
 Oyun sezonunda t ürüne göre 0,04 ile 0,57 arasında değişti, ağırlıklı
-ortalaması %30. Karşısında aynı payla sabit %30 tutan kol:
+ortalaması %30. Karşısında aynı payla sabit %30 tutan kol var. Burada da
+mal tam aynı değil: belirsizliğe göre tutan kol biraz daha çok RPT aldı
+(397.410'a karşı 391.170 adet; toplam mal 1.568.433'e karşı 1.562.677).
 
 | | Sabit %30 | Belirsizliğe göre |
 |---|---:|---:|
@@ -179,31 +197,29 @@ ortalaması %30. Karşısında aynı payla sabit %30 tutan kol:
 | Sezon sonunda elde kalan | %17,06 | %17,29 |
 | Tam fiyat <T k="str">STR</T> | %55,54 | %55,16 |
 
-Bulunabilirlikte +0,03 puan: gürültü düzeyi. Elde kalan malda ve tam fiyat
+Bulunabilirlikte +0,03 puan: fark yok denecek kadar küçük. Elde kalan malda ve tam fiyat
 STR'de belirsizliğe göre tutmak geride. Burada işe yaramadı.
 
-Nedeni de ölçüde. Kalibrasyonda bu belirsizlik ölçüsünün, payın gerçekte
-ne kadar yanıldığıyla sıra korelasyonu (Spearman) yalnız 0,107. Ölçü,
-yanılacağımız ürünü pek seçemiyor; seçemeyen bir ölçüye göre tutmak da
-sabit tutmaktan farklı bir şey yapmıyor. Bir de eğrinin dikliğini
+Muhtemel nedeni ölçüde. Kalibrasyonda bu belirsizlik ölçüsünün, payın
+gerçekte ne kadar yanıldığıyla sıra korelasyonu (Spearman) yalnız 0,107.
+Üstelik denediğimiz üç ölçünün en iyisi buydu; ötekilerin korelasyonu
+−0,030 çıktı ya da hesaplanamadı. Ölçü, yanılacağımız ürünü pek seçemiyor;
+seçemeyen bir ölçüye göre tutmak da sabit tutmaktan iyi bir şey yapmıyor. Bir de eğrinin dikliğini
 kalibrasyonda tavanlı bir modelle seçtik, oyunda taban tavansızdı. Orada
 dikliklerin arasındaki fark zaten 0,03 puandı; seçimi yeniden sınamadık.
 
 ## Bedende ne değişiyor?
 
-Depoda tutmanın bir etkisi daha var ve onu altıncı yazıda ayrıntısıyla
-açacağız. Tek paketle Lumoda'nın deposunda en küçük bedenden hiç mal
-kalmıyordu (%0,0). Model payıyla t = %30 tutunca depoda en küçük bedenin
-%30,1'i bekliyor. Kaybın beden kaynaklı payı da değişiyor: model payıyla
-t = %0'da %43,6, t = %30'da %32,6; plan payıyla %42,3'ten %32,4'e. Her şeyi
-gönderen kollarda (eşit, mağazanın geçmiş payı, model, kahin) bu pay
-%42,5–%43,6 arasında. Beden kaybını "kime"yi değiştirerek
-azaltamıyoruz; depoda tutarak azaltıyoruz.
+Depoda tutmanın bir etkisi daha var. Tek paketle Lumoda'nın deposunda en
+küçük bedenden neredeyse hiç mal kalmıyordu (%0,0). Model payıyla `U`'nun
+%30'unu tutunca depoda en küçük bedenin %30,1'i bekliyor: tutulan paketler
+her bedeni paketin oranında depoda bırakıyor. Bunun beden kaybına ne
+yaptığını altıncı yazıda ölçüyoruz.
 
 ## Dürüstlük notları
 
-Bu yazıdaki "en iyi pay" ve tutma düzeyleri oyun sezonunda seçildi ve
-aynı sezonda ölçüldü. Bunlar örneklem içi ölçümler; gelecek bir sezon için
+Bu yazıdaki "en iyi pay" oyun sezonunda seçildi; tutma karşılaştırmaları
+da aynı sezonda ölçüldü. Bunlar örneklem içi ölçümler; gelecek bir sezon için
 verilmiş bir kararın sınaması değil.
 
 Bu dizide ilk dalganın erken satışını ikinci ve üçüncü dalganın kararında
@@ -218,11 +234,12 @@ zincirinizde online deposu ayrı olabilir, ya da aynı depoda iki kanalın
 öncelikleri yazılı bir kurala bağlı olmayabilir. O zaman "depoda tutmak"
 mağazalar için ayrılmış bir yedek mi, online'ın stoğu mu, belirsizleşir.
 
-İkincisi replenishment'ın ne kadar akıllı olduğu. Depoda tuttuğunuz mal,
-ancak sezon içinde doğru mağazaya gidebildiği kadar değerli. Burada basit
-bir kuralı değiştirmek, tutma oranını değiştirmekten daha büyük fark
-yarattı. Tutma oranını tartışmadan önce, tuttuğunuz malı kimin ve hangi
-kuralla dağıttığına bakın.
+İkincisi replenishment'ın ne kadar akıllı olduğu. Burada tutmanın değeri
+hangi replenishment'la dağıtıldığına pek bağlı çıkmadı. Ama replenishment
+kuralının kendisi raftaki bulunabilirliği tutma oranından çok değiştirdi,
+kısmen online'ın payından. Depoda ne kadar tutulacağı ile tutulanın nasıl
+dağıtılacağı iki ayrı karar; sizin zincirinizde de ayrı ayrı ölçülmeleri
+gerekir, yoksa birinin kazancı ötekinin hanesine yazılır.
 
 Üçüncüsü tanımın kendisi. "Yüzde otuz tutuyoruz" cümlesi zincirde
 herkesin bildiği bir cümledir. Ama ilk alıma göre mi, gönderilebilecek
