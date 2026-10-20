@@ -34,6 +34,10 @@ mağazalarının malı) bütün bloklardan dışarıdadır.
     olcek           log günlük net ciro (pencerenin net `tutar`ı, iade dahil, ÷ satışlı gün),
                     log m², log kapasite. Karışımla aynı bloğa konmaz.
 
+Satışlı gün (mevsim ve ölçek) ve ciro mağazanın **bütün** satışından sayılır (her line, her ürün;
+`urun` tablosuyla eşleşmeyen satır da); paylardaki adet ise yalnız üç line'ın (Collection, Basic,
+NOS) satışıdır.
+
 **Çeşitten arındırma** (`*_stoklu` bloklar, S4). Mağaza gizli segmentiyle (v4'te gelir, kadın payı
 ve m²'yle) seçilmiş bir çeşit taşır; ham satış payı bu yüzden kısmen çeşidi yansıtır. Arındırılmış
 blokta pay, ham adet yerine **stoklu gün başına satış** hızından kurulur:
@@ -63,7 +67,9 @@ bu imza ortak `cesit_hucreleri`'nin bütün tablodan bulduğu 150 hayaletin penc
 birebir aynıdır (67 kümelenen mağazanın arındırılmış bloklarında etkisi birkaç hücredir).
 
 **Gözlenmeyen hücre** (oran bloklarında: stoklu günü 0 olan kategori, satışlı günü 0 olan ay).
-Hız tanımsızdır; 0 saymak çeşidi geri sokar. Nötr doldurulur: hücre = (o sütunun, gözlendiği
+Hız tanımsızdır; 0 saymak çeşidi geri sokar. Stoklu günü 0 olan hücrede yine de satış olabilir
+(o pencerede fotoğrafı olmayan hücre); o adet hıza girmez, alt blok başına
+`X.attrs["dusen_satis"]`'ta sayılır. Nötr doldurulur: hücre = (o sütunun, gözlendiği
 mağazalardaki medyan hızı) × (mağazanın gözlenen sütunlarda medyana göre medyan oranı), yani
 "mağaza taşımadığı kategoride kendi düzeyinde ortalama bir mağaza gibi". Doldurulan hücre sayısı
 blok başına `X.attrs["doldurulan"]`'dadır. Hiçbir mağazada gözlenmeyen sütun düşer. Doldurma
@@ -71,9 +77,13 @@ verilen mağaza kümesinin medyanını kullanır (mağaza kümesi değişirse do
 gözlenen hücreler değişmez).
 
 **Standartlama** (`standartla`). Her sütun mağazalar üstünde z-skora çevrilir (popülasyon
-standart sapması); sabit sütun bilgi taşımaz ve düşer. Sonra her blok sütun sayısının kareköküne
-bölünür: her bloğun toplam varyansı 1'dir, aile ağırlıkları eşittir (sütun sayısı çok olan blok,
-örneğin karışımın ~50 sütunu, mevsimin 12'sini ezmez).
+standart sapması); sabit sütun bilgi taşımaz ve düşer. Ağırlık iki katmanlıdır (Ruling R7):
+bloklar eşittir (her bloğun toplam varyansı 1: karışımın ~45 sütunu mevsimin 12'sini ezmez), blok
+içinde de **alt bloklar** eşittir. Alt blok karışımda (grup, nitelik) çiftidir: iki line grubu ×
+alt kategori, fiyat segmenti, kalıp = 6 alt blok, her biri bloğun varyansının 1/6'sı (alt
+kategorinin ~17 sütunu fiyat segmentinin 3 sütununu ezmez); beden, mevsim ve ölçekte alt blok
+bloğun kendisidir. `S` alt bloklu bloğun `n` sütunlu alt bloğundaki her sütun √(n·S)'ye bölünür.
+Ablasyon için `agirlik="sutun"`: blok içinde sütunlar eşit (blok √sütun sayısına bölünür).
 
 **Kimlik** (`ozellik_kimligi`). Satır ve sütun adlarına göre sıralanmış tablonun SHA-256 özeti
 (değerler 10 ondalığa yuvarlanır); satır ya da sütun sırasından bağımsızdır.
@@ -101,6 +111,7 @@ AILELER: dict[str, tuple[str, ...]] = {
     "S5": ("karisim", "beden", "mevsim", "olcek"),            # S2 + ölçek (ablasyon)
 }
 _STOKLU = {"karisim_stoklu", "beden_stoklu", "mevsim_stoklu"}
+_ALT_BLOKLU = {"karisim", "karisim_stoklu"}      # alt blokları (grup, nitelik) olan bloklar
 _TABLOLAR = ("satis", "stok", "magaza")
 _YUVARLAMA = 10
 _ON = "_oz_"     # bağlantıda geçici nesnelerin öneki
@@ -244,7 +255,7 @@ class _Okuyucu:
         nit = ", ".join(NITELIKLER)
         bos = ", ".join(f"''::varchar as {a}" for a in NITELIKLER)
         self._tablo("ogn", f"select ''::varchar as m, ''::varchar as grup, {bos}, 0::bigint as gun where false")
-        self._tablo("ogh", "select ''::varchar as m, now()::timestamp as tarih, 0::bigint as gun where false")
+        self._tablo("ogh", "select ''::varchar as m, null::timestamp as tarih, 0::bigint as gun where false")
         self._tablo("ogb", "select ''::varchar as m, ''::varchar as beden_seti, 0::bigint as beden_sira, "
                            "0::bigint as gun where false")
         self._gecici.append(_ON + "og")
@@ -341,12 +352,14 @@ def _paya(R: pd.DataFrame, ad: str) -> pd.DataFrame:
     return R.div(t, axis=0)
 
 
-def _oran(adet: pd.DataFrame, gun: pd.DataFrame) -> pd.DataFrame:
-    """Hız = adet ÷ gün; gün 0 (ya da yok) ise NaN (gözlenmedi)."""
+def _oran(adet: pd.DataFrame, gun: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Hız = adet ÷ gün; gün 0 (ya da yok) ise NaN (gözlenmedi). İkinci değer: günü 0 olan
+    hücrelerin satışı (hıza girmeyen, düşen brüt adet)."""
     sutunlar = gun.columns.union(adet.columns)
     a = adet.reindex(columns=sutunlar, fill_value=0)
     g = gun.reindex(index=a.index, columns=sutunlar, fill_value=0)
-    return (a / g.where(g > 0)).dropna(axis=1, how="all")
+    dusen = int(round(a.where(~(g > 0), 0).to_numpy().sum()))
+    return (a / g.where(g > 0)).dropna(axis=1, how="all"), dusen
 
 
 def _notr_doldur(R: pd.DataFrame, ad: str) -> tuple[pd.DataFrame, int]:
@@ -377,25 +390,26 @@ def _adlandir(P: pd.DataFrame, *on: str) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
-def _karisim(o: _Okuyucu, stoklu: bool) -> tuple[pd.DataFrame, int]:
+def _karisim(o: _Okuyucu, stoklu: bool) -> tuple[pd.DataFrame, int, dict]:
     blok = "karisim_stoklu" if stoklu else "karisim"
     s = o.satis_nitelik()
     g = o.gun_nitelik() if stoklu else None
-    parca, n = [], 0
+    parca, n, dusen = [], 0, {}
     for grup in LINE_GRUPLARI:
         for a in NITELIKLER:
             ad = f"{blok}/{grup}/{a}"
             adet = _pivot(s[s["grup"] == grup], a, "adet", o.ids)
             if stoklu:
-                R, k = _notr_doldur(_oran(adet, _pivot(g[g["grup"] == grup], a, "gun", o.ids)), ad)
+                R, dusen[ad] = _oran(adet, _pivot(g[g["grup"] == grup], a, "gun", o.ids))
+                R, k = _notr_doldur(R, ad)
                 n += k
             else:
                 R = adet
             parca.append(_adlandir(_paya(R, ad), blok, grup, a))
-    return pd.concat(parca, axis=1), n
+    return pd.concat(parca, axis=1), n, dusen
 
 
-def _beden(o: _Okuyucu, stoklu: bool) -> tuple[pd.DataFrame, int]:
+def _beden(o: _Okuyucu, stoklu: bool) -> tuple[pd.DataFrame, int, dict]:
     blok = "beden_stoklu" if stoklu else "beden"
     siralar = sorted(o.urun.loc[o.urun["egri"], "beden_sira"].unique())
     setler = sorted(o.urun.loc[o.urun["egri"], "beden_seti"].unique())
@@ -403,12 +417,12 @@ def _beden(o: _Okuyucu, stoklu: bool) -> tuple[pd.DataFrame, int]:
     g = o.gun_beden() if stoklu else None
     toplam = pd.DataFrame(0.0, index=o.ids, columns=siralar)
     sayi = pd.Series(0, index=o.ids)
-    n = 0
+    n, dusen = 0, {}
     for b in setler:
         ad = f"{blok}/{b}"
         adet = _pivot(s[s["beden_seti"] == b], "beden_sira", "adet", o.ids)
         if stoklu:
-            R = _oran(adet, _pivot(g[g["beden_seti"] == b], "beden_sira", "gun", o.ids))
+            R, dusen[ad] = _oran(adet, _pivot(g[g["beden_seti"] == b], "beden_sira", "gun", o.ids))
             R = R.loc[R.notna().any(axis=1)]                  # seti hiç taşımayan mağaza: set yok
             R, k = _notr_doldur(R, ad)
             n += k
@@ -422,7 +436,7 @@ def _beden(o: _Okuyucu, stoklu: bool) -> tuple[pd.DataFrame, int]:
     yok = list(sayi.index[sayi == 0])
     if yok:
         raise ValueError(f"{blok}: beden eğrisi taşıyan hiçbir sette satışı/stoğu olmayan mağaza: {yok}")
-    return _adlandir(toplam.div(sayi, axis=0), blok), n
+    return _adlandir(toplam.div(sayi, axis=0), blok), n, dusen
 
 
 def _hafta_aylara(gh: pd.DataFrame) -> pd.DataFrame:
@@ -433,18 +447,18 @@ def _hafta_aylara(gh: pd.DataFrame) -> pd.DataFrame:
     return pd.concat(parca, ignore_index=True).groupby(["m", "ay"], as_index=False)["gun"].sum()
 
 
-def _mevsim(o: _Okuyucu, stoklu: bool) -> tuple[pd.DataFrame, int]:
+def _mevsim(o: _Okuyucu, stoklu: bool) -> tuple[pd.DataFrame, int, dict]:
     blok = "mevsim_stoklu" if stoklu else "mevsim"
     adet = _pivot(o.satis_ay(), "ay", "adet", o.ids, AYLAR)
     gun = _hafta_aylara(o.gun_hafta()) if stoklu else o.gun_ay()
-    R = _oran(adet, _pivot(gun, "ay", "gun", o.ids, AYLAR))     # hiç gözlenmeyen ay düşer
+    R, d = _oran(adet, _pivot(gun, "ay", "gun", o.ids, AYLAR))     # hiç gözlenmeyen ay düşer
     R, n = _notr_doldur(R, blok)
     P = _paya(R, blok)
     P.columns = [f"{a:02d}" for a in P.columns]
-    return _adlandir(P, blok), n
+    return _adlandir(P, blok), n, ({blok: d} if stoklu else {})
 
 
-def _olcek(o: _Okuyucu, stoklu: bool) -> tuple[pd.DataFrame, int]:
+def _olcek(o: _Okuyucu, stoklu: bool) -> tuple[pd.DataFrame, int, dict]:
     c = o.ciro().set_index("m").reindex(o.ids)
     m = o.magaza().set_index("m").reindex(o.ids)
     X = pd.DataFrame({"log_gunluk_ciro": (c["kurus"] / 100.0) / c["gun"],
@@ -453,7 +467,7 @@ def _olcek(o: _Okuyucu, stoklu: bool) -> tuple[pd.DataFrame, int]:
     kotu = list(X.index[~(X > 0).all(axis=1)])
     if kotu:
         raise ValueError(f"olcek: ciro, m² ya da kapasite pozitif değil: {kotu}")
-    return _adlandir(np.log(X), "olcek"), 0
+    return _adlandir(np.log(X), "olcek"), 0, {}
 
 
 _KURUCU = {"karisim": (_karisim, False), "beden": (_beden, False), "mevsim": (_mevsim, False),
@@ -473,17 +487,20 @@ def ozellik_tablosu(tablolar: duckdb.DuckDBPyConnection | Mapping[str, pd.DataFr
     urunler     yayımlanan `urun` tablosu
     aile        `AILELER` anahtarı (S1, S2, S4, S5) ya da tek blok adı (`BLOKLAR`)
 
-    `attrs["doldurulan"]`: blok → nötr doldurulan hücre sayısı. Pencerede brüt satışı olmayan
+    `attrs["doldurulan"]`: blok → nötr doldurulan hücre sayısı. `attrs["dusen_satis"]` (yalnız
+    `*_stoklu` bloklarda): alt blok (karışımda `blok/grup/nitelik`, bedende `blok/set`, mevsimde
+    blok) → stoklu günü 0 olan hücrelerin hıza girmeyen brüt adedi. Pencerede brüt satışı olmayan
     mağaza `ValueError`."""
     bloklar = _bloklar(aile)
     ids = _kimlikler(magazalar)
     bas, bit = pencere(karar_gunu, hafta)
     o = _Okuyucu(tablolar, urunler, ids, bas, bit, stoklu=bool(_STOKLU & set(bloklar)))
     try:
-        parca, doldurulan = [], {}
+        parca, doldurulan, dusen = [], {}, {}
         for blok in bloklar:
             kur, stoklu = _KURUCU[blok]
-            X, doldurulan[blok] = kur(o, stoklu)
+            X, doldurulan[blok], d = kur(o, stoklu)
+            dusen.update(d)
             parca.append(X[sorted(X.columns)])
     finally:
         o.kapat()
@@ -491,6 +508,8 @@ def ozellik_tablosu(tablolar: duckdb.DuckDBPyConnection | Mapping[str, pd.DataFr
     X.index.name = "magaza_id"
     X.columns.name = None
     X.attrs["doldurulan"] = doldurulan
+    if dusen:
+        X.attrs["dusen_satis"] = dusen
     return X
 
 
@@ -499,11 +518,26 @@ def ozellik_tablosu(tablolar: duckdb.DuckDBPyConnection | Mapping[str, pd.DataFr
 # ---------------------------------------------------------------------------
 
 
-def standartla(X: pd.DataFrame, aileler: str | Sequence[str]) -> pd.DataFrame:
-    """Blok içinde z-skor (popülasyon sapması), sabit sütun düşer; her blok toplam varyansı 1.
+def alt_blok(sutun: str) -> str:
+    """Sütunun alt bloğu: karışımda `blok/grup/nitelik` (ör. `karisim/Collection/kalip`), diğer
+    bloklarda bloğun kendisi."""
+    parca = str(sutun).split(AYRAC)
+    return AYRAC.join(parca[:3]) if parca[0] in _ALT_BLOKLU else parca[0]
+
+
+def standartla(X: pd.DataFrame, aileler: str | Sequence[str], *, agirlik: str = "alt_blok") -> pd.DataFrame:
+    """Z-skor (popülasyon sapması), sabit sütun düşer; her blok toplam varyansı 1.
 
     `aileler`: `AILELER` anahtarı ya da blok adları; her sütun bunlardan birine (`blok/...`
-    ön ekiyle) ait olmalı, her blokta en az bir sabit olmayan sütun bulunmalı."""
+    ön ekiyle) ait olmalı, her blokta en az bir sabit olmayan sütun bulunmalı.
+
+    agirlik     "alt_blok" (varsayılan, Ruling R7): blok içinde her alt blok (`alt_blok`) eşit
+                varyans alır; `S` alt bloklu bloğun `n` sütunlu alt bloğu √(n·S)'ye bölünür
+                (karışımda iki grup × üç nitelik: her biri 1/6). "sutun" (ablasyon): blok
+                sütun sayısının kareköküne bölünür; sütunlar eşit, alt bloklar sütun sayısıyla
+                orantılı (karışımda alt kategorinin ~17 sütunu fiyat segmentini ve kalıbı ezer)."""
+    if agirlik not in ("alt_blok", "sutun"):
+        raise ValueError(f"bilinmeyen ağırlık: {agirlik!r} (alt_blok, sutun)")
     bloklar = _bloklar(aileler) if isinstance(aileler, str) else tuple(aileler)
     if X.isna().to_numpy().any():
         raise ValueError("özellik tablosunda NaN var")
@@ -518,7 +552,13 @@ def standartla(X: pd.DataFrame, aileler: str | Sequence[str]) -> pd.DataFrame:
         Z = Z.loc[:, sd > 1e-12]
         if Z.shape[1] == 0:
             raise ValueError(f"{b}: sütun yok ya da hepsi sabit")
-        parca.append((Z - Z.mean(axis=0)) / sd[Z.columns] / np.sqrt(Z.shape[1]))
+        Z = (Z - Z.mean(axis=0)) / sd[Z.columns]
+        if agirlik == "sutun":
+            bolen = pd.Series(np.sqrt(Z.shape[1]), index=Z.columns)
+        else:
+            alt = pd.Series([alt_blok(c) for c in Z.columns], index=Z.columns)
+            bolen = np.sqrt(alt.map(alt.value_counts()) * alt.nunique())
+        parca.append(Z / bolen)
     return pd.concat(parca, axis=1)
 
 

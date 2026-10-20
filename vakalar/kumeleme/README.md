@@ -110,9 +110,19 @@ tablosu verir; tanımların tamamı modül notundadır (`kumeleme/ozellikler.py`
 | S4 | karisim_stoklu, beden_stoklu, mevsim_stoklu | 62 (7 hücre nötr doldurulur) |
 | S5 | karisim, beden, mevsim, olcek | 65 |
 
-`standartla(X, aile)` her sütunu z-skora çevirir, sabit sütunu düşürür ve her bloğu toplam varyansı
-1 olacak biçimde ölçekler (aile ağırlıkları eşit). `ozellik_kimligi(X)` satır ve sütun sırasından
-bağımsız içerik özetidir (SHA-256). Ölçek karışımla aynı bloğa konmaz; S5 bir ablasyondur.
+`standartla(X, aile)` her sütunu z-skora çevirir ve sabit sütunu düşürür. Ağırlık iki katmanlıdır:
+**bloklar eşit** (her bloğun toplam varyansı 1; karışım, beden, mevsim, ölçek aynı ağırlıkta) ve
+**blok içinde alt bloklar eşit**. Karışımın alt blokları (line grubu, nitelik) çiftleridir: 2 grup ×
+alt kategori, fiyat segmenti, kalıp = 6 alt blok, her biri karışımın varyansının 1/6'sı; alt
+kategorinin ~17 sütunu fiyat segmentinin 3 sütununu ezmez. Beden, mevsim ve ölçek tek alt bloktur.
+`agirlik="sutun"` ablasyonu blok içinde sütunları eşit tutar (alt kategori karışımın varyansının
+sütun sayısı oranında payını alır); rapor iki ağırlığı yan yana gösterebilir.
+`ozellik_kimligi(X)` satır ve sütun sırasından bağımsız içerik özetidir (SHA-256). Ölçek karışımla
+aynı bloğa konmaz; S5 bir ablasyondur.
+
+Satışlı gün (mevsim, ölçek) ve ciro mağazanın bütün satışından sayılır; paylardaki adet yalnız
+Collection, Basic ve NOS'un satışıdır. Arındırılmış bloklarda stoklu günü 0 olan hücrenin satışı
+hıza girmez; `attrs["dusen_satis"]` alt blok başına bu adedi tutar (SS25, 67 mağaza: 0).
 
 ## Sızıntı kilidi
 

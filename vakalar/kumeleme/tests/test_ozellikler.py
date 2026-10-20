@@ -56,6 +56,18 @@ def _fikstur(tablolar, aile):
     return oz.ozellik_tablosu(tablolar, KUMELENIR, tablolar["urun"], KARAR, aile)
 
 
+def _alt_blok_paylari(Z):
+    """Blok → {alt blok: o alt bloğun bloğun toplam varyansındaki payı}."""
+    v = Z.var(ddof=0)
+    alt = pd.Series([oz.alt_blok(c) for c in Z.columns], index=Z.columns)
+    blok = pd.Series([c.split("/", 1)[0] for c in Z.columns], index=Z.columns)
+    pay = {}
+    for b in blok.unique():
+        vb = v[blok == b]
+        pay[b] = (vb.groupby(alt[blok == b]).sum() / vb.sum()).to_dict()
+    return pay
+
+
 def _pay_gruplari(X):
     """Payı bire toplanması gereken sütun grupları: son bileşen dışındaki ön ek."""
     gruplar: dict[str, list[str]] = {}
@@ -314,6 +326,45 @@ def test_ozellik_karar_sonrasini_gormez(tablolar):
         pd.testing.assert_frame_equal(_fikstur(bozuk, aile), X)
 
 
+def test_ozellik_pencere_kenarlari(tablolar):
+    """Pencerenin başından önceki satış, `bas` günkü fotoğraf (pencere öncesi haftayı anlatır) ve
+    karar haftasının karar gününden önceki günleri (2025-02-03 … 06; hafta tamamlanmadı) okunmaz."""
+    temel = {a: _fikstur(tablolar, a) for a in oz.AILELER}
+    bas, bit = oz.pencere(KARAR)
+    assert (bas, bit) == (pd.Timestamp("2023-02-06"), pd.Timestamp("2025-02-03"))
+    bozuk = dict(tablolar)
+    s = tablolar["satis"].copy()
+    karar_haftasi = (s["tarih"] >= bit) & (s["tarih"] < KARAR)
+    assert karar_haftasi.any()                                     # fikstürde 2025-02-03 satırları var
+    s.loc[karar_haftasi, "adet"] *= 100
+    s.loc[karar_haftasi, "tutar"] *= 100
+    ek = [(d, "M01", "SKU-BAS-36", 40, 400.0, 0.0, None)
+          for d in ("2025-02-04", "2025-02-05", "2025-02-06", "2023-02-05", "2023-01-30")]
+    bozuk["satis"] = pd.concat([s, doldur("satis", ek)], ignore_index=True)
+    bozuk["stok"] = pd.concat([tablolar["stok"], doldur("stok", [
+        (bas, m, sku, 10, 7) for m in KUMELENIR for sku in ("SKU-BAS-36", "SKU-NOS-STD")]
+        + [(bas, "M02", "SKU-AW24", 3, 7)])], ignore_index=True)    # bas fotoğrafı: dışarıda
+    for aile, X in temel.items():
+        pd.testing.assert_frame_equal(_fikstur(bozuk, aile), X)
+        assert _fikstur(bozuk, aile).attrs == X.attrs
+
+
+def test_dusen_satis_sayilir(tablolar):
+    """Stoklu günü 0 olan hücrenin satışı hıza girmez; alt blok başına `attrs["dusen_satis"]`."""
+    # Kazak'ı hiç stoklamadan satan mağaza: satış düşer, kategori nötr doldurulur
+    satis, stok = _cesit_satis_stok()
+    satis = satis + [(OCAK[0], "M02", "C-KZK-M", 6), (OCAK[0], "M01", "C-KZK-M", 5)]
+    stok = stok + [(OCAK[k] + pd.Timedelta(days=7), "M01", "C-KZK-M", 7) for k in (0, 1)]
+    t, urun = _mini(tablolar, satis, stok)
+    assert "dusen_satis" not in _oz(t, urun, "karisim").attrs
+    ari = _oz(t, urun, "karisim_stoklu")
+    d = ari.attrs["dusen_satis"]
+    assert d["karisim_stoklu/Collection/alt_kategori"] == 6
+    assert d["karisim_stoklu/Collection/kalip"] == d["karisim_stoklu/Collection/fiyat_segmenti"] == 6
+    assert d["karisim_stoklu/Basic+NOS/alt_kategori"] == 0
+    assert ari.attrs["doldurulan"]["karisim_stoklu"] == 3
+
+
 # ------------------------------------------------------------------ standartlama
 
 
@@ -329,9 +380,38 @@ def test_standart_aile_agirligi_esit(tablolar):
         assert cols, blok
         v = Z[cols].var(ddof=0)
         assert v.sum() == pytest.approx(1.0), blok                 # her aile toplam varyansı 1
-        np.testing.assert_allclose(v, 1 / len(cols))               # aile içinde eşit
         np.testing.assert_allclose(Z[cols].mean(), 0.0, atol=1e-12)
+    pay = _alt_blok_paylari(Z)
+    assert len(pay["karisim"]) == 6                                # 2 line grubu × 3 nitelik
+    np.testing.assert_allclose(list(pay["karisim"].values()), 1 / 6)
+    assert pay["beden"] == {"beden": pytest.approx(1.0)} and pay["olcek"] == {"olcek": pytest.approx(1.0)}
     pd.testing.assert_frame_equal(oz.standartla(X, "S5"), Z)
+
+
+def test_standart_alt_bloklar_esit_sutun_sayisindan_bagimsiz():
+    """Karışımda alt bloklar (grup, nitelik) sütun sayısından bağımsız eşit varyans alır (R7);
+    `agirlik="sutun"` ablasyonunda sütunlar eşittir, alt bloğun payı sütun sayısıyla orantılıdır."""
+    rng = np.random.default_rng(1)
+    cols = ([f"karisim/Collection/alt_kategori/{k}" for k in "abcd"]
+            + [f"karisim/Collection/kalip/{k}" for k in "xy"]
+            + [f"karisim/Basic+NOS/fiyat_segmenti/{k}" for k in "uvw"]
+            + [f"mevsim/{a:02d}" for a in (1, 2, 3, 4, 5)])
+    X = pd.DataFrame(rng.random((9, len(cols))), index=[f"M{i}" for i in range(9)], columns=cols)
+    Z = oz.standartla(X, ("karisim", "mevsim"))
+    pay = _alt_blok_paylari(Z)
+    assert pay["karisim"] == pytest.approx({"karisim/Collection/alt_kategori": 1 / 3,
+                                            "karisim/Collection/kalip": 1 / 3,
+                                            "karisim/Basic+NOS/fiyat_segmenti": 1 / 3})
+    for b in ("karisim", "mevsim"):
+        assert Z[[c for c in Z.columns if c.startswith(b + "/")]].var(ddof=0).sum() == pytest.approx(1.0)
+    S = oz.standartla(X, ("karisim", "mevsim"), agirlik="sutun")
+    assert _alt_blok_paylari(S)["karisim"] == pytest.approx({"karisim/Collection/alt_kategori": 4 / 9,
+                                                             "karisim/Collection/kalip": 2 / 9,
+                                                             "karisim/Basic+NOS/fiyat_segmenti": 3 / 9})
+    np.testing.assert_allclose(S[[c for c in S.columns if c.startswith("karisim/")]].var(ddof=0), 1 / 9)
+    pd.testing.assert_frame_equal(S.filter(like="mevsim/"), Z.filter(like="mevsim/"))   # tek alt blok: aynı
+    with pytest.raises(ValueError, match="ağırlık"):
+        oz.standartla(X, ("karisim", "mevsim"), agirlik="esit")
 
 
 def test_standart_hatalar(tablolar):
@@ -396,8 +476,11 @@ def test_ozellik_tablosu_ss25():
                 np.testing.assert_allclose(X[cols].sum(axis=1), 1.0, atol=1e-12, err_msg=ad)
             Z = oz.standartla(X, aile)
             assert not Z.isna().any().any()
+            for b, pay in _alt_blok_paylari(Z).items():
+                np.testing.assert_allclose(list(pay.values()), 1 / len(pay), err_msg=b)
             kayit.append(f"{aile}: {X.shape[0]}x{X.shape[1]} (standart {Z.shape[1]}), {sure:.1f} s, "
                          f"Python tepe {tepe / 2**20:.0f} MB, doldurulan {X.attrs['doldurulan']}, "
+                         f"düşen satış {X.attrs.get('dusen_satis', {})}, "
                          f"kimlik {oz.ozellik_kimligi(X)[:12]}")
     finally:
         con.close()
