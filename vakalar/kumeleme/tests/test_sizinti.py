@@ -3,7 +3,7 @@ ve okumaz.
 
 Karar modülleri (`KARAR_MODULLERI`) ne `perakende_veri`'yi (v4 üreteci), ne
 `perakende_analitik.hakem`'i içe aktarır, ne de ölçüm modüllerinden (`IZINLI_MODULLER`:
-`hakem`, `olcutler`, `oyun`, `senaryolar`) herhangi birine ulaşır: ne doğrudan ne paket içindeki
+`hakem`, `olcutler`, `oyun`, `senaryolar`, `hikaye_kos`) herhangi birine ulaşır: ne doğrudan ne paket içindeki
 başka bir modül üstünden (tarama geçişlidir: `kume_payi` → `olcutler` ihlaldir). Gizli segment
 (`gizli_magaza.segment`) yalnız `hakem.py`'ye ve testlere aittir. Paketin `__init__.py`'si her
 içe aktarmada çalışır; bu yüzden her karar modülünün erişim kümesine girer. Vaka kökündeki
@@ -38,7 +38,7 @@ PAKET_ADI = "kumeleme"
 KARAR_MODULLERI = (
     "sabitler", "kaynak", "ozellikler", "kural", "ogren", "yeni_magaza", "kume_payi", "hikaye_sec",
 )
-IZINLI_MODULLER = ("hakem", "olcutler", "oyun", "senaryolar")
+IZINLI_MODULLER = ("hakem", "olcutler", "oyun", "senaryolar", "hikaye_kos")
 
 
 def yasaklar(paket_adi: str, izinli: tuple[str, ...] = IZINLI_MODULLER) -> tuple[str, ...]:
