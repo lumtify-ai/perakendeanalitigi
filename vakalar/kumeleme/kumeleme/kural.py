@@ -23,6 +23,16 @@ ama cirosu **yıllıklandırılır**: ilk satış gününden karar gününe kada
 sırf eksik ay yüzünden C'ye düşerdi. Bedeli: kısa geçmiş tek bir mevsimi görür, yıllıklandırma
 mevsimselliği düzeltmez (yaz açılan mağazanın yıllıklandırılmış cirosu şişkin, kış açılanınki
 düşük çıkabilir). `net_ciro` bu yıllıklandırılmış ciroyu verir (rapor eşikleri buradan).
+Yıllıklandırma `TAM_YIL_HAFTA` (52) altındaki **her** mağazaya uygulanır, yeni mağazaya da: yeni
+mağazanın yıllıklandırılmış cirosu yalnız raporlama içindir (SS25'te M041: ham 45,4 M, yıllıklandırılmış
+125,9 M); sınıfı sıralamaya girmediği için ne olursa olsun C kalır.
+
+*Tekilleştirme.* Gerçek `satis`ta birebir aynı satırlar vardır (SS25 karar gününde 200 çift);
+`net_ciro` pencere satırlarındaki birebir yinelenenleri kendisi düşürür (ortak `temiz_satis` /
+`select distinct` ile aynı kural), yani çağıranın tekilleştirmesine bağlı değildir. Kural **gelen
+sütunların tümü** üstünden çalışır: ham satırı `urun_id`, `adet` … ile birlikte verin; yalnız
+(`tarih, magaza_id, tutar`) verilirse aynı gün aynı tutarlı iki gerçek satış tek sayılır. Günlük toplam
+verirseniz satırlar zaten tekildir.
 
 **K3 `bolge_ciro`.** Lumoda'nın planlama ızgarası: etiket `bolge×sınıf` (örn. `Marmara×A`).
 Hücreler sınıf sırasıyla A-B-C dizilir; her bölgede en az `K3_EN_AZ` mağazası olmayan hücre
@@ -74,19 +84,19 @@ def bolge(kapsam: pd.DataFrame) -> pd.Series:
 def net_ciro(satis: pd.DataFrame, kapsam: pd.DataFrame, karar_gunu) -> pd.Series:
     """Son 12 ayın net cirosu (iade düşülmüş `tutar` toplamı); 12 aydan kısa geçmişli, geçmiş
     eşiğini geçen mağazanın cirosu yıllıklandırılmıştır (modül notu). `kapsam`taki her mağaza
-    için bir değer (satışsız: 0). `satis`: en az `tarih, magaza_id, tutar` sütunları, tekilleştirilmiş
-    satırlar (günlük toplama da olur); karar gününden sonrası okunmaz."""
+    için bir değer (satışsız: 0). `satis`: en az `tarih, magaza_id, tutar` sütunları (ham satır ya da günlük
+    toplam); birebir yinelenen satırlar düşer (modül notu); karar gününden sonrası okunmaz."""
     karar = pd.Timestamp(karar_gunu).normalize()
     bas = karar - pd.DateOffset(years=1)
     pencere_gun = (karar - bas).days
-    s = satis.loc[(satis["tarih"] >= bas) & (satis["tarih"] < karar), ["tarih", "magaza_id", "tutar"]]
+    s = satis.loc[(satis["tarih"] >= bas) & (satis["tarih"] < karar)].drop_duplicates()
     kimlik = s["magaza_id"].astype(str)
     ciro = s["tutar"].groupby(kimlik.to_numpy()).sum()
     ilk = s["tarih"].dt.normalize().groupby(kimlik.to_numpy()).min()
     ids = kapsam["magaza_id"].astype(str)
     c = ids.map(ciro).fillna(0.0).astype("float64")
     g = (karar - ids.map(ilk)).dt.days.astype("float64")              # satışsız: NaN
-    kisa = (kapsam["gecmis_hafta"].to_numpy() < 52) & g.notna().to_numpy()
+    kisa = (kapsam["gecmis_hafta"].to_numpy() < sabitler.TAM_YIL_HAFTA) & g.notna().to_numpy()
     carpan = (pencere_gun / g.clip(lower=1.0, upper=pencere_gun)).where(kisa, 1.0)
     return _kimlikli(kapsam, (c * carpan).to_numpy()).astype("float64").rename("net_ciro")
 
