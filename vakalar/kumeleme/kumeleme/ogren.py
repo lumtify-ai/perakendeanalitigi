@@ -43,23 +43,33 @@ alt örneklemeden etkilenmez). Özellikler yeniden kurulmaz ve yeniden standartl
 çekiliş yalnız kümeleme adımında mağaza dışarıda bırakır. Çekilişler `default_rng(tohum)`'la.
 
 **Öneri** (`oneri`). Yazıların ana "ML kümesi": aileler {S1, S2} × yöntemler {kmeans, ward} ×
-`K_ARALIK` içinden, üç adımda ve hakemsiz. Siluet birincil ölçüttür (k kuralıyla aynı), kararlılık
-yalnız siluette ayırt edilemeyen adayları ayırır:
+`K_ARALIK` içinden, üç adımda ve hakemsiz (Ruling R9). Siluet iki kademede birincildir;
+kararlılık yalnız ikinci kademede siluette ayırt edilemeyen adayları ayırır:
 
-    1. her (aile, yöntem) için k, `k_sec` kuralıyla: en çok dört **aday** (tabloda `secilen`);
-       her adayın kararlılığı hesaplanır ve basılır (`kararlilik`);
-    2. adaylardan siluet en yüksek olan s*; siluet s* − `SILUET_ESITLIK` ya da üstündekiler
-       **siluette eşit** sayılır (tabloda `esit`);
-    3. eşitlerden kararlılığı en yüksek olan; kararlılık farkı ≤ `KARARLILIK_ESITLIK` (0,02)
-       ise küçük k, o da eşitse aile sırası (S1, S2), o da eşitse yöntem sırası (kmeans, ward).
+    1. her (aile, yöntem) için k, `k_sec` kuralıyla (o aile ve yöntemin k satırları içinde): en
+       çok dört **aday** (tabloda `secilen`); her adayın kararlılığı hesaplanır ve basılır
+       (`kararlilik`);
+    2. bu en çok dört aday arasında siluet en yüksek olan s*; siluet s* − `SILUET_ESITLIK` ya da
+       üstündekiler **siluette eşit** sayılır (tabloda `esit`);
+    3. eşitlerden **bölme kararlılığı** en yüksek olan; fark ≤ `KARARLILIK_ESITLIK` (0,02) ise
+       küçük k, o da eşitse aile sırası (S1, S2), o da eşitse yöntem sırası (kmeans, ward).
+       Bölme kararlılığı (`bolme_kararlilik`) aynı bölmeyi (aynı `kimlik`) veren adayların
+       kararlılık ortalamasıdır: aynı bölme için iki yöntemin alt örneklem kararlılığı farklı
+       çıkabilir (alt örneklemler yeniden kümelenirken yöntemler ayrışır), ama bölme aynı
+       olduğundan "biri daha kararlı" denemez; böyle adaylar 3. adımda eşittir, yöntem sırası
+       belirler.
+
+    Payların birikmesi: 1. adımda seçilen k kendi (aile, yöntem) satırlarının en iyi siluetinden
+    0,01'e kadar düşük olabilir, 2. adım bir 0,01 daha tanır; önerilen satırın silueti uygun
+    bütün ızgaranın en iyi siluetinden ~0,02'ye kadar düşük olabilir.
 
     Siluet aileler arasında da karşılaştırılır. Gerekçe: iki aile aynı standartlamayla (her blok
     toplam varyans 1) kurulur ve siluet boyuttan değil bölmenin ayrıklığından konuşur; SS25'te
     sütunları bağımsız karıştırılmış boş veride (`bos_siluet`: yapısız, aynı marjinaller) siluet
-    S1'de ve S2'de aynı düzeydedir (adaylarda 0,05 dolayı; raporda basılır). Kararlılık birincil ölçüt yapılmaz: küçük k'yı ve tek bir
-    güçlü eksende ikiye bölünmeyi kayırır (bölme alt örneklemede bozulmaz ama yapının asıl
-    ekseni olmayabilir); 50 çekilişli ortalamanın oynaklığı ~0,01 düzeyindedir (eşitlik payı bu
-    yüzden 0,02).
+    S1'de ve S2'de aynı düzeydedir (adaylarda 0,05 dolayı; raporda basılır). Kararlılık birincil
+    ölçüt yapılmaz: küçük k'yı ve tek bir güçlü eksende ikiye bölünmeyi kayırır (bölme alt
+    örneklemede bozulmaz ama yapının asıl ekseni olmayabilir); 50 çekilişli ortalamanın oynaklığı
+    ~0,01 düzeyindedir (eşitlik payı bu yüzden 0,02).
 
 Özellikler bir kez, kapsamın kümelenen (`kumelenir`) mağazalarıyla kurulur; yeni mağazalar
 kümelenmez (sonradan `yeni_magaza` atar). `oneri` bütün aday tablosunu `Oneri.tablo`'da döndürür.
@@ -282,8 +292,8 @@ class Oneri:
     """Önerilen tek ML kümesi ve bütün aday tablosu.
 
     tablo   aile × yöntem × k satırları: `k_sec` sütunları (`secilen`: o aile ve yöntemin adayı),
-            ayrıca `aile`, `yontem`, `kararlilik` (yalnız adaylarda; diğerleri NaN), `esit`
-            (siluette en iyiye eşit aday), `oneri`."""
+            ayrıca `aile`, `yontem`, `kararlilik` ve `bolme_kararlilik` (yalnız adaylarda;
+            diğerleri NaN), `esit` (siluette en iyiye eşit aday), `oneri`."""
     aile: str
     yontem: str
     k: int
@@ -292,20 +302,22 @@ class Oneri:
     tablo: pd.DataFrame
 
 
-def oneri_kurali(adaylar: pd.DataFrame) -> tuple[int, pd.Series]:
-    """Öneri kuralının 2. ve 3. adımı (modül notu): `aile`, `yontem`, `k`, `siluet`, `kararlilik`
-    sütunlu aday tablosundan seçilen satırın konumu ve siluette eşit adayların maskesi."""
+def oneri_kurali(adaylar: pd.DataFrame) -> tuple[int, pd.Series, pd.Series]:
+    """Öneri kuralının 2. ve 3. adımı (modül notu): `aile`, `yontem`, `k`, `siluet`, `kararlilik`,
+    `kimlik` (bölme kimliği) sütunlu aday tablosundan seçilen satırın konumu, siluette eşit
+    adayların maskesi ve bölme kararlılığı (aynı kimlikli adayların kararlılık ortalaması)."""
     a = adaylar.reset_index(drop=True)
+    bolme = a.groupby("kimlik")["kararlilik"].transform("mean")
     esit = a["siluet"] >= a["siluet"].max() - SILUET_ESITLIK - _EPS
-    e = a.loc[esit]
-    e = e.loc[e["kararlilik"] >= e["kararlilik"].max() - KARARLILIK_ESITLIK - _EPS]
+    st = bolme[esit]
+    e = a.loc[esit].loc[st >= st.max() - KARARLILIK_ESITLIK - _EPS]
     sira = sorted(e.index, key=lambda i: (int(e.at[i, "k"]), ONERI_AILELERI.index(e.at[i, "aile"]),
                                           YONTEMLER.index(e.at[i, "yontem"])))
-    return int(sira[0]), esit
+    return int(sira[0]), esit, bolme
 
 
 _ONERI_SUTUNLARI = ["aile", "yontem", "k", "siluet", "w", "en_kucuk", "boyutlar", "uygun", "secilen",
-                    "kararlilik", "esit", "oneri", "kimlik"]
+                    "kararlilik", "bolme_kararlilik", "esit", "oneri", "kimlik"]
 
 
 def oneri(tablolar, kapsam: pd.DataFrame, urunler: pd.DataFrame | None, karar_gunu, *,
@@ -331,21 +343,24 @@ def oneri(tablolar, kapsam: pd.DataFrame, urunler: pd.DataFrame | None, karar_gu
             k, t = k_sec(Z, yontem, k_aralik=k_aralik, en_kucuk=en_kucuk, tohum=tohum)
             parca.append(t.assign(aile=aile, yontem=yontem))
             if k is not None:
+                sec = t.loc[t["secilen"]].iloc[0]
                 aday.append({"aile": aile, "yontem": yontem, "k": k, "Z": Z,
-                             "siluet": float(t.loc[t["secilen"], "siluet"].iloc[0]),
+                             "siluet": float(sec["siluet"]), "kimlik": sec["kimlik"],
                              "kararlilik": kararlilik(Z, yontem, k, ornek=ornek, tohum=tohum)})
     if not aday:
         raise ValueError("hiçbir aile ve yöntemde en küçük küme sınırını sağlayan k yok")
-    secim, esit = oneri_kurali(pd.DataFrame([{c: a[c] for c in ("aile", "yontem", "k", "siluet",
-                                                                 "kararlilik")} for a in aday]))
+    secim, esit, bolme = oneri_kurali(pd.DataFrame([
+        {c: a[c] for c in ("aile", "yontem", "k", "siluet", "kararlilik", "kimlik")} for a in aday]))
     o = aday[secim]
 
     tablo = pd.concat(parca, ignore_index=True)
     tablo["kararlilik"] = np.nan
+    tablo["bolme_kararlilik"] = np.nan
     tablo["esit"] = False
     for i, a in enumerate(aday):
         sat = (tablo["aile"] == a["aile"]) & (tablo["yontem"] == a["yontem"]) & (tablo["k"] == a["k"])
         tablo.loc[sat, "kararlilik"] = a["kararlilik"]
+        tablo.loc[sat, "bolme_kararlilik"] = float(bolme[i])
         tablo.loc[sat, "esit"] = bool(esit[i])
     tablo["oneri"] = ((tablo["aile"] == o["aile"]) & (tablo["yontem"] == o["yontem"])
                       & (tablo["k"] == o["k"]))

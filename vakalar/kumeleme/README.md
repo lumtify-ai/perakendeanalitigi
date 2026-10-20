@@ -137,15 +137,18 @@ sırasıyla. `bolme_kimligi` etiket adlarından bağımsız bölme özetidir (SH
   Dirsek için küme içi kareler (`w`) tabloda; kurala girmez.
 - **Kararlılık** (`kararlilik`): mağazaların %80'i 50 kez iadesiz çekilip yeniden kümelenir;
   tam bölmeyle çekilen mağazalardaki ortalama ARI. Özellikler yeniden kurulmaz (Ruling R6).
-- **Öneri** (`oneri`): S1 ve S2 ailesi × kmeans ve Ward, her biri kendi k'sıyla (en çok dört aday);
-  siluet en yüksek olana 0,01 yakın adaylardan kararlılığı en yüksek olan (0,02 içinde eşitse
-  küçük k, sonra S1, sonra kmeans). `bos_siluet` sütunları karıştırılmış yapısız veride ortalama
+- **Öneri** (`oneri`, Ruling R9): önce her (aile, yöntem) çifti kendi k'sını `k_sec` ile seçer
+  (S1 ve S2 × kmeans ve Ward: en çok dört aday); sonra bu adaylar arasında siluet en yüksek olana
+  0,01 yakın adaylardan bölme kararlılığı en yüksek olan (0,02 içinde eşitse küçük k, sonra S1,
+  sonra kmeans). Bölme kararlılığı aynı bölmeyi veren adayların kararlılık ortalamasıdır: aynı
+  bölmeyi veren iki yöntem eşittir, yöntem sırası belirler. İki kademenin payları birikir:
+  önerilen satırın silueti uygun bütün ızgaranın en iyisinden ~0,02'ye kadar düşük olabilir. `bos_siluet` sütunları karıştırılmış yapısız veride ortalama
   silueti verir: aileler arasında siluetin karşılaştırılabilirliğinin denetimi. Bütün aday tablosu
   `Oneri.tablo`'dadır.
 - **Yorum** (`yorum`): kümenin ortalama z'si |z| büyükten küçüğe en ayırt edici 3 özellik.
 
-SS25 karar günü, 67 mağaza: öneri S1 (satış karışımı), Ward, k = 5, küme büyüklükleri 32, 14, 7, 7,
-7 (siluet 0,308; k-means aynı bölmeyi verir). S2'de k-means k = 3 seçilir (siluet 0,278); S2'nin
+SS25 karar günü, 67 mağaza: öneri S1 (satış karışımı), k = 5, küme büyüklükleri 32, 14, 7, 7, 7
+(siluet 0,308). k-means ve Ward aynı bölmeyi verir; yöntem sırasıyla k-means adı yazılır. S2'de k-means k = 3 seçilir (siluet 0,278); S2'nin
 bölmesini beden eğrisi sürükler.
 
 ## Sızıntı kilidi

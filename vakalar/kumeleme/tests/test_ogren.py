@@ -53,8 +53,8 @@ def test_kmeans_belirlenimci(yontem):
     assert list(b.index) == list(karisik.index)
     assert b.reindex(a.index).equals(a)                                # aynı kanonik etiketler
     assert ogren.bolme_kimligi(a) == ogren.bolme_kimligi(pd.Series(gercek, index=X.index))
-    if yontem == "kmeans":                                            # tohum belirleyicidir
-        assert ogren.kume(X, yontem, 3, tohum=7).equals(a)            # ayrık yapıda tohum fark etmez
+    if yontem == "kmeans":                                            # başka tohum, aynı bölme:
+        assert ogren.kume(X, yontem, 3, tohum=7).equals(a)            # ayrık yapıda tek optimum
 
 
 def test_kanonik_etiket_en_kucuk_kimlik():
@@ -188,17 +188,17 @@ def test_yorum_ayirt_edici():
 # ------------------------------------------------------------------ öneri
 
 
-# 8 kümelenen mağazaya uygun: fikstürde M08 (turistik) tek başına kalır, en küçük küme 1
 def test_oneri_kurali():
-    """Siluet birincil; siluette eşitler (≤ 0,01) kararlılıkla ayrılır; kararlılıkta eşitler
+    """Siluet birincil; siluette eşitler (≤ 0,01) bölme kararlılığıyla ayrılır; kararlılıkta eşitler
     (≤ 0,02) küçük k, sonra aile ve yöntem sırası."""
-    a = pd.DataFrame([("S1", "kmeans", 5, 0.300, 0.85), ("S1", "ward", 5, 0.300, 0.90),
-                      ("S2", "kmeans", 3, 0.280, 0.99), ("S2", "ward", 5, 0.270, 0.97)],
-                     columns=["aile", "yontem", "k", "siluet", "kararlilik"])
-    i, esit = ogren.oneri_kurali(a)
+    a = pd.DataFrame([("S1", "kmeans", 5, 0.300, 0.85, "a"), ("S1", "ward", 5, 0.300, 0.90, "b"),
+                      ("S2", "kmeans", 3, 0.280, 0.99, "c"), ("S2", "ward", 5, 0.270, 0.97, "d")],
+                     columns=["aile", "yontem", "k", "siluet", "kararlilik", "kimlik"])
+    i, esit, bolme = ogren.oneri_kurali(a)
     assert i == 1 and list(esit) == [True, True, False, False]       # S2 kararlı ama siluette geride
+    assert list(bolme) == list(a["kararlilik"])                       # dört ayrı bölme
     a.loc[2, "siluet"] = 0.295                                          # artık siluette eşit
-    i, esit = ogren.oneri_kurali(a)
+    i, esit, _ = ogren.oneri_kurali(a)
     assert i == 2 and list(esit) == [True, True, True, False]
     a.loc[2, "kararlilik"] = 0.91                                       # S1 ward ile 0,01: küçük k
     assert ogren.oneri_kurali(a)[0] == 2
@@ -209,6 +209,21 @@ def test_oneri_kurali():
     assert (ogren.SILUET_ESITLIK, ogren.KARARLILIK_ESITLIK) == (0.01, 0.02)
 
 
+def test_oneri_kurali_ayni_bolme_esit():
+    """Aynı bölmeyi veren iki yöntem kararlılıkta eşittir (ortalama): yöntem sırası belirler."""
+    a = pd.DataFrame([("S1", "kmeans", 5, 0.3076, 0.851, "x"), ("S1", "ward", 5, 0.3076, 0.877, "x"),
+                      ("S2", "kmeans", 3, 0.2784, 0.992, "y")],
+                     columns=["aile", "yontem", "k", "siluet", "kararlilik", "kimlik"])
+    i, esit, bolme = ogren.oneri_kurali(a)
+    assert i == 0 and list(esit) == [True, True, False]
+    assert bolme[0] == bolme[1] == pytest.approx(0.864) and bolme[2] == pytest.approx(0.992)
+    a.loc[0, "kararlilik"] = 0.70                                       # ortalama değişir, yine eşit
+    assert ogren.oneri_kurali(a)[0] == 0
+    a.loc[1, "kimlik"] = "z"                                            # artık farklı bölme: ward
+    assert ogren.oneri_kurali(a)[0] == 1
+
+
+# 8 kümelenen mağazaya uygun: fikstürde M08 (turistik) tek başına kalır, en küçük küme 1
 _KUCUK = dict(k_aralik=range(2, 4), en_kucuk=1, ornek=5)
 
 
@@ -231,6 +246,7 @@ def test_oneri_fikstur(tablolar):
     # adaylar: her (aile, yöntem) için k_sec'in seçtiği k; kararlılık yalnız adaylarda
     assert t.groupby(["aile", "yontem"])["secilen"].sum().eq(1).all()
     assert t["kararlilik"].notna().equals(t["secilen"]) and not (t["esit"] & ~t["secilen"]).any()
+    assert t["bolme_kararlilik"].notna().equals(t["secilen"])
     assert bool(sec.iloc[0]["secilen"]) and bool(sec.iloc[0]["esit"])
     aday = t[t["secilen"]]
     assert sec.iloc[0]["siluet"] >= aday["siluet"].max() - ogren.SILUET_ESITLIK
@@ -254,6 +270,34 @@ def test_k_secimi_hakemsiz(tablolar, gizli):
         pd.testing.assert_frame_equal(o.tablo, a.tablo)
     for f in (ogren.oneri, ogren.k_sec, ogren.kume, ogren.kararlilik):
         assert not {"segment", "hakem", "gizli"} & set(inspect.signature(f).parameters)
+
+
+_SURECTE = """
+import hashlib, sys
+sys.path.insert(0, sys.argv[1])
+from conftest import KARAR, oyuncak_tablolar
+from kumeleme import kaynak, ogren
+t = oyuncak_tablolar()
+k = kaynak.kapsam(t["magaza"], t["magaza_olay"], t["satis"], KARAR)
+o = ogren.oneri(t, k, t["urun"], KARAR, k_aralik=range(2, 4), en_kucuk=1, ornek=5)
+print(o.aile, o.yontem, o.k, o.kimlik,
+      hashlib.sha256(o.tablo.to_csv(float_format="%.12g").encode()).hexdigest())
+"""
+
+
+def test_oneri_surecler_arasi_belirlenimci():
+    """İki ayrı Python sürecinde (farklı dizge karması tohumu) öneri ve aday tablosu aynı."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+    cikti = []
+    for karma in ("1", "2"):
+        ortam = {**os.environ, "PYTHONHASHSEED": karma, "PYTHONIOENCODING": "utf-8"}
+        r = subprocess.run([sys.executable, "-c", _SURECTE, str(Path(__file__).parent)],
+                           capture_output=True, text=True, encoding="utf-8", env=ortam, check=True)
+        cikti.append(r.stdout.strip())
+    assert cikti[0] == cikti[1] and len(cikti[0].split()) == 5
 
 
 def test_oneri_hazir_ozellik(tablolar):
