@@ -6,8 +6,9 @@ kümeleri aynı mağazalarda kıyaslamak; gizli segmente oturuşlarını, kararl
 atamasını ve en çok karar kalitesini (İlk Sevkiyat'ta küme kolları) ölçmek. Tasarım:
 `docs/superpowers/specs/2026-10-20-magaza-kumeleme-design.md` (`docs/` ayrı depodur).
 
-Bu dosya yapım hâlindedir (vaka iskeleti, sabitler, kaynak, kapsam, mağaza özellikleri). Kümeler,
-ölçütler, rapor ve koşum sonraki görevlerde eklenir; bu README onlarla birlikte genişler.
+Bu dosya yapım hâlindedir (vaka iskeleti, sabitler, kaynak, kapsam, mağaza özellikleri, kural
+grupları, makine öğrenmesi kümeleri). Ölçütler, rapor ve koşum sonraki görevlerde eklenir; bu
+README onlarla birlikte genişler.
 
 ## Kurulum
 
@@ -124,6 +125,29 @@ Satışlı gün (mevsim, ölçek) ve ciro mağazanın bütün satışından say�
 Collection, Basic ve NOS'un satışıdır. Arındırılmış bloklarda stoklu günü 0 olan hücrenin satışı
 hıza girmez; `attrs["dusen_satis"]` alt blok başına bu adedi tutar (SS25, 67 mağaza: 0).
 
+## Makine öğrenmesi kümeleri
+
+`ogren` (kurallar modül notunda, `kumeleme/ogren.py`): `kume(X_std, "kmeans"|"ward", k)` mağaza →
+küme numarası verir. k-means `n_init` = 50, tohum `TOHUM`, tek iş parçacığıyla; Ward Öklid. Etiketler
+kanoniktir: küme 0 en küçük `magaza_id`'yi taşır, numaralar kümelerin en küçük kimliklerinin
+sırasıyla. `bolme_kimligi` etiket adlarından bağımsız bölme özetidir (SHA-256).
+
+- **k seçimi** (`k_sec`, hakemsiz): `K_ARALIK` = 3…10; en küçük kümesi 3 mağazadan az olan k elenir
+  (`EN_KUCUK_KUME`), kalanlarda siluet en yüksek olana 0,01 yakın k'lardan en küçüğü seçilir.
+  Dirsek için küme içi kareler (`w`) tabloda; kurala girmez.
+- **Kararlılık** (`kararlilik`): mağazaların %80'i 50 kez iadesiz çekilip yeniden kümelenir;
+  tam bölmeyle çekilen mağazalardaki ortalama ARI. Özellikler yeniden kurulmaz (Ruling R6).
+- **Öneri** (`oneri`): S1 ve S2 ailesi × kmeans ve Ward, her biri kendi k'sıyla (en çok dört aday);
+  siluet en yüksek olana 0,01 yakın adaylardan kararlılığı en yüksek olan (0,02 içinde eşitse
+  küçük k, sonra S1, sonra kmeans). `bos_siluet` sütunları karıştırılmış yapısız veride ortalama
+  silueti verir: aileler arasında siluetin karşılaştırılabilirliğinin denetimi. Bütün aday tablosu
+  `Oneri.tablo`'dadır.
+- **Yorum** (`yorum`): kümenin ortalama z'si |z| büyükten küçüğe en ayırt edici 3 özellik.
+
+SS25 karar günü, 67 mağaza: öneri S1 (satış karışımı), Ward, k = 5, küme büyüklükleri 32, 14, 7, 7,
+7 (siluet 0,308; k-means aynı bölmeyi verir). S2'de k-means k = 3 seçilir (siluet 0,278); S2'nin
+bölmesini beden eğrisi sürükler.
+
 ## Sızıntı kilidi
 
 Gizli gerçek (`gizli_magaza.segment`, v4 üreteci) yalnız ölçümde okunur: `hakem.py` ve testler.
@@ -139,5 +163,8 @@ Pakete eklenen her modül `KARAR_MODULLERI` ya da `IZINLI_MODULLER` listesinde o
     kumeleme/sabitler.py   karar günleri, eşikler, tohum
     kumeleme/kaynak.py     baglan, yayimlanan_tablolar, kapsam, SEHIR_IKLIM / TURISTIK / METROPOL
     kumeleme/ozellikler.py pencere, ozellik_tablosu, AILELER, standartla, ozellik_kimligi
+    kumeleme/kural.py      K1 bölge, K2 ciro sınıfı, K3 bölge × sınıf, K4 konum
+    kumeleme/ogren.py      kume, kanonik, bolme_kimligi, siluet, k_sec, kararlilik, bos_siluet,
+                           yorum, oneri
     tests/                 conftest (oyuncak fikstür), test_kaynak, test_ozellikler, test_sabitler,
-                           test_sizinti
+                           test_kural, test_ogren, test_sizinti
