@@ -21,8 +21,11 @@ bir brüt (pozitif adetli) satışı olan takvim haftası sayısı. İlk hafta m
 (kısmi) hafta olabilir; karar günü haftası sayılmaz (tamamlanmadı). SS25'te M041 için 19.
 `kumelenir = gecmis_hafta >= GECMIS_HAFTA_ESIGI`; kalanlar `yeni` mağazadır.
 
-**Şehir → iklim.** `SEHIR_IKLIM` vakada yazılı, açık bir tablodur; kaynağı genel coğrafya
-bilgisidir (Köppen/Türkiye iklim bölgeleri), v4 üretecinin sabitleri değil (README). Sınıflar:
+**Şehir → iklim.** `SEHIR_IKLIM` vakada yazılı, açık bir tablodur; sınıflar genel
+coğrafya bilgisinden yazıldı (Köppen/Türkiye iklim bölgeleri). Simülatörün şehir iklim
+etiketleriyle 25 şehrin 24'ünde örtüşür (fark İzmir), çünkü sentetik zincir gerçek coğrafya
+üstüne kurulmuştur: konum kuralının başarısı kısmen verinin kuruluş biçiminin özelliğidir
+(README). Sınıflar:
 
     soguk        Doğu Anadolu'nun yüksek, uzun kışlı şehirleri
     sicak_sahil  Akdeniz ve Ege kıyısı (turistik tatil beldeleri dahil)
@@ -45,6 +48,7 @@ from kumeleme import sabitler
 VERITABANI = ortak.VARSAYILAN_YOL
 
 _AD = re.compile(r"^[a-z_]+$")
+GIZLI_TABLO_ONEKI = "gizli_"       # gizli gerçeğin tabloları (yalnız hakem okur); kara liste
 YASAK_TIP = ("Online", "Outlet")       # kümelenmeyen mağaza tipleri
 _SATIS_SUTUNLARI = ("tarih", "magaza_id", "adet")
 
@@ -94,10 +98,13 @@ def baglan(yol: Path | str | None = None) -> duckdb.DuckDBPyConnection:
 def yayimlanan_tablolar(con, adlar: Sequence[str]) -> dict[str, pd.DataFrame]:
     """`adlar` tablolarını DataFrame olarak okur (ad -> tablo, `adlar` sırasıyla).
 
-    Büyük tablolarda kimlikler `category` gelir (DuckDB ENUM)."""
+    Büyük tablolarda kimlikler `category` gelir (DuckDB ENUM). `gizli_` önekli tablo adı
+    reddedilir (savunma katmanı; yayımlanan veride zaten yoktur)."""
     for ad in adlar:
         if not _AD.match(ad):
             raise ValueError(f"geçersiz tablo adı: {ad!r}")
+        if ad.startswith(GIZLI_TABLO_ONEKI):
+            raise ValueError(f"gizli tablo okunamaz: {ad!r}")
     return {ad: con.execute(f"select * from {ad}").df() for ad in adlar}
 
 

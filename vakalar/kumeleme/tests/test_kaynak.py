@@ -194,6 +194,15 @@ def test_yayimlanan_tablolar_gecersiz_ad(tablolar, ad):
     con.close()
 
 
+def test_yayimlanan_tablolar_gizli_tabloyu_reddeder(tablolar):
+    con = oyuncak_baglan(tablolar)
+    con.execute("create table gizli_magaza as select 'M01' as magaza_id, 'x' as segment")
+    for ad in ("gizli_magaza", "gizli_talep"):
+        with pytest.raises(ValueError, match="gizli"):
+            kaynak.yayimlanan_tablolar(con, ("magaza", ad))
+    con.close()
+
+
 def test_baglan_olmayan_dosya(tmp_path):
     with pytest.raises(FileNotFoundError):
         kaynak.baglan(tmp_path / "yok.duckdb")

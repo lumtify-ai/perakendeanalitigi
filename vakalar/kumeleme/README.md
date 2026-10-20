@@ -72,9 +72,12 @@ vakada yazılı, açık bir tablodur: 26 şehrin her biri dört sınıftan birin
 `TURISTIK` = Antalya, Alanya, Kemer, Fethiye, Bodrum (tatil beldeleri; hepsi `sicak_sahil`).
 `METROPOL` = İstanbul, Ankara, İzmir.
 
-**Kaynak.** Tablo genel coğrafya bilgisidir (Türkiye'nin iklim bölgeleri ve Köppen sınıflaması;
-yükseklik, kıyıya uzaklık). v4 üretecinin (`perakende_veri`) hiçbir sabitinden alınmadı ve o
-paket karar modüllerinde içe aktarılmaz. Sınırdaki şehirler bir yargıdır: Denizli iç Ege
+**Kaynak ve sınır.** Sınıflar genel coğrafya bilgisinden yazıldı (Türkiye'nin iklim bölgeleri ve
+Köppen sınıflaması; yükseklik, kıyıya uzaklık); `perakende_veri` içe aktarılmadı ve karar
+modüllerinde içe aktarılmaz. Yine de bu tablo simülatörden bağımsız bir ölçüm değildir: simülatörün
+şehir iklim etiketleriyle 25 şehrin 24'ünde örtüşür (fark İzmir), çünkü sentetik zincir gerçek
+coğrafya üstüne kurulmuştur. Bu yüzden K4 konum kuralının başarısı kısmen verinin nasıl
+kurulduğunun bir özelliğidir; yazılar bunu söyler. Sınırdaki şehirler bir yargıdır: Denizli iç Ege
 (ılıman nemli ile karasal arası) `ılıman`, İzmir kıyı Ege olduğundan `sicak_sahil`, Malatya,
 Diyarbakır ve Gaziantep sıcak yazlı ve soğuk kışlı iç kesimler olduğundan `karasal` sayıldı.
 `tests/test_kaynak.py::test_sehir_iklim_butun_sehirler` yayımlanan bütün şehirlerin tabloda
