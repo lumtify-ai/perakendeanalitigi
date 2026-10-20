@@ -17,10 +17,23 @@
 
 Kapsam: M01-M09 (9; 8 kümelenir, 1 yeni). Üç görünür bölge: Marmara, İç Anadolu, Ege.
 
-**Satış** (iki sezon): her mağaza açıldığı pazartesiden 2025-02-03'e kadar her pazartesi birer
-satır; 2024-02-05 … 2024-09-02 arası SS24 Collection SKU'su (`SKU-SS24`), sonrası AW24 Collection
-SKU'su (`SKU-AW24`). Karar gününden sonra (2025-02-10) her mağazaya bir satır daha vardır:
-kapsam bunu görmemelidir.
+**Ürünler** (7 SKU, 4 option): Collection SS24 Tişört (`SKU-SS24` M/3 ve `SKU-SS24-S` S/2) ve
+AW24 Ceket (`SKU-AW24` M/3 ve `SKU-AW24-L` L/4), Kadın Harf; Basic Pantolon (`SKU-BAS-36` 36/2,
+`SKU-BAS-40` 40/4), Kadın Numara; NOS Çanta (`SKU-NOS-STD`, Standart tek beden).
+
+**Satış** (iki sezon): her mağaza açıldığı pazartesiden 2025-02-03'e kadar her pazartesi;
+2024-02-05 … 2024-08-26 arası SS24 Collection SKU'ları, sonrası AW24 Collection SKU'ları; Basic ve
+NOS her hafta. Ana Collection satırı (`SKU-SS24` / `SKU-AW24`) kapsam testlerinin dayandığı
+satırdır; diğer SKU'lar aynı pazartesilere eklenir (satışlı hafta sayısı değişmez). Miktarlar
+mağazanın oyuncak profiline göre (`_PROFIL`; gizli segment değil, satışı üreten kurgu): `genc`
+(M01, M03) Collection'ı ve küçük bedeni, `aile` Basic'i ve büyük bedeni, `turistik` (M08) yazı
+çok satar. Her dördüncü haftanın salısı bir iade satırı (`SKU-BAS-40`, -1) vardır. Karar
+gününden sonra (2025-02-10) her açık mağazaya bir satır daha vardır: kapsam ve özellikler bunu
+görmemelidir.
+
+**Stok** (pazartesi fotoğrafları): fiziksel her mağazanın sezondaki her SKU'su için, satışlı her
+haftanın ertesi pazartesisi (fotoğraf önceki 7 günü anlatır) adet 10, `stoklu_gun` 7; ayrıca karar
+gününden sonra 2025-02-10 ve 2025-02-17 fotoğrafları. `ONL` stok tutmaz.
 
 **Gizli segment** yalnız `gizli` fikstüründe (`gizli_magaza`: magaza_id, segment); `tablolar`
 onu taşımaz.
@@ -52,12 +65,27 @@ _OLAY = [   # magaza_id, olay, karar_tarihi, olay_tarihi, bitis_tarihi
     ("M10", "kapanis", "2024-07-01", "2024-09-18", None),
 ]
 SKU_SS24, SKU_AW24 = "SKU-SS24", "SKU-AW24"
-_URUNLER = [   # urun_id, option_id, line, sezon_kodu, dalga, lansman, cikis, ust, alt, segment, kalip, beden, sira
+_URUNLER = [   # urun_id, option_id, line, sezon_kodu, dalga, lansman, cikis, ust, alt, segment, kalip, beden_seti, beden, sira
     (SKU_SS24, "OPT-SS24", "Collection", "SS24", 1, "2024-02-12", "2024-08-26",
-     "Üst Giyim", "Tişört", "orta", "regular", "M", 3),
+     "Üst Giyim", "Tişört", "orta", "regular", "Kadın Harf", "M", 3),
+    ("SKU-SS24-S", "OPT-SS24", "Collection", "SS24", 1, "2024-02-12", "2024-08-26",
+     "Üst Giyim", "Tişört", "orta", "regular", "Kadın Harf", "S", 2),
     (SKU_AW24, "OPT-AW24", "Collection", "AW24", 1, "2024-09-02", "2025-02-24",
-     "Dış Giyim", "Ceket", "üst", "slim", "M", 3),
+     "Dış Giyim", "Ceket", "üst", "slim", "Kadın Harf", "M", 3),
+    ("SKU-AW24-L", "OPT-AW24", "Collection", "AW24", 1, "2024-09-02", "2025-02-24",
+     "Dış Giyim", "Ceket", "üst", "slim", "Kadın Harf", "L", 4),
+    ("SKU-BAS-36", "OPT-BAS", "Basic", "DEVAMLI", 0, "2022-07-04", None,
+     "Alt Giyim", "Pantolon", "giris", "relaxed", "Kadın Numara", "36", 2),
+    ("SKU-BAS-40", "OPT-BAS", "Basic", "DEVAMLI", 0, "2022-07-04", None,
+     "Alt Giyim", "Pantolon", "giris", "relaxed", "Kadın Numara", "40", 4),
+    ("SKU-NOS-STD", "OPT-NOS", "NOS", "DEVAMLI", 0, "2022-07-04", None,
+     "Aksesuar", "Çanta", "orta", "regular", "Standart", "STD", 1),
 ]
+
+# satışı üreten oyuncak profil (gizli segment değil); belirtilmeyen mağaza "aile"
+_PROFIL = {"M01": "genc", "M03": "genc", "M08": "turistik"}
+# profil -> (ikinci Collection bedeni, Basic 36, Basic 40, NOS) haftalık adet; yaz aylarında turistik x3
+_MIKTAR = {"genc": (3, 2, 1, 1), "aile": (1, 1, 3, 1), "turistik": (2, 2, 2, 2)}
 
 _S, _T = "string", "datetime64[ns]"
 SEMA = {   # gerçek v4 şemasının oyuncak tablolarda kullanılan sütunları
@@ -68,9 +96,10 @@ SEMA = {   # gerçek v4 şemasının oyuncak tablolarda kullanılan sütunları
                     "bitis_tarihi": _T},
     "urun": {"urun_id": _S, "option_id": _S, "line": _S, "sezon_kodu": _S, "dalga": "int64",
              "lansman_tarihi": _T, "cikis_tarihi": _T, "ust_kategori": _S, "alt_kategori": _S,
-             "fiyat_segmenti": _S, "kalip": _S, "beden": _S, "beden_sira": "int64"},
+             "fiyat_segmenti": _S, "kalip": _S, "beden_seti": _S, "beden": _S, "beden_sira": "int64"},
     "satis": {"tarih": _T, "magaza_id": _S, "urun_id": _S, "adet": "int32", "tutar": "float64",
               "indirim_tutari": "float64", "kampanya_id": _S},
+    "stok": {"tarih": _T, "magaza_id": _S, "urun_id": _S, "adet": "int32", "stoklu_gun": "int8"},
 }
 
 
@@ -81,30 +110,62 @@ def doldur(tablo: str, satirlar: list[tuple]) -> pd.DataFrame:
     return df
 
 
+def _haftalar(acilis, kapanis) -> pd.DatetimeIndex:
+    """Mağazanın satışlı pazartesileri (2024-02-05 … 2025-02-03 ya da kapanışa dek)."""
+    ilk = pd.Timestamp(acilis)
+    ilk = ilk + pd.Timedelta(days=(7 - ilk.weekday()) % 7)         # açıldığı hafta ya da sonraki pazartesi
+    ilk = max(ilk, pd.Timestamp("2024-02-05"))
+    son = pd.Timestamp(kapanis) if kapanis else pd.Timestamp("2025-02-03")
+    return pd.date_range(ilk, son, freq="7D")
+
+
+def _sezon_skulari(t: pd.Timestamp) -> tuple[str, str]:
+    return (SKU_SS24, "SKU-SS24-S") if t < pd.Timestamp("2024-09-02") else (SKU_AW24, "SKU-AW24-L")
+
+
 def _satis() -> list[tuple]:
     satir = []
     for i, (m, _ad, _sh, _bl, _tip, _en, _m2, acilis, kapanis) in enumerate(_MAGAZALAR):
-        ilk = pd.Timestamp(acilis)
-        ilk = ilk + pd.Timedelta(days=(7 - ilk.weekday()) % 7)         # açıldığı hafta ya da sonraki pazartesi
-        ilk = max(ilk, pd.Timestamp("2024-02-05"))
-        son = pd.Timestamp(kapanis) if kapanis else pd.Timestamp("2025-02-03")
-        for t in pd.date_range(ilk, son, freq="7D"):
-            sku = SKU_SS24 if t < pd.Timestamp("2024-09-02") else SKU_AW24
+        ikinci, b36, b40, nos = _MIKTAR[_PROFIL.get(m, "aile")]
+        for j, t in enumerate(_haftalar(acilis, kapanis)):
+            ana, yan = _sezon_skulari(t)
             adet = 1 + (i + t.isocalendar().week) % 4
-            satir.append((t, m, sku, adet, 100.0 * adet, 0.0, None))
+            satir.append((t, m, ana, adet, 100.0 * adet, 0.0, None))
+            kat = 3 if _PROFIL.get(m) == "turistik" and t.month in (6, 7, 8) else 1
+            satir += [(t, m, sku, a * kat, 50.0 * a * kat, 0.0, None)
+                      for sku, a in ((yan, ikinci), ("SKU-BAS-36", b36), ("SKU-BAS-40", b40),
+                                     ("SKU-NOS-STD", nos))]
+            if j % 4 == 3:      # iade: rafa dönen bir Basic
+                satir.append((t + pd.Timedelta(days=1), m, "SKU-BAS-40", -1, -50.0, 0.0, None))
         if not kapanis:     # karar gününden sonra: kapsam görmemeli
             satir.append((LANSMAN, m, SKU_AW24, 3, 300.0, 0.0, None))
     return satir
 
 
+def _stok() -> list[tuple]:
+    satir = []
+    for m, _ad, _sh, _bl, tip, _en, _m2, acilis, kapanis in _MAGAZALAR:
+        if tip == "Online":
+            continue
+        for t in _haftalar(acilis, kapanis):
+            d = t + pd.Timedelta(days=7)                            # fotoğraf önceki haftayı anlatır
+            satir += [(d, m, sku, 10, 7) for sku in _sezon_skulari(t) + ("SKU-BAS-36", "SKU-BAS-40",
+                                                                         "SKU-NOS-STD")]
+        if not kapanis:     # karar gününden sonraki fotoğraflar
+            satir += [(d, m, sku, 10, 7) for d in (LANSMAN, LANSMAN + pd.Timedelta(days=7))
+                      for sku in (SKU_AW24, "SKU-AW24-L", "SKU-BAS-36")]
+    return satir
+
+
 def oyuncak_tablolar() -> dict[str, pd.DataFrame]:
-    magaza = doldur("magaza", [(m, ad, sh, bl, en, 29.0, tip, m2, 1, 5000, a, k)
+    magaza = doldur("magaza", [(m, ad, sh, bl, en, 29.0, tip, m2, 1, 8 * m2 + 100, a, k)
                                for m, ad, sh, bl, tip, en, m2, a, k in _MAGAZALAR])
     return {
         "magaza": magaza,
         "magaza_olay": doldur("magaza_olay", _OLAY),
         "urun": doldur("urun", _URUNLER),
         "satis": doldur("satis", _satis()),
+        "stok": doldur("stok", _stok()),
     }
 
 

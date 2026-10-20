@@ -6,7 +6,7 @@ kümeleri aynı mağazalarda kıyaslamak; gizli segmente oturuşlarını, kararl
 atamasını ve en çok karar kalitesini (İlk Sevkiyat'ta küme kolları) ölçmek. Tasarım:
 `docs/superpowers/specs/2026-10-20-magaza-kumeleme-design.md` (`docs/` ayrı depodur).
 
-Bu dosya iskelet durumundadır (vaka iskeleti, sabitler, kaynak, kapsam). Özellikler, kümeler,
+Bu dosya yapım hâlindedir (vaka iskeleti, sabitler, kaynak, kapsam, mağaza özellikleri). Kümeler,
 ölçütler, rapor ve koşum sonraki görevlerde eklenir; bu README onlarla birlikte genişler.
 
 ## Kurulum
@@ -35,8 +35,9 @@ Komutlar vakanın `.venv`'iyle, `vakalar/kumeleme` içinden; Windows konsolunda
 
 `veri` işaretli testler yayımlanan v4 verisini ister. Oyuncak fikstür (`tests/conftest.py`) 12
 mağazalı, v4 şemalı küçük tablolardır: 3 görünür bölge, 4 metropol mağazası (İstanbul, Ankara), 1
-outlet, 1 online, 1 kapanmış, 1 yeni mağaza (10 haftalık geçmiş), iki sezon satışı. Gizli segment
-sütunu yalnız `gizli` fikstüründedir.
+outlet, 1 online, 1 kapanmış, 1 yeni mağaza (10 haftalık geçmiş), 7 SKU (Collection, Basic, NOS),
+iki sezon satışı (iadeli) ve pazartesi stok fotoğrafları. Gizli segment sütunu yalnız `gizli`
+fikstüründedir.
 
 ## Kapsam
 
@@ -83,6 +84,36 @@ Diyarbakır ve Gaziantep sıcak yazlı ve soğuk kışlı iç kesimler olduğund
 `tests/test_kaynak.py::test_sehir_iklim_butun_sehirler` yayımlanan bütün şehirlerin tabloda
 olduğunu sınar.
 
+## Mağaza özellikleri
+
+`ozellikler.ozellik_tablosu(tablolar, magazalar, urunler, karar_gunu, aile)` mağaza × özellik
+tablosu verir; tanımların tamamı modül notundadır (`kumeleme/ozellikler.py`). Kısaca:
+
+- **Pencere:** karar gününden önceki son 104 tamamlanmış pazartesi-pazar haftası (`OZELLIK_HAFTA`;
+  SS25'te karar haftasının ilk günleri de dışarıda). Stok fotoğrafı önceki haftayı anlattığı için
+  aynı 104 hafta okunur.
+- **Satış:** brüt adet (iade düşülmez), mükerrer satır tek; Outlet line'ı dışarıda. Line grupları
+  `Collection` ve `Basic+NOS`: her grubun içinde ayrı paylar, yan yana.
+- **Bloklar:** `karisim` (alt kategori, fiyat segmenti, kalıp payları), `beden` (beden sırası 1-5
+  payı, her beden setinin içinde, setler eşit ağırlıkla ortalanır; tek bedenli set dışarıda),
+  `mevsim` (12 ayın satışlı gün başına satıştan payı), `olcek` (log günlük net ciro, log m², log
+  kapasite).
+- **Çeşitten arındırma** (`*_stoklu`): aynı paylar, ham adet yerine stoklu gün başına satış
+  hızından (karışım ve mevsim için stoklu option-gün, beden için stoklu SKU-gün; yayımlanan `stok`
+  fotoğraflarının `stoklu_gun`'ünden). Hayalet stok pencere içinde ayıklanır. Mağazanın hiç
+  taşımadığı kategori 0 sayılmaz, nötr doldurulur (kategorinin medyan hızı × mağazanın düzeyi).
+
+| Aile | Bloklar | SS25, 67 mağaza |
+|---|---|---|
+| S1 | karisim | 45 sütun |
+| S2 | karisim, beden, mevsim | 62 |
+| S4 | karisim_stoklu, beden_stoklu, mevsim_stoklu | 62 (7 hücre nötr doldurulur) |
+| S5 | karisim, beden, mevsim, olcek | 65 |
+
+`standartla(X, aile)` her sütunu z-skora çevirir, sabit sütunu düşürür ve her bloğu toplam varyansı
+1 olacak biçimde ölçekler (aile ağırlıkları eşit). `ozellik_kimligi(X)` satır ve sütun sırasından
+bağımsız içerik özetidir (SHA-256). Ölçek karışımla aynı bloğa konmaz; S5 bir ablasyondur.
+
 ## Sızıntı kilidi
 
 Gizli gerçek (`gizli_magaza.segment`, v4 üreteci) yalnız ölçümde okunur: `hakem.py` ve testler.
@@ -97,4 +128,6 @@ Pakete eklenen her modül `KARAR_MODULLERI` ya da `IZINLI_MODULLER` listesinde o
 
     kumeleme/sabitler.py   karar günleri, eşikler, tohum
     kumeleme/kaynak.py     baglan, yayimlanan_tablolar, kapsam, SEHIR_IKLIM / TURISTIK / METROPOL
-    tests/                 conftest (oyuncak fikstür), test_kaynak, test_sabitler, test_sizinti
+    kumeleme/ozellikler.py pencere, ozellik_tablosu, AILELER, standartla, ozellik_kimligi
+    tests/                 conftest (oyuncak fikstür), test_kaynak, test_ozellikler, test_sabitler,
+                           test_sizinti

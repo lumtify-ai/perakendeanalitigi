@@ -17,6 +17,7 @@ KARAR_GUNU = pd.Timestamp("2025-02-07")       # SS25 (oyun sezonu; İlk Sevkiyat
 KAL_KARAR_GUNU = pd.Timestamp("2024-02-09")   # SS24 (kalibrasyon sezonu)
 
 GECMIS_HAFTA_ESIGI = 26   # karar gününden önce bu kadar satışlı hafta yoksa mağaza "yeni"
+OZELLIK_HAFTA = 104       # özellik penceresi: karar gününden önceki son tamamlanmış hafta sayısı
 
 CIRO_A = 0.20             # ciro sınıfı: ilk %20 A, sonraki %30 B, kalan C (anlatı varsayımı)
 CIRO_B = 0.30

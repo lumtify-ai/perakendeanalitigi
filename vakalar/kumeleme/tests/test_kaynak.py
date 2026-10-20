@@ -182,7 +182,7 @@ def test_yayimlanan_tablolar_ad_sirasi_ve_icerik(tablolar):
     con = oyuncak_baglan(tablolar)
     t = kaynak.yayimlanan_tablolar(con, ("urun", "magaza"))
     assert list(t) == ["urun", "magaza"]
-    assert len(t["magaza"]) == 12 and len(t["urun"]) == 2
+    assert len(t["magaza"]) == 12 and len(t["urun"]) == 7
     con.close()
 
 

@@ -15,6 +15,7 @@ def test_karar_gunleri():
 
 def test_esikler_ve_ciro_sinifi():
     assert sabitler.GECMIS_HAFTA_ESIGI == 26
+    assert sabitler.OZELLIK_HAFTA == 104
     assert (sabitler.CIRO_A, sabitler.CIRO_B) == (0.20, 0.30)
     assert sabitler.CIRO_A + sabitler.CIRO_B < 1          # C kalan
     assert sabitler.K3_EN_AZ == 3
