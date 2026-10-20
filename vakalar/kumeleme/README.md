@@ -7,8 +7,8 @@ atamasını ve en çok karar kalitesini (İlk Sevkiyat'ta küme kolları) ölçm
 `docs/superpowers/specs/2026-10-20-magaza-kumeleme-design.md` (`docs/` ayrı depodur).
 
 Bu dosya yapım hâlindedir (vaka iskeleti, sabitler, kaynak, kapsam, mağaza özellikleri, kural
-grupları, makine öğrenmesi kümeleri). Ölçütler, rapor ve koşum sonraki görevlerde eklenir; bu
-README onlarla birlikte genişler.
+grupları, makine öğrenmesi kümeleri, ölçütler, yeni mağaza). Rapor ve koşum sonraki görevlerde
+eklenir; bu README onlarla birlikte genişler.
 
 ## Kurulum
 
@@ -151,6 +151,40 @@ SS25 karar günü, 67 mağaza: öneri S1 (satış karışımı), k = 5, küme b�
 (siluet 0,308). k-means ve Ward aynı bölmeyi verir; yöntem sırasıyla k-means adı yazılır. S2'de k-means k = 3 seçilir (siluet 0,278); S2'nin
 bölmesini beden eğrisi sürükler.
 
+## Ölçütler ve yeni mağaza
+
+**Hakem** (`hakem.py`, yalnız ölçüm): gizli segment (`gizli_segment`) v4 dünyasından okunur
+(`dunya_kur(Olcek.TAM)`, yayımlanan veriyle aynı tohum; simülasyon koşulmaz, süreç içinde bir kez
+kurulur, ~20-35 sn). `perakende_veri` paketin yalnız burada içe aktarılır.
+
+**Hakemli ölçütler** (`olcutler.py`): ARI ve AMI (`ari_ami`), küme × segment çapraz tablosu
+(`capraz`), segment başına saflık (`saflik`: segmentin en çok düştüğü küme, oradaki payı, kümenin o
+segmentten payı) ve klasik toplam saflık (`toplam_saflik`).
+
+**Kararlılık** (`olcutler.kararlilik`, hakemsiz): (1) yıllar arası, aynı kümeleme işleviyle iki
+dönemin yalnız kendi 52 haftalık penceresinden kurulan özelliklerle bulunan bölmeler arası ARI.
+"2023" = 2024-01-01'de biten 52 hafta (2023-01-02 … 2023-12-31; veri 2023-01-01 pazar başlar),
+"2024" = SS25 karar gününde biten 52 hafta (2024-02-05 … 2025-02-02); pencereler örtüşmez. Her iki
+pencerede en az 26 satışlı haftası olan kümelenen mağazalar karşılaştırılır (SS25'te M021 ve M037
+dışarıda: 2023'te 19 hafta ve hiç). (2) Önyükleme: karar günü özellik tablosu bir kez kurulur
+(Ruling R6), mağazalar 50 kez iadeli çekilip kümelenir, çekiliş kümeleri tam kümelerle Macar
+eşlemesiyle eşlenir; mağaza başına değişme sıklığı = değiştiği çekiliş / girdiği çekiliş. Etiket
+adları ölçüte girmez. (`ogren.kararlilik` ayrı bir ölçüttür: %80 iadesiz alt örneklemde ARI,
+önerinin eşitlik bozucusu.)
+
+**Yeni mağaza** (`yeni_magaza.py`, karar modülü): satış görmeden, yalnız statiklerle (bölge,
+metropol, iklim sınıfı, tip, log m², enlem) atama; her statik eşit ağırlıklı bir blok (kümelenmiş
+mağazalarda toplam varyans 1), istatistikler yalnız kümelenmiş mağazalardan. Kural en yakın 5
+kümelenmiş mağazanın çoğunluk kümesi (`ata`, `yontem="knn"`, varsayılan; `"merkez"` en yakın küme
+merkezi karşılaştırma için: satış kümeleri statik uzayda dışbükey değil, bırakbirde kendi satış
+kümesine isabet SS25'te knn 0,82, merkez 0,70). Bırakbir ölçümü (`birakbir`,
+spec §0/11): kümelenen her mağaza için kümeler o mağaza hariç aynı özellik tablosundan yeniden
+kurulur (özellikler yeniden kurulmaz, Ruling R6; bedeli: oran bloklu ailelerde nötr doldurulan
+hücreler dışarıda bırakılan mağazanın satırını da içeren medyandan gelir; S1'de doldurma yok), mağaza yalnız statikleriyle atanır, bırakbir kümesi tam
+bölmenin etiketine üyelerinin çoğunluğuyla çevrilir. Doğruluk `olcutler.birakbir_dogruluk`'ta:
+kendi satış kümesine karşı ve gizli segmente karşı (atanan kümenin, mağaza hariç çoğunluk
+segmenti), metropol / metropol dışı ayrı; iki taban (herkese en büyük küme, herkese en sık segment).
+
 ## Sızıntı kilidi
 
 Gizli gerçek (`gizli_magaza.segment`, v4 üreteci) yalnız ölçümde okunur: `hakem.py` ve testler.
@@ -169,5 +203,8 @@ Pakete eklenen her modül `KARAR_MODULLERI` ya da `IZINLI_MODULLER` listesinde o
     kumeleme/kural.py      K1 bölge, K2 ciro sınıfı, K3 bölge × sınıf, K4 konum
     kumeleme/ogren.py      kume, kanonik, bolme_kimligi, siluet, k_sec, kararlilik, bos_siluet,
                            yorum, oneri
+    kumeleme/hakem.py      gizli_segment (yalnız ölçüm; v4 dünyası)
+    kumeleme/olcutler.py   ari_ami, capraz, saflik, toplam_saflik, kararlilik, birakbir_dogruluk
+    kumeleme/yeni_magaza.py statik_tablo, ata, birakbir
     tests/                 conftest (oyuncak fikstür), test_kaynak, test_ozellikler, test_sabitler,
-                           test_kural, test_ogren, test_sizinti
+                           test_kural, test_ogren, test_olcutler, test_yeni_magaza, test_sizinti
