@@ -7,8 +7,8 @@ atamasını ve en çok karar kalitesini (İlk Sevkiyat'ta küme kolları) ölçm
 `docs/superpowers/specs/2026-10-20-magaza-kumeleme-design.md` (`docs/` ayrı depodur).
 
 Bu dosya yapım hâlindedir (vaka iskeleti, sabitler, kaynak, kapsam, mağaza özellikleri, kural
-grupları, makine öğrenmesi kümeleri, ölçütler, yeni mağaza). Rapor ve koşum sonraki görevlerde
-eklenir; bu README onlarla birlikte genişler.
+grupları, makine öğrenmesi kümeleri, ölçütler, yeni mağaza, hikâye, koşum, rapor, demo). İlk
+Sevkiyat'taki küme kolları sonraki görevde eklenir.
 
 ## Kurulum
 
@@ -189,6 +189,33 @@ eşitlik ıskadır. Doğruluk `olcutler.birakbir_dogruluk`'ta:
 kendi satış kümesine karşı ve gizli segmente karşı (atanan kümenin, mağaza hariç çoğunluk
 segmenti), metropol / metropol dışı ayrı; iki taban (herkese en büyük küme, herkese en sık segment).
 
+## Koşum, rapor, demo
+
+Komutlar `vakalar/kumeleme` içinden, sırayla:
+
+    PYTHONIOENCODING=utf-8 .venv/Scripts/python -m kumeleme.oyun           # ~3-4 dk: cikti/sonuc.json, cikti/hikaye.json, kumeler.json
+    PYTHONIOENCODING=utf-8 .venv/Scripts/python senaryolar.py              # site/src/data/senaryolar/magaza-gruplama.json
+    PYTHONIOENCODING=utf-8 .venv/Scripts/python rapor.py > cikti/rapor.txt # yazıların bütün sayıları
+
+- `kumeleme/oyun.py` (ölçüm yanı) bütün hesabı tek koşuda yapar: kapsam, K1-K4, S1/S2/S4/S5 özellikleri,
+  önerinin aday tablosu (hakem ARI sonradan eklenir), boş siluet, hakem (ARI/AMI, çapraz tablo, saflık),
+  kararlılık (yıllar arası, önyükleme; K2/K3 yıllar arası), bırakbir (5-NN ve merkez) ve iki gerçek yeni
+  mağaza, ablasyon (S1, S2, S4, S5, S1 + ölçek, S1 stoklu; sütun orantılı ağırlık), hikâye ve 15 demo
+  bileşimi. `sonuc.json` paket kodunun özetini ve v4 dosyasının parmak izini taşır.
+- `kumeler.json` (git'te; İlk Sevkiyat yol 0 okur): karar günü eşlemeleri. K1-K4 kapsamın 69 mağazasında,
+  önerinin kümeleri 67 kümelenen mağazada, yeni mağazaların 5-NN ataması, kimlikler; gizli segment ayrı bir
+  `olcum_gizli_segment` alanında, yalnız ölçüm için (kahin küme kolu). Karar kodu o alanı okumaz.
+- `rapor.py` veriyi okumaz, kümelemeyi koşmaz: `sonuc.json`'u basar. Bugünkü kodla ya da v4 dosyasıyla
+  yazılmamış `sonuc.json`, `kumeler.json` ya da demo dosyasının `sonuc.json`'dan üretilenden farklı olması,
+  ya da bozulan bir korunum denetimi stdout'u boş bırakır (çıkış 1). `--taslak` eski girdiyle basar
+  (çıkış 2; yazılara kaynak olamaz). Aynı girdiyle iki koşu bayt bayt aynıdır.
+- `senaryolar.py`: özellik seti {S1, S2, S4} × k {4..8} (k-means); kartlar hakem ARI, kararlılık, en küçük
+  küme, siluet; `satirlar` kümeler ve en ayırt edici özellikleri. `surum` içeriğin özetidir.
+
+Sayı denetimi (yazılar yazıldıktan sonra):
+
+    .venv/Scripts/python -m perakende_analitik.sayi_denetimi --yazi ../../site/src/content/yazi/magaza-kumeleme/magaza-gruplama --rapor cikti/rapor.txt
+
 ## Sızıntı kilidi
 
 Gizli gerçek (`gizli_magaza.segment`, v4 üreteci) yalnız ölçümde okunur: `hakem.py` ve testler.
@@ -210,5 +237,11 @@ Pakete eklenen her modül `KARAR_MODULLERI` ya da `IZINLI_MODULLER` listesinde o
     kumeleme/hakem.py      gizli_segment (yalnız ölçüm; v4 dünyası)
     kumeleme/olcutler.py   ari_ami, capraz, saflik, toplam_saflik, kararlilik, birakbir_dogruluk
     kumeleme/yeni_magaza.py statik_tablo, ata, birakbir
+    kumeleme/hikaye_sec.py sec (hikâye merdiveni); hikaye_kos.py: ölçüm yanı CLI
+    kumeleme/oyun.py       kos, kumeler_kaydi, kod_ozeti (ölçüm yanı koşum)
+    rapor.py               cikti/rapor.txt (yazıların sayıları)
+    senaryolar.py          demo JSON
+    kumeler.json           karar günü eşlemeleri (git'te; İlk Sevkiyat okur)
     tests/                 conftest (oyuncak fikstür), test_kaynak, test_ozellikler, test_sabitler,
-                           test_kural, test_ogren, test_olcutler, test_yeni_magaza, test_sizinti
+                           test_kural, test_ogren, test_olcutler, test_yeni_magaza, test_sizinti,
+                           test_hikaye_sec, test_oyun, test_rapor, test_senaryolar (sahte_sonuc)

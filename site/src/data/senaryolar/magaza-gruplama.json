@@ -1,0 +1,639 @@
+{
+ "surum": "b070cc919a27",
+ "parametreler": [
+  {
+   "ad": "aile",
+   "etiket": "Özellik seti",
+   "degerler": [
+    "S1",
+    "S2",
+    "S4"
+   ],
+   "deger_etiketleri": {
+    "S1": "satış karışımı",
+    "S2": "karışım + beden + mevsim",
+    "S4": "çeşitten arındırılmış karışım + beden + mevsim"
+   }
+  },
+  {
+   "ad": "k",
+   "etiket": "Küme sayısı",
+   "degerler": [
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "deger_etiketleri": {
+    "4": "4 küme",
+    "5": "5 küme",
+    "6": "6 küme",
+    "7": "7 küme",
+    "8": "8 küme"
+   }
+  }
+ ],
+ "sonuclar": {
+  "S1|4": {
+   "ozet": {
+    "hakem_ari": 0.948,
+    "kararlilik": 0.923,
+    "en_kucuk_kume": 7,
+    "siluet": 0.275
+   },
+   "satirlar": [
+    {
+     "kume": 1,
+     "magaza": 32,
+     "ayirt_edici": "Basic+NOS · kalıp · regular"
+    },
+    {
+     "kume": 2,
+     "magaza": 14,
+     "ayirt_edici": "Basic+NOS · kalıp · oversize"
+    },
+    {
+     "kume": 3,
+     "magaza": 14,
+     "ayirt_edici": "Basic+NOS · kalıp · slim"
+    },
+    {
+     "kume": 4,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · fiyat segmenti · orta"
+    }
+   ]
+  },
+  "S1|5": {
+   "ozet": {
+    "hakem_ari": 1.0,
+    "kararlilik": 0.851,
+    "en_kucuk_kume": 7,
+    "siluet": 0.308
+   },
+   "satirlar": [
+    {
+     "kume": 1,
+     "magaza": 32,
+     "ayirt_edici": "Basic+NOS · kalıp · regular"
+    },
+    {
+     "kume": 2,
+     "magaza": 14,
+     "ayirt_edici": "Basic+NOS · kalıp · slim"
+    },
+    {
+     "kume": 3,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · kalıp · oversize"
+    },
+    {
+     "kume": 4,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · alt kategori · Sweatshirt"
+    },
+    {
+     "kume": 5,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · fiyat segmenti · orta"
+    }
+   ]
+  },
+  "S1|6": {
+   "ozet": {
+    "hakem_ari": 0.734,
+    "kararlilik": 0.791,
+    "en_kucuk_kume": 7,
+    "siluet": 0.267
+   },
+   "satirlar": [
+    {
+     "kume": 1,
+     "magaza": 22,
+     "ayirt_edici": "Basic+NOS · alt kategori · Çanta"
+    },
+    {
+     "kume": 2,
+     "magaza": 14,
+     "ayirt_edici": "Basic+NOS · kalıp · slim"
+    },
+    {
+     "kume": 3,
+     "magaza": 10,
+     "ayirt_edici": "Basic+NOS · kalıp · regular"
+    },
+    {
+     "kume": 4,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · kalıp · oversize"
+    },
+    {
+     "kume": 5,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · alt kategori · Sweatshirt"
+    },
+    {
+     "kume": 6,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · fiyat segmenti · orta"
+    }
+   ]
+  },
+  "S1|7": {
+   "ozet": {
+    "hakem_ari": 0.58,
+    "kararlilik": 0.85,
+    "en_kucuk_kume": 7,
+    "siluet": 0.267
+   },
+   "satirlar": [
+    {
+     "kume": 1,
+     "magaza": 17,
+     "ayirt_edici": "Collection · alt kategori · Etek"
+    },
+    {
+     "kume": 2,
+     "magaza": 13,
+     "ayirt_edici": "Basic+NOS · kalıp · slim"
+    },
+    {
+     "kume": 3,
+     "magaza": 8,
+     "ayirt_edici": "Collection · fiyat segmenti · premium"
+    },
+    {
+     "kume": 4,
+     "magaza": 8,
+     "ayirt_edici": "Collection · fiyat segmenti · giriş"
+    },
+    {
+     "kume": 5,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · kalıp · oversize"
+    },
+    {
+     "kume": 6,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · alt kategori · Sweatshirt"
+    },
+    {
+     "kume": 7,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · fiyat segmenti · orta"
+    }
+   ]
+  },
+  "S1|8": {
+   "ozet": {
+    "hakem_ari": 0.534,
+    "kararlilik": 0.874,
+    "en_kucuk_kume": 6,
+    "siluet": 0.267
+   },
+   "satirlar": [
+    {
+     "kume": 1,
+     "magaza": 17,
+     "ayirt_edici": "Collection · alt kategori · Etek"
+    },
+    {
+     "kume": 2,
+     "magaza": 8,
+     "ayirt_edici": "Collection · fiyat segmenti · premium"
+    },
+    {
+     "kume": 3,
+     "magaza": 8,
+     "ayirt_edici": "Basic+NOS · alt kategori · Kazak"
+    },
+    {
+     "kume": 4,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · kalıp · oversize"
+    },
+    {
+     "kume": 5,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · alt kategori · Sweatshirt"
+    },
+    {
+     "kume": 6,
+     "magaza": 7,
+     "ayirt_edici": "Collection · fiyat segmenti · giriş"
+    },
+    {
+     "kume": 7,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · fiyat segmenti · orta"
+    },
+    {
+     "kume": 8,
+     "magaza": 6,
+     "ayirt_edici": "Collection · kalıp · slim"
+    }
+   ]
+  },
+  "S2|4": {
+   "ozet": {
+    "hakem_ari": 0.022,
+    "kararlilik": 0.988,
+    "en_kucuk_kume": 5,
+    "siluet": 0.257
+   },
+   "satirlar": [
+    {
+     "kume": 1,
+     "magaza": 24,
+     "ayirt_edici": "beden sırası 5"
+    },
+    {
+     "kume": 2,
+     "magaza": 21,
+     "ayirt_edici": "beden sırası 3"
+    },
+    {
+     "kume": 3,
+     "magaza": 17,
+     "ayirt_edici": "beden sırası 1"
+    },
+    {
+     "kume": 4,
+     "magaza": 5,
+     "ayirt_edici": "Temmuz payı"
+    }
+   ]
+  },
+  "S2|5": {
+   "ozet": {
+    "hakem_ari": 0.137,
+    "kararlilik": 0.986,
+    "en_kucuk_kume": 5,
+    "siluet": 0.277
+   },
+   "satirlar": [
+    {
+     "kume": 1,
+     "magaza": 22,
+     "ayirt_edici": "beden sırası 5"
+    },
+    {
+     "kume": 2,
+     "magaza": 18,
+     "ayirt_edici": "beden sırası 3"
+    },
+    {
+     "kume": 3,
+     "magaza": 15,
+     "ayirt_edici": "beden sırası 1"
+    },
+    {
+     "kume": 4,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · fiyat segmenti · orta"
+    },
+    {
+     "kume": 5,
+     "magaza": 5,
+     "ayirt_edici": "Temmuz payı"
+    }
+   ]
+  },
+  "S2|6": {
+   "ozet": {
+    "hakem_ari": 0.143,
+    "kararlilik": 0.963,
+    "en_kucuk_kume": 1,
+    "siluet": 0.281
+   },
+   "satirlar": [
+    {
+     "kume": 1,
+     "magaza": 22,
+     "ayirt_edici": "beden sırası 5"
+    },
+    {
+     "kume": 2,
+     "magaza": 18,
+     "ayirt_edici": "beden sırası 3"
+    },
+    {
+     "kume": 3,
+     "magaza": 14,
+     "ayirt_edici": "beden sırası 1"
+    },
+    {
+     "kume": 4,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · fiyat segmenti · orta"
+    },
+    {
+     "kume": 5,
+     "magaza": 5,
+     "ayirt_edici": "Temmuz payı"
+    },
+    {
+     "kume": 6,
+     "magaza": 1,
+     "ayirt_edici": "Şubat payı"
+    }
+   ]
+  },
+  "S2|7": {
+   "ozet": {
+    "hakem_ari": 0.133,
+    "kararlilik": 0.901,
+    "en_kucuk_kume": 1,
+    "siluet": 0.291
+   },
+   "satirlar": [
+    {
+     "kume": 1,
+     "magaza": 22,
+     "ayirt_edici": "beden sırası 5"
+    },
+    {
+     "kume": 2,
+     "magaza": 18,
+     "ayirt_edici": "beden sırası 3"
+    },
+    {
+     "kume": 3,
+     "magaza": 14,
+     "ayirt_edici": "beden sırası 1"
+    },
+    {
+     "kume": 4,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · fiyat segmenti · orta"
+    },
+    {
+     "kume": 5,
+     "magaza": 3,
+     "ayirt_edici": "Temmuz payı"
+    },
+    {
+     "kume": 6,
+     "magaza": 2,
+     "ayirt_edici": "Haziran payı"
+    },
+    {
+     "kume": 7,
+     "magaza": 1,
+     "ayirt_edici": "Şubat payı"
+    }
+   ]
+  },
+  "S2|8": {
+   "ozet": {
+    "hakem_ari": 0.191,
+    "kararlilik": 0.772,
+    "en_kucuk_kume": 1,
+    "siluet": 0.256
+   },
+   "satirlar": [
+    {
+     "kume": 1,
+     "magaza": 22,
+     "ayirt_edici": "beden sırası 5"
+    },
+    {
+     "kume": 2,
+     "magaza": 14,
+     "ayirt_edici": "beden sırası 1"
+    },
+    {
+     "kume": 3,
+     "magaza": 11,
+     "ayirt_edici": "beden sırası 3"
+    },
+    {
+     "kume": 4,
+     "magaza": 7,
+     "ayirt_edici": "beden sırası 3"
+    },
+    {
+     "kume": 5,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · fiyat segmenti · orta"
+    },
+    {
+     "kume": 6,
+     "magaza": 3,
+     "ayirt_edici": "Temmuz payı"
+    },
+    {
+     "kume": 7,
+     "magaza": 2,
+     "ayirt_edici": "Haziran payı"
+    },
+    {
+     "kume": 8,
+     "magaza": 1,
+     "ayirt_edici": "Şubat payı"
+    }
+   ]
+  },
+  "S4|4": {
+   "ozet": {
+    "hakem_ari": 0.022,
+    "kararlilik": 0.97,
+    "en_kucuk_kume": 5,
+    "siluet": 0.251
+   },
+   "satirlar": [
+    {
+     "kume": 1,
+     "magaza": 24,
+     "ayirt_edici": "beden sırası 5 (stoklu gün başına)"
+    },
+    {
+     "kume": 2,
+     "magaza": 21,
+     "ayirt_edici": "beden sırası 3 (stoklu gün başına)"
+    },
+    {
+     "kume": 3,
+     "magaza": 17,
+     "ayirt_edici": "beden sırası 1 (stoklu gün başına)"
+    },
+    {
+     "kume": 4,
+     "magaza": 5,
+     "ayirt_edici": "Ağustos payı (stoklu gün başına)"
+    }
+   ]
+  },
+  "S4|5": {
+   "ozet": {
+    "hakem_ari": 0.137,
+    "kararlilik": 0.995,
+    "en_kucuk_kume": 5,
+    "siluet": 0.272
+   },
+   "satirlar": [
+    {
+     "kume": 1,
+     "magaza": 22,
+     "ayirt_edici": "beden sırası 5 (stoklu gün başına)"
+    },
+    {
+     "kume": 2,
+     "magaza": 18,
+     "ayirt_edici": "beden sırası 3 (stoklu gün başına)"
+    },
+    {
+     "kume": 3,
+     "magaza": 15,
+     "ayirt_edici": "beden sırası 1 (stoklu gün başına)"
+    },
+    {
+     "kume": 4,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · fiyat segmenti · orta (stoklu gün başına)"
+    },
+    {
+     "kume": 5,
+     "magaza": 5,
+     "ayirt_edici": "Ağustos payı (stoklu gün başına)"
+    }
+   ]
+  },
+  "S4|6": {
+   "ozet": {
+    "hakem_ari": 0.201,
+    "kararlilik": 0.896,
+    "en_kucuk_kume": 5,
+    "siluet": 0.253
+   },
+   "satirlar": [
+    {
+     "kume": 1,
+     "magaza": 18,
+     "ayirt_edici": "beden sırası 3 (stoklu gün başına)"
+    },
+    {
+     "kume": 2,
+     "magaza": 15,
+     "ayirt_edici": "beden sırası 1 (stoklu gün başına)"
+    },
+    {
+     "kume": 3,
+     "magaza": 14,
+     "ayirt_edici": "beden sırası 5 (stoklu gün başına)"
+    },
+    {
+     "kume": 4,
+     "magaza": 8,
+     "ayirt_edici": "Basic+NOS · alt kategori · Elbise (stoklu gün başına)"
+    },
+    {
+     "kume": 5,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · fiyat segmenti · orta (stoklu gün başına)"
+    },
+    {
+     "kume": 6,
+     "magaza": 5,
+     "ayirt_edici": "Ağustos payı (stoklu gün başına)"
+    }
+   ]
+  },
+  "S4|7": {
+   "ozet": {
+    "hakem_ari": 0.195,
+    "kararlilik": 0.868,
+    "en_kucuk_kume": 2,
+    "siluet": 0.27
+   },
+   "satirlar": [
+    {
+     "kume": 1,
+     "magaza": 18,
+     "ayirt_edici": "beden sırası 3 (stoklu gün başına)"
+    },
+    {
+     "kume": 2,
+     "magaza": 16,
+     "ayirt_edici": "beden sırası 5 (stoklu gün başına)"
+    },
+    {
+     "kume": 3,
+     "magaza": 15,
+     "ayirt_edici": "beden sırası 1 (stoklu gün başına)"
+    },
+    {
+     "kume": 4,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · fiyat segmenti · orta (stoklu gün başına)"
+    },
+    {
+     "kume": 5,
+     "magaza": 6,
+     "ayirt_edici": "Basic+NOS · alt kategori · Elbise (stoklu gün başına)"
+    },
+    {
+     "kume": 6,
+     "magaza": 3,
+     "ayirt_edici": "Temmuz payı (stoklu gün başına)"
+    },
+    {
+     "kume": 7,
+     "magaza": 2,
+     "ayirt_edici": "Eylül payı (stoklu gün başına)"
+    }
+   ]
+  },
+  "S4|8": {
+   "ozet": {
+    "hakem_ari": 0.214,
+    "kararlilik": 0.766,
+    "en_kucuk_kume": 2,
+    "siluet": 0.255
+   },
+   "satirlar": [
+    {
+     "kume": 1,
+     "magaza": 15,
+     "ayirt_edici": "beden sırası 5 (stoklu gün başına)"
+    },
+    {
+     "kume": 2,
+     "magaza": 15,
+     "ayirt_edici": "beden sırası 3 (stoklu gün başına)"
+    },
+    {
+     "kume": 3,
+     "magaza": 13,
+     "ayirt_edici": "beden sırası 1 (stoklu gün başına)"
+    },
+    {
+     "kume": 4,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · alt kategori · Elbise (stoklu gün başına)"
+    },
+    {
+     "kume": 5,
+     "magaza": 7,
+     "ayirt_edici": "Basic+NOS · fiyat segmenti · orta (stoklu gün başına)"
+    },
+    {
+     "kume": 6,
+     "magaza": 5,
+     "ayirt_edici": "Basic+NOS · kalıp · slim (stoklu gün başına)"
+    },
+    {
+     "kume": 7,
+     "magaza": 3,
+     "ayirt_edici": "Temmuz payı (stoklu gün başına)"
+    },
+    {
+     "kume": 8,
+     "magaza": 2,
+     "ayirt_edici": "Eylül payı (stoklu gün başına)"
+    }
+   ]
+  }
+ }
+}
