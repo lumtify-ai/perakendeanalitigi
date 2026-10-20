@@ -207,11 +207,102 @@ def test_anadolu_sarti_metropol_ankara_izmir_haric_tutar():
 
 def test_merdiven_kumulatif():
     k = hs.MERDIVEN[0]
-    assert (k.hucre, k.metropol, k.istanbul, k.anadolu, k.ust, k.alt, k.gevseyen) ==         ("bolge_sinif", True, True, True, 0.75, 0.25, ())
+    assert (k.hucre, k.metropol, k.istanbul1, k.istanbul2, k.anadolu, k.ust, k.alt, k.gevseyen) ==         ("bolge_sinif", True, True, True, True, 0.75, 0.25, ())
+    assert len(hs.MERDIVEN) == len(hs.ADIMLAR) + 1
     for onceki, sonraki in zip(hs.MERDIVEN, hs.MERDIVEN[1:]):
         assert sonraki.gevseyen[:len(onceki.gevseyen)] == onceki.gevseyen
         assert len(sonraki.gevseyen) == len(onceki.gevseyen) + 1
         assert sonraki.ust <= onceki.ust and sonraki.alt >= onceki.alt
+
+
+def _ilk_kademe(kosul):
+    return next(i for i, k in enumerate(hs.MERDIVEN) if kosul(k))
+
+
+def test_istanbul_bayraklari_ayri_sirada_gevser():
+    """1. çiftin "tercihen İstanbul" şartı erken, 2. çiftin İstanbul-Anadolu şartı (kadro) en son gevşer."""
+    i1 = _ilk_kademe(lambda k: not k.istanbul1)
+    i2 = _ilk_kademe(lambda k: not k.istanbul2)
+    ilk_nicelik = _ilk_kademe(lambda k: k.ust < hs.UST)
+    ilk_anadolu = _ilk_kademe(lambda k: not k.anadolu)
+    son_nicelik = _ilk_kademe(lambda k: k.ust <= 0.5)
+    assert i1 < ilk_nicelik < son_nicelik < i2 == len(hs.MERDIVEN) - 1
+    assert i1 < ilk_anadolu < i2
+    assert hs.MERDIVEN[i1 - 1].istanbul2 and hs.MERDIVEN[-2].istanbul2 and hs.MERDIVEN[i2 - 1].istanbul2
+    for k in hs.MERDIVEN[:i2]:
+        assert k.istanbul2                                                    # son kademeye dek sürer
+    assert hs.MERDIVEN[-1].gevseyen[-1].startswith("2. çift: İstanbul-Anadolu")
+
+
+def test_kademelerde_adaylar_buyur():
+    """Gevşeyen her kademede 1. çift ve 2. çift aday kümeleri öncekini kapsar; nicelik kademeleri büyütür."""
+    X, k, kural, ml = kur()
+    w = hs._Dunya(X, k, kural, ml)
+    bos = frozenset()
+    onceki1 = onceki2 = None
+    sayilar = []
+    for kad in hs.MERDIVEN:
+        ust, alt = w.esikler(kad)
+        c1 = set(hs._cift1_adaylari(w, kad, ust, bos))
+        c2 = set(hs._cift2_adaylari(w, kad, alt, bos))
+        if onceki1 is not None:
+            assert onceki1 <= c1 and onceki2 <= c2
+        onceki1, onceki2 = c1, c2
+        sayilar.append((len(c1), len(c2)))
+    ilk = _ilk_kademe(lambda kd: kd.ust < hs.UST)
+    n50 = _ilk_kademe(lambda kd: kd.ust <= 0.5)
+    assert sum(sayilar[n50]) > sum(sayilar[ilk - 1])                          # nicelik kademeleri adayı artırır
+
+
+def _degistir(d, m, i, v):
+    d[m] = d[m][:i] + (v,) + d[m][i + 1:]
+
+
+def sahne(d, ml_ozel=None):
+    """Dünya `d` için `sec` (ML kümeleri profil; `ml_ozel` ile mağaza başına geçersiz kılınır)."""
+    k = kapsam_kur(d)
+    kural, ml = etiketler_kur(d)
+    for m, v in (ml_ozel or {}).items():
+        ml[m] = v
+    X = ozellik_kur(d)
+    return hs.sec(X.loc[k.loc[k["kumelenir"], "magaza_id"]], k, kural, ml), k.set_index("magaza_id")
+
+
+def test_istanbul1_kademesi_davranisi():
+    """İstanbul'da farklı satan çift yok (hepsi aile); farklı satan çift İç Anadolu'da: ancak 1. çiftin
+    İstanbul şartı kalkınca (3. kademe) sahne kurulur ve 1. çiftte İstanbul mağazası yoktur."""
+    d = dict(DUNYA)
+    for m in ("I1", "I4"):
+        _degistir(d, m, 4, "aile")
+    h, kk = sahne(d)
+    assert len(h.gevseyen) == 3 and h.gevseyen[-1] == hs.ADIMLAR[2][2]
+    assert not kk.loc[list(h.cift1), "istanbul"].any()
+    assert kk.at[h.cift2[0], "istanbul"] != kk.at[h.cift2[1], "istanbul"]    # 2. çift İstanbul-Anadolu kalır
+
+
+def test_anadolu_kademesi_davranisi():
+    """2. çift İstanbul mağazasıyla yalnız İzmir'in (metropol) mağazası aynı ML kümesinde: ancak Anadolu
+    şartı gevşeyince (6. kademe) sahne kurulur."""
+    d = dict(DUNYA)
+    _degistir(d, "E1", 4, "aile")
+    ml = {m: 5 for m, v in d.items() if not v[3]}                            # metropol dışı hepsi ayrı küme
+    h, kk = sahne(d, ml)
+    assert len(h.gevseyen) == 6 and h.gevseyen[-1] == hs.ADIMLAR[5][2]
+    assert "E1" in h.cift2 and kk.at["E1", "metropol"] and not kk.at["E1", "istanbul"]
+    assert kk.at[h.cift2[0], "istanbul"] != kk.at[h.cift2[1], "istanbul"]
+
+
+def test_istanbul2_en_son_gevser():
+    """İstanbul mağazalarının hiçbiri başka bir mağazayla aynı ML kümesinde değil: 2. çift ancak son
+    kademede (8.) İstanbul olmayan iki mağazadan kurulur, öncesinde hiçbir kademe bunu yapmaz."""
+    d = dict(DUNYA)
+    ml = {m: 5 for m, v in d.items() if not v[2]}
+    ml.update({"I1": 7, "I2": 8, "I3": 8, "I4": 7})
+    h, kk = sahne(d, ml)
+    assert len(h.gevseyen) == len(hs.ADIMLAR) == 8
+    assert h.gevseyen[-1] == hs.ADIMLAR[-1][2]
+    assert not kk.loc[list(h.cift2), "istanbul"].any()
+    assert kk.at[h.cift2[0], "bolge"] != kk.at[h.cift2[1], "bolge"]
 
 
 def test_bulunamazsa_hata():
@@ -303,24 +394,23 @@ def test_gizli_hicbir_sahne_dogrulanmazsa_hata():
 
 
 def test_alternatif_ayri_magazalarla():
+    """Varsayılan dünyada İstanbul'un ikinci çifti ve İç Anadolu'daki mağazalar ikinci bir sahne verir."""
     X, k, kural, ml = kur()
     h = hs.sec(X, k, kural, ml)
-    if h.alternatif is not None:
-        al = h.alternatif
-        assert not {*h.cift1, *h.cift2} & {*al.cift1, *al.cift2}
-        assert al.alternatif is None and al.kalemler
-        # alternatif en az birinci kadar gevşektir
-        assert len(al.gevseyen) >= len(h.gevseyen)
+    al = h.alternatif
+    assert al is not None
+    assert not {*h.cift1, *h.cift2} & {*al.cift1, *al.cift2}
+    assert al.alternatif is None and 2 <= len(al.kalemler) <= 3
+    assert len(al.gevseyen) >= len(h.gevseyen)
+    assert al.cift1 != h.cift1 and al.cift2 != h.cift2
 
 
-def test_alternatif_yok_sayilirsa_none():
-    """Yalnız bir sahnelik küçük dünya: alternatif yok (hata değil)."""
-    d = {m: DUNYA[m] for m in ("I1", "I2", "A1", "A4", "E2", "E3", "K1", "I4")}
-    k = kapsam_kur(d)
-    kural, ml = etiketler_kur(d)
-    X = ozellik_kur(d)
-    h = hs.sec(X, k, kural, ml)
-    assert h.alternatif is None or not {*h.cift1, *h.cift2} & {*h.alternatif.cift1, *h.alternatif.cift2}
+def test_alternatif_yoksa_none():
+    """Beş mağazalı dünya: birinci sahne üç mağaza kullanır; kalan iki mağaza (aynı ML) 1. çift kuramaz."""
+    d = {m: DUNYA[m] for m in ("I1", "I2", "A1", "A2", "A3")}
+    h, _ = sahne(d)
+    assert len({*h.cift1, *h.cift2}) == 3
+    assert h.alternatif is None
 
 
 def test_json_donusumu():
@@ -329,6 +419,8 @@ def test_json_donusumu():
     s = h.sozluk()
     assert s["cift1"] == list(h.cift1) and s["gevseyen"] == h.gevseyen
     assert s["kalemler"][0]["ozellik"] == h.kalemler[0][0]
+    assert all(" adedinin " in e["olcu"] and e["olcu"].endswith("payı") for e in s["kalemler"] + s["kalemler2"])
+    assert [e["olcu"] for e in s["kalemler"]] == [e["olcu"] for e in s["kalemler2"]]
     json.dumps(s, ensure_ascii=False)
 
 
@@ -351,3 +443,10 @@ def test_gercek_veri_sahnesi():
     assert not k.at[d, "metropol"] and k.at[a, "bolge"] != k.at[d, "bolge"]
     assert 2 <= len(h.kalemler) <= 3
     print(json.dumps(hikaye_kos.kayit(g, h, hakemsiz, gizli), ensure_ascii=False, indent=1))
+
+
+def test_olcu_metni():
+    assert hs.olcu("karisim/Collection/alt_kategori/Sweatshirt") ==         "Collection adedinin Sweatshirt alt kategorisindeki payı"
+    assert hs.olcu("karisim/Collection/kalip/regular") == "Collection adedinin regular kalıbındaki payı"
+    assert hs.olcu("karisim/Basic+NOS/fiyat_segmenti/giris") ==         "Basic ve NOS adedinin giris fiyat segmentindeki payı"
+    assert hs.olcu("mevsim/03") == "mevsim/03"                                # bilinmeyen sütun olduğu gibi

@@ -23,11 +23,15 @@ için CLI bu modülde değil, ölçüm yanındaki o modüldedir.
 Karışım uzaklığı: S1 ailesinin (`ozellikler.standartla(X, "S1")`) öklid uzaklığı; ML kümesinin
 kurulduğu uzayla aynı. Nicelikler kümelenen bütün mağaza çiftleri üzerindendir.
 
-**Ders kalemleri.** Aynı 2-3 özellik iki çiftte de gösterilir: 1. çiftte ayrışan, 2. çiftte
+**Ders kalemleri.** (Yazıya "en çok ayrıştıran" kalemler değil, "ayrışan" kalemler girer; aşağıya
+bakın.) Aynı 2-3 özellik iki çiftte de gösterilir: 1. çiftte ayrışan, 2. çiftte
 ayrışmayan (puan = 1. çiftin farkı − 2. çiftin farkı, mağazalar arası standart sapmayla bölünmüş);
 payı en az `KALEM_FARK_MIN` (üç puan) farklı, 2. çiftin farkı 1. çiftin yarısından az; her nitelikten
 (alt kategori, fiyat segmenti, kalıp) en çok bir kalem; en az `KALEM_EN_AZ` kalem yoksa o sahne
-geçersizdir.
+geçersizdir. Bu sıralama **düz z-farkıdır** (ham pay farkı ÷ mağazalar arası standart sapma): kalemler
+ağırlıklı karışım uzaklığına (`standartla`: blok ve alt blok başına eşit varyans) en çok katkı
+verenler değil, iki çiftte en iyi ayrışan/ayrışmayan özelliklerdir. Hangi özelliğin neyi ölçtüğünü
+`olcu` söyler (`sozluk()` ve JSON'da her kalemin yanındadır).
 
 **Sahne sırası.** Aday sahnelerin hepsi sıralanır: önce **ortak mağaza** (iki çiftte de geçen
 mağaza: aynı İstanbul mağazası hem bir komşusundan ayrılıyor hem bir Anadolu mağazasına benziyor,
@@ -39,12 +43,15 @@ segmentleri farklı, 2. çiftinki aynı. Doğrulamaya takılıp atlanan sahne sa
 sıfırdan büyükse seçim hakemsiz seçimden farklıdır ve yazı bunu bilir. Hiçbir sahne doğrulanmazsa
 hata verilir.
 
-**Gevşetme.** Sıkı merdivenin sahnesi bulunamazsa kademe kademe gevşer (`MERDIVEN`); her kademe
-bir öncekine ekler ve gevşeyen kayıt `gevseyen`'e yazılır: (1) hücre aynı K3 grubu olur (sınıflar
-birleşik hücre); (2) 1. çift iki metropol mağazası olmak zorunda değil; (3) uzaklık nicelikleri
-0,70/0,30, (4) 0,60/0,40; (5) 2. çiftin Anadolu mağazası metropol de olabilir; (6) İstanbul şartı
-kalkar; (7) 0,50/0,50. ML şartları (1. çift farklı, 2. çift aynı) ve 2. çiftin farklı bölge şartı
-hiç gevşemez. Hiçbir kademede sahne yoksa hata.
+**Gevşetme.** Sıkı merdivenin sahnesi bulunamazsa kademe kademe gevşer (`ADIMLAR`, `MERDIVEN`);
+her kademe bir öncekine ekler ve gevşeyen kayıt `gevseyen`'e yazılır: (1) hücre aynı K3 grubu olur
+(sınıfları birleşik hücre); (2) 1. çift iki metropol mağazası olmak zorunda değil; (3) 1. çiftte
+İstanbul mağazası aranmaz ("tercihen İstanbul", erken gevşer); (4) uzaklık nicelikleri 0,70/0,30,
+(5) 0,60/0,40; (6) 2. çiftin Anadolu mağazası metropol de olabilir; (7) 0,50/0,50; (8) 2. çiftin
+"biri İstanbul, biri Anadolu" şartı kalkar. Bu son şart kadro tutarlılığıdır (İstanbul mağazası
+Ali'nin, Anadolu Veli'nin) ve **en son** gevşer; 1. çiftin İstanbul şartı bundan ayrı bir
+bayraktır (`istanbul1` / `istanbul2`). ML şartları (1. çift farklı, 2. çift aynı) ve 2. çiftin
+farklı bölge şartı hiç gevşemez. Hiçbir kademede sahne yoksa hata.
 
 **Alternatif sahne.** Birinci sahnenin mağazalarını hariç tutarak aynı merdivenle bulunan ikinci
 sahne (`alternatif`); yoksa `None`.
@@ -55,7 +62,7 @@ bilinen, ayrı mağazalar); sıkı merdivenin tutmayan şartları `gevseyen`'e y
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 import pandas as pd
@@ -74,30 +81,35 @@ class Kademe:
     """Merdivenin bir kademesi: aranan şartlar ve o kademeye dek gevşeyenlerin kaydı."""
     hucre: str          # "bolge_sinif" (aynı bölge ve K2 sınıfı) | "k3" (aynı K3 grubu)
     metropol: bool      # 1. çift: iki mağaza da metropol
-    istanbul: bool      # 1. çift: biri İstanbul; 2. çift: biri İstanbul biri değil
+    istanbul1: bool     # 1. çift: biri İstanbul (Ali'nin) mağazası ("tercihen", erken gevşer)
+    istanbul2: bool     # 2. çift: biri İstanbul, biri Anadolu (kadro tutarlılığı; en son gevşer)
     anadolu: bool       # 2. çift: İstanbul olmayan mağaza Anadolu mağazası (metropol değil)
     ust: float          # 1. çift: uzaklık >= bu nicelik
     alt: float          # 2. çift: uzaklık <= bu nicelik
     gevseyen: tuple[str, ...]
 
 
+# (alan, yeni değer, kayıt metni); sıra gevşetme sırasıdır, her kademe öncekine ekler. 1. çiftin
+# İstanbul şartı "tercihen"dir ve erken, 2. çiftin İstanbul-Anadolu şartı kadro tutarlılığıdır
+# (İstanbul mağazası Ali'nin, Anadolu Veli'nin) ve en son kalkar.
+ADIMLAR = (
+    ("hucre", "k3", "aynı hücre: aynı bölge ve ciro sınıfı yerine aynı K3 grubu (sınıfları birleşik hücre)"),
+    ("metropol", False, "1. çift: iki mağazanın metropol olması şartı kalktı"),
+    ("istanbul1", False, "1. çift: İstanbul mağazası şartı kalktı"),
+    ("kuyruk", (0.70, 0.30), "uzaklık eşiği: 1. çift üst %30, 2. çift alt %30 (çeyrek yerine)"),
+    ("kuyruk", (0.60, 0.40), "uzaklık eşiği: 1. çift üst %40, 2. çift alt %40"),
+    ("anadolu", False, "2. çift: İstanbul olmayan mağaza metropol de olabilir (Ankara, İzmir)"),
+    ("kuyruk", (0.50, 0.50), "uzaklık eşiği: 1. çift üst yarı, 2. çift alt yarı"),
+    ("istanbul2", False, "2. çift: İstanbul-Anadolu çifti şartı kalktı (kadro tutarlılığı bozulur)"),
+)
+
+
 def _merdiven() -> tuple[Kademe, ...]:
-    k = Kademe("bolge_sinif", True, True, True, UST, ALT, ())
-    adimlar = [
-        ("hucre", "k3", "aynı hücre: aynı bölge ve ciro sınıfı yerine aynı K3 grubu (sınıfları birleşik hücre)"),
-        ("metropol", False, "1. çift: iki mağazanın metropol olması şartı kalktı"),
-        ("kuyruk", (0.70, 0.30), "uzaklık eşiği: 1. çift üst %30, 2. çift alt %30 (çeyrek yerine)"),
-        ("kuyruk", (0.60, 0.40), "uzaklık eşiği: 1. çift üst %40, 2. çift alt %40"),
-        ("anadolu", False, "2. çift: İstanbul olmayan mağaza metropol de olabilir (Ankara, İzmir)"),
-        ("istanbul", False, "İstanbul şartı kalktı (1. çiftte İstanbul mağazası ve 2. çiftte İstanbul-Anadolu çifti aranmaz)"),
-        ("kuyruk", (0.50, 0.50), "uzaklık eşiği: 1. çift üst yarı, 2. çift alt yarı"),
-    ]
+    k = Kademe("bolge_sinif", True, True, True, True, UST, ALT, ())
     sonuc = [k]
-    for alan, deger, metin in adimlar:
-        if alan == "kuyruk":
-            k = Kademe(k.hucre, k.metropol, k.istanbul, k.anadolu, deger[0], deger[1], k.gevseyen + (metin,))
-        else:
-            k = Kademe(**{**k.__dict__, alan: deger, "gevseyen": k.gevseyen + (metin,)})
+    for alan, deger, metin in ADIMLAR:
+        yeni = {"ust": deger[0], "alt": deger[1]} if alan == "kuyruk" else {alan: deger}
+        k = replace(k, **yeni, gevseyen=k.gevseyen + (metin,))
         sonuc.append(k)
     return tuple(sonuc)
 
@@ -135,8 +147,10 @@ class Hikaye:
         """JSON'a yazılabilir hâl (`cikti/hikaye.json`)."""
         return {
             "cift1": list(self.cift1), "cift2": list(self.cift2),
-            "kalemler": [{"ozellik": o, "a": float(a), "b": float(b)} for o, a, b in self.kalemler],
-            "kalemler2": [{"ozellik": o, "c": float(c), "d": float(d)} for o, c, d in self.kalemler2],
+            "kalemler": [{"ozellik": o, "olcu": olcu(o), "a": float(a), "b": float(b)}
+                         for o, a, b in self.kalemler],
+            "kalemler2": [{"ozellik": o, "olcu": olcu(o), "c": float(c), "d": float(d)}
+                          for o, c, d in self.kalemler2],
             "mesafe": [float(x) for x in self.mesafe],
             "esikler": {k: float(v) for k, v in self.esikler.items()},
             "kuyruk": [float(x) for x in self.kuyruk],
@@ -215,6 +229,20 @@ def _nitelik(sutun: str) -> str:
     return p[2] if len(p) > 2 else p[0]
 
 
+_NITELIK_METNI = {"alt_kategori": "{} alt kategorisindeki payı", "fiyat_segmenti": "{} fiyat segmentindeki payı",
+                  "kalip": "{} kalıbındaki payı"}
+_GRUP_METNI = {"Collection": "Collection", "Basic+NOS": "Basic ve NOS"}
+
+
+def olcu(sutun: str) -> str:
+    """Özellik sütununun ne ölçtüğü, yazıda kullanılacak biçimde: `karisim/Collection/alt_kategori/
+    Sweatshirt` → "Collection adedinin Sweatshirt alt kategorisindeki payı"."""
+    p = str(sutun).split(ozellikler.AYRAC)
+    if len(p) != 4 or p[0] != "karisim" or p[2] not in _NITELIK_METNI:
+        return str(sutun)
+    return f"{_GRUP_METNI.get(p[1], p[1])} adedinin " + _NITELIK_METNI[p[2]].format(p[3])
+
+
 def _kalemler(w: _Dunya, cift1, cift2, *, kati: bool):
     """Ders kalemleri: (kalemler, kalemler2) ya da yetersizse None (`kati`: eşiklerle)."""
     a, b = cift1
@@ -262,7 +290,7 @@ def _cift1_adaylari(w: _Dunya, kademe, esik_ust, haric):
             continue
         if kademe.metropol and not (w.metropol[a] and w.metropol[b]):
             continue
-        if kademe.istanbul and not (w.istanbul[a] or w.istanbul[b]):
+        if kademe.istanbul1 and not (w.istanbul[a] or w.istanbul[b]):
             continue
         if w.d(a, b) >= esik_ust - 1e-12:
             uygun.append((a, b))
@@ -274,7 +302,7 @@ def _cift2_adaylari(w: _Dunya, kademe, esik_alt, haric):
     for a, b in _ciftler(w, haric):
         if w.bolge[a] == w.bolge[b] or w.ml[a] != w.ml[b]:
             continue
-        if kademe.istanbul and w.istanbul[a] == w.istanbul[b]:
+        if kademe.istanbul2 and w.istanbul[a] == w.istanbul[b]:
             continue
         if kademe.anadolu and (w.metropol[a] and not w.istanbul[a] or w.metropol[b] and not w.istanbul[b]):
             continue

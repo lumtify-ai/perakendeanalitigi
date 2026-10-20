@@ -49,7 +49,12 @@ def girdiler(karar_gunu=sabitler.KARAR_GUNU) -> dict:
 
 
 def calistir(g: dict, *, gizli: bool = True, zorla=None):
-    """(Hikaye, hakemsiz Hikaye | None) döndürür. `gizli=True`: hakem segmentleri doğrulama olarak verir."""
+    """Üç değer döndürür: `(h, hakemsiz, gizli_s)`.
+
+    h         seçilen `Hikaye` (`gizli=True` ise hakemin segmentleriyle doğrulanmış)
+    hakemsiz  aynı seçimin hakemsiz hâli (`gizli=False` ise `None`); `h` ile aynı sahne mi diye
+              karşılaştırmak içindir (`kayit` → `hakemsiz_ayni`)
+    gizli_s   hakemden okunan mağaza → gizli segment `Series` (`gizli=False` ise `None`)"""
     etiketler = {"k2": g["k2"], "k3": g["k3"]}
     ml = g["oneri"].etiket
     gizli_s = hakem.gizli_segment() if gizli else None
@@ -83,20 +88,28 @@ def kayit(g: dict, h, hakemsiz, gizli_s) -> dict:
     return out
 
 
-def main(argv=None) -> int:
+def argumanlar(argv=None) -> argparse.Namespace:
+    """Komut satırı: `--gizlisiz`, `--zorla M1,M2,M3,M4` (`zorla` çözülmüş: ((M1, M2), (M3, M4)) ya da None),
+    `--cikti`."""
     p = argparse.ArgumentParser(prog="kumeleme.hikaye_kos", description=__doc__.splitlines()[0])
     p.add_argument("--gizlisiz", action="store_true", help="hakemi bağlama (doğrulama yok)")
     p.add_argument("--zorla", help="M1,M2,M3,M4: 1. çift M1-M2, 2. çift M3-M4")
     p.add_argument("--cikti", type=Path, default=YOL)
     a = p.parse_args(argv)
-    zorla = None
     if a.zorla:
-        m = a.zorla.split(",")
-        if len(m) != 4:
-            p.error("--zorla dört mağaza ister")
-        zorla = ((m[0], m[1]), (m[2], m[3]))
+        m = [x.strip() for x in a.zorla.split(",")]
+        if len(m) != 4 or not all(m):
+            p.error("--zorla dört mağaza ister: M1,M2,M3,M4")
+        a.zorla = ((m[0], m[1]), (m[2], m[3]))
+    else:
+        a.zorla = None
+    return a
+
+
+def main(argv=None) -> int:
+    a = argumanlar(argv)
     g = girdiler()
-    h, hakemsiz, gizli_s = calistir(g, gizli=not a.gizlisiz, zorla=zorla)
+    h, hakemsiz, gizli_s = calistir(g, gizli=not a.gizlisiz, zorla=a.zorla)
     out = kayit(g, h, hakemsiz, gizli_s)
     a.cikti.parent.mkdir(parents=True, exist_ok=True)
     a.cikti.write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
