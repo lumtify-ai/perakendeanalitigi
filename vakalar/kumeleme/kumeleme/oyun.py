@@ -85,6 +85,7 @@ DEMO_K = (4, 5, 6, 7, 8)
 DEMO_YONTEM = "kmeans"
 YORUM_N = 3
 KURALLAR = ("k1", "k2", "k3", "k4")
+GIZLI_ALAN = "olcum_gizli_segment"   # kumeler.json: yalnız ölçüm (kahin küme kolu)
 
 
 # ---------------------------------------------------------------------------
@@ -518,10 +519,25 @@ def kumeler_kaydi(sonuc: dict) -> dict:
                "ozellik_kimligi": o["ozellik_kimligi"], "etiket": o["etiket"],
                "yeni_magaza": {"yontem": ym["varsayilan"], "komsu": ym["komsu"],
                                "atama": {m: r[ym["varsayilan"]] for m, r in ym["gercek"].items()}}},
-        "olcum_gizli_segment": {
+        GIZLI_ALAN: {
             "not": "YALNIZ ÖLÇÜM: gizli segment (hakem); karar kodu okumaz. Kahin küme kolu içindir.",
             "etiket": sonuc["gizli_kapsam"]},
     }
+
+
+def kumeler_oku(yol: Path = KUMELER, olcum: bool = False) -> dict:
+    """`kumeler.json`'u okur. Gizli segment alanı (`GIZLI_ALAN`) yalnız `olcum=True` ile döner: kahin küme
+    kolu (ölçüm) dışındaki her okuyucu (İlk Sevkiyat'ın K1, K2, ML kolları) onu hiç görmez. Bu modül ölçüm
+    yanıdır; karar modülleri onu içe aktarmaz (sızıntı kilidi), etiketleri argüman olarak alır."""
+    yol = Path(yol)
+    if not yol.is_file():
+        raise FileNotFoundError(f"{yol} yok: önce `python -m kumeleme.oyun`")
+    k = json.loads(yol.read_text(encoding="utf-8"))
+    if k.get("surum") != KAYIT_SURUMU:
+        raise ValueError(f"{yol.name}: kayıt sürümü {k.get('surum')} (beklenen {KAYIT_SURUMU})")
+    if not olcum:
+        k.pop(GIZLI_ALAN, None)
+    return k
 
 
 def kos(karar_gunu=sabitler.KARAR_GUNU, ilerleme=None) -> dict:

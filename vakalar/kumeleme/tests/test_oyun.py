@@ -117,3 +117,17 @@ def test_sehir_iklim_uyumu():
 def test_kurallar_listesi_kural_modulu_ile():
     assert oyun.KURALLAR == ("k1", "k2", "k3", "k4")
     assert all(callable(getattr(kural, f)) for f in ("bolge", "ciro_sinifi", "bolge_ciro", "konum"))
+
+
+def test_kumeler_oku_gizliyi_yalniz_olcumde_verir(tmp_path):
+    yol = tmp_path / "kumeler.json"
+    yol.write_text(oyun.metin(oyun.kumeler_kaydi(sahte_sonuc.sonuc())), encoding="utf-8")
+    k = oyun.kumeler_oku(yol)
+    assert oyun.GIZLI_ALAN not in k and set(k) == {"surum", "karar_gunu", "kod", "kapsam", "kural", "ml"}
+    assert "gizli" not in json.dumps(k, ensure_ascii=False)
+    assert oyun.kumeler_oku(yol, olcum=True)[oyun.GIZLI_ALAN]["etiket"]["M01"] == "metropol_genc"
+    with pytest.raises(FileNotFoundError, match="kumeleme.oyun"):
+        oyun.kumeler_oku(tmp_path / "yok.json")
+    yol.write_text(json.dumps({"surum": 0}), encoding="utf-8")
+    with pytest.raises(ValueError, match="sürüm"):
+        oyun.kumeler_oku(yol)

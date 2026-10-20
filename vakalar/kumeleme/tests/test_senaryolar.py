@@ -42,7 +42,7 @@ def test_degerler_sonuctan_yuvarlanir():
     s = sahte_sonuc.sonuc()
     s["demo"]["S2|6"].update(ari=0.123456, kararlilik=0.98765, siluet=0.2805)
     oz = senaryolar.sonuclar(s)["S2|6"]["ozet"]
-    assert oz == {"hakem_ari": 0.123, "kararlilik": 0.988, "en_kucuk_kume": 1, "siluet": round(0.2805, 3)}
+    assert oz == {"hakem_ari": 0.123, "kararlilik": 0.988, "en_kucuk_kume": 1, "siluet": 0.281}
     assert senaryolar.sonuclar(s)["S2|6"]["satirlar"][0] == {"kume": 1, "magaza": 3,
                                                              "ayirt_edici": "Collection · kalıp · regular"}
 

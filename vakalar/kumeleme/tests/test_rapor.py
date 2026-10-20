@@ -144,7 +144,7 @@ def test_sorular_basilan_degerlerden(tmp_path):
     soru1 = next(x for x in bolum["HAKEM"].splitlines() if x.startswith("SORU 1"))
     assert f"K1 bölge ARI {rapor.s(g['k1']['ari'], 3)}" in soru1 and f"ARI {rapor.s(g['k2']['ari'], 3)}" in soru1
     soru6 = next(x for x in bolum["YENİ MAĞAZA"].splitlines() if x.startswith("SORU 6"))
-    assert "5-NN 7/8 (%87,5)" in soru6 and "1'i doğru (M09)" in soru6
+    assert "5-NN 7/8 (%87,5)" in soru6 and "1'i segmentte doğru (M09)" in soru6
 
 
 def test_iki_kosu_bayt_bayt_ayni(tmp_path):
@@ -225,3 +225,90 @@ def test_main_bos_stdout_ve_cikis_kodlari(tmp_path, monkeypatch, capsys):
 
     monkeypatch.setattr(rapor, "hazirla", lambda taslak=False: v2)
     assert rapor.main(["--taslak"]) == 2
+
+
+# ------------------------------------------------------------- inceleme düzeltmeleri
+
+
+def test_iyelik_eki():
+    assert [rapor.iyelik(n) for n in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)] == [
+        "0'ı", "1'i", "2'si", "3'ü", "4'ü", "5'i", "6'sı", "7'si", "8'i", "9'u"]
+    assert [rapor.iyelik(n) for n in (10, 20, 40, 60, 67, 100, 1000)] == [
+        "10'u", "20'si", "40'ı", "60'ı", "67'si", "100'ü", "1.000'i"]
+
+
+def _soru(metin: str, n: int) -> str:
+    return next(x for x in metin.splitlines() if x.startswith(f"SORU {n} · "))
+
+
+def _satir(rows, yontem, k):
+    return next(r for r in rows if r["yontem"] == yontem and r["k"] == k)
+
+
+def test_soru3_soru4_sabit_k_satirlarindan(tmp_path):
+    s = sahte_sonuc.sonuc()
+    ab = s["ablasyon"]["alt_blok"]
+    _satir(ab["S1+olcek"], "kmeans", 3).update(ari=0.123, ari_k2=0.456)
+    _satir(ab["S1+olcek"], "ward", 3).update(ari=0.777, ari_k2=0.778)       # yöntem farklı: seçilmez
+    _satir(ab["S1+olcek"], "kmeans", 2).update(ari=0.666)                    # k farklı: seçilmez
+    _satir(ab["S5"], "kmeans", 3).update(ari=0.234)
+    _satir(ab["S1_stoklu"], "ward", 3).update(ari=0.888)
+    _satir(ab["S1_stoklu"], "kmeans", 3).update(ari=0.345)
+    s["ablasyon"]["uyum"]["S1|S1_stoklu"] = 0.567
+    m = _metin(tmp_path, sonuc=s)
+    s3, s4 = _soru(m, 3), _soru(m, 4)
+    assert "k = 3'te S1 ARI 1,000 → S1 + ölçek 0,123" in s3 and "S5 0,234" in s3 and "→ S1 + ölçek 0,456" in s3
+    assert "0,777" not in s3 and "0,666" not in s3
+    assert "Ward k = 3 ARI 0,888" in s4 and "k-means S1 stoklu 0,345" in s4 and "ham bölmeyle uyumu 0,567" in s4
+
+
+def test_soru5_alanlari(tmp_path):
+    s5 = _soru(_metin(tmp_path), 5)
+    assert ("öneri yıllar arası ARI 0,640 (7 mağaza)" in s5 and "önyüklemede ARI 0,800" in s5
+            and "değişme %12,5" in s5 and "K2 ciro sınıfı yıllar arası ARI 0,830" in s5)
+
+
+def test_soru2_metropol_grup_sayisi_ve_denetimi(tmp_path, capsys):
+    s2 = _soru(_metin(tmp_path), 2)
+    assert "K4 tek grup" in s2                                   # sahte: üç metropol mağazası, K4 'metropol'
+    s = sahte_sonuc.sonuc()
+    s["hakem"]["gruplar"]["k4"]["bolum"]["metropol"]["grup"] = 2
+    kod, metin = rapor.tamponla(lambda: rapor.govde(_veri(tmp_path / "b", s)))
+    assert (kod, metin) == (1, "") and "K4 metropol grup sayısı" in capsys.readouterr().err
+
+
+def test_soru6_yeni_magaza_sayisi_veriden(tmp_path):
+    assert "1 gerçek yeni mağazanın 1'i segmentte doğru (M09)" in _soru(_metin(tmp_path), 6)
+
+
+def test_kosullu_iddialar(tmp_path):
+    m = _metin(tmp_path / "a")
+    assert "boş siluet eşitlik payı içinde" in m                  # sahte: hepsi 0,05
+    assert "bu bölmeyi seçerdi" not in m                          # sahte: S1 + ölçek silueti adaylarınkine eşit
+    s = sahte_sonuc.sonuc()
+    for b in s["ml"]["bos_siluet"]:
+        if b["aile"] == "S2":
+            b["bos_siluet"] = 0.2
+    for r in s["ablasyon"]["alt_blok"]["S1+olcek"]:
+        if r["secilen"]:
+            r.update(siluet=0.40, ari_k2=0.6, ari=0.1)
+    m = _metin(tmp_path / "b", sonuc=s)
+    assert "boş siluet eşitlik payı içinde" not in m and "fark +0,150" in m
+    assert "bu bölmeyi seçerdi" in m
+    for r in s["ablasyon"]["alt_blok"]["S1+olcek"]:
+        if r["secilen"]:
+            r.update(ari_k2=0.4)                                  # silueti yüksek ama ciroya benzemiyor
+    assert "bu bölmeyi seçerdi" not in _metin(tmp_path / "c", sonuc=s)
+
+
+def test_demo_bayt_butcesi_denetlenir(tmp_path, capsys):
+    v = _veri(tmp_path)
+    v.demo_bayt = senaryolar.BUTCE
+    assert rapor.tamponla(lambda: rapor.govde(v)) == (1, "")
+    assert "bütçe" in capsys.readouterr().err
+
+
+def test_demo_ve_rapor_ayni_yuvarlama():
+    for x in (0.2805, 0.8505, 1.0005, 0.6415, 0.12345, 0.3075):
+        assert senaryolar.yuvarla(x, 3) == rapor.yuv(x, 3)
+        assert rapor.s(senaryolar.yuvarla(x, 3), 3) == rapor.s(x, 3)

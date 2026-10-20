@@ -21,6 +21,7 @@ küçük kümenin mağaza sayısı, siluet. Oranlar üç ondalık (rapor DEMO b�
 
 import hashlib
 import json
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 KOK = Path(__file__).resolve().parent
@@ -74,7 +75,10 @@ def anahtar(aile: str, k: int) -> str:
 
 
 def yuvarla(deger: float, basamak: int):
-    return round(float(deger), basamak) if basamak else int(round(float(deger)))
+    """Yarım yukarı, kısa ondalık gösterimden (`repr`): `rapor.yuv` / `rapor.s` ile aynı kural, demo ve rapor
+    aynı değeri basar (0,2805 → 0,281; ikili `round` 0,28 verirdi)."""
+    d = Decimal(repr(float(deger))).quantize(Decimal(1).scaleb(-basamak), rounding=ROUND_HALF_UP)
+    return float(d) if basamak else int(d)
 
 
 def oku(yol: Path = SONUC) -> dict:

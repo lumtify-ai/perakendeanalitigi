@@ -71,6 +71,7 @@ ANLATI_VARSAYIMLARI = {
                      "konmuş varsayım)",
     "gecmis_esigi": "26 satışlı haftadan az geçmişi olan mağaza yeni sayılır (yürütücü eşiği)",
 }
+CIRO_BENZERLIK = 0.5    # "ciroya benzeyen bölme": K2 ile ARI en az bu ve gizli segmentle ARI'den büyük
 SEGMENT_ADLARI = ("anadolu_aile", "metropol_genc", "metropol_premium", "sicak_sahil", "soguk_iklim")
 
 
@@ -159,6 +160,26 @@ def oran(n: int, d: int) -> str:
     return f"{n}/{d} ({y(n / d)})" if d else f"{n}/{d}"
 
 
+_IYELIK = {0: "ı", 1: "i", 2: "si", 3: "ü", 4: "ü", 5: "i", 6: "sı", 7: "si", 8: "i", 9: "u"}
+_IYELIK_ONLAR = {10: "u", 20: "si", 30: "u", 40: "ı", 50: "si", 60: "ı", 70: "i", 80: "i", 90: "ı"}
+
+
+def iyelik(n: int) -> str:
+    """Sayı ve üçüncü tekil iyelik eki (ses uyumu): 1'i, 2'si, 6'sı, 10'u, 40'ı, 100'ü, 1.000'i."""
+    n = int(n)
+    if n == 0 or n % 10:
+        e = _IYELIK[n % 10]
+    elif n % 100:
+        e = _IYELIK_ONLAR[n % 100]
+    elif n % 1000:
+        e = "ü"                               # yüz
+    elif n % 1_000_000:
+        e = "i"                               # bin
+    else:
+        e = "u"                               # milyon
+    return f"{s(n)}'{e}"
+
+
 def pay(x) -> str:
     """Bir pay (0-1) bir ondalıklı yüzde olarak: 0,0371 → %3,7."""
     return y(x, 1)
@@ -227,6 +248,7 @@ class Veri:
     kumeler: dict | None
     demo_dosya: dict | None
     taslak: bool = False
+    demo_bayt: int | None = None
     eksik: list[str] = field(default_factory=list)
 
 
@@ -259,7 +281,8 @@ def hazirla(sonuc_yol: Path = SONUC, kumeler_yol: Path = KUMELER, demo_yol: Path
         sorun.append(f"{Path(demo_yol).name} yok (önce senaryolar.py)")
     if sorun and not taslak:
         raise RuntimeError("girdi eksik ya da eski:\n  " + "\n  ".join(sorun))
-    return Veri(sonuc=sonuc, kumeler=kumeler, demo_dosya=demo, taslak=taslak, eksik=sorun)
+    return Veri(sonuc=sonuc, kumeler=kumeler, demo_dosya=demo, taslak=taslak, eksik=sorun,
+                demo_bayt=Path(demo_yol).stat().st_size if demo is not None else None)
 
 
 # ---------------------------------------------------------------------------
@@ -483,7 +506,14 @@ def ml_bolumu(v, ek) -> None:
         r = aday_satiri(v, b["aile"], b["yontem"], b["k"])
         print(f"  {b['aile']} {yontem_adi(b['yontem'])} k = {b['k']}: boş {s(b['bos_siluet'], 3)} · gerçek "
               f"{s(r['siluet'], 3)}")
-    print("  S1 ve S2'de boş siluet aynı düzeyde: siluet aileler arasında karşılaştırılabilir (öneri kuralının gerekçesi)")
+    bos_ort = {a: sum(b["bos_siluet"] for b in ml["bos_siluet"] if b["aile"] == a)
+               / max(1, sum(b["aile"] == a for b in ml["bos_siluet"])) for a in ("S1", "S2")}
+    bos_fark = fark(bos_ort["S1"], bos_ort["S2"], 3)
+    print(f"  boş siluet ortalaması S1 {s(bos_ort['S1'], 3)} · S2 {s(bos_ort['S2'], 3)} (fark {isaretli(bos_fark, 3)}; "
+          f"siluet eşitlik payı {s(ml['silu_esitlik'], 2)})")
+    if all(any(b["aile"] == a for b in ml["bos_siluet"]) for a in ("S1", "S2")) and abs(bos_fark) <= ml["silu_esitlik"]:
+        print("  S1 ve S2'de boş siluet eşitlik payı içinde: siluet aileler arasında karşılaştırılabilir (öneri "
+              "kuralının gerekçesi)")
     kk = ml["kararlilik_once"]
     print(f"  açıklama (Ruling R9): kararlılığı birincil yapan kural (ilk taslak) {kk['aile']} "
           f"{yontem_adi(kk['yontem'])} k = {kk['k']}'ü seçerdi (kararlılık {s(kk['kararlilik'], 3)}, siluet "
@@ -538,7 +568,8 @@ def hakem_bolumu(v, ek) -> None:
     soru(2, f"Satış karışımından bulunan kümeler ne kadar oturuyor; konum kuralı ne kadarını zaten biliyor? öneri "
             f"ARI {s(g['ml']['ari'], 3)} · K4 konum ARI {s(g['k4']['ari'], 3)} (AMI {s(g['k4']['ami'], 3)}); "
             f"metropol dışında ({m4['metropol_disi']['n']} mağaza) K4 ARI {s(m4['metropol_disi']['ari'], 3)}, "
-            f"metropolde ({m4['metropol']['n']} mağaza, {m4['metropol']['segment']} segment) K4 tek grup, öneri ARI "
+            f"metropolde ({m4['metropol']['n']} mağaza, {m4['metropol']['segment']} segment) K4 "
+            f"{'tek grup' if m4['metropol']['grup'] == 1 else str(m4['metropol']['grup']) + ' grup'}, öneri ARI "
             f"{s(mm['metropol']['ari'], 3)}")
     alt("metropol / metropol dışı (her grupta ayrı ARI)")
     _tablo(["gruplama", "metropol grup", "metropol ARI", "dışı grup", "dışı ARI"],
@@ -572,6 +603,11 @@ def hakem_bolumu(v, ek) -> None:
           + ". Sentetik zincir gerçek coğrafya üstüne kurulu: konum kuralının başarısı kısmen verinin kurgusu (R5)")
     ek += [(f"HAKEM: {a} çapraz toplamı = kümelenen", sum(map(sum, r["capraz"]["degerler"])) == n) for a, r in g.items()]
     ek += [("HAKEM: şehir iklim sayımı", si["ortusen"] + len(si["farkli"]) == si["sehir"])]
+    e4 = v.sonuc["kural"]["etiketler"]["k4"]
+    for alt_ad, met in (("metropol", True), ("metropol_disi", False)):
+        ms = [m for m in kumelenen(v) if magaza(v, m)["metropol"] == met]
+        ek.append((f"HAKEM: K4 {alt_ad} grup sayısı = kural etiketlerinden", m4[alt_ad]["grup"] == len({e4[m] for m in ms})
+                   and m4[alt_ad]["n"] == len(ms)))
     ek += [("HAKEM: segment sayıları toplamı", sum(h["segment_sayilari"].values()) == n),
            ("HAKEM: outlet/online ölçülmedi", not ({"outlet", "online"} & set(h["segment_sayilari"]))),
            ("HAKEM: metropol + dışı = kümelenen", all(r["bolum"]["metropol"]["n"] + r["bolum"]["metropol_disi"]["n"] == n
@@ -612,8 +648,8 @@ def kararlilik_bolumu(v, ek) -> None:
            ("KARARLILIK: değişme her kümelenen mağazada", sorted(deg) == sorted(kumelenen(v))),
            ("KARARLILIK: değişme 0-1", all(0 <= x <= 1 for x in deg.values())),
            ("KARARLILIK: dönem boyutları ortak mağazalar", all(sum(b) == d[0]["magaza"] for b in kr["donem_boyutlar"].values())),
-           ("KARARLILIK: alt örneklem = aday tablosu", kr["alt_orneklem"] == aday_satiri(
-               v, oneri(v)["aile"], oneri(v)["yontem"], oneri(v)["k"])["kararlilik"])]
+           ("KARARLILIK: görülme her kümelenen mağazada > 0", sorted(kr["gorulme"]) == sorted(kumelenen(v))
+            and all(x > 0 for x in kr["gorulme"].values()))]
 
 
 def _ozet_satirlari(oz: dict) -> list[list[str]]:
@@ -656,10 +692,15 @@ def yeni_magaza_bolumu(v, ek) -> None:
     kh, km = k["hepsi"], k["metropol"]
     kd = k["metropol_disi"]
     isabet = [m for m, r in ym["gercek"].items() if r["knn_segment"] == r["gizli"]]
+    ng = len(ym["gercek"])
     soru(6, f"Yeni mağaza satış görmeden doğru kümeye konabiliyor mu? bırakbirde 5-NN {oran(kh['dogru_kume'], kh['n'])}; "
             f"metropolde {oran(km['dogru_kume'], km['n'])}, metropol dışında {oran(kd['dogru_kume'], kd['n'])}; en büyük "
-            f"küme tabanı {oran(kh['taban_kume'], kh['n'])}; iki gerçek yeni mağazanın "
-            f"{len(isabet)}'i doğru ({', '.join(isabet) or 'yok'})")
+            f"küme tabanı {oran(kh['taban_kume'], kh['n'])}; {ng} gerçek yeni mağazanın {iyelik(len(isabet))} "
+            f"segmentte doğru ({', '.join(isabet) or 'yok'})")
+    ek += [("YENİ: gerçek yeni mağazanın segmenti = atandığı kümenin çoğunluğu",
+            all(r["knn_segment"] == cs[str(r["knn"])] and r["merkez_segment"] == cs[str(r["merkez"])]
+                for r in ym["gercek"].values())),
+           ("YENİ: gerçek yeni mağaza sayısı = VERİ'nin yenileri", ng == len(yeniler(v)))]
     for y_, r in ym["yontemler"].items():
         oz = r["ozet"]
         ek += [(f"YENİ: {y_} hepsi = metropol + dışı", all(oz["hepsi"][c] == oz["metropol"][c] + oz["metropol_disi"][c]
@@ -701,11 +742,20 @@ def ablasyon_bolumu(v, ek) -> None:
                          f"(K2 ile {s(r['ari_k2'], 3)})" for r in ab["alt_blok"][aile] if r["secilen"])
 
     print(f"  hakemsiz k ile S1 + ölçek: {hakemsiz('S1+olcek')}")
-    eniyi_s1o = max(r["siluet"] for r in ab["alt_blok"]["S1+olcek"] if r["secilen"])
+    secilen_s1o = [r for r in ab["alt_blok"]["S1+olcek"] if r["secilen"]]
+    aday_siluet = max(r["siluet"] for r in v.sonuc["ml"]["aday_tablosu"] if r["secilen"])
     oneri_siluet = aday_satiri(v, oneri(v)["aile"], oneri(v)["yontem"], oneri(v)["k"])["siluet"]
-    if yuv(eniyi_s1o, 3) > yuv(oneri_siluet, 3):
-        print(f"  S1 + ölçek'in hakemsiz silueti {s(eniyi_s1o, 3)}, önerininki {s(oneri_siluet, 3)}: ölçek aday "
-              "ailelerine konsaydı siluet kuralı ciroya benzeyen bölmeyi seçerdi (ölçek karışımla aynı vektöre girmez)")
+    if secilen_s1o:
+        en = max(secilen_s1o, key=lambda r: (r["siluet"], -r["k"]))
+        print(f"  S1 + ölçek'in en yüksek hakemsiz silueti {s(en['siluet'], 3)} ({yontem_adi(en['yontem'])} k = {en['k']}), "
+              f"adayların en yükseği {s(aday_siluet, 3)}, önerininki {s(oneri_siluet, 3)}; o bölmenin K2 ile ARI'si "
+              f"{s(en['ari_k2'], 3)}, gizli segmentle {s(en['ari'], 3)}")
+        ust = fark(aday_siluet, en["siluet"], 3) > v.sonuc["ml"]["silu_esitlik"]
+        ciro = yuv(en["ari_k2"], 3) >= CIRO_BENZERLIK and yuv(en["ari_k2"], 3) > yuv(en["ari"], 3)
+        if ust and ciro:
+            print(f"  ölçek aday ailelerine konsaydı siluet kuralı (eşitlik payının üstünde) bu bölmeyi seçerdi; bölme "
+                  f"ciro sınıfına segmentten çok benziyor (K2 ile ARI ≥ {s(CIRO_BENZERLIK, 1)}): ölçek karışımla aynı "
+                  "vektöre girmez")
     soru(3, f"Ölçeği karışıma katmak neyi bozuyor? k = {k}'te S1 ARI {s(s1['ari'], 3)} → S1 + ölçek "
             f"{s(s1o['ari'], 3)}; S2 {s(s2['ari'], 3)} → S5 {s(s5['ari'], 3)}; K2 ciro sınıfıyla uyum S1 "
             f"{s(s1['ari_k2'], 3)} → S1 + ölçek {s(s1o['ari_k2'], 3)}")
@@ -802,9 +852,9 @@ def demo_bolumu(v, ek) -> None:
     else:
         print(f"  site dosyası {senaryolar.HEDEF.name}: sürüm {dosya['surum']} (içeriğin özeti)")
     d5 = v.sonuc["demo"].get(senaryolar.anahtar(o["aile"], o["k"]))
-    ek += [("DEMO: 15 bileşim", len(son) == len(senaryolar.AILELER) * len(senaryolar.KLER)),
-           ("DEMO: dosya bütçe içinde", len(senaryolar.metin(senaryolar.uret(v.sonuc)).encode("utf-8"))
-            < senaryolar.BUTCE),
+    if v.demo_bayt is not None or not v.taslak:
+        ek.append(("DEMO: sitedeki dosya bütçe içinde", v.demo_bayt is not None and v.demo_bayt < senaryolar.BUTCE))
+    ek += [
            ("DEMO: kümeler toplamı kümelenen", all(sum(x["magaza"] for x in r["satirlar"]) == len(kumelenen(v))
                                                   for r in son.values()))]
     if o["yontem"] == "kmeans" and d5 is not None:
