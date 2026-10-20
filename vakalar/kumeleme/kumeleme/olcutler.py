@@ -9,6 +9,8 @@ ortalama), etiketin mağazalarında (gizli tabloda olmayan mağaza hata verir). 
 segment mağaza sayıları. `saflik`: segment başına, segmentin en çok düştüğü küme (`kume`), segmentin
 o kümedeki payı (`pay`) ve o kümenin bu segmentten olan payı (`kume_payi`); eşitlikte küçük küme.
 `toplam_saflik`: her kümenin çoğunluk segmentindeki mağazaların toplam payı (klasik saflık).
+Ölçülen mağazalardan biri `KAPSAM_DISI_SEGMENT` (outlet, online) segmentindeyse bütün hakemli
+ölçütler hata verir (outlet ayrı gruptur, online kapsam dışıdır; spec §4.3 "outlet hariç").
 
 **Kararlılık** (`kararlilik`, hakemsiz). İki parça:
 
@@ -21,7 +23,10 @@ o kümedeki payı (`pay`) ve o kümenin bu segmentten olan payı (`kume_payi`); 
                     biten 52 hafta (2024-02-05 … 2025-02-02). İki pencere örtüşmez. Karşılaştırma,
                     kümelenen mağazalardan **her** dönemin penceresinde en az `en_az_hafta` (26)
                     satışlı haftası olanlarla yapılır (ötekiler `disarida`; özellikler her dönem
-                    bu ortak mağaza kümesiyle kurulur).
+                    bu ortak mağaza kümesiyle kurulur). Bir dönemin penceresi karar günü
+                    penceresinden (`ozellikler.pencere(karar_gunu)`) sonra bitiyorsa hata:
+                    kalibrasyon karar gününde (`KAL_KARAR_GUNU`) varsayılan "2024" dönemi
+                    geleceği okurdu; o gün için dönemler açıkça verilir.
     önyükleme       karar günü özellik tablosu (kümelenen mağazalar, `OZELLIK_HAFTA`) bir kez kurulur
                     ve standartlanır (Ruling R6); `ornek` (50) kez mağazalar iadeli çekilir
                     (tekrar eden mağaza aynı satırın kopyasıdır), çekiliş `fn_kume` ile kümelenir,
@@ -37,7 +42,12 @@ Etiket adları hiçbir ölçüte girmez: aynı bölmenin etiketleri değiştiril
 **Yeni mağaza doğruluğu** (`birakbir_dogruluk`). `yeni_magaza.birakbir` tablosuna `gizli`
 eklenir. Küme doğruluğu: `atanan == gercek_kume`. Segment doğruluğu: atanan kümenin, mağazanın
 kendisi hariç tam bölmedeki üyelerinin çoğunluk segmenti mağazanın gizli segmentiyse doğru
-(`atanan_segment`; eşitlikte alfabetik ilk segment). Karşılaştırma için aynı kural mağazanın kendi
+(`atanan_segment`). Çoğunlukta eşitlik (en sık iki ya da daha çok segment) **ıska** sayılır
+(`atanan_segment` boş): eşitliği bir sıra kuralıyla bozmak kuralın kayırdığı segmente isabet
+yazardı (saf olmayan kural bölmelerinde, örneğin K2, sayıyı şişirirdi); ıska kötümser ve
+kuraldan bağımsızdır. Üyeler tam bölmeden alınır (bırakbir bölmesinden değil; bırakbir ataması tam
+bölmenin etiket uzayına çevrilmiştir). Aynı eşitlik kuralı `kume_segment` ve tabanlarda da
+geçerlidir. Karşılaştırma için aynı kural mağazanın kendi
 satış kümesiyle (`kume_segment`: kümeleme mağazanın satışını görseydi segmenti ne kadar bilirdi)
 ve iki taban: herkese en büyük küme (`taban_kume`), herkese en sık segment (`taban_segment`; ikisi
 de mağazanın kendisi hariç sayılır). Özet: hepsi, metropol, metropol dışı.
@@ -57,6 +67,7 @@ DONEMLER: dict[str, tuple[pd.Timestamp, int]] = {
     "2024": (sabitler.KARAR_GUNU, 52),
 }
 ONYUKLEME_ORNEK = 50
+KAPSAM_DISI_SEGMENT = ("outlet", "online")   # hakemli ölçütler outlet ve online'ı ölçmez (spec §4.3)
 
 
 def _ortak(etiket: pd.Series, gercek: pd.Series) -> tuple[np.ndarray, np.ndarray]:
@@ -69,7 +80,11 @@ def _ortak(etiket: pd.Series, gercek: pd.Series) -> tuple[np.ndarray, np.ndarray
     eksik = sorted(set(e.index) - set(g.index))
     if eksik:
         raise KeyError(f"gerçek etikette olmayan mağaza: {eksik}")
-    return e.to_numpy(), g.loc[e.index].to_numpy()
+    g = g.loc[e.index]
+    disarida = sorted(g.index[g.astype(str).isin(KAPSAM_DISI_SEGMENT)])
+    if disarida:
+        raise ValueError(f"kapsam dışı segmentli mağaza ölçülemez (outlet/online): {disarida}")
+    return e.to_numpy(), g.to_numpy()
 
 
 def ari_ami(etiket: pd.Series, gercek: pd.Series) -> tuple[float, float]:
@@ -162,6 +177,10 @@ def kararlilik(fn_kume: Callable[[pd.DataFrame], pd.Series], tablolar, kapsam: p
 
     # yıllar arası
     pencereler = {d: ozellikler.pencere(gun, hafta) for d, (gun, hafta) in donemler.items()}
+    son = ozellikler.pencere(karar_gunu)[1]
+    ileri = sorted(d for d, (_, bit) in pencereler.items() if bit > son)
+    if ileri:
+        raise ValueError(f"dönem penceresi karar günü penceresinden ({son.date()}) sonra bitiyor: {ileri}")
     hafta = pd.DataFrame({d: _satisli_hafta(tablolar, ids, *p) for d, p in pencereler.items()})
     hafta.index.name = "magaza_id"
     yeterli = (hafta >= en_az_hafta).all(axis=1)
@@ -216,10 +235,12 @@ def kararlilik(fn_kume: Callable[[pd.DataFrame], pd.Series], tablolar, kapsam: p
 
 
 def _cogunluk(degerler: pd.Series):
+    """Çoğunluk değeri; boşsa ya da en sık değer tek değilse (eşitlik) None: ıska sayılır."""
     if degerler.empty:
         return None
     say = degerler.value_counts()
-    return sorted(say.index[say == say.max()])[0]
+    enler = say.index[say == say.max()]
+    return enler[0] if len(enler) == 1 else None
 
 
 def birakbir_dogruluk(tablo: pd.DataFrame, gizli: pd.Series) -> tuple[pd.DataFrame, pd.DataFrame]:

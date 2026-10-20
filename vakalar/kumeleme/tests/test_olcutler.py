@@ -49,6 +49,18 @@ def test_ari_bilinen():
         olcutler.ari_ami(e, g.iloc[1:])
 
 
+@pytest.mark.parametrize("segment", ["outlet", "online"])
+def test_kapsam_disi_segment_olculmez(segment):
+    """Ölçülen mağazalarda outlet/online segmenti hata; gerçek tabloda durması (ölçülmeyen) değil."""
+    e = _seri([0, 0, 1, 1])
+    g = _seri(["a", "a", "b", segment])
+    for f in (olcutler.ari_ami, olcutler.capraz, olcutler.saflik, olcutler.toplam_saflik):
+        with pytest.raises(ValueError, match="outlet/online"):
+            f(e, g)
+    tam = pd.concat([_seri(["a", "a", "b", "b"]), pd.Series({"O01": segment})])
+    assert olcutler.ari_ami(e, tam) == (1.0, 1.0)
+
+
 def test_capraz_saflik():
     e = _seri([0, 0, 0, 1, 1, 1, 1])
     g = _seri(["a", "a", "b", "b", "b", "c", "c"])
@@ -110,6 +122,22 @@ def test_kararlilik_belirlenimci_ve_disarida(tablolar):
     assert "M02" not in c["etiketler"]["a"].index and "M02" in c["degisme"].index
 
 
+def test_kararlilik_ileri_bakis_reddedilir(tablolar):
+    """Dönem penceresi karar günü penceresinden sonra bitemez (kalibrasyon gününde varsayılan
+    dönemler geleceği okurdu); hata hiçbir okuma ve kümelemeden önce."""
+    k = _kapsam(tablolar)
+    fn, sayac = _bolge_kumesi(k)
+    with pytest.raises(ValueError, match="b"):
+        olcutler.kararlilik(fn, tablolar, k, tablolar["urun"], DONEM, aile="S1",
+                            karar_gunu=pd.Timestamp("2024-08-09"), en_az_hafta=10, ornek=2)
+    with pytest.raises(ValueError, match="2024"):
+        olcutler.kararlilik(fn, None, k, None, aile="S1", karar_gunu=sabitler.KAL_KARAR_GUNU)
+    assert sayac["n"] == 0
+    r = olcutler.kararlilik(fn, tablolar, k, tablolar["urun"], {"a": DONEM["a"]}, aile="S1",
+                            karar_gunu=pd.Timestamp("2024-08-09"), en_az_hafta=10, ornek=2)
+    assert list(r["etiketler"]) == ["a"]                                # tam sınırda bitebilir
+
+
 def test_satisli_hafta_baglanti_ile_ayni(tablolar):
     ids = ["M01", "M08", "M09", "YOK"]
     bas, bit = ozellikler.pencere(KARAR, 26)
@@ -140,15 +168,24 @@ def test_birakbir_dogruluk():
     g = pd.Series({"A": "x", "B": "x", "C": "y", "D": "y", "E": "y", "Z": "q"})
     m, o = olcutler.birakbir_dogruluk(t, g)
     assert m["gizli"].tolist() == ["x", "x", "y", "y", "y"]
-    # A: küme 0'ın diğerleri B(x), C(y) → eşitlik, alfabetik x
-    assert m["atanan_segment"].tolist() == ["x", "y", "x", "y", "x"]
-    assert m["kume_segment"].tolist() == ["x", "x", "x", "y", "y"]
+    # A: küme 0'ın diğerleri B(x), C(y) → eşitlik: ıska (alfabetik ilk x, A'nın kendi segmenti,
+    # isabet yazılmaz)
+    assert m["atanan_segment"].tolist() == [None, "y", "x", "y", "x"]
+    assert m["kume_segment"].tolist() == [None, None, "x", "y", "y"]
     assert m["dogru_kume"].tolist() == [True, False, True, True, False]
-    assert m["dogru_segment"].tolist() == [True, False, False, True, False]
-    assert m["taban_kume"].tolist() == [True, True, True, False, False]
+    assert m["dogru_segment"].tolist() == [False, False, False, True, False]
+    assert m["kume_dogru_segment"].tolist() == [False, False, False, True, True]
+    assert m["taban_kume"].tolist() == [False] * 5                    # A, B, C: 2-2 eşitlik
+    assert m["taban_segment"].tolist() == [False] * 5
     assert o.loc["hepsi", "n"] == 5 and o.loc["hepsi", "dogru_kume"] == pytest.approx(0.6)
-    assert o.loc["metropol", "n"] == 2 and o.loc["metropol", "dogru_segment"] == pytest.approx(0.5)
+    assert o.loc["metropol", "n"] == 2 and o.loc["metropol", "dogru_segment"] == 0.0
     assert o.loc["metropol_disi", "kume_dogru_segment"] == pytest.approx(2 / 3)
+
+
+def test_cogunluk_esitlik_iska():
+    assert olcutler._cogunluk(pd.Series(["b", "a", "b"])) == "b"
+    assert olcutler._cogunluk(pd.Series(["b", "a"])) is None
+    assert olcutler._cogunluk(pd.Series([], dtype=object)) is None
 
 
 # ------------------------------------------------------------------ hakem

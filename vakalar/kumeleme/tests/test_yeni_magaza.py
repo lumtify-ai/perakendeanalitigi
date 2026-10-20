@@ -140,6 +140,19 @@ def test_birakbir_kendisini_gormez(tablolar):
     assert diger_uyeler(b2, "M01") == diger_uyeler(b, "M01") == ["M02", "M05"]
 
 
+def test_tam_etikete_macar_birebir():
+    """Bırakbir → tam etiket birebir ve ortak üyeyi en çoklayan eşleme: çoğunluk kuralı 1'i de
+    P'ye çevirirdi (2-2 eşitlik); dışarıdaki mağazanın tek başına kümesi (R) de eşlenebilir."""
+    tam = pd.Series({"a": "P", "b": "P", "c": "P", "d": "P", "e": "P", "f": "Q", "f2": "Q", "g": "Q",
+                     "h": "R"})
+    e = pd.Series({"a": 0, "b": 0, "c": 0, "d": 1, "e": 1, "f": 1, "f2": 1, "g": 2})
+    assert yeni_magaza._tam_etikete(e, tam) == {0: "P", 1: "Q", 2: "R"}
+    # tam bölmeden çok bırakbir kümesi: eşlenemeyen küme çoğunluğunu alır
+    e4 = pd.Series({"a": 0, "b": 0, "c": 0, "d": 1, "e": 1, "f": 3, "f2": 1, "g": 2})
+    h = yeni_magaza._tam_etikete(e4, tam.drop("h").replace("R", "Q"))
+    assert sorted(h) == [0, 1, 2, 3] and len(set(h.values())) == 2
+
+
 def test_birakbir_girdi_denetimi(tablolar):
     k = _kapsam(tablolar)
     kum = k[k["kumelenir"]]

@@ -35,8 +35,10 @@ alınır, yeni mağazaya aynen uygulanır; kümelenmişlerde görülmemiş kateg
 mağaza hariç, aynı özellik tablosundan (`Z`, bir kez kurulur; Ruling R6) aynı kümeleme işleviyle
 yeniden kurulur ve mağaza yalnız statikleriyle o kümelere atanır. Mağazanın ne özellik satırı ne
 statikleri ne etiketi kendi atamasına girer. Bırakbir kümelerinin etiketleri tam kümelerin
-etiket uzayına çevrilir (`_tam_etikete`): her bırakbir kümesi, üyelerinin tam bölmede en çok
-düştüğü kümenin etiketini alır (eşitlikte küçük etiket). `ayni_bolme`: bırakbir bölmesi tam
+etiket uzayına çevrilir (`_tam_etikete`): bırakbir kümeleri tam kümelerle ortak üye sayısını en
+çoklayan birebir eşlemeyle (Macar yöntemi; `olcutler.kararlilik`'in önyüklemesiyle aynı) eşlenir.
+Birebirdir: iki bırakbir kümesi aynı tam kümeye çevrilmez (çoğunluk çevirisi bölünen bir kümenin
+iki parçasını aynı etikete toplardı). `ayni_bolme`: bırakbir bölmesi tam
 bölmenin o mağaza çıkarılmış hâliyle aynı mı (`ogren.bolme_kimligi`).
 """
 
@@ -44,6 +46,7 @@ from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
+from scipy.optimize import linear_sum_assignment
 
 from kumeleme import kaynak, ogren
 
@@ -143,9 +146,19 @@ def ata(statik_yeni: pd.DataFrame, statik_kumelenmis: pd.DataFrame, etiket: pd.S
 
 
 def _tam_etikete(e: pd.Series, tam: pd.Series) -> dict:
-    """Bırakbir etiketi → tam bölme etiketi: üyelerin tam bölmede en çok düştüğü küme."""
-    t = pd.crosstab(e.to_numpy(), tam.loc[e.index].to_numpy())
-    return {g: t.columns[int(np.argmax(t.loc[g].to_numpy()))] for g in t.index}
+    """Bırakbir etiketi → tam bölme etiketi (modül notu): ortak üye sayısını en çoklayan birebir
+    eşleme (Macar); sütunlar tam bölmenin bütün kümeleri (dışarıdaki mağazanın tek başına kümesi
+    dahil). Eşlenemeyen bırakbir kümesi (tam bölmeden çok küme) üyelerinin çoğunluğunu alır."""
+    e_ad = np.array(sorted(pd.unique(e.to_numpy())))
+    t_ad = np.array(sorted(pd.unique(tam.to_numpy())))
+    ortak = (pd.crosstab(e.to_numpy(), tam.loc[e.index].to_numpy())
+             .reindex(index=e_ad, columns=t_ad, fill_value=0).to_numpy())
+    sat, sut = linear_sum_assignment(-ortak)
+    harita = {e_ad[i]: t_ad[j] for i, j in zip(sat, sut)}
+    for i, g in enumerate(e_ad):
+        if g not in harita:
+            harita[g] = t_ad[int(np.argmax(ortak[i]))]
+    return harita
 
 
 def birakbir(statik: pd.DataFrame, Z: pd.DataFrame, fn_kume: Callable[[pd.DataFrame], pd.Series], *,

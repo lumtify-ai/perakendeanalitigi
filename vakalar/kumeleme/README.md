@@ -159,7 +159,9 @@ kurulur, ~20-35 sn). `perakende_veri` paketin yalnız burada içe aktarılır.
 
 **Hakemli ölçütler** (`olcutler.py`): ARI ve AMI (`ari_ami`), küme × segment çapraz tablosu
 (`capraz`), segment başına saflık (`saflik`: segmentin en çok düştüğü küme, oradaki payı, kümenin o
-segmentten payı) ve klasik toplam saflık (`toplam_saflik`).
+segmentten payı) ve klasik toplam saflık (`toplam_saflik`). Ölçülen mağazalarda outlet ya da
+online segmenti varsa hata verirler (outlet hariç ölçülür). Kararlılıkta dönem penceresi karar günü
+penceresinden sonra bitemez (kalibrasyon gününde ileriye bakmayı önler).
 
 **Kararlılık** (`olcutler.kararlilik`, hakemsiz): (1) yıllar arası, aynı kümeleme işleviyle iki
 dönemin yalnız kendi 52 haftalık penceresinden kurulan özelliklerle bulunan bölmeler arası ARI.
@@ -181,7 +183,9 @@ kümesine isabet SS25'te knn 0,82, merkez 0,70). Bırakbir ölçümü (`birakbir
 spec §0/11): kümelenen her mağaza için kümeler o mağaza hariç aynı özellik tablosundan yeniden
 kurulur (özellikler yeniden kurulmaz, Ruling R6; bedeli: oran bloklu ailelerde nötr doldurulan
 hücreler dışarıda bırakılan mağazanın satırını da içeren medyandan gelir; S1'de doldurma yok), mağaza yalnız statikleriyle atanır, bırakbir kümesi tam
-bölmenin etiketine üyelerinin çoğunluğuyla çevrilir. Doğruluk `olcutler.birakbir_dogruluk`'ta:
+bölmenin etiketine Macar eşlemesiyle (birebir, önyüklemeyle aynı) çevrilir. `atanan_segment` (atanan
+kümenin çoğunluk segmenti) tam bölmenin üyelerinden, mağazanın kendisi hariç sayılır; çoğunlukta
+eşitlik ıskadır. Doğruluk `olcutler.birakbir_dogruluk`'ta:
 kendi satış kümesine karşı ve gizli segmente karşı (atanan kümenin, mağaza hariç çoğunluk
 segmenti), metropol / metropol dışı ayrı; iki taban (herkese en büyük küme, herkese en sık segment).
 
