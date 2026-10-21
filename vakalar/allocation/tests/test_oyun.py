@@ -22,6 +22,11 @@ KAL = {"en_az": 80, "tahmin_parametreleri": {"num_leaves": 63, "learning_rate": 
        "tavan": True, "gamma": 2.0, "belirsizlik_olcusu": "benzer_tahmin_ayrisma", "belirsizlik_spearman": 0.107,
        "tbar": 0.3}
 SECIM = {"kol": "tahmin", "tavan": False, "ad": "pay_tahmin_tavansiz"}     # Ruling R43: tavansız en iyi
+# KÜÇÜK dünyanın ~10 kümelenen mağazası önerinin kuralına (k ≥ 3, en küçük küme ≥ 3) sığmaz (Ortam.kume_oneri)
+KUCUK_ONERI = {"k_aralik": range(2, 6), "en_kucuk": 2}
+# küme payının koşusuz seçimi (testte elle; gerçeği cikti/kume_kalibrasyon.json): KÜÇÜK'te geçmiş az, ince düzey
+KUME_KAL = {"sezon": "SS24", "karar_gunu": "2024-02-09",
+            "secim": {y: {"bas": b, "en_az": 3, "wape": None} for y, b in zip(oyun.KUME_YAPILARI, (0, 2, 0, 1))}}
 
 
 # ---------------------------------------------------------------------------
@@ -37,7 +42,7 @@ def test_izgara_adlari_tekil():
     assert len(yol_adlari) == len(set(yol_adlari)) and not set(yol_adlari) & set(adlar)
     assert all(motor._AD_DESENI.match(a) for a in adlar + yol_adlari)
     assert [s.ad for _, s in oyun.yol_listesi(0, KAL)] == ["lumoda", "pay_esit", "pay_benzer_tavansiz",
-                                                           "pay_tahmin_tavansiz", "pay_kahin"]
+                                                           "pay_tahmin_tavansiz", "pay_kahin", "kume_ml", "kume_gizli"]
     # yollarda benzer ve tahmin tavansız (R44), kalibrasyonun tavanı ne olursa olsun; yol 0 ile aynı çözüm
     for p in range(sabitler.YOL_SAYISI):
         for kal in (KAL, {**KAL, "tavan": True}):
@@ -64,11 +69,55 @@ def test_izgara_adlari_tekil():
 
 def test_izgara_butcesi():
     """Yol 0 ≤ 45 koşu adı (aynı koşu iki adla sayılır: üst sınır), toplam ≤ 80 (spec §4.5). R43 sonrası
-    37 ad (eslesik 2 eklendi), 3'ü takma ad; yollar 20."""
+    37 ad (eslesik 2 eklendi), 3'ü takma ad; yollar 20. Küme kolları (Mağaza Kümeleme spec §4.4): yol 0'da
+    4, yol 1–4'te 2'şer: 41 ad, yollar 28; yeni TAM koşu 4 + 8 = 12."""
     n = oyun.kosu_sayisi()
     assert n["yol0"] <= 45 and n["toplam"] <= 80
-    assert (n["yol0"], n["yollar"]) == (37, 20)
-    assert n["yollar"] == (sabitler.YOL_SAYISI - 1) * len(oyun.YOL_KOLLARI)
+    assert (n["yol0"], n["yollar"], n["toplam"]) == (41, 28, 69)
+    assert n["yollar"] == (sabitler.YOL_SAYISI - 1) * (len(oyun.YOL_KOLLARI) + len(oyun.YOL_KUME_KOLLARI))
+    assert len(oyun.IZGARA["kume"]) + (sabitler.YOL_SAYISI - 1) * len(oyun.YOL_KUME_KOLLARI) == 12
+
+
+def test_kume_blogu_adlari():
+    """`kume` bloğu: kume_k2 (ciro sınıfı), kume_k1 (bölge), kume_ml (öneri), kume_gizli (gizli segment, yalnız
+    ölçüm); hepsi t = 0, tavansız, tepkili (aynı mal). Çözümleri birbirinden ve pay_kahin'den farklı (aynı
+    koşunun takma adı olmazlar); öteki kolların çözümüne `kume` alanı girmez (imzaları değişmez). Yollarda
+    kume_ml ve kume_gizli."""
+    k = {s.ad: s for s in oyun.IZGARA["kume"]}
+    assert list(k) == ["kume_k2", "kume_k1", "kume_ml", "kume_gizli"]
+    assert {a: s.kume for a, s in k.items()} == {"kume_k2": "k2", "kume_k1": "k1", "kume_ml": "ml", "kume_gizli": "gizli"}
+    assert oyun.BLOK_SIRASI[-1] == "kume" and set(oyun.KUME_YAPILARI) == {"k2", "k1", "ml", "gizli"}
+    tum = oyun.tum_kosumlar()
+    for kal in (KAL, {**KAL, "tavan": True}, {**KAL, "tavan": False}):
+        c = {a: oyun.cozumle(s, kal, None) for a, s in k.items()}
+        assert all(v["kol"] == "kume" and v["tutma"] == 0.0 and v["tavan"] is False and v["repl"] == "lumoda"
+                   and not v["takvim"] and v["yol"] == 0 for v in c.values())
+        imzalar = {oyun.imza(v) for v in c.values()} | {oyun.imza(oyun.cozumle(tum["pay_kahin"], kal, None))}
+        assert len(imzalar) == 5
+    for a, s in tum.items():
+        if s.kol != "kume" and s.tutma_kaynagi is None:
+            assert "kume" not in oyun.cozumle(s, KAL, SECIM), a
+    assert oyun.cozumle(tum["pay_esit"], KAL, None) == {"kol": "esit", "taban": None, "tutma": 0.0, "tavan": False,
+                                                        "repl": "lumoda", "takvim": False, "yol": 0}
+    y3 = dict(oyun.yol_listesi(3, KAL))
+    assert y3["kume_ml"].ad == "y3_kume_ml" and y3["kume_gizli"].kume == "gizli" and y3["kume_ml"].yol == 3
+    with pytest.raises(ValueError, match="kume alanı"):
+        oyun.Kosum("x", "kume")
+    with pytest.raises(ValueError, match="kume alanı"):
+        oyun.Kosum("x", "esit", kume="ml")
+    with pytest.raises(ValueError, match="bilinmeyen"):
+        oyun.Kosum("x", "kume", kume="k9")
+    with pytest.raises(ValueError, match="aynı mal"):
+        oyun.Kosum("x", "kume", kume="ml", tutma=0.15)
+
+
+def test_kume_hiyerarsisi_benzer_ile_ayni():
+    """Küme payının hiyerarşisi İlk Sevkiyat'ın benzer endeksininkiyle aynı (spec §4.4: aynı biçim)."""
+    from kumeleme import kume_payi
+
+    from allocation import benzer
+
+    assert kume_payi.HIYERARSI == benzer.HIYERARSI and kume_payi.SUTUNLAR == benzer.SUTUNLAR
 
 
 def test_kosum_denetimi():
@@ -198,9 +247,9 @@ def kucuk(tmp_path_factory):
     """Tam pencere KÜÇÜK ızgara parçası (SS25): esdegerlik bloğu (`kos_hepsi`), sonra seçili kosumlar
     `kos_bir` ile (öğrenme yolun lumoda koşusunun yayımlanan biçiminden)."""
     d = tmp_path_factory.mktemp("oyun_kucuk")
-    ortam = oyun.Ortam(olcek="kucuk", onbellek=d / "kosular", cikti=d / "cikti")
+    ortam = oyun.Ortam(olcek="kucuk", onbellek=d / "kosular", cikti=d / "cikti", kume_oneri=KUCUK_ONERI)
     oyun.kos_hepsi("esdegerlik", ortam, KAL)
-    G = oyun.Girdi(0, ortam, KAL)
+    G = oyun.Girdi(0, ortam, KAL, kume_kal=KUME_KAL)
     tum = oyun.tum_kosumlar()
     kosular = {"lumoda": G.lumoda}
     kayitlar = {}
@@ -342,6 +391,83 @@ def test_kucuk_eslesik_tutma(kucuk):
         assert len(oz) and (oz["toplam"] == np.floor(np.round(oz["U"] * (1 - t), 9))).all()
         assert e["olcutler"]["kirpilan_adet"] == 0.0
     assert "belirsizlik" in d["notlar"] and "tavanlı" in d["notlar"]["belirsizlik"]
+
+
+def test_kucuk_kume_kollari(kucuk):
+    """Küme kolları KÜÇÜK'te (yol 0 yayımlanan değil: kümeler lumoda koşusunun tablolarından kümeleme paketiyle
+    yeniden kurulur): `kos_hepsi("kume")` dört kolu koşar; kol `KahinKol`'dur ve kimliği küme payı sözlüğünün
+    özeti; sözlük koşunun kararlarındaki HER adayı (yeni mağaza dahil) pozitif payla taşır; motor kırpmaz ve
+    kol Lumoda'yla aynı malı (⌊U⌋, pay_esit'in ilk dağıtımı) gönderir; düzeyler ve kümeleme kimliği oyun.json
+    `girdi.kume`'de; sözlükler `kume_paylari.json`'da; pay bloğunun koşuları ve anahtarları yerinde."""
+    from allocation.politika import KahinKol
+
+    ortam, G = kucuk.ortam, kucuk.G
+    kayit = json.loads(ortam.oyun_yolu.read_text(encoding="utf-8"))
+    for ad, e in kucuk.kayitlar.items():
+        kayit["kosular"][ad] = {"grup": "pay", **e}
+    oyun.json_yaz(ortam.oyun_yolu, kayit)
+    oyun.json_yaz(ortam.secim_yolu, SECIM)
+    sonuc = oyun.kos_hepsi("kume", ortam, KAL, girdi=G)
+    assert list(sonuc) == ["kume_k2", "kume_k1", "kume_ml", "kume_gizli"]
+    d = json.loads(ortam.oyun_yolu.read_text(encoding="utf-8"))
+    paylar = json.loads((ortam.cikti / oyun.KUME_PAYLARI_DOSYASI).read_text(encoding="utf-8"))
+    w = G.w
+    oid = w.optionlar["option_id"].astype(str).to_numpy()
+    mid = w.magazalar["magaza_id"].astype(str).to_numpy()
+    esit = kucuk.kayitlar["pay_esit"]["olcutler"]
+    yeni = set(G.kume_yapilari["bilgi"]["_kapsam"]["yeni"])
+    assert yeni                                         # KÜÇÜK'te de yeni mağaza var (M027 ve/veya M041)
+    for ad, k in sonuc.items():
+        yapi = ad.removeprefix("kume_")
+        p = G.kume_payi(yapi)
+        par = k.meta["politikalar"]["ilk_dagitim"]["parametreler"]
+        assert k.meta["turler"] == {"ilk_dagitim": "allocation.politika.KahinKol"} and par["kol"] == "kahin"
+        assert par["erken_talep"] == KahinKol(None, None, erken_talep=p).parametreler()["erken_talep"]
+        assert par["erken_talep"] == paylar[ad]["pay"] == d["girdi"]["kume"][yapi]["pay"]
+        assert {(o, m): v for o, m, v in paylar[ad]["paylar"]} == p
+        r = k.kayitlar["ilk_dagitim"]
+        r = r[r["kol"].to_numpy(dtype=bool) & (r["indis"] >= 0).to_numpy()]
+        ciftler = set(zip(oid[r["arg0"].to_numpy()], mid[r["indis"].to_numpy()]))
+        assert ciftler and ciftler <= set(p), ad                  # her aday sözlükte
+        assert all(p[c] > 0 for c in ciftler), ad
+        assert {m for _, m in ciftler} & yeni, ad                 # yeni mağaza aday ve payı var
+        assert not r["geri_dusus"].any() and (r["duzey"] == -1).all()
+        e = d["kosular"][ad]
+        assert e["grup"] == "kume" and "ayni" not in e and e["cozum"]["kume"] == yapi
+        assert e["olcutler"]["kirpilan_adet"] == 0.0
+        assert e["olcutler"]["ilk_dagitim_adet"] == esit["ilk_dagitim_adet"]     # aynı mal: ⌊U⌋
+        b = d["girdi"]["kume"][yapi]
+        assert (b["bas"], b["en_az"]) == (KUME_KAL["secim"][yapi]["bas"], 3)
+        assert sum(b["duzey"].values()) == len(G.optionlar) and b["kumeleme"]["kimlik"]
+        assert b["kumeleme"]["kaynak"].startswith("yeniden kuruldu")
+    assert d["kume_kalibrasyon"]["secim"] == KUME_KAL["secim"]
+    assert len({d["kosular"][a]["anahtar"] for a in sonuc} | {kucuk.kayitlar["pay_kahin"]["anahtar"]}) == 5
+    for ad, e in kucuk.kayitlar.items():
+        assert d["kosular"][ad]["anahtar"] == e["anahtar"]
+    # gizli kol gizli segmenti, ML kolu önerinin kümelerini taşır; ikisi kapsamın aynı mağazalarında
+    et = G.kume_yapilari["etiket"]
+    from kumeleme import hakem
+
+    assert (et["gizli"] == hakem.gizli_segment(w).loc[et["gizli"].index]).all()
+    assert sorted(et["ml"].index) == sorted(et["gizli"].index) == sorted(et["k1"].index) == sorted(et["k2"].index)
+
+
+def test_kucuk_kume_kalibre(kucuk):
+    """`kume_kalibre` (koşusuz): her yapı için bas 0..4 × en_az ızgarası, WAPE `kalibrasyon.pay_wape`; seçilen en
+    küçük WAPE'li satır. KÜÇÜK'te kablolama (gerçek pay KÜÇÜK lumoda koşusunun oyun sezonundan)."""
+    G = kucuk.G
+    t = G._tablolar()
+    gercek = kalibrasyon.erken_gercek(t, G.w, "SS25")
+    d = oyun.kume_kalibre(G.ogrenme_tablosu, gercek, G.kume_yapilari, G.w, G.harita, "SS25")
+    tablo = pd.DataFrame(d["tablo"])
+    assert len(tablo) == len(oyun.KUME_YAPILARI) * 5 * len(kalibrasyon.EN_AZ_IZGARASI)
+    assert tablo["wape"].between(0, 1).all()
+    for y, sec in d["secim"].items():
+        ty = tablo[tablo["yapi"] == y]
+        assert sec["wape"] == ty["wape"].min()
+        en = ty[ty["wape"] == ty["wape"].min()].iloc[0]
+        assert (sec["bas"], sec["en_az"]) == (en["bas"], en["en_az"])
+        assert sec["hiyerarsi"][-1] == []
 
 
 # ---------------------------------------------------------------------------

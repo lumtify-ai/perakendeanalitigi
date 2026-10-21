@@ -7,12 +7,15 @@ p`): talebin Poisson ve ikame çekilişleri değişir, ürün sürprizleri (λ),
 çekilişleri aynıdır. Her yol kendi gerçekleşen tarihini Lumoda'yla üretir (`y<p>_lumoda`), benzer
 ürün endeksini ve LightGBM'i o tarihin yayımlanan biçiminden yeniden öğrenir, kahinin erken
 birincil talebini o yolun `lumoda` gizli gerçeğinden alır (`oyun.Girdi`) ve dört kolu koşar: esit,
-benzer, tahmin (ikisi tavansız: Lumoda'yla aynı mal, Ruling R44), kahin; t = 0 (`oyun.yol_listesi`). Kalibrasyon yol 0'ınkidir
+benzer, tahmin (ikisi tavansız: Lumoda'yla aynı mal, Ruling R44), kahin; t = 0 (`oyun.yol_listesi`). Sonra
+iki küme kolu (`oyun.YOL_KUME_KOLLARI`: kume_ml, kume_gizli; Mağaza Kümeleme spec §4.4): kümeler o yolun
+`lumoda` tablolarından kümeleme paketinin işlevleriyle yeniden kurulur (`oyun.kumeleri_kur`), küme payı
+o yolun öğrenme tablosundan. Kalibrasyon (küme payınınki dahil) yol 0'ınkidir
 (oyundan önceki karar, yol başına yeniden seçilmez). Yol 0'ın koşuları ızgaranın pay bloğuyla aynı
 anahtardadır (önbellekten; ölçümleri `cikti/oyun.json`'dan).
 
 Çıktı `cikti/yollar.json`: yol başına talep tohumu, girdilerin özeti (karar günü, öğrenme satırı,
-endeks / tahminci kimliği), koşuların anahtarı ve ölçütleri; "ozet": kol başına ölçütlerin yollar
+endeks / tahminci kimliği, küme kollarının kümeleme kimliği ve düzeyleri), koşuların anahtarı ve ölçütleri; "ozet": kol başına ölçütlerin yollar
 üstünde min / medyan / max'ı ve kol çiftlerinde "kaç yolda önde" sayıları (`KARSILASTIRMALAR`;
 `YUKSEK_IYI`'deki yönle). Yarıda kalan iş kaldığı yerden sürer (her koşudan sonra yazılır, koşular
 önbellekli); kaydı başka bir kodla (`kod_ozeti`) yazılmış yol yeniden ölçülür.
@@ -27,6 +30,8 @@ from pathlib import Path
 
 import numpy as np
 
+import kumeleme.oyun as kumeleme_oyun
+
 from allocation import kalibrasyon, motor, olcutler, oyun, sabitler
 
 OZET_OLCUTLERI = ("bulunabilirlik", "bulunabilirlik_ilk4", "kayip_orani", "sezon_sonu_kalan_yuzde",
@@ -34,7 +39,8 @@ OZET_OLCUTLERI = ("bulunabilirlik", "bulunabilirlik_ilk4", "kayip_orani", "sezon
                   "kirik_cift_pay_yuzde", "oturan_hucre", "hizli_biten_hucre")
 # (a, b): a'nın b'den kaç yolda önde olduğu
 KARSILASTIRMALAR = (("esit", "lumoda"), ("benzer", "lumoda"), ("tahmin", "lumoda"), ("tahmin", "benzer"),
-                    ("kahin", "lumoda"), ("kahin", "tahmin"))
+                    ("kahin", "lumoda"), ("kahin", "tahmin"), ("kume_ml", "lumoda"), ("kume_ml", "benzer"),
+                    ("kume_ml", "tahmin"), ("kume_gizli", "kume_ml"))
 YUKSEK_IYI = {"bulunabilirlik": True, "sezon_sonu_kalan_yuzde": False, "kayip_orani": False,
               "tam_fiyat_str": True, "brut_kar_tl": True, "pay_wape": False}
 
@@ -71,7 +77,8 @@ def ozetle(yollar: dict) -> dict:
 
 
 def yol_kos(yol: int, kal: dict, ortam: oyun.Ortam, kayit: dict, yaz) -> dict:
-    """Bir yolun girdileri ve beş koşusu; her koşudan sonra `yaz()` (kayıt `kayit`'te büyür)."""
+    """Bir yolun girdileri ve yedi koşusu (beş kol + iki küme kolu); her koşudan sonra `yaz()` (kayıt
+    `kayit`'te büyür)."""
     t0 = time.perf_counter()
     G = oyun.Girdi(yol, ortam, kal)
     oyun_kayitlari = oyun.json_oku(ortam.oyun_yolu).get("kosular", {}) if int(yol) == 0 else {}
@@ -88,6 +95,9 @@ def yol_kos(yol: int, kal: dict, ortam: oyun.Ortam, kayit: dict, yaz) -> dict:
             kayit["girdi"]["endeks"] = G.endeks.kimlik
         if "tahminci" in G.__dict__:
             kayit["girdi"]["tahminci"] = G.tahminci.kimlik
+        if s.kol == "kume":
+            kosular[kisa]["kume"] = {a: G.kume_bilgisi(s.kume)[a] for a in ("bas", "en_az", "duzey", "endeks", "pay",
+                                                                           "cift", "sifir_pay", "kumeleme")}
         yaz()
     kayit["sure_sn"] = round(time.perf_counter() - t0, 1)
     del G
@@ -101,7 +111,8 @@ def kos(n: int = sabitler.YOL_SAYISI, ortam: oyun.Ortam | None = None, kal: dict
     kal = kal if kal is not None else kalibrasyon.oku()
     yol_dosyasi = Path(ortam.cikti) / "yollar.json"
     kayit = oyun.json_oku(yol_dosyasi)
-    kayit.update({"n": int(n), "taban": sabitler.TALEP_TOHUM_TABANI, "kollar": list(oyun.YOL_KOLLARI)})
+    kayit.update({"n": int(n), "taban": sabitler.TALEP_TOHUM_TABANI, "kollar": list(oyun.YOL_KOLLARI),
+                  "kume_kollari": list(oyun.YOL_KUME_KOLLARI)})
     yollar = kayit.setdefault("yollar", {})
     kod = kod_ozeti()
     for anahtar in [k for k, v in yollar.items() if v.get("kod") != kod]:

@@ -4,6 +4,8 @@ koşucusu da burada (Ruling R22).
     .venv/Scripts/python -m allocation.oyun                         # ızgara, bütün bloklar sırayla
     .venv/Scripts/python -m allocation.oyun izgara --blok pay       # tek blok
     .venv/Scripts/python -m allocation.oyun kalibrasyon             # cikti/kalibrasyon.json (Görev 7)
+    .venv/Scripts/python -m allocation.oyun kume_kalibrasyon        # cikti/kume_kalibrasyon.json (koşusuz)
+    .venv/Scripts/python -m allocation.oyun izgara --blok kume      # küme kolları
 
 Bu modül koşu dışıdır (`motor.KOSU_DISI`): motoru içe aktarır, gizli gerçeği okur
 (`tests/test_sizinti.py` izinli listesi). Ölçütler `olcutler`'de.
@@ -29,6 +31,11 @@ kalibrasyonun seçimi (`kalibrasyon.json`), yalnız benzer ve tahminde etkin.
                   tut_eniyi_t30. γ SS24'te tavanlı tabanla kalibre edildi (oyun.json `notlar`)
     demo          esit, benzer, tahmin × DEMO_TUTMA'nın t > 0'ları; benzer ve tahmin tavansız
                   (öteki demo noktaları başka bloklarda; `demo_haritasi`)
+    kume          küme kolları (Mağaza Kümeleme vakası, spec 2026-10-20 §4.4): kume_k2 (ciro sınıfı),
+                  kume_k1 (bölge), kume_ml (önerilen ML kümesi, yeni mağaza 5-NN), kume_gizli (gizli
+                  segment: kümelemenin ulaşabileceği en iyi yapı, YALNIZ ÖLÇÜM kolu); pay =
+                  `kumeleme.kume_payi` (küme düzeyi benzer endeksi × mağaza ölçeği), `KahinKol` ile
+                  (kayıttaki kol adı "kahin", Ruling R2), t = 0, tavansız: Lumoda'yla aynı mal (⌊U⌋)
 
 "En iyi" (`secim_yap`, Ruling R43; R29'un yerine): pay bloğunun tavansız benzer ve tahmin
 kollarından (ikisi de Lumoda'yla aynı malı, ⌊U⌋'yu gönderir: fark yalnız "kime"; tavanlı kol
@@ -50,6 +57,19 @@ kalibrasyonun seçimleriyle. Kahinin sözlüğü yolun `lumoda` koşusunun erken
 (`olcutler.erken_birincil_talep`); sabit takvim `motor.takvim(lumoda)`. Belirsizliğin `t_o`'su
 kalibrasyonun ölçüsüyle (`kalibrasyon.belirsizlik_olculeri`) ve `kalibrasyon.tutma_egrisi`
 (ağırlık ilk alım, t̄ = %30); γ kalibrasyonun seçimi, ölçünün Spearman'ı ≤ 0 ise 0 (sabit tutma).
+
+**Küme kolları** (`kume` bloğu; `Girdi.kume_payi`). Kümeler: TAM yol 0'da git'teki
+`vakalar/kumeleme/kumeler.json`'dan (`kumeleme.oyun.kumeler_oku`; K1, K2 ve ML `olcum=False` ile,
+gizli segment ayrı bir `olcum=True` okumasıyla); başka her yolda (ve KÜÇÜK dünyada) kümeleme
+paketinin işlevleriyle o yolun kendi tablolarından, aynı karar gününde yeniden kurulur
+(`kumeleri_kur`: kapsam, K1, K2, ML önerisi, yeni mağazaya 5-NN; CRM yok). Gizli segment dünyadan
+(`kumeleme.hakem.gizli_segment`). Pay sözlüğü kapsamın her aday (option, mağaza) çiftini taşır
+(`kalibrasyon.aday_yaklasik`; `KahinKol` sözlükte olmayan adaya 0 verir): her küme kolunun sözlüğü
+`cikti/kume_paylari.json`'a yazılır, rapor koşunun kimliğiyle ve kararlarındaki adaylarla denetler.
+Küme payının ayarları (hiyerarşinin ilk düzeyi `bas` ve `en_az`, yapı başına) SS24'te koşusuz
+seçilir (`kume_kalibre`, `python -m allocation.oyun kume_kalibrasyon` → `cikti/kume_kalibrasyon.json`;
+İlk Sevkiyat R12 kalıbı: yalnız SS23 ile öğren, kümeler SS24 karar günündeki veriyle, ölçü
+`kalibrasyon.pay_wape`). Her kolun kullandığı düzeyler ve kümeleme kimliği `oyun.json` `girdi.kume`'de.
 
 **Koşu ve ölçüm** (`kos_bir`). `motor.kos(..., tembel=True)`, önbellek `cikti/kosular/`, sıralı;
 `parametreler` boş (kolun bütün ayarı ve öğrenilmiş girdilerin içerik kimliği kolun
@@ -76,8 +96,15 @@ import time
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
+import duckdb
 import numpy as np
 import pandas as pd
+import kumeleme.oyun as kumeleme_oyun
+from kumeleme import hakem as kumeleme_hakem
+from kumeleme import kume_payi
+from kumeleme import ogren as kumeleme_ogren
+from kumeleme import sabitler as kumeleme_sabitler
+from kumeleme import yeni_magaza as kumeleme_yeni
 
 from allocation import benzer, kalibrasyon, kaynak, motor, ogrenme, olcutler, sabitler, tahmin
 from allocation.paylastir import paket_adedi
@@ -87,11 +114,26 @@ from allocation.politika import (Ayar, BelirsizlikKol, BenzerKol, EsitKol, HizRe
 ILERLEME = sabitler.CIKTI / "ilerleme.jsonl"
 ESDEGERLIK = "lumoda"
 TAKVIMLI = "lumoda_takvimli"
-BLOK_SIRASI = ("esdegerlik", "pay", "eslesik", "sabit_takvim", "tutma", "strateji", "demo")
+BLOK_SIRASI = ("esdegerlik", "pay", "eslesik", "sabit_takvim", "tutma", "strateji", "demo", "kume")
 SECIM_GEREKEN = ("tutma", "strateji", "demo")
-KOLLAR = ("lumoda", "lumoda_tut", "esit", "benzer", "tahmin", "kahin", "belirsizlik", "eniyi")
+KOLLAR = ("lumoda", "lumoda_tut", "esit", "benzer", "tahmin", "kahin", "belirsizlik", "eniyi", "kume")
 TAVANLI = ("benzer", "tahmin")
 OLCUM_SURUMU = 1
+
+# Küme kolları: yapı → ad (rapor ve yazılar koşu adıyla anar; politikadaki sınıf KahinKol, Ruling R2)
+KUME_YAPILARI = {"k2": "ciro sınıfı (K2)", "k1": "bölge (K1)", "ml": "önerilen ML kümesi (yeni mağaza 5-NN)",
+                 "gizli": "gizli segment (yalnız ölçüm: kümelemenin ulaşabileceği en iyi yapı)"}
+KUME_KAL_DOSYASI = "kume_kalibrasyon.json"
+KUME_PAYLARI_DOSYASI = "kume_paylari.json"
+# Küme kolları eklenmeden önceki koşu anahtarları (İlk Sevkiyat önbelleği, ~6 sa TAM): küme bloğu bunları
+# değiştirmemeli (spec 2026-10-20 §0/14; `tests/test_oyun.py::test_mevcut_kosular_onbellekten`, rapor KORUNUM)
+MEVCUT_ANAHTARLAR = {
+    "lumoda": "220ddbe436b0438d68646ad704808b256ff9a73f8d6c6a6865e403075c521033",
+    "pay_esit": "4bb80406dac74be2f8f55a441b44c9cf0490b64b4ce7409049472ef000f8563a",
+    "pay_benzer_tavansiz": "81b117fd70375db0751c06234dfd36c857c73726be456027acb2f037ec24654e",
+    "pay_tahmin_tavansiz": "6d3222b1d2cb8858f7d3af6d79890fa63ecbae90b3922f622f524cd26919a160",
+    "pay_kahin": "c5efb01682015c2d41ce67a8c58ca2790a417ba29d1d9e09de7620df59660609",
+}
 
 
 def uyanik_tut() -> None:
@@ -238,7 +280,8 @@ class Kosum:
     takvim  sabit takvim: lumoda koşusunun RPT ve markdown kararları oyun option'larında
     yol     talep yolu (`talep_tohumu`)
     tutma_kaynagi  eşleşik tutma: t bu pay koşusunun (aynı kolun tavanlı hâli) depoda bıraktığı
-            paydır (`eslesik_tutma`); `tutma` None kalır, `kos_hepsi` çözer"""
+            paydır (`eslesik_tutma`); `tutma` None kalır, `kos_hepsi` çözer
+    kume    küme kolunda kümeleme yapısı (`KUME_YAPILARI`); öteki kollarda None"""
 
     ad: str
     kol: str
@@ -248,10 +291,18 @@ class Kosum:
     takvim: bool = False
     yol: int = 0
     tutma_kaynagi: str | None = None
+    kume: str | None = None
 
     def __post_init__(self):
         if self.kol not in KOLLAR:
             raise ValueError(f"bilinmeyen kol: {self.kol!r}")
+        if (self.kol == "kume") != (self.kume is not None):
+            raise ValueError("kume alanı yalnız ve her zaman küme kolunda")
+        if self.kume is not None and self.kume not in KUME_YAPILARI:
+            raise ValueError(f"bilinmeyen kümeleme yapısı: {self.kume!r}")
+        if self.kol == "kume" and (self.tutma != 0.0 or self.tavan is not None or self.repl != "lumoda"
+                                   or self.takvim):
+            raise ValueError("küme kolu t = 0, tavansız, replenishment Lumoda, tepkili takvim (aynı mal)")
         if self.repl not in ("lumoda", "hiz"):
             raise ValueError(f"bilinmeyen replenishment: {self.repl!r}")
         if self.kol == "lumoda" and (self.tutma or self.repl != "lumoda"):
@@ -288,10 +339,13 @@ IZGARA: dict[str, tuple[Kosum, ...]] = {
     "strateji": (Kosum("belirsizlik", "belirsizlik"),),
     "demo": tuple(Kosum(f"demo_{k}_{_t(t)}", k, tutma=t, tavan=False if k in TAVANLI else None)
                   for k in ("esit", "benzer", "tahmin") for t in sabitler.DEMO_TUTMA if t > 0),
+    "kume": tuple(Kosum(f"kume_{y}", "kume", kume=y) for y in KUME_YAPILARI),
 }
 
 # Yollar (`allocation.yollar`): yol başına koşulan kollar (kısa ad → yol 0'daki ızgara koşusu)
 YOL_KOLLARI = ("lumoda", "esit", "benzer", "tahmin", "kahin")
+# Yollarda küme kolları (kısa ad = yol 0'daki ad): önerilen ML kümesi ve gizli segment (spec §4.4)
+YOL_KUME_KOLLARI = ("kume_ml", "kume_gizli")
 
 
 def tum_kosumlar() -> dict[str, Kosum]:
@@ -304,21 +358,23 @@ def lumoda_adi(yol: int) -> str:
 
 def yol_listesi(yol: int, kal: dict) -> list[tuple[str, Kosum]]:
     """(kısa ad, `Kosum`): yol 0'da ızgaranın koşuları (aynı anahtar), yol p'de `y<p>_` önekiyle. benzer ve
-    tahmin tavansız (Ruling R44: aynı mal; tavanın etkisi yol 0'da eslesik bloğunda). `kal` imza uyumu için."""
+    tahmin tavansız (Ruling R44: aynı mal; tavanın etkisi yol 0'da eslesik bloğunda); sonra küme kolları
+    (`YOL_KUME_KOLLARI`). `kal` imza uyumu için."""
+    tum = tum_kosumlar()
     if int(yol) == 0:
-        tum = tum_kosumlar()
         adlar = {"lumoda": ESDEGERLIK, "esit": "pay_esit", "benzer": "pay_benzer_tavansiz",
                  "tahmin": "pay_tahmin_tavansiz", "kahin": "pay_kahin"}
-        return [(k, tum[adlar[k]]) for k in YOL_KOLLARI]
-    return [(k, Kosum(lumoda_adi(yol) if k == "lumoda" else f"y{yol}_{k}", k, yol=int(yol),
-                      tavan=False if k in TAVANLI else None)) for k in YOL_KOLLARI]
+        return [(k, tum[adlar[k]]) for k in YOL_KOLLARI] + [(k, tum[k]) for k in YOL_KUME_KOLLARI]
+    return ([(k, Kosum(lumoda_adi(yol) if k == "lumoda" else f"y{yol}_{k}", k, yol=int(yol),
+                       tavan=False if k in TAVANLI else None)) for k in YOL_KOLLARI]
+            + [(k, replace(tum[k], ad=f"y{yol}_{k}", yol=int(yol))) for k in YOL_KUME_KOLLARI])
 
 
 def kosu_sayisi() -> dict[str, int]:
     """Izgaranın (yol 0, adlar; aynı koşu iki adla sayılır: üst sınır) ve yolların koşu sayısı."""
     yol0 = sum(len(b) for b in IZGARA.values())
-    return {"yol0": yol0, "yollar": (sabitler.YOL_SAYISI - 1) * len(YOL_KOLLARI),
-            "toplam": yol0 + (sabitler.YOL_SAYISI - 1) * len(YOL_KOLLARI)}
+    yollar = (sabitler.YOL_SAYISI - 1) * (len(YOL_KOLLARI) + len(YOL_KUME_KOLLARI))
+    return {"yol0": yol0, "yollar": yollar, "toplam": yol0 + yollar}
 
 
 def cozumle(s: Kosum, kal: dict, secim: dict | None) -> dict:
@@ -341,8 +397,11 @@ def cozumle(s: Kosum, kal: dict, secim: dict | None) -> dict:
         kol = secim["kol"]
     tavan = tavan if tavan_kol in TAVANLI else False
     tutma = None if kol == "belirsizlik" else float(s.tutma)
-    return {"kol": kol, "taban": taban, "tutma": tutma, "tavan": tavan, "repl": s.repl, "takvim": bool(s.takvim),
-            "yol": int(s.yol)}
+    c = {"kol": kol, "taban": taban, "tutma": tutma, "tavan": tavan, "repl": s.repl, "takvim": bool(s.takvim),
+         "yol": int(s.yol)}
+    if kol == "kume":              # yalnız küme kolunda: öteki kolların çözümü (ve imzası) değişmez
+        c["kume"] = s.kume
+    return c
 
 
 def imza(cozum: dict) -> str:
@@ -356,7 +415,9 @@ def imza(cozum: dict) -> str:
 
 @dataclass(frozen=True, eq=False)
 class Ortam:
-    """Koşuların nerede ve nasıl yapıldığı (TAM, oyun sezonu varsayılan; testler KÜÇÜK dünyada)."""
+    """Koşuların nerede ve nasıl yapıldığı (TAM, oyun sezonu varsayılan; testler KÜÇÜK dünyada).
+    `kume_oneri` yalnız testler içindir: KÜÇÜK dünyanın ~10 mağazası kümeleme önerisinin kuralına (k ≥ 3, en
+    küçük küme ≥ 3) sığmaz; `kumeleme.ogren.oneri`'nin `k_aralik` / `en_kucuk`'u (None: kümeleme sabitleri)."""
 
     olcek: str = "tam"
     onbellek: Path = motor.KOSU_DIZINI
@@ -364,6 +425,7 @@ class Ortam:
     gun_sayisi: int | None = None
     sezon: str = sabitler.OYUN_SEZONU
     ilerleme: bool = True
+    kume_oneri: dict | None = None
 
     @property
     def ilerleme_yolu(self) -> Path | None:
@@ -394,17 +456,248 @@ def belirsizlik_gammasi(kal: dict) -> float:
     return float(kal["gamma"]) if rho is not None and np.isfinite(rho) and rho > 0 else 0.0
 
 
+# ---------------------------------------------------------------------------
+# Küme kolları: kümeler, küme payı, kalibrasyon (Mağaza Kümeleme vakası, spec 2026-10-20 §4.4)
+# ---------------------------------------------------------------------------
+
+
+def _bellek_baglantisi(tablolar) -> duckdb.DuckDBPyConnection:
+    """Yayımlanan biçimdeki tabloları (DataFrame) bellek içi bir DuckDB bağlantısına kaydeder: kümeleme
+    paketinin girdisi (`kumeleme.oyun.girdiler`) bağlantıdır."""
+    con = duckdb.connect(":memory:")
+    for ad in ("satis", "stok", "magaza", "magaza_olay", "urun"):
+        con.register(ad, tablolar[ad])
+    return con
+
+
+def _kume_bilgisi(e: pd.Series, kaynak_adi: str, **ek) -> dict:
+    boy = e.astype(str).value_counts()
+    return {"kaynak": kaynak_adi, "kimlik": kumeleme_ogren.bolme_kimligi(e), "magaza": int(len(e)),
+            "grup": int(e.nunique()), "boyutlar": sorted((int(n) for n in boy.to_numpy()), reverse=True), **ek}
+
+
+def kumeleri_kur(tablolar, karar_gunu, gizli: pd.Series, oneri_ayari: dict | None = None) -> dict:
+    """Karar gününde (yalnız o güne kadarki yayımlanan biçimdeki veriyle) kümeleme paketinin işlevleriyle
+    kurulan yapılar: `{"etiket": {yapı: magaza_id → küme}, "bilgi": {yapı: …}}` (`KUME_YAPILARI`).
+
+    tablolar   yayımlanan v4'e bağlantı ya da `satis`, `stok`, `magaza`, `magaza_olay`, `urun` DataFrame'leri
+               (bir yolun `lumoda` koşusunun yayımlanan biçimi)
+    gizli      mağaza → gizli segment (`kumeleme.hakem.gizli_segment`; yalnız ölçüm kolu)
+    oneri_ayari  `kumeleme.ogren.oneri`'nin `k_aralik` / `en_kucuk`'u (yalnız testler; `Ortam.kume_oneri`)
+
+    Kümeleme vakasının koşumuyla (`kumeleme.oyun.kos`) aynı adımlar: kapsam, K1 bölge, K2 ciro sınıfı,
+    önerinin S1/S2 adaylarından seçilen ML kümesi, yeni mağazaya statiklerle 5-NN (`yeni_magaza.ata`)."""
+    con = tablolar if isinstance(tablolar, duckdb.DuckDBPyConnection) else _bellek_baglantisi(tablolar)
+    karar = pd.Timestamp(karar_gunu).normalize()
+    try:
+        g = kumeleme_oyun.girdiler(con, karar)
+    finally:
+        if con is not tablolar:
+            con.close()
+    k = g["kapsam"]
+    o = kumeleme_ogren.oneri(None, k, None, karar, ozellik={a: g["X"][a] for a in kumeleme_ogren.ONERI_AILELERI},
+                             **(oneri_ayari or {}))
+    yeni, kum = k[k["yeni"]], k[k["kumelenir"]]
+    atama = kumeleme_yeni.ata(yeni, kum, o.etiket) if len(yeni) else pd.Series(dtype=object)
+    ml = pd.concat([o.etiket, atama]).sort_index()
+    ids = list(k["magaza_id"].astype(str))
+    eksik = sorted(set(ids) - set(gizli.index.astype(str)))
+    if eksik:
+        raise ValueError(f"gizli segmenti olmayan kapsam mağazası: {eksik}")
+    etiket = {"k2": g["k2"], "k1": g["k1"], "ml": ml, "gizli": gizli.loc[ids]}
+    kaynak_adi = f"yeniden kuruldu ({karar.date().isoformat()})"
+    bilgi = {y: _kume_bilgisi(e, kaynak_adi) for y, e in etiket.items()}
+    bilgi["ml"].update(aile=o.aile, yontem=o.yontem, k=int(o.k), oneri_kimligi=o.kimlik,
+                       yeni_atama={str(m): int(c) for m, c in atama.items()})
+    bilgi["_kapsam"] = {"karar_gunu": karar.date().isoformat(), "aday": len(ids), "kumelenen": int(len(kum)),
+                        "yeni": sorted(yeni["magaza_id"].astype(str))}
+    return {"etiket": {y: e.copy() for y, e in etiket.items()}, "bilgi": bilgi}
+
+
+def kumeler_json_yapilari(karar_gunu, yol=kumeleme_oyun.KUMELER) -> dict:
+    """TAM yol 0: git'teki `kumeler.json`'un karar günü eşlemeleri (Ruling R3); `kumeleri_kur` biçiminde.
+    K1, K2, ML `kumeler_oku(olcum=False)` ile (gizli alan hiç görülmez); gizli segment ayrı okumayla."""
+    k = kumeleme_oyun.kumeler_oku(yol, olcum=False)
+    karar = pd.Timestamp(karar_gunu).normalize()
+    if pd.Timestamp(k["karar_gunu"]) != karar:
+        raise ValueError(f"kumeler.json karar günü {k['karar_gunu']}, oyunun karar günü {karar.date()}")
+    gizli = kumeleme_oyun.kumeler_oku(yol, olcum=True)[kumeleme_oyun.GIZLI_ALAN]["etiket"]
+    ml = {**k["ml"]["etiket"], **k["ml"]["yeni_magaza"]["atama"]}
+    etiket = {"k2": pd.Series(k["kural"]["k2"]["etiket"]), "k1": pd.Series(k["kural"]["k1"]["etiket"]),
+              "ml": pd.Series(ml).sort_index(), "gizli": pd.Series(gizli).sort_index()}
+    bilgi = {y: _kume_bilgisi(e, "kumeler.json") for y, e in etiket.items()}
+    bilgi["ml"].update(aile=k["ml"]["aile"], yontem=k["ml"]["yontem"], k=int(k["ml"]["k"]),
+                       oneri_kimligi=k["ml"]["kimlik"], yeni_atama=dict(k["ml"]["yeni_magaza"]["atama"]))
+    bilgi["_kapsam"] = {"karar_gunu": karar.date().isoformat(), "aday": len(etiket["k1"]),
+                        "kumelenen": len(k["kapsam"]["kumelenen"]), "yeni": sorted(k["kapsam"]["yeni"]),
+                        "kumeler_json_kod": k["kod"]}
+    return {"etiket": etiket, "bilgi": bilgi}
+
+
+def kume_ogrenme_tablosu(tablo: pd.DataFrame, w) -> pd.DataFrame:
+    """`ogrenme.ogrenme_tablosu` → `kume_payi`'nın girdisi (modül notu orada): `option` option_id'ye,
+    `magaza` magaza_id'ye çevrilir; öteki sütunlar aynen."""
+    oid = w.optionlar["option_id"].astype(str).to_numpy()
+    mid = w.magazalar["magaza_id"].astype(str).to_numpy()
+    t = tablo.copy()
+    t["option"] = oid[tablo["option"].to_numpy(dtype=np.int64)]
+    t["magaza_id"] = mid[tablo["magaza"].to_numpy(dtype=np.int64)]
+    return t
+
+
+def kume_adaylari(w, harita, optionlar) -> dict[str, list[str]]:
+    """option_id → aday mağazalar: kolun aday kümesinin karar öncesi yaklaşığı (`kalibrasyon.aday_yaklasik`;
+    kapanış kararı ve bugünkü açıklık bilinmeden, gerçek aday kümesini kapsar)."""
+    oid = w.optionlar["option_id"].astype(str).to_numpy()
+    mid = w.magazalar["magaza_id"].astype(str).to_numpy()
+    return {str(oid[o]): [str(m) for m in mid[np.flatnonzero(kalibrasyon.aday_yaklasik(w, harita, int(o)))]]
+            for o in np.asarray(optionlar, dtype=np.int64)}
+
+
+def kume_option_tablosu(w, optionlar) -> pd.DataFrame:
+    """Yeni option'ların `option_id` + öznitelikleri (`kume_payi.paylar`'ın girdisi)."""
+    opt = np.asarray(optionlar, dtype=np.int64)
+    return ogrenme.option_oznitelikleri(w, opt).assign(
+        option_id=w.optionlar["option_id"].astype(str).to_numpy()[opt])
+
+
+def kume_sozlugu(tablo: pd.DataFrame, etiket: pd.Series, oz: pd.DataFrame, adaylar: dict, bas: int, en_az: int,
+                 mevsim: str) -> tuple[dict, dict]:
+    """Bir yapının küme payı sözlüğü (`KahinKol.erken_talep`) ve bilgisi. Etiketi olmayan aday (kapsam dışı:
+    karar gününde kapanış kararı verilmiş) sözlüğe girmez, bilgide sayılır; motorun gerçek aday kümesi bu
+    mağazaları zaten dışarıda bırakır (rapor koşunun kararlarıyla denetler)."""
+    e = kume_payi.ogren(tablo, etiket, int(en_az), kume_payi.HIYERARSI[int(bas):], mevsim=mevsim).sabitle()
+    olc = kume_payi.olcek(tablo, etiket, mevsim=mevsim)
+    etiketli = set(e.etiket)
+    dis = sorted({m for ms in adaylar.values() for m in ms} - etiketli)
+    ad = {o: [m for m in ms if m in etiketli] for o, ms in adaylar.items()}
+    p = e.paylar(oz, ad, olc)
+    duzey = e.duzeyler(oz)
+    sayim = pd.Series(list(duzey.values()), dtype=np.int64).value_counts().sort_index()
+    gozlemsiz = sorted(m for m in etiketli if m not in set(tablo.loc[tablo["talep"].notna(), "magaza_id"].astype(str)))
+    bilgi = {"bas": int(bas), "en_az": int(en_az),
+             "hiyerarsi": [list(d) for d in e.hiyerarsi],
+             "duzey": {" × ".join(e.hiyerarsi[int(d)]) or "genel": int(n) for d, n in sayim.items()},
+             "duzey_tam": {str(int(bas) + int(d)): int(n) for d, n in sayim.items()},     # HIYERARSI indisi
+             "endeks": e.kimlik, "cift": len(p), "sifir_pay": int(sum(v == 0 for v in p.values())),
+             "etiketsiz_aday": dis, "gecmissiz_magaza": gozlemsiz,
+             "medyan_olcek_alan": {m: olc[m] for m in gozlemsiz},
+             "pay": KahinKol(None, None, erken_talep=p).parametreler()["erken_talep"]}
+    return p, bilgi
+
+
+def _uzun_pay(p: dict, w) -> pd.DataFrame:
+    """(option_id, magaza_id) → pay sözlüğü, `kalibrasyon.pay_wape`'nin `option, magaza, pay` biçiminde."""
+    oi = pd.Index(w.optionlar["option_id"].astype(str))
+    mi = pd.Index(w.magazalar["magaza_id"].astype(str))
+    o, m = zip(*p) if p else ((), ())
+    return pd.DataFrame({"option": oi.get_indexer(list(o)).astype(np.int64), "magaza": mi.get_indexer(list(m)).astype(np.int64),
+                         "pay": np.array(list(p.values()), dtype=float)})
+
+
+def _uctami(satirlar: list[dict], sec: dict) -> bool:
+    """Seçilen `en_az` ızgaranın ucunda ve aynı `bas`ta komşusundan kesin iyi mi (eşitlikte uç değil: ızgarayı
+    uzatmak sonucu değiştirmez; Ruling R24/R25 kalıbı)."""
+    iz = list(kalibrasyon.EN_AZ_IZGARASI)
+    i = iz.index(sec["en_az"])
+    if i not in (0, len(iz) - 1):
+        return False
+    komsu = iz[1] if i == 0 else iz[-2]
+    w = next(r["wape"] for r in satirlar if r["yapi"] == sec["yapi"] and r["bas"] == sec["bas"] and r["en_az"] == komsu)
+    return bool(sec["wape"] < w)
+
+
+def kume_kalibre(ogr: pd.DataFrame, gercek: pd.DataFrame, yapilar: dict, w, harita,
+                 sezon: str = sabitler.KAL_SEZONU) -> dict:
+    """Koşusuz seçim (modül notu): her yapı için hiyerarşinin ilk düzeyi `bas` ∈ 0..4 × `en_az` ∈
+    `kalibrasyon.EN_AZ_IZGARASI`, ölçü `kalibrasyon.pay_wape` (ilk alımla ağırlıklı; gerçek pay sezonun
+    sansür düzeltmeli ilk 6 hafta talebi); en küçük WAPE, eşitlikte ızgara sırası (ince düzey önce, küçük
+    eşik önce). `ogr` sezonun karar gününde kapanmış sezonlardan (`ogrenme.ogrenme_tablosu`), `yapilar`
+    aynı karar günündeki kümeler (`kumeleri_kur`)."""
+    opt = kaynak.oyun_optionlari(w, sezon)
+    oz = kume_option_tablosu(w, opt)
+    adaylar = kume_adaylari(w, harita, opt)
+    ilk_alim = pd.Series(np.asarray(w.ilk_alim, dtype=float)[opt], index=opt)
+    tablo = kume_ogrenme_tablosu(ogr, w)
+    mevsim = sezon[:2]
+    satirlar, secim = [], {}
+    for yapi in KUME_YAPILARI:
+        et = yapilar["etiket"][yapi]
+        en_iyi = None
+        for bas in range(len(kume_payi.HIYERARSI)):
+            for en_az in kalibrasyon.EN_AZ_IZGARASI:
+                p, b = kume_sozlugu(tablo, et, oz, adaylar, bas, en_az, mevsim)
+                uzun = _uzun_pay(p, w)
+                r = {"yapi": yapi, "bas": bas, "en_az": int(en_az), "wape": float(kalibrasyon.pay_wape(uzun, gercek, ilk_alim)),
+                     "n_option": int(len(kalibrasyon.option_wape(uzun, gercek))), "duzey": b["duzey"],
+                     "etiketsiz_aday": len(b["etiketsiz_aday"])}
+                satirlar.append(r)
+                if en_iyi is None or r["wape"] < en_iyi["wape"]:
+                    en_iyi = r
+        secim[yapi] = {"bas": en_iyi["bas"], "en_az": en_iyi["en_az"], "wape": en_iyi["wape"],
+                       "hiyerarsi": [list(d) for d in kume_payi.HIYERARSI[en_iyi["bas"]:]],
+                       "izgara_ucunda": _uctami(satirlar, en_iyi)}
+    return {"sezon": sezon, "karar_gunu": None, "secim": secim, "tablo": satirlar,
+            "kumeler": {y: b for y, b in yapilar["bilgi"].items()},
+            "izgara": {"bas": list(range(len(kume_payi.HIYERARSI))), "en_az": list(kalibrasyon.EN_AZ_IZGARASI)},
+            "hiyerarsi": [list(d) for d in kume_payi.HIYERARSI],
+            "kural": "yapı başına en küçük pay WAPE'si (SS24, koşusuz); eşitlikte ince düzey ve küçük eşik önce"}
+
+
+def kume_kalibrasyon_kos(cikti: Path = sabitler.CIKTI) -> dict:
+    """Küme payının koşusuz kalibrasyonu (yol 0, TAM, SS24; simülasyon yok): `cikti/kume_kalibrasyon.json`."""
+    t0 = time.perf_counter()
+    w = motor.dunya("tam")
+    harita = kaynak.harita_kur(w)
+    con = kaynak.baglan()
+    try:
+        tablolar = kaynak.yayimlanan_tablolar(con)
+        sezon = sabitler.KAL_SEZONU
+        karar = kalibrasyon.karar_gunu(tablolar, w, sezon)
+        if karar != kumeleme_sabitler.KAL_KARAR_GUNU:
+            raise ValueError(f"SS24 karar günü {karar.date()}, kümeleme {kumeleme_sabitler.KAL_KARAR_GUNU.date()}")
+        gercek = kalibrasyon.erken_gercek(tablolar, w, sezon)
+        ogr = ogrenme.ogrenme_tablosu(tablolar, w, karar)
+        sezonlar = ogrenme.kapanmis_sezonlar(w, tablolar, karar)
+        del tablolar
+        yapilar = kumeleri_kur(con, karar, kumeleme_hakem.gizli_segment(w))
+    finally:
+        con.close()
+    d = kume_kalibre(ogr, gercek, yapilar, w, harita, sezon)
+    d.update(karar_gunu=karar.date().isoformat(), kapanmis_sezonlar=sezonlar, ogrenme_satir=int(len(ogr)),
+             sure_sn=round(time.perf_counter() - t0, 1))
+    json_yaz(Path(cikti) / KUME_KAL_DOSYASI, d)
+    return d
+
+
+def kume_kalibrasyon_oku(cikti: Path = sabitler.CIKTI) -> dict:
+    d = json_oku(Path(cikti) / KUME_KAL_DOSYASI)
+    if not d:
+        raise RuntimeError(f"{KUME_KAL_DOSYASI} yok: önce `python -m allocation.oyun kume_kalibrasyon`")
+    return d
+
+
+def kume_sozlugu_yaz(cikti: Path, ad: str, p: dict, bilgi: dict) -> None:
+    """Küme kolunun pay sözlüğü `cikti/kume_paylari.json`'a (ad → kimlik, bilgi, [option, mağaza, pay])."""
+    yol = Path(cikti) / KUME_PAYLARI_DOSYASI
+    d = json_oku(yol)
+    d[ad] = {"pay": bilgi["pay"], "yapi": bilgi.get("yapi"), "yol": bilgi.get("yol"),
+             "paylar": sorted([o, m, float(v)] for (o, m), v in p.items())}
+    json_yaz(yol, d)
+
+
 class Girdi:
     """Bir yolun kollara giden öğrenilmiş girdileri (modül notu), tembel; testler doğrudan verebilir
-    (`endeks=`, `tahminci=`, `kahin=`, `t_o=`)."""
+    (`endeks=`, `tahminci=`, `kahin=`, `t_o=`, `kume_kal=`, `kume_yapilari=`)."""
 
     def __init__(self, yol: int, ortam: Ortam, kal: dict, **verilen):
         self.yol, self.ortam, self.kal = int(yol), ortam, kal
-        bilinmeyen = set(verilen) - {"endeks", "tahminci", "kahin", "t_o", "takvim"}
+        bilinmeyen = set(verilen) - {"endeks", "tahminci", "kahin", "t_o", "takvim", "kume_kal", "kume_yapilari"}
         if bilinmeyen:
             raise TypeError(f"bilinmeyen girdi: {sorted(bilinmeyen)}")
         self.__dict__.update(verilen)
         self.bilgi: dict = {}
+        self._kume_paylari: dict = {}
 
     @functools.cached_property
     def w(self):
@@ -483,6 +776,47 @@ class Girdi:
                                        "t_ortalama": float((t * agirlik).sum() / agirlik.sum())})
         return {str(o): float(v) for o, v in t.items()}
 
+    # --- küme kolları ----------------------------------------------------------
+
+    @functools.cached_property
+    def kume_kal(self) -> dict:
+        """Küme payının SS24 koşusuz seçimleri (`cikti/kume_kalibrasyon.json`)."""
+        return kume_kalibrasyon_oku(self.ortam.cikti)
+
+    @functools.cached_property
+    def kume_yapilari(self) -> dict:
+        """Yolun kümeleri (modül notu): TAM yol 0 `kumeler.json`, başka her yol kendi tablolarından."""
+        t0 = time.perf_counter()
+        if self.ortam.yayimlanan_mi(self.yol):
+            self.ogrenme_tablosu                         # karar günü (yayımlanan sevkiyattan) bilgiye girer
+            y = kumeler_json_yapilari(self.bilgi["karar_gunu"])
+        else:
+            tablolar = self._tablolar()
+            karar = kalibrasyon.karar_gunu(tablolar, self.w, self.ortam.sezon)
+            y = kumeleri_kur(tablolar, karar, kumeleme_hakem.gizli_segment(self.w), self.ortam.kume_oneri)
+            del tablolar
+        _ilerleme(f"y{self.yol}_kumeler", time.perf_counter() - t0, False, self.ortam.ilerleme_yolu,
+                  kaynak=y["bilgi"]["k1"]["kaynak"])
+        return y
+
+    def kume_payi(self, yapi: str) -> dict:
+        """Yapının küme payı sözlüğü (`(option_id, magaza_id) → pay`; oyun sezonunun her adayı), bir kez."""
+        if yapi not in self._kume_paylari:
+            sec = self.kume_kal["secim"][yapi]
+            p, b = kume_sozlugu(kume_ogrenme_tablosu(self.ogrenme_tablosu, self.w),
+                                self.kume_yapilari["etiket"][yapi], kume_option_tablosu(self.w, self.optionlar),
+                                kume_adaylari(self.w, self.harita, self.optionlar), sec["bas"], sec["en_az"],
+                                self.ortam.sezon[:2])
+            b.update(yapi=yapi, yol=self.yol, kumeleme=self.kume_yapilari["bilgi"][yapi],
+                     kume_kalibrasyon={"bas": sec["bas"], "en_az": sec["en_az"], "wape": sec.get("wape")})
+            self.bilgi.setdefault("kume", {})[yapi] = b
+            self._kume_paylari[yapi] = (p, b)
+        return self._kume_paylari[yapi][0]
+
+    def kume_bilgisi(self, yapi: str) -> dict:
+        self.kume_payi(yapi)
+        return self._kume_paylari[yapi][1]
+
 
 def politika_kur(s: Kosum, G: Girdi, kal: dict, secim: dict | None) -> dict:
     """Kosum'un motor yuvaları (`ilk_dagitim`, `replenishment`, `rpt`, `markdown`; verilmeyen Lumoda)."""
@@ -502,6 +836,8 @@ def politika_kur(s: Kosum, G: Girdi, kal: dict, secim: dict | None) -> dict:
             return TahminKol(temel, h, ayar, tahminci=G.tahminci)
         if kol == "kahin":
             return KahinKol(temel, h, ayar, erken_talep=G.kahin)
+        if kol == "kume":                         # pay dışarıdan verilir (KahinKol, Ruling R2): küme payı
+            return KahinKol(temel, h, ayar, erken_talep=G.kume_payi(c["kume"]))
         raise ValueError(f"kol kurulamaz: {kol!r}")
 
     yuvalar = {}
@@ -538,6 +874,8 @@ def kos_bir(s: Kosum, G: Girdi, kal: dict, secim: dict | None, onceki: dict | No
     t0 = time.perf_counter()
     c = cozumle(s, kal, secim)
     yuvalar = politika_kur(s, G, kal, secim)
+    if c["kol"] == "kume":
+        kume_sozlugu_yaz(G.ortam.cikti, s.ad, G.kume_payi(c["kume"]), G.kume_bilgisi(c["kume"]))
     k = G.ortam.kos(s.yol, s.ad, **yuvalar)
     del yuvalar
     t1 = time.perf_counter()
@@ -654,7 +992,10 @@ def kos_hepsi(blok: str = "hepsi", ortam: Ortam | None = None, kal: dict | None 
                   "depoda bırakır; tavanın etkisi eslesik bloğunda",
         "belirsizlik": "taban tavansız en iyi; γ SS24'te tavanlı tabanla kalibre edildi (kalibrasyon.json "
                        "belirsizlik_taban, tavan; Ruling R43)",
-        "eslesik": "es_<kol>: tavansız kol, t = pay_<kol>_tavanli'nin depoda bıraktığı pay (eslesik_tutma)"}
+        "eslesik": "es_<kol>: tavansız kol, t = pay_<kol>_tavanli'nin depoda bıraktığı pay (eslesik_tutma)",
+        "kume": "kume_<yapı>: pay kumeleme.kume_payi'dan (küme düzeyi benzer endeksi × mağaza ölçeği), KahinKol ile "
+                "(kayıtta kol adı kahin, düzey −1; düzey ve kümeleme kimliği girdi.kume'de); t = 0, tavansız. "
+                "kume_gizli yalnız ölçüm kolu (gizli segment)"}
     G = girdi or Girdi(0, ortam, kal)
     secim = json_oku(ortam.secim_yolu) or None
     try:                                   # pay kayıtları varsa seçim onlardan (dosya eskiyse düzelir)
@@ -711,6 +1052,10 @@ def kos_hepsi(blok: str = "hepsi", ortam: Ortam | None = None, kal: dict | None 
         if b in SECIM_GEREKEN and secim is None:
             secim = secim_yap(kosular, kal)
             json_yaz(ortam.secim_yolu, secim)
+        if b == "kume":
+            kk = G.kume_kal
+            kayit["kume_kalibrasyon"] = {"sezon": kk.get("sezon"), "karar_gunu": kk.get("karar_gunu"),
+                                         "secim": kk["secim"]}
         kos_liste([s for s in IZGARA[b] if adlar is None or s.ad in adlar], b)
         if b == "pay":
             try:
@@ -737,12 +1082,20 @@ def main(argv=None) -> None:
     ap = argparse.ArgumentParser(prog="python -m allocation.oyun")
     alt = ap.add_subparsers(dest="komut")
     alt.add_parser("kalibrasyon", help="SS24 kalibrasyonu (cikti/kalibrasyon.json)")
+    alt.add_parser("kume_kalibrasyon", help="küme payının SS24 koşusuz kalibrasyonu (cikti/kume_kalibrasyon.json)")
     iz = alt.add_parser("izgara", help="oyun ızgarası (cikti/oyun.json, cikti/secim.json)")
     iz.add_argument("--blok", default="hepsi", choices=[*BLOK_SIRASI, "hepsi"])
     iz.add_argument("--ad", action="append", help="yalnız bu koşu(lar) (tekrarlanabilir)")
     a = ap.parse_args(argv)
     uyanik_tut()
-    if a.komut == "kalibrasyon":
+    if a.komut == "kume_kalibrasyon":
+        d = kume_kalibrasyon_kos()
+        print(f"küme kalibrasyonu ({d['sezon']}, karar günü {d['karar_gunu']}, öğrenme {', '.join(d['kapanmis_sezonlar'])}, "
+              f"{d['sure_sn']:.0f} sn):", flush=True)
+        for y, sec in d["secim"].items():
+            print(f"  {y:<6} bas {sec['bas']} ({' × '.join(sec['hiyerarsi'][0]) or 'genel'}), en_az {sec['en_az']}, "
+                  f"WAPE {sec['wape']:.4f}{' (ızgara ucunda)' if sec['izgara_ucunda'] else ''}", flush=True)
+    elif a.komut == "kalibrasyon":
         d = kalibrasyon_kos()
         print(json.dumps({k: d[k] for k in ("en_az", "tahmin_parametreleri", "kaynak", "belirsizlik_olcusu",
                                             "tavan", "gamma", "belirsizlik_taban", "izgara_ucunda",
