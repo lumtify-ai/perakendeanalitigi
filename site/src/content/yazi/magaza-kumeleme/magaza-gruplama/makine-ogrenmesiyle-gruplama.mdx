@@ -3,9 +3,467 @@ baslik: Makine Öğrenmesiyle Gruplama
 tip: teknik
 sira: 4
 ozet: >-
-  Satış karışımından özellikler, k-means ve Ward, küme sayısının hakemsiz seçimi ve kümelerin yorumu; bir de çeşidin satışa bıraktığı iz.
+  Satış karışımından 45 özellik, k-means ve Ward, küme sayısının cevap
+  anahtarına bakmadan seçimi ve beş kümenin yorumu. Bir de çeşidin satışa
+  bıraktığı iz ve seçim kuralında yaşadığımız bir dönemeç.
 yazar: Sabri Suyunu
-durum: hazirlaniyor
+durum: yayinda
 ---
 
-Bu yazı hazırlanıyor.
+import T from '../../../../components/T.astro'
+
+İlk yazıda Pars bilgisayara yalnız 45 sayı vermiş, karışımları birbirine
+benzeyen mağazaları bir araya toplamasını istemişti. Sonuç beş
+<T k="kume">küme</T> oldu. Bu yazıda o adımı açıyoruz: 45 sayı nereden
+geliyor, nasıl aynı ölçüye konuyor, kümeleri hangi yöntem buluyor ve beş
+sayısına ne karar veriyor?
+
+Geçen yazıdaki gibi kod `vakalar/kumeleme/` altındaki çalışan koddan,
+sayılar vakanın raporundan geliyor. Bir şeyi de baştan söyleyeyim: bu
+yazıdaki seçimlerin hiçbiri cevap anahtarını girdi olarak kullanmıyor.
+Kümeleri o anahtarla yalnız sonradan ölçüyoruz. Bunun bir istisnası var;
+yazının ortasında ayrıca anlatacağım.
+
+## Bir mağaza, 45 sayı
+
+Özellikler karar gününden önceki son 104 tamamlanmış haftanın satışından
+kuruluyor; yaklaşık iki yıl. Karar gününün haftası okunmuyor, çünkü henüz
+bitmedi. Satış brüt adetle sayılıyor: iade düşülmüyor, birebir aynı
+satırlar tek sayılıyor. Toplamı DuckDB yapıyor:
+
+```python
+# kumeleme/ozellikler.py (_Okuyucu._kur; dilim döngüsünün içi)
+temiz = (f"(select distinct * from satis where tarih >= ? and tarih < ? "
+         f"and magaza_id::varchar in (select m from {_ON}m))")
+self.con.execute(f"""
+    insert into {_ON}su
+    select magaza_id::varchar, urun_id::varchar, month(tarih), sum(adet)::bigint
+    from {temiz} where adet > 0 group by all""", [d0, d1])
+```
+
+Sorgu her mağaza, her ürün ve her ay için brüt adedi topluyor; Python
+tarafına yalnız bu toplamlar geliyor.
+
+<T k="satis-karisimi">Satış karışımı</T> iki line grubunda ayrı ayrı
+kuruluyor: Collection, bir de Basic ile NOS birlikte. Outlet line'ı
+dışarıda; o mal outlet mağazalarının. Her grupta üç nitelik var: alt
+kategori, fiyat segmenti ve kalıp. Alt kategori ile kalıbı
+[Ürün Hiyerarşisi](/temeller/urun-hiyerarsisi/) yazısı anlatıyor.
+
+```python
+# kumeleme/ozellikler.py
+LINE_GRUPLARI: dict[str, tuple[str, ...]] = {"Collection": ("Collection",), "Basic+NOS": ("Basic", "NOS")}
+NITELIKLER = ("alt_kategori", "fiyat_segmenti", "kalip")
+AILELER: dict[str, tuple[str, ...]] = {
+    "S1": ("karisim",),                                       # satış karışımı
+    "S2": ("karisim", "beden", "mevsim"),                     # + beden eğrisi + mevsimsellik
+    "S4": ("karisim_stoklu", "beden_stoklu", "mevsim_stoklu"),  # S2, çeşitten arındırılmış
+    "S5": ("karisim", "beden", "mevsim", "olcek"),            # S2 + ölçek (ablasyon)
+}
+```
+
+Karışım bloğunu kuran fonksiyon:
+
+```python
+# kumeleme/ozellikler.py
+def _karisim(o: _Okuyucu, stoklu: bool) -> tuple[pd.DataFrame, int, dict]:
+    blok = "karisim_stoklu" if stoklu else "karisim"
+    s = o.satis_nitelik()
+    g = o.gun_nitelik() if stoklu else None
+    parca, n, dusen = [], 0, {}
+    for grup in LINE_GRUPLARI:
+        for a in NITELIKLER:
+            ad = f"{blok}/{grup}/{a}"
+            adet = _pivot(s[s["grup"] == grup], a, "adet", o.ids)
+            if stoklu:
+                R, dusen[ad] = _oran(adet, _pivot(g[g["grup"] == grup], a, "gun", o.ids))
+                R, k = _notr_doldur(R, ad)
+                n += k
+            else:
+                R = adet
+            parca.append(_adlandir(_paya(R, ad), blok, grup, a))
+    return pd.concat(parca, axis=1), n, dusen
+```
+
+Her (grup, nitelik) çifti bir alt blok: iki grup çarpı üç nitelik, altı
+alt blok. Her alt blokta paylar bire toplanıyor; bir mağazanın Collection
+satışının ne kadarı elbise, ne kadarı gömlek, ne kadarı pantolon. Altı alt
+bloğun sütunları yan yana konunca 45 sütun çıkıyor. Collection'ın
+mağazanın toplam satışındaki payı ayrı bir özellik değil; yalnız grupların
+kendi içindeki dağılımına bakıyoruz. `stoklu` dalına çeşit bölümünde
+döneceğiz.
+
+Karışımın yanına iki blok daha kurduk. Beden eğrisi: beden sırası 1'den
+5'e satış payları, her beden setinin içinde; setler eşit ağırlıklı, böylece
+mağazanın kadın ve erkek ya da harf ve numara bedenleri arasındaki karışımı
+eğriyi kaydırmıyor. Mevsimsellik: on iki ayın her birinde satışlı gün
+başına adet, paylara çevrilmiş. Gün başına hız, mağazanın açılışı ya da
+tadilatı ayın payını bozmasın diye.
+
+Bu bloklardan dört özellik ailesi çıkıyor:
+
+| Aile | Bloklar | Sütun |
+|---|---|---:|
+| S1 | satış karışımı | 45 |
+| S2 | karışım, beden eğrisi, mevsimsellik | 62 |
+| S4 | S2, çeşitten arındırılmış | 62 |
+| S5 | S2 ve ölçek | 65 |
+
+Önerilecek küme için iki aile yarışıyor: S1 ve S2. S4 ve S5, bir de geçen
+yazıda kullandığımız karışım ve ölçek ailesi, yalnız ablasyon için. Adlarda
+S3'ün neden olmadığını yazının sonunda söyleyeceğim.
+
+## Aynı ölçüye koymak
+
+Kümeleme yöntemleri mağazalar arasındaki uzaklığa bakar. Uzaklık da
+sütunların ölçeğine duyarlıdır: geniş bir aralıkta gezen bir pay, dar
+aralıkta gezen bir payı ezer. Bu yüzden önce standartlama:
+
+```python
+# kumeleme/ozellikler.py (standartla; denetim satırları çıkarıldı)
+for b in bloklar:
+    Z = X.loc[:, (blok_ad == b)].astype("float64")
+    sd = Z.std(axis=0, ddof=0)
+    Z = Z.loc[:, sd > 1e-12]
+    Z = (Z - Z.mean(axis=0)) / sd[Z.columns]
+    if agirlik == "sutun":
+        bolen = pd.Series(np.sqrt(Z.shape[1]), index=Z.columns)
+    else:
+        alt = pd.Series([alt_blok(c) for c in Z.columns], index=Z.columns)
+        bolen = np.sqrt(alt.map(alt.value_counts()) * alt.nunique())
+    parca.append(Z / bolen)
+return pd.concat(parca, axis=1)
+```
+
+Her sütun önce z-skora çevriliyor: ortalaması çıkarılıp standart sapmasına
+bölünüyor. Bütün mağazalarda aynı olan sütun bilgi taşımadığı için düşüyor.
+Sonra ağırlık geliyor, iki katmanda. Bloklar eşit: her bloğun toplam
+varyansı 1, yani karışımın 45 sütunu mevsimin 12 sütununu ezmiyor. Blok
+içinde alt bloklar da eşit: karışımda altı alt bloğun her biri bloğun
+varyansının 1/6'sını alıyor. Alt kategorinin sütunu fiyat segmentininkinden
+çok daha fazla; bu ağırlık olmasa alt kategori bütün karışımı yönetirdi.
+
+Bu ağırlığı cevap anahtarına bakmadan, ilke olarak seçtik: karışımın üç
+yönü var, üçü de eşit söz hakkı alsın. Sütunları eşit tutan öteki ağırlığı
+da ablasyon olarak koşturduk. Beş kümede S1'in cevap anahtarıyla uyumu iki
+ağırlıkta da 1,000. S2'ninki 0,137'den 0,091'e düşüyor.
+
+## İki yöntem
+
+```python
+# kumeleme/ogren.py (kume; denetim satırları çıkarıldı)
+def kume(X_std: pd.DataFrame, yontem: Yontem, k: int, tohum: int = sabitler.TOHUM) -> pd.Series:
+    """Mağaza → kanonik küme numarası (0..k−1), `X_std` satır sırasıyla."""
+    X = _sirali(X_std)
+    if yontem == "kmeans":
+        model = KMeans(n_clusters=k, n_init=sabitler.KMEANS_N_INIT, random_state=tohum)
+    elif yontem == "ward":
+        model = AgglomerativeClustering(n_clusters=k, linkage="ward")
+    with threadpool_limits(limits=1):     # küçük tabloda hızlı; iş parçacığı sayısından bağımsız
+        etiket = kanonik(pd.Series(model.fit(X.to_numpy()).labels_, index=X.index))
+    return etiket.reindex(pd.Index(X_std.index.astype(str), name="magaza_id"))
+```
+
+k-means önce k tane merkez seçiyor ve her mağazayı en yakın merkeze
+bağlıyor. Sonra her merkezi kendi mağazalarının ortalamasına taşıyor ve
+bağlamayı yeniden yapıyor; merkezler yerinden oynamayana kadar. Sonuç
+başlangıç noktalarına bağlı olduğu için 50 farklı başlangıçla koşuyor ve
+küme içi kareler toplamı en küçük olan sonucu tutuyor.
+
+Ward tersinden başlıyor: her mağaza kendi kümesi. Her adımda, birleşince
+küme içi varyansı en az artıracak iki küme birleşiyor; k küme kalana kadar.
+Ward'da rastlantı yok, aynı veride hep aynı sonucu veriyor.
+
+Küme numaraları bir ad değil, bir sıra: küme 0 en küçük mağaza kimliğini
+taşıyan küme. Aynı bölmeyi veren iki koşu böylece aynı numaraları alıyor.
+
+## Kaç küme
+
+— Beş kümeyi kim seçti? diyor Pelin. Bilgisayara beş mi dedin?
+
+— Demedim, diyor Pars. Üçten ona kadar her sayıyı denedim. Hangisinin
+daha iyi olduğunu bir ölçüt söyledi: siluet.
+
+Siluet her mağaza için iki uzaklığa bakıyor: kendi kümesindeki mağazalara
+ortalama uzaklığı ve en yakın öteki kümeye ortalama uzaklığı. İkincisi
+birincisinden ne kadar büyükse mağaza kümesine o kadar iyi oturuyor.
+Mağazaların ortalaması 1'e yaklaştıkça kümeler birbirinden net ayrılıyor,
+0'a yaklaştıkça iç içe geçiyor.
+
+```python
+# kumeleme/ogren.py
+def k_kurali(tablo: pd.DataFrame, en_kucuk: int = sabitler.EN_KUCUK_KUME) -> int | None:
+    """k seçim kuralı (modül notu): `k`, `siluet`, `en_kucuk` sütunlu tablodan seçilen k ya da None."""
+    u = tablo.loc[tablo["en_kucuk"] >= en_kucuk]
+    if u.empty:
+        return None
+    esik = u["siluet"].max() - SILUET_ESITLIK - _EPS
+    return int(u.loc[u["siluet"] >= esik, "k"].min())
+```
+
+Kural üç adım. En küçük kümesi 3 mağazadan az olan k eleniyor; bu bir iş
+kısıtı, Lumoda'da üç mağazadan küçük bir plan grubu kurulmuyor. Kalanlar
+arasında en yüksek siluet bulunuyor. O siluetten en çok 0,01 düşük olan
+k'lar eşit sayılıyor ve aralarından en küçüğü seçiliyor. Siluette 0,01'lik
+fark ayırt edici değil; az grup da planlamada daha kullanışlı.
+
+S1'de k-means şöyle:
+
+| k | Siluet | En küçük küme | Uygun |
+|---:|---:|---:|---|
+| 3 | 0,231 | 7 | evet |
+| 4 | 0,275 | 7 | evet |
+| 5 | 0,308 | 7 | evet |
+| 6 | 0,267 | 7 | evet |
+| 7 | 0,267 | 7 | evet |
+| 8 | 0,267 | 6 | evet |
+| 9 | 0,272 | 3 | evet |
+| 10 | 0,272 | 2 | hayır |
+
+S1'de seçim kolay: siluet beş kümede tepe yapıyor, en yakın rakibi 0,275.
+S2'de kuralın ilk adımı iş görüyor. S2'de k-means altı ve daha çok kümede
+hep tek mağazalık bir küme kuruyor; silueti 0,291'e kadar çıksa da bu
+bölmeler eleniyor. Kalan üç, dört ve beş küme arasında en yüksek siluet
+üçte, 0,278. Beşin 0,277'si de eşit sayılıyor ve kural küçüğü, üçü seçiyor.
+
+Dirsek yöntemini bilenler sorabilir: küme içi kareler toplamı da raporda
+basılıyor, ama kurala girmiyor. k büyüdükçe hep düşüyor; dirseğin nerede
+olduğunu söylemek ikinci bir eşik ister.
+
+## Dört aday, bir öneri
+
+Kural her aile ve yöntem için bir k seçiyor. İki aile, iki yöntem, dört
+aday:
+
+| Aday | k | Siluet | Kararlılık | Küme büyüklükleri |
+|---|---:|---:|---:|---|
+| S1, k-means | 5 | 0,308 | 0,851 | 32/14/7/7/7 |
+| S1, Ward | 5 | 0,308 | 0,877 | 32/14/7/7/7 |
+| S2, k-means | 3 | 0,278 | 0,992 | 38/24/5 |
+| S2, Ward | 5 | 0,277 | 0,974 | 22/18/15/7/5 |
+
+Kararlılık ikinci bir anahtarsız ölçüt: bölme, mağazaların bir kısmı
+eksilince ne kadar dayanıyor?
+
+```python
+# kumeleme/ogren.py (kararlilik; denetim satırları çıkarıldı)
+X = _sirali(X_std)
+n = len(X)
+m = int(np.floor(oran * n + 0.5))
+tam = kume(X, yontem, k, tohum=tohum).to_numpy()
+rng = np.random.default_rng(tohum)
+ari = []
+for _ in range(ornek):
+    sec = np.sort(rng.choice(n, size=m, replace=False))
+    alt = kume(X.iloc[sec], yontem, k, tohum=tohum).to_numpy()
+    ari.append(adjusted_rand_score(tam[sec], alt))
+return float(np.mean(ari))
+```
+
+Mağazaların %80'i 50 kez rastgele çekiliyor ve yalnız onlarla yeniden
+kümeleniyor. Her çekilişte yeni bölme ile tam bölmenin, çekilen
+mağazalardaki ARI'si ölçülüyor; ortalaması kararlılık. Burada ARI iki
+bölmeyi birbiriyle karşılaştırıyor, cevap anahtarını değil.
+
+Öneri bu dört adaydan şöyle seçiliyor:
+
+```python
+# kumeleme/ogren.py (oneri_kurali; belge metni çıkarıldı)
+def oneri_kurali(adaylar: pd.DataFrame) -> tuple[int, pd.Series, pd.Series]:
+    a = adaylar.reset_index(drop=True)
+    bolme = a.groupby("kimlik")["kararlilik"].transform("mean")
+    esit = a["siluet"] >= a["siluet"].max() - SILUET_ESITLIK - _EPS
+    st = bolme[esit]
+    e = a.loc[esit].loc[st >= st.max() - KARARLILIK_ESITLIK - _EPS]
+    sira = sorted(e.index, key=lambda i: (int(e.at[i, "k"]), ONERI_AILELERI.index(e.at[i, "aile"]),
+                                          YONTEMLER.index(e.at[i, "yontem"])))
+    return int(sira[0]), esit, bolme
+```
+
+Önce yine siluet. Dört aday arasında en yüksek siluet 0,308; ondan en çok
+0,01 düşük olanlar eşit. S1'in iki adayı eşit, S2'ninkiler değil. Eşitler
+arasında kararlılık karar veriyor, ama aynı bölmeyi veren adaylar için tek
+bir sayıyla. S1'de k-means ile Ward aynı beş kümeyi buluyor. Alt örneklemde
+iki yöntem farklı davranabildiği için kararlılıkları farklı çıkıyor, ama
+bölme aynı olduğuna göre biri ötekinden kararlı sayılamaz; ikisinin
+ortalaması 0,864. Kararlılıkta 0,02'ye kadar fark da eşit sayılıyor.
+Eşitlik sürünce küçük k, sonra S1, sonra k-means.
+
+Öneri: S1, k-means, beş küme. Büyüklükleri 32, 14, 7, 7 ve 7 mağaza.
+
+Siluetin iki aile arasında karşılaştırılabildiğini de denetledik. S2'nin
+62 sütunu var, S1'in 45; boyut silueti kendiliğinden kaydırıyor olabilirdi.
+Her sütunu mağazalar arasında kendi içinde karıştırıp yapısız bir veri
+kurduk ve aynı yöntemle kümeledik, on kez. Yapısız veride siluet S1'de
+ortalama 0,048, S2'de 0,052; fark 0,004, eşitlik payının altında. Önerinin
+silueti 0,308, yapısız eşinin 0,047. Gerçek veride bir yapı var ve iki
+ailenin silueti aynı ölçekte konuşuyor.
+
+## Bir dönemeç
+
+Burada bir itirafım var. Sonuçları görmeden önce yazdığım öneri kuralı
+yukarıdaki gibiydi: önce siluet, eşitlikte kararlılık. Kodun ilk taslağında
+ise sıra tersti: önce kararlılık. O taslak S2, k-means, üç kümeyi
+seçiyordu; kararlılığı 0,992, silueti 0,278.
+
+Cevap anahtarıyla ölçünce o bölmenin ARI'si 0,055 çıktı. Kuralı önceden
+yazılmış biçimine bu sonucu gördükten sonra döndürdük. Kuralın kendisi
+sonuçtan önce yazılmıştı; ama hangi biçiminin kullanılacağına, cevap
+anahtarının sonucu görülmüşken karar verildi. Bu yüzden öneri seçiminin
+cevap anahtarından tamamen bağımsız olduğunu söyleyemem.
+
+Dönemeç bir şey de gösteriyor: iki anahtarsız ölçüt birbirini tutmuyor.
+Kararlılık küçük k'yı ve tek bir güçlü eksen boyunca yapılan kaba bölmeleri
+sever. Böyle bir bölme mağaza eksildiğinde bozulmaz, ama yapının asıl ekseni
+olmayabilir. S2'nin üç kümesi bunun örneği gibi duruyor: kararlılığı 0,992,
+cevap anahtarıyla uyumu 0,055. Hangi ölçüte bakacağınızı sonuçtan önce
+yazmazsanız, beğendiğiniz sonucu veren ölçütü seçmeye çok yakınsınız.
+
+## Cevap anahtarıyla
+
+Seçim bittikten sonra dört adayı cevap anahtarıyla ölçüyoruz:
+
+| Aday | Cevap anahtarıyla ARI |
+|---|---:|
+| S1, k-means, 5 küme (öneri) | 1,000 |
+| S1, Ward, 5 küme | 1,000 |
+| S2, k-means, 3 küme | 0,055 |
+| S2, Ward, 5 küme | 0,137 |
+
+Öneri cevap anahtarıyla birebir aynı: beş küme, beş profil, her kümede tek
+profil. Uygun bütün satırlar arasından anahtarla seçseydik de aynı bölmeyi
+seçerdik.
+
+S2 ise iki adayında da bozuluyor. S1 ile S2 arasındaki tek fark beden eğrisi
+ve mevsimsellik. Görünen o ki bu iki blok, Lumoda'da müşteri profilinden
+başka bir şeye göre ayrışıyor ve karışımla eşit ağırlık alınca kümeleri o
+yöne çekiyor. Daha çok bilgi her zaman daha iyi küme demek değil.
+
+## Kümeler ne anlatıyor
+
+Bir bölme tek başına plana dönüşmez; Pelin her kümenin ne sattığını bilmek
+ister. Her kümenin en ayırt edici özelliklerini bulmak için her sütunu
+bütün mağazalarda z-skora çevirip kümenin ortalama z'sine bakıyoruz:
+
+```python
+# kumeleme/ogren.py (yorum)
+sd = A.std(axis=0, ddof=0)
+A = A.loc[:, sd > _EPS]
+Z = (A - A.mean(axis=0)) / sd[A.columns]
+ort = Z.groupby(etiket.to_numpy()).mean()
+```
+
+Bir özelliğin ortalama z'si +2 ise o kümenin mağazalarında bu pay, bütün
+mağazaların ortalamasından iki standart sapma yukarıda. Eksi z, payın
+ortalamanın altında olduğunu söylüyor.
+
+| Küme | Özellik | z | Kümede | Genel |
+|---|---|---:|---:|---:|
+| 0 (32 mağaza) | Basic ve NOS, regular kalıp | +0,83 | %49,7 | %38,7 |
+| | Collection, regular kalıp | +0,77 | %29,1 | %24,4 |
+| | Basic ve NOS, çanta | +0,73 | %1,1 | %0,8 |
+| 1 (7 mağaza) | Basic ve NOS, oversize kalıp | +2,45 | %44,2 | %20,3 |
+| | Collection, oversize kalıp | +2,25 | %44,7 | %26,1 |
+| | Basic ve NOS, elbise | +2,09 | %6,2 | %2,6 |
+| 2 (7 mağaza) | Basic ve NOS, sweatshirt | +2,33 | %23,7 | %12,9 |
+| | Basic ve NOS, jean | −1,77 | %7,9 | %14,9 |
+| | Basic ve NOS, giriş fiyat segmenti | +1,66 | %37,6 | %25,3 |
+| 3 (14 mağaza) | Basic ve NOS, slim kalıp | +1,41 | %19,3 | %10,8 |
+| | Collection, slim kalıp | +1,37 | %35,6 | %26,9 |
+| | Collection, gömlek | +1,33 | %16,0 | %11,5 |
+| 4 (7 mağaza) | Basic ve NOS, orta fiyat segmenti | +2,75 | %76,5 | %47,9 |
+| | Basic ve NOS, şort | +2,69 | %14,9 | %4,5 |
+| | Basic ve NOS, relaxed kalıp | +2,55 | %55,0 | %30,2 |
+
+En büyük küme zincirin ortalamasına en yakın olanı: en ayırt edici
+özelliğinin z'si bile +0,83. Bu kümeyi öne çıkaran regular kalıp, iki line
+grubunda da. Küçük kümeler çok daha keskin. Küme 1 oversize satıyor, iki
+line grubunda da. Küme 2'de sweatshirt yüksek, jean düşük. Küme 3 slim
+kalıp ve gömlek satıyor. Küme 4'te Basic ve NOS satışının %76,5'i orta
+fiyat segmentinde; şort payı %14,9, bütün mağazaların ortalaması %4,5.
+"Genel" sütunu da bu: bir payın 67 mağazadaki ortalaması.
+
+Cevap anahtarına göre küme 0 Anadolu aile, küme 1 metropol genç, küme 2
+metropol premium, küme 3 sıcak sahil, küme 4 soğuk iklim profili. Bu adlar
+verinin kurgusundan geliyor; kümeleme onları bilmiyor. Gerçek bir zincirde
+kümeye ad koymak bu tabloyla başlar: Pelin'in elinde kurgunun adları
+olmayacak, yalnız kümelerin ne sattığı olacak.
+
+## Çeşidin izi
+
+İkinci yazıda bir uyarı yapmıştık: mağaza yalnız elindekini satar. Satış
+karışımı kısmen müşteriyi, kısmen mağazaya gönderilen çeşidi yansıtır.
+Lumoda'da bu özellikle önemli, çünkü her mağazanın taşıdığı çeşit kurguda
+mağazanın profiline göre seçilmiş ve bu dizide sabit.
+
+Çeşidin izini ayırmak için arındırılmış bir karışım kurduk. `_karisim`'in
+`stoklu` dalı payı ham adetten değil, hızdan kuruyor: bir değerin brüt
+adedi, o değerdeki ürünlerin rafta stoklu olduğu option-gün sayısına
+bölünüyor.
+
+```python
+# kumeleme/ozellikler.py
+def _oran(adet: pd.DataFrame, gun: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Hız = adet ÷ gün; gün 0 (ya da yok) ise NaN (gözlenmedi). İkinci değer: günü 0 olan
+    hücrelerin satışı (hıza girmeyen, düşen brüt adet)."""
+    sutunlar = gun.columns.union(adet.columns)
+    a = adet.reindex(columns=sutunlar, fill_value=0)
+    g = gun.reindex(index=a.index, columns=sutunlar, fill_value=0)
+    dusen = int(round(a.where(~(g > 0), 0).to_numpy().sum()))
+    return (a / g.where(g > 0)).dropna(axis=1, how="all"), dusen
+```
+
+Mağazanın hiç taşımadığı bir kategoride hızı tanımsız. Sıfır saymak çeşidi
+geri sokardı. Bu hücreler nötr dolduruluyor: o sütunun öteki mağazalardaki
+medyan hızı, mağazanın kendi genel düzeyiyle ölçekleniyor. Mağaza, taşımadığı
+kategoride kendi düzeyinde ortalama bir mağaza sayılıyor. Arındırılmış
+karışımda bu durumda 7 hücre var.
+
+Sonuç beklediğimizin tersi çıktı: bu veride çeşidin izi küçük.
+Arındırılmış karışımda aynı k kuralı Ward ile beş küme seçiyor ve cevap
+anahtarıyla uyumu yine 1,000. k-means dört küme seçiyor: 0,948. Beş kümeye
+zorlanınca k-means 0,682'de kalıyor; ama bu yöntemin kendi takıldığı bir
+çözüm, çünkü aynı özelliklerde Ward beş kümede kusursuz. S2 ile arındırılmış
+eşi S4 de beş kümede birebir aynı bölmeyi veriyor: iki bölmenin uyumu
+1,000, ikisinin de cevap anahtarıyla uyumu 0,137.
+
+Neden küçük? Kesin bir cevabım yok. Olası bir açıklama şu: Lumoda'da çeşit
+de mağazanın profiline göre seçildiği için çeşidin izi ile müşterinin izi
+aynı yöne bakıyor. Sizin zincirinizde çeşit başka bir şeye göre, örneğin
+metrekareye göre kurulduysa ikisi ayrışabilir. O zaman ham karışım
+müşteriden çok çeşidi kümeler.
+
+## Müşteri verisi
+
+Aile adlarında S3 yok. O aile müşteri verisiydi: Lumoda'nın kimliği bilinen
+müşterilerinin yaşı ve cinsiyeti, mağaza mağaza. Gerçek hayatta mağazanın
+müşterisini anlamanın en doğrudan yolu bu olabilir. Bu dizide kullanmadık,
+çünkü bu sentetik zincirde müşterinin yaşı mağazanın gizli profiline göre
+üretiliyor; yani müşteri verisi cevap anahtarını neredeyse doğrudan
+taşıyor. Onu özellik yapmak anahtarı kümeye geri vermek olurdu ve
+ölçtüğümüz uyum yöntemin değil, verinin kuruluş biçiminin başarısı olurdu.
+Bu yüzden ölçmedik de. Gerçek bir zincirde müşteri verisi güçlü bir
+sinyaldir, ama kendi sorunları vardır: kimliği bilinen müşterinin bütün
+satıştaki payı, bir müşterinin hangi mağazanın müşterisi sayılacağı.
+
+## Sizin verinizde zor olan
+
+Birincisi öznitelik verisi. Bu kümelerin gördüğü her şey ürün kaydındaki
+üç alandan geliyor: alt kategori, fiyat segmenti, kalıp. Lumoda'da bu
+alanlar her üründe eksiksiz. Gerçek bir ERP'de aynı kalıp üç farklı adla
+girilmiş, fiyat segmenti hiç tanımlanmamış olabilir. Kümeler bu kayıt kadar
+iyi olur; ilk iş muhtemelen kaydı düzeltmek.
+
+İkincisi ölçecek bir cevap anahtarının olmaması. Bu yazıda kümeleri bir
+anahtarla ölçebildik. Sizin elinizde siluet, kararlılık ve kümeye göre
+verilen kararların kalitesi olacak; ilk ikisinin birbirini tutmadığını da
+gördük. Kuralı sonuçtan önce yazın ve yazdığınız kurala bağlı kalın. Biz
+bile bunda bir kez sendeledik.
+
+Üçüncüsü çeşit. Lumoda'da çeşidin izi küçük çıktı; sizin zincirinizde
+küçük olacağının garantisi yok. Bunu ölçmek için de satış yetmiyor: her
+mağaza, her ürün için rafın dolu olduğu günlerin kaydı gerekiyor.
+
+Sonraki yazıda kümeleri kullanmaya geçiyoruz: yıldan yıla ne kadar
+dayanıyorlar, satışı olmayan yeni mağaza hangi kümeye konur ve kümeye göre
+plan nasıl kurulur?

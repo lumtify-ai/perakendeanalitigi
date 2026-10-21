@@ -3,9 +3,458 @@ baslik: Kural Tabanlı Yöntem
 tip: teknik
 sira: 3
 ozet: >-
-  Bölge, ciro sınıfı, ikisinin ızgarası ve konum: Lumoda'nın kuralları gizli müşteri profiline ne kadar oturuyor, sezondan sezona ne kadar dayanıyor?
+  Bölge, ciro sınıfı, ikisinin ızgarası ve konum: dört kuralın kodu ve cevap
+  anahtarına ne kadar oturdukları. Ciro sınıfı yıldan yıla pek değişmiyor,
+  ama müşteri hakkında neredeyse hiçbir şey bilmiyor.
 yazar: Sabri Suyunu
-durum: hazirlaniyor
+durum: yayinda
 ---
 
-Bu yazı hazırlanıyor.
+import T from '../../../../components/T.astro'
+
+İki yazı boyunca mağaza gruplamayı kavram olarak konuştuk. Şimdi kodu
+yazıyoruz. Bu yazıda Lumoda'nın bugün kullandığı üç kuralı, yani bölgeyi,
+<T k="ciro-sinifi">ciro sınıfını</T> ve ikisinin ızgarasını kuruyoruz. Bir
+de bizim eklediğimiz dördüncü bir kural var: konum. Dördünü aynı
+mağazalarda ölçüyoruz.
+
+Aşağıdaki Python parçaları `vakalar/kumeleme/` altındaki çalışan koddan
+alındı; belge metinleri kısaltıldı. Yazıdaki her sayı vakanın rapor
+çıktısından geliyor.
+
+## Hangi mağazalar
+
+Kurallar karar gününde, yalnız o güne kadar yayımlanan veriyle çalışıyor.
+Aday mağaza 69: karar gününde açık ya da lansmana kadar açılacak, kapanış
+kararı verilmemiş, outlet ya da online olmayan mağazalar. Bunların 67'sinin
+en az 26 satışlı haftası var; gruplanan mağazalar bunlar. Kalan ikisi yeni:
+İzmir 2'nin hiç satışı yok, Kocaeli 1'in 19 satışlı haftası var.
+
+Gruplanan 67 mağazanın 21'i metropolde: İstanbul'da 12, Ankara'da 5,
+İzmir'de 4. Kalan 46'sı metropol dışında. Bu ayrım yazının ortasında önem
+kazanacak.
+
+Dört kural da aynı biçimde yazıldı: kapsamdaki her mağazaya, yenilere de,
+bir grup etiketi veriyor. Kural modülü bir karar modülü; cevap anahtarını
+okuyamıyor. Bunu bir test denetliyor: modül, gizli tablolara ulaşan hiçbir
+şeyi içe aktaramıyor.
+
+## Bölge
+
+Kodun en kısa parçası bu:
+
+```python
+# kumeleme/kural.py
+def bolge(kapsam: pd.DataFrame) -> pd.Series:
+    """K1: yayımlanan bölge."""
+    return _kimlikli(kapsam, kapsam["bolge"].astype(str)).rename("k1")
+```
+
+Bölge yayımlanan mağaza tablosunda yazılı; kural onu olduğu gibi alıyor. 67
+mağaza yedi bölgeye düşüyor: Marmara 18, İç Anadolu 14, Akdeniz 11, Ege 9,
+Doğu Anadolu 7, Güneydoğu Anadolu ve Karadeniz 4'er.
+
+Bölgenin iki kolaylığı var. Hiçbir hesap gerektirmiyor ve yeni bir mağaza
+açıldığı gün bölgesini biliyor. Bir de sorunu var: İstanbul'un 12 mağazasını
+Marmara'nın öteki mağazalarıyla aynı gruba koyuyor. İlk yazıda Ali'nin
+itiraz ettiği şey buydu.
+
+## Ciro sınıfı
+
+Ciro sınıfı Pelin'in ızgarasının ikinci ayağı. Tanımı tek cümle: karar
+gününden önceki son on iki ayın net cirosuna göre sırala, ilk %20'ye A,
+sonraki %30'a B, kalanına C de. Kodda iki adım var. İlki ciro:
+
+```python
+# kumeleme/kural.py (net_ciro; belge metni çıkarıldı)
+karar = pd.Timestamp(karar_gunu).normalize()
+bas = karar - pd.DateOffset(years=1)
+pencere_gun = (karar - bas).days
+s = satis.loc[(satis["tarih"] >= bas) & (satis["tarih"] < karar)].drop_duplicates()
+kimlik = s["magaza_id"].astype(str)
+ciro = s["tutar"].groupby(kimlik.to_numpy()).sum()
+ilk = s["tarih"].dt.normalize().groupby(kimlik.to_numpy()).min()
+ids = kapsam["magaza_id"].astype(str)
+c = ids.map(ciro).fillna(0.0).astype("float64")
+g = (karar - ids.map(ilk)).dt.days.astype("float64")              # satışsız: NaN
+kisa = (kapsam["gecmis_hafta"].to_numpy() < sabitler.TAM_YIL_HAFTA) & g.notna().to_numpy()
+carpan = (pencere_gun / g.clip(lower=1.0, upper=pencere_gun)).where(kisa, 1.0)
+return _kimlikli(kapsam, (c * carpan).to_numpy()).astype("float64").rename("net_ciro")
+```
+
+Net ciro, `tutar` sütununun toplamı. İade satırının tutarı eksi; yani
+satıştan iade düşülmüş, indirimden sonraki ciro. `drop_duplicates`
+yayımlanan verideki birebir aynı satırları atıyor. Lumoda'nın satış
+tablosunda da gerçek bir zincirinki gibi kirli kayıt var.
+
+Kodun ikinci yarısı kısa geçmişli mağazalar için. Bir mağazanın 26'dan
+fazla satışlı haftası varsa ama on iki ayı doldurmamışsa cirosu
+yıllıklaştırılıyor: ilk satış gününden bu yana günlük ciro hızı, on iki
+aylık pencereyle çarpılıyor. Bu yapılmasa mağaza sırf eksik ayları yüzünden
+C'ye düşerdi. Lumoda'da bu durumda tek mağaza var, Antalya 1: 46 satışlı
+haftası var, yıllıklaştırılmış cirosu 55,4 milyon TL, sınıfı B.
+
+Bunun bir bedeli var. Kısa geçmiş yılın yalnız bir kısmını görüyor,
+yıllıklaştırma da mevsimi düzeltmiyor. Yazın açılan bir mağazanın
+yıllıklaştırılmış cirosu şişkin, kışın açılanınki düşük çıkabilir.
+
+İkinci adım sıralama:
+
+```python
+# kumeleme/kural.py
+def ciro_sinifi(satis: pd.DataFrame, kapsam: pd.DataFrame, karar_gunu) -> pd.Series:
+    """K2: A / B / C (modül notu). Yeni mağaza sıralamaya girmez ve C alır."""
+    ciro = net_ciro(satis, kapsam, karar_gunu)
+    kumelenir = pd.Series(kapsam["kumelenir"].to_numpy(dtype=bool), index=ciro.index)
+    sirali = (pd.DataFrame({"ciro": ciro[kumelenir], "kimlik": ciro.index[kumelenir]})
+              .sort_values(["ciro", "kimlik"], ascending=[False, True]))
+    n = len(sirali)
+    n_a = _yarim_yukari(sabitler.CIRO_A * n)
+    n_b = _yarim_yukari(sabitler.CIRO_B * n)
+    sinif = pd.Series("C", index=ciro.index, dtype=object, name="k2")
+    sinif.loc[sirali["kimlik"].iloc[:n_a]] = "A"
+    sinif.loc[sirali["kimlik"].iloc[n_a:n_a + n_b]] = "B"
+    return sinif
+```
+
+Sıralamaya yalnız gruplanan 67 mağaza giriyor. Sonuç 13 A, 20 B, 34 C. A'nın
+alt sınırı 116,4 milyon TL, B'ninki 53,4 milyon TL. En küçük mağazanın cirosu
+12,5 milyon TL, en büyüğününki 169,7 milyon TL. Ortadaki mağazanın cirosu
+52,5 milyon TL; B sınırının altında, yani C. Mağazaların yarısından fazlası
+C sınıfında olduğu için ortadaki mağaza da C'de kalıyor.
+
+Yeni mağaza sıralamaya girmiyor, C alıyor. İkinci yazıda Kocaeli 1'i
+anmıştık: 19 haftalık satışı bir yıla tamamlansa 125,9 milyon TL ediyor, A
+sınırının üstünde. Kural ona yine C veriyor. Bu bir tercih: yeni mağazanın
+ilk haftaları bir yılı temsil etmez, planlamada da yeni mağaza en temkinli
+sınıfa konur.
+
+## Izgara
+
+Pelin planı bölge ile ciro sınıfının çaprazına kuruyor. Gruplanan 67
+mağazada ızgara şöyle:
+
+| Bölge | Mağaza | A | B | C |
+|---|---:|---:|---:|---:|
+| Marmara | 18 | 0 | 6 | 12 |
+| İç Anadolu | 14 | 2 | 4 | 8 |
+| Akdeniz | 11 | 3 | 4 | 4 |
+| Ege | 9 | 2 | 2 | 5 |
+| Doğu Anadolu | 7 | 2 | 4 | 1 |
+| Güneydoğu Anadolu | 4 | 2 | 0 | 2 |
+| Karadeniz | 4 | 2 | 0 | 2 |
+
+Marmara'da hiç A sınıfı mağaza yok. İstanbul'un 12 mağazasının 4'ü B, 8'i C.
+
+Bazı hücreler çok küçük: Doğu Anadolu'da C sınıfında tek mağaza var. Tek
+mağazalık bir hücre o mağazaya ayrı plan demek. Kural, 3 mağazadan küçük
+hücreyi aynı bölgede komşu sınıfla birleştiriyor:
+
+```python
+# kumeleme/kural.py
+def _birlestir(sayilar: dict[str, int]) -> dict[str, str]:
+    """Bir bölgenin sınıf → mağaza sayısı tablosundan sınıf → grup sınıfları (`AB`, `ABC`)."""
+    gruplar = [[s, n] for s, n in sayilar.items() if n > 0]     # A, B, C sırasıyla dolu hücreler
+    while len(gruplar) > 1 and min(n for _, n in gruplar) < sabitler.K3_EN_AZ:
+        i = min(range(len(gruplar)), key=lambda j: (gruplar[j][1], j))      # en küçük, eşitlikte A tarafı
+        if i == 0:
+            j = 1
+        elif i == len(gruplar) - 1:
+            j = i - 1
+        else:                                                   # ortadaki: az mağazalı komşu, eşitlikte A
+            j = i - 1 if gruplar[i - 1][1] <= gruplar[i + 1][1] else i + 1
+        a, b = sorted((i, j))
+        gruplar[a] = [gruplar[a][0] + gruplar[b][0], gruplar[a][1] + gruplar[b][1]]
+        del gruplar[b]
+    return {c: ad for ad, _ in gruplar for c in ad}
+```
+
+Bir bölgenin dolu hücreleri A, B, C sırasıyla diziliyor. Döngü her adımda
+en küçük hücreyi alıyor. Uçtaki bir hücrenin tek komşusu var, ona ekleniyor.
+Ortadaki hücre küçükse iki komşusundan küçük olanla birleşiyor. Boş B varsa
+A ile C komşu sayılıyor. Bölgeler birbiriyle hiç birleşmiyor.
+
+Doğu Anadolu'da 2 A, 4 B, 1 C var. Önce tek C mağazası B'ye ekleniyor; sonra
+2 A mağazası oluşan gruba. Sonuç 7 mağazalık tek bir Doğu Anadolu×ABC
+grubu. Güneydoğu Anadolu'da B yok: 2 A ile 2 C birleşip Güneydoğu
+Anadolu×AC oluyor. Ege'de A ile B 2'şer mağaza; eşitlikte A tarafındaki
+seçiliyor ve Ege×AB kuruluyor.
+
+Sonuç 12 grup:
+
+| Grup | Mağaza |
+|---|---:|
+| Marmara×C | 12 |
+| İç Anadolu×C | 8 |
+| Doğu Anadolu×ABC | 7 |
+| Marmara×B | 6 |
+| İç Anadolu×AB | 6 |
+| Ege×C | 5 |
+| Akdeniz×B | 4 |
+| Akdeniz×C | 4 |
+| Ege×AB | 4 |
+| Güneydoğu Anadolu×AC | 4 |
+| Karadeniz×AC | 4 |
+| Akdeniz×A | 3 |
+
+İlk yazıdaki İstanbul 13 ile İstanbul 10 en büyük hücrede, Marmara×C'de.
+
+## Konum
+
+Lumoda'nın kurallarına bir tane de biz ekledik. Fikir basit: bir mağazanın
+müşterisini kabaca yerinden tahmin edebilir miyiz? Büyük şehir başka, sahil
+başka, soğuk bir şehir başka.
+
+```python
+# kumeleme/kural.py
+def konum(kapsam: pd.DataFrame) -> pd.Series:
+    """K4: `metropol` ya da şehrin iklim sınıfı; turistik beldeler `sicak_sahil`."""
+    bilinmeyen = sorted(set(kapsam["sehir"].astype(str)) - set(kaynak.SEHIR_IKLIM))
+    if bilinmeyen:
+        raise ValueError(f"şehir → iklim tablosunda olmayan şehir: {bilinmeyen}")
+
+    def sinif(sehir: str) -> str:
+        if sehir in kaynak.METROPOL:
+            return "metropol"
+        return "sicak_sahil" if sehir in kaynak.TURISTIK else kaynak.SEHIR_IKLIM[sehir]
+
+    return _kimlikli(kapsam, [sinif(str(s)) for s in kapsam["sehir"]]).rename("k4")
+```
+
+Kural üç soru soruyor. Mağaza metropolde mi? Metropol üç büyük şehir:
+İstanbul, Ankara, İzmir. Değilse, turistik bir tatil beldesinde mi? Öyleyse
+sıcak sahil. İkisi de değilse şehrin iklim sınıfı. Sınıflar vakada açıkça
+yazılı bir tablodan geliyor:
+
+```python
+# kumeleme/kaynak.py (SEHIR_IKLIM'in bir kısmı)
+METROPOL = {"İstanbul", "Ankara", "İzmir"}
+
+SEHIR_IKLIM: dict[str, str] = {
+    # soğuk: yüksek rakım, uzun ve sert kış
+    "Erzurum": "soguk",
+    "Sivas": "soguk",
+    # sıcak sahil: Akdeniz ve Ege kıyısı, sıcak ve uzun yaz, ılık kış
+    "Antalya": "sicak_sahil",
+    "Mersin": "sicak_sahil",
+    # ılıman: Marmara, Karadeniz kıyısı, iç Ege
+    "Bursa": "ılıman",
+    "Trabzon": "ılıman",
+    # karasal: iç Anadolu, güneydoğu ve doğu iç kesimleri
+    "Eskişehir": "karasal",
+    "Gaziantep": "karasal",
+}
+
+TURISTIK = {"Antalya", "Alanya", "Kemer", "Fethiye", "Bodrum"}
+```
+
+Tabloda olmayan bir şehir gelirse kod hata veriyor; mağaza sessizce bir
+gruba konmuyor. 67 mağaza beş gruba düşüyor: metropol 21, sıcak sahil 14,
+karasal 13, ılıman 12, soğuk 7.
+
+Dört kural iki yeni mağazaya da satış görmeden grup veriyor. İzmir 2 Ege,
+C, Ege×C ve metropol. Kocaeli 1 Marmara, C, Marmara×C ve ılıman.
+
+Bu tablo hakkında bir şeyi baştan söylemem gerekiyor. İklim sınıflarını
+genel coğrafya bilgisiyle elle yazdım. Lumoda'nın verisini üreten
+simülatörün de kendi gizli iklim etiketleri var ve iki tablo 25 şehrin
+24'ünde aynı; tek fark İzmir. Bu bir tesadüf değil: sentetik zincir gerçek
+coğrafyanın üstüne kuruldu. Yani konum kuralının aşağıda göreceğiniz
+başarısının bir kısmı, verinin kuruluş biçiminden geliyor. Gerçek bir
+zincirde şehrin iklimi ile müşterinin ne aldığı arasındaki bağ bu kadar
+temiz olmayabilir.
+
+## Dört kural, bir cevap anahtarı
+
+Kuralları ölçmek için ilk iki yazıdaki cevap anahtarını kullanıyoruz.
+Lumoda sentetik bir zincir ve verisini ben ürettim; her mağazaya yayımlanan
+veride görünmeyen bir müşteri profili verdim. Gruplanan 67 mağazada beş
+profil var: Anadolu aile 32, sıcak sahil 14, metropol genç 7, metropol
+premium 7, soğuk iklim 7. Kurallar bu profili görmüyor; ben onu yalnız
+sonradan ölçmek için kullanıyorum. Gerçek hayatta böyle bir anahtar yok.
+
+Üç ölçü kullanıyoruz. ARI'yi ikinci yazıda tanıtmıştık: bir gruplamanın
+cevap anahtarıyla uyumu; 1 kusursuz, 0 rastgele bir gruplamanın düzeyi.
+AMI aynı soruyu başka bir yoldan soruyor: iki gruplamanın birbiri hakkında
+ne kadar bilgi taşıdığına bakıyor, ölçeği yine 1 ile 0. Saflık en
+sezgisel olanı: her grupta en kalabalık profildeki mağazaları sayıp
+topluyor, bütün mağazalara bölüyor.
+
+| Kural | Grup | ARI | AMI | Saflık |
+|---|---:|---:|---:|---:|
+| Bölge | 7 | 0,209 | 0,334 | %70,1 |
+| Ciro sınıfı | 3 | 0,035 | 0,012 | %47,8 |
+| Bölge × ciro sınıfı | 12 | 0,104 | 0,256 | %71,6 |
+| Konum | 5 | 0,432 | 0,679 | %79,1 |
+
+**Ciro sınıfı rastgele düzeyinde.** Sınıfların içine bakınca nedeni
+görülüyor:
+
+| Ciro sınıfı | Anadolu aile | Metropol genç | Metropol premium | Sıcak sahil | Soğuk iklim |
+|---|---:|---:|---:|---:|---:|
+| A | 5 | 3 | 0 | 3 | 2 |
+| B | 8 | 1 | 2 | 5 | 4 |
+| C | 19 | 3 | 5 | 6 | 1 |
+
+A sınıfının 13 mağazasında dört profil var, B'de ve C'de beşi de. Her
+sınıfta en kalabalık profil Anadolu aile, çünkü zincirin neredeyse yarısı
+o profilde. Ciro sınıfının saflığı %47,8; bütün mağazaları tek bir gruba
+koysaydınız da bu çıkardı, çünkü 67 mağazanın 32'si Anadolu aile.
+
+**Bölge bir şey biliyor, ama az.** Akdeniz'in 11 mağazasının hepsi sıcak
+sahil. Marmara'nın 18 mağazasında ise üç profil var: 13 Anadolu aile, 3
+metropol premium, 2 metropol genç. Ege'nin 9 mağazasında dört profil.
+
+**Izgara bölgeden kötü.** 12 grup var, ama ARI 0,104; bölgenin 0,209'unun
+yarısı. Ciro sınıfı profil hakkında bir şey bilmediği için bölgenin
+gruplarını müşteriyle ilgisiz bir eksende bölüyor. Saflığı %71,6 ile
+bölgeninkinden biraz yüksek görünüyor, ama bu yanıltıcı: grup sayısı
+arttıkça saflık kendiliğinden artar. Her mağazayı kendi grubuna koysanız
+saflık %100,0 olurdu. ARI bunu cezalandırıyor.
+
+**Konum açık farkla en iyisi:** 0,432.
+
+## Konum neyi biliyor
+
+Konumun gruplarına profil profil bakalım:
+
+| Konum | Anadolu aile | Metropol genç | Metropol premium | Sıcak sahil | Soğuk iklim |
+|---|---:|---:|---:|---:|---:|
+| Karasal | 13 | 0 | 0 | 0 | 0 |
+| Ilıman | 12 | 0 | 0 | 0 | 0 |
+| Sıcak sahil | 0 | 0 | 0 | 14 | 0 |
+| Soğuk | 0 | 0 | 0 | 0 | 7 |
+| Metropol | 7 | 7 | 7 | 0 | 0 |
+
+Metropol dışında tablo neredeyse kusursuz. Karasal grubun 13 mağazasının
+hepsi Anadolu aile, ılımanın 12'si de. Sıcak sahilin 14 mağazası sıcak
+sahil, soğuğun 7'si soğuk iklim. Tek kusur, Anadolu aile profilinin
+karasal ve ılıman diye ikiye bölünmesi.
+
+Metropolde ise kural hiçbir şey bilmiyor. 21 mağazalık tek bir grup var ve
+içinde üç profil 7'şer mağaza.
+
+Aynı ölçüyü metropolde ve metropol dışında ayrı ayrı alınca bu daha net
+görünüyor. Son satır, bir sonraki yazıda satış karışımından kuracağımız
+kümeler; karşılaştırma için buraya koyuyorum:
+
+| Gruplama | Metropolde grup | Metropolde ARI | Dışında grup | Dışında ARI |
+|---|---:|---:|---:|---:|
+| Bölge | 3 | 0,134 | 7 | 0,270 |
+| Ciro sınıfı | 3 | 0,049 | 3 | 0,087 |
+| Bölge × ciro sınıfı | 6 | 0,068 | 12 | 0,124 |
+| Konum | 1 | 0,000 | 4 | 0,664 |
+| Satış karışımı kümeleri | 3 | 1,000 | 3 | 1,000 |
+
+Metropolde 21 mağaza ve üç profil var, metropol dışında 46 mağaza ve yine
+üç profil. Konumun ARI'si metropol dışında 0,664; metropolde tek grup
+kurduğu için sıfır. Satış karışımı kümeleri iki tarafta da cevap
+anahtarıyla birebir aynı. Yani karışım, konumun bildiğini de buluyor,
+bilmediğini de.
+
+— Yani İstanbul'da hangi mağazanın kime sattığını haritadan okuyamam,
+diyor Pelin.
+
+— Okuyamazsın, diyor Pars. Ankara'da da İzmir'de de. Metropolün dışında
+harita çok şey söylüyor; içinde hiçbir şey.
+
+## Satış görmeden
+
+Kuralların satış karışımına karşı bir üstünlüğü var: satış görmeden
+çalışıyorlar. Hiç satışı olmayan İzmir 2'ye de bir grup veriyorlar. Peki o
+grup doğru mu?
+
+Bunu ölçmek için gruplanan her mağazayı bir kez yeniymiş gibi düşündük.
+Mağaza, kuralın onu koyduğu grubu alıyor; o grupta kendisi dışındaki
+mağazaların en kalabalık profili, mağazanın kendi profiliyse isabet.
+
+| Kural | Hepsi | Metropol | Metropol dışı |
+|---|---:|---:|---:|
+| Bölge | 44/67 (%65,7) | 7/21 (%33,3) | 37/46 (%80,4) |
+| Konum | 46/67 (%68,7) | 0/21 (%0,0) | 46/46 (%100,0) |
+
+Metropol dışında konum her mağazayı doğru profile koyuyor: 46/46.
+Metropolde hiçbirini. Grupta üç profil eşit sayıda olduğu için, mağazanın
+kendisi çıkınca çoğunluk hep öteki iki profile kalıyor.
+
+İzmir 2 tam bu durumda: metropolde ve hiç satışı yok. Yeni mağaza sorusuna
+beşinci yazıda ayrıca döneceğiz.
+
+## Kararlı ama yanlış
+
+Cevap anahtarı gerçek hayatta yok. Elinizde olan ölçütlerden biri,
+gruplamanın sezondan sezona ne kadar dayandığı. Bunu ölçmek için grupları
+iki ayrı yılın verisiyle ayrı ayrı kurduk ve iki gruplamanın uyumunu aynı
+ARI ile ölçtük. Burada 1, iki yılda aynı gruplar demek. İki mağaza, Ankara
+3 ile Antalya 1, yıllardan birinde yeterli geçmişi olmadığı için bu
+karşılaştırmanın dışında; kalan 65 mağaza.
+
+Bölge ve konum tanım gereği değişmiyor: ikisi de 1. Ciro sınıfının uyumu
+0,834. 65 mağazanın yalnız 4'ünün sınıfı değişiyor (%6,2). Izgaranın uyumu
+0,910.
+
+Ciro sınıfı yıldan yıla pek değişmiyor ve cevap anahtarına en az oturan
+kural. İkisi aynı anda doğru. Ciro yavaş
+değişir; büyük mağaza ertesi yıl da büyüktür. Ama büyüklük müşteri hakkında
+bir şey söylemediği için bu, doğru bir şeyin kararlılığı değil.
+
+— Kararlılık doğruluk değil, diyor Pars. Her sezon aynı yanlışı yapan bir
+kural da kararlıdır.
+
+Bunu beşinci yazıda tersinden göreceğiz. Satış karışımı kümeleri cevap
+anahtarına birebir oturuyor, ama yıldan yıla ciro sınıfı kadar dayanmıyor.
+
+## Ölçeği karışıma katmak
+
+Ciro sınıfı bir ölçek kuralı: mağazanın ne kadar sattığına bakıyor. İkinci
+yazıda sektörün hatalarından birini anmıştık: ölçeği satış karışımıyla aynı
+ölçüye koymak. Bunu bir ablasyonla ölçtük.
+
+Dördüncü yazının <T k="satis-karisimi">satış karışımı</T> özelliklerine üç
+ölçek sütunu ekledik: günlük cironun, metrekarenin ve kapasitenin
+logaritması. Sonra aynı yöntemle beş kümeye böldük. Özellikler
+standartlanırken her blok eşit ağırlık alıyor; yani bu üç sütun, karışımın
+45 sütununun toplamı kadar ağırlık taşıyor.
+
+| Özellikler (5 küme) | Cevap anahtarıyla ARI | Ciro sınıfıyla ARI |
+|---|---:|---:|
+| Satış karışımı | 1,000 | 0,035 |
+| Satış karışımı + ölçek | 0,106 | 0,322 |
+
+Ölçek girince kümeler cevap anahtarından kopup ciro sınıfına yaklaşıyor.
+Küme sayısını da dördüncü yazıdaki kuralla, cevap anahtarına bakmadan
+seçince durum daha tehlikeli. Kural ölçekli özelliklerde üç küme seçiyor,
+silueti 0,351. Satış karışımından kurulan kümelerin silueti 0,308. Yani ölçekli bölme
+kâğıt üstünde daha net. Ama ciro sınıfıyla uyumu 0,582, cevap anahtarıyla
+0,138.
+
+Ölçek mağazaları büyük ve küçük diye kolayca ayırıyor; ayrım netleştikçe
+siluet yükseliyor. Siluete bakarak karar veren biri, ölçek aday olsaydı bu
+bölmeyi seçerdi. Bu yüzden ölçek dördüncü yazının aday özellikleri arasına
+girmiyor. Ölçeğin yeri planın ikinci adımı: kümenin planı mağazalara
+bölünürken.
+
+## Sizin verinizde zor olan
+
+Birincisi ciro tanımı. Lumoda'da tek bir `tutar` alanı var; iade eksi
+tutarla aynı tabloda, indirim tutarın içinde. Gerçek bir zincirde ciro
+çoğu zaman birkaç sistemde, birkaç tanımla tutulur. İade satışın yapıldığı
+mağazaya mı yazılıyor, iadenin yapıldığı mağazaya mı? Kampanya ayı bir
+mağazanın cirosunu şişirdiyse o mağaza bir yıl boyunca A mı kalacak? Kısa
+geçmişli mağazayı yıllıklaştırıyor musunuz, yoksa sessizce C'ye mi
+düşüyor? Ciro sınıfı basit bir kural gibi görünür, ama eşiğin iki yanındaki
+mağazaların sınıfını bu soruların cevabı belirler.
+
+İkincisi bölgenin nereden geldiği. Bölge çoğu zaman bir coğrafya değil,
+bir örgüt şemasıdır: hangi bölge müdürü hangi mağazalara bakıyorsa grup
+odur. Müdür değişince ya da bölgeler yeniden çizilince planın grupları da
+değişir. Bu, müşteriyle hiç ilgisi olmayan bir değişiklik.
+
+Üçüncüsü konumun ne kadar bildiği. Lumoda'da konum metropol dışında
+profili neredeyse biliyor, ama bunun bir kısmı verinin kuruluş biçimi.
+Sizin zincirinizde şehir ile müşteri arasındaki bağı varsaymadan önce
+ölçün. Metropolde zaten hiçbir şey söylemiyor.
+
+Sonraki yazıda kuralları bırakıp satışın kendisine bakıyoruz: bir
+mağazanın satış karışımını 45 sayıya çevirmek, bu sayılardan kümeleri
+bulmak ve kaç küme kurulacağını cevap anahtarına bakmadan seçmek.
