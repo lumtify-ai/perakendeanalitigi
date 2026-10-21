@@ -151,7 +151,7 @@ sezonun geri kalanında olan şeyleri değiştirmiyor.
 Üçüncü yazıda mağazaları kümelere toplamanın ince benzerliğe bir şey
 kazandırmadığını gördük. Peki payı kümenin geçmişinden alan bir plan sezon
 sonunda ne veriyor? Bu, [Mağaza Gruplama](/magaza-kumeleme/magaza-gruplama/)
-dizisinin asıl sorusu. O dizinin üç gruplamasını burada aynı malla
+dizisinin asıl sorusu. O dizinin gruplamalarından üçünü burada aynı malla
 koşturduk: bölge, ciro sınıfı ve satış karışımından makine öğrenmesiyle
 bulunan kümeler. Dördüncü kol mağazaların gizli profiline göre kümeliyor
 (o dizinin cevap anahtarı). Bu kol kahin gibi bir ölçek; gerçek hayatta bu
@@ -196,11 +196,13 @@ baş: önde olduğu üç yolda fark bir ondalıkla 0,0, geride kaldığı iki
 yolda −0,3 puan. Pay hatasında beş yolun hiçbirinde önde değil. Gizli
 profil de makine öğrenmesi kümelerinden ayrışmıyor.
 
-Yani kümeye göre plan Lumoda'nın bugünkü planından iyi, ama mağazanın kendi
-geçmişine yetişiyor, onu geçmiyor. Kümelemenin ulaşabileceği en iyi yapı
-bile geçmiyor. Bu vakada mağazanın kendi geçmişi, kümesinin ortalamasının
-bildiğini zaten biliyor görünüyor. Kümenin geçmişi olmayan mağazada
-farklı bir rolü var: yeni bir mağaza payını kümesinden alıyor, mağazanın
+Yani makine öğrenmesi kümelerine göre plan Lumoda'nın bugünkü planından
+iyi, ama mağazanın kendi geçmişine yetişiyor, onu geçmiyor. Kümelemenin
+ulaşabileceği en iyi yapı bile geçmiyor; gerçi bu veride makine öğrenmesi
+kümeleri cevap anahtarıyla zaten neredeyse aynı (uyum 0,959), yani bu iki
+kolun ayrışması beklenmezdi. Bu vakada mağazanın kendi geçmişi, kümesinin ortalamasının
+bildiğini zaten biliyor görünüyor. Kümenin, kendi geçmişi olmayan
+mağazada farklı bir rolü var: yeni bir mağaza payını kümesinden alıyor, mağazanın
 geçmiş payında ise ortalama mağaza sayılıyor. Bunun etkisini bu dizide
 ayrıca ölçmedik.
 
@@ -313,8 +315,8 @@ yapmamıştı.
 
 Altı yazı sonra elimizde şunlar var. Plan payı eşitten iyi; plan bir şey
 biliyor. Mağazanın geçmiş payı plandan yalnız biraz iyi, çünkü ikisi de aynı şeyi
-biliyor. Payı mağazanın kümesinden almak da plandan iyi, ama mağazanın kendi
-geçmişini geçmiyor.
+biliyor. Payı satış karışımından makine öğrenmesiyle bulunan kümeden almak
+da plandan iyi, ama mağazanın kendi geçmişini geçmiyor.
 Mağaza mağaza tahmin yapan bir model aynı malla planın önünde, beş yolun
 beşinde. Payı neredeyse kusursuz bilmek bile sezonun hepsini çözmüyor.
 Depoda mal tutmak işe yarıyor, payınız ne kadar kötüyse o kadar çok. Ve
