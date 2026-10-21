@@ -6,9 +6,11 @@ kümeleri aynı mağazalarda kıyaslamak; gizli segmente oturuşlarını, kararl
 atamasını ve en çok karar kalitesini (İlk Sevkiyat'ta küme kolları) ölçmek. Tasarım:
 `docs/superpowers/specs/2026-10-20-magaza-kumeleme-design.md` (`docs/` ayrı depodur).
 
-Bu dosya yapım hâlindedir (vaka iskeleti, sabitler, kaynak, kapsam, mağaza özellikleri, kural
-grupları, makine öğrenmesi kümeleri, ölçütler, yeni mağaza, hikâye, koşum, rapor, demo). İlk
-Sevkiyat'taki küme kolları sonraki görevde eklenir.
+Sitedeki Mağaza Kümeleme dizisinin (`site/src/content/yazi/magaza-kumeleme/magaza-gruplama/`, 6 yazı)
+ve demo kadranının (15 bileşim) bütün sayıları buradan, `cikti/rapor.txt`'ten çıkar
+(`cikti/` git dışıdır; dosyayı `rapor.py` yeniden üretir). Küme kollarının İlk Sevkiyat sonuçları
+`vakalar/allocation/cikti/rapor.txt`'in KÜME bölümündedir; bu vaka ona yalnız girdisini
+(`kumeler.json`, `kume_payi`) verir. Okuma sırası: Kurulum → Koşum → Sonuçlar → Sınırlar.
 
 ## Kurulum
 
@@ -21,7 +23,10 @@ Sevkiyat'taki küme kolları sonraki görevde eklenir.
 Kütüphane sürümleri İlk Sevkiyat ile aynı bandadır (`pyproject.toml`): kurulu sürümler
 scikit-learn 1.7.2, numpy 2.5.4, pandas 2.3.3, duckdb 1.5.6. `kumeleme` paketi İlk Sevkiyat
 vakasının `.venv`'ine `--no-deps` kurulur; orada hiçbir kütüphane sürümü değişmemelidir (koşu
-önbelleğinin anahtarındadır).
+önbelleğinin anahtarındadır):
+
+    cd vakalar/allocation
+    .venv/Scripts/pip install --no-deps -e ../kumeleme
 
 **Veri.** `veri/cikti/v4/perakende.duckdb` (ya da `PERAKENDE_V4_DB`). Yoksa yayımlanan
 `veri-v4` dosyalarını indirin ya da `cd veri && python -m perakende_veri.v4.uret`.
@@ -189,6 +194,95 @@ eşitlik ıskadır. Doğruluk `olcutler.birakbir_dogruluk`'ta:
 kendi satış kümesine karşı ve gizli segmente karşı (atanan kümenin, mağaza hariç çoğunluk
 segmenti), metropol / metropol dışı ayrı; iki taban (herkese en büyük küme, herkese en sık segment).
 
+## Tanımlar
+
+Ayrıntı modül notlarında (`kumeleme/*.py`); burada okuyucunun raporda karşılaşacağı adlar.
+
+- **Aday, kümelenen, yeni.** Aday = karar gününde açık fiziksel outlet olmayan mağaza (SS25: 69);
+  kümelenen = geçmişi `GECMIS_HAFTA_ESIGI` = 26 haftayı geçen aday (67); yeni = geri kalan (2: M041
+  19 hafta, M027 geçmişsiz). Segmentle ölçüm yalnız kümelenenlerde yapılır; kural grupları (K1-K4)
+  ve küme kolları 69 adayı kapsar.
+- **K1 bölge** (yayımlanan bölge, 7 grup). **K2 ciro sınıfı** (son 12 ayın net cirosuna göre sıralı:
+  A ilk %20, B sonraki %30, C kalan; Lumoda'nın planlama grubu, anlatı varsayımı olarak konmuştur;
+  12 aydan kısa geçmiş yıllıklaştırılır, yeni mağaza sıralamaya girmez ve C alır, Ruling R8).
+  **K3 bölge × ciro sınıfı** (3 mağazadan küçük hücre komşu sınıfla birleşir). **K4 konum**
+  (metropol, değilse şehrin iklim sınıfı; turistik belde `sicak_sahil`).
+- **S1, S2, S4, S5.** Mağaza özellik aileleri (yukarıda). Öneri S1'dir (satış karışımı); S2 beden
+  eğrisi ve mevsimselliği, S4 çeşitten arındırılmış S2'yi, S5 ölçeği ekler.
+- **Siluet.** Standartlanmış özellik uzayında mağazanın kendi kümesine ortalama uzaklığı ile en yakın
+  başka kümeye uzaklığından türeyen, kümelerin ayrıklığını ölçen iç ölçüt (hakemsiz); `bos_siluet`
+  sütunları karıştırılmış yapısız veride aynı ölçüdür.
+- **ARI, AMI** (hakemli): bir bölmenin gizli segmentle uyumu; 1 kusursuz, 0 rastgele düzeyi. ARI
+  etiket adlarından bağımsızdır. **Saflık**: bir grubun (ya da segmentin) çoğunluk eşleşmesindeki
+  payı.
+- **Kararlılık** (hakemsiz): yıllar arası (iki ayrı 52 haftalık pencerenin bölmeleri arası ARI),
+  önyükleme (iadeli 50 çekiliş; ARI ve mağaza başına değişme sıklığı), alt örneklem (%80 × 50).
+- **Bırakbir isabeti.** Mağaza yeniymiş gibi, kümeler o mağaza hariç kurulur; mağaza yalnız
+  statikleriyle atanır; isabet, atanan kümenin kendi satış kümesi ya da (mağaza hariç) çoğunluk
+  gizli segmenti olmasıdır. Tabanlar: herkese en büyük küme, herkese en sık segment.
+- **Küme kolları** (İlk Sevkiyat; `kume_k2`, `kume_k1`, `kume_ml`, `kume_gizli`): küme payı
+  (`kume_payi`) benzer ürün endeksinin küme düzeyindeki hâli; aynı mal (t = 0, tavansız, ⌊U⌋) kime
+  gideceği değişir. Ölçüt bulunabilirliktir (tanım: `vakalar/allocation/README.md`, Tanımlar).
+  Kayıttaki kol adı `kahin`'dir (Ruling R2), rapor ve yazılar koşu adıyla adlandırır.
+
+## Sonuçlar
+
+SS25 karar günü (karar günü ve ölçüm koşulları yukarıda). Sayılar `cikti/rapor.txt`'ten ve
+İlk Sevkiyat raporundan (`vakalar/allocation/cikti/rapor.txt`, KÜME bölümü) aynı biçimde kopyalanmıştır.
+
+**Gizli segmente oturuş** (67 kümelenen; `ARI / AMI / saflık`):
+
+| Gruplama | Grup | ARI | AMI | Saflık |
+|---|---|---|---|---|
+| K1 bölge | 7 | 0,209 | 0,334 | %70,1 |
+| K2 ciro sınıfı | 3 | 0,035 | 0,012 | %47,8 |
+| K3 bölge × ciro | 12 | 0,104 | 0,256 | %71,6 |
+| K4 konum | 5 | 0,432 | 0,679 | %79,1 |
+| Öneri (S1 k-means k = 5) | 5 | 1,000 | 1,000 | %100,0 |
+
+K4 metropol dışında (46 mağaza) ARI 0,664, metropolde (21 mağaza, 3 segment) tek grup (ARI 0,000);
+öneri iki yerde de 1,000. Önerinin kümeleri 32 / 14 / 7 / 7 / 7 mağaza. S2 (beden eğrisi ve mevsim
+eklenmiş) k-means k = 3 seçer, hakem ARI'si 0,055; S4 de 0,055 (hakemsiz k ile, k-means).
+
+**Kararlılık.** Öneri yıllar arası ARI 0,642 (65 mağaza), önyüklemede ARI 0,803, mağaza başına
+değişme %12,0 (hiç değişmeyen 22/67, %32,8); alt örneklemde 0,851. K2 ciro sınıfı yıllar arası ARI
+0,834 (sınıfı değişen 4/65, %6,2), K3 0,910.
+
+**Ablasyon** (k = 5, hakem ARI). S1 1,000 → S1 + ölçek 0,106; S2 0,137 → S5 0,028 (ölçek karışımın
+yapısını bozar, bölmeyi ciro sınıfına yaklaştırır: K2 ile ARI S1 0,035 → S1 + ölçek 0,322). Çeşitten
+arındırılmış karışım: hakemsiz k ile k-means k = 4 ARI 0,948, Ward k = 5 ARI 1,000; k = 5'te
+k-means 0,682 yerel bir optimum (Ward aynı ailede 1,000), "çeşit atılınca bölme bozuldu" denmez.
+Ağırlık ablasyonu (sütun orantılı, R7): S1 1,000 → 1,000, S2 0,137 → 0,091.
+
+**Yeni mağaza** (bırakbir, 67 mağaza). En yakın 5 komşu: kendi satış kümesine isabet 55/67 (%82,1);
+metropolde 10/21 (%47,6), metropol dışında 45/46 (%97,8); taban (herkese en büyük küme) 32/67
+(%47,8). En yakın küme merkezi 47/67 (%70,1). İki gerçek yeni mağaza: M041 Kocaeli 1 doğru
+(anadolu_aile), M027 İzmir 2 yanlış (metropol_genc kümesine, gerçeği anadolu_aile).
+
+**Hikâye sahnesi.** M013 İstanbul 13 komşusu M010'dan ayrılıyor (karışım uzaklığı 1,759, üst %25
+eşiği 1,661; gizli anadolu_aile / metropol_genc) ve Eskişehir 2 (M055) gibi satıyor (uzaklık 0,601,
+alt %25 eşiği 1,040; ikisi anadolu_aile); gevşeme yok. Alternatif: M049 Konya 3 – M075 Sivas 1 /
+M049 – M008 İstanbul 8 (3 gevşetme). Kalemler ve eşikler `cikti/rapor.txt` HİKÂYE bölümünde.
+
+**Küme kolları İlk Sevkiyat'ta** (yol 0, aynı mal, t = 0, tavansız; bulunabilirlik): Lumoda
+%68,98 · ciro sınıfı (K2) %69,19 · bölge (K1) %69,35 · ML önerisi %69,53 · gizli segment %69,51 ·
+benzer (mağaza geçmişi) %69,51 · tahmin (LightGBM) %70,41. KÜME SORU 7 satırı:
+
+> Yol 0 bulunabilirlik: ML kümesi %69,5 (benzer %69,5, 0,0 puan, eşit; tahmin %70,4, −0,9 puan,
+> geride) · pay WAPE ML 0,230 / benzer 0,229 / tahmin 0,171 · ciro sınıfı %69,2 (Lumoda %69,0, +0,2
+> puan) · gizli segment %69,5 (ML'den 0,0 puan) · yollarda ML bulunabilirlikte benzerden 3/5,
+> tahminden 0/5, Lumoda'dan 5/5 yolda önde; gizli segment ML'den 2/5 yolda önde (medyan fark 0,0 puan)
+
+Yani kümeye göre plan mağazanın kendi geçmişine yetişiyor ama onu geçmiyor, kusursuz segment bile
+geçmiyor, LightGBM önde. Bölmenin hakem uyumu (ARI 1,000) karar kalitesine çevrilmiyor: ML kümesi ile
+gizli segment yol 0'da yalnız M027'de ayrışır. Kalibrasyon: ızgarada ilk düzey ve en az örnek eşiği
+SS24'te pay WAPE'siyle seçildi (k2 0,238, k1 0,235, ml 0,237, gizli 0,237; aynı sezonda benzer 0,235,
+tahmin 0,197). Seçilen ayarlar (ilk düzey / en az örnek): k2 0 / 80, k1 3 / 3, ml 0 / 40, gizli
+3 / 20. Kalibrasyon geçmiş sezonda kaba düzeye denk gelen yüksek bir örnek eşiği seçti; ince düzey
+ancak çok örnek olduğunda kullanılıyor. Aynı ayarın oyun sezonunda option'lara dağılımı: ml
+alt_kategori 68 · ust_kategori 109 · genel 33; k2 ust_kategori 143 · genel 67; k1 ve gizli
+ust_kategori 210. "Kümede ince benzerlik" hipotezi desteklenmedi.
+
 ## Koşum, rapor, demo
 
 Komutlar `vakalar/kumeleme` içinden, sırayla:
@@ -196,6 +290,23 @@ Komutlar `vakalar/kumeleme` içinden, sırayla:
     PYTHONIOENCODING=utf-8 .venv/Scripts/python -m kumeleme.oyun           # ~3-4 dk: cikti/sonuc.json, cikti/hikaye.json, kumeler.json
     PYTHONIOENCODING=utf-8 .venv/Scripts/python senaryolar.py              # site/src/data/senaryolar/magaza-gruplama.json
     PYTHONIOENCODING=utf-8 .venv/Scripts/python rapor.py > cikti/rapor.txt # yazıların bütün sayıları
+    PYTHONIOENCODING=utf-8 .venv/Scripts/python -m kumeleme.hikaye_kos     # isteğe bağlı: yalnız sahneyi yeniden seçer (cikti/hikaye.json)
+
+`rapor.py` demo dosyasını da denetler (`senaryolar.uret(sonuc)` ile aynı değilse stdout boş kalır),
+bu yüzden `senaryolar.py` rapordan önce koşar. `hikaye_kos` zorunlu adım değildir: `oyun` sahneyi
+zaten aynı işlevle seçip `sonuc.json`'a ve `hikaye.json`'a yazar; ayrı CLI sahneyi tek başına
+yeniden seçmek ya da elle çift denemek içindir (`--gizlisiz`: hakem doğrulaması olmadan; `--zorla
+M1,M2,M3,M4`). Rapor sahneyi `sonuc.json`'dan okur; sahneyi değiştirmek için `oyun` yeniden koşar.
+
+**İlk Sevkiyat bu vakayı tüketir.** `vakalar/allocation` `kumeler.json`'u (yol 0) ve
+`kumeleme.kume_payi`'nı (küme payı: benzer ürün endeksinin küme düzeyindeki hâli) kullanır; sıra o
+vakanın README'sindedir (`allocation.oyun kume_kalibrasyon`, `izgara --blok kume`, `yollar`, rapor).
+`kume_payi` allocation'ı içe aktarmaz; bağımlılık tek yönlüdür (allocation'ın koşu dışı `oyun.py`'si
+kumeleme'yi çağırır). İki ayrı değişiklik iki ayrı bedel getirir: kümeleme paketinin kodu değişirse
+(kod özeti `allocation.yollar`'ın önbellek anahtarındadır) yalnız yolların ölçümü önbellekten yeniden
+yapılır (yeni simülasyon yok; İlk Sevkiyat'ta yollar 3.403 sn koştu); kümelerin ya da pay
+sözlüklerinin içeriği değişirse küme kollarının koşu anahtarı değişir ve TAM koşular yeniden
+koşar (kume bloğu 1.439 sn). Bu yüzden kümeleme düzeltmeleri İlk Sevkiyat ızgarasından ÖNCE yapılır.
 
 - `kumeleme/oyun.py` (ölçüm yanı) bütün hesabı tek koşuda yapar: kapsam, K1-K4, S1/S2/S4/S5 özellikleri,
   önerinin aday tablosu (hakem ARI sonradan eklenir), boş siluet, hakem (ARI/AMI, çapraz tablo, saflık),
@@ -216,6 +327,46 @@ Sayı denetimi (yazılar yazıldıktan sonra):
 
     .venv/Scripts/python -m perakende_analitik.sayi_denetimi --yazi ../../site/src/content/yazi/magaza-kumeleme/magaza-gruplama --rapor cikti/rapor.txt
 
+## Sınırlar
+
+- **Cevap anahtarı gerçek hayatta yok.** Gizli segment (`gizli_magaza.segment`) simülatörün
+  kurgusudur; ARI, AMI ve saflık yalnız bu vakada ölçülebilir. Gerçek bir zincirde elde yalnız
+  hakemsiz ölçütler (siluet, kararlılık, karar kalitesi) vardır; rapor bunları ayrıca kurar.
+  Önerinin ARI 1,000'i, segmentin satış karışımı üstünden kurulmuş sentetik bir dünyanın sonucudur,
+  gerçek veride beklenmez.
+- **Konum tablosu bağımsız değil (Ruling R5).** Şehir → iklim tablosu genel coğrafya bilgisiyle yazıldı;
+  simülatörün iklim etiketleriyle 25 şehrin 24'ünde örtüşür (fark İzmir), çünkü sentetik zincir
+  gerçek coğrafya üstüne kuruldu. Tabloda 26 şehir var, kıyas 25 şehirdir (Gebze simülatörde yok).
+  K4'ün başarısı kısmen verinin kurgusudur; Köppen gibi kamuya açık bir iklim verisinden türetme
+  bu oturumda kaynak doğrulanamadığı için yapılmadı.
+- **Seçim kuralı hakem görüldükten sonra son hâlini aldı.** Önerinin kuralı (Ruling R9) önce
+  siluet, eşitlikte kararlılıktır; uygulayıcının ilk taslağı kararlılığı birincil yapıyordu ve S2
+  k-means k = 3'ü (hakem ARI 0,055) seçiyordu. Kural hakem sonucu görüldükten sonra denetleyicinin
+  önceden yazdığı biçime döndü. Yeni mağaza kuralının 5-NN olması (Ruling R10) da sonuçlar görüldükten
+  sonra seçildi (komşu sayısı 5 önceden yazılmıştı; ölçüt hakemsiz, iki yöntem de basılır). Ağırlıkta
+  blok içi alt blok eşitliği (Ruling R7) ilke olarak yazıldı, ama keşifte yalnız alt kategori
+  bloğunun ARI'sinin 0,915 çıktığı görüldü. Seçimin hakemden tamamen bağımsız olduğu söylenemez.
+- **Çeşit sabit.** v4'te hangi mağazanın hangi option'ı taşıdığı dünyada gizli segmente göre kurulmuş
+  ve sabittir. Kümeyi çeşide uygulamak Assortment (05) aşamasının işidir; bu vaka kümeyi plana ve
+  ilk sevkiyata bağlar.
+- **CRM yok (Ruling R1).** Müşteri özellikleri kullanılmaz: v4'te müşteri yaşı gizli segmente göre
+  çekilmiş bir arketip karışımından gelir, yaş payıyla tek başına KMeans(5) ARI 0,958 verir; cinsiyet
+  payı bütün pencere satışından türediği için karar sonrası sızıntıdır. Müşteri verisini ölçmek
+  yanıltıcı olurdu.
+- **Tek zincir, tek karar günü.** Sentetik tek zincir, 67 kümelenen mağaza; karar günü SS25 (SS24
+  yalnız kalibrasyon ve yıllar arası kararlılık için). Segment sayısı beş; sonuçların başka bir zincire
+  taşınabilirliği ölçülmedi.
+- **Yol 0'da ML kümesi gizli segmentin aynısıdır.** Bu yüzden küme kollarının ML ve gizli kolları
+  yalnız M027'de ayrışır; "gizli segment ne kadar ileride" sorusunun cevabı bu vakada tanım gereği
+  yaklaşık sıfırdır (yollarda kümeler yeniden kurulur; gizli segment ML'den 2/5 yolda önde, medyan
+  fark 0,0 puan).
+- **Küme payı ve çeşit.** Kümeye göre plan ilk sevkiyatın yalnız payını değiştirir (toplam mal aynı,
+  ⌊U⌋); çeşidi, replenishment'ı ve markdown'ı değiştirmez.
+- **Bırakbirin bedeli (Ruling R6).** Özellikler bir kez kurulur; dışarıda bırakılan mağazanın kendi
+  7 hücre dolgusu ötekilerin medyanına küçük bir bilgi taşır (S1'de doldurma yok).
+- **Yeni mağaza kuralı** statik özelliklerle çalışır (bölge, metropol, iklim, tip, m², enlem);
+  metropolde aynı semtteki mağazaların müşterisini göremez (isabet 10/21, %47,6).
+
 ## Sızıntı kilidi
 
 Gizli gerçek (`gizli_magaza.segment`, v4 üreteci) yalnız ölçümde okunur: `hakem.py` ve testler.
@@ -224,7 +375,17 @@ Karar modülleri (`sabitler`, `kaynak`, `ozellikler`, `kural`, `ogren`, `yeni_ma
 doğrudan ne başka bir modül üstünden içe aktarır, gizli tablonun adını geçirmez, gizli alana
 erişmez. Tarama AST'dir (`tests/test_sizinti.py`): `import`, `from X import Y`, göreli içe aktarma,
 fonksiyon içi içe aktarma ve sabit dizgeli `importlib` dahil; henüz yazılmamış modüller atlanır.
-Pakete eklenen her modül `KARAR_MODULLERI` ya da `IZINLI_MODULLER` listesinde olmalıdır.
+Pakete eklenen her modül `KARAR_MODULLERI` ya da `IZINLI_MODULLER` listesinde olmalıdır
+(`test_her_modul_siniflandirilmis`); tarayıcının ihlali yakaladığı bozma testleriyle sınanır
+(`test_tarayici_*`).
+
+**Veri tarafı.** `kumeler.json` karar günü eşlemelerini taşır; gizli segment ayrı bir
+`olcum_gizli_segment` alanındadır ve yalnız ölçüm kolu (`kume_gizli`) okur, karar kodu okumaz.
+Kümeleme ile İlk Sevkiyat arasındaki bağımlılık tek yönlüdür: `kume_payi` allocation'ı içe
+aktarmaz (allocation'ın koşu dışı `oyun.py`'si onu çağırır), İlk Sevkiyat'ın `KOSU_MODULLERI`'ne
+dokunulmaz ve mevcut koşuların önbellek anahtarı değişmez
+(`vakalar/allocation/tests/test_oyun.py::test_mevcut_kosular_onbellekten`). `veri/` ve
+`vakalar/ortak/` salt okunurdur.
 
 ## Dosyalar
 
@@ -237,6 +398,7 @@ Pakete eklenen her modül `KARAR_MODULLERI` ya da `IZINLI_MODULLER` listesinde o
     kumeleme/hakem.py      gizli_segment (yalnız ölçüm; v4 dünyası)
     kumeleme/olcutler.py   ari_ami, capraz, saflik, toplam_saflik, kararlilik, birakbir_dogruluk
     kumeleme/yeni_magaza.py statik_tablo, ata, birakbir
+    kumeleme/kume_payi.py  KumeEndeksi: küme payı (İlk Sevkiyat'ın küme kolları; karar modülü)
     kumeleme/hikaye_sec.py sec (hikâye merdiveni); hikaye_kos.py: ölçüm yanı CLI
     kumeleme/oyun.py       kos, kumeler_kaydi, kod_ozeti (ölçüm yanı koşum)
     rapor.py               cikti/rapor.txt (yazıların sayıları)
@@ -244,4 +406,5 @@ Pakete eklenen her modül `KARAR_MODULLERI` ya da `IZINLI_MODULLER` listesinde o
     kumeler.json           karar günü eşlemeleri (git'te; İlk Sevkiyat okur)
     tests/                 conftest (oyuncak fikstür), test_kaynak, test_ozellikler, test_sabitler,
                            test_kural, test_ogren, test_olcutler, test_yeni_magaza, test_sizinti,
-                           test_hikaye_sec, test_oyun, test_rapor, test_senaryolar (sahte_sonuc)
+                           test_hikaye_sec, test_hikaye_kos, test_kume_payi, test_oyun, test_rapor,
+                           test_senaryolar (sahte_sonuc)

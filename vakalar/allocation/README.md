@@ -165,7 +165,7 @@ Ayrıntı `allocation/olcutler.py`'nin modül notunda; ölçütler yüzde, `pay_
   `alimdan_kalan_beden_b` ilk alıma göre gönderilmeyen payı, `depoda_kalan_beden_b` depoda fiilen
   duranı gösterir (R33).
 - **Korunum.** Her kol koşusu: satış ≤ talep, motor kollarda paket kırpmaz (`kirpilan_adet` = 0),
-  `t = 0`'da ilk dağıtım + tavanın bıraktığı = U, kahinin bağımsızlığı. Rapor 165 denetimi basar.
+  `t = 0`'da ilk dağıtım + tavanın bıraktığı = U, kahinin bağımsızlığı. Rapor 276 denetimi basar (küme kollarında ⌊U⌋, kırpma 0, pay sözlüğü her adayı kapsar, mevcut koşu anahtarları değişmedi dahil).
 
 ## Sahne
 
@@ -247,6 +247,17 @@ yol 1–4'te `kume_ml` ve `kume_gizli`, kümeler o yolun Lumoda tablolarından k
 işlevleriyle yeniden kurulur. Hiyerarşinin ilk düzeyi ve `en_az` yapı başına SS24'te koşusuz seçilir
 (`KUME_BAS_IZGARASI` × `KUME_EN_AZ_IZGARASI`, ölçü pay WAPE'si; kümeler SS24 karar günündeki veriyle).
 
+**Sonuç (yol 0, aynı mal, t = 0, tavansız; rapor KÜME bölümü).** Bulunabilirlik: Lumoda %68,98 ·
+ciro sınıfı (K2) %69,19 · bölge (K1) %69,35 · ML önerisi %69,53 · gizli segment %69,51 · benzer
+(mağaza geçmişi) %69,51 · tahmin (LightGBM) %70,41. Pay WAPE'si: ML 0,230, benzer 0,229, tahmin
+0,171. `KÜME SORU 7` satırı: ML kümesi %69,5 (benzer %69,5, 0,0 puan, eşit; tahmin %70,4, −0,9 puan,
+geride), ciro sınıfı %69,2 (Lumoda %69,0, +0,2 puan), gizli segment %69,5 (ML'den 0,0 puan); beş
+yolda ML bulunabilirlikte benzerden 3/5, tahminden 0/5, Lumoda'dan 5/5 yolda önde, gizli segment ML'den
+2/5 yolda önde (medyan fark 0,0 puan). Kümeye göre plan mağazanın kendi geçmişine yetişiyor ama
+geçmiyor; kusursuz segment bile geçmiyor; LightGBM önde. Bölmenin hakem uyumu karar kalitesine
+dönüşmüyor: yol 0'da ML kümesi gizli segmentle aynıdır (ARI 1,000) ve iki kol yalnız M027'de
+ayrışır. Yeni mağazalar (M027, M041) paylarını kümeden alır.
+
 ## Kalibrasyon
 
 SS24'te, oyun sezonuna (SS25) bakmadan (spec §4.1): koşusuz seçimler SS23'le öğrenip SS24
@@ -257,6 +268,15 @@ LightGBM 63 yaprak × yaprakta en az 100 örnek, belirsizlik ölçüsü `benzer_
 (R24). Kalibrasyonun iki ölçütü oyunun ölçütleriyle tek tanımdır (`olcutler.py`). Oyunun "en iyi" kolu
 SS25'te, tavansız benzer ve tahmin arasından seçilir (R43): bu, tutma ve strateji ölçümlerinin örneklem
 içi olduğu anlamına gelir; rapor ve yazılar bunları örneklem dışı karar diye sunmaz.
+
+**Küme kollarının kalibrasyonu** (`oyun kume_kalibrasyon`, SS24, koşusuz; kümeler SS24 karar gününde
+yeniden kurulur, `cikti/kume_kalibrasyon.json`): hiyerarşinin ilk düzeyi × `en_az` {3, 5, 10, 20, 40,
+80}, ölçü pay WAPE'si. Seçilen (ilk düzey / en az örnek): k2 0 / 80, k1 3 / 3, ml 0 / 40, gizli
+3 / 20; pay WAPE'si SS24'te k2 0,238, k1 0,235, ml 0,237, gizli 0,237 (benzer 0,235, tahmin 0,197).
+Kalibrasyon, geçmiş sezonda kaba düzeye denk gelen yüksek bir örnek eşiği seçti; ince düzey ancak
+çok örnek olduğunda kullanılıyor. Aynı ayar oyun sezonunda ml için alt_kategori 68 · ust_kategori
+109 · genel 33 option'a, k2 için ust_kategori 143 · genel 67 option'a, k1 ve gizli için ust_kategori
+210 option'a denk gelir. Bu yüzden "kümede ince benzerlik" hipotezi desteklenmedi.
 
 ## İlkeler
 
