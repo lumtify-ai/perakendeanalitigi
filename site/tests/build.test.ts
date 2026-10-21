@@ -234,6 +234,39 @@ describe('yazı sayfası', () => {
   })
 })
 
+describe('Mağaza Gruplama dizisi', () => {
+  const KOK = 'magaza-kumeleme/magaza-gruplama/'
+
+  it('hikâye yazısı kadro kutusuyla açılır', () => {
+    const html = oku(KOK + 'ali-nin-anadolu-magazasi/index.html')
+    expect(html).toContain('kadro-kutusu')
+    expect(html.indexOf('kadro-kutusu')).toBeLessThan(html.indexOf('<h2'))
+  })
+
+  it('kapak altı yazıyı sırayla listeler ve demoya bağlanır', () => {
+    const html = oku(KOK + 'index.html')
+    const sira = [
+      'ali-nin-anadolu-magazasi',
+      'karar-nasil-verilir',
+      'kural-tabanli-yontem',
+      'makine-ogrenmesiyle-gruplama',
+      'kumeyi-kullanmak',
+      'basari-nasil-olculur',
+    ]
+    const yerler = sira.map((slug) => html.indexOf(`href="/${KOK}${slug}/"`))
+    expect(yerler.every((y) => y > -1)).toBe(true)
+    expect([...yerler].sort((a, b) => a - b)).toEqual(yerler)
+    expect(html).toContain(`href="/${KOK}demo/"`)
+  })
+
+  it('ilk iki yazı sözlüğün üç yeni maddesine bağlanır', () => {
+    const iki = oku(KOK + 'ali-nin-anadolu-magazasi/index.html') + oku(KOK + 'karar-nasil-verilir/index.html')
+    for (const madde of ['kume', 'ciro-sinifi', 'satis-karisimi']) {
+      expect(iki, madde).toContain(`href="/sozluk/#${madde}"`)
+    }
+  })
+})
+
 describe('dizi sayfası', () => {
   it('altı yazıyı sırayla listeler', () => {
     const html = oku('transfer/blok-transfer/index.html')
@@ -538,6 +571,32 @@ describe('demo', () => {
     }
   })
 
+  it('mağaza gruplama demosunun ölçüt etiketleri var ve ham anahtar sızmıyor', async () => {
+    // Kümeleme demosunun kartları (hakem ARI, kararlılık, en küçük küme,
+    // siluet) Demo.astro'nun ETIKETLER sözlüğünden gelir; etiket eksikse
+    // okuyucu 'hakem_ari' görür.
+    const { default: veri } = await import('../src/data/senaryolar/magaza-gruplama.json')
+    const ilk = Object.keys(veri.sonuclar)[0]
+    const olcutler = Object.keys(veri.sonuclar[ilk as keyof typeof veri.sonuclar].ozet)
+    expect(olcutler.sort()).toEqual(['en_kucuk_kume', 'hakem_ari', 'kararlilik', 'siluet'])
+    const html = oku('magaza-kumeleme/magaza-gruplama/demo/index.html')
+    for (const etiket of ['Hakem uyumu, ARI', 'Kararlılık', 'En küçük küme', 'Siluet']) {
+      expect(html, etiket).toContain(`<dt>${etiket}</dt>`)
+    }
+    for (const olcut of olcutler) {
+      expect(html, olcut).not.toContain(`<dt>${olcut}</dt>`)
+    }
+  })
+
+  it('mağaza gruplama senaryosu sözleşmeye uyar', async () => {
+    const { default: veri } = await import('../src/data/senaryolar/magaza-gruplama.json')
+    const beklenen = veri.parametreler.reduce(
+      (carpim: number, p: { degerler: unknown[] }) => carpim * p.degerler.length,
+      1,
+    )
+    expect(Object.keys(veri.sonuclar).length).toBe(beklenen)
+  })
+
   it('getiri senaryosu sözleşmeye uyar', async () => {
     const { default: veri } = await import('../src/data/senaryolar/transfer-getirisi.json')
     const beklenen = veri.parametreler.reduce(
@@ -672,6 +731,15 @@ describe('site geneli vaatler', () => {
     expect(kopru).not.toContain('kargo tarifesi')
     expect(kopru).not.toContain('başabaş eşiğini')
   })
+
+  // Mağaza Gruplama dizisinin köprüsü 6. yazıda (basari-nasil-olculur) durur;
+  // yazı henüz yer tutucu. Görev 12 bu satırı İlk Sevkiyat testinin kalıbıyla
+  // etkinleştirir: oku('magaza-kumeleme/magaza-gruplama/basari-nasil-olculur/index.html'),
+  // köprü dilimi; dizinin kendi giriş ve kapanış cümleleri, kanonik cümleler
+  // ('iş zekâsı ve optimizasyonla', 'Let Us Make Trade Intelligent For You'),
+  // varsayılan paragraflar yok ('kargo tarifesi', 'başabaş eşiğini'). Aynı
+  // görev sayfayı yukarıdaki BEKLENEN_KOPRU_SAYFALARI listesine ekler.
+  it.todo('Mağaza Gruplama köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır')
 
   it('köprüde kalın cümle ile sonraki cümle arasında boşluk var', () => {
     for (const { yol, html } of tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))) {
