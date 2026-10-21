@@ -47,10 +47,12 @@ YUKSEK_IYI = {"bulunabilirlik": True, "sezon_sonu_kalan_yuzde": False, "kayip_or
 
 def kod_ozeti() -> str:
     """Bir yolun kaydını belirleyen kod ve veri: koşu kod özeti, v4 parmak izi, koşu özetinin dışında
-    kalan `olcutler`, `oyun`, `kalibrasyon`, `yollar`."""
+    kalan `olcutler`, `oyun`, `kalibrasyon`, `yollar` ve kümeleme paketi (küme kollarının kümeleri ve payı
+    yolda onun işlevleriyle kurulur; `kumeleme.oyun.kod_ozeti`)."""
     disi = {Path(m.__file__).name: hashlib.sha256(Path(m.__file__).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
             for m in (olcutler, oyun, kalibrasyon, sys.modules[__name__])}
-    icerik = {"kosu": motor.kod_ozeti(), "veri": motor.veri_parmak_izi(), "disi": disi}
+    icerik = {"kosu": motor.kod_ozeti(), "veri": motor.veri_parmak_izi(), "disi": disi,
+              "kumeleme": kumeleme_oyun.kod_ozeti()}
     return hashlib.sha256(json.dumps(icerik, sort_keys=True, default=str).encode("utf-8")).hexdigest()
 
 

@@ -44,7 +44,8 @@ gözlemi olmayan küme 1'dir (ortalama küme). Hiyerarşi en ince düzeyleri atl
 **Ölçek** (`olcek`). Mağazanın genel göreli hızı `r(m)` = bütün geçmiş (mevsimin) option'larında
 `g(m, o')`'nun ortalaması (benzer'in son düzeyindeki endeksi: mağazanın geçmiş Collection talebinin
 ortalama mağazaya oranı); ölçek `r(m) ÷ ortalama_{m' ∈ c(m), gözlemli} r(m')`. Geçmişi olmayan (yeni)
-mağaza kümesinin **medyan** ölçeğini alır (spec §0/12); kümesinde hiç gözlemli mağaza yoksa 1.
+mağaza kümesinin **medyan** ölçeğini alır (spec §0/12); kümesinde hiç gözlemli mağaza yoksa 1. "Geçmiş"
+mevsim süzgecinden sonradır: yalnız öteki mevsimde satmış mağaza da medyanı alır (`medyan_olcekliler`).
 
 **Pay** (`KumeEndeksi.paylar`): `pay(o, m) = endeks(c(m), o) × ölçek(m)`; her aday mağaza sözlükte bir
 anahtardır (`(option_id, magaza_id)`). Kümesi ya da ölçeği olmayan aday hata verir: allocation
@@ -302,10 +303,8 @@ def ogren(tablo: pd.DataFrame, etiket: pd.Series | Mapping, en_az: int, hiyerars
                        goreli=G, etiket=et)
 
 
-def olcek(tablo: pd.DataFrame, etiket: pd.Series | Mapping, *, mevsim: str | None = "SS") -> dict[str, float]:
-    """magaza_id -> ölçek (modül notu), `etiket`in her mağazası için: gözlemli mağazada genel göreli hızının
-    kümesinin gözlemli üyelerinin ortalamasına oranı, gözlemsiz (yeni) mağazada kümesinin medyan ölçeği,
-    kümesinde gözlemli mağaza yoksa 1."""
+def _olcek(tablo: pd.DataFrame, etiket, mevsim: str | None) -> tuple[dict[str, float], list[str]]:
+    """(magaza_id -> ölçek, kümesinin medyan ölçeğini alan mağazalar); modül notu."""
     et = _etiket(etiket)
     t = _gozlemler(tablo, mevsim)
     _, magazalar, g = _goreli(t)
@@ -320,4 +319,17 @@ def olcek(tablo: pd.DataFrame, etiket: pd.Series | Mapping, *, mevsim: str | Non
         medyan = float(np.median(list(oran.values()))) if oran else 1.0
         for m in uyeler:
             sonuc[m] = float(oran.get(m, medyan))
-    return dict(sorted(sonuc.items()))
+    return dict(sorted(sonuc.items())), sorted(m for m in et if m not in r)
+
+
+def olcek(tablo: pd.DataFrame, etiket: pd.Series | Mapping, *, mevsim: str | None = "SS") -> dict[str, float]:
+    """magaza_id -> ölçek (modül notu), `etiket`in her mağazası için: gözlemli mağazada genel göreli hızının
+    kümesinin gözlemli üyelerinin ortalamasına oranı, gözlemsiz (yeni) mağazada kümesinin medyan ölçeği,
+    kümesinde gözlemli mağaza yoksa 1."""
+    return _olcek(tablo, etiket, mevsim)[0]
+
+
+def medyan_olcekliler(tablo: pd.DataFrame, etiket: pd.Series | Mapping, *, mevsim: str | None = "SS") -> list[str]:
+    """Ölçeği kümesinin medyanından gelen mağazalar (artan): mevsim süzgecinden sonra gözlemi olmayanlar (yeni
+    mağaza; yalnız öteki mevsimde geçmişi olan mağaza da)."""
+    return _olcek(tablo, etiket, mevsim)[1]

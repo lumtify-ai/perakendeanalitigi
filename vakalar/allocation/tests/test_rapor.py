@@ -102,7 +102,7 @@ def test_korunum_sayar_ve_adlari_soyler():
 def test_bolum_sirasi_spec_ile_ayni():
     assert [ad for ad, _ in rapor.BOLUMLER] == [
         "VERİ", "KURAL", "KALİBRASYON", "YOL 0", "YOLLAR", "TAVAN", "SABİT TAKVİM", "TUTMA", "STRATEJİ",
-        "İSABET", "BEDEN", "HİKÂYE", "DEMO", "ANLATI VARSAYIMLARI", "KORUNUM"]
+        "İSABET", "BEDEN", "HİKÂYE", "DEMO", "KÜME", "ANLATI VARSAYIMLARI", "KORUNUM"]
 
 
 def test_govde_basliklari_sirayla_basar_korunum_en_sonda(monkeypatch):
@@ -197,12 +197,58 @@ def test_tam_rapor_sayilari_turkce(capsys):
 @pytest.mark.parametrize("bozma", ["takvimli_farkli", "sabit_rpt_farkli", "demo_dosyasi_farkli",
                                    "satis_talebi_asar", "yol0_anahtar_farkli", "hikaye_kaynagi_farkli",
                                    "eslesik_kaynagi_farkli", "eslesik_mal_farkli",
-                                   "yol_girdisi_yol0dan"])
+                                   "yol_girdisi_yol0dan", "kume_kirpti", "kume_mal_farkli",
+                                   "kume_pay_kimligi_farkli", "kume_aday_eksik", "kume_kalibrasyonu_farkli",
+                                   "mevcut_anahtar_farkli", "yol_kume_aday_eksik", "yol_kume_mal_farkli"])
 def test_tam_rapor_korunum_bozulunca_bos(bozma, capsys):
     v = sahte_rapor.tam_veri()
     sahte_rapor.boz(v, bozma)
     assert rapor.tamponla(lambda: rapor.govde(v)) == (1, "")
     assert "korunum bozuldu" in capsys.readouterr().err
+
+
+def test_kume_bolumu_soru7(capsys):
+    """KÜME bölümü (Mağaza Kümeleme SORU 7): tek `KÜME SORU 7 · ` satırı (İlk Sevkiyat'ın SORU 7'sinden ayrı), dört
+    küme kolu yol 0 kıyas tablosunda, yollarda ML ve gizli kollar; kalibrasyonun seçimi basılır; bir ondalıklı
+    farklar iki ondalıklı farkın bir kez yuvarlanmışı."""
+    v = sahte_rapor.tam_veri()
+    kod, metin = rapor.tamponla(lambda: rapor.govde(v))
+    assert kod == 0
+    bolum = metin[metin.index("=== KÜME ==="):metin.index("=== ANLATI VARSAYIMLARI ===")]
+    satir = [s_ for s_ in metin.splitlines() if s_.startswith("KÜME SORU 7 · ")]
+    assert len(satir) == 1 and satir[0] in bolum
+    assert len([s_ for s_ in metin.splitlines() if s_.startswith("SORU 7 · ")]) == 1      # İlk Sevkiyat'ınki
+    for et, _ in rapor.KUME_KOLLARI:
+        assert f"  {et}" in bolum
+    assert "seçilen: ilk düzey 0 (alt_kategori × fiyat_segmenti × kalip), en az örnek 80" in bolum
+    assert "M027 (yeni) ML küme 1" in bolum
+    o = v.oyun["kosular"]
+    ml, bz = o["kume_ml"]["olcutler"]["bulunabilirlik"], o["pay_benzer_tavansiz"]["olcutler"]["bulunabilirlik"]
+    beklenen = rapor.isaretli(rapor.tek_ondalik(rapor.fark(bz, ml, 2)), 1)
+    assert f"(benzer {rapor.yd(bz, 1)}, {beklenen} puan, önde;" in satir[0]
+    assert "yollarda ML bulunabilirlikte benzerden 5/5" in satir[0]
+
+
+def test_kume_kosulari_yoksa_taslakta_eksik_kesinde_bos(capsys):
+    """Küme koşuları henüz yoksa (denetleyici ızgarayı sonra koşar): taslakta KÜME bölümü kalibrasyonu basar, sonra
+    "[eksik: …]" ile kesilir ve öteki bölümler sürer (taslak yazılara kaynak olamaz); kesin kipte rapor boş."""
+    v = sahte_rapor.tam_veri()
+    v.gecerli -= {s_.ad for s_ in rapor.oyun.IZGARA["kume"]}
+    v.oyun["girdi"].pop("kume")
+    v.taslak = True
+    for p, y_ in v.yollar["yollar"].items():
+        for kisa in rapor.oyun.YOL_KUME_KOLLARI:
+            y_["kosular"].pop(kisa)
+            v.yol_gecerli.discard((p, kisa))
+    kod, metin = rapor.tamponla(lambda: rapor.govde(v))
+    assert kod == 0, capsys.readouterr().err
+    bolum = metin[metin.index("=== KÜME ==="):metin.index("=== ANLATI VARSAYIMLARI ===")]
+    assert "--- kalibrasyon (SS24" in bolum and "[eksik: oyun.json girdi.kume" in bolum
+    assert "KÜME SORU 7" not in metin and "=== KORUNUM ===" in metin and "TASLAK" in metin
+    v2 = sahte_rapor.tam_veri()
+    v2.gecerli.discard("kume_ml")
+    assert rapor.tamponla(lambda: rapor.govde(v2)) == (1, "")
+    assert "KÜME: eksik: kume_ml" in capsys.readouterr().err
 
 
 def test_kahin_bagimsizligi_tutmazsa_olculemedi(capsys):
@@ -379,3 +425,50 @@ def test_soru4_bir_ondalik_tablodaki_iki_ondaligin_yuvarlamasi():
     assert "t %30 − t %0: bulunabilirlik +1,87 · kalan −2,00" in metin
     s4 = _soru(metin, 4)
     assert "Lumoda payı × lumoda: t %0 → %30 +1,9 puan bulunabilirlik, −2,0 puan kalan" in s4   # 70,8 − 69,0 = 1,8 değil
+
+
+# ------------------------------------------------------------- küme kolları (rapor_b)
+
+
+def _kume_kosusu(adaylar, duzey=-1, geri=False, pay_kimligi=None):
+    """Sahte küme koşusu kaydı: `adaylar` [(option indisi, mağaza indisi)] kolun kararındaki adaylar."""
+    from types import SimpleNamespace
+
+    kayit = pd.DataFrame({"kol": True, "arg0": [o for o, _ in adaylar] + [0], "indis": [m for _, m in adaylar] + [-1],
+                          "duzey": duzey, "geri_dusus": geri})
+    meta = {"turler": {"ilk_dagitim": "allocation.politika.KahinKol"},
+            "politikalar": {"ilk_dagitim": {"parametreler": {"kol": "kahin", "erken_talep": pay_kimligi}}}}
+    return SimpleNamespace(meta=meta, kayitlar={"ilk_dagitim": kayit})
+
+
+def test_kume_denetimi():
+    """`kume_denetimi`: koşunun pay kimliği, sözlüğün içerikten kimliği, kararlardaki adayların sözlükte ve
+    pozitif olanları, düzey ve geri düşüş."""
+    from types import SimpleNamespace
+
+    from allocation.politika import KahinKol
+
+    w = SimpleNamespace(optionlar=pd.DataFrame({"option_id": ["O1", "O2"]}),
+                        magazalar=pd.DataFrame({"magaza_id": ["M1", "M2", "M3"]}))
+    paylar = [["O1", "M1", 1.5], ["O1", "M2", 0.5], ["O2", "M3", 2.0], ["O2", "M1", 0.0]]
+    kimlik = KahinKol(None, None, erken_talep={(o, m): x for o, m, x in paylar}).parametreler()["erken_talep"]
+    kayit = {"pay": kimlik, "paylar": paylar}
+    d = rapor_b.kume_denetimi(_kume_kosusu([(0, 0), (0, 1), (1, 2)], pay_kimligi=kimlik), kayit, w)
+    assert (d["kimlik_kosu"], d["kimlik_sozluk"], d["kimlik_kayit"]) == (kimlik, kimlik, kimlik)
+    assert (d["aday"], d["aday_sozlukte"], d["aday_pozitif"], d["aday_magaza"], d["sozluk_cift"]) == (3, 3, 3, 3, 4)
+    assert d["duzey"] == [-1] and d["geri_dusus"] == 0 and d["kol"] == "kahin"
+    d = rapor_b.kume_denetimi(_kume_kosusu([(0, 0), (0, 2), (1, 0)], pay_kimligi="x"), kayit, w)
+    assert (d["aday"], d["aday_sozlukte"], d["aday_pozitif"]) == (3, 2, 1)          # O1-M3 yok, O2-M1 sıfır
+    assert d["kimlik_kosu"] != d["kimlik_sozluk"]
+    assert rapor_b.kume_denetimi(_kume_kosusu([(0, 0)]), None, w)["kimlik_sozluk"] is None
+
+
+def test_kume_uyumu_kumeler_json():
+    """Yol 0'ın kümeleri (git'teki kumeler.json) gizli segmentle: ML kümelenenlerde ARI 1,000 (Görev 7); ML ile
+    gizli segmentin ayrıştığı tek mağaza yeni M027 (5-NN metropol_genc kümesine, gerçeği anadolu_aile)."""
+    u = rapor_b.kume_uyumu()
+    assert (u["aday"], u["kumelenen"]) == (69, 67)
+    assert u["yapi"]["ml"]["ari_kumelenen"] == pytest.approx(1.0) and u["yapi"]["gizli"]["ari"] == pytest.approx(1.0)
+    assert u["yapi"]["k2"]["ari_kumelenen"] < 0.1
+    assert [(a["magaza_id"], a["yeni"], a["ml_cogunluk"], a["gizli"]) for a in u["ayrisan"]] == [
+        ("M027", True, "metropol_genc", "anadolu_aile")]

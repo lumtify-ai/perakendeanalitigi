@@ -121,6 +121,20 @@ def test_kume_payi_butun_adaylar():
         e.paylar(_yeni(), {"YOK": ["M1"]}, olc)
 
 
+def test_medyan_olcekliler():
+    """Ölçeği kümesinin medyanından gelen mağazalar: hiç gözlemi olmayan (M5) ve yalnız mevsim süzgecinin dışında
+    gözlemi olan (M8: yalnız AW; İlk Sevkiyat'ta 19 haftalık M041'in durumu). İkisi de kümesinin medyan ölçeğini
+    alır; gözlemli mağaza listede değildir."""
+    opt = dict(_OPTIONLAR)
+    opt["A1"] = (*opt["A1"][:5], {**opt["A1"][5], "M8": 40})
+    t = _tablo(opt)
+    et = pd.concat([ETIKET, pd.Series({"M8": "b"})])
+    assert kume_payi.medyan_olcekliler(t, et) == ["M5", "M8"]
+    olc = kume_payi.olcek(t, et)
+    assert olc["M8"] == pytest.approx(float(np.median([olc["M3"], olc["M4"]])))
+    assert kume_payi.medyan_olcekliler(t, et, mevsim=None) == ["M5"]       # süzgeçsiz M8 gözlemli
+
+
 def test_kumede_gozlem_yoksa_genel_duzey_sonra_bir():
     """Kümenin seçilen düzeyde gözlemi yoksa bir üst (daha genel) düzeyin değeri; hiçbir düzeyde yoksa 1.
     `c` kümesinin tek üyesi M4; M4 yalnız Şort'ta gözlenir."""

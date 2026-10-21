@@ -28,6 +28,8 @@ bölümde tek bir `SORU n · …` satırıdır (cevap basılan değerlerden; yö
     BEDEN                 beden uyumsuzluğu (SORU 6), beden beden depoda kalan (SORU 7)
     HİKÂYE                sahne, plan, kolun kararı, alternatif, merdiven
     DEMO                  12 bileşim
+    KÜME                  küme payı kolları (Mağaza Kümeleme SORU 7): koşusuz kalibrasyon, kümeler, yol 0, yollar;
+                          `KÜME SORU 7 · …` satırı (İlk Sevkiyat'ın SORU 1–8'inden ayrı)
     ANLATI VARSAYIMLARI
     KORUNUM
 
@@ -1053,6 +1055,203 @@ def demo_bolumu(v, ek) -> None:
             dosya.get("sonuclar") == son and dosya.get("parametreler") == v.demo["parametreler"])]
 
 
+KUME_KOLLARI = (("küme: ciro sınıfı (K2)", "kume_k2"), ("küme: bölge (K1)", "kume_k1"),
+                ("küme: ML önerisi", "kume_ml"), ("küme: gizli segment", "kume_gizli"))
+KUME_KARSILASTIRMA = (("lumoda", "lumoda"), ("esit", "pay_esit"), ("benzer (mağaza geçmişi)", "pay_benzer_tavansiz"),
+                      ("tahmin (LightGBM)", "pay_tahmin_tavansiz"), ("kahin", "pay_kahin"))
+KUME_YOL_KOLLARI = ("lumoda", "benzer", "tahmin", "kume_ml", "kume_gizli")
+KUME_YOL_CIFTLERI = (("kume_ml", "lumoda"), ("kume_ml", "benzer"), ("kume_ml", "tahmin"), ("kume_gizli", "kume_ml"))
+
+
+def yon1(a, b, yuksek_iyi: bool = True) -> str:
+    """a'nın b'ye göre yönü, basılan bir ondalıklı farktan (`fark1(b, a)`): "önde" | "geride" | "eşit"."""
+    d = fark1(b, a)
+    if d == 0:
+        return "eşit"
+    return "önde" if (d > 0) == yuksek_iyi else "geride"
+
+
+def _duzey_metni(duzey_tam: dict, hiyerarsi) -> str:
+    """`duzey_tam` (HIYERARSI indisi → option sayısı) okunur biçimde."""
+    return " · ".join(f"{' × '.join(hiyerarsi[int(i)]) or 'genel'} {s(n)}"
+                      for i, n in sorted(duzey_tam.items(), key=lambda x: int(x[0])) if n)
+
+
+def kume_bolumu(v, ek) -> None:
+    """Mağaza Kümeleme vakasının SORU 7'si (spec 2026-10-20 §4.4): küme payı kolları, kalibrasyon, yol 0, yollar."""
+    print("Mağaza Kümeleme vakasının sorusu: kümeye göre plan İlk Sevkiyat'ta ne verir? Küme payı (kumeleme.kume_payi) benzer")
+    print("ürün endeksinin küme düzeyindeki hâlidir: bir geçmiş option'da kümenin göreli hızı, üye mağazaların göreli")
+    print("hızlarının ortalaması; pay = kümenin, yeni option'ın benzerlik düzeyindeki göreli hızı × mağazanın ölçeği (geçmiş")
+    print("Collection talebinin küme ortalamasına oranı; geçmişi olmayan mağaza kümesinin medyan ölçeğini alır). Kollar")
+    print("KahinKol'la koşulur (kayıtta kol adı kahin, Ruling R2); t = 0, tavansız: Lumoda'yla aynı mal (⌊U⌋). Gizli segment")
+    print("kolu yalnız ölçümdür (gerçek hayatta yok): kümelemenin ulaşabileceği en iyi yapı. Yeni mağaza ML kolunda statik")
+    print("özelliklerle 5-NN'le atanır, gizli kolda gerçek segmentini taşır.")
+    kk = v.kume_kal
+    if not kk:
+        raise Eksik(f"cikti/{oyun.KUME_KAL_DOSYASI}")
+    hy = kk["hiyerarsi"]
+    alt(f"kalibrasyon ({kk['sezon']}, koşusuz; karar günü {kk['karar_gunu']}, öğrenme {', '.join(kk.get('kapanmis_sezonlar', []))}; "
+        "kümeler o gün yeniden kuruldu)")
+    print(f"  ızgara: hiyerarşinin ilk düzeyi × en az örnek eşiği {', '.join(s(e) for e in kk['izgara']['en_az'])}; ölçü pay WAPE'si "
+          "(KALİBRASYON'daki tanım, ilk alımla ağırlıklı); kural: " + kk["kural"])
+    print("  ilk düzey (hiyerarşi o düzeyden genele iner): " + " · ".join(
+        f"{b} {' × '.join(hy[b]) or 'yalnız genel'}" for b in kk["izgara"]["bas"]))
+    for yapi, b in kk["kumeler"].items():
+        if yapi.startswith("_"):
+            continue
+        print(f"  {yapi:<6} {s(b['grup'])} grup, boyutlar {' / '.join(s(n) for n in b['boyutlar'])} ({s(b['magaza'])} mağaza)"
+              + (f"; {b['aile']} {b['yontem']} k = {s(b['k'])}" if yapi == "ml" else ""))
+    t = pd.DataFrame(kk["tablo"])
+    for yapi, sec in kk["secim"].items():
+        ty = t[t["yapi"] == yapi]
+        print(f"  {yapi}: WAPE (satır ilk düzey, sütun en az örnek {' / '.join(s(e) for e in kk['izgara']['en_az'])})")
+        for bas in kk["izgara"]["bas"]:
+            r = ty[ty["bas"] == bas].set_index("en_az")["wape"]
+            print(f"    {bas}  " + "  ".join(f"{s(r.get(e), 3):>6}" for e in kk["izgara"]["en_az"]))
+        print(f"    seçilen: ilk düzey {sec['bas']} ({' × '.join(hy[sec['bas']]) or 'genel'}), en az örnek {s(sec['en_az'])}, "
+              f"WAPE {s(sec['wape'], 3)}; düzeyler {_duzey_metni(ty[(ty['bas'] == sec['bas']) & (ty['en_az'] == sec['en_az'])]['duzey_tam'].iloc[0], hy)}"
+              f"; ızgara ucunda: {'evet' if sec['izgara_ucunda'] else 'hayır'}")
+    tk = pd.DataFrame(v.kal["cevrimdisi"])
+    secilen = tk[tk["secildi"].astype(bool) & tk["asama"].isin(["benzer", "tahmin"])].set_index("asama")["wape"]
+    taban = tk[tk["asama"] == "taban"].set_index("aday")["wape"]
+    print(f"  aynı sezonda öteki paylar (KALİBRASYON): lumoda {s(taban.get('lumoda'), 3)} · eşit {s(taban.get('esit'), 3)} · "
+          f"benzer {s(secilen.get('benzer'), 3)} · tahmin {s(secilen.get('tahmin'), 3)}")
+
+    alt("kümeler (oyun sezonu karar günü; yol 0)")
+    ku = v.kume_uyum
+    if ku:
+        print(f"  gizli segmentle uyum (yalnız ölçüm; {s(ku['aday'])} aday, {s(ku['kumelenen'])} kümelenen): " + " · ".join(
+            f"{y_} ARI {s(r['ari'], 3)} (kümelenenlerde {s(r['ari_kumelenen'], 3)})" for y_, r in ku["yapi"].items() if y_ != "gizli"))
+        print("  ML kümesinin çoğunluk segmentinden ayrışan mağaza: " + (", ".join(
+            f"{a['magaza_id']}{' (yeni)' if a['yeni'] else ''} ML küme {a['ml']} ({a['ml_cogunluk']}), gerçeği {a['gizli']}"
+            for a in ku["ayrisan"]) or "yok"))
+    gk = v.oyun.get("girdi", {}).get("kume", {})
+    eksik = [ad for _, ad in KUME_KOLLARI if ad.removeprefix("kume_") not in gk]
+    if eksik:
+        raise Eksik(*(f"oyun.json girdi.kume ({ad})" for ad in eksik))
+    for et, ad in KUME_KOLLARI:
+        b = gk[ad.removeprefix("kume_")]
+        km = b["kumeleme"]
+        print(f"  {ad:<11} {km['kaynak']}, {s(km['grup'])} grup ({' / '.join(s(n) for n in km['boyutlar'])}), kimlik {km['kimlik'][:12]}"
+              + (f"; {km['aile']} {km['yontem']} k = {s(km['k'])}, öneri kimliği {km['oneri_kimligi'][:12]}, yeni mağaza ataması "
+                 + ", ".join(f"{m} → küme {c}" for m, c in sorted(km["yeni_atama"].items())) if ad == "kume_ml" else ""))
+        print(f"    düzeyler (oyun option'ları): {_duzey_metni(b['duzey_tam'], hy)} · medyan ölçek alan: "
+              + (", ".join(f"{m} {s(x, 3)}" for m, x in sorted(b["medyan_olcekli"].items())) or "yok")
+              + f" · kümesi olmayan aday (yaklaşık aday kümesinde): {', '.join(b['etiketsiz_aday']) or 'yok'}")
+
+    alt("yol 0 (oyun sezonu; aynı mal, t = 0, tepkili RPT ve markdown)")
+    kars = [(et, ad) for et, ad in KUME_KARSILASTIRMA if ad != "pay_kahin" or kahin_olculur(v)]
+    satirlar = kars + list(KUME_KOLLARI)
+    _kiyas_tablosu(v, satirlar)
+    _mal_tablosu(v, satirlar)
+    kd = v.kume_denetim or {}
+    for _, ad in KUME_KOLLARI:
+        d = kd.get(ad)
+        if d is not None:
+            print(f"  {ad}: kararlarda {s(d['aday'])} aday (option, mağaza; {s(d['aday_magaza'])} mağaza), sözlükte "
+                  f"{s(d['aday_sozlukte'])}, payı > 0 {s(d['aday_pozitif'])}; sözlük {s(d['sozluk_cift'])} çift")
+    for et, ad in KUME_KOLLARI:
+        print(f"  {ad} − benzer: {_fark_satiri(v, 'pay_benzer_tavansiz', ad)}")
+        print(f"  {ad} − tahmin: {_fark_satiri(v, 'pay_tahmin_tavansiz', ad)}")
+    print(f"  kume_gizli − kume_ml: {_fark_satiri(v, 'kume_ml', 'kume_gizli')}")
+    print(f"  kume_k2 − lumoda (ciro sınıfına göre plan ↔ Lumoda'nın mağaza planı): {_fark_satiri(v, 'lumoda', 'kume_k2')}")
+    print("  bulunabilirlik farkı, bir ondalık (iki ondalıklı farkın bir kez yuvarlanmışı): " + " · ".join(
+        f"{a} − {c} {isaretli(fark1(O(v, c)['bulunabilirlik'], O(v, a)['bulunabilirlik']), 1)}"
+        for a, c in (("kume_ml", "pay_benzer_tavansiz"), ("kume_ml", "pay_tahmin_tavansiz"), ("kume_k2", "lumoda"),
+                     ("kume_k1", "lumoda"), ("kume_ml", "lumoda"), ("kume_gizli", "kume_ml"))))
+
+    yl = (v.yollar or {}).get("yollar", {})
+    p_sira = sorted(yl, key=int)
+    alt(f"yollar ({s(len(p_sira))} talep yolu; yol p > 0'da kümeler ve öğrenme o yolun Lumoda tablolarından yeniden kurulur)")
+    eksik = [f"yol {p} {k}" for p in p_sira for k in KUME_YOL_KOLLARI if (p, k) not in v.yol_gecerli]
+    if eksik or not p_sira:
+        raise Eksik(*(eksik or ["yollar.json"]))
+    for p in p_sira:
+        km = yl[p]["kosular"]["kume_ml"]["kume"]["kumeleme"]
+        print(f"  yol {p}: ML {km['kaynak']}, {km.get('aile')} {km.get('yontem')} k = {s(km.get('k'))} "
+              f"({' / '.join(s(n) for n in km['boyutlar'])}), yeni mağaza ataması "
+              + (", ".join(f"{m} → {c}" for m, c in sorted((km.get("yeni_atama") or {}).items())) or "yok"))
+    deger = {(k, o): [yl[p]["kosular"][k]["olcutler"][o] for p in p_sira] for k in KUME_YOL_KOLLARI
+             for o in ("bulunabilirlik", "sezon_sonu_kalan_yuzde", "pay_wape")}
+    for o, n in (("bulunabilirlik", 2), ("sezon_sonu_kalan_yuzde", 2), ("pay_wape", 3)):
+        print(f"  {o}:")
+        for k in KUME_YOL_KOLLARI:
+            yv = [yuv(x, n) for x in deger[(k, o)]]
+            print(f"    {k:<11}" + " · ".join(s(x, n) for x in yv)
+                  + f"  | min {s(min(yv), n)} · medyan {s(statistics.median(yv), n)} · max {s(max(yv), n)}")
+    onde = {}
+    for a, c in KUME_YOL_CIFTLERI:
+        parca = []
+        for o, n in (("bulunabilirlik", 2), ("sezon_sonu_kalan_yuzde", 2), ("pay_wape", 3)):
+            f = yol_farklari(deger[(a, o)], deger[(c, o)], n)
+            k_ = f["pozitif"] if YUKSEK_IYI[o] else f["negatif"]
+            onde[(a, c, o)] = (k_, f)
+            parca.append(f"{o} {k_}/{f['n']} yolda önde (medyan fark {isaretli(f['medyan'], n)})")
+        f = onde[(a, c, "bulunabilirlik")][1]
+        print(f"  {a} − {c}: " + " · ".join(parca))
+        print(f"    bulunabilirlik farkı bir ondalık: " + " · ".join(isaretli(tek_ondalik(x), 1) for x in f["farklar"])
+              + f" | medyan {isaretli(tek_ondalik(f['medyan']), 1)}")
+
+    ml, bz, tm, lu = (O(v, a) for a in ("kume_ml", "pay_benzer_tavansiz", "pay_tahmin_tavansiz", "lumoda"))
+    k2, gz = O(v, "kume_k2"), O(v, "kume_gizli")
+    yb = lambda a, c: onde[(a, c, "bulunabilirlik")]  # noqa: E731
+    print(f"KÜME SORU 7 · Kümeye göre plan İlk Sevkiyat'ta mağazanın kendi geçmişinden ve LightGBM'den iyi mi; ciro sınıfına "
+          f"göre plan ne veriyor; gizli segment ne kadar ileride? Yol 0 bulunabilirlik: ML kümesi {yd(ml['bulunabilirlik'], 1)} "
+          f"(benzer {yd(bz['bulunabilirlik'], 1)}, {isaretli(fark1(bz['bulunabilirlik'], ml['bulunabilirlik']), 1)} puan, "
+          f"{yon1(ml['bulunabilirlik'], bz['bulunabilirlik'])}; tahmin {yd(tm['bulunabilirlik'], 1)}, "
+          f"{isaretli(fark1(tm['bulunabilirlik'], ml['bulunabilirlik']), 1)} puan, {yon1(ml['bulunabilirlik'], tm['bulunabilirlik'])})"
+          f" · pay WAPE ML {s(ml['pay_wape'], 3)} / benzer {s(bz['pay_wape'], 3)} / tahmin {s(tm['pay_wape'], 3)} · ciro sınıfı "
+          f"{yd(k2['bulunabilirlik'], 1)} (Lumoda {yd(lu['bulunabilirlik'], 1)}, {isaretli(fark1(lu['bulunabilirlik'], k2['bulunabilirlik']), 1)} puan)"
+          f" · gizli segment {yd(gz['bulunabilirlik'], 1)} (ML'den {isaretli(fark1(ml['bulunabilirlik'], gz['bulunabilirlik']), 1)} puan)"
+          f" · yollarda ML bulunabilirlikte benzerden {yb('kume_ml', 'benzer')[0]}/{yb('kume_ml', 'benzer')[1]['n']}, tahminden "
+          f"{yb('kume_ml', 'tahmin')[0]}/{yb('kume_ml', 'tahmin')[1]['n']}, Lumoda'dan {yb('kume_ml', 'lumoda')[0]}/"
+          f"{yb('kume_ml', 'lumoda')[1]['n']} yolda önde; gizli segment ML'den {yb('kume_gizli', 'kume_ml')[0]}/"
+          f"{yb('kume_gizli', 'kume_ml')[1]['n']} yolda önde (medyan fark {isaretli(tek_ondalik(yb('kume_gizli', 'kume_ml')[1]['medyan']), 1)} puan)")
+
+    # korunum
+    U = v.kural["U_adet"] if v.kural else None
+    for _, ad in KUME_KOLLARI:
+        e, o = K(v, ad), O(v, ad)
+        c = e.get("cozum", {})
+        b = gk[ad.removeprefix("kume_")]
+        sec = kk["secim"][ad.removeprefix("kume_")]
+        ek += [(f"KÜME: {ad} t = 0, tavansız, Lumoda replenishment, tepkili takvim",
+                c.get("kol") == "kume" and c.get("tutma") == 0.0 and c.get("tavan") is False and c.get("repl") == "lumoda"
+                and not c.get("takvim") and c.get("yol") == 0),
+               (f"KÜME: {ad} motor kırpmadı", o["kirpilan_adet"] == 0),
+               (f"KÜME: {ad} ⌊U⌋ gönderdi (ilk dağıtım = U, tavanın bıraktığı 0)",
+                U is not None and int(o["ilk_dagitim_adet"]) == U and o["tavan_kalan_adet"] == 0),
+               (f"KÜME: {ad} kalibrasyonun seçimiyle (ilk düzey, en az örnek)", (b["bas"], b["en_az"]) == (sec["bas"], sec["en_az"])),
+               (f"KÜME: {ad} kümeleri kumeler.json'dan (yol 0)", b["kumeleme"]["kaynak"] == "kumeler.json")]
+        ek += _kume_denetimleri(kd.get(ad), ad, b.get("pay"))
+    for ad, anahtar in oyun.MEVCUT_ANAHTARLAR.items():
+        ek.append((f"KÜME: mevcut koşu {ad}'nın anahtarı değişmedi", K(v, ad)["anahtar"] == anahtar))
+    for p in p_sira:
+        if int(p) == 0:
+            continue
+        es = yl[p]["kosular"]["esit"]["olcutler"]
+        for kisa in oyun.YOL_KUME_KOLLARI:
+            e = yl[p]["kosular"][kisa]
+            ek += [(f"KÜME: yol {p} {kisa} motor kırpmadı, ⌊U⌋ (eşit kolla aynı ilk dağıtım)",
+                    e["olcutler"]["kirpilan_adet"] == 0 and e["olcutler"]["tavan_kalan_adet"] == 0
+                    and e["olcutler"]["ilk_dagitim_adet"] == es["ilk_dagitim_adet"]),
+                   (f"KÜME: yol {p} {kisa} kümeleri yolun tablolarından yeniden kuruldu",
+                    e["kume"]["kumeleme"]["kaynak"].startswith("yeniden kuruldu"))]
+            ek += _kume_denetimleri(kd.get(e["ad"]), f"yol {p} {kisa}", e["kume"].get("pay"))
+
+
+def _kume_denetimleri(d: dict | None, ad: str, girdi_kimligi: str | None) -> list[tuple[str, bool]]:
+    """Bir küme koşusunun kaydından (`rapor_b.kume_denetimi`) korunum satırları."""
+    if d is None:
+        return [(f"KÜME: {ad} koşu kaydı denetlendi", False)]
+    return [(f"KÜME: {ad} kolu KahinKol (kayıtta kahin)", d["tur"] == "allocation.politika.KahinKol" and d["kol"] == "kahin"),
+            (f"KÜME: {ad} koşunun payı kume_paylari.json'daki sözlük (kimlik içerikten) ve girdi kaydındaki",
+             d["kimlik_kosu"] is not None and d["kimlik_kosu"] == d["kimlik_sozluk"] == d["kimlik_kayit"] == girdi_kimligi),
+            (f"KÜME: {ad} kararındaki her aday sözlükte, payı > 0 (spec §0/12)",
+             d["aday"] > 0 and d["aday_sozlukte"] == d["aday"] == d["aday_pozitif"]),
+            (f"KÜME: {ad} düzey −1, geri düşüş yok", d["duzey"] == [-1] and d["geri_dusus"] == 0)]
+
+
 def anlati_bolumu(v, ek) -> None:
     print("Veriden gelmeyen, anlatı için konmuş değerler (varsayım; yazıda kesin sayı gibi sunulmaz):")
     for anahtar, deger in ANLATI_VARSAYIMLARI.items():
@@ -1064,7 +1263,8 @@ def korunum_bolumu(v, ek) -> None:
     n = korunum(ek)
     print(f"  {s(n)} denetim tuttu: satış ≤ talep, motor kolları kırpmadı, t = 0'da ilk dağıtım + tavanın bıraktığı = U,")
     print("  yayımlanan ilk dağıtım = lumoda, kural − kırpma = Lumoda'nın gönderdiği, uç hücreler = ölçütler, sabit takvimde")
-    print("  aynı mal, tutma U'yu aşmaz, t̄, yollar = oyun, hikâye (kaynak koşular, hücreler, plan), demo dosyası.")
+    print("  aynı mal, tutma U'yu aşmaz, t̄, yollar = oyun, hikâye (kaynak koşular, hücreler, plan), demo dosyası; küme")
+    print("  kollarında ⌊U⌋ ve kırpma 0, payın sözlüğü kararların her adayını kapsar, mevcut koşuların anahtarı değişmedi.")
     print(f"  koşu önbelleği: {s(len(v.gecerli))} ölçülmüş koşunun ve {s(len(v.yol_gecerli))} yol koşusunun kaydı doğrulandı, "
           f"{s(len(v.acilan))} koşu önbellekten açıldı (bugünkü kod, v4 dosyası ve sürümlerle; motor koşmadı)")
 
@@ -1073,7 +1273,7 @@ BOLUMLER = [
     ("VERİ", veri_bolumu), ("KURAL", kural_bolumu), ("KALİBRASYON", kalibrasyon_bolumu), ("YOL 0", yol0_bolumu),
     ("YOLLAR", yollar_bolumu), ("TAVAN", tavan_bolumu), ("SABİT TAKVİM", sabit_takvim_bolumu), ("TUTMA", tutma_bolumu),
     ("STRATEJİ", strateji_bolumu), ("İSABET", isabet_bolumu), ("BEDEN", beden_bolumu), ("HİKÂYE", hikaye_bolumu),
-    ("DEMO", demo_bolumu), ("ANLATI VARSAYIMLARI", anlati_bolumu), ("KORUNUM", korunum_bolumu),
+    ("DEMO", demo_bolumu), ("KÜME", kume_bolumu), ("ANLATI VARSAYIMLARI", anlati_bolumu), ("KORUNUM", korunum_bolumu),
 ]
 
 

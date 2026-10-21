@@ -123,6 +123,11 @@ OLCUM_SURUMU = 1
 # Küme kolları: yapı → ad (rapor ve yazılar koşu adıyla anar; politikadaki sınıf KahinKol, Ruling R2)
 KUME_YAPILARI = {"k2": "ciro sınıfı (K2)", "k1": "bölge (K1)", "ml": "önerilen ML kümesi (yeni mağaza 5-NN)",
                  "gizli": "gizli segment (yalnız ölçüm: kümelemenin ulaşabileceği en iyi yapı)"}
+# Küme payının koşusuz kalibrasyon ızgarası (SS24; İlk Sevkiyat R12 kalıbı): hiyerarşinin ilk düzeyi `bas`
+# (0 en ince alt kategori × fiyat × kalıp … 4 yalnız genel; `kume_payi.HIYERARSI[bas:]`) × en az örnek eşiği
+# (benzer endeksinin ızgarasıyla aynı)
+KUME_BAS_IZGARASI = tuple(range(len(kume_payi.HIYERARSI)))
+KUME_EN_AZ_IZGARASI = kalibrasyon.EN_AZ_IZGARASI
 KUME_KAL_DOSYASI = "kume_kalibrasyon.json"
 KUME_PAYLARI_DOSYASI = "kume_paylari.json"
 # Küme kolları eklenmeden önceki koşu anahtarları (İlk Sevkiyat önbelleği, ~6 sa TAM): küme bloğu bunları
@@ -574,14 +579,13 @@ def kume_sozlugu(tablo: pd.DataFrame, etiket: pd.Series, oz: pd.DataFrame, adayl
     p = e.paylar(oz, ad, olc)
     duzey = e.duzeyler(oz)
     sayim = pd.Series(list(duzey.values()), dtype=np.int64).value_counts().sort_index()
-    gozlemsiz = sorted(m for m in etiketli if m not in set(tablo.loc[tablo["talep"].notna(), "magaza_id"].astype(str)))
+    medyanli = kume_payi.medyan_olcekliler(tablo, etiket, mevsim=mevsim)
     bilgi = {"bas": int(bas), "en_az": int(en_az),
              "hiyerarsi": [list(d) for d in e.hiyerarsi],
              "duzey": {" × ".join(e.hiyerarsi[int(d)]) or "genel": int(n) for d, n in sayim.items()},
              "duzey_tam": {str(int(bas) + int(d)): int(n) for d, n in sayim.items()},     # HIYERARSI indisi
              "endeks": e.kimlik, "cift": len(p), "sifir_pay": int(sum(v == 0 for v in p.values())),
-             "etiketsiz_aday": dis, "gecmissiz_magaza": gozlemsiz,
-             "medyan_olcek_alan": {m: olc[m] for m in gozlemsiz},
+             "etiketsiz_aday": dis, "medyan_olcekli": {m: olc[m] for m in medyanli},
              "pay": KahinKol(None, None, erken_talep=p).parametreler()["erken_talep"]}
     return p, bilgi
 
@@ -595,12 +599,18 @@ def _uzun_pay(p: dict, w) -> pd.DataFrame:
                          "pay": np.array(list(p.values()), dtype=float)})
 
 
-def _uctami(satirlar: list[dict], sec: dict) -> bool:
-    """Seçilen `en_az` ızgaranın ucunda ve aynı `bas`ta komşusundan kesin iyi mi (eşitlikte uç değil: ızgarayı
-    uzatmak sonucu değiştirmez; Ruling R24/R25 kalıbı)."""
-    iz = list(kalibrasyon.EN_AZ_IZGARASI)
+def kume_izgara_ucunda(satirlar: list[dict], sec: dict) -> bool:
+    """Seçilen `en_az` ızgaranın ucunda ve aynı `bas`ta komşusundan kesin iyi mi (eşitlikte uç değil; Ruling
+    R24/R25 kalıbı). Izgarayı uzatmak sonucu değiştiremiyorsa uç değil: üst uçta bütün option'lar zaten genel
+    düzeyde (daha büyük eşik aynı payı verir), alt uçta zaten hiyerarşinin ilk (`bas`) düzeyinde. `duzey_tam`:
+    `kume_payi.HIYERARSI` indisi → option sayısı."""
+    iz = list(KUME_EN_AZ_IZGARASI)
     i = iz.index(sec["en_az"])
     if i not in (0, len(iz) - 1):
+        return False
+    duzeyler = {int(d) for d, n in sec["duzey_tam"].items() if n}
+    sinir = int(sec["bas"]) if i == 0 else len(kume_payi.HIYERARSI) - 1
+    if duzeyler <= {sinir}:
         return False
     komsu = iz[1] if i == 0 else iz[-2]
     w = next(r["wape"] for r in satirlar if r["yapi"] == sec["yapi"] and r["bas"] == sec["bas"] and r["en_az"] == komsu)
@@ -609,8 +619,8 @@ def _uctami(satirlar: list[dict], sec: dict) -> bool:
 
 def kume_kalibre(ogr: pd.DataFrame, gercek: pd.DataFrame, yapilar: dict, w, harita,
                  sezon: str = sabitler.KAL_SEZONU) -> dict:
-    """Koşusuz seçim (modül notu): her yapı için hiyerarşinin ilk düzeyi `bas` ∈ 0..4 × `en_az` ∈
-    `kalibrasyon.EN_AZ_IZGARASI`, ölçü `kalibrasyon.pay_wape` (ilk alımla ağırlıklı; gerçek pay sezonun
+    """Koşusuz seçim (modül notu): her yapı için hiyerarşinin ilk düzeyi `bas` ∈ `KUME_BAS_IZGARASI` × `en_az` ∈
+    `KUME_EN_AZ_IZGARASI`, ölçü `kalibrasyon.pay_wape` (ilk alımla ağırlıklı; gerçek pay sezonun
     sansür düzeltmeli ilk 6 hafta talebi); en küçük WAPE, eşitlikte ızgara sırası (ince düzey önce, küçük
     eşik önce). `ogr` sezonun karar gününde kapanmış sezonlardan (`ogrenme.ogrenme_tablosu`), `yapilar`
     aynı karar günündeki kümeler (`kumeleri_kur`)."""
@@ -624,22 +634,22 @@ def kume_kalibre(ogr: pd.DataFrame, gercek: pd.DataFrame, yapilar: dict, w, hari
     for yapi in KUME_YAPILARI:
         et = yapilar["etiket"][yapi]
         en_iyi = None
-        for bas in range(len(kume_payi.HIYERARSI)):
-            for en_az in kalibrasyon.EN_AZ_IZGARASI:
+        for bas in KUME_BAS_IZGARASI:
+            for en_az in KUME_EN_AZ_IZGARASI:
                 p, b = kume_sozlugu(tablo, et, oz, adaylar, bas, en_az, mevsim)
                 uzun = _uzun_pay(p, w)
                 r = {"yapi": yapi, "bas": bas, "en_az": int(en_az), "wape": float(kalibrasyon.pay_wape(uzun, gercek, ilk_alim)),
                      "n_option": int(len(kalibrasyon.option_wape(uzun, gercek))), "duzey": b["duzey"],
-                     "etiketsiz_aday": len(b["etiketsiz_aday"])}
+                     "duzey_tam": b["duzey_tam"], "etiketsiz_aday": len(b["etiketsiz_aday"])}
                 satirlar.append(r)
                 if en_iyi is None or r["wape"] < en_iyi["wape"]:
                     en_iyi = r
         secim[yapi] = {"bas": en_iyi["bas"], "en_az": en_iyi["en_az"], "wape": en_iyi["wape"],
                        "hiyerarsi": [list(d) for d in kume_payi.HIYERARSI[en_iyi["bas"]:]],
-                       "izgara_ucunda": _uctami(satirlar, en_iyi)}
+                       "duzey": en_iyi["duzey"], "izgara_ucunda": kume_izgara_ucunda(satirlar, en_iyi)}
     return {"sezon": sezon, "karar_gunu": None, "secim": secim, "tablo": satirlar,
             "kumeler": {y: b for y, b in yapilar["bilgi"].items()},
-            "izgara": {"bas": list(range(len(kume_payi.HIYERARSI))), "en_az": list(kalibrasyon.EN_AZ_IZGARASI)},
+            "izgara": {"bas": list(KUME_BAS_IZGARASI), "en_az": list(KUME_EN_AZ_IZGARASI)},
             "hiyerarsi": [list(d) for d in kume_payi.HIYERARSI],
             "kural": "yapı başına en küçük pay WAPE'si (SS24, koşusuz); eşitlikte ince düzey ve küçük eşik önce"}
 
@@ -965,6 +975,16 @@ def demo_haritasi(kosular: dict, kal: dict) -> dict:
     return harita
 
 
+def girdi_kaydi(eski: dict | None, bilgi: dict) -> dict:
+    """oyun.json `girdi`: bu sürecin girdi bilgisi; bu süreçte kurulmamış küme kollarının bilgisi eski kayıttan
+    kalır (başka bir bloğu koşmak `girdi.kume`'yi silmez; rapor onu koşunun kimliğiyle denetler)."""
+    g = dict(bilgi)
+    kume = {**(eski or {}).get("kume", {}), **bilgi.get("kume", {})}
+    if kume:
+        g["kume"] = kume
+    return g
+
+
 def kos_hepsi(blok: str = "hepsi", ortam: Ortam | None = None, kal: dict | None = None, tut: bool = True,
               girdi: Girdi | None = None, adlar=None) -> dict:
     """Bloğun (ya da "hepsi": `BLOK_SIRASI`) koşuları sıralı; ad → tembel `KosuKaydi` (`tut=False`
@@ -1045,7 +1065,7 @@ def kos_hepsi(blok: str = "hepsi", ortam: Ortam | None = None, kal: dict | None 
                     kos_tek(cozulmus(tum[taban]), kosular[taban]["grup"])
                 kosular[s.ad] = {**kosular[taban], "grup": grup, "kosum": asdict(s), "ayni": taban}
                 _ilerleme(s.ad, 0.0, True, ortam.ilerleme_yolu, ayni=taban)
-            kayit["girdi"] = G.bilgi
+            kayit["girdi"] = girdi_kaydi(kayit.get("girdi"), G.bilgi)
             json_yaz(ortam.oyun_yolu, kayit)
 
     for b in bloklar:
@@ -1094,7 +1114,8 @@ def main(argv=None) -> None:
               f"{d['sure_sn']:.0f} sn):", flush=True)
         for y, sec in d["secim"].items():
             print(f"  {y:<6} bas {sec['bas']} ({' × '.join(sec['hiyerarsi'][0]) or 'genel'}), en_az {sec['en_az']}, "
-                  f"WAPE {sec['wape']:.4f}{' (ızgara ucunda)' if sec['izgara_ucunda'] else ''}", flush=True)
+                  f"WAPE {sec['wape']:.4f}{' (ızgara ucunda)' if sec['izgara_ucunda'] else ''}; düzeyler {sec['duzey']}",
+                  flush=True)
     elif a.komut == "kalibrasyon":
         d = kalibrasyon_kos()
         print(json.dumps({k: d[k] for k in ("en_az", "tahmin_parametreleri", "kaynak", "belirsizlik_olcusu",

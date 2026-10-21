@@ -23,6 +23,7 @@ SS25, line Collection, 210 option, üç dalga.
     .venv/Scripts/pip install -e ../ortak              # perakende_analitik (kaynak, stok, sayı denetimi)
     .venv/Scripts/pip install --no-deps -e ../../veri  # perakende_veri (v4 motoru; yalnız allocation/motor.py açar)
     .venv/Scripts/pip install -e ".[dev]"
+    .venv/Scripts/pip install --no-deps -e ../kumeleme  # kumeleme (küme kolları; --no-deps: sürümler değişmez)
 
 Kütüphaneler pinlidir (`pyproject.toml`): `lightgbm` < 4.6 (Windows çökmesi) ve `scikit-learn` < 1.8
 (`force_all_finite`); kurulu sürümler lightgbm 4.5.0, scikit-learn 1.7.2, numpy 2.5.4, pandas 2.3.3,
@@ -56,7 +57,12 @@ Sıra ve ölçülen süreler:
     #    yol 0 için 37 ad, 34 TAM koşu; cikti/oyun.json, cikti/secim.json
     .venv/Scripts/python -m allocation.oyun izgara             # --blok pay | --ad <koşu> ile parça parça
 
-    # 3. Yollar (5.809 sn): yol 1–4 için Lumoda koşusu, endeks ve LightGBM yeniden öğrenme,
+    # 2b. Küme kolları (Mağaza Kümeleme vakası, spec 2026-10-20 §4.4): önce koşusuz kalibrasyon (~2,5 dk,
+    #     SS24; cikti/kume_kalibrasyon.json), sonra kume bloğu (4 TAM koşu; cikti/kume_paylari.json)
+    .venv/Scripts/python -m allocation.oyun kume_kalibrasyon
+    .venv/Scripts/python -m allocation.oyun izgara --blok kume
+
+    # 3. Yollar (5.809 sn; küme kollarıyla yol başına 2 TAM koşu daha): yol 1–4 için Lumoda koşusu, endeks ve LightGBM yeniden öğrenme,
     #    benzer / tahmin tavansız ve esit, kahin; yol 0 ızgaradan; cikti/yollar.json
     .venv/Scripts/python -m allocation.yollar
 
@@ -91,7 +97,8 @@ ve TAM dünyayı kurar (yavaş: iki eşdeğerlik testi önbellekten ~590 sn; `lu
 | Motor koşuları | `cikti/kosular/<ad>_<anahtar[:20]>` | `ad`, `parametreler` (kanonik JSON), politika türü ve kimliği (kolun `Ayar`'ı, sardığı Lumoda kuralı, endeks / LightGBM kimliği), talep ve operasyon tohumu, ölçek, gün sayısı, `motor.kod_ozeti`, v4 dosyasının parmak izi (ad, boyut, mtime), kütüphane sürümleri | yeni anahtar, yeni koşu (eskisi diskte kalır) |
 | Kalibrasyon | `cikti/kalibrasyon.json` | yok (her `oyun kalibrasyon` yeniden yazar; koşular önbellekten) | seçilen değerler kolların `Ayar`'ına, oradan bütün koşu anahtarlarına girer |
 | Oyun ölçümleri | `cikti/oyun.json`, `cikti/secim.json` | kayıt başına koşu anahtarı + `olcum_kodu` (`olcutler.py` ve `kalibrasyon.py` özeti, `OLCUM_SURUMU`) | `oyun izgara` tutmayan kaydı yeniden ölçer (koşu önbellekten); rapor eski ölçümü reddeder |
-| Yollar | `cikti/yollar.json` | yol başına `yollar.kod_ozeti` (koşu kod özeti, v4 parmak izi, `olcutler.py` + `oyun.py` + `kalibrasyon.py` + `yollar.py` özeti) + koşu anahtarları | `yollar` tutmayan yolu yeniden ölçer / hesaplar |
+| Yollar | `cikti/yollar.json` | yol başına `yollar.kod_ozeti` (koşu kod özeti, v4 parmak izi, `olcutler.py` + `oyun.py` + `kalibrasyon.py` + `yollar.py` özeti, kümeleme paketinin kod özeti) + koşu anahtarları | `yollar` tutmayan yolu yeniden ölçer / hesaplar |
+| Küme payı | `cikti/kume_kalibrasyon.json`, `cikti/kume_paylari.json` | kalibrasyon: yok (`oyun kume_kalibrasyon` yeniden yazar); sözlükler koşu adıyla, içerik kimliği koşunun anahtarında (`KahinKol`) | seçim kolun sözlüğüne, oradan küme koşularının anahtarına girer; rapor sözlüğü koşunun kimliğiyle denetler |
 | Hikâye | `cikti/hikaye.json` | oyun.json'daki koşu anahtarları | `hikaye_sec` yeniden yazar; rapor anahtar uyuşmazlığını reddeder |
 
 **Koşu anahtarına girenler kasıtlı dar.** `motor.KOSU_MODULLERI` = `motor`, `sabitler`, `kaynak`,
@@ -189,7 +196,7 @@ taşan Antalya 3 (539 adet, 28 günde 63 satış, kol 189), biten Van 2 (140 ade
 | `politika.py` | Kollar (`LumodaTutKol`, `EsitKol`, `BenzerKol`, `TahminKol`, `KahinKol`, `BelirsizlikKol`), `hiz` replenishment'ı, sabit takvim yeniden oynatıcıları |
 | `kalibrasyon.py` | SS24'te koşusuz seçimler (`en_az`, LightGBM parametreleri, belirsizlik ölçüsü) ve simülasyon seçimleri (tavan, taban, γ); koşu enjekte edilir (motoru görmez) |
 | `olcutler.py` | Koşu ölçütleri, `Kapsam` (option → SKU eşlemesi), erken birincil talep |
-| `oyun.py` | CLI: `kalibrasyon`, `izgara`; `IZGARA`, "en iyi" seçimi, `kos_bir`, `uyanik_tut` |
+| `oyun.py` | CLI: `kalibrasyon`, `kume_kalibrasyon`, `izgara`; `IZGARA`, "en iyi" seçimi, `kos_bir`, `uyanik_tut`; küme kollarının kümeleri ve pay sözlükleri (`kumeleme` paketinden) |
 | `yollar.py` | 5 talep yolu, "kaç yolda önde"; `cikti/yollar.json` |
 | `hikaye_sec.py` | Sahne merdiveni, alternatif; `cikti/hikaye.json` |
 | `rapor.py`, `rapor_b.py` | Yayımlanacak her sayı; başlık soruları ilgili bölümde `SORU n · …` satırı; `rapor_b` veri sorgularını ve korunumları kurar |
@@ -218,6 +225,27 @@ düzeydir; SS option'ları yalnız SS sezonlarından öğrenir (`mevsim="SS"`, R
 seçim ızgaranın ucunda kaldı (R24, R25). `hiz` replenishment'ı: son 14 günün stoklu gün hızı × 28 gün,
 kapısız (ölü stok kapısı yok); son 14 günde hiç stoklu gün yoksa hız option'ın ilk dağıtımından bu yana
 (R16); kapanış kararı verilmiş mağazaya kapanışa dek gönderir (Lumoda gibi).
+
+## Küme kolları
+
+Mağaza Kümeleme vakasının (`vakalar/kumeleme/`) "kümeye göre plan" sorusu (rapor KÜME bölümü,
+`KÜME SORU 7 · …`). Pay `kumeleme.kume_payi`'dan: benzer endeksinin küme düzeyindeki hâli (kümenin
+göreli hızı × mağazanın ölçeği; yeni mağaza kümesinin medyan ölçeğini alır). Kollar `KahinKol`'la
+koşulur (pay dışarıdan verilen sözlük; kayıtta kol adı `kahin`, düzey −1): İlk Sevkiyat'ın
+`KOSU_MODULLERI`'ne dokunulmaz, mevcut koşuların anahtarı değişmez (`MEVCUT_ANAHTARLAR`,
+`tests/test_oyun.py::test_mevcut_kosular_onbellekten`). t = 0, tavansız: Lumoda'yla aynı mal (⌊U⌋).
+
+| koşu | kümeler |
+|---|---|
+| `kume_k2` | ciro sınıfı (K2; Lumoda'nın planlama grubu) |
+| `kume_k1` | bölge (K1; allocator'ların bölünmesi) |
+| `kume_ml` | önerilen ML kümesi; yeni mağaza statiklerle 5-NN |
+| `kume_gizli` | gizli segment: kümelemenin ulaşabileceği en iyi yapı, yalnız ölçüm kolu |
+
+Yol 0'da kümeler git'teki `vakalar/kumeleme/kumeler.json`'dan (gizli segment ayrı ölçüm okumasıyla);
+yol 1–4'te `kume_ml` ve `kume_gizli`, kümeler o yolun Lumoda tablolarından kümeleme paketinin
+işlevleriyle yeniden kurulur. Hiyerarşinin ilk düzeyi ve `en_az` yapı başına SS24'te koşusuz seçilir
+(`KUME_BAS_IZGARASI` × `KUME_EN_AZ_IZGARASI`, ölçü pay WAPE'si; kümeler SS24 karar günündeki veriyle).
 
 ## Kalibrasyon
 

@@ -106,8 +106,9 @@ def _kosular(secim: dict) -> dict:
                 o["ilk_dagitim_adet"] = float(round(U_ADET * 0.7))
             if c["takvim"]:
                 o["rpt_adet"], o["toplam_mal"] = 343_680.0, 1_515_866.0
+            anahtar = oyun.MEVCUT_ANAHTARLAR.get(k.ad, f"{len(kosular):04d}" + "a" * 60)
             kosular[k.ad] = {"grup": blok, "kosum": {"ad": k.ad}, "cozum": c, "imza": oyun.imza(c),
-                             "anahtar": f"{len(kosular):04d}" + "a" * 60, "olcum_kodu": "olcum", "olcutler": o}
+                             "anahtar": anahtar, "olcum_kodu": "olcum", "olcutler": o}
     kosular["lumoda_takvimli"]["olcutler"] = copy.deepcopy(kosular["lumoda"]["olcutler"])
     for ad, taban in (("tut_eniyi_t00", "pay_tahmin_tavansiz"), ("demo_tahmin_t15", "tut_eniyi_t15"),
                       ("demo_tahmin_t30", "tut_eniyi_t30")):
@@ -163,6 +164,47 @@ def _hikaye(kosular: dict) -> dict:
                                  "biten_satis_14": 162, "kol_biten_adet": 322}}
 
 
+HIYERARSI = KAL["hiyerarsi"]
+KUME_SECIM = {"k2": (0, 80), "k1": (3, 3), "ml": (0, 40), "gizli": (3, 20)}
+KUME_BOYUT = {"k2": [35, 20, 14], "k1": [20, 14, 10, 9, 8, 4, 4], "ml": [32, 14, 9, 7, 7], "gizli": [32, 14, 9, 7, 7]}
+
+
+def _kumeleme(yapi: str, kaynak: str) -> dict:
+    b = {"kaynak": kaynak, "kimlik": f"{yapi}kimlik" + "c" * 50, "magaza": 69, "grup": len(KUME_BOYUT[yapi]),
+         "boyutlar": KUME_BOYUT[yapi]}
+    if yapi == "ml":
+        b.update(aile="S1", yontem="kmeans", k=5, oneri_kimligi="ef31468e311a" + "d" * 52,
+                 yeni_atama={"M027": 1, "M041": 0})
+    return b
+
+
+def _kume_girdisi(yapi: str, kaynak: str, pay: str) -> dict:
+    bas, en_az = KUME_SECIM[yapi]
+    return {"bas": bas, "en_az": en_az, "duzey_tam": {str(bas): 120, "4": 90} if bas < 4 else {"4": 210},
+            "medyan_olcekli": {"M027": 0.97, "M041": 1.02}, "etiketsiz_aday": [], "pay": pay,
+            "cift": 5354, "sifir_pay": 0, "kumeleme": _kumeleme(yapi, kaynak)}
+
+
+def _kume_kal() -> dict:
+    tablo = [{"yapi": y_, "bas": b_, "en_az": e, "wape": 0.24 - 0.001 * b_ + 0.0001 * i, "n_option": 210,
+              "duzey": {}, "duzey_tam": {str(b_): 210}, "etiketsiz_aday": 1}
+             for y_ in KUME_SECIM for b_ in range(5) for i, e in enumerate((3, 5, 10, 20, 40, 80))]
+    return {"sezon": "SS24", "karar_gunu": "2024-02-09", "kapanmis_sezonlar": ["SS23"],
+            "izgara": {"bas": [0, 1, 2, 3, 4], "en_az": [3, 5, 10, 20, 40, 80]}, "hiyerarsi": HIYERARSI,
+            "kural": "yapı başına en küçük pay WAPE'si",
+            "secim": {y_: {"bas": b_, "en_az": e, "wape": 0.235, "hiyerarsi": HIYERARSI[b_:], "izgara_ucunda": False}
+                      for y_, (b_, e) in KUME_SECIM.items()},
+            "kumeler": {y_: _kumeleme(y_, "yeniden kuruldu (2024-02-09)") for y_ in KUME_SECIM}
+            | {"_kapsam": {"karar_gunu": "2024-02-09", "aday": 69, "kumelenen": 68, "yeni": ["M021"]}},
+            "tablo": tablo}
+
+
+def _kume_denetimi(pay: str) -> dict:
+    return {"tur": "allocation.politika.KahinKol", "kol": "kahin", "kimlik_kosu": pay, "kimlik_kayit": pay,
+            "kimlik_sozluk": pay, "sozluk_cift": 5400, "aday": 5354, "aday_sozlukte": 5354, "aday_pozitif": 5354,
+            "aday_magaza": 69, "duzey": [-1], "geri_dusus": 0}
+
+
 def _yollar(kosular: dict) -> dict:
     yollar = {}
     for p in range(sabitler.YOL_SAYISI):
@@ -177,6 +219,9 @@ def _yollar(kosular: dict) -> dict:
                 o["talep_adet"] += 100 * p                      # yolun müşteri akışı farklı
                 k[kisa] = {"ad": s_.ad, "anahtar": f"y{p}{kisa}" + "b" * 50, "olcum_kodu": "olcum", "olcutler": o,
                            "cozum": oyun.cozumle(s_, KAL, None)}
+            if s_.kol == "kume":
+                g = _kume_girdisi(s_.kume, "kumeler.json" if p == 0 else "yeniden kuruldu (2025-02-07)", f"pay_{s_.ad}")
+                k[kisa]["kume"] = {a: g[a] for a in ("bas", "en_az", "pay", "cift", "sifir_pay", "kumeleme")}
         yollar[str(p)] = {"kod": "yolkod", "tamam": True, "talep_tohumu": oyun.talep_tohumu(p), "kosular": k,
                           "girdi": {"ogrenme_satir": 15859, "karar_gunu": "2025-02-07",
                                     "kaynak": "yayimlanan" if p == 0 else k["lumoda"]["anahtar"],
@@ -204,7 +249,9 @@ def tam_veri() -> rapor_b.Veri:
           for k in ("benzer", "tahmin")}
     oyun_k = {"kosular": kosular, "belirsizlik_gamma": 2.0, "eslesik_tutma": es, "demo": oyun.demo_haritasi(kosular, KAL),
               "girdi": {"belirsizlik": {"olcu": "benzer_tahmin_ayrisma", "gamma": 2.0, "t_en_az": 0.04,
-                                        "t_en_cok": 0.57, "t_ortalama": 0.3}}}
+                                        "t_en_cok": 0.57, "t_ortalama": 0.3},
+                        "kume": {s_.kume: _kume_girdisi(s_.kume, "kumeler.json", f"pay_{s_.ad}")
+                                 for s_ in oyun.IZGARA["kume"]}}}
     yayimlanan = {
         "dalga": pd.DataFrame({"dalga": [1, 2, 3], "option": [66, 75, 69], "ilk_alim": [421290, 430550, 346450],
                                "teslim": [421290, 430550, 346450], "ilk_dagitim": [289439, 296319, 238407],
@@ -237,7 +284,15 @@ def tam_veri() -> rapor_b.Veri:
         kural=kural, hucreler=_hucreler(), plan=plan, bagimsizlik=bag, benzer_duzey={1: 10, 3: 133, 4: 67},
         belirsizlik_t={"option": 210, "t_en_az": 0.04, "t_en_cok": 0.57, "t_ortalama": 0.3},
         yol_bagimsizlik={str(p): True for p in range(1, sabitler.YOL_SAYISI)}, yollar_kodu="yolkod",
-        acilan={"lumoda", "pay_esit"})
+        acilan={"lumoda", "pay_esit"}, kume_kal=_kume_kal(),
+        kume_denetim={ad: _kume_denetimi(f"pay_{ad}") for ad in [s_.ad for s_ in oyun.IZGARA["kume"]] + [
+            k["ad"] for p, y_ in yol["yollar"].items() if int(p) > 0
+            for kisa, k in y_["kosular"].items() if kisa in oyun.YOL_KUME_KOLLARI]},
+        kume_uyum={"aday": 69, "kumelenen": 67,
+                   "yapi": {y_: {"ari": a, "ami": a, "ari_kumelenen": a2, "ami_kumelenen": a2}
+                            for y_, a, a2 in (("k2", 0.03, 0.035), ("k1", 0.2, 0.209), ("ml", 0.96, 1.0), ("gizli", 1.0, 1.0))},
+                   "ayrisan": [{"magaza_id": "M027", "ml": "1", "ml_cogunluk": "metropol_genc", "gizli": "anadolu_aile",
+                                "yeni": True}]})
 
 
 def boz(v: rapor_b.Veri, bozma: str) -> None:
@@ -261,6 +316,22 @@ def boz(v: rapor_b.Veri, bozma: str) -> None:
         v.yollar["yollar"]["3"]["girdi"]["kaynak"] = "yayimlanan"
     elif bozma == "hikaye_kaynagi_farkli":
         v.hikaye["kaynak"]["lumoda"]["anahtar"] = "baska"
+    elif bozma == "kume_kirpti":
+        k["kume_ml"]["olcutler"]["kirpilan_adet"] = 12.0
+    elif bozma == "kume_mal_farkli":
+        k["kume_k2"]["olcutler"]["ilk_dagitim_adet"] -= 70
+    elif bozma == "kume_pay_kimligi_farkli":
+        v.kume_denetim["kume_k1"]["kimlik_sozluk"] = "baska"
+    elif bozma == "kume_aday_eksik":
+        v.kume_denetim["kume_gizli"]["aday_sozlukte"] -= 1
+    elif bozma == "kume_kalibrasyonu_farkli":
+        v.oyun["girdi"]["kume"]["ml"]["en_az"] = 3
+    elif bozma == "mevcut_anahtar_farkli":
+        k["pay_tahmin_tavansiz"]["anahtar"] = "z" * 64
+    elif bozma == "yol_kume_aday_eksik":
+        v.kume_denetim["y2_kume_ml"]["aday_pozitif"] -= 1
+    elif bozma == "yol_kume_mal_farkli":
+        v.yollar["yollar"]["3"]["kosular"]["kume_gizli"]["olcutler"]["ilk_dagitim_adet"] += 7
     else:
         raise ValueError(bozma)
 

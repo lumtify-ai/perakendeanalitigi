@@ -120,6 +120,104 @@ def test_kume_hiyerarsisi_benzer_ile_ayni():
     assert kume_payi.HIYERARSI == benzer.HIYERARSI and kume_payi.SUTUNLAR == benzer.SUTUNLAR
 
 
+def test_kume_kalibrasyon_izgarasi():
+    """Küme payının koşusuz kalibrasyon ızgarası sabit: hiyerarşinin ilk düzeyi `bas` her düzey (0 en ince …
+    4 yalnız genel) × en az örnek eşiği İlk Sevkiyat'ın benzer ızgarası (R12 kalıbı)."""
+    from kumeleme import kume_payi
+
+    assert oyun.KUME_BAS_IZGARASI == tuple(range(len(kume_payi.HIYERARSI))) == (0, 1, 2, 3, 4)
+    assert oyun.KUME_EN_AZ_IZGARASI == kalibrasyon.EN_AZ_IZGARASI == (3, 5, 10, 20, 40, 80)
+
+
+def _kal_satiri(bas, en_az, wape, duzey):
+    return {"yapi": "ml", "bas": bas, "en_az": en_az, "wape": wape, "duzey_tam": {str(k): v for k, v in duzey.items()}}
+
+
+def test_kume_izgara_ucunda():
+    """Seçim ızgaranın ucunda ve komşusundan kesin iyiyse "ucunda"; ama ızgarayı uzatmak sonucu değiştiremiyorsa
+    değil: üst uçta (en büyük en_az) bütün option'lar zaten genel düzeydeyse, alt uçta (en küçük en_az) zaten
+    hiyerarşinin ilk (`bas`) düzeyindeyse. Eşitlik uç sayılmaz (Ruling R24/R25 kalıbı)."""
+    s = [_kal_satiri(0, 40, 0.25, {3: 100, 4: 110}), _kal_satiri(0, 80, 0.24, {4: 210}),
+         _kal_satiri(1, 40, 0.25, {3: 100, 4: 110}), _kal_satiri(1, 80, 0.24, {3: 10, 4: 200}),
+         _kal_satiri(3, 3, 0.20, {3: 210}), _kal_satiri(3, 5, 0.21, {3: 210}),
+         _kal_satiri(2, 3, 0.20, {2: 200, 3: 10}), _kal_satiri(2, 5, 0.21, {2: 210}),
+         _kal_satiri(4, 3, 0.20, {4: 210}), _kal_satiri(4, 5, 0.20, {4: 210}),
+         _kal_satiri(0, 10, 0.19, {1: 210}), _kal_satiri(0, 5, 0.22, {1: 210})]
+    uc = lambda b, e: oyun.kume_izgara_ucunda(s, next(r for r in s if (r["bas"], r["en_az"]) == (b, e)))  # noqa: E731
+    assert uc(0, 80) is False          # üst uç ama hepsi genel: büyük eşik aynı payı verir
+    assert uc(1, 80) is True           # üst uç, bir kısmı ust_kategori'de, komşudan iyi
+    assert uc(3, 3) is False           # alt uç ama hepsi ilk düzeyde (ust_kategori): küçük eşik aynı
+    assert uc(2, 3) is True            # alt uç, bir kısmı daha genel düzeyde, komşudan iyi
+    assert uc(4, 3) is False           # komşusuyla eşit
+    assert uc(0, 10) is False          # iç nokta
+
+
+def test_kumeler_json_yapilari():
+    """TAM yol 0'ın kümeleri git'teki `kumeler.json`'dan (Ruling R3): dört yapı kapsamın aynı 69 mağazasında;
+    ML yeni mağazaları (M027, M041) statik atamayla taşır; gizli segment yalnız ölçüm okumasıyla gelir ve ML
+    bölmesiyle kümelenen mağazalarda birebir (Görev 7 notu: ARI 1,000), yalnız M027'de ayrışır. Karar günü
+    oyununkiyle aynı değilse hata."""
+    from kumeleme import oyun as kumeleme_oyun
+
+    y = oyun.kumeler_json_yapilari("2025-02-07")
+    et, b = y["etiket"], y["bilgi"]
+    assert set(et) == set(oyun.KUME_YAPILARI)
+    ids = sorted(et["k1"].index)
+    assert len(ids) == 69 and all(sorted(e.index) == ids for e in et.values())
+    assert b["_kapsam"]["yeni"] == ["M027", "M041"] and b["_kapsam"]["kumelenen"] == 67
+    assert {"M027", "M041"} <= set(b["ml"]["yeni_atama"]) and b["ml"]["kaynak"] == "kumeler.json"
+    k = kumeleme_oyun.kumeler_oku(olcum=False)
+    assert b["ml"]["oneri_kimligi"] == k["ml"]["kimlik"] and kumeleme_oyun.GIZLI_ALAN not in k
+    # ML ↔ gizli: her ML kümesi tek segment (M027 hariç)
+    ml, gz = et["ml"].astype(str), et["gizli"].astype(str)
+    eslesme = pd.crosstab(ml.drop("M027"), gz.drop("M027"))
+    assert ((eslesme > 0).sum(axis=1) == 1).all() and ((eslesme > 0).sum(axis=0) == 1).all()
+    tek = eslesme.idxmax(axis=1)
+    assert tek[ml["M027"]] != gz["M027"]
+    with pytest.raises(ValueError, match="karar günü"):
+        oyun.kumeler_json_yapilari("2024-02-09")
+
+
+def test_main_izgara_blok_kume(monkeypatch):
+    """`python -m allocation.oyun izgara --blok kume` küme bloğunu koşar (denetleyicinin komutu)."""
+    cagri = []
+    monkeypatch.setattr(oyun, "uyanik_tut", lambda: None)
+    monkeypatch.setattr(oyun, "kos_hepsi", lambda blok, **k: cagri.append((blok, k)) or {})
+    oyun.main(["izgara", "--blok", "kume"])
+    assert cagri == [("kume", {"tut": False, "adlar": None})]
+    with pytest.raises(SystemExit):
+        oyun.main(["izgara", "--blok", "kumeler"])
+
+
+def test_yollar_kod_ozeti_kumeleme_paketini_kapsar(monkeypatch):
+    """Yol kaydının kod özeti kümeleme paketinin kodunu da taşır: yollarda kümeler o paketin işlevleriyle
+    yeniden kurulur; paket değişince yollar yeniden ölçülür."""
+    import kumeleme.oyun as kumeleme_oyun
+
+    once = yollar.kod_ozeti()
+    monkeypatch.setattr(kumeleme_oyun, "kod_ozeti", lambda *a, **k: "baska")
+    assert yollar.kod_ozeti() != once
+
+
+@pytest.mark.veri
+def test_mevcut_kosular_onbellekten(monkeypatch):
+    """Küme kolları İlk Sevkiyat'ın önbelleğini bozmaz (spec §0/14): kümeleme paketi kurulu ve küme bloğu
+    eklenmişken lumoda, pay_esit, pay_benzer_tavansiz, pay_tahmin_tavansiz, pay_kahin bugünkü kodla kurulur ve
+    önbellekten AÇILIR (motor koşamaz); anahtarları küme kolları eklenmeden önceki anahtarlar (oyun.json)."""
+    def kosma(*a, **k):
+        raise AssertionError("motor koştu: koşu önbellekte değil (anahtar değişti)")
+
+    monkeypatch.setattr(motor, "simule_et", kosma)
+    kal = kalibrasyon.oku()
+    secim = json.loads((sabitler.CIKTI / "secim.json").read_text(encoding="utf-8"))
+    G = oyun.Girdi(0, oyun.Ortam(ilerleme=False), kal)
+    tum = oyun.tum_kosumlar()
+    kayit = json.loads((sabitler.CIKTI / "oyun.json").read_text(encoding="utf-8"))["kosular"]
+    for ad, anahtar in oyun.MEVCUT_ANAHTARLAR.items():
+        k = G.ortam.kos(0, ad, **oyun.politika_kur(tum[ad], G, kal, secim))
+        assert k.onbellekten and k.meta["anahtar"] == anahtar == kayit[ad]["anahtar"], ad
+
+
 def test_kosum_denetimi():
     with pytest.raises(ValueError):
         oyun.Kosum("x", "yok")
@@ -439,7 +537,9 @@ def test_kucuk_kume_kollari(kucuk):
         b = d["girdi"]["kume"][yapi]
         assert (b["bas"], b["en_az"]) == (KUME_KAL["secim"][yapi]["bas"], 3)
         assert sum(b["duzey"].values()) == len(G.optionlar) and b["kumeleme"]["kimlik"]
+        assert sum(b["duzey_tam"].values()) == len(G.optionlar)
         assert b["kumeleme"]["kaynak"].startswith("yeniden kuruldu")
+        assert yeni <= set(b["medyan_olcekli"]) and all(v > 0 for v in b["medyan_olcekli"].values())
     assert d["kume_kalibrasyon"]["secim"] == KUME_KAL["secim"]
     assert len({d["kosular"][a]["anahtar"] for a in sonuc} | {kucuk.kayitlar["pay_kahin"]["anahtar"]}) == 5
     for ad, e in kucuk.kayitlar.items():
@@ -450,6 +550,36 @@ def test_kucuk_kume_kollari(kucuk):
 
     assert (et["gizli"] == hakem.gizli_segment(w).loc[et["gizli"].index]).all()
     assert sorted(et["ml"].index) == sorted(et["gizli"].index) == sorted(et["k1"].index) == sorted(et["k2"].index)
+    # başka bir bloğu yeni bir süreçte (küme payı kurulmamış Girdi) koşmak girdi.kume'yi silmez
+    oyun.kos_hepsi("esdegerlik", ortam, KAL)
+    d2 = json.loads(ortam.oyun_yolu.read_text(encoding="utf-8"))
+    assert d2["girdi"]["kume"] == d["girdi"]["kume"]
+
+
+def test_kucuk_yol_kume_kollari(tmp_path, monkeypatch):
+    """Yol 1'de küme kolları (`yollar.yol_kos`, KÜÇÜK; öteki kollar bu testte koşulmaz): kümeler ve öğrenme yolun
+    kendi lumoda koşusunun tablolarından yeniden kurulur; koşu adları y1_ önekli, talep tohumu yolunki; kayıtta
+    küme bilgisi (düzey, kümeleme kimliği, pay kimliği); motor kırpmaz, iki kol aynı malı gönderir; sözlükler
+    kume_paylari.json'da."""
+    ortam = oyun.Ortam(olcek="kucuk", onbellek=tmp_path / "kosular", cikti=tmp_path / "cikti", ilerleme=False,
+                       kume_oneri=KUCUK_ONERI)
+    oyun.json_yaz(ortam.cikti / oyun.KUME_KAL_DOSYASI, KUME_KAL)
+    monkeypatch.setattr(oyun, "YOL_KOLLARI", ("lumoda",))
+    kayit = yollar.yol_kos(1, KAL, ortam, {}, lambda: None)
+    k = kayit["kosular"]
+    assert list(k) == ["lumoda", "kume_ml", "kume_gizli"]
+    assert kayit["girdi"]["kaynak"] == k["lumoda"]["anahtar"]
+    paylar = json.loads((ortam.cikti / oyun.KUME_PAYLARI_DOSYASI).read_text(encoding="utf-8"))
+    assert set(paylar) == {"y1_kume_ml", "y1_kume_gizli"}
+    for kisa in ("kume_ml", "kume_gizli"):
+        e = k[kisa]
+        assert e["ad"] == f"y1_{kisa}" and e["talep_tohumu"] == oyun.talep_tohumu(1) and e["cozum"]["yol"] == 1
+        b = e["kume"]
+        assert b["kumeleme"]["kaynak"].startswith("yeniden kuruldu") and b["cift"] > 0 and b["sifir_pay"] == 0
+        assert (b["bas"], b["en_az"]) == (KUME_KAL["secim"][kisa.removeprefix("kume_")]["bas"], 3)
+        assert paylar[e["ad"]]["pay"] == b["pay"] and paylar[e["ad"]]["yol"] == 1
+        assert e["olcutler"]["kirpilan_adet"] == 0.0 and e["olcutler"]["tavan_kalan_adet"] == 0.0
+    assert k["kume_ml"]["olcutler"]["ilk_dagitim_adet"] == k["kume_gizli"]["olcutler"]["ilk_dagitim_adet"]
 
 
 def test_kucuk_kume_kalibre(kucuk):

@@ -10,6 +10,8 @@ bozuk kaydı silmez ve eksik koşuyu koşmaz. Ölçülmüş kaydın ölçüm kod
 Girdiler:
 
     cikti/oyun.json, secim.json, kalibrasyon.json, hikaye.json, yollar.json   (ölçülmüş kayıtlar)
+    cikti/kume_kalibrasyon.json, kume_paylari.json   (küme kolları: koşusuz seçim, kolların pay sözlükleri)
+    vakalar/kumeleme/kumeler.json             (yol 0'ın kümeleri; ML ↔ gizli segment uyumu, ölçüm)
     cikti/kosular/<ad>_<anahtar[:20]>/        (koşuların tabloları, gizli gerçek, kol kayıtları)
     veri/cikti/v4/perakende.duckdb            (yayımlanan dünya: VERİ; `lumoda` koşusuyla birebir,
                                                eşdeğerlik testi)
@@ -24,6 +26,11 @@ Dünyadan (`motor.dunya`, koşu değil; ~40 sn) yalnız şunlar okunur: `lumoda`
 tablosu (`motor.kirpma_tablosu`), option'ların Lumoda'nın kuralıyla paket sayısı (`ilk_alim × 0,70
 ÷ paket adedi`) ve erken penceredeki birincil talep (`olcutler.erken_hucre_gunleri`; kahinin
 bağımsızlık varsayımı, spec §0/11).
+
+**Küme kolları** (`kume_denetimi`): her küme koşusunun (yol 0 ve yollar) kolu `KahinKol`; kararındaki pay
+kimliği `kume_paylari.json`'daki sözlüğün içeriğinden yeniden hesaplanan kimlikle aynı (koşu bu sözlükle
+koşulmuş); kararlarındaki her aday (option, mağaza) sözlükte ve payı > 0 (spec §0/12); düzey −1, geri düşüş
+yok. Rapor bunları KÜME bölümünde korunum olarak basar.
 """
 
 from __future__ import annotations
@@ -35,10 +42,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+import kumeleme.oyun as kumeleme_oyun
 import senaryolar
 from allocation import hikaye_sec, kaynak, motor, olcutler, oyun, sabitler
 from allocation import yollar as yollar_modulu
 from allocation.paylastir import paket_adedi
+from allocation.politika import KahinKol
+from kumeleme import olcutler as kumeleme_olcutler
 
 CIKTI = sabitler.CIKTI
 ONBELLEK = motor.KOSU_DIZINI
@@ -282,6 +292,46 @@ def bagimsizlik(w, harita, ob: Onbellek, taban: str, adlar: list[str]) -> dict[s
     return sonuc
 
 
+def kume_denetimi(kosu: motor.KosuKaydi, paylar: dict | None, w) -> dict:
+    """Bir küme koşusunun (yol 0 ya da yol p) kaydının denetim girdileri (modül notu). `paylar`
+    `kume_paylari.json`'daki kaydı (`pay` kimliği, `[option_id, magaza_id, pay]` listesi) ya da None."""
+    par = kosu.meta.get("politikalar", {}).get("ilk_dagitim", {}).get("parametreler", {})
+    sozluk = {(str(o), str(m)): float(x) for o, m, x in (paylar or {}).get("paylar", [])}
+    r = kosu.kayitlar["ilk_dagitim"]
+    r = r[r["kol"].to_numpy(dtype=bool) & (r["indis"] >= 0).to_numpy()]
+    oid = w.optionlar["option_id"].astype(str).to_numpy()
+    mid = w.magazalar["magaza_id"].astype(str).to_numpy()
+    ciftler = set(zip(oid[r["arg0"].to_numpy(dtype=np.int64)], mid[r["indis"].to_numpy(dtype=np.int64)]))
+    return {"tur": kosu.meta.get("turler", {}).get("ilk_dagitim"), "kol": par.get("kol"),
+            "kimlik_kosu": par.get("erken_talep"), "kimlik_kayit": (paylar or {}).get("pay"),
+            "kimlik_sozluk": KahinKol(None, None, erken_talep=sozluk).parametreler()["erken_talep"] if sozluk else None,
+            "sozluk_cift": len(sozluk), "aday": len(ciftler), "aday_sozlukte": sum(c in sozluk for c in ciftler),
+            "aday_pozitif": sum(sozluk.get(c, 0.0) > 0 for c in ciftler),
+            "aday_magaza": len({m for _, m in ciftler}),
+            "duzey": sorted(int(d) for d in pd.unique(r["duzey"])), "geri_dusus": int(r["geri_dusus"].astype(bool).sum())}
+
+
+def kume_uyumu(kumeler_yolu: Path = kumeleme_oyun.KUMELER, karar_gunu=None) -> dict:
+    """Yol 0'ın kümeleri (`kumeler.json`; `oyun.kumeler_json_yapilari`) ile gizli segment: yapı başına ARI ve AMI
+    (kapsamın bütün mağazalarında ve yalnız kümelenenlerde) ve ML ile gizli segmentin ayrıştığı mağazalar (ML
+    kümesinin çoğunluk segmenti mağazanınkinden farklı). Yalnız ölçüm (gizli segment)."""
+    k = kumeleme_oyun.kumeler_oku(kumeler_yolu, olcum=False)
+    y = oyun.kumeler_json_yapilari(karar_gunu or k["karar_gunu"], kumeler_yolu)
+    et, gz = y["etiket"], y["etiket"]["gizli"].astype(str)
+    kumelenen = sorted(k["kapsam"]["kumelenen"])
+    sonuc = {"yapi": {}, "kumelenen": len(kumelenen), "aday": int(len(gz))}
+    for yapi, e in et.items():
+        a, m = kumeleme_olcutler.ari_ami(e.astype(str), gz)
+        a2, m2 = kumeleme_olcutler.ari_ami(e.astype(str).loc[kumelenen], gz.loc[kumelenen])
+        sonuc["yapi"][yapi] = {"ari": a, "ami": m, "ari_kumelenen": a2, "ami_kumelenen": m2}
+    ml = et["ml"].astype(str)
+    cogunluk = pd.crosstab(ml.loc[kumelenen], gz.loc[kumelenen]).idxmax(axis=1)
+    sonuc["ayrisan"] = [{"magaza_id": m, "ml": ml[m], "ml_cogunluk": cogunluk.get(ml[m]), "gizli": gz[m],
+                         "yeni": m not in set(kumelenen)}
+                        for m in sorted(ml.index) if cogunluk.get(ml[m]) != gz[m]]
+    return sonuc
+
+
 # ---------------------------------------------------------------------------
 # Hazırlık
 # ---------------------------------------------------------------------------
@@ -310,6 +360,9 @@ class Veri:
     belirsizlik_t: dict | None = None     # belirsizlik koşusunun kararlarındaki t_o özeti
     yol_bagimsizlik: dict | None = None
     yollar_kodu: str | None = None
+    kume_kal: dict | None = None          # cikti/kume_kalibrasyon.json
+    kume_denetim: dict | None = None      # küme koşusu adı (yol 0 ve y<p>_) → `kume_denetimi`
+    kume_uyum: dict | None = None         # `kume_uyumu` (yol 0 kümeleri ↔ gizli segment)
     acilan: set = field(default_factory=set)
     eksik: list = field(default_factory=list)
     taslak: bool = False
@@ -335,10 +388,16 @@ def hazirla(cikti: Path = CIKTI, onbellek: Path = ONBELLEK, taslak: bool = False
     if oyun_k is None or kal is None:
         raise RuntimeError("cikti/oyun.json ya da cikti/kalibrasyon.json yok: önce ızgara (python -m allocation.oyun)")
     v = Veri(oyun=oyun_k, kal=kal, taslak=taslak, eksik=eksik, olcum_kodu=oyun.olcum_kodu())
-    for ad, dosya in (("secim", "secim.json"), ("hikaye", "hikaye.json"), ("yollar", "yollar.json")):
+    for ad, dosya in (("secim", "secim.json"), ("hikaye", "hikaye.json"), ("yollar", "yollar.json"),
+                      ("kume_kal", oyun.KUME_KAL_DOSYASI)):
         setattr(v, ad, json_oku(Path(cikti) / dosya))
         if getattr(v, ad) is None:
             yok(f"cikti/{dosya} yok")
+    kume_paylari = json_oku(Path(cikti) / oyun.KUME_PAYLARI_DOSYASI) or {}
+    try:
+        v.kume_uyum = kume_uyumu()
+    except (FileNotFoundError, ValueError) as e:
+        yok(f"kumeler.json: {e}")
 
     kosular = oyun_k.get("kosular", {})
     ob = Onbellek(kosular, onbellek)
@@ -374,11 +433,13 @@ def hazirla(cikti: Path = CIKTI, onbellek: Path = ONBELLEK, taslak: bool = False
         adlar = sorted(a for a in v.gecerli if a != "lumoda" and "ayni" not in kosular[a]
                        and kosular[a].get("grup") in BAGIMSIZLIK_GRUPLARI)
         v.bagimsizlik = bagimsizlik(w, harita, ob, "lumoda", adlar)
+        v.kume_denetim = {ad: kume_denetimi(ob.ac(ad), kume_paylari.get(ad), w) for ad in sorted(v.gecerli)
+                          if kosular[ad].get("cozum", {}).get("kol") == "kume" and "ayni" not in kosular[ad]}
         if v.yollar is not None:
             v.yol_bagimsizlik, yol_ob = {}, None
             for p in range(sabitler.YOL_SAYISI):
                 y = v.yollar.get("yollar", {}).get(str(p), {})
-                for kisa in oyun.YOL_KOLLARI:
+                for kisa in oyun.YOL_KOLLARI + oyun.YOL_KUME_KOLLARI:
                     if kisa not in y.get("kosular", {}):
                         yok(f"yol {p} {kisa}: yollar.json'da ölçülmüş kayıt yok (yollar bitmedi)")
             for p, y in sorted(v.yollar.get("yollar", {}).items(), key=lambda x: int(x[0])):
@@ -392,6 +453,10 @@ def hazirla(cikti: Path = CIKTI, onbellek: Path = ONBELLEK, taslak: bool = False
                         yok(f"yol {p} {kisa}: " + "; ".join(sorun))
                     else:
                         v.yol_gecerli.add((p, kisa))
+                for kisa in oyun.YOL_KUME_KOLLARI:
+                    if int(p) > 0 and (p, kisa) in v.yol_gecerli:
+                        ad = y["kosular"][kisa]["ad"]
+                        v.kume_denetim[ad] = kume_denetimi(yol_ob.ac(ad), kume_paylari.get(ad), w)
                 if int(p) > 0 and {(p, "lumoda"), (p, "kahin")} <= v.yol_gecerli:
                     lumoda_adi, kahin_adi = y["kosular"]["lumoda"]["ad"], y["kosular"]["kahin"]["ad"]
                     v.yol_bagimsizlik[p] = bagimsizlik(w, harita, yol_ob, lumoda_adi, [kahin_adi])[kahin_adi]
