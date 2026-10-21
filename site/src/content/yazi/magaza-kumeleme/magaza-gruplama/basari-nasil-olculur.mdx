@@ -3,9 +3,313 @@ baslik: Başarı Nasıl Ölçülür
 tip: sonuc
 sira: 6
 ozet: >-
-  Hakemli, hakemsiz ve karar kalitesi: bir kümelemenin iyi olduğunu neyle anlarız ve İlk Sevkiyat'ta küme kolları ne verdi?
+  Hakemli, hakemsiz ve karar kalitesi: bir kümelemenin iyi olduğunu neyle
+  anlarız? Hakemsiz ölçütler birbirini tutmuyor. İlk Sevkiyat'ta kümeye göre
+  pay Lumoda'nın planını geçiyor, mağazanın kendi geçmişine yetişiyor, modeli
+  geçemiyor.
 yazar: Sabri Suyunu
-durum: hazirlaniyor
+durum: yayinda
 ---
 
-Bu yazı hazırlanıyor.
+import Demo from '../../../../components/Demo.astro'
+import Lumtify from '../../../../components/Lumtify.astro'
+import T from '../../../../components/T.astro'
+
+Beş yazı boyunca mağazaları <T k="kume">kümelere</T> ayırdık: bölgeyle,
+ciro sınıfıyla, ikisinin ızgarasıyla, konumla ve satış karışımından
+bulunan kümelerle. Kümelerin
+yıldan yıla ne kadar dayandığına, yeni bir mağazanın nereye konacağına
+baktık ve kümeye göre bir pay kurduk. Şimdi hesabı topluyoruz.
+
+Bir kümelemenin iyi olup olmadığını ölçmenin üç yolu var. Bu dizide üçünü
+de kullandık. Gerçek bir zincirde ise yalnız ikisi elinizde olacak.
+
+## Hakemli: cevap anahtarına göre
+
+İlk yöntem en kolayı, ama gerçek hayatta yok. Lumoda sentetik bir zincir
+ve verisini ben ürettim; her mağazaya, yayımlanan veride görünmeyen bir
+müşteri profili verdim. Kümeleri bu cevap anahtarıyla ARI üzerinden
+ölçtük: 1 anahtarla birebir aynı bölme, 0 rastgele bir gruplamanın düzeyi.
+
+| Gruplama | Grup | Cevap anahtarıyla ARI |
+|---|---:|---:|
+| Ciro sınıfı | 3 | 0,035 |
+| Bölge × ciro sınıfı | 12 | 0,104 |
+| Bölge | 7 | 0,209 |
+| Konum | 5 | 0,432 |
+| Satış karışımı kümeleri | 5 | 1,000 |
+
+Lumoda'nın bugünkü iki gruplaması müşteri hakkında pek bir şey bilmiyor.
+Ciro sınıfı rastgele düzeyinde, bölge biraz biliyor, ikisinin ızgarası
+bölgeden bile kötü. Konum metropol dışında çok şey biliyor, metropolde
+hiçbir şey. Satış karışımı kümeleri anahtarın kendisi.
+
+Bu tabloya güvenmenin bir sınırı var: bir kısmı verinin kuruluş biçiminden
+geliyor. Aşağıdaki dürüstlük listesinde ayrıca söyleyeceğim.
+
+## Hakemsiz: anahtar olmadan
+
+Gerçek bir zincirde cevap anahtarı yoktur. Elinizde kümelerin kendi
+özellikleri kalır. Bu dizide üçünü kullandık. Siluet, kümelerin birbirinden
+ne kadar ayrık olduğunu söylüyor. Kararlılık, mağazaların bir kısmı
+eksilince bölmenin ne kadar dayandığını. Yıllar arası uyum, iki ayrı yılın
+verisiyle kurulan kümelerin birbirine ne kadar benzediğini.
+
+Üçü de makul ölçütler. Sorun, birbirlerini tutmamaları:
+
+| Gruplama | Ölçüt | Gruplamanın değeri | Önerinin değeri | Cevap anahtarıyla ARI |
+|---|---|---:|---:|---:|
+| Karışım, beden ve mevsim; 3 küme | kararlılık | 0,992 | 0,851 | 0,055 |
+| Ciro sınıfı | yıllar arası uyum | 0,834 | 0,642 | 0,035 |
+| Karışım ve ölçek; 3 küme | siluet | 0,351 | 0,308 | 0,138 |
+
+Öneri, satış karışımından kurduğumuz beş küme. Cevap anahtarıyla uyumu
+1,000. Ama tablodaki üç gruplamanın her biri bir hakemsiz ölçütte onu
+geçiyor; üçü de anahtardan çok uzak. Kararlılığa bakan biri beden ve
+mevsimi de katan üç kümelik bölmeyi seçerdi; dördüncü yazıda kodun ilk
+taslağı tam bunu yapıyordu. Yıllar arası uyuma bakan biri ciro sınıfında
+kalırdı. Ölçeği karışıma katıp siluete bakan biri, ciro sınıfına benzeyen
+bir bölmeyi.
+
+— O zaman hangisine bakacağım? diyor Pelin.
+
+— Sonuçtan önce hangisine bakacağını yaz, diyor Pars. Biz siluet dedik,
+eşitlikte kararlılık. Ama bunu da yazmakla bitmiyor. Hakemsiz ölçütlerin
+hiçbiri kümenin işe yarayıp yaramadığını söylemiyor. Onu ancak kümeye göre
+verdiğin karar söyler.
+
+## Karar kalitesi: İlk Sevkiyat'ta
+
+Üçüncü yöntem en zahmetlisi: kümeye göre verilen bir karar, kümesiz
+verilenden iyi mi? Gerçek bir zincirde bunu ölçmek de kolay değil, ama
+asıl soru bu.
+
+Bunu [İlk Sevkiyat](/allocation/ilk-sevkiyat/) dizisinin oyun sezonunda
+ölçtük. Geçen yazıda küme payını kurmuştuk: yeni bir ürünün bir mağazadaki
+payı, mağazanın kümesinin benzer ürünlerdeki göreli hızı çarpı mağazanın
+ölçeği. Bu payı dört gruplamayla koşturduk ve İlk Sevkiyat'ın kollarıyla
+yarıştırdık. Bütün kollar aynı malı gönderiyor; yalnız mal mağazalara başka
+paylarla bölünüyor.
+
+Ölçütler İlk Sevkiyat'ınkiler. Bulunabilirlik: fiziksel bir mağazada bir
+bedene talep olan günlerin yüzde kaçında o beden raftaydı. Elde kalan:
+sezon kapanırken zincirde kalan mal, zincire giren malın yüzdesi olarak.
+Pay hatası: verilen payın, ilk altı haftanın gerçek talebinden çıkan
+paydan ne kadar saptığı; 0 kusursuz. Brüt kâr: net satıştan alış
+maliyeti düşülünce kalan.
+
+| Pay | Bulunabilirlik | Elde kalan | Pay hatası | Brüt kâr |
+|---|---:|---:|---:|---:|
+| Lumoda (plan payı) | %68,98 | %19,77 | 0,235 | 534.433.105 TL |
+| Küme: ciro sınıfı | %69,19 | %20,44 | 0,241 | 531.930.817 TL |
+| Küme: bölge | %69,35 | %19,74 | 0,236 | 532.789.729 TL |
+| Küme: satış karışımı | %69,53 | %19,65 | 0,230 | 534.816.112 TL |
+| Küme: cevap anahtarı | %69,51 | %19,55 | 0,231 | 534.298.578 TL |
+| Mağazanın geçmiş payı | %69,51 | %19,65 | 0,229 | 535.147.736 TL |
+| Model (LightGBM) | %70,41 | %17,74 | 0,171 | 550.029.513 TL |
+
+Tabloyu üç soruyla okuyalım.
+
+**Küme payı Lumoda'nın planından iyi mi?** Satış karışımı kümeleriyle evet,
+biraz: bulunabilirlikte 0,6 puan önde, elde kalan ve pay hatası da
+Lumoda'nınkinden düşük. Ciro sınıfına göre pay ise Lumoda'nın planından
+neredeyse farksız. Bulunabilirlikte 0,2 puan önde, ama elde kalanda, pay
+hatasında ve brüt kârda geride. Brüt kârdaki açığı 2.502.288 TL. Bölgeye
+göre pay bulunabilirlikte 0,4 puan önde.
+
+**Mağazanın kendi geçmişinden iyi mi?** Hayır; eşit. Bulunabilirlikte
+%69,53'e karşı %69,51, bir ondalıkla fark 0,0 puan. Elde kalan aynı. Pay
+hatası küme payında 0,001 yüksek, brüt kâr 331.624 TL düşük. Küme payı,
+mağazanın kendi geçmiş payının yanına bir şey koymuyor.
+
+**Modelden iyi mi?** Hayır. Mağaza mağaza tahmin yapan LightGBM modeli
+bulunabilirlikte 0,9 puan önde. Pay hatası 0,171'e karşı 0,230.
+
+### Kusursuz küme bile
+
+Tablonun beşinci satırı cevap anahtarına göre kurulan kümeler. Gerçek
+hayatta böyle bir kol olamaz; burada yalnız bir soru için var: gruplama
+kusursuz olsaydı ne olurdu?
+
+Hiçbir şey: satış karışımı kümeleriyle bulunabilirlik farkı 0,0 puan.
+Burada dürüst olmam gerekiyor: bu karşılaştırma bu veride neredeyse boş. Satış
+karışımı kümeleri 67 mağazada zaten anahtarla birebir aynı. İki kolun
+kümeleri yalnız bir mağazada ayrışıyor: İzmir 2. Beş komşu onu metropol
+genç kümesine koymuştu; anahtar Anadolu aile kümesine koyuyor. Bir de
+kalibrasyon iki kola ayrı eşik seçti: cevap anahtarı kolu oyun sezonunda
+bütün ürünlerde üst kategoriye iniyor. Yani bu satır "küme daha iyi
+olsaydı" sorusuna pek cevap vermiyor; kümeler zaten neredeyse aynı.
+
+Asıl ilginç olan tablonun öteki ucu. Cevap anahtarıyla uyumu 0,035 olan
+ciro sınıfı kümeleriyle bulunabilirlik %69,19. Uyumu 1,000 olan satış
+karışımı kümeleriyle %69,53. Gruplama rastgele düzeyinden kusursuza
+çıkıyor; bulunabilirlik ise yalnız %69,19'dan %69,53'e.
+
+— Bu kadar uğraştık, bir şey değişmedi mi? diyor Pelin.
+
+— İlk sevkiyatın payında değişmedi, diyor Pars. Bence nedeni şu: bu 67
+mağazanın her birinin en az yarım yıllık satışı var. Kümenin bildiği şeyi,
+mağazanın ne sattığını, mağazanın kendi geçmişi de biliyor. Küme payı
+mağazanın kendi geçmişinden daha iyi bir geçmiş bulamıyor; aynı bilgiyi
+bir gruptan okuyor.
+
+Geçen yazıda bir şey daha görmüştük. Kümede birleştirmenin, mağaza
+düzeyinde gürültüye boğulan ince benzerliği kullanılır kılacağını
+umuyorduk. Kalibrasyon bunu desteklemedi: küme düzeyinde de az örnekle
+ince düzey gürültülü çıktı ve yüksek bir örnek eşiği seçildi.
+
+## Başka müşteri akışlarında da tutuyor mu?
+
+Bütün bunlar tek bir müşteri akışından. İlk Sevkiyat'taki gibi aynı
+dünyada dört akış daha var. Satış karışımı kümelerini ve cevap anahtarı
+kolunu her yolda yeniden koşturduk. Kümeler de her yolda o yolun kendi
+tablolarından yeniden kuruldu; her yolda aynı büyüklükte beş küme çıktı.
+
+Bulunabilirlikte, beş yol:
+
+| Karşılaştırma | Kaç yolda önde | Farkın yol medyanı |
+|---|---:|---:|
+| Satış karışımı kümesi − Lumoda | 5/5 | +0,6 puan |
+| Satış karışımı kümesi − mağazanın geçmiş payı | 3/5 | 0,0 puan |
+| Satış karışımı kümesi − model | 0/5 | −0,9 puan |
+| Cevap anahtarı − satış karışımı kümesi | 2/5 | 0,0 puan |
+
+Lumoda'ya karşı sonuç sağlam: beş yolun beşinde bulunabilirlikte önde,
+elde kalanda da pay hatasında da. Mağazanın geçmiş payına karşı eşitlik
+de sağlam. Küme payı beş yolun üçünde önde, ama o yollarda fark bir
+ondalıkla 0,0; öteki ikisinde 0,3 puan geride. Pay hatasında beş yolun
+hiçbirinde geçmiş paydan iyi değil. Model beş yolun beşinde önde.
+
+## Kümenin yeri
+
+Peki küme işe yaramıyor mu? Bu veride ölçtüğümüz kadarıyla, kendi geçmişi
+olan bir mağazanın ilk sevkiyat payına bir şey eklemiyor. Ama kümenin işi
+yalnız bu değil.
+
+Geçmişi olmayan bir mağaza için elde küme dışında bir şey yok. İzmir 2 ile
+Kocaeli 1 paylarını kümeden aldı: karışımı kümesinden, büyüklüğü kümesinin
+ortadaki mağazasından. Mağazanın geçmiş payı kolu onları ortalama mağaza
+sayıyordu. Bu iki mağazanın kendi sonucunu ayrıca ölçmedik; 69 mağazanın
+içinde iki mağaza.
+
+Plan, çeşit ve indirim de grup grup kurulur. İkinci yazıda kümenin dört
+kararın birimi olduğunu söylemiştik. Bu dizide yalnız birini, ilk
+sevkiyatın payını ölçtük. Pelin'in kategori planını kümelere göre yeniden
+kurmadık; çeşide ve indirime de dokunmadık.
+
+## Bu ölçümler nerede yetersiz?
+
+Dürüstlük listesi, hepsi bir arada.
+
+**Cevap anahtarı gerçek değil.** Her mağazanın müşteri profilini ben
+verdim. Gerçek hayatta böyle bir hakem yok. Hakemli bütün sayılar yalnız
+Lumoda'da kurulabilir; sizin zincirinizde elinizde hakemsiz ölçütler ve
+karar kalitesi olacak.
+
+**Konum, verinin kurgusunda müşteriyi büyük ölçüde belirliyor.** Konum
+kuralının şehir → iklim tablosunu genel coğrafya bilgisiyle elle yazdım;
+Lumoda'yı üreten simülatörün kendi iklim etiketleriyle 25 şehrin 24'ünde
+örtüşüyor. Sentetik zincir gerçek coğrafyanın üstüne kuruldu. Konumun
+metropol dışındaki başarısı kısmen bundan geliyor.
+
+**Seçimlerin bir kısmı sonuç görülerek kesinleşti.** Önerilecek kümenin
+seçim kuralı sonuçlardan önce yazılmıştı, ama kodun ilk taslağı başka bir
+biçimdeydi ve kural cevap anahtarının sonucu görüldükten sonra yazılı
+biçimine döndü. Özellik ağırlığını seçerken de keşifte anahtarın bir
+sonucunu gördük. Yeni mağaza için beş komşu yöntemi, sonuçlar görüldükten
+sonra en yakın merkeze tercih edildi; ölçüt hakemsizdi, ama seçim sonuca
+bakılarak yapıldı. Üçünü de yerinde yazdım.
+
+**Çeşit sabit.** Lumoda'da hangi mağazanın hangi ürünü taşıdığı dünyada
+baştan kurulu ve bu dizide değişmiyor. Çeşidin satış karışımına bıraktığı
+iz bu veride küçük çıktı; sizin zincirinizde küçük olacağının garantisi
+yok. Kümeyi çeşit kararına da uygulamadık.
+
+**Müşteri verisini ölçmedik.** Bu sentetik veride müşterinin yaşı
+neredeyse doğrudan mağazanın gizli profilinden türüyor; müşteri verisini
+özellik yapmak cevap anahtarını kümeye geri vermek olurdu. Gerçek bir
+zincirde güçlü bir sinyal olabilir; bu dizi onu ölçmedi.
+
+**Kusursuz küme kolu neredeyse bir şey ölçmüyor.** Satış karışımı kümeleri
+zaten anahtarla aynı olduğu için iki kolun kümeleri yalnız İzmir 2'de
+ayrışıyor.
+
+**Yalnız ilk sevkiyatın payı.** Plan, çeşit ve indirim kararlarında
+kümenin etkisini ölçmedik. Yeni mağazaların kendi sonucunu da ayrı
+ölçmedik.
+
+**Tek zincir, tek karar günü.** Kümeleri tek bir zincirin verisiyle, bir
+sezonun karar gününde kurduk. Kalibrasyon için bir önceki sezonun karar
+gününde, yollarda da her yolun tablolarından yeniden kurduk; ama kümelerin
+sezonlar boyunca nasıl yaşadığını, her sezon yeniden kurulunca planın ne
+kadar değiştiğini ölçmedik. Yollar da İlk Sevkiyat'taki gibi yalnız
+müşteri akışını değiştiriyor.
+
+## Kadranı kendiniz çevirin
+
+Aşağıdaki kadran iki şeyi bir araya getiriyor: özellik seti ve küme
+sayısı. Özellik seti üç: yalnız satış karışımı; karışım, beden eğrisi ve
+mevsimsellik; ve bunun çeşitten arındırılmış hâli. Küme sayısı dörtten
+sekize. Yöntem k-means. Bütün sayılar vakanın raporundaki hesaplardan
+geliyor; sayfa açıldığında hepsi hazır, tarayıcıda hiçbir hesap
+yapılmıyor.
+
+Kadran dört ölçüt gösteriyor: cevap anahtarıyla uyum (hakem uyumu, ARI),
+kararlılık, en küçük kümenin mağaza sayısı ve siluet. İlki hakemli,
+ötekiler hakemsiz.
+
+<Demo dizi="magaza-gruplama" />
+
+Kadranla oynarken şunlara bakın. Satış karışımında beş küme kusursuz:
+hakem uyumu 1,000, siluet 0,308. Dört kümede uyum 0,948'e iniyor, ama
+kararlılık 0,851'den 0,923'e çıkıyor. Kararlılık yanlış bölmeyi daha çok
+seviyor. Beden ve mevsimi katınca dört ve beş kümede kararlılık
+neredeyse 1: beş kümede 0,986. Ama hakem uyumu 0,137. Altı ve daha çok
+kümede de en küçük küme tek mağazaya iniyor. Çeşitten arındırılmış hâli de beş kümede
+aynı yerde: kararlılık 0,995, uyum 0,137. Kararlı ama yanlış.
+
+## Baştaki soru
+
+İstanbul 13 ile İstanbul 10 aynı hücredeydi: ikisi de İstanbul'da, ikisi de
+C sınıfı, ikisi de Marmara × C'de. Pelin ikisine aynı karışımı yazıyordu.
+Satış karışımı İstanbul 13'ün Eskişehir 2'ye benzediğini gösterdi; Ali'nin
+mağazası Veli'nin mağazaları gibi satıyordu.
+
+Altı yazı sonra elimizde şunlar var. Ciro sınıfı müşteri hakkında bir şey
+bilmiyor, ama yıldan yıla pek değişmiyor. Bölge biraz biliyor. Konum
+metropol dışında çok şey biliyor, metropolde hiçbir şey. Satış karışımı
+iki tarafı da görüyor, ama tek bir yılın satışıyla kurulunca oynuyor.
+Yeni mağazayı satış görmeden doğru kümeye koymak metropol dışında kolay,
+metropolde yarı yarıya. Hakemsiz ölçütler birbirini tutmuyor. İlk
+sevkiyatta da kümeye göre pay Lumoda'nın planını geçiyor ama mağazanın
+kendi geçmişini geçemiyor.
+
+Beklediğim sonuç bu değildi. Kümeyi kendisine bakarak ölçmek kolaydı:
+siluet, kararlılık, cevap anahtarı. Kararla ölçünce tablo değişti. Doğru
+küme müşteriyi gösteriyor; ama kendi geçmişi olan bir mağazada ilk
+sevkiyatın payına, o geçmişin bilmediği bir şey söylemiyor. Bu veride
+kümenin ilk sevkiyata kattığı şey, geçmişi olmayan mağazaya benzerlerinden
+bir pay vermesi. Bir kümelemenin iyi olduğunu da ona göre verdiğiniz
+kararı ölçmeden bilemezsiniz. Bu dizinin asıl işi buydu. 🙂
+
+<Lumtify>
+
+Bu dizinin hesabı yayımlanabilir olması için sadeleştirildi. Lumoda'da her
+ürünün öznitelikleri eksiksiz, her mağazanın müşterisini gösteren bir
+cevap anahtarı var ve kümeleri ilk sevkiyatta aynı malla sınayabildik.
+Gerçek bir zincirde öznitelik kaydı dağınıktır, mağazanın müşterisini
+söyleyecek bir hakem yoktur ve bir kümelemenin iyi olup olmadığı ancak ona
+göre verilen kararların sonucunda görünür. Mağazalar açılır, kapanır,
+müşterileri değişir; kümeler her sezon yeniden gözden geçirilmelidir.
+
+<Fragment slot="son">
+
+Satış karışımınızı kendi ürün kaydınızdan kurar, kümeleri sonuçtan önce
+yazılmış hakemsiz bir kuralla seçer, yeni mağazayı satış görmeden
+komşularının kümesine koyar ve kümeye göre payı bugünkü planınızla aynı
+malla karşılaştırır. Böylece her sezon hangi mağazanın hangi grupla
+planlanacağını sezgiyle değil, ölçümle söyler.
+
+</Fragment>
+
+</Lumtify>

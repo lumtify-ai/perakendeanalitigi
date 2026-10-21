@@ -3,9 +3,372 @@ baslik: Kümeyi Kullanmak
 tip: teknik
 sira: 5
 ozet: >-
-  Kümeler sezondan sezona ne kadar oynuyor, yeni bir mağaza satış görmeden hangi kümeye konur ve kümeye göre plan ilk sevkiyata nasıl girer?
+  Kümeler yıldan yıla ne kadar dayanıyor, satışı olmayan yeni mağaza hangi
+  kümeye konur ve kümeye göre pay ilk sevkiyata nasıl girer? Tek yılın satışı
+  kümeyi oynatıyor, yeni mağazayı metropolde doğru kümeye koymak zor, küme
+  payı da mağazanın kendi geçmişine yetişiyor.
 yazar: Sabri Suyunu
-durum: hazirlaniyor
+durum: yayinda
 ---
 
-Bu yazı hazırlanıyor.
+import T from '../../../../components/T.astro'
+
+Dört yazı boyunca kümeleri kurduk. Lumoda'nın kurallarını ölçtük, satış
+karışımından beş <T k="kume">küme</T> bulduk ve beşinin de cevap
+anahtarıyla birebir aynı olduğunu gördük. Ama bir küme, kullanılmadıkça
+yalnız bir tablodur. Bu yazıda onu kullanmaya geçiyoruz ve üç soru
+soruyoruz.
+
+Kümeler yıldan yıla ne kadar dayanıyor? Satışı olmayan yeni bir mağaza
+hangi kümeye konur? Ve kümeye göre kurulan bir pay, ilk sevkiyata nasıl
+girer?
+
+Kod yine `vakalar/kumeleme/` altındaki çalışan koddan, sayılar vakanın
+raporundan. Son bölümün sayıları İlk Sevkiyat vakasının raporundan geliyor.
+
+## Kümeler ne kadar dayanıyor
+
+Üçüncü yazıda ciro sınıfının yıldan yıla pek değişmediğini görmüştük:
+grupları iki ayrı yılın verisiyle ayrı ayrı kurunca iki gruplamanın uyumu
+0,834 çıkıyordu. Aynı ölçüyü satış karışımı kümelerine uyguladık. Aynı
+yöntem, aynı beş küme; ama her seferinde yalnız bir yılın, 52 haftanın
+satışı. İki pencere birbirine değmiyor. Ankara 3 ile Antalya 1 yıllardan
+birinde yeterli satış görmediği için yine dışarıda; karşılaştırma 65
+mağazada.
+
+İki yılın kümeleri arasındaki uyum 0,642.
+
+— Bu benim ciro sınıfımdan da oynak, diyor Pelin. Her sezon başka kümeler mi
+alacağım?
+
+— Önce neyin oynadığına bakalım, diyor Pars.
+
+Bunu yalnız Lumoda'da yapabiliyoruz, çünkü elimizde cevap anahtarı var.
+Her yılın kümelerini anahtarla ölçtük. Daha eski yılın satışıyla kurulan
+kümelerin anahtarla uyumu 0,950, karar gününe kadarki son yılınki 0,688.
+Asıl kümeler ise iki yılın satışını birlikte görüyor ve anahtarla uyumları
+1,000.
+
+Verinin kurgusunda her mağazanın müşteri profili bir kez verildi; iki yıl
+arasında değişmiyor. Yani oynayan şey müşteri değil. Bir yılın satışı,
+mağazanın ne sattığını iki yılınki kadar net göstermiyor; kümeler de bu
+bulanıklıkla kayıyor. İki yıllık pencere kümeyi oturtuyor.
+
+Üçüncü yazıda bunu tersinden göreceğimizi söylemiştik. Ciro sınıfı yıldan
+yıla 0,834 dayanıyor ve cevap anahtarıyla uyumu 0,035. Satış karışımı
+kümeleri 0,642 dayanıyor ve anahtarla birebir aynı. Kararlılık doğruluk
+değil; doğruluk da her zaman kararlı görünmüyor.
+
+### Hangi mağazalar oynuyor
+
+Yıllar arası ölçü bütün bölmeye bakıyor. Pelin'in asıl merak ettiği tek
+tek mağazalar: hangisi kümenin kenarında duruyor?
+
+Bunu önyüklemeyle ölçtük. 67 mağazadan, aynı mağaza birden çok kez
+gelebilecek biçimde, yine 67 mağaza çekiyoruz ve çekilen tabloyu aynı
+yöntemle kümeliyoruz. Çekilişin kümeleri asıl kümelerle en çok ortak
+mağazayı paylaşacak biçimde birebir eşleniyor. Eşlenmiş kümesi asıl
+kümesinden farklı olan mağaza o çekilişte değişmiş sayılıyor.
+
+```python
+# kumeleme/olcutler.py (kararlilik, önyükleme; kopya adlandırma satırları çıkarıldı)
+rng = np.random.default_rng(tohum)
+for _ in range(ornek):
+    cek = np.sort(rng.integers(0, len(ids), size=len(ids)))
+    B = pd.DataFrame(Z.to_numpy()[cek], index=pd.Index(ad, name="magaza_id"), columns=Z.columns)
+    e = fn_kume(B)
+    tekil = np.unique(cek)
+    ce = e.loc[[ids[j] for j in tekil]].to_numpy()
+    degis[tekil] += _eslesik_degisen(ce, tam[tekil])
+    gor[tekil] += 1
+    aris.append(adjusted_rand_score(tam[tekil], ce))
+```
+
+Özellik tablosu bir kez kuruluyor; çekiliş yalnız hangi satırların
+kümelemeye gireceğini değiştiriyor. 50 çekilişte bölmelerin asıl bölmeyle
+ortalama uyumu 0,803. Bir mağaza, girdiği çekilişlerin ortalama %12,0'ında
+kümesini değiştiriyor. 67 mağazanın 22'si (%32,8) hiçbir çekilişte
+değişmiyor.
+
+En oynak mağaza Denizli 2: girdiği çekilişlerin %52'sinde başka bir kümeye
+düşüyor. Onu Gaziantep 2 ve Samsun 2 izliyor, ikisi de %41.
+
+— Üçü de benim, diyor Veli.
+
+— Kümesi sık değişen mağaza, kümelerin sınırında duran mağazadır, diyor
+Pars. Böyle bir mağazanın planını kümeden yazarken kümesinin her sezon
+değişebileceğini bilmen gerekir; yoksa planındaki değişikliği müşterisinde
+aramaya başlarsın.
+
+## Yeni mağaza
+
+İkinci yazıda iki yeni mağazayı anmıştık. İzmir 2 sezonun ilk gününde
+açılıyor; hiç satışı yok. Kocaeli 1'in 19 satışlı haftası var, yarım yılı
+doldurmamış. Satış karışımı olmayan bir mağazayı karışıma göre
+kümeleyemezsiniz. Elinizde yalnız mağaza açılmadan bilinenler var:
+
+```python
+# kumeleme/yeni_magaza.py
+STATIKLER = ("bolge", "metropol", "iklim", "tip", "log_m2", "enlem")
+```
+
+Bölge, metropolde olup olmadığı, şehrin iklim sınıfı, AVM ya da cadde,
+metrekarenin logaritması ve enlem. Ciro, satış, kapasite girmiyor. Her
+biri bir blok; kümelenmiş mağazalarda standartlanıyor ve bloklar eşit
+ağırlık alıyor, dördüncü yazıdaki ilkeyle.
+
+Yeni mağaza, bu uzayda kendisine en yakın beş kümelenmiş mağazanın
+çoğunluk kümesine konuyor:
+
+```python
+# kumeleme/yeni_magaza.py (ata; en yakın 5 komşu)
+d = ((B[:, None, :] - A[None, :, :]) ** 2).sum(axis=2)
+sonuc = []
+for r in d:
+    sira = np.lexsort((ref.index.to_numpy(), np.round(r, 12)))[:komsu]
+    oy = pd.Series(e[sira]).value_counts()
+    enler = set(oy.index[oy == oy.max()])
+    sonuc.append(next(e[j] for j in sira if e[j] in enler))
+```
+
+`d` yeni mağazanın her kümelenmiş mağazaya uzaklığı. Komşular uzaklığa
+göre sıralanıyor, beşi oy veriyor. Oylar eşitse, eşit oylu kümelerden en
+yakın komşununki seçiliyor. Karşılaştırma için ikinci bir yöntem de
+koşturduk: en yakın küme merkezi, yani statikleri her kümenin
+ortalamasına en yakın olan küme.
+
+### Satış görmeden ne kadar doğru
+
+İki gerçek yeni mağaza bir şey ölçmeye yetmez. Bu yüzden 67 mağazanın her
+birini bir kez yeniymiş gibi düşündük. Kümeler o mağaza olmadan yeniden
+kuruluyor, mağaza yalnız statikleriyle o kümelere atanıyor ve atandığı
+küme, satışıyla düştüğü kümeyle karşılaştırılıyor. Buna bırakbir
+diyoruz.
+
+```python
+# kumeleme/yeni_magaza.py (birakbir)
+for m in ids:
+    digerleri = [i for i in ids if i != m]
+    e = fn_kume(Z.loc[digerleri]).copy()
+    e.index = e.index.astype(str)
+    harita = _tam_etikete(e, tam)
+    a = ata(st.loc[[m]], st.loc[digerleri], e, yontem=yontem, komsu=komsu).iloc[0]
+```
+
+Bir mağaza çıkınca kümeler pek değişmiyor: 67 bırakbirin 65'inde (%97,0)
+kalan mağazaların bölmesi asıl bölmeyle aynı.
+
+Bu ölçünün güzel bir yanı var: cevap anahtarı istemiyor. Karşılaştırma
+mağazanın kendi satış kümesiyle yapılıyor; gerçek bir zincirde de
+kurulabilir. Lumoda'da kümeler cevap anahtarıyla birebir aynı olduğu için
+aşağıdaki sayılar aynı zamanda doğru müşteri profiline isabet.
+
+| Yöntem | Hepsi | Metropol | Metropol dışı |
+|---|---:|---:|---:|
+| En yakın 5 komşu | 55/67 (%82,1) | 10/21 (%47,6) | 45/46 (%97,8) |
+| En yakın küme merkezi | 47/67 (%70,1) | 6/21 (%28,6) | 41/46 (%89,1) |
+| Herkese en büyük küme | 32/67 (%47,8) | 7/21 (%33,3) | 25/46 (%54,3) |
+
+Son satır bir taban: hiçbir şeye bakmadan her yeni mağazayı en kalabalık
+kümeye, Anadolu aile kümesine koymak.
+
+Metropol dışında iş kolay. Beş komşu 46 mağazanın 45'ini doğru kümeye
+koyuyor. Üçüncü yazıda konum kuralının da metropol dışında 46/46 isabet
+ettiğini görmüştük; orada şehir müşteri hakkında çok şey söylüyor.
+
+Metropolde ise beş komşu 21 mağazanın 10'unu buluyor. Taban 7. Metropoldeki
+21 mağazada üç profil var ve statik bilgi onları ayırmaya pek yetmiyor. En
+yakın küme merkezi metropolde tabanın bile altında kalıyor. Nedeni kümelerin biçimi: en büyük küme hem Anadolu'nun
+metropol dışı mağazalarını hem İstanbul'un bir kısmını taşıyor. Merkezi bu
+iki grubun ortasına düşüyor ve iki gruba da tam benzemiyor. Komşu yöntemi
+ise yalnız yakındakilere bakıyor. Bütün mağazalarda iki yöntemin farkı
+11,9 puan.
+
+Bu seçim hakkında bir şeyi açıkça söylemem gerekiyor. Komşu sayısını, beşi,
+sonuçları görmeden yazmıştık. Ama iki yöntemden hangisinin varsayılan
+olacağına sonuçları gördükten sonra karar verdik. Ölçüt cevap anahtarı
+değildi, mağazanın kendi satış kümesiydi; yine de seçim sonuca bakılarak
+yapıldı. Bu yüzden iki yöntemi de basıyorum.
+
+### İki gerçek mağaza
+
+Kocaeli 1 Marmara'da, metropol dışında, 916 metrekarelik bir AVM mağazası.
+Beş komşu onu en büyük kümeye, Anadolu aile kümesine koyuyor. Cevap
+anahtarına göre de müşterisi Anadolu aile: isabet.
+
+İzmir 2 bir metropol mağazası: İzmir'de, 770 metrekarelik bir AVM. Beş
+komşu onu metropol genç kümesine koyuyor, en yakın merkez de. Cevap
+anahtarına göre müşterisi Anadolu aile: ıska.
+
+— İstanbul 13 gibi, diyor Ali.
+
+Evet. İzmir 2, ilk yazıdaki İstanbul 13'ün durumunda: metropolde bir
+Anadolu aile mağazası. İstanbul 13'ü satışından tanıdık. İzmir 2'nin
+satışı yok; haritadaki yeri onu metropolün genç müşterisine benzetiyor.
+
+— Peki ben İzmir 2'nin planını neye göre yazacağım? diyor Pelin.
+
+— Komşularının kümesine göre, diyor Pars. Başka bilgin yok. Ama bu kümeyi
+geçici say. Mağazanın yarım yıllık satışı olunca karışımıyla yeniden
+kümele. Metropolde ilk tahminin yarı yarıya tutuyor.
+
+## Kümeye göre pay
+
+Şimdi kümeyi bir karara bağlayalım: ilk sevkiyata.
+[İlk Sevkiyat](/allocation/ilk-sevkiyat/) dizisinde yeni bir ürünün
+paketleri mağazalara bir payla bölünüyordu. Kollardan biri
+<T k="benzer-urun">benzer ürünlerin</T> geçmişine bakıyordu: geçmişte
+benzer ürünler bir mağazada ne kadar hızlı sattıysa, yeni ürünün o
+mağazadaki payı o kadar. Hız göreliydi; bir mağazanın bir üründeki
+talebi, o ürünü almış mağazaların ortalama talebine bölünüyordu.
+Kalibrasyon bu kolu kaba düzeye indirdiği için ona sonunda mağazanın
+geçmiş payı demiştik.
+
+İkinci yazıda bir fikir ortaya atmıştık. Bir mağazanın tek başına yeterli
+geçmişi olmayabilir; aynı kümedeki yedi mağazanın olur. Küme payı bu
+fikrin hesabı: aynı endeks, mağaza yerine küme düzeyinde.
+
+```python
+# kumeleme/kume_payi.py (ogren; denetim satırları çıkarıldı)
+t = _gozlemler(tablo, mevsim)
+optionlar, magazalar, g = _goreli(t)
+kumeler = tuple(sorted(set(et.values())))
+G = np.full((len(optionlar), len(kumeler)), np.nan)
+uye = np.array([et.get(m) for m in magazalar], dtype=object)
+for j, c in enumerate(kumeler):
+    sut = uye == c
+    if sut.any() and len(optionlar):
+        G[:, j] = _ortalama(g[:, sut], axis=1)
+```
+
+`g`, her geçmiş ürünün her mağazadaki göreli hızı; İlk Sevkiyat'taki
+tanımın aynısı. `G` kümenin göreli hızı: kümenin o ürünü almış
+mağazalarının göreli hızlarının ortalaması. Yeni bir ürün için kümenin
+endeksi, seçilen benzerlik düzeyindeki geçmiş ürünlerde `G`'nin
+ortalaması.
+
+Kümenin endeksi kümenin bütün mağazalarına aynı. Mağazayı kümesinden
+ayıran şey ölçeği:
+
+```python
+# kumeleme/kume_payi.py (_olcek)
+for c in sorted(set(et.values())):
+    uyeler = [m for m, k in et.items() if k == c]
+    gozlemli = [m for m in uyeler if m in r]
+    ort = float(np.mean([r[m] for m in gozlemli])) if gozlemli else 0.0
+    oran = {m: r[m] / ort for m in gozlemli} if ort > 0 else {m: 1.0 for m in gozlemli}
+    medyan = float(np.median(list(oran.values()))) if oran else 1.0
+    for m in uyeler:
+        sonuc[m] = float(oran.get(m, medyan))
+```
+
+`r(m)` mağazanın bütün geçmiş ürünlerdeki ortalama göreli hızı, yani ne
+kadar büyük bir mağaza olduğu. Ölçek bunun kümenin ortalamasına oranı.
+Pay, kümenin endeksi çarpı mağazanın ölçeği:
+
+```python
+# kumeleme/kume_payi.py (KumeEndeksi.paylar; döngünün içi)
+v = float(endeks[konum[self.etiket[m]]] * float(olcek[m]))
+```
+
+İkinci yazıda "ölçek kaybolmaz, planın ikinci adımında işe girer"
+demiştik. İşte o adım: karışım kümeden, büyüklük mağazadan geliyor.
+
+### Yeni mağaza payını kümeden alıyor
+
+Ölçek kodunun son satırına bakın: `oran.get(m, medyan)`. Geçmiş ilkbahar-yaz
+sezonunda hiç satışı olmayan mağaza, kümesinin ortadaki mağazasının
+ölçeğini alıyor. İzmir 2 ile Kocaeli 1 bu durumda. İkisi de karışımı
+kümesinden, büyüklüğü kümesinin ortasından alıyor.
+
+İlk Sevkiyat'taki mağazanın geçmiş payı kolu böyle bir mağazayı ortalama
+mağaza sayıyordu: her ürüne aynı göreli hız. Kümenin yeni mağazaya
+verdiği ilk şey bu: zincirin ortalaması yerine kendisine benzeyen
+mağazaların karışımı. Bu grup Kocaeli 1'de doğru, İzmir 2'de yanlış
+seçildi. Bu iki mağazanın sezon sonundaki sonucunu ayrıca ölçmedik.
+
+### Kalibrasyon
+
+Benzerlik düzeyi İlk Sevkiyat'takiyle aynı hiyerarşiden seçiliyor: alt
+kategori × fiyat segmenti × kalıptan başlayıp üst kategoriye ve en sonda
+mağazanın bütün geçmiş Collection'ına iniyor. Yeni ürün için, yeterince
+çok benzeri olan ilk düzey kullanılıyor. "Yeterince çok"un kaç olduğunu,
+İlk Sevkiyat'taki gibi, bir önceki ilkbahar-yaz sezonunda ölçtük; oyun
+sezonuna bakmadan. Kümeleri de o sezonun karar gününde, o güne kadarki
+veriyle yeniden kurduk.
+
+Hipotez şuydu: kümede birleştirmek gürültüyü azaltır, mağaza düzeyinde
+gürültüye boğulan ince benzerlik küme düzeyinde işe yarar. Satış karışımı
+kümelerinde pay hatası, en ince düzeyden başlayınca:
+
+| En az benzer ürün | Pay hatası |
+|---|---:|
+| 3 | 0,259 |
+| 5 | 0,250 |
+| 10 | 0,243 |
+| 20 | 0,239 |
+| 40 | 0,237 |
+| 80 | 0,237 |
+
+İlk Sevkiyat'ın üçüncü yazısındaki tablonun neredeyse aynısı. Az benzerle
+ince düzey küme düzeyinde de gürültülü; eşik büyüdükçe hata düşüyor ve
+40'ta düzleşiyor. Doğrudan üst kategoriden ya da yalnız genelden
+başlamak da aynı hatayı veriyor: 0,237. Aynı sezonda mağazanın geçmiş
+payının hatası 0,235, Lumoda'nın plan payınınki 0,236.
+
+Kalibrasyon en az 40 benzer ürün eşiğini seçti. Bu eşik kalibrasyon
+sezonunda hiçbir üründe alt kategoriye inmiyordu. Oyun sezonunda
+öğrenilecek geçmiş bir sezon daha uzun ve aynı eşik 210 yeni ürünün
+68'inde alt kategori düzeyini kullanıyor, 109'unda üst kategoriyi,
+33'ünde mağazaların bütün geçmiş Collection'ını. Alt kategoriden ince iki
+düzey hiçbir üründe kullanılmıyor.
+
+Yani hipotez bu veride tutmadı. Kalibrasyon, geçmiş sezonda kaba düzeye
+denk gelen yüksek bir örnek eşiği seçti; ince düzey ancak çok örnek
+olduğunda kullanılıyor. İlk Sevkiyat'ta mağazanın geçmiş payının kaba
+düzeye inmesi kümede de tekrarlandı.
+
+## İlk Sevkiyat'a köprü
+
+Küme payını İlk Sevkiyat'ın oyun sezonunda dört gruplamayla koşturduk:
+ciro sınıfı, bölge, satış karışımı kümeleri ve cevap anahtarının
+kendisi. Sonuncusu yalnız ölçüm için: gruplama kusursuz olsaydı ne
+olurdu? Dört kol da Lumoda'yla aynı malı gönderiyor; yalnız mal
+mağazalara başka paylarla bölünüyor.
+
+İlk Sevkiyat'ın asıl ölçütü bulunabilirlikti: fiziksel bir mağazada bir
+bedene talep olan günlerin yüzde kaçında o beden raftaydı. Satış karışımı
+kümeleriyle %69,53. Mağazanın geçmiş payı %69,51, Lumoda'nın plan payı
+%68,98, mağaza mağaza tahmin yapan LightGBM modeli %70,41.
+
+Küme payı Lumoda'nın planını geçiyor, mağazanın kendi geçmişine
+yetişiyor, ama geçmiyor. Model önde. Ötekiler, beş müşteri akışı ve
+kümenin bu sonuçta neyi değiştirip neyi değiştirmediği, son yazının
+konusu.
+
+## Sizin verinizde zor olan
+
+Birincisi kümeleri ne zaman yeniden kuracağınız. Lumoda'da bir yılın
+satışı kümeyi oynatıyor, iki yılınki oturtuyor. Sizin zincirinizde iki
+yıl arasında kümeler değişiyorsa ya müşteri değişmiştir, ya da bir yılın
+satışı yetmiyordur. Lumoda'da bunu cevap anahtarıyla ayırabildik. Sizin
+elinizde anahtar olmayacak; uzun pencere de müşterisi gerçekten değişen
+bir mağazayı geç fark eder. Hangi mağazaların her seferinde kenarda
+kaldığını bilmek, ikisini ayırmanın ilk adımı.
+
+İkincisi yeni mağaza. Satışı olmayan bir mağaza için elinizde yalnız
+haritası var. Lumoda'da harita metropol dışında çok şey biliyor,
+metropolde pek az şey. Sizin statik bilginiz, yani mağaza tipi,
+metrekare, şehir ve belki semtin nüfus bilgisi, ne kadar biliyor? Bunu
+bırakbirle ölçebilirsiniz; cevap anahtarı gerekmiyor. Yeni mağazanın
+kümesini ilk satışlar gelince yeniden açacak bir rutin de gerekiyor;
+yoksa geçici küme kalıcı olur.
+
+Üçüncüsü küme payının girdisi. Göreli hız, İlk Sevkiyat'taki gibi sansürü
+düzeltilmiş talepten geliyor: rafta mal yokken kaybolan talebi tahmin
+etmeden mağazanın hızını ölçemezsiniz. Bu, kümelemeden önce çözülmesi
+gereken bir sorun; [Satış Kaybı](/is-zekasi/satis-kaybi/) dizisi onu
+anlatıyor.
+
+Son yazıda hesabı topluyoruz: bir kümelemenin iyi olduğunu neyle anlarız
+ve kümeye göre pay İlk Sevkiyat'ta tam olarak ne verdi?
