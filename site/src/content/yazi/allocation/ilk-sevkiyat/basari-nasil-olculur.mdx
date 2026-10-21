@@ -5,8 +5,8 @@ sira: 6
 ozet: >-
   İlk sevkiyatın sonucu sezon sonunda görünür ve o zaman başka kararlarla
   karışmıştır. Hangi ölçüt neyi söylüyor, farkın ne kadarı ilk sevkiyatın
-  kendi eseri, sonuç başka müşteri akışlarında da tutuyor mu ve tek paketin
-  bedeli ne?
+  kendi eseri, sonuç başka müşteri akışlarında da tutuyor mu, kümeye göre
+  plan ne veriyor ve tek paketin bedeli ne?
 yazar: Sabri Suyunu
 durum: yayinda
 ---
@@ -146,6 +146,64 @@ Model bu farkın yarısından fazlasını kapatıyor. Kahinin kendi kazancı da
 küçük: pay neredeyse kusursuzken bile 2,25 puan. Payı doğru bilmek,
 sezonun geri kalanında olan şeyleri değiştirmiyor.
 
+## Kümeye göre plan
+
+Üçüncü yazıda mağazaları kümelere toplamanın ince benzerliğe bir şey
+kazandırmadığını gördük. Peki payı kümenin geçmişinden alan bir plan sezon
+sonunda ne veriyor? Bu, [Mağaza Gruplama](/magaza-kumeleme/magaza-gruplama/)
+dizisinin asıl sorusu. O dizinin üç gruplamasını burada aynı malla
+koşturduk: bölge, ciro sınıfı ve satış karışımından makine öğrenmesiyle
+bulunan kümeler. Dördüncü kol mağazaların gizli profiline göre kümeliyor
+(o dizinin cevap anahtarı). Bu kol kahin gibi bir ölçek; gerçek hayatta bu
+profil bilinmiyor. Payın hesabı üçüncü yazıdaki mağazanın geçmiş payıyla aynı,
+yalnız mağazanın değil kümenin geçmişinden. Kümelerin nasıl kurulduğunu o
+dizi anlatıyor.
+
+Yayımlanan akışta, tavansız ve aynı ilk sevkiyat malıyla:
+
+| | Pay hatası | Bulunabilirlik | Sezon sonunda elde kalan | Brüt kâr |
+|---|---:|---:|---:|---:|
+| Lumoda (plan payı) | 0,235 | %68,98 | %19,77 | 534.433.105 TL |
+| Küme: ciro sınıfı | 0,241 | %69,19 | %20,44 | 531.930.817 TL |
+| Küme: bölge | 0,236 | %69,35 | %19,74 | 532.789.729 TL |
+| Küme: makine öğrenmesi | 0,230 | %69,53 | %19,65 | 534.816.112 TL |
+| Küme: gizli profil | 0,231 | %69,51 | %19,55 | 534.298.578 TL |
+| Mağazanın geçmiş payı | 0,229 | %69,51 | %19,65 | 535.147.736 TL |
+| Model | 0,171 | %70,41 | %17,74 | 550.029.513 TL |
+
+Makine öğrenmesi kümelerine göre plan, bulunabilirlikte mağazanın kendi
+geçmiş payıyla aynı yerde: %69,53'e karşı %69,51. Pay hatasında ve brüt
+kârda biraz geride. Gizli profil de mağazanın geçmiş payını geçmiyor.
+Model ikisinin de açıkça önünde.
+
+Ciro sınıfına göre plan Lumoda'ya pek bir şey katmıyor. Bulunabilirlikte
+biraz önde, %69,19'a karşı %68,98. Ama pay hatası daha kötü, elde kalan mal
+daha çok ve brüt kâr 2.502.288 TL daha az. Bölge de brüt kârda Lumoda'nın
+gerisinde; gizli profil bile çok az geride.
+
+Beş yolda, bulunabilirlik:
+
+| Karşılaştırma | Kaç yolda önde | Farkın yol medyanı |
+|---|---:|---:|
+| Küme (makine öğrenmesi) − Lumoda | 5/5 | +0,55 puan |
+| Küme (makine öğrenmesi) − mağazanın geçmiş payı | 3/5 | +0,01 puan |
+| Küme (makine öğrenmesi) − model | 0/5 | −0,93 puan |
+| Küme (gizli profil) − küme (makine öğrenmesi) | 2/5 | −0,02 puan |
+
+Makine öğrenmesi kümeleri beş yolun beşinde Lumoda'nın önünde; elde kalan
+malda ve pay hatasında da. Mağazanın geçmiş payına karşı sonuç başa
+baş: önde olduğu üç yolda fark bir ondalıkla 0,0, geride kaldığı iki
+yolda −0,3 puan. Pay hatasında beş yolun hiçbirinde önde değil. Gizli
+profil de makine öğrenmesi kümelerinden ayrışmıyor.
+
+Yani kümeye göre plan Lumoda'nın bugünkü planından iyi, ama mağazanın kendi
+geçmişine yetişiyor, onu geçmiyor. Kümelemenin ulaşabileceği en iyi yapı
+bile geçmiyor. Bu vakada mağazanın kendi geçmişi, kümesinin ortalamasının
+bildiğini zaten biliyor görünüyor. Kümenin geçmişi olmayan mağazada
+farklı bir rolü var: yeni bir mağaza payını kümesinden alıyor, mağazanın
+geçmiş payında ise ortalama mağaza sayılıyor. Bunun etkisini bu dizide
+ayrıca ölçmedik.
+
 ## Tek paketin bedeli
 
 Kaybın büyük bir kısmının mağazayla değil bedenle ilgisi var. Bunu şöyle
@@ -194,7 +252,8 @@ bu sınama söylemiyor.
 
 **Kahin gerçek değil.** "Gizli gerçeği bilseydik" kolu. Gerçek hayatta
 böyle bir kol kurulamaz; burada yalnız bir ölçek. Orantılı payın en iyi
-dağıtım olduğu da kanıtlanmış değil.
+dağıtım olduğu da kanıtlanmış değil. Gizli profile göre kümeleme de öyle:
+gerçek bir zincirde mağazaların gizli profili bilinmez.
 
 **Kalibrasyonun iki seçimi hakemle puanlandı.** Tavanı açık seçmemiz ve
 belirsizlik eğrisinin dikliği, bir önceki ilkbahar-yaz sezonunun
@@ -254,7 +313,8 @@ yapmamıştı.
 
 Altı yazı sonra elimizde şunlar var. Plan payı eşitten iyi; plan bir şey
 biliyor. Mağazanın geçmiş payı plandan yalnız biraz iyi, çünkü ikisi de aynı şeyi
-biliyor.
+biliyor. Payı mağazanın kümesinden almak da plandan iyi, ama mağazanın kendi
+geçmişini geçmiyor.
 Mağaza mağaza tahmin yapan bir model aynı malla planın önünde, beş yolun
 beşinde. Payı neredeyse kusursuz bilmek bile sezonun hepsini çözmüyor.
 Depoda mal tutmak işe yarıyor, payınız ne kadar kötüyse o kadar çok. Ve

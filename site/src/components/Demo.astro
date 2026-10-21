@@ -11,6 +11,8 @@
 // büyüdüğü için (parametre başına değer sayılarının çarpımı) kurallar elle
 // yazılamaz — burada, aşağıda, sonuç anahtarlarından üretilir.
 
+import { demoDegeri } from '../lib/demoBicim'
+
 interface Props {
   dizi: string
 }
@@ -149,7 +151,7 @@ const demoStil = [
             {olcutler.map((olcut) => (
               <div>
                 <dt>{ETIKETLER[olcut] ?? olcut}</dt>
-                <dd>{sonuclar[anahtar].ozet[olcut].toLocaleString('tr-TR')}</dd>
+                <dd>{demoDegeri(olcut, sonuclar[anahtar].ozet[olcut])}</dd>
               </div>
             ))}
           </dl>

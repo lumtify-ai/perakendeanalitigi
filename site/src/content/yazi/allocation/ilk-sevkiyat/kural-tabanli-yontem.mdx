@@ -249,6 +249,51 @@ yakın: kalibrasyonda 0,235'e karşı Lumoda 0,236; oyun sezonunda 0,229'a
 karşı 0,235. Bulunabilirlikte mağazanın geçmiş payı Lumoda'nın 0,53 puan
 önünde: %69,51'e karşı %68,98.
 
+## Mağazalar bir araya gelince
+
+Gürültü açıklaması bir soruyu açık bırakıyor. Tek bir mağazanın birkaç
+benzer üründeki satışı rastlantıyla doluysa, birbirine benzeyen mağazaları
+bir araya koymak bu rastlantıyı azaltmalı. Ürünün satışı tek mağazada değil,
+bir grup mağazada ortalanır. O zaman ince benzerlik işe yarar mı?
+
+Bunu [Mağaza Gruplama](/magaza-kumeleme/magaza-gruplama/) dizisinin
+gruplarıyla sınadık. O dizinin gruplamalarından üçünü aldık: bölge, ciro
+sınıfı ve satış karışımından makine öğrenmesiyle bulunan kümeler.
+Dördüncüsü mağazaların gizli profili, yani o dizinin cevap anahtarı. Bu
+yalnız bir ölçü; gerçek hayatta bu profili kimse bilmiyor. Kümelemenin
+ulaşabileceği en iyi yapıyı gösteriyor.
+
+Hesap bu yazınınkiyle aynı, yalnız bir düzey yukarıda. Bir geçmiş üründe
+kümenin göreli hızı, üye mağazaların göreli hızlarının ortalaması. Mağazanın
+payı, kümesinin göreli hızı çarpı mağazanın kümesi içindeki büyüklüğü.
+
+Kalibrasyonu yine bir önceki ilkbahar-yaz sezonunda, oyun sezonuna
+bakmadan yaptık. Izgaraya bir boyut ekledik: benzerliğin hiyerarşinin hangi
+düzeyinden başlayacağı. Sonuç tek mağazadakiyle aynı çıktı. En özel
+düzeyden başlayıp 3 benzer üründe yetinen ayar, dört gruplamanın hepsinde
+en kötüsü; makine öğrenmesi kümelerinde pay hatası 0,259. Orada eşik
+büyüdükçe hata düşüyor ve kaba düzeylerin hatasına iniyor: 0,237.
+
+Kalibrasyonun seçtiği ayarlar, geçmiş sezonda kaba düzeye denk geliyor:
+ya doğrudan üst kategoriden başlıyor ya da o kadar yüksek bir örnek eşiği
+istiyor ki geçmiş sezonun hiçbir ürününde ince düzeye inilmiyor. İnce düzey
+ancak çok benzer ürün olduğunda devreye giriyor. Oyun sezonunda aynı ayar,
+makine öğrenmesi kümelerinde 210 ürünün 68'i için alt kategoriye iniyor;
+109'u üst kategoride, 33'ü en genel düzeyde kalıyor.
+
+En iyi ayarda pay hatası ciro sınıfında 0,238, bölgede 0,235, makine
+öğrenmesi kümelerinde ve gizli profilde 0,237. Mağazanın kendi geçmiş payı
+aynı sezonda 0,235'ti. Gruplama hatayı düşürmedi.
+
+Yani benzerliği gevşek tutmanın kazandırması tek mağazanın gürültüsünden
+ibaret değil; kümede de en iyi ayar, benzerliği gevşek tutan ayar. Akla
+yatkın bir açıklama şu: kümeler mağazaları topluyor, ürünleri değil. Birkaç
+benzer ürün, kaç mağazada ortalanırsa ortalansın, birkaç ürün olarak
+kalıyor.
+Oyun sezonunda da makine öğrenmesi kümelerinin pay hatası 0,230, mağazanın
+kendi geçmiş payınınki 0,229. Kümeye göre planın sezon sonunda ne verdiğini
+altıncı yazıda topluyoruz.
+
 ## Sansür düzeltmesi
 
 Benzer ürünlerin geçmiş satışı bir şeyi saklıyor. Bir mağazada ürün erken
@@ -373,8 +418,9 @@ boşlukta kalmıştı.
 Birincisi öznitelik verisi. Benzer ürünü tanımlamak için alt kategori,
 fiyat segmenti, kalıp gibi alanların her üründe doğru ve tutarlı
 kaydedilmesi gerekiyor. Lumoda'da bu alanlar eksiksiz, yine de ince
-benzerlik kazandırmadı. Gerçek bir zincirde aynı kalıba üç farklı ad
-verilmiş, alanların yarısı boş bırakılmış olabilir. Orada benzer ürün
+benzerlik kazandırmadı; mağazaları kümelere toplayınca bile. Gerçek bir
+zincirde aynı kalıba üç farklı ad verilmiş, alanların yarısı boş bırakılmış
+olabilir. Orada benzer ürün
 yöntemi, kâğıt üstünde göründüğünden de zayıf kalır.
 
 İkincisi sansürlü geçmiş. Geçmiş ürünlerin talebini düzeltmek için her
