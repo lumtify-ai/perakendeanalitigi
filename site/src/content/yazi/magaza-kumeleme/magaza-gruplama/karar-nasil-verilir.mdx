@@ -12,7 +12,7 @@ durum: yayinda
 
 import T from '../../../../components/T.astro'
 
-Geçen yazıyı tek cümleyle bitirmiştik: mağaza kümesi, satış karışımı
+Geçen yazıyı tek cümlelik bir tanıma bağlamıştık: mağaza kümesi, satış karışımı
 birbirine benzeyen mağazaların, planın ve ilk sevkiyatın tek birim gibi ele
 aldığı grubudur. Bu yazıda o kararı parçalarına ayırıyoruz. Formül yok;
 kuralları üçüncü yazıda, makine öğrenmesini dördüncü yazıda kuracağız. Bu
@@ -108,21 +108,25 @@ olacak.
 Pelin'in ızgarasında 12 hücre vardı. Satış karışımına bakan yöntem beş
 küme buldu.
 
-— Beş az değil mi? diyor Pelin. On iki hücreyle bile yetinemiyorduk.
+— Beş mi? diyor Pelin. Ben on iki hücreyle çalışıyordum, Ali ile Veli
+ikiye indirmek istiyordu. Doğru sayıyı neye göre seçeceğiz?
 
-— Hücre sayısı değil, hücredeki mağazaların birbirine benzemesi önemli,
-diyor Pars. Aynı müşteriye satan on mağazayı ikiye bölmek planı inceltmez,
-yalnız gürültüsünü artırır.
+— Sayıya değil, gruptaki mağazaların birbirine benzemesine bakarak, diyor
+Pars. Aynı müşteriye satan on mağazayı ikiye bölmek planı inceltmez, yalnız
+gürültüsünü artırır. Başka müşterilere satan mağazaları tek grupta toplamak
+da planı bulandırır.
 
-Kaç küme kurulacağını anahtarsız bir ölçüt seçiyor: siluet. Her mağaza için
-kendi kümesindeki mağazalara ne kadar yakın olduğuna, en yakın öteki
-kümeye ne kadar uzak olduğuna bakar. 1'e yaklaştıkça kümeler birbirinden
-net ayrılıyor, 0'a yaklaştıkça iç içe geçiyor demektir. Lumoda'da en yüksek
-siluet beş kümede çıkıyor: 0,308.
+— Kaç küme kurulacağına cevap anahtarına bakmadan karar veriyoruz, diye
+devam ediyor Pars. Ölçütün adı siluet. Her mağazaya bakar: kendi kümesindeki
+mağazalara ne kadar yakın, en yakın öteki kümeye ne kadar uzak? 1'e
+yaklaştıkça kümeler birbirinden net ayrılıyor, 0'a yaklaştıkça iç içe
+geçiyor. Lumoda'da en yüksek siluet beş kümede çıkıyor: 0,308.
 
-0,308 küçük görünebilir. Neye göre küçük olduğuna bakmak için aynı veriyi
-yapısını bozarak, her sütunu kendi içinde karıştırarak kümeledik. Yapısız
-veride siluet 0,047. Gerçek veride bir yapı var.
+— Bu düşük değil mi? diyor Pelin.
+
+— Neye göre düşük olduğuna bakmak lazım, diyor Pars. Aynı veriyi yapısını
+bozarak kümeledik; her sütunu kendi içinde karıştırdık. Yapısız veride
+siluet 0,047. Gerçek veride bir yapı var.
 
 ## İş kısıtları
 
