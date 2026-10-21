@@ -32,8 +32,9 @@ kalibrasyonun seçimi (`kalibrasyon.json`), yalnız benzer ve tahminde etkin.
     demo          esit, benzer, tahmin × DEMO_TUTMA'nın t > 0'ları; benzer ve tahmin tavansız
                   (öteki demo noktaları başka bloklarda; `demo_haritasi`)
     kume          küme kolları (Mağaza Kümeleme vakası, spec 2026-10-20 §4.4): kume_k2 (ciro sınıfı),
-                  kume_k1 (bölge), kume_ml (önerilen ML kümesi, yeni mağaza 5-NN), kume_gizli (gizli
-                  segment: kümelemenin ulaşabileceği en iyi yapı, YALNIZ ÖLÇÜM kolu); pay =
+                  kume_k1 (bölge), kume_k3 (bölge × ciro ızgarası: Lumoda'nın grupları, Ruling R21),
+                  kume_ml (önerilen ML kümesi, yeni mağaza 5-NN), kume_gizli (gizli segment:
+                  kümelemenin ulaşabileceği en iyi yapı, YALNIZ ÖLÇÜM kolu); k1, k2, k3 yalnız yol 0; pay =
                   `kumeleme.kume_payi` (küme düzeyi benzer endeksi × mağaza ölçeği), `KahinKol` ile
                   (kayıttaki kol adı "kahin", Ruling R2), t = 0, tavansız: Lumoda'yla aynı mal (⌊U⌋)
 
@@ -59,10 +60,10 @@ kalibrasyonun ölçüsüyle (`kalibrasyon.belirsizlik_olculeri`) ve `kalibrasyon
 (ağırlık ilk alım, t̄ = %30); γ kalibrasyonun seçimi, ölçünün Spearman'ı ≤ 0 ise 0 (sabit tutma).
 
 **Küme kolları** (`kume` bloğu; `Girdi.kume_payi`). Kümeler: TAM yol 0'da git'teki
-`vakalar/kumeleme/kumeler.json`'dan (`kumeleme.oyun.kumeler_oku`; K1, K2 ve ML `olcum=False` ile,
+`vakalar/kumeleme/kumeler.json`'dan (`kumeleme.oyun.kumeler_oku`; K1, K2, K3 ve ML `olcum=False` ile,
 gizli segment ayrı bir `olcum=True` okumasıyla); başka her yolda (ve KÜÇÜK dünyada) kümeleme
 paketinin işlevleriyle o yolun kendi tablolarından, aynı karar gününde yeniden kurulur
-(`kumeleri_kur`: kapsam, K1, K2, ML önerisi, yeni mağazaya 5-NN; CRM yok). Gizli segment dünyadan
+(`kumeleri_kur`: kapsam, K1, K2, K3, ML önerisi, yeni mağazaya 5-NN; CRM yok). Gizli segment dünyadan
 (`kumeleme.hakem.gizli_segment`). Pay sözlüğü kapsamın her aday (option, mağaza) çiftini taşır
 (`kalibrasyon.aday_yaklasik`; `KahinKol` sözlükte olmayan adaya 0 verir): her küme kolunun sözlüğü
 `cikti/kume_paylari.json`'a yazılır, rapor koşunun kimliğiyle ve kararlarındaki adaylarla denetler.
@@ -121,7 +122,9 @@ TAVANLI = ("benzer", "tahmin")
 OLCUM_SURUMU = 1
 
 # Küme kolları: yapı → ad (rapor ve yazılar koşu adıyla anar; politikadaki sınıf KahinKol, Ruling R2)
-KUME_YAPILARI = {"k2": "ciro sınıfı (K2)", "k1": "bölge (K1)", "ml": "önerilen ML kümesi (yeni mağaza 5-NN)",
+KUME_YAPILARI = {"k2": "ciro sınıfı (K2)", "k1": "bölge (K1)",
+                 "k3": "bölge × ciro ızgarası (K3; Lumoda'nın grupları, birleştirilmiş hücreler; Ruling R21)",
+                 "ml": "önerilen ML kümesi (yeni mağaza 5-NN)",
                  "gizli": "gizli segment (yalnız ölçüm: kümelemenin ulaşabileceği en iyi yapı)"}
 # Küme payının koşusuz kalibrasyon ızgarası (SS24; İlk Sevkiyat R12 kalıbı): hiyerarşinin ilk düzeyi `bas`
 # (0 en ince alt kategori × fiyat × kalıp … 4 yalnız genel; `kume_payi.HIYERARSI[bas:]`) × en az örnek eşiği
@@ -490,7 +493,7 @@ def kumeleri_kur(tablolar, karar_gunu, gizli: pd.Series, oneri_ayari: dict | Non
     gizli      mağaza → gizli segment (`kumeleme.hakem.gizli_segment`; yalnız ölçüm kolu)
     oneri_ayari  `kumeleme.ogren.oneri`'nin `k_aralik` / `en_kucuk`'u (yalnız testler; `Ortam.kume_oneri`)
 
-    Kümeleme vakasının koşumuyla (`kumeleme.oyun.kos`) aynı adımlar: kapsam, K1 bölge, K2 ciro sınıfı,
+    Kümeleme vakasının koşumuyla (`kumeleme.oyun.kos`) aynı adımlar: kapsam, K1 bölge, K2 ciro sınıfı, K3,
     önerinin S1/S2 adaylarından seçilen ML kümesi, yeni mağazaya statiklerle 5-NN (`yeni_magaza.ata`)."""
     con = tablolar if isinstance(tablolar, duckdb.DuckDBPyConnection) else _bellek_baglantisi(tablolar)
     karar = pd.Timestamp(karar_gunu).normalize()
@@ -509,7 +512,7 @@ def kumeleri_kur(tablolar, karar_gunu, gizli: pd.Series, oneri_ayari: dict | Non
     eksik = sorted(set(ids) - set(gizli.index.astype(str)))
     if eksik:
         raise ValueError(f"gizli segmenti olmayan kapsam mağazası: {eksik}")
-    etiket = {"k2": g["k2"], "k1": g["k1"], "ml": ml, "gizli": gizli.loc[ids]}
+    etiket = {"k2": g["k2"], "k1": g["k1"], "k3": g["k3"], "ml": ml, "gizli": gizli.loc[ids]}
     kaynak_adi = f"yeniden kuruldu ({karar.date().isoformat()})"
     bilgi = {y: _kume_bilgisi(e, kaynak_adi) for y, e in etiket.items()}
     bilgi["ml"].update(aile=o.aile, yontem=o.yontem, k=int(o.k), oneri_kimligi=o.kimlik,
@@ -521,7 +524,7 @@ def kumeleri_kur(tablolar, karar_gunu, gizli: pd.Series, oneri_ayari: dict | Non
 
 def kumeler_json_yapilari(karar_gunu, yol=kumeleme_oyun.KUMELER) -> dict:
     """TAM yol 0: git'teki `kumeler.json`'un karar günü eşlemeleri (Ruling R3); `kumeleri_kur` biçiminde.
-    K1, K2, ML `kumeler_oku(olcum=False)` ile (gizli alan hiç görülmez); gizli segment ayrı okumayla."""
+    K1, K2, K3, ML `kumeler_oku(olcum=False)` ile (gizli alan hiç görülmez); gizli segment ayrı okumayla."""
     k = kumeleme_oyun.kumeler_oku(yol, olcum=False)
     karar = pd.Timestamp(karar_gunu).normalize()
     if pd.Timestamp(k["karar_gunu"]) != karar:
@@ -529,6 +532,7 @@ def kumeler_json_yapilari(karar_gunu, yol=kumeleme_oyun.KUMELER) -> dict:
     gizli = kumeleme_oyun.kumeler_oku(yol, olcum=True)[kumeleme_oyun.GIZLI_ALAN]["etiket"]
     ml = {**k["ml"]["etiket"], **k["ml"]["yeni_magaza"]["atama"]}
     etiket = {"k2": pd.Series(k["kural"]["k2"]["etiket"]), "k1": pd.Series(k["kural"]["k1"]["etiket"]),
+              "k3": pd.Series(k["kural"]["k3"]["etiket"]),
               "ml": pd.Series(ml).sort_index(), "gizli": pd.Series(gizli).sort_index()}
     bilgi = {y: _kume_bilgisi(e, "kumeler.json") for y, e in etiket.items()}
     bilgi["ml"].update(aile=k["ml"]["aile"], yontem=k["ml"]["yontem"], k=int(k["ml"]["k"]),

@@ -1056,7 +1056,9 @@ def demo_bolumu(v, ek) -> None:
 
 
 KUME_KOLLARI = (("küme: ciro sınıfı (K2)", "kume_k2"), ("küme: bölge (K1)", "kume_k1"),
-                ("küme: ML önerisi", "kume_ml"), ("küme: gizli segment", "kume_gizli"))
+                ("küme: bölge × ciro ızgarası (K3)", "kume_k3"), ("küme: ML önerisi", "kume_ml"),
+                ("küme: gizli segment", "kume_gizli"))
+YALNIZ_YOL0_KUME = ("kume_k2", "kume_k1", "kume_k3")         # yollarda koşulmaz (Ruling R21: k3 de k1/k2 gibi)
 KUME_KARSILASTIRMA = (("lumoda", "lumoda"), ("esit", "pay_esit"), ("benzer (mağaza geçmişi)", "pay_benzer_tavansiz"),
                       ("tahmin (LightGBM)", "pay_tahmin_tavansiz"), ("kahin", "pay_kahin"))
 KUME_YOL_KOLLARI = ("lumoda", "benzer", "tahmin", "kume_ml", "kume_gizli")
@@ -1166,10 +1168,13 @@ def kume_bolumu(v, ek) -> None:
         print(f"  {ad} − tahmin: {_fark_satiri(v, 'pay_tahmin_tavansiz', ad)}")
     print(f"  kume_gizli − kume_ml: {_fark_satiri(v, 'kume_ml', 'kume_gizli')}")
     print(f"  kume_k2 − lumoda (ciro sınıfına göre plan ↔ Lumoda'nın mağaza planı): {_fark_satiri(v, 'lumoda', 'kume_k2')}")
+    print(f"  kume_k3 − lumoda (Lumoda'nın gruplarına göre plan ↔ Lumoda'nın mağaza planı): {_fark_satiri(v, 'lumoda', 'kume_k3')}")
+    print(f"  kume_ml − kume_k3 (ML kümesi ↔ Lumoda'nın grupları): {_fark_satiri(v, 'kume_k3', 'kume_ml')}")
     print("  bulunabilirlik farkı, bir ondalık (iki ondalıklı farkın bir kez yuvarlanmışı): " + " · ".join(
         f"{a} − {c} {isaretli(fark1(O(v, c)['bulunabilirlik'], O(v, a)['bulunabilirlik']), 1)}"
         for a, c in (("kume_ml", "pay_benzer_tavansiz"), ("kume_ml", "pay_tahmin_tavansiz"), ("kume_k2", "lumoda"),
-                     ("kume_k1", "lumoda"), ("kume_ml", "lumoda"), ("kume_gizli", "kume_ml"))))
+                     ("kume_k1", "lumoda"), ("kume_k3", "lumoda"), ("kume_ml", "lumoda"), ("kume_ml", "kume_k3"),
+                     ("kume_gizli", "kume_ml"))))
 
     yl = (v.yollar or {}).get("yollar", {})
     p_sira = sorted(yl, key=int)
@@ -1204,15 +1209,20 @@ def kume_bolumu(v, ek) -> None:
               + f" | medyan {isaretli(tek_ondalik(f['medyan']), 1)}")
 
     ml, bz, tm, lu = (O(v, a) for a in ("kume_ml", "pay_benzer_tavansiz", "pay_tahmin_tavansiz", "lumoda"))
-    k2, gz = O(v, "kume_k2"), O(v, "kume_gizli")
+    k2, k3, gz = O(v, "kume_k2"), O(v, "kume_k3"), O(v, "kume_gizli")
     yb = lambda a, c: onde[(a, c, "bulunabilirlik")]  # noqa: E731
     print(f"KÜME SORU 7 · Kümeye göre plan İlk Sevkiyat'ta mağazanın kendi geçmişinden ve LightGBM'den iyi mi; ciro sınıfına "
-          f"göre plan ne veriyor; gizli segment ne kadar ileride? Yol 0 bulunabilirlik: ML kümesi {yd(ml['bulunabilirlik'], 1)} "
+          f"göre ve Lumoda'nın gruplarına (bölge × ciro ızgarası) göre plan ne veriyor; gizli segment ne kadar ileride? "
+          f"Yol 0 bulunabilirlik: ML kümesi {yd(ml['bulunabilirlik'], 1)} "
           f"(benzer {yd(bz['bulunabilirlik'], 1)}, {isaretli(fark1(bz['bulunabilirlik'], ml['bulunabilirlik']), 1)} puan, "
           f"{yon1(ml['bulunabilirlik'], bz['bulunabilirlik'])}; tahmin {yd(tm['bulunabilirlik'], 1)}, "
           f"{isaretli(fark1(tm['bulunabilirlik'], ml['bulunabilirlik']), 1)} puan, {yon1(ml['bulunabilirlik'], tm['bulunabilirlik'])})"
           f" · pay WAPE ML {s(ml['pay_wape'], 3)} / benzer {s(bz['pay_wape'], 3)} / tahmin {s(tm['pay_wape'], 3)} · ciro sınıfı "
           f"{yd(k2['bulunabilirlik'], 1)} (Lumoda {yd(lu['bulunabilirlik'], 1)}, {isaretli(fark1(lu['bulunabilirlik'], k2['bulunabilirlik']), 1)} puan)"
+          f" · Lumoda'nın grupları (bölge × ciro ızgarası) {yd(k3['bulunabilirlik'], 1)} (Lumoda'nın mağaza planına göre "
+          f"{isaretli(fark1(lu['bulunabilirlik'], k3['bulunabilirlik']), 1)} puan, {yon1(k3['bulunabilirlik'], lu['bulunabilirlik'])}; "
+          f"ML kümesi ızgaraya göre {isaretli(fark1(k3['bulunabilirlik'], ml['bulunabilirlik']), 1)} puan, "
+          f"{yon1(ml['bulunabilirlik'], k3['bulunabilirlik'])})"
           f" · gizli segment {yd(gz['bulunabilirlik'], 1)} (ML'den {isaretli(fark1(ml['bulunabilirlik'], gz['bulunabilirlik']), 1)} puan)"
           f" · yollarda ML bulunabilirlikte benzerden {yb('kume_ml', 'benzer')[0]}/{yb('kume_ml', 'benzer')[1]['n']}, tahminden "
           f"{yb('kume_ml', 'tahmin')[0]}/{yb('kume_ml', 'tahmin')[1]['n']}, Lumoda'dan {yb('kume_ml', 'lumoda')[0]}/"
@@ -1241,6 +1251,8 @@ def kume_bolumu(v, ek) -> None:
     for ad, anahtar in oyun.MEVCUT_ANAHTARLAR.items():
         ek.append((f"KÜME: mevcut koşu {ad}'nın anahtarı değişmedi", K(v, ad)["anahtar"] == anahtar))
     ek += kume_kalibrasyon_tazeligi(v)
+    ek.append(("KÜME: kume_k1, kume_k2, kume_k3 yalnız yol 0'da (yollarda yok)",
+               not any(k in YALNIZ_YOL0_KUME for p in p_sira for k in yl[p].get("kosular", {}))))
     for p in p_sira:
         if int(p) == 0:
             continue

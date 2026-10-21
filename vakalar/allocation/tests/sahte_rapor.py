@@ -165,8 +165,9 @@ def _hikaye(kosular: dict) -> dict:
 
 
 HIYERARSI = KAL["hiyerarsi"]
-KUME_SECIM = {"k2": (0, 80), "k1": (3, 3), "ml": (0, 40), "gizli": (3, 20)}
-KUME_BOYUT = {"k2": [35, 20, 14], "k1": [20, 14, 10, 9, 8, 4, 4], "ml": [32, 14, 9, 7, 7], "gizli": [32, 14, 9, 7, 7]}
+KUME_SECIM = {"k2": (0, 80), "k1": (3, 3), "k3": (2, 10), "ml": (0, 40), "gizli": (3, 20)}
+KUME_BOYUT = {"k2": [35, 20, 14], "k1": [20, 14, 10, 9, 8, 4, 4], "k3": [11, 9, 8, 7, 6, 6, 5, 5, 4, 3, 3, 2],
+              "ml": [32, 14, 9, 7, 7], "gizli": [32, 14, 9, 7, 7]}
 
 
 def _kumeleme(yapi: str, kaynak: str) -> dict:
@@ -294,7 +295,8 @@ def tam_veri() -> rapor_b.Veri:
                    "kimlik": {y_: _kumeleme(y_, "kumeler.json")["kimlik"] for y_ in KUME_SECIM},
                    "oneri_kimligi": _kumeleme("ml", "kumeler.json")["oneri_kimligi"],
                    "yapi": {y_: {"ari": a, "ami": a, "ari_kumelenen": a2, "ami_kumelenen": a2}
-                            for y_, a, a2 in (("k2", 0.03, 0.035), ("k1", 0.2, 0.209), ("ml", 0.96, 1.0), ("gizli", 1.0, 1.0))},
+                            for y_, a, a2 in (("k2", 0.03, 0.035), ("k1", 0.2, 0.209), ("k3", 0.1, 0.104), ("ml", 0.96, 1.0),
+                                              ("gizli", 1.0, 1.0))},
                    "ayrisan": [{"magaza_id": "M027", "ml": "1", "ml_cogunluk": "metropol_genc", "gizli": "anadolu_aile",
                                 "yeni": True}]})
 
@@ -332,6 +334,11 @@ def boz(v: rapor_b.Veri, bozma: str) -> None:
         v.oyun["girdi"]["kume"]["ml"]["en_az"] = 3
     elif bozma == "mevcut_anahtar_farkli":
         k["pay_tahmin_tavansiz"]["anahtar"] = "z" * 64
+    elif bozma == "kume_k3_yolda":
+        y3 = v.yollar["yollar"]["3"]["kosular"]
+        y3["kume_k3"] = copy.deepcopy(y3["kume_ml"])
+    elif bozma == "kume_k3_kirpti":
+        k["kume_k3"]["olcutler"]["kirpilan_adet"] = 5.0
     elif bozma == "kume_kumeleri_eski":
         v.kume_uyum["kimlik"]["k1"] = "yeni" + "e" * 60
     elif bozma == "kume_kalibrasyon_eski":

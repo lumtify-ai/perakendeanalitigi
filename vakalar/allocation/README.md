@@ -58,7 +58,7 @@ Sıra ve ölçülen süreler:
     .venv/Scripts/python -m allocation.oyun izgara             # --blok pay | --ad <koşu> ile parça parça
 
     # 2b. Küme kolları (Mağaza Kümeleme vakası, spec 2026-10-20 §4.4): önce koşusuz kalibrasyon (~2,5 dk,
-    #     SS24; cikti/kume_kalibrasyon.json), sonra kume bloğu (4 TAM koşu; cikti/kume_paylari.json)
+    #     SS24; cikti/kume_kalibrasyon.json), sonra kume bloğu (5 TAM koşu; cikti/kume_paylari.json)
     .venv/Scripts/python -m allocation.oyun kume_kalibrasyon
     .venv/Scripts/python -m allocation.oyun izgara --blok kume
 
@@ -239,10 +239,11 @@ koşulur (pay dışarıdan verilen sözlük; kayıtta kol adı `kahin`, düzey �
 |---|---|
 | `kume_k2` | ciro sınıfı (K2; Lumoda'nın planlama grubu) |
 | `kume_k1` | bölge (K1; allocator'ların bölünmesi) |
+| `kume_k3` | bölge × ciro ızgarası (K3; Lumoda'nın grupları, birleştirilmiş 12 hücre; Ruling R21) |
 | `kume_ml` | önerilen ML kümesi; yeni mağaza statiklerle 5-NN |
 | `kume_gizli` | gizli segment: kümelemenin ulaşabileceği en iyi yapı, yalnız ölçüm kolu |
 
-Yol 0'da kümeler git'teki `vakalar/kumeleme/kumeler.json`'dan (gizli segment ayrı ölçüm okumasıyla);
+`kume_k1`, `kume_k2`, `kume_k3` yalnız yol 0'da koşulur. Yol 0'da kümeler git'teki `vakalar/kumeleme/kumeler.json`'dan (gizli segment ayrı ölçüm okumasıyla);
 yol 1–4'te `kume_ml` ve `kume_gizli`, kümeler o yolun Lumoda tablolarından kümeleme paketinin
 işlevleriyle yeniden kurulur. Hiyerarşinin ilk düzeyi ve `en_az` yapı başına SS24'te koşusuz seçilir
 (`KUME_BAS_IZGARASI` × `KUME_EN_AZ_IZGARASI`, ölçü pay WAPE'si; kümeler SS24 karar günündeki veriyle).

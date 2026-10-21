@@ -26,7 +26,7 @@ SECIM = {"kol": "tahmin", "tavan": False, "ad": "pay_tahmin_tavansiz"}     # Rul
 KUCUK_ONERI = {"k_aralik": range(2, 6), "en_kucuk": 2}
 # küme payının koşusuz seçimi (testte elle; gerçeği cikti/kume_kalibrasyon.json): KÜÇÜK'te geçmiş az, ince düzey
 KUME_KAL = {"sezon": "SS24", "karar_gunu": "2024-02-09",
-            "secim": {y: {"bas": b, "en_az": 3, "wape": None} for y, b in zip(oyun.KUME_YAPILARI, (0, 2, 0, 1))}}
+            "secim": {y: {"bas": b, "en_az": 3, "wape": None} for y, b in zip(oyun.KUME_YAPILARI, (0, 2, 3, 0, 1))}}
 
 
 # ---------------------------------------------------------------------------
@@ -70,12 +70,12 @@ def test_izgara_adlari_tekil():
 def test_izgara_butcesi():
     """Yol 0 ≤ 45 koşu adı (aynı koşu iki adla sayılır: üst sınır), toplam ≤ 80 (spec §4.5). R43 sonrası
     37 ad (eslesik 2 eklendi), 3'ü takma ad; yollar 20. Küme kolları (Mağaza Kümeleme spec §4.4): yol 0'da
-    4, yol 1–4'te 2'şer: 41 ad, yollar 28; yeni TAM koşu 4 + 8 = 12."""
+    5 (kume_k3, Ruling R21), yol 1–4'te 2'şer: 42 ad, yollar 28; yeni TAM koşu 5 + 8 = 13."""
     n = oyun.kosu_sayisi()
     assert n["yol0"] <= 45 and n["toplam"] <= 80
-    assert (n["yol0"], n["yollar"], n["toplam"]) == (41, 28, 69)
+    assert (n["yol0"], n["yollar"], n["toplam"]) == (42, 28, 70)
     assert n["yollar"] == (sabitler.YOL_SAYISI - 1) * (len(oyun.YOL_KOLLARI) + len(oyun.YOL_KUME_KOLLARI))
-    assert len(oyun.IZGARA["kume"]) + (sabitler.YOL_SAYISI - 1) * len(oyun.YOL_KUME_KOLLARI) == 12
+    assert len(oyun.IZGARA["kume"]) + (sabitler.YOL_SAYISI - 1) * len(oyun.YOL_KUME_KOLLARI) == 13
 
 
 def test_kume_blogu_adlari():
@@ -84,16 +84,18 @@ def test_kume_blogu_adlari():
     koşunun takma adı olmazlar); öteki kolların çözümüne `kume` alanı girmez (imzaları değişmez). Yollarda
     kume_ml ve kume_gizli."""
     k = {s.ad: s for s in oyun.IZGARA["kume"]}
-    assert list(k) == ["kume_k2", "kume_k1", "kume_ml", "kume_gizli"]
-    assert {a: s.kume for a, s in k.items()} == {"kume_k2": "k2", "kume_k1": "k1", "kume_ml": "ml", "kume_gizli": "gizli"}
-    assert oyun.BLOK_SIRASI[-1] == "kume" and set(oyun.KUME_YAPILARI) == {"k2", "k1", "ml", "gizli"}
+    assert list(k) == ["kume_k2", "kume_k1", "kume_k3", "kume_ml", "kume_gizli"]
+    assert {a: s.kume for a, s in k.items()} == {"kume_k2": "k2", "kume_k1": "k1", "kume_k3": "k3", "kume_ml": "ml",
+                                                 "kume_gizli": "gizli"}
+    assert oyun.BLOK_SIRASI[-1] == "kume" and set(oyun.KUME_YAPILARI) == {"k2", "k1", "k3", "ml", "gizli"}
+    assert oyun.YOL_KUME_KOLLARI == ("kume_ml", "kume_gizli")          # k1, k2, k3 yalnız yol 0'da
     tum = oyun.tum_kosumlar()
     for kal in (KAL, {**KAL, "tavan": True}, {**KAL, "tavan": False}):
         c = {a: oyun.cozumle(s, kal, None) for a, s in k.items()}
         assert all(v["kol"] == "kume" and v["tutma"] == 0.0 and v["tavan"] is False and v["repl"] == "lumoda"
                    and not v["takvim"] and v["yol"] == 0 for v in c.values())
         imzalar = {oyun.imza(v) for v in c.values()} | {oyun.imza(oyun.cozumle(tum["pay_kahin"], kal, None))}
-        assert len(imzalar) == 5
+        assert len(imzalar) == 6
     for a, s in tum.items():
         if s.kol != "kume" and s.tutma_kaynagi is None:
             assert "kume" not in oyun.cozumle(s, KAL, SECIM), a
@@ -164,6 +166,9 @@ def test_kumeler_json_yapilari():
     assert set(et) == set(oyun.KUME_YAPILARI)
     ids = sorted(et["k1"].index)
     assert len(ids) == 69 and all(sorted(e.index) == ids for e in et.values())
+    # K3 (bölge × ciro ızgarası, birleştirilmiş hücreler; Ruling R21) kumeler.json'un kural bölümünden, 12 grup
+    k3 = kumeleme_oyun.kumeler_oku(olcum=False)["kural"]["k3"]["etiket"]
+    assert et["k3"].astype(str).to_dict() == {m: str(c) for m, c in k3.items()} and b["k3"]["grup"] == 12
     assert b["_kapsam"]["yeni"] == ["M027", "M041"] and b["_kapsam"]["kumelenen"] == 67
     assert {"M027", "M041"} <= set(b["ml"]["yeni_atama"]) and b["ml"]["kaynak"] == "kumeler.json"
     k = kumeleme_oyun.kumeler_oku(olcum=False)
@@ -506,7 +511,7 @@ def test_kucuk_kume_kollari(kucuk):
     oyun.json_yaz(ortam.oyun_yolu, kayit)
     oyun.json_yaz(ortam.secim_yolu, SECIM)
     sonuc = oyun.kos_hepsi("kume", ortam, KAL, girdi=G)
-    assert list(sonuc) == ["kume_k2", "kume_k1", "kume_ml", "kume_gizli"]
+    assert list(sonuc) == ["kume_k2", "kume_k1", "kume_k3", "kume_ml", "kume_gizli"]
     d = json.loads(ortam.oyun_yolu.read_text(encoding="utf-8"))
     paylar = json.loads((ortam.cikti / oyun.KUME_PAYLARI_DOSYASI).read_text(encoding="utf-8"))
     w = G.w
@@ -541,7 +546,7 @@ def test_kucuk_kume_kollari(kucuk):
         assert b["kumeleme"]["kaynak"].startswith("yeniden kuruldu")
         assert yeni <= set(b["medyan_olcekli"]) and all(v > 0 for v in b["medyan_olcekli"].values())
     assert d["kume_kalibrasyon"]["secim"] == KUME_KAL["secim"]
-    assert len({d["kosular"][a]["anahtar"] for a in sonuc} | {kucuk.kayitlar["pay_kahin"]["anahtar"]}) == 5
+    assert len({d["kosular"][a]["anahtar"] for a in sonuc} | {kucuk.kayitlar["pay_kahin"]["anahtar"]}) == 6
     for ad, e in kucuk.kayitlar.items():
         assert d["kosular"][ad]["anahtar"] == e["anahtar"]
     # gizli kol gizli segmenti, ML kolu önerinin kümelerini taşır; ikisi kapsamın aynı mağazalarında
@@ -549,7 +554,8 @@ def test_kucuk_kume_kollari(kucuk):
     from kumeleme import hakem
 
     assert (et["gizli"] == hakem.gizli_segment(w).loc[et["gizli"].index]).all()
-    assert sorted(et["ml"].index) == sorted(et["gizli"].index) == sorted(et["k1"].index) == sorted(et["k2"].index)
+    assert (sorted(et["ml"].index) == sorted(et["gizli"].index) == sorted(et["k1"].index) == sorted(et["k2"].index)
+            == sorted(et["k3"].index))
     # başka bir bloğu yeni bir süreçte (küme payı kurulmamış Girdi) koşmak girdi.kume'yi silmez
     oyun.kos_hepsi("esdegerlik", ortam, KAL)
     d2 = json.loads(ortam.oyun_yolu.read_text(encoding="utf-8"))

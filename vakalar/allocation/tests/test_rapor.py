@@ -200,7 +200,8 @@ def test_tam_rapor_sayilari_turkce(capsys):
                                    "yol_girdisi_yol0dan", "kume_kirpti", "kume_mal_farkli",
                                    "kume_pay_kimligi_farkli", "kume_aday_eksik", "kume_kalibrasyonu_farkli",
                                    "mevcut_anahtar_farkli", "yol_kume_aday_eksik", "yol_kume_mal_farkli",
-                                   "kume_kumeleri_eski", "kume_kalibrasyon_eski", "kume_kalibrasyon_karar_gunu"])
+                                   "kume_kumeleri_eski", "kume_kalibrasyon_eski", "kume_kalibrasyon_karar_gunu",
+                                   "kume_k3_yolda", "kume_k3_kirpti"])
 def test_tam_rapor_korunum_bozulunca_bos(bozma, capsys):
     v = sahte_rapor.tam_veri()
     sahte_rapor.boz(v, bozma)
@@ -228,6 +229,16 @@ def test_kume_bolumu_soru7(capsys):
     beklenen = rapor.isaretli(rapor.tek_ondalik(rapor.fark(bz, ml, 2)), 1)
     assert f"(benzer {rapor.yd(bz, 1)}, {beklenen} puan, önde;" in satir[0]
     assert "yollarda ML bulunabilirlikte benzerden 5/5" in satir[0]
+    # K3: Lumoda'nın grupları (Ruling R21) — tablo satırı, farklar, SORU 7'de koşullu sözcükler
+    k3, lu = o["kume_k3"]["olcutler"]["bulunabilirlik"], o["lumoda"]["olcutler"]["bulunabilirlik"]
+    assert "  küme: bölge × ciro ızgarası (K3)" in bolum and "kume_k3: kararlarda" in bolum
+    assert "kume_k3 − lumoda (Lumoda'nın gruplarına" in bolum and "kume_ml − kume_k3 (ML kümesi" in bolum
+    assert "kume_k3 − benzer:" in bolum
+    bir = rapor.isaretli(rapor.tek_ondalik(rapor.fark(lu, k3, 2)), 1)
+    assert f"kume_k3 − lumoda {bir}" in bolum and "kume_ml − kume_k3 " in bolum
+    yon = rapor.yon1(k3, lu)
+    assert f"Lumoda'nın grupları (bölge × ciro ızgarası) {rapor.yd(k3, 1)} (Lumoda'nın mağaza planına göre {bir} puan, {yon};" in satir[0]
+    assert f"ML kümesi ızgaraya göre {rapor.isaretli(rapor.tek_ondalik(rapor.fark(k3, ml, 2)), 1)} puan, {rapor.yon1(ml, k3)})" in satir[0]
 
 
 def test_kume_kosulari_yoksa_taslakta_eksik_kesinde_bos(capsys):
