@@ -87,16 +87,15 @@ satıştan iade düşülmüş, indirimden sonraki ciro. `drop_duplicates`
 yayımlanan verideki birebir aynı satırları atıyor. Lumoda'nın satış
 tablosunda da gerçek bir zincirinki gibi kirli kayıt var.
 
-Kodun ikinci yarısı kısa geçmişli mağazalar için. Bir mağazanın 26'dan
-fazla satışlı haftası varsa ama on iki ayı doldurmamışsa cirosu
+Kodun ikinci yarısı kısa geçmişli mağazalar için. Bir mağazanın en az 26
+satışlı haftası varsa ama on iki ayı doldurmamışsa cirosu
 yıllıklaştırılıyor: ilk satış gününden bu yana günlük ciro hızı, on iki
 aylık pencereyle çarpılıyor. Bu yapılmasa mağaza sırf eksik ayları yüzünden
 C'ye düşerdi. Lumoda'da bu durumda tek mağaza var, Antalya 1: 46 satışlı
 haftası var, yıllıklaştırılmış cirosu 55,4 milyon TL, sınıfı B.
 
 Bunun bir bedeli var. Kısa geçmiş yılın yalnız bir kısmını görüyor,
-yıllıklaştırma da mevsimi düzeltmiyor. Yazın açılan bir mağazanın
-yıllıklaştırılmış cirosu şişkin, kışın açılanınki düşük çıkabilir.
+yıllıklaştırma da mevsimi düzeltmiyor.
 
 İkinci adım sıralama:
 
@@ -175,29 +174,29 @@ Ortadaki hücre küçükse iki komşusundan küçük olanla birleşiyor. Boş B 
 A ile C komşu sayılıyor. Bölgeler birbiriyle hiç birleşmiyor.
 
 Doğu Anadolu'da 2 A, 4 B, 1 C var. Önce tek C mağazası B'ye ekleniyor; sonra
-2 A mağazası oluşan gruba. Sonuç 7 mağazalık tek bir Doğu Anadolu×ABC
+2 A mağazası oluşan gruba. Sonuç 7 mağazalık tek bir Doğu Anadolu × ABC
 grubu. Güneydoğu Anadolu'da B yok: 2 A ile 2 C birleşip Güneydoğu
-Anadolu×AC oluyor. Ege'de A ile B 2'şer mağaza; eşitlikte A tarafındaki
-seçiliyor ve Ege×AB kuruluyor.
+Anadolu × AC oluyor. Ege'de A ile B 2'şer mağaza; eşitlikte A tarafındaki
+seçiliyor ve Ege × AB kuruluyor.
 
 Sonuç 12 grup:
 
 | Grup | Mağaza |
 |---|---:|
-| Marmara×C | 12 |
-| İç Anadolu×C | 8 |
-| Doğu Anadolu×ABC | 7 |
-| Marmara×B | 6 |
-| İç Anadolu×AB | 6 |
-| Ege×C | 5 |
-| Akdeniz×B | 4 |
-| Akdeniz×C | 4 |
-| Ege×AB | 4 |
-| Güneydoğu Anadolu×AC | 4 |
-| Karadeniz×AC | 4 |
-| Akdeniz×A | 3 |
+| Marmara × C | 12 |
+| İç Anadolu × C | 8 |
+| Doğu Anadolu × ABC | 7 |
+| Marmara × B | 6 |
+| İç Anadolu × AB | 6 |
+| Ege × C | 5 |
+| Akdeniz × B | 4 |
+| Akdeniz × C | 4 |
+| Ege × AB | 4 |
+| Güneydoğu Anadolu × AC | 4 |
+| Karadeniz × AC | 4 |
+| Akdeniz × A | 3 |
 
-İlk yazıdaki İstanbul 13 ile İstanbul 10 en büyük hücrede, Marmara×C'de.
+İlk yazıdaki İstanbul 13 ile İstanbul 10 en büyük hücrede, Marmara × C'de.
 
 ## Konum
 
@@ -253,7 +252,7 @@ gruba konmuyor. 67 mağaza beş gruba düşüyor: metropol 21, sıcak sahil 14,
 karasal 13, ılıman 12, soğuk 7.
 
 Dört kural iki yeni mağazaya da satış görmeden grup veriyor. İzmir 2 Ege,
-C, Ege×C ve metropol. Kocaeli 1 Marmara, C, Marmara×C ve ılıman.
+C, Ege × C ve metropol. Kocaeli 1 Marmara, C, Marmara × C ve ılıman.
 
 Bu tablo hakkında bir şeyi baştan söylemem gerekiyor. İklim sınıflarını
 genel coğrafya bilgisiyle elle yazdım. Lumoda'nın verisini üreten
@@ -273,12 +272,17 @@ profil var: Anadolu aile 32, sıcak sahil 14, metropol genç 7, metropol
 premium 7, soğuk iklim 7. Kurallar bu profili görmüyor; ben onu yalnız
 sonradan ölçmek için kullanıyorum. Gerçek hayatta böyle bir anahtar yok.
 
-Üç ölçü kullanıyoruz. ARI'yi ikinci yazıda tanıtmıştık: bir gruplamanın
-cevap anahtarıyla uyumu; 1 kusursuz, 0 rastgele bir gruplamanın düzeyi.
-AMI aynı soruyu başka bir yoldan soruyor: iki gruplamanın birbiri hakkında
-ne kadar bilgi taşıdığına bakıyor, ölçeği yine 1 ile 0. Saflık en
-sezgisel olanı: her grupta en kalabalık profildeki mağazaları sayıp
-topluyor, bütün mağazalara bölüyor.
+ARI'yi ikinci yazıda tanıtmıştık: bir gruplamanın cevap anahtarıyla
+uyumu; 1 kusursuz, 0 rastgele bir gruplamanın düzeyi. Tabloda iki sütun
+daha var.
+
+— Bir sayı yetmiyor mu? diyor Pelin.
+
+— Tek sayıya güvenmemek iyidir, diyor Pars. AMI aynı soruyu başka bir
+yoldan soruyor: iki gruplama birbiri hakkında ne kadar bilgi taşıyor; o da
+1 ile 0 arasında. Saflık en kolayı: her grupta en kalabalık profildeki
+mağazaları say, topla, bütün mağazalara böl. Ama saflığı tek başına okuma,
+grup sayısı arttıkça kendiliğinden artar.
 
 | Kural | Grup | ARI | AMI | Saflık |
 |---|---:|---:|---:|---:|
@@ -308,8 +312,8 @@ metropol premium, 2 metropol genç. Ege'nin 9 mağazasında dört profil.
 **Izgara bölgeden kötü.** 12 grup var, ama ARI 0,104; bölgenin 0,209'unun
 yarısı. Ciro sınıfı profil hakkında bir şey bilmediği için bölgenin
 gruplarını müşteriyle ilgisiz bir eksende bölüyor. Saflığı %71,6 ile
-bölgeninkinden biraz yüksek görünüyor, ama bu yanıltıcı: grup sayısı
-arttıkça saflık kendiliğinden artar. Her mağazayı kendi grubuna koysanız
+bölgeninkinden biraz yüksek görünüyor, ama Pars'ın uyardığı gibi bu
+yanıltıcı: grup sayısı arttıkça saflık kendiliğinden artar. Her mağazayı kendi grubuna koysanız
 saflık %100,0 olurdu. ARI bunu cezalandırıyor.
 
 **Konum açık farkla en iyisi:** 0,432.
@@ -429,9 +433,9 @@ kâğıt üstünde daha net. Ama ciro sınıfıyla uyumu 0,582, cevap anahtarıy
 0,138.
 
 Ölçek mağazaları büyük ve küçük diye kolayca ayırıyor; ayrım netleştikçe
-siluet yükseliyor. Siluete bakarak karar veren biri, ölçek aday olsaydı bu
-bölmeyi seçerdi. Bu yüzden ölçek dördüncü yazının aday özellikleri arasına
-girmiyor. Ölçeğin yeri planın ikinci adımı: kümenin planı mağazalara
+siluet yükseliyor. Ölçeği dördüncü yazının aday özellikleri arasına baştan
+almadık; bu ablasyon alsaydık ne olacağını gösteriyor: siluete bakarak
+karar veren kural ölçekli bölmeyi seçerdi. Ölçeğin yeri planın ikinci adımı: kümenin planı mağazalara
 bölünürken.
 
 ## Sizin verinizde zor olan

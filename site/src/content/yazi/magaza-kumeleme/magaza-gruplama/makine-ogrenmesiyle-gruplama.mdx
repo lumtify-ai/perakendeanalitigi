@@ -21,8 +21,9 @@ sayısına ne karar veriyor?
 Geçen yazıdaki gibi kod `vakalar/kumeleme/` altındaki çalışan koddan,
 sayılar vakanın raporundan geliyor. Bir şeyi de baştan söyleyeyim: bu
 yazıdaki seçimlerin hiçbiri cevap anahtarını girdi olarak kullanmıyor.
-Kümeleri o anahtarla yalnız sonradan ölçüyoruz. Bunun bir istisnası var;
-yazının ortasında ayrıca anlatacağım.
+Kümeleri o anahtarla yalnız sonradan ölçüyoruz. Ama bütün seçimleri
+anahtarın hiçbir sonucunu görmeden yaptığımızı söyleyemem; nerede
+gördüğümüzü yerinde söyleyeceğim.
 
 ## Bir mağaza, 45 sayı
 
@@ -143,9 +144,12 @@ içinde alt bloklar da eşit: karışımda altı alt bloğun her biri bloğun
 varyansının 1/6'sını alıyor. Alt kategorinin sütunu fiyat segmentininkinden
 çok daha fazla; bu ağırlık olmasa alt kategori bütün karışımı yönetirdi.
 
-Bu ağırlığı cevap anahtarına bakmadan, ilke olarak seçtik: karışımın üç
-yönü var, üçü de eşit söz hakkı alsın. Sütunları eşit tutan öteki ağırlığı
-da ablasyon olarak koşturduk. Beş kümede S1'in cevap anahtarıyla uyumu iki
+Bu ağırlık cevap anahtarının sonucuna göre seçilmedi. Yine de anahtarın bir
+sonucunu görmüştük: keşif sırasında, ağırlığın tamamını alt kategoriye
+veren bir seçeneği anahtarla ölçtük ve kümelerin anahtara çok iyi
+oturduğunu gördük. Eşit alt blok ağırlığını buna rağmen ilkeyle sabitledik:
+karışımın üç yönü var, üçü de eşit söz hakkı alsın. Blok içinde sütunları
+eşit tutan öteki ağırlığı da ablasyon olarak koşturduk. Beş kümede S1'in cevap anahtarıyla uyumu iki
 ağırlıkta da 1,000. S2'ninki 0,137'den 0,091'e düşüyor.
 
 ## İki yöntem
@@ -336,8 +340,7 @@ seçerdik.
 
 S2 ise iki adayında da bozuluyor. S1 ile S2 arasındaki tek fark beden eğrisi
 ve mevsimsellik. Görünen o ki bu iki blok, Lumoda'da müşteri profilinden
-başka bir şeye göre ayrışıyor ve karışımla eşit ağırlık alınca kümeleri o
-yöne çekiyor. Daha çok bilgi her zaman daha iyi küme demek değil.
+başka bir şeye göre ayrışıyor ve kümeleri o yöne çekiyor. Daha çok bilgi her zaman daha iyi küme demek değil.
 
 ## Kümeler ne anlatıyor
 
@@ -379,8 +382,9 @@ En büyük küme zincirin ortalamasına en yakın olanı: en ayırt edici
 özelliğinin z'si bile +0,83. Bu kümeyi öne çıkaran regular kalıp, iki line
 grubunda da. Küçük kümeler çok daha keskin. Küme 1 oversize satıyor, iki
 line grubunda da. Küme 2'de sweatshirt yüksek, jean düşük. Küme 3 slim
-kalıp ve gömlek satıyor. Küme 4'te Basic ve NOS satışının %76,5'i orta
-fiyat segmentinde; şort payı %14,9, bütün mağazaların ortalaması %4,5.
+kalıp ve gömlek satıyor. Küme 4'ün mağazalarında Basic ve NOS satışının
+ortalama %76,5'i orta fiyat segmentinde; şort payı ortalama %14,9, bütün
+mağazaların ortalaması %4,5.
 "Genel" sütunu da bu: bir payın 67 mağazadaki ortalaması.
 
 Cevap anahtarına göre küme 0 Anadolu aile, küme 1 metropol genç, küme 2
@@ -394,7 +398,8 @@ olmayacak, yalnız kümelerin ne sattığı olacak.
 İkinci yazıda bir uyarı yapmıştık: mağaza yalnız elindekini satar. Satış
 karışımı kısmen müşteriyi, kısmen mağazaya gönderilen çeşidi yansıtır.
 Lumoda'da bu özellikle önemli, çünkü her mağazanın taşıdığı çeşit kurguda
-mağazanın profiline göre seçilmiş ve bu dizide sabit.
+mağazanın profiline ve onunla birlikte giden gelire, kadın müşteri payına
+ve metrekareye göre seçilmiş ve bu dizide sabit.
 
 Çeşidin izini ayırmak için arındırılmış bir karışım kurduk. `_karisim`'in
 `stoklu` dalı payı ham adetten değil, hızdan kuruyor: bir değerin brüt
@@ -428,21 +433,23 @@ eşi S4 de beş kümede birebir aynı bölmeyi veriyor: iki bölmenin uyumu
 1,000, ikisinin de cevap anahtarıyla uyumu 0,137.
 
 Neden küçük? Kesin bir cevabım yok. Olası bir açıklama şu: Lumoda'da çeşit
-de mağazanın profiline göre seçildiği için çeşidin izi ile müşterinin izi
-aynı yöne bakıyor. Sizin zincirinizde çeşit başka bir şeye göre, örneğin
-metrekareye göre kurulduysa ikisi ayrışabilir. O zaman ham karışım
+büyük ölçüde mağazanın profiline göre seçildiği için çeşidin izi ile
+müşterinin izi aynı yöne bakıyor. Sizin zincirinizde çeşit müşteriyle
+ilgisi olmayan bir şeye göre, örneğin mağaza tipine ya da depoya uzaklığa
+göre kurulduysa ikisi ayrışabilir. O zaman ham karışım
 müşteriden çok çeşidi kümeler.
 
 ## Müşteri verisi
 
 Aile adlarında S3 yok. O aile müşteri verisiydi: Lumoda'nın kimliği bilinen
 müşterilerinin yaşı ve cinsiyeti, mağaza mağaza. Gerçek hayatta mağazanın
-müşterisini anlamanın en doğrudan yolu bu olabilir. Bu dizide kullanmadık,
-çünkü bu sentetik zincirde müşterinin yaşı mağazanın gizli profiline göre
-üretiliyor; yani müşteri verisi cevap anahtarını neredeyse doğrudan
-taşıyor. Onu özellik yapmak anahtarı kümeye geri vermek olurdu ve
-ölçtüğümüz uyum yöntemin değil, verinin kuruluş biçiminin başarısı olurdu.
-Bu yüzden ölçmedik de. Gerçek bir zincirde müşteri verisi güçlü bir
+müşterisini anlamanın en doğrudan yolu bu olabilir. Bu dizide müşteri
+verisini vakaya hiç almadık. Vakayı kurmadan önceki bir kontrolde, bu
+sentetik veride müşterinin yaşının neredeyse doğrudan mağazanın gizli
+profilinden türediğini gördük; yani müşteri verisi cevap anahtarını
+neredeyse olduğu gibi taşıyor. Onu özellik yapmak anahtarı kümeye geri
+vermek olurdu ve ölçeceğimiz uyum yöntemin değil, verinin kuruluş biçiminin
+başarısı olurdu. Gerçek bir zincirde müşteri verisi güçlü bir
 sinyaldir, ama kendi sorunları vardır: kimliği bilinen müşterinin bütün
 satıştaki payı, bir müşterinin hangi mağazanın müşterisi sayılacağı.
 
