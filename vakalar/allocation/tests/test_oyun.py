@@ -661,3 +661,25 @@ def test_kalibrasyon_kosucusu_kucuk(tmp_path, monkeypatch):
     monkeypatch.setattr(kalibrasyon, "kol_kur", lambda tanim, cev, temel, harita: _Fazla(temel, harita, tanim.ayar))
     with pytest.raises(RuntimeError, match="kırptı"):
         kos_fn("kal_fazla", tanim)
+
+
+def test_kume_kalibrasyon_kos_yanlis_karar_gunu(tmp_path, monkeypatch):
+    """`kume_kalibrasyon_kos`: kalibrasyon sezonunun karar günü kümeleme vakasının `KAL_KARAR_GUNU`'sü değilse
+    öğrenmeden ve kümeleri kurmadan hata verir, dosya yazmaz, bağlantıyı kapatır (dünya ve veri sahte)."""
+    kapandi = []
+    monkeypatch.setattr(motor, "dunya", lambda olcek: "dunya")
+    monkeypatch.setattr(kaynak, "harita_kur", lambda w: "harita")
+    monkeypatch.setattr(kaynak, "baglan", lambda: SimpleNamespace(close=lambda: kapandi.append(True)))
+    monkeypatch.setattr(kaynak, "yayimlanan_tablolar", lambda con: {})
+    monkeypatch.setattr(kalibrasyon, "karar_gunu", lambda t, w, sezon: pd.Timestamp("2024-02-16"))
+
+    def yasak(*a, **k):
+        raise AssertionError("karar günü denetiminden önce durmalıydı")
+
+    from allocation import ogrenme
+
+    monkeypatch.setattr(ogrenme, "ogrenme_tablosu", yasak)
+    monkeypatch.setattr(oyun, "kumeleri_kur", yasak)
+    with pytest.raises(ValueError, match="karar günü 2024-02-16"):
+        oyun.kume_kalibrasyon_kos(tmp_path)
+    assert kapandi == [True] and not (tmp_path / oyun.KUME_KAL_DOSYASI).exists()

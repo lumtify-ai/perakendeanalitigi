@@ -48,6 +48,7 @@ from allocation import hikaye_sec, kaynak, motor, olcutler, oyun, sabitler
 from allocation import yollar as yollar_modulu
 from allocation.paylastir import paket_adedi
 from allocation.politika import KahinKol
+from kumeleme import kume_payi
 from kumeleme import olcutler as kumeleme_olcutler
 
 CIKTI = sabitler.CIKTI
@@ -319,7 +320,9 @@ def kume_uyumu(kumeler_yolu: Path = kumeleme_oyun.KUMELER, karar_gunu=None) -> d
     y = oyun.kumeler_json_yapilari(karar_gunu or k["karar_gunu"], kumeler_yolu)
     et, gz = y["etiket"], y["etiket"]["gizli"].astype(str)
     kumelenen = sorted(k["kapsam"]["kumelenen"])
-    sonuc = {"yapi": {}, "kumelenen": len(kumelenen), "aday": int(len(gz))}
+    sonuc = {"yapi": {}, "kumelenen": len(kumelenen), "aday": int(len(gz)), "kod": k.get("kod"),
+             "kimlik": {yapi: b["kimlik"] for yapi, b in y["bilgi"].items() if not yapi.startswith("_")},
+             "oneri_kimligi": k["ml"]["kimlik"]}
     for yapi, e in et.items():
         a, m = kumeleme_olcutler.ari_ami(e.astype(str), gz)
         a2, m2 = kumeleme_olcutler.ari_ami(e.astype(str).loc[kumelenen], gz.loc[kumelenen])

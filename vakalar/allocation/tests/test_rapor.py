@@ -199,7 +199,8 @@ def test_tam_rapor_sayilari_turkce(capsys):
                                    "eslesik_kaynagi_farkli", "eslesik_mal_farkli",
                                    "yol_girdisi_yol0dan", "kume_kirpti", "kume_mal_farkli",
                                    "kume_pay_kimligi_farkli", "kume_aday_eksik", "kume_kalibrasyonu_farkli",
-                                   "mevcut_anahtar_farkli", "yol_kume_aday_eksik", "yol_kume_mal_farkli"])
+                                   "mevcut_anahtar_farkli", "yol_kume_aday_eksik", "yol_kume_mal_farkli",
+                                   "kume_kumeleri_eski", "kume_kalibrasyon_eski", "kume_kalibrasyon_karar_gunu"])
 def test_tam_rapor_korunum_bozulunca_bos(bozma, capsys):
     v = sahte_rapor.tam_veri()
     sahte_rapor.boz(v, bozma)
@@ -220,7 +221,7 @@ def test_kume_bolumu_soru7(capsys):
     assert len([s_ for s_ in metin.splitlines() if s_.startswith("SORU 7 · ")]) == 1      # İlk Sevkiyat'ınki
     for et, _ in rapor.KUME_KOLLARI:
         assert f"  {et}" in bolum
-    assert "seçilen: ilk düzey 0 (alt_kategori × fiyat_segmenti × kalip), en az örnek 80" in bolum
+    assert "seçilen (etkin düzey): alt_kategori × fiyat_segmenti × kalip 210" in bolum
     assert "M027 (yeni) ML küme 1" in bolum
     o = v.oyun["kosular"]
     ml, bz = o["kume_ml"]["olcutler"]["bulunabilirlik"], o["pay_benzer_tavansiz"]["olcutler"]["bulunabilirlik"]
@@ -472,3 +473,19 @@ def test_kume_uyumu_kumeler_json():
     assert u["yapi"]["k2"]["ari_kumelenen"] < 0.1
     assert [(a["magaza_id"], a["yeni"], a["ml_cogunluk"], a["gizli"]) for a in u["ayrisan"]] == [
         ("M027", True, "metropol_genc", "anadolu_aile")]
+
+
+def test_kume_kalibrasyon_secimi_etkin_duzeyle(capsys):
+    """Eşitlik bozma ("ince düzey önce") seçimi ince bir ilk düzeyle gösterebilir: k2'nin ilk düzey 0, en az örnek
+    80 satırında bütün option'lar genel düzeydeyse rapor önce etkin düzeyi basar ve payın ilk düzey 4 ile aynı
+    olduğunu söyler; ince düzeyin adını seçim diye basmaz."""
+    v = sahte_rapor.tam_veri()
+    for r in v.kume_kal["tablo"]:
+        if (r["yapi"], r["bas"], r["en_az"]) == ("k2", 0, 80):
+            r["duzey_tam"] = {"4": 210}
+    kod, metin = rapor.tamponla(lambda: rapor.govde(v))
+    assert kod == 0, capsys.readouterr().err
+    satir = next(s_ for s_ in metin.splitlines() if "seçilen (etkin düzey): genel 210" in s_)
+    assert "ilk düzey 0, en az örnek 80 satırı (pay ilk düzey 4 ile aynı)" in satir
+    assert "alt_kategori" not in satir
+    assert rapor.etkin_duzey({"3": 100, "4": 110}) is None and rapor.etkin_duzey({"3": 210, "4": 0}) == 3

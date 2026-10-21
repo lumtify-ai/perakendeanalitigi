@@ -1071,6 +1071,13 @@ def yon1(a, b, yuksek_iyi: bool = True) -> str:
     return "önde" if (d > 0) == yuksek_iyi else "geride"
 
 
+def etkin_duzey(duzey_tam: dict) -> int | None:
+    """Seçimin bütün option'ları tek düzeydeyse o düzey (HIYERARSI indisi): pay, hiyerarşisi o düzeyden başlayan
+    seçimle aynıdır (eşitlik bozma "ince düzey önce" ilk düzeyi daha ince gösterebilir); değilse None."""
+    d = [int(i) for i, n in duzey_tam.items() if n]
+    return d[0] if len(d) == 1 else None
+
+
 def _duzey_metni(duzey_tam: dict, hiyerarsi) -> str:
     """`duzey_tam` (HIYERARSI indisi → option sayısı) okunur biçimde."""
     return " · ".join(f"{' × '.join(hiyerarsi[int(i)]) or 'genel'} {s(n)}"
@@ -1108,9 +1115,13 @@ def kume_bolumu(v, ek) -> None:
         for bas in kk["izgara"]["bas"]:
             r = ty[ty["bas"] == bas].set_index("en_az")["wape"]
             print(f"    {bas}  " + "  ".join(f"{s(r.get(e), 3):>6}" for e in kk["izgara"]["en_az"]))
-        print(f"    seçilen: ilk düzey {sec['bas']} ({' × '.join(hy[sec['bas']]) or 'genel'}), en az örnek {s(sec['en_az'])}, "
-              f"WAPE {s(sec['wape'], 3)}; düzeyler {_duzey_metni(ty[(ty['bas'] == sec['bas']) & (ty['en_az'] == sec['en_az'])]['duzey_tam'].iloc[0], hy)}"
-              f"; ızgara ucunda: {'evet' if sec['izgara_ucunda'] else 'hayır'}")
+        dt = ty[(ty["bas"] == sec["bas"]) & (ty["en_az"] == sec["en_az"])]["duzey_tam"].iloc[0]
+        es = etkin_duzey(dt)
+        esdeger = (f"; ızgarada ilk düzey {sec['bas']}, en az örnek {s(sec['en_az'])} satırı (pay ilk düzey {es} ile aynı)"
+                   if es is not None and es != int(sec["bas"]) else
+                   f"; ızgarada ilk düzey {sec['bas']}, en az örnek {s(sec['en_az'])} satırı")
+        print(f"    seçilen (etkin düzey): {_duzey_metni(dt, hy)}; WAPE {s(sec['wape'], 3)}{esdeger}; "
+              f"ızgara ucunda: {'evet' if sec['izgara_ucunda'] else 'hayır'}")
     tk = pd.DataFrame(v.kal["cevrimdisi"])
     secilen = tk[tk["secildi"].astype(bool) & tk["asama"].isin(["benzer", "tahmin"])].set_index("asama")["wape"]
     taban = tk[tk["asama"] == "taban"].set_index("aday")["wape"]
@@ -1222,10 +1233,14 @@ def kume_bolumu(v, ek) -> None:
                (f"KÜME: {ad} ⌊U⌋ gönderdi (ilk dağıtım = U, tavanın bıraktığı 0)",
                 U is not None and int(o["ilk_dagitim_adet"]) == U and o["tavan_kalan_adet"] == 0),
                (f"KÜME: {ad} kalibrasyonun seçimiyle (ilk düzey, en az örnek)", (b["bas"], b["en_az"]) == (sec["bas"], sec["en_az"])),
-               (f"KÜME: {ad} kümeleri kumeler.json'dan (yol 0)", b["kumeleme"]["kaynak"] == "kumeler.json")]
+               (f"KÜME: {ad} kümeleri kumeler.json'dan (yol 0)", b["kumeleme"]["kaynak"] == "kumeler.json"),
+               (f"KÜME: {ad} koşunun kümeleri bugünkü kumeler.json'unkiler (bölme kimliği)",
+                bool(ku) and b["kumeleme"]["kimlik"] == ku.get("kimlik", {}).get(ad.removeprefix("kume_"))
+                and (ad != "kume_ml" or b["kumeleme"].get("oneri_kimligi") == ku.get("oneri_kimligi")))]
         ek += _kume_denetimleri(kd.get(ad), ad, b.get("pay"))
     for ad, anahtar in oyun.MEVCUT_ANAHTARLAR.items():
         ek.append((f"KÜME: mevcut koşu {ad}'nın anahtarı değişmedi", K(v, ad)["anahtar"] == anahtar))
+    ek += kume_kalibrasyon_tazeligi(v)
     for p in p_sira:
         if int(p) == 0:
             continue
@@ -1238,6 +1253,30 @@ def kume_bolumu(v, ek) -> None:
                    (f"KÜME: yol {p} {kisa} kümeleri yolun tablolarından yeniden kuruldu",
                     e["kume"]["kumeleme"]["kaynak"].startswith("yeniden kuruldu"))]
             ek += _kume_denetimleri(kd.get(e["ad"]), f"yol {p} {kisa}", e["kume"].get("pay"))
+
+
+def kume_kalibrasyon_tazeligi(v) -> list[tuple[str, bool]]:
+    """`cikti/kume_kalibrasyon.json`'un tazeliği (dosyanın anahtarı yok; kayıtlı alanlardan): ızgara koşusunun
+    kullandığı seçim (oyun.json `kume_kalibrasyon`) dosyanınkiyle aynı; kalibrasyon sezonu ve karar günü
+    kalibrasyon.json'unkiyle ve kümeleme vakasının `KAL_KARAR_GUNU`'yle aynı; ızgara ve hiyerarşi bugünkü
+    sabitler; tablo eksiksiz ve her yapının seçimi tablosunun en küçük WAPE'si (bugünkü biçim: `duzey_tam`)."""
+    from kumeleme import sabitler as kumeleme_sabitler
+
+    kk, kal = v.kume_kal or {}, v.kal or {}
+    t = pd.DataFrame(kk.get("tablo", []))
+    izgara = {"bas": list(oyun.KUME_BAS_IZGARASI), "en_az": list(oyun.KUME_EN_AZ_IZGARASI)}
+    n = len(oyun.KUME_YAPILARI) * len(izgara["bas"]) * len(izgara["en_az"])
+    tablo_tamam = len(t) == n and "duzey_tam" in t and set(t["yapi"]) == set(oyun.KUME_YAPILARI)
+    secim_tutar = tablo_tamam and all(
+        kk["secim"][y_]["wape"] == t.loc[t["yapi"] == y_, "wape"].min() for y_ in oyun.KUME_YAPILARI)
+    return [("KÜME: ızgaranın kullandığı küme kalibrasyonu bugünkü kume_kalibrasyon.json",
+             (v.oyun.get("kume_kalibrasyon") or {}).get("secim") == kk.get("secim")),
+            ("KÜME: küme kalibrasyonu kalibrasyon sezonunda ve karar gününde (kalibrasyon.json, KAL_KARAR_GUNU)",
+             kk.get("sezon") == kal.get("sezon") and kk.get("karar_gunu") == kal.get("karar_gunu")
+             == kumeleme_sabitler.KAL_KARAR_GUNU.date().isoformat()),
+            ("KÜME: küme kalibrasyonunun ızgarası ve hiyerarşisi bugünkü sabitler",
+             kk.get("izgara") == izgara and kk.get("hiyerarsi") == [list(d) for d in rapor_b.kume_payi.HIYERARSI]),
+            ("KÜME: küme kalibrasyonunun tablosu eksiksiz, seçimler tablonun en küçüğü", bool(secim_tutar))]
 
 
 def _kume_denetimleri(d: dict | None, ad: str, girdi_kimligi: str | None) -> list[tuple[str, bool]]:

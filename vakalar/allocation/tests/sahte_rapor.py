@@ -192,7 +192,8 @@ def _kume_kal() -> dict:
     return {"sezon": "SS24", "karar_gunu": "2024-02-09", "kapanmis_sezonlar": ["SS23"],
             "izgara": {"bas": [0, 1, 2, 3, 4], "en_az": [3, 5, 10, 20, 40, 80]}, "hiyerarsi": HIYERARSI,
             "kural": "yapı başına en küçük pay WAPE'si",
-            "secim": {y_: {"bas": b_, "en_az": e, "wape": 0.235, "hiyerarsi": HIYERARSI[b_:], "izgara_ucunda": False}
+            "secim": {y_: {"bas": b_, "en_az": e, "wape": min(r["wape"] for r in tablo if r["yapi"] == y_),
+                           "hiyerarsi": HIYERARSI[b_:], "izgara_ucunda": False}
                       for y_, (b_, e) in KUME_SECIM.items()},
             "kumeler": {y_: _kumeleme(y_, "yeniden kuruldu (2024-02-09)") for y_ in KUME_SECIM}
             | {"_kapsam": {"karar_gunu": "2024-02-09", "aday": 69, "kumelenen": 68, "yeni": ["M021"]}},
@@ -251,7 +252,8 @@ def tam_veri() -> rapor_b.Veri:
               "girdi": {"belirsizlik": {"olcu": "benzer_tahmin_ayrisma", "gamma": 2.0, "t_en_az": 0.04,
                                         "t_en_cok": 0.57, "t_ortalama": 0.3},
                         "kume": {s_.kume: _kume_girdisi(s_.kume, "kumeler.json", f"pay_{s_.ad}")
-                                 for s_ in oyun.IZGARA["kume"]}}}
+                                 for s_ in oyun.IZGARA["kume"]}},
+              "kume_kalibrasyon": {"sezon": "SS24", "karar_gunu": "2024-02-09", "secim": _kume_kal()["secim"]}}
     yayimlanan = {
         "dalga": pd.DataFrame({"dalga": [1, 2, 3], "option": [66, 75, 69], "ilk_alim": [421290, 430550, 346450],
                                "teslim": [421290, 430550, 346450], "ilk_dagitim": [289439, 296319, 238407],
@@ -288,7 +290,9 @@ def tam_veri() -> rapor_b.Veri:
         kume_denetim={ad: _kume_denetimi(f"pay_{ad}") for ad in [s_.ad for s_ in oyun.IZGARA["kume"]] + [
             k["ad"] for p, y_ in yol["yollar"].items() if int(p) > 0
             for kisa, k in y_["kosular"].items() if kisa in oyun.YOL_KUME_KOLLARI]},
-        kume_uyum={"aday": 69, "kumelenen": 67,
+        kume_uyum={"aday": 69, "kumelenen": 67, "kod": "kod",
+                   "kimlik": {y_: _kumeleme(y_, "kumeler.json")["kimlik"] for y_ in KUME_SECIM},
+                   "oneri_kimligi": _kumeleme("ml", "kumeler.json")["oneri_kimligi"],
                    "yapi": {y_: {"ari": a, "ami": a, "ari_kumelenen": a2, "ami_kumelenen": a2}
                             for y_, a, a2 in (("k2", 0.03, 0.035), ("k1", 0.2, 0.209), ("ml", 0.96, 1.0), ("gizli", 1.0, 1.0))},
                    "ayrisan": [{"magaza_id": "M027", "ml": "1", "ml_cogunluk": "metropol_genc", "gizli": "anadolu_aile",
@@ -328,6 +332,12 @@ def boz(v: rapor_b.Veri, bozma: str) -> None:
         v.oyun["girdi"]["kume"]["ml"]["en_az"] = 3
     elif bozma == "mevcut_anahtar_farkli":
         k["pay_tahmin_tavansiz"]["anahtar"] = "z" * 64
+    elif bozma == "kume_kumeleri_eski":
+        v.kume_uyum["kimlik"]["k1"] = "yeni" + "e" * 60
+    elif bozma == "kume_kalibrasyon_eski":
+        v.oyun["kume_kalibrasyon"]["secim"]["ml"]["en_az"] = 5
+    elif bozma == "kume_kalibrasyon_karar_gunu":
+        v.kume_kal["karar_gunu"] = "2024-02-16"
     elif bozma == "yol_kume_aday_eksik":
         v.kume_denetim["y2_kume_ml"]["aday_pozitif"] -= 1
     elif bozma == "yol_kume_mal_farkli":
