@@ -257,11 +257,12 @@ bir araya koymak bu rastlantıyı azaltmalı. Ürünün satışı tek mağazada 
 bir grup mağazada ortalanır. O zaman ince benzerlik işe yarar mı?
 
 Bunu [Mağaza Gruplama](/magaza-kumeleme/magaza-gruplama/) dizisinin
-gruplarıyla sınadık. O dizinin gruplamalarından üçünü aldık: bölge, ciro
-sınıfı ve satış karışımından makine öğrenmesiyle bulunan kümeler.
-Dördüncüsü mağazaların gizli profili, yani o dizinin cevap anahtarı. Bu
-yalnız bir ölçü; gerçek hayatta bu profili kimse bilmiyor. Kümelemenin
-ulaşabileceği en iyi yapıyı gösteriyor.
+gruplarıyla sınadık. O dizinin gruplamalarından dördünü aldık: bölge, ciro
+sınıfı, ikisinin ızgarası (Lumoda'nın kendi grupları) ve satış karışımından
+makine öğrenmesiyle bulunan kümeler; bunlara kısaca satış karışımı kümeleri
+diyeceğim. Beşincisi mağazaların gizli profili, yani o dizinin cevap
+anahtarı. Bu yalnız bir ölçü; gerçek hayatta bu profili kimse bilmiyor.
+Kümelemenin ulaşabileceği en iyi yapıyı gösteriyor.
 
 Hesap bu yazınınkiyle aynı, yalnız bir düzey yukarıda. Bir geçmiş üründe
 kümenin göreli hızı, üye mağazaların göreli hızlarının ortalaması. Mağazanın
@@ -270,20 +271,21 @@ payı, kümesinin göreli hızı çarpı mağazanın kümesi içindeki büyükl�
 Kalibrasyonu yine bir önceki ilkbahar-yaz sezonunda, oyun sezonuna
 bakmadan yaptık. Izgaraya bir boyut ekledik: benzerliğin hiyerarşinin hangi
 düzeyinden başlayacağı. Sonuç tek mağazadakiyle aynı çıktı. En özel
-düzeyden başlayıp 3 benzer üründe yetinen ayar, dört gruplamanın hepsinde
-en kötüsü; makine öğrenmesi kümelerinde pay hatası 0,259. Orada eşik
+düzeyden başlayıp 3 benzer üründe yetinen ayar, beş gruplamanın hepsinde
+en kötüsü; satış karışımı kümelerinde pay hatası 0,259. Orada eşik
 büyüdükçe hata düşüyor ve kaba düzeylerin hatasına iniyor: 0,237.
 
 Kalibrasyonun seçtiği ayarlar, geçmiş sezonda kaba düzeye denk geliyor:
 ya doğrudan üst kategoriden başlıyor ya da o kadar yüksek bir örnek eşiği
 istiyor ki geçmiş sezonun hiçbir ürününde ince düzeye inilmiyor. İnce düzey
 ancak çok benzer ürün olduğunda devreye giriyor. Oyun sezonunda aynı ayar,
-makine öğrenmesi kümelerinde 210 ürünün 68'i için alt kategoriye iniyor;
+satış karışımı kümelerinde 210 ürünün 68'i için alt kategoriye iniyor;
 109'u üst kategoride, 33'ü en genel düzeyde kalıyor.
 
-En iyi ayarda pay hatası ciro sınıfında 0,238, bölgede 0,235, makine
-öğrenmesi kümelerinde ve gizli profilde 0,237. Mağazanın kendi geçmiş payı
-aynı sezonda 0,235'ti. Gruplama hatayı düşürmedi.
+En iyi ayarda pay hatası ciro sınıfında 0,238, bölgede 0,235; Lumoda'nın
+gruplarında, satış karışımı kümelerinde ve cevap anahtarında 0,237.
+Mağazanın kendi geçmiş payı aynı sezonda 0,235'ti. Gruplama hatayı
+düşürmedi.
 
 Yani benzerliği gevşek tutmanın kazandırması tek mağazanın gürültüsünden
 ibaret değil; kümede de en iyi ayar, benzerliği gevşek tutan ayar. Akla
@@ -291,7 +293,7 @@ yatkın bir açıklama şu: kümeler mağazaları topluyor, ürünleri değil. B
 benzer ürün, kaç mağazada ortalanırsa ortalansın, birkaç ürün olarak
 kalıyor.
 
-Oyun sezonunda da makine öğrenmesi kümelerinin pay hatası 0,230, mağazanın
+Oyun sezonunda da satış karışımı kümelerinin pay hatası 0,230, mağazanın
 kendi geçmiş payınınki 0,229. Kümeye göre planın sezon sonunda ne verdiğini
 altıncı yazıda topluyoruz.
 

@@ -13,7 +13,7 @@ durum: yayinda
 import T from '../../../../components/T.astro'
 
 İki yazı boyunca mağaza gruplamayı kavram olarak konuştuk. Şimdi kodu
-yazıyoruz. Bu yazıda Lumoda'nın bugün kullandığı üç kuralı, yani bölgeyi,
+yazıyoruz. Bu yazıda Lumoda'nın elindeki üç kuralı, yani bölgeyi,
 <T k="ciro-sinifi">ciro sınıfını</T> ve ikisinin ızgarasını kuruyoruz. Bir
 de bizim eklediğimiz dördüncü bir kural var: konum. Dördünü aynı
 mağazalarda ölçüyoruz.
@@ -130,8 +130,8 @@ sınıfa konur.
 
 ## Izgara
 
-Pelin planı bölge ile ciro sınıfının çaprazına kuruyor. Gruplanan 67
-mağazada ızgara şöyle:
+Pelin'in bu sezon için önerdiği ızgara bölge ile ciro sınıfının çaprazı.
+Gruplanan 67 mağazada ızgara şöyle:
 
 | Bölge | Mağaza | A | B | C |
 |---|---:|---:|---:|---:|
@@ -280,9 +280,11 @@ daha var.
 
 — Tek sayıya güvenmemek iyidir, diyor Pars. AMI aynı soruyu başka bir
 yoldan soruyor: iki gruplama birbiri hakkında ne kadar bilgi taşıyor; o da
-1 ile 0 arasında. Saflık en kolayı: her grupta en kalabalık profildeki
-mağazaları say, topla, bütün mağazalara böl. Ama saflığı tek başına okuma,
-grup sayısı arttıkça kendiliğinden artar.
+1 ile 0 arasında.
+
+Saflık en kolayı: her grupta en kalabalık profildeki mağazaları sayıp
+toplayın, bütün mağazalara bölün. Ama saflığı tek başına okumayın; grup
+sayısı arttıkça kendiliğinden artar.
 
 | Kural | Grup | ARI | AMI | Saflık |
 |---|---:|---:|---:|---:|
@@ -310,10 +312,10 @@ sahil. Marmara'nın 18 mağazasında ise üç profil var: 13 Anadolu aile, 3
 metropol premium, 2 metropol genç. Ege'nin 9 mağazasında dört profil.
 
 **Izgara bölgeden kötü.** 12 grup var, ama ARI 0,104; bölgenin 0,209'unun
-yarısı. Ciro sınıfı profil hakkında bir şey bilmediği için bölgenin
+çok altında. Ciro sınıfı profil hakkında bir şey bilmediği için bölgenin
 gruplarını müşteriyle ilgisiz bir eksende bölüyor. Saflığı %71,6 ile
-bölgeninkinden biraz yüksek görünüyor, ama Pars'ın uyardığı gibi bu
-yanıltıcı: grup sayısı arttıkça saflık kendiliğinden artar. Her mağazayı kendi grubuna koysanız
+bölgeninkinden biraz yüksek görünüyor, ama bu yanıltıcı: grup sayısı
+arttıkça saflık kendiliğinden artar. Her mağazayı kendi grubuna koysanız
 saflık %100,0 olurdu. ARI bunu cezalandırıyor.
 
 **Konum açık farkla en iyisi:** 0,432.
@@ -356,11 +358,15 @@ kurduğu için sıfır. Satış karışımı kümeleri iki tarafta da cevap
 anahtarıyla birebir aynı. Yani karışım, konumun bildiğini de buluyor,
 bilmediğini de.
 
-— Yani İstanbul'da hangi mağazanın kime sattığını haritadan okuyamam,
-diyor Pelin.
+Bunu cevap anahtarı olmadan da görmek mümkün. Konumu satış karışımı
+kümeleriyle karşılaştırınca konumun 21 mağazalık metropol grubu üç ayrı
+kümeye 7'şer mağaza olarak dağılıyor.
 
-— Okuyamazsın, diyor Pars. Ankara'da da İzmir'de de. Metropolün dışında
-harita çok şey söylüyor; içinde hiçbir şey.
+— Yani satış karışımı metropolün mağazalarını üç kümeye ayırıyor, diyor
+Pelin. Harita ise hepsini tek grup görüyor.
+
+— Haritaya göre İstanbul, Ankara ve İzmir aynı yer, diyor Pars. Metropolün
+dışında harita çok şey söylüyor; içinde hiçbir şey.
 
 ## Satış görmeden
 
@@ -397,10 +403,10 @@ Bölge ve konum tanım gereği değişmiyor: ikisi de 1. Ciro sınıfının uyum
 0,834. 65 mağazanın yalnız 4'ünün sınıfı değişiyor (%6,2). Izgaranın uyumu
 0,910.
 
-Ciro sınıfı yıldan yıla pek değişmiyor ve cevap anahtarına en az oturan
-kural. İkisi aynı anda doğru. Ciro yavaş
-değişir; büyük mağaza ertesi yıl da büyüktür. Ama büyüklük müşteri hakkında
-bir şey söylemediği için bu, doğru bir şeyin kararlılığı değil.
+Ciro sınıfı yıldan yıla pek değişmiyor, ama cevap anahtarına en az oturan
+kural da o. Ciro yavaş değişir; büyük mağaza ertesi yıl da büyüktür. Ama
+büyüklük müşteri hakkında bir şey söylemediği için bu, doğru bir şeyin
+kararlılığı değil.
 
 — Kararlılık doğruluk değil, diyor Pars. Her sezon aynı yanlışı yapan bir
 kural da kararlıdır.
@@ -428,15 +434,15 @@ standartlanırken her blok eşit ağırlık alıyor; yani bu üç sütun, karı�
 Ölçek girince kümeler cevap anahtarından kopup ciro sınıfına yaklaşıyor.
 Küme sayısını da dördüncü yazıdaki kuralla, cevap anahtarına bakmadan
 seçince durum daha tehlikeli. Kural ölçekli özelliklerde üç küme seçiyor,
-silueti 0,351. Satış karışımından kurulan kümelerin silueti 0,308. Yani ölçekli bölme
-kâğıt üstünde daha net. Ama ciro sınıfıyla uyumu 0,582, cevap anahtarıyla
-0,138.
+silueti 0,351. Satış karışımından kurulan kümelerin silueti 0,308. Yani
+ölçekli bölme kâğıt üstünde daha net. Ama ciro sınıfıyla uyumu 0,582, cevap
+anahtarıyla 0,138.
 
 Ölçek mağazaları büyük ve küçük diye kolayca ayırıyor; ayrım netleştikçe
 siluet yükseliyor. Ölçeği dördüncü yazının aday özellikleri arasına baştan
-almadık; bu ablasyon alsaydık ne olacağını gösteriyor: siluete bakarak
-karar veren kural ölçekli bölmeyi seçerdi. Ölçeğin yeri planın ikinci adımı: kümenin planı mağazalara
-bölünürken.
+almadık. Bu ablasyon, alsaydık ne olacağını gösteriyor: siluete bakarak
+karar veren kural ölçekli bölmeyi seçerdi. Ölçeğin yeri planın ikinci adımı:
+kümenin planı mağazalara bölünürken.
 
 ## Sizin verinizde zor olan
 

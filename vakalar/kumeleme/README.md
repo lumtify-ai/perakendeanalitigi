@@ -220,10 +220,12 @@ Ayrıntı modül notlarında (`kumeleme/*.py`); burada okuyucunun raporda karş�
 - **Bırakbir isabeti.** Mağaza yeniymiş gibi, kümeler o mağaza hariç kurulur; mağaza yalnız
   statikleriyle atanır; isabet, atanan kümenin kendi satış kümesi ya da (mağaza hariç) çoğunluk
   gizli segmenti olmasıdır. Tabanlar: herkese en büyük küme, herkese en sık segment.
-- **Küme kolları** (İlk Sevkiyat; `kume_k2`, `kume_k1`, `kume_ml`, `kume_gizli`): küme payı
+- **Küme kolları** (İlk Sevkiyat; `kume_k2`, `kume_k1`, `kume_k3`, `kume_ml`, `kume_gizli`): küme payı
   (`kume_payi`) benzer ürün endeksinin küme düzeyindeki hâli; aynı mal (t = 0, tavansız, ⌊U⌋) kime
   gideceği değişir. Ölçüt bulunabilirliktir (tanım: `vakalar/allocation/README.md`, Tanımlar).
-  Kayıttaki kol adı `kahin`'dir (Ruling R2), rapor ve yazılar koşu adıyla adlandırır.
+  Kayıttaki kol adı `kahin`'dir (Ruling R2), rapor ve yazılar koşu adıyla adlandırır. `kume_k3`
+  Lumoda'nın gruplarıdır (K3 ızgarası, 12 grup; R21, yollarda R23). İlk Sevkiyat'ın Lumoda kolu
+  (`lumoda`, plan payı) bir gruplama değil, Lumoda'nın yayımlanan mağaza mağaza planıdır (R22).
 
 ## Sonuçlar
 
@@ -264,24 +266,28 @@ eşiği 1,661; gizli anadolu_aile / metropol_genc) ve Eskişehir 2 (M055) gibi s
 alt %25 eşiği 1,040; ikisi anadolu_aile); gevşeme yok. Alternatif: M049 Konya 3 – M075 Sivas 1 /
 M049 – M008 İstanbul 8 (3 gevşetme). Kalemler ve eşikler `cikti/rapor.txt` HİKÂYE bölümünde.
 
-**Küme kolları İlk Sevkiyat'ta** (yol 0, aynı mal, t = 0, tavansız; bulunabilirlik): Lumoda
-%68,98 · ciro sınıfı (K2) %69,19 · bölge (K1) %69,35 · ML önerisi %69,53 · gizli segment %69,51 ·
-benzer (mağaza geçmişi) %69,51 · tahmin (LightGBM) %70,41. KÜME SORU 7 satırı:
+**Küme kolları İlk Sevkiyat'ta** (yol 0, aynı mal, t = 0, tavansız; bulunabilirlik): Lumoda'nın
+mağaza planı (`lumoda`) %68,98 · ciro sınıfı (K2) %69,19 · bölge (K1) %69,35 · Lumoda'nın grupları
+(K3) %69,35 · ML önerisi %69,53 · gizli segment %69,51 · benzer (mağaza geçmişi) %69,51 · tahmin
+(LightGBM) %70,41. Yol 0'da `kume_ml − kume_k3` bulunabilirlik +0,18, brüt kâr +1.251.940 TL, kalan
+−0,43, WAPE −0,008; `kume_k3 − lumoda` bulunabilirlik +0,37, brüt kâr −868.933 TL, kalan +0,31.
+Beş yolda (R23): `kume_ml − kume_k3` bulunabilirlik 5/5 yolda önde (bir ondalık +0,2 · +0,2 · +0,4 ·
++0,3 · +0,1, medyan +0,2), kalan 5/5 (medyan −0,43), pay WAPE 5/5 (medyan −0,007); `kume_k3 − lumoda`
+bulunabilirlik 5/5 (medyan +0,4), kalan 1/5, pay WAPE 0/5; ML bulunabilirlikte benzerden 3/5 (medyan
+0,0), tahminden 0/5, Lumoda'dan 5/5 yolda önde; gizli segment ML'den 2/5 yolda önde (medyan 0,0).
+İlk Sevkiyat raporundaki `KÜME SORU 7` satırı bunları tek satırda özetler (bu vakanın SORU 7'si
+cevabı oraya yönlendirir).
 
-> Yol 0 bulunabilirlik: ML kümesi %69,5 (benzer %69,5, 0,0 puan, eşit; tahmin %70,4, −0,9 puan,
-> geride) · pay WAPE ML 0,230 / benzer 0,229 / tahmin 0,171 · ciro sınıfı %69,2 (Lumoda %69,0, +0,2
-> puan) · gizli segment %69,5 (ML'den 0,0 puan) · yollarda ML bulunabilirlikte benzerden 3/5,
-> tahminden 0/5, Lumoda'dan 5/5 yolda önde; gizli segment ML'den 2/5 yolda önde (medyan fark 0,0 puan)
-
-Yani kümeye göre plan mağazanın kendi geçmişine yetişiyor ama onu geçmiyor, kusursuz segment bile
-geçmiyor, LightGBM önde. Bölmenin hakem uyumu (ARI 1,000) karar kalitesine çevrilmiyor: ML kümesi ile
-gizli segment yol 0'da yalnız M027'de ayrışır. Kalibrasyon: ızgarada ilk düzey ve en az örnek eşiği
-SS24'te pay WAPE'siyle seçildi (k2 0,238, k1 0,235, ml 0,237, gizli 0,237; aynı sezonda benzer 0,235,
-tahmin 0,197). Seçilen ayarlar (ilk düzey / en az örnek): k2 0 / 80, k1 3 / 3, ml 0 / 40, gizli
-3 / 20. Kalibrasyon geçmiş sezonda kaba düzeye denk gelen yüksek bir örnek eşiği seçti; ince düzey
-ancak çok örnek olduğunda kullanılıyor. Aynı ayarın oyun sezonunda option'lara dağılımı: ml
-alt_kategori 68 · ust_kategori 109 · genel 33; k2 ust_kategori 143 · genel 67; k1 ve gizli
-ust_kategori 210. "Kümede ince benzerlik" hipotezi desteklenmedi.
+Yani ML kümesine göre plan Lumoda'nın gruplarını da mağaza planını da geçiyor, mağazanın kendi
+geçmişine yetişiyor ama onu geçmiyor, kusursuz segment bile geçmiyor, LightGBM önde. Bölmenin hakem
+uyumu (ARI 1,000) karar kalitesine çevrilmiyor: ML kümesi ile gizli segment yol 0'da yalnız M027'de
+ayrışır. Kalibrasyon: ızgarada ilk düzey ve en az örnek eşiği SS24'te pay WAPE'siyle seçildi (k2
+0,238, k1 0,235, k3 0,237, ml 0,237, gizli 0,237; aynı sezonda benzer 0,235, tahmin 0,197). Seçilen
+ayarlar (ilk düzey / en az örnek): k2 0 / 80, k1 3 / 3, k3 3 / 3, ml 0 / 40, gizli 3 / 20. Kalibrasyon
+geçmiş sezonda kaba düzeye denk gelen yüksek bir örnek eşiği seçti; ince düzey ancak çok örnek
+olduğunda kullanılıyor. Aynı ayarın oyun sezonunda option'lara dağılımı: ml alt_kategori 68 ·
+ust_kategori 109 · genel 33; k2 ust_kategori 143 · genel 67; k1, k3 ve gizli ust_kategori 210.
+"Kümede ince benzerlik" hipotezi desteklenmedi.
 
 ## Koşum, rapor, demo
 
@@ -316,7 +322,7 @@ koşar (kume bloğu 1.439 sn). Bu yüzden kümeleme düzeltmeleri İlk Sevkiyat 
 - `kumeler.json` (git'te; İlk Sevkiyat yol 0 okur): karar günü eşlemeleri. K1-K4 kapsamın 69 mağazasında,
   önerinin kümeleri 67 kümelenen mağazada, yeni mağazaların 5-NN ataması, kimlikler; gizli segment ayrı bir
   `olcum_gizli_segment` alanında, yalnız ölçüm için (kahin küme kolu). Karar kodu o alanı okumaz.
-- `rapor.py` veriyi okumaz, kümelemeyi koşmaz: `sonuc.json`'u basar. Bugünkü kodla ya da v4 dosyasıyla
+- `rapor.py` veriyi okumaz, kümelemeyi koşmaz: `sonuc.json`'u basar; KORUNUM bölümünde 54 denetim. Bugünkü kodla ya da v4 dosyasıyla
   yazılmamış `sonuc.json`, `kumeler.json` ya da demo dosyasının `sonuc.json`'dan üretilenden farklı olması,
   ya da bozulan bir korunum denetimi stdout'u boş bırakır (çıkış 1). `--taslak` eski girdiyle basar
   (çıkış 2; yazılara kaynak olamaz). Aynı girdiyle iki koşu bayt bayt aynıdır.

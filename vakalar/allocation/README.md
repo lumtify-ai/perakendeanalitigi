@@ -165,7 +165,9 @@ Ayrıntı `allocation/olcutler.py`'nin modül notunda; ölçütler yüzde, `pay_
   `alimdan_kalan_beden_b` ilk alıma göre gönderilmeyen payı, `depoda_kalan_beden_b` depoda fiilen
   duranı gösterir (R33).
 - **Korunum.** Her kol koşusu: satış ≤ talep, motor kollarda paket kırpmaz (`kirpilan_adet` = 0),
-  `t = 0`'da ilk dağıtım + tavanın bıraktığı = U, kahinin bağımsızlığı. Rapor 276 denetimi basar (küme kollarında ⌊U⌋, kırpma 0, pay sözlüğü her adayı kapsar, mevcut koşu anahtarları değişmedi dahil).
+  `t = 0`'da ilk dağıtım + tavanın bıraktığı = U, kahinin bağımsızlığı. Rapor 315 denetimi basar
+  (küme kollarında ⌊U⌋, kırpma 0, pay sözlüğü her adayı kapsar, mevcut koşu anahtarları değişmedi
+  dahil).
 
 ## Sahne
 
@@ -237,27 +239,40 @@ koşulur (pay dışarıdan verilen sözlük; kayıtta kol adı `kahin`, düzey �
 
 | koşu | kümeler |
 |---|---|
-| `kume_k2` | ciro sınıfı (K2; Lumoda'nın planlama grubu) |
+| `kume_k2` | ciro sınıfı (K2) |
 | `kume_k1` | bölge (K1; allocator'ların bölünmesi) |
-| `kume_k3` | bölge × ciro ızgarası (K3; Lumoda'nın grupları, birleştirilmiş 12 hücre; Ruling R21) |
+| `kume_k3` | bölge × ciro ızgarası (K3; Lumoda'nın grupları, birleştirilmiş 12 hücre; Ruling R21, yollarda R23) |
 | `kume_ml` | önerilen ML kümesi; yeni mağaza statiklerle 5-NN |
 | `kume_gizli` | gizli segment: kümelemenin ulaşabileceği en iyi yapı, yalnız ölçüm kolu |
 
-`kume_k1`, `kume_k2`, `kume_k3` yalnız yol 0'da koşulur. Yol 0'da kümeler git'teki `vakalar/kumeleme/kumeler.json`'dan (gizli segment ayrı ölçüm okumasıyla);
-yol 1–4'te `kume_ml` ve `kume_gizli`, kümeler o yolun Lumoda tablolarından kümeleme paketinin
-işlevleriyle yeniden kurulur. Hiyerarşinin ilk düzeyi ve `en_az` yapı başına SS24'te koşusuz seçilir
+Lumoda kolu (`lumoda`, plan payı) bir gruplama değildir: Lumoda'nın yayımlanan mağaza mağaza planıdır
+(yazılarda "Lumoda'nın mağaza planı"). `kume_k1` ve `kume_k2` yalnız yol 0'da koşulur. Yol 0'da kümeler
+git'teki `vakalar/kumeleme/kumeler.json`'dan (gizli segment ayrı ölçüm okumasıyla); yol 1–4'te
+`kume_ml`, `kume_k3` (R23) ve `kume_gizli` koşulur, kümeler o yolun Lumoda tablolarından kümeleme
+paketinin işlevleriyle yeniden kurulur (K3 her yolda aynı 12 grubu verir, kimlik `ead0433290bf`). Hiyerarşinin ilk düzeyi ve `en_az` yapı başına SS24'te koşusuz seçilir
 (`KUME_BAS_IZGARASI` × `KUME_EN_AZ_IZGARASI`, ölçü pay WAPE'si; kümeler SS24 karar günündeki veriyle).
 
-**Sonuç (yol 0, aynı mal, t = 0, tavansız; rapor KÜME bölümü).** Bulunabilirlik: Lumoda %68,98 ·
-ciro sınıfı (K2) %69,19 · bölge (K1) %69,35 · ML önerisi %69,53 · gizli segment %69,51 · benzer
-(mağaza geçmişi) %69,51 · tahmin (LightGBM) %70,41. Pay WAPE'si: ML 0,230, benzer 0,229, tahmin
-0,171. `KÜME SORU 7` satırı: ML kümesi %69,5 (benzer %69,5, 0,0 puan, eşit; tahmin %70,4, −0,9 puan,
-geride), ciro sınıfı %69,2 (Lumoda %69,0, +0,2 puan), gizli segment %69,5 (ML'den 0,0 puan); beş
-yolda ML bulunabilirlikte benzerden 3/5, tahminden 0/5, Lumoda'dan 5/5 yolda önde, gizli segment ML'den
-2/5 yolda önde (medyan fark 0,0 puan). Kümeye göre plan mağazanın kendi geçmişine yetişiyor ama
-geçmiyor; kusursuz segment bile geçmiyor; LightGBM önde. Bölmenin hakem uyumu karar kalitesine
-dönüşmüyor: yol 0'da ML kümesi gizli segmentle aynıdır (ARI 1,000) ve iki kol yalnız M027'de
-ayrışır. Yeni mağazalar (M027, M041) paylarını kümeden alır.
+**Sonuç (yol 0, aynı mal, t = 0, tavansız; rapor KÜME bölümü).** Bulunabilirlik: Lumoda'nın mağaza
+planı (`lumoda`) %68,98 · ciro sınıfı (K2) %69,19 · bölge (K1) %69,35 · Lumoda'nın grupları (K3)
+%69,35 · ML önerisi %69,53 · gizli segment %69,51 · benzer (mağaza geçmişi) %69,51 · tahmin (LightGBM)
+%70,41. Pay WAPE'si: K3 0,238, ML 0,230, benzer 0,229, tahmin 0,171. Yol 0 farkları:
+`kume_k3 − lumoda` bulunabilirlik +0,37, kalan +0,31, brüt kâr −868.933 TL, WAPE +0,003;
+`kume_ml − kume_k3` bulunabilirlik +0,18, kalan −0,43, brüt kâr +1.251.940 TL, WAPE −0,008.
+
+**Yollar (5 talep yolu).** `kume_ml − kume_k3`: bulunabilirlik 5/5 yolda önde (medyan fark +0,21; bir
+ondalık +0,2 · +0,2 · +0,4 · +0,3 · +0,1, medyan +0,2), sezon sonu kalan 5/5 (medyan −0,43), pay WAPE
+5/5 (medyan −0,007). `kume_k3 − lumoda`: bulunabilirlik 5/5 (medyan +0,36; bir ondalık medyan +0,4),
+kalan 1/5 (medyan +0,05), pay WAPE 0/5 (medyan +0,003). `kume_ml − lumoda` 5/5 (bir ondalık medyan
++0,6), `kume_ml − benzer` 3/5 (bir ondalık medyan 0,0; yön sayımı iki ondalıklı farktan), `kume_ml −
+tahmin` 0/5 (−0,9), `kume_gizli − kume_ml` 2/5 (0,0). `KÜME SORU 7` satırı bunları tek satırda
+özetler; metni `cikti/rapor.txt`'tedir.
+
+Yani ML kümesine göre plan Lumoda'nın gruplarını (K3) da mağaza planını da beş yolda bulunabilirlikte,
+kalanda ve pay WAPE'sinde geçiyor; Lumoda'nın grupları mağaza planını yalnız bulunabilirlikte geçiyor.
+Kümeye göre plan mağazanın kendi geçmişine yetişiyor ama geçmiyor; kusursuz segment bile geçmiyor;
+LightGBM önde. Bölmenin hakem uyumu karar kalitesine dönüşmüyor: yol 0'da ML kümesi gizli segmentle
+aynıdır (ARI 1,000) ve iki kol yalnız M027'de ayrışır. Yeni mağazalar (M027, M041) paylarını kümeden
+alır.
 
 ## Kalibrasyon
 
@@ -272,12 +287,13 @@ içi olduğu anlamına gelir; rapor ve yazılar bunları örneklem dışı karar
 
 **Küme kollarının kalibrasyonu** (`oyun kume_kalibrasyon`, SS24, koşusuz; kümeler SS24 karar gününde
 yeniden kurulur, `cikti/kume_kalibrasyon.json`): hiyerarşinin ilk düzeyi × `en_az` {3, 5, 10, 20, 40,
-80}, ölçü pay WAPE'si. Seçilen (ilk düzey / en az örnek): k2 0 / 80, k1 3 / 3, ml 0 / 40, gizli
-3 / 20; pay WAPE'si SS24'te k2 0,238, k1 0,235, ml 0,237, gizli 0,237 (benzer 0,235, tahmin 0,197).
+80}, ölçü pay WAPE'si. Seçilen (ilk düzey / en az örnek): k2 0 / 80, k1 3 / 3, k3 3 / 3, ml 0 / 40,
+gizli 3 / 20; pay WAPE'si SS24'te k2 0,238, k1 0,235, k3 0,237, ml 0,237, gizli 0,237 (benzer 0,235,
+tahmin 0,197).
 Kalibrasyon, geçmiş sezonda kaba düzeye denk gelen yüksek bir örnek eşiği seçti; ince düzey ancak
 çok örnek olduğunda kullanılıyor. Aynı ayar oyun sezonunda ml için alt_kategori 68 · ust_kategori
-109 · genel 33 option'a, k2 için ust_kategori 143 · genel 67 option'a, k1 ve gizli için ust_kategori
-210 option'a denk gelir. Bu yüzden "kümede ince benzerlik" hipotezi desteklenmedi.
+109 · genel 33 option'a, k2 için ust_kategori 143 · genel 67 option'a, k1, k3 ve gizli için
+ust_kategori 210 option'a denk gelir. Bu yüzden "kümede ince benzerlik" hipotezi desteklenmedi.
 
 ## İlkeler
 

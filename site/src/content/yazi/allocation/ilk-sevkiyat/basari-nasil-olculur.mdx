@@ -151,60 +151,81 @@ sezonun geri kalanında olan şeyleri değiştirmiyor.
 Üçüncü yazıda mağazaları kümelere toplamanın ince benzerliğe bir şey
 kazandırmadığını gördük. Peki payı kümenin geçmişinden alan bir plan sezon
 sonunda ne veriyor? Bu, [Mağaza Gruplama](/magaza-kumeleme/magaza-gruplama/)
-dizisinin asıl sorusu. O dizinin gruplamalarından üçünü burada aynı malla
-koşturduk: bölge, ciro sınıfı ve satış karışımından makine öğrenmesiyle
-bulunan kümeler. Dördüncü kol mağazaların gizli profiline göre kümeliyor
-(o dizinin cevap anahtarı). Bu kol kahin gibi bir ölçek; gerçek hayatta bu
-profil bilinmiyor. Payın hesabı üçüncü yazıdaki mağazanın geçmiş payıyla aynı,
-yalnız mağazanın değil kümenin geçmişinden. Kümelerin nasıl kurulduğunu o
-dizi anlatıyor.
+dizisinin asıl sorusu. O dizinin gruplamalarından dördünü burada aynı malla
+koşturduk: bölge, ciro sınıfı, ikisinin ızgarası (Lumoda'nın kendi
+grupları) ve satış karışımından makine öğrenmesiyle bulunan kümeler, kısaca
+satış karışımı kümeleri. Beşinci kol mağazaların gizli profiline göre
+kümeliyor (o dizinin cevap anahtarı). Bu kol kahin gibi bir ölçek; gerçek
+hayatta bu profil bilinmiyor. Payın hesabı üçüncü yazıdaki mağazanın
+geçmiş payıyla aynı, yalnız mağazanın değil kümenin geçmişinden. Kümelerin
+nasıl kurulduğunu o dizi anlatıyor.
+
+Tablodaki Lumoda'nın mağaza planı, bu dizinin baştan beri Lumoda ya da plan
+payı dediği kol: Lumoda'nın yayımlanan, mağaza mağaza planı. Bir gruplama
+değil.
 
 Yayımlanan akışta, tavansız ve aynı ilk sevkiyat malıyla:
 
-| | Pay hatası | Bulunabilirlik | Sezon sonunda elde kalan | Brüt kâr |
+| Pay | Bulunabilirlik | Elde kalan | Pay hatası | Brüt kâr |
 |---|---:|---:|---:|---:|
-| Lumoda (plan payı) | 0,235 | %68,98 | %19,77 | 534.433.105 TL |
-| Küme: ciro sınıfı | 0,241 | %69,19 | %20,44 | 531.930.817 TL |
-| Küme: bölge | 0,236 | %69,35 | %19,74 | 532.789.729 TL |
-| Küme: makine öğrenmesi | 0,230 | %69,53 | %19,65 | 534.816.112 TL |
-| Küme: gizli profil | 0,231 | %69,51 | %19,55 | 534.298.578 TL |
-| Mağazanın geçmiş payı | 0,229 | %69,51 | %19,65 | 535.147.736 TL |
-| Model | 0,171 | %70,41 | %17,74 | 550.029.513 TL |
+| Lumoda'nın mağaza planı | %68,98 | %19,77 | 0,235 | 534.433.105 TL |
+| Küme: Lumoda'nın grupları (bölge × ciro) | %69,35 | %20,08 | 0,238 | 533.564.172 TL |
+| Küme: ciro sınıfı | %69,19 | %20,44 | 0,241 | 531.930.817 TL |
+| Küme: bölge | %69,35 | %19,74 | 0,236 | 532.789.729 TL |
+| Küme: satış karışımı (makine öğrenmesi) | %69,53 | %19,65 | 0,230 | 534.816.112 TL |
+| Küme: cevap anahtarı (gizli profil) | %69,51 | %19,55 | 0,231 | 534.298.578 TL |
+| Mağazanın geçmiş payı | %69,51 | %19,65 | 0,229 | 535.147.736 TL |
+| Model (LightGBM) | %70,41 | %17,74 | 0,171 | 550.029.513 TL |
 
-Makine öğrenmesi kümelerine göre plan, bulunabilirlikte mağazanın kendi
+Satış karışımı kümelerine göre plan, bulunabilirlikte mağazanın kendi
 geçmiş payıyla aynı yerde: %69,53'e karşı %69,51. Pay hatasında ve brüt
-kârda biraz geride. Gizli profil de mağazanın geçmiş payını geçmiyor.
-Model ikisinin de açıkça önünde.
+kârda biraz geride. Cevap anahtarı kolu da mağazanın geçmiş payını
+geçmiyor. Model ikisinin de açıkça önünde.
 
-Ciro sınıfına göre plan Lumoda'ya pek bir şey katmıyor. Bulunabilirlikte
-biraz önde, %69,19'a karşı %68,98. Ama pay hatası daha kötü, elde kalan mal
-daha çok ve brüt kâr 2.502.288 TL daha az. Bölge de brüt kârda Lumoda'nın
-gerisinde; gizli profil bile çok az geride.
+Satış karışımı kümeleri Lumoda'nın gruplarını bulunabilirlikte 0,2 puan
+geçiyor; gruplar da Lumoda'nın mağaza planını 0,4 puan. Satış karışımı
+kümelerinin brüt kârı gruplarınkinden 1.251.940 TL fazla. Lumoda'nın
+grupları ise bulunabilirlikteki önüne rağmen brüt kârda mağaza planının
+868.933 TL gerisinde.
 
-Beş yolda, bulunabilirlik:
+Ciro sınıfına göre plan Lumoda'nın mağaza planına pek bir şey katmıyor.
+Bulunabilirlikte biraz önde, %69,19'a karşı %68,98. Ama pay hatası daha
+kötü, elde kalan mal daha çok ve brüt kâr 2.502.288 TL daha az. Bölge de
+brüt kârda mağaza planının gerisinde; cevap anahtarı kolu bile çok az
+geride.
+
+Beş yolda, bulunabilirlik. Bu tabloda farklar bir ondalıkla; Mağaza
+Gruplama dizisi aynı karşılaştırmaları aynı sayılarla veriyor.
 
 | Karşılaştırma | Kaç yolda önde | Farkın yol medyanı |
 |---|---:|---:|
-| Küme (makine öğrenmesi) − Lumoda | 5/5 | +0,55 puan |
-| Küme (makine öğrenmesi) − mağazanın geçmiş payı | 3/5 | +0,01 puan |
-| Küme (makine öğrenmesi) − model | 0/5 | −0,93 puan |
-| Küme (gizli profil) − küme (makine öğrenmesi) | 2/5 | −0,02 puan |
+| Satış karışımı kümesi − Lumoda'nın mağaza planı | 5/5 | +0,6 puan |
+| Satış karışımı kümesi − Lumoda'nın grupları | 5/5 | +0,2 puan |
+| Lumoda'nın grupları − Lumoda'nın mağaza planı | 5/5 | +0,4 puan |
+| Satış karışımı kümesi − mağazanın geçmiş payı | 3/5 | 0,0 puan |
+| Satış karışımı kümesi − model | 0/5 | −0,9 puan |
+| Cevap anahtarı − satış karışımı kümesi | 2/5 | 0,0 puan |
 
-Makine öğrenmesi kümeleri beş yolun beşinde Lumoda'nın önünde; elde kalan
-malda ve pay hatasında da. Mağazanın geçmiş payına karşı sonuç başa
-baş: önde olduğu üç yolda fark bir ondalıkla 0,0, geride kaldığı iki
-yolda −0,3 puan. Pay hatasında beş yolun hiçbirinde önde değil. Gizli
-profil de makine öğrenmesi kümelerinden ayrışmıyor.
+Satış karışımı kümeleri beş yolun beşinde hem Lumoda'nın mağaza planının
+hem Lumoda'nın gruplarının önünde; elde kalan malda ve pay hatasında da.
+Lumoda'nın grupları mağaza planını bulunabilirlikte beş yolun beşinde
+geçiyor, ama elde kalanda yalnız bir yolda, pay hatasında hiçbirinde.
+Mağazanın geçmiş payına karşı sonuç başa baş: önde olduğu üç yolda fark
+sıfıra yakın, bir ondalıkla 0,0; geride kaldığı iki yolda −0,3 puan. Pay
+hatasında beş yolun hiçbirinde önde değil. Cevap anahtarı kolu iki yolda
+önde, ama orada da fark sıfıra yakın; satış karışımı kümelerinden
+ayrışmıyor.
 
-Yani makine öğrenmesi kümelerine göre plan Lumoda'nın bugünkü planından
-iyi, ama mağazanın kendi geçmişine yetişiyor, onu geçmiyor. Kümelemenin
-ulaşabileceği en iyi yapı bile geçmiyor; gerçi bu veride makine öğrenmesi
-kümeleri cevap anahtarıyla zaten neredeyse aynı (uyum 0,959), yani bu iki
-kolun ayrışması beklenmezdi. Bu vakada mağazanın kendi geçmişi, kümesinin ortalamasının
-bildiğini zaten biliyor görünüyor. Kümenin, kendi geçmişi olmayan
-mağazada farklı bir rolü var: yeni bir mağaza payını kümesinden alıyor, mağazanın
-geçmiş payında ise ortalama mağaza sayılıyor. Bunun etkisini bu dizide
-ayrıca ölçmedik.
+Yani satış karışımı kümelerine göre plan Lumoda'nın mağaza planından da
+kendi gruplarından da iyi, ama mağazanın kendi geçmişine yetişiyor, onu
+geçmiyor. Kümelemenin ulaşabileceği en iyi yapı bile geçmiyor; gerçi bu
+veride satış karışımı kümeleri cevap anahtarıyla zaten neredeyse aynı (69
+mağazada uyum 0,959; kümelenen 67 mağazada birebir aynı, fark yalnız İzmir
+2), yani bu iki kolun ayrışması beklenmezdi. Bu vakada mağazanın kendi
+geçmişi, kümesinin ortalamasının bildiğini zaten biliyor görünüyor. Kümenin,
+kendi geçmişi olmayan mağazada farklı bir rolü var: yeni bir mağaza payını
+kümesinden alıyor, mağazanın geçmiş payında ise ortalama mağaza sayılıyor.
+Bunun etkisini bu dizide ayrıca ölçmedik.
 
 ## Tek paketin bedeli
 
@@ -254,8 +275,9 @@ bu sınama söylemiyor.
 
 **Kahin gerçek değil.** "Gizli gerçeği bilseydik" kolu. Gerçek hayatta
 böyle bir kol kurulamaz; burada yalnız bir ölçek. Orantılı payın en iyi
-dağıtım olduğu da kanıtlanmış değil. Gizli profile göre kümeleme de öyle:
-gerçek bir zincirde mağazaların gizli profili bilinmez.
+dağıtım olduğu da kanıtlanmış değil. Cevap anahtarına, yani gizli profile
+göre kümeleme de öyle: gerçek bir zincirde mağazaların gizli profili
+bilinmez.
 
 **Kalibrasyonun iki seçimi hakemle puanlandı.** Tavanı açık seçmemiz ve
 belirsizlik eğrisinin dikliği, bir önceki ilkbahar-yaz sezonunun
@@ -315,8 +337,8 @@ yapmamıştı.
 
 Altı yazı sonra elimizde şunlar var. Plan payı eşitten iyi; plan bir şey
 biliyor. Mağazanın geçmiş payı plandan yalnız biraz iyi, çünkü ikisi de aynı şeyi
-biliyor. Payı satış karışımından makine öğrenmesiyle bulunan kümeden almak
-da plandan iyi, ama mağazanın kendi geçmişini geçmiyor.
+biliyor. Payı satış karışımı kümelerinden almak hem plandan hem
+Lumoda'nın kendi gruplarından iyi, ama mağazanın kendi geçmişini geçmiyor.
 Mağaza mağaza tahmin yapan bir model aynı malla planın önünde, beş yolun
 beşinde. Payı neredeyse kusursuz bilmek bile sezonun hepsini çözmüyor.
 Depoda mal tutmak işe yarıyor, payınız ne kadar kötüyse o kadar çok. Ve

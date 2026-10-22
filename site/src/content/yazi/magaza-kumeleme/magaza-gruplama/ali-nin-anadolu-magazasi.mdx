@@ -3,9 +3,9 @@ baslik: Ali'nin Anadolu Mağazası
 tip: hikaye
 sira: 1
 ozet: >-
-  Lumoda planını bölgeye ve ciroya göre kurulan gruplarla yapıyor. İstanbul 13
-  ile İstanbul 10 aynı grupta, ama aynı şeyi satmıyorlar. İstanbul 13 daha çok
-  Eskişehir'deki bir mağazaya benziyor.
+  Pelin bu sezonun planını bölgeye ve ciroya göre kurulan gruplarla yapmak
+  istiyor. İstanbul 13 ile İstanbul 10 aynı grupta, ama aynı şeyi
+  satmıyorlar. İstanbul 13 daha çok Eskişehir'deki bir mağazaya benziyor.
 yazar: Sabri Suyunu
 durum: yayinda
 ---
@@ -18,15 +18,15 @@ import T from '../../../../components/T.astro'
 [İlk Sevkiyat](/allocation/ilk-sevkiyat/) dizisinde malı mağazalara
 paylaştırırken hep aynı yere yaslandık: Pelin'in planına. Kural, bir
 ürünün paketlerini her mağazanın kategori planındaki payıyla bölüyordu.
-Planın kendisinin nasıl kurulduğunu hiç sormadık. Bu dizi o soruyla
-başlıyor.
+Planı hep hazır aldık. Bu dizi bir adım geri gidiyor: plan mağaza mağaza
+değil de gruplarla kurulsaydı, gruplar nasıl seçilmeliydi?
 
-Bir zincir her mağazası için ayrı bir plan kurmaz. Mağazaları gruplar, her
-gruba bir plan yapar, grubun planını da mağazalara büyüklüklerine göre
-böler. Sahada buna kümeleme denir, İngilizcesi clustering. Grubun adı da
-<T k="kume">küme</T>. Kulağa teknik bir ayrıntı gibi geliyor, ama bir
-mağazaya hangi malın gideceğini çoğu zaman o mağazanın hangi gruba
-konduğu belirliyor.
+Mağaza sayısı büyüdükçe her mağazaya ayrı ayrı plan kurmak ağırlaşır. Çoğu
+zincir bu yüzden mağazaları gruplar, her gruba bir plan yapar, grubun
+planını da mağazalara büyüklüklerine göre böler. Sahada buna kümeleme
+denir, İngilizcesi clustering. Grubun adı da <T k="kume">küme</T>. Kulağa
+teknik bir ayrıntı gibi geliyor, ama bir mağazaya hangi malın gideceğini
+çoğu zaman o mağazanın hangi gruba konduğu belirliyor.
 
 ## Pelin'in ızgarası
 
@@ -39,13 +39,15 @@ planlanıyor.
 Mağazalar Ali ile Veli arasında bölgeye göre bölünmüş. Bu 67 mağazanın
 12'si İstanbul'da ve Ali'de, 55'i Anadolu'da ve Veli'de.
 
-Pelin planı mağaza mağaza sıfırdan kurmuyor. Lumoda'da iki gruplama var ve
-plan ikisinin çaprazından başlıyor. Biri bölge: Marmara, İç Anadolu, Akdeniz ve
-öteki dört bölge. Öteki <T k="ciro-sinifi">ciro sınıfı</T>: mağazalar son on
-iki ayın cirosuna göre sıralanıyor, ilk %20'si A, sonraki %30'u B, kalanı C
-oluyor. Az mağazalı hücreler komşu sınıfla birleşince ortaya 12 grup
-çıkıyor. Pelin önce her hücrenin kategori karışımını kuruyor, sonra mağaza
-mağaza düzeltiyor; aynı hücredeki mağazalar aynı başlangıçtan yola çıkıyor.
+Lumoda'nın yayımlanan planı mağaza mağaza: her mağazanın her kategoride ne
+satacağı Pelin'in tablosunda ayrı bir satır. Bu sezon Pelin işi gruplarla
+kurmak istiyor. Lumoda'da hazır iki gruplama var. Biri bölge: Marmara, İç
+Anadolu, Akdeniz ve öteki dört bölge. Öteki
+<T k="ciro-sinifi">ciro sınıfı</T>: mağazalar son on iki ayın cirosuna göre sıralanıyor, ilk %20'si
+A, sonraki %30'u B, kalanı C oluyor. İkisinin çaprazında az mağazalı
+hücreler komşu sınıfla birleşince ortaya 12 grup çıkıyor. Pelin'in fikri her
+hücreye bir kategori karışımı vermek; aynı hücredeki mağazalar aynı karışımı
+alacak, büyüklükleri yalnız toplamlarını belirleyecek.
 
 ## Toplantı
 
@@ -98,7 +100,7 @@ Ekrana Collection ürünlerinden üç satır geliyor:
 
 — İstanbul 10'un Collection satışının neredeyse yarısı giriş fiyatlı ürün,
 diyor Pars. İstanbul 13'te dörtte biri. Sweatshirt payı İstanbul 10'da
-İstanbul 13'tekinin dört katından fazla. Regular kalıpta tersi.
+çok daha yüksek. Regular kalıpta tersi.
 
 — Ama ikisi de İstanbul, diyor Ali. Hücreleri de aynı.
 
@@ -158,7 +160,7 @@ anlatacağım. Sonuç beş küme.
 Kümelerden biri 32 mağazalık. Eskişehir 2 orada, İstanbul 13 de orada.
 İstanbul 10 başka bir kümede. İstanbul'un 12 mağazasından 7'si bu 32
 mağazalık kümeye düşüyor; yani Ali'nin mağazalarının yarıdan fazlası,
-İstanbul 13 gibi, Anadolu'nun aile mağazaları gibi satıyor.
+tıpkı İstanbul 13 gibi, Anadolu'nun aile mağazalarına benzer satıyor.
 
 — Benim Anadolu'm da tek parça değil, diyor Veli ekrana bakarak.
 
@@ -169,10 +171,9 @@ kümesinde, soğuk şehirlerin 7 mağazası da kendi kümesinde.
 
 Pelin bir süre ekrana bakıyor.
 
-— Yani ben İstanbul 13'ün planına İstanbul 10'la aynı karışımdan
-başlıyordum.
+— Yani ben İstanbul 13'e İstanbul 10'la aynı karışımı verecektim.
 
-— Başlıyordun, diyor Pars. Bu ikisini aynı karışımdan planlarsan en az birine
+— Verecektin, diyor Pars. Bu ikisini aynı karışımdan planlarsan en az birine
 yanlış mal gider: ya İstanbul 10 sweatshirt bekler, ya İstanbul 13'ün
 deposunda sweatshirt birikir.
 

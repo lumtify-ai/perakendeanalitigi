@@ -212,7 +212,7 @@ satışı yok; haritadaki yeri onu metropolün genç müşterisine benzetiyor.
 
 — Komşularının kümesine göre, diyor Pars. Başka bilgin yok. Ama bu kümeyi
 geçici say. Mağazanın yarım yıllık satışı olunca karışımıyla yeniden
-kümele. Metropolde ilk tahminin yarı yarıya tutuyor.
+kümele. Metropolde bu ilk tahmin ancak yarı yarıya tutuyor.
 
 ## Kümeye göre pay
 
@@ -273,8 +273,8 @@ Pay, kümenin endeksi çarpı mağazanın ölçeği:
 v = float(endeks[konum[self.etiket[m]]] * float(olcek[m]))
 ```
 
-İkinci yazıda "ölçek kaybolmaz, planın ikinci adımında işe girer"
-demiştik. İşte o adım: karışım kümeden, büyüklük mağazadan geliyor.
+İkinci yazıda ölçeğin kaybolmadığını, planın ikinci adımında işe girdiğini
+söylemiştik. İşte o adım: karışım kümeden, büyüklük mağazadan geliyor.
 
 ### Yeni mağaza payını kümeden alıyor
 
@@ -327,21 +327,21 @@ düzey hiçbir üründe kullanılmıyor.
 
 Yani hipotez bu veride tutmadı. Kalibrasyon, geçmiş sezonda kaba düzeye
 denk gelen yüksek bir örnek eşiği seçti; ince düzey ancak çok örnek
-olduğunda kullanılıyor. İlk Sevkiyat'ta kalibrasyonun gevşek benzerliği
-seçmesi kümede de tekrarlandı.
+olduğunda kullanılıyor. İlk Sevkiyat'taki gibi kalibrasyon yine yüksek bir
+eşik seçti; fark, küme düzeyinde bu eşiğin oyun sezonunda bazı ürünlerde
+alt kategoriye inmesi.
 
 ## İlk Sevkiyat'a köprü
 
 Küme payını İlk Sevkiyat'ın oyun sezonunda beş gruplamayla koşturduk:
-ciro sınıfı, bölge, ikisinin ızgarası, yani Lumoda'nın kendi grupları,
-satış karışımı kümeleri ve cevap anahtarının kendisi. Sonuncusu yalnız
+ciro sınıfı, bölge, ikisinin ızgarası (Lumoda'nın kendi grupları), satış
+karışımı kümeleri ve cevap anahtarının kendisi. Sonuncusu yalnız
 ölçüm için: gruplama kusursuz olsaydı ne olurdu? Beş kol da Lumoda'yla
 aynı malı gönderiyor; yalnız mal mağazalara başka paylarla bölünüyor.
 
 İlk Sevkiyat'taki Lumoda kolu ise bir gruplama değil: Lumoda'nın
-yayımlanan planı, mağaza mağaza kurulmuş hâliyle. Pelin'in hücrelerden
-başlayıp mağaza mağaza düzelttiği plan bu. Aşağıda ona Lumoda'nın mağaza
-planı diyorum.
+yayımlanan planı, mağaza mağaza. Aşağıda ona Lumoda'nın mağaza planı
+diyorum.
 
 İlk Sevkiyat'ın asıl ölçütü bulunabilirlikti: fiziksel bir mağazada bir
 bedene talep olan günlerin yüzde kaçında o beden raftaydı. Satış karışımı
@@ -349,9 +349,10 @@ kümeleriyle %69,53. Lumoda'nın gruplarıyla %69,35, Lumoda'nın mağaza
 planıyla %68,98. Mağazanın geçmiş payı %69,51, mağaza mağaza tahmin yapan
 LightGBM modeli %70,41.
 
-Bulunabilirlikte satış karışımı kümelerine göre pay Lumoda'nın gruplarını
-0,2 puan, mağaza planını 0,6 puan geçiyor; mağazanın kendi geçmişine
-yetişiyor, ama geçmiyor. Model önde. Ötekiler, beş müşteri akışı ve
+Yayımlanan akışta bulunabilirlikte satış karışımı kümelerine göre pay
+Lumoda'nın gruplarını 0,2 puan, mağaza planını 0,6 puan geçiyor; beş
+müşteri akışının beşinde de ikisinden önde. Mağazanın kendi geçmişine
+yetişiyor, ama geçmiyor. Model önde. Öteki ölçütler, akışların ayrıntısı ve
 kümenin bu sonuçta neyi değiştirip neyi değiştirmediği, son yazının
 konusu.
 

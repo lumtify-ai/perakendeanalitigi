@@ -16,11 +16,11 @@ import Demo from '../../../../components/Demo.astro'
 import Lumtify from '../../../../components/Lumtify.astro'
 import T from '../../../../components/T.astro'
 
-Beş yazı boyunca mağazaları <T k="kume">kümelere</T> ayırdık: bölgeyle,
-ciro sınıfıyla, ikisinin ızgarasıyla, konumla ve satış karışımından
-bulunan kümelerle. Kümelerin
-yıldan yıla ne kadar dayandığına, yeni bir mağazanın nereye konacağına
-baktık ve kümeye göre bir pay kurduk. Şimdi hesabı topluyoruz.
+Beş yazı boyunca mağazaları <T k="kume">kümelere</T> ayırdık: bölgeyle, ciro
+sınıfıyla, ikisinin ızgarasıyla, konumla ve satış karışımından bulunan
+kümelerle. Kümelerin yıldan yıla ne kadar dayandığına, yeni bir mağazanın
+nereye konacağına baktık ve kümeye göre bir pay kurduk. Şimdi hesabı
+topluyoruz.
 
 Bir kümelemenin iyi olup olmadığını ölçmenin üç yolu var. Bu dizide üçünü
 de kullandık. Gerçek bir zincirde ise yalnız ikisi elinizde olacak.
@@ -40,7 +40,7 @@ müşteri profili verdim. Kümeleri bu cevap anahtarıyla ARI üzerinden
 | Konum | 5 | 0,432 |
 | Satış karışımı kümeleri | 5 | 1,000 |
 
-Lumoda'nın bugünkü iki gruplaması müşteri hakkında pek bir şey bilmiyor.
+Lumoda'nın elindeki iki gruplama müşteri hakkında pek bir şey bilmiyor.
 Ciro sınıfı rastgele düzeyinde, bölge biraz biliyor, ikisinin ızgarası
 bölgeden bile kötü. Konum metropol dışında çok şey biliyor, metropolde
 hiçbir şey. Satış karışımı kümeleri anahtarın kendisi.
@@ -94,8 +94,7 @@ sınıfı ızgarasının 12 hücresi. Bütün kollar aynı malı gönderiyor; ya
 mal mağazalara başka paylarla bölünüyor.
 
 İlk Sevkiyat'taki Lumoda kolu bir gruplama değil: Lumoda'nın yayımlanan
-planı, mağaza mağaza kurulmuş hâliyle. Pelin'in hücrelerden başlayıp
-mağaza mağaza düzelttiği plan bu; tabloda adı Lumoda'nın mağaza planı.
+planı, mağaza mağaza; tabloda adı Lumoda'nın mağaza planı.
 
 Ölçütler İlk Sevkiyat'ınkiler. Bulunabilirlik: fiziksel bir mağazada bir
 bedene talep olan günlerin yüzde kaçında o beden raftaydı. Elde kalan:
@@ -110,8 +109,8 @@ maliyeti düşülünce kalan.
 | Küme: Lumoda'nın grupları (bölge × ciro) | %69,35 | %20,08 | 0,238 | 533.564.172 TL |
 | Küme: ciro sınıfı | %69,19 | %20,44 | 0,241 | 531.930.817 TL |
 | Küme: bölge | %69,35 | %19,74 | 0,236 | 532.789.729 TL |
-| Küme: satış karışımı | %69,53 | %19,65 | 0,230 | 534.816.112 TL |
-| Küme: cevap anahtarı | %69,51 | %19,55 | 0,231 | 534.298.578 TL |
+| Küme: satış karışımı (makine öğrenmesi) | %69,53 | %19,65 | 0,230 | 534.816.112 TL |
+| Küme: cevap anahtarı (gizli profil) | %69,51 | %19,55 | 0,231 | 534.298.578 TL |
 | Mağazanın geçmiş payı | %69,51 | %19,65 | 0,229 | 535.147.736 TL |
 | Model (LightGBM) | %70,41 | %17,74 | 0,171 | 550.029.513 TL |
 
@@ -119,9 +118,12 @@ Tabloyu dört soruyla okuyalım.
 
 **Satış karışımı kümeleri Lumoda'nın gruplarından iyi mi?** Dizinin asıl
 sorusu bu: Pelin'in ızgarası yerine satış karışımı kümeleriyle
-planlasaydık? Evet, biraz ve dört ölçütte de. Bulunabilirlikte 0,2 puan
-önde; elde kalan 0,43 puan, pay hatası 0,008 düşük; brüt kâr 1.251.940 TL
-yüksek.
+planlasaydık? Evet, biraz ve dört ölçütte de. Yayımlanan akışta
+bulunabilirlikte 0,2 puan önde; elde kalan 0,43 puan, pay hatası 0,008
+düşük; brüt kâr 1.251.940 TL yüksek. Bu tek bir akışın sonucu değil:
+aşağıda göreceğimiz beş müşteri akışının beşinde de satış karışımı
+kümeleri bulunabilirlikte, elde kalanda ve pay hatasında Lumoda'nın
+gruplarının önünde.
 
 **Lumoda'nın mağaza planına göre?** Satış karışımı kümelerine göre pay
 bulunabilirlikte mağaza planının 0,6 puan önünde; elde kalan ve pay
@@ -152,22 +154,24 @@ Satış karışımı kümeleri 67 mağazada zaten anahtarla birebir aynı. İki 
 kümeleri yalnız bir mağazada ayrışıyor: İzmir 2. Beş komşu onu metropol
 genç kümesine koymuştu; anahtar Anadolu aile kümesine koyuyor. Bir de
 kalibrasyon iki kola ayrı ayar seçti, başlangıç düzeyi de eşik de farklı:
-cevap anahtarı kolu oyun sezonunda bütün ürünlerde üst kategoriye iniyor. Yani bu satır "küme daha iyi
-olsaydı" sorusuna pek cevap vermiyor; kümeler zaten neredeyse aynı.
+cevap anahtarı kolu oyun sezonunda bütün ürünlerde üst kategoriye
+iniyor. Yani bu satır "küme daha iyi olsaydı" sorusuna pek cevap vermiyor;
+kümeler zaten neredeyse aynı.
 
 Asıl ilginç olan tablonun öteki ucu. Cevap anahtarıyla uyumu 0,035 olan
 ciro sınıfı kümeleriyle bulunabilirlik %69,19. Uyumu 1,000 olan satış
 karışımı kümeleriyle %69,53. Gruplama rastgele düzeyinden kusursuza
 çıkıyor; bulunabilirlik ise yalnız %69,19'dan %69,53'e.
 
-— Yani kümeyi kusursuz yapmak bu kadar az mı değiştiriyor? diyor Pelin.
+— Yani hangi gruplamayı seçtiğim bulunabilirliği bu kadar az mı
+değiştiriyor? diyor Pelin.
 
-— Mağazanın kendi geçmişine göre değiştirmiyor, diyor Pars. Bence nedeni
-şu: bu 67
+— Mağazanın kendi geçmiş payına göre hiçbir şey kazandırmıyor, diyor Pars.
+Küme payı en iyi hâlinde bile o paya ancak yetişiyor. Bence nedeni şu: bu 67
 mağazanın her birinin en az yarım yıllık satışı var. Kümenin bildiği şeyi,
 mağazanın ne sattığını, mağazanın kendi geçmişi de biliyor. Küme payı
-mağazanın kendi geçmişinden daha iyi bir geçmiş bulamıyor; aynı bilgiyi
-bir gruptan okuyor.
+mağazanın kendi geçmişinden daha iyi bir geçmiş bulamıyor; aynı bilgiyi bir
+gruptan okuyor.
 
 Geçen yazıda bir şey daha görmüştük. Kümede birleştirmenin, mağaza
 düzeyinde gürültüye boğulan ince benzerliği kullanılır kılacağını
@@ -177,26 +181,38 @@ ince düzey gürültülü çıktı ve yüksek bir örnek eşiği seçildi.
 ## Başka müşteri akışlarında da tutuyor mu?
 
 Bütün bunlar tek bir müşteri akışından. İlk Sevkiyat'taki gibi aynı
-dünyada dört akış daha var. Satış karışımı kümelerini ve cevap anahtarı
-kolunu her yolda yeniden koşturduk. Kümeler de her yolda o yolun kendi
-tablolarından yeniden kuruldu; her yolda aynı boyutlarda beş küme çıktı
-(33 / 14 / 8 / 7 / 7). Lumoda'nın gruplarını ve öteki kural gruplamalarını
-yalnız yayımlanan müşteri akışında koşturduk; yollarda onlar yok.
+dünyada dört akış daha var. Satış karışımı kümelerini, Lumoda'nın gruplarını
+ve cevap anahtarı kolunu her yolda yeniden koşturduk. Kümeler de her yolda o
+yolun kendi tablolarından yeniden kuruldu; her yolda aynı boyutlarda beş
+küme çıktı (33 / 14 / 8 / 7 / 7), Lumoda'nın ızgarası da her yolda aynı 12
+grubu verdi. Ciro sınıfını ve bölgeyi yalnız yayımlanan müşteri akışında
+koşturduk; yollarda onlar yok.
 
 Bulunabilirlikte, beş yol:
 
 | Karşılaştırma | Kaç yolda önde | Farkın yol medyanı |
 |---|---:|---:|
 | Satış karışımı kümesi − Lumoda'nın mağaza planı | 5/5 | +0,6 puan |
+| Satış karışımı kümesi − Lumoda'nın grupları | 5/5 | +0,2 puan |
+| Lumoda'nın grupları − Lumoda'nın mağaza planı | 5/5 | +0,4 puan |
 | Satış karışımı kümesi − mağazanın geçmiş payı | 3/5 | 0,0 puan |
 | Satış karışımı kümesi − model | 0/5 | −0,9 puan |
 | Cevap anahtarı − satış karışımı kümesi | 2/5 | 0,0 puan |
 
-Lumoda'nın mağaza planına karşı sonuç sağlam: beş yolun beşinde
-bulunabilirlikte önde, elde kalanda da pay hatasında da. Mağazanın geçmiş payına karşı eşitlik
-de sağlam. Küme payı beş yolun üçünde önde, ama o yollarda fark bir
-ondalıkla 0,0; öteki ikisinde 0,3 puan geride. Pay hatasında beş yolun
-hiçbirinde geçmiş paydan iyi değil. Model beş yolun beşinde önde.
+Dizinin asıl sorusunun cevabı yollarda da aynı. Satış karışımı kümeleri
+beş yolun beşinde Lumoda'nın gruplarının önünde: bulunabilirlikte, elde
+kalanda ve pay hatasında. Bulunabilirlikteki fark küçük; yoldan yola 0,1
+ile 0,4 puan arasında, ama hiçbir yolda yön değiştirmiyor. Lumoda'nın
+grupları da mağaza planını bulunabilirlikte beş yolun beşinde geçiyor, ama
+elde kalanda yalnız bir yolda, pay hatasında hiçbirinde.
+
+Lumoda'nın mağaza planına karşı da sonuç sağlam: satış karışımı kümeleri
+beş yolun beşinde bulunabilirlikte önde, elde kalanda da pay hatasında da.
+Mağazanın geçmiş payına karşı eşitlik de sağlam. Küme payı beş yolun
+üçünde önde, ama o yollarda fark sıfıra yakın, bir ondalıkla 0,0; öteki
+ikisinde 0,3 puan geride. Pay hatasında beş yolun hiçbirinde geçmiş paydan
+iyi değil. Cevap anahtarı kolu iki yolda önde, ama orada da fark sıfıra
+yakın. Model beş yolun beşinde önde.
 
 ## Kümenin yeri
 
@@ -285,15 +301,15 @@ hakem uyumu 1,000, siluet 0,308. Dört kümede uyum 0,948'e iniyor, ama
 kararlılık 0,851'den 0,923'e çıkıyor. Kararlılık yanlış bölmeyi daha çok
 seviyor. Beden ve mevsimi katınca dört ve beş kümede kararlılık
 neredeyse 1: beş kümede 0,986. Ama hakem uyumu 0,137. Altı ve daha çok
-kümede de en küçük küme tek mağazaya iniyor. Çeşitten arındırılmış hâli de beş kümede
-aynı yerde: kararlılık 0,995, uyum 0,137. Kararlı ama yanlış.
+kümede de en küçük küme tek mağazaya iniyor. Çeşitten arındırılmış hâli de
+beş kümede aynı yerde: kararlılık 0,995, uyum 0,137. Kararlı ama yanlış.
 
 ## Baştaki soru
 
 İstanbul 13 ile İstanbul 10 aynı hücredeydi: ikisi de İstanbul'da, ikisi de
-C sınıfı, ikisi de Marmara × C'de. Pelin ikisinin planına aynı karışımdan
-başlıyordu. Satış karışımı İstanbul 13'ün Eskişehir 2'ye benzediğini gösterdi; Ali'nin
-mağazası Veli'nin mağazaları gibi satıyordu.
+C sınıfı, ikisi de Marmara × C'de. Pelin'in ızgarasında ikisi aynı
+karışımı alacaktı. Satış karışımı İstanbul 13'ün Eskişehir 2'ye benzediğini
+gösterdi; Ali'nin mağazası Veli'nin mağazaları gibi satıyordu.
 
 Altı yazı sonra elimizde şunlar var. Ciro sınıfı müşteri hakkında bir şey
 bilmiyor, ama yıldan yıla pek değişmiyor. Bölge biraz biliyor. Konum
