@@ -4,8 +4,9 @@ tip: sonuc
 sira: 6
 ozet: >-
   Hakemli, hakemsiz ve karar kalitesi: bir kümelemenin iyi olduğunu neyle
-  anlarız? Hakemsiz ölçütler birbirini tutmuyor. İlk Sevkiyat'ta kümeye göre
-  pay Lumoda'nın planını geçiyor, mağazanın kendi geçmişine yetişiyor, modeli
+  anlarız? Hakemsiz ölçütler birbirini tutmuyor. İlk Sevkiyat'ta satış
+  karışımı kümelerine göre pay, bulunabilirlikte Lumoda'nın gruplarını da
+  mağaza planını da geçiyor, mağazanın kendi geçmişine yetişiyor, modeli
   geçemiyor.
 yazar: Sabri Suyunu
 durum: yayinda
@@ -87,9 +88,14 @@ asıl soru bu.
 Bunu [İlk Sevkiyat](/allocation/ilk-sevkiyat/) dizisinin oyun sezonunda
 ölçtük. Geçen yazıda küme payını kurmuştuk: yeni bir ürünün bir mağazadaki
 payı, mağazanın kümesinin benzer ürünlerdeki göreli hızı çarpı mağazanın
-ölçeği. Bu payı dört gruplamayla koşturduk ve İlk Sevkiyat'ın kollarıyla
-yarıştırdık. Bütün kollar aynı malı gönderiyor; yalnız mal mağazalara başka
-paylarla bölünüyor.
+ölçeği. Bu payı beş gruplamayla koşturduk ve İlk Sevkiyat'ın kollarıyla
+yarıştırdık. Gruplamalardan biri Lumoda'nın kendi grupları: bölge × ciro
+sınıfı ızgarasının 12 hücresi. Bütün kollar aynı malı gönderiyor; yalnız
+mal mağazalara başka paylarla bölünüyor.
+
+İlk Sevkiyat'taki Lumoda kolu bir gruplama değil: Lumoda'nın yayımlanan
+planı, mağaza mağaza kurulmuş hâliyle. Pelin'in hücrelerden başlayıp
+mağaza mağaza düzelttiği plan bu; tabloda adı Lumoda'nın mağaza planı.
 
 Ölçütler İlk Sevkiyat'ınkiler. Bulunabilirlik: fiziksel bir mağazada bir
 bedene talep olan günlerin yüzde kaçında o beden raftaydı. Elde kalan:
@@ -100,7 +106,8 @@ maliyeti düşülünce kalan.
 
 | Pay | Bulunabilirlik | Elde kalan | Pay hatası | Brüt kâr |
 |---|---:|---:|---:|---:|
-| Lumoda (plan payı) | %68,98 | %19,77 | 0,235 | 534.433.105 TL |
+| Lumoda'nın mağaza planı | %68,98 | %19,77 | 0,235 | 534.433.105 TL |
+| Küme: Lumoda'nın grupları (bölge × ciro) | %69,35 | %20,08 | 0,238 | 533.564.172 TL |
 | Küme: ciro sınıfı | %69,19 | %20,44 | 0,241 | 531.930.817 TL |
 | Küme: bölge | %69,35 | %19,74 | 0,236 | 532.789.729 TL |
 | Küme: satış karışımı | %69,53 | %19,65 | 0,230 | 534.816.112 TL |
@@ -108,14 +115,22 @@ maliyeti düşülünce kalan.
 | Mağazanın geçmiş payı | %69,51 | %19,65 | 0,229 | 535.147.736 TL |
 | Model (LightGBM) | %70,41 | %17,74 | 0,171 | 550.029.513 TL |
 
-Tabloyu üç soruyla okuyalım.
+Tabloyu dört soruyla okuyalım.
 
-**Küme payı Lumoda'nın planından iyi mi?** Satış karışımı kümeleriyle evet,
-biraz: bulunabilirlikte 0,6 puan önde, elde kalan ve pay hatası da
-Lumoda'nınkinden düşük. Ciro sınıfına göre pay ise Lumoda'nın planından
-neredeyse farksız. Bulunabilirlikte 0,2 puan önde, ama elde kalanda, pay
-hatasında ve brüt kârda geride. Brüt kârdaki açığı 2.502.288 TL. Bölgeye
-göre pay bulunabilirlikte 0,4 puan önde.
+**Satış karışımı kümeleri Lumoda'nın gruplarından iyi mi?** Dizinin asıl
+sorusu bu: Pelin'in ızgarası yerine satış karışımı kümeleriyle
+planlasaydık? Evet, biraz ve dört ölçütte de. Bulunabilirlikte 0,2 puan
+önde; elde kalan 0,43 puan, pay hatası 0,008 düşük; brüt kâr 1.251.940 TL
+yüksek.
+
+**Lumoda'nın mağaza planına göre?** Satış karışımı kümelerine göre pay
+bulunabilirlikte mağaza planının 0,6 puan önünde; elde kalan ve pay
+hatası da mağaza planınınkinden düşük. Lumoda'nın gruplarına göre pay
+bulunabilirlikte mağaza planından 0,4 puan önde, ama brüt kârda 868.933
+TL geride; elde kalanı 0,31 puan, pay hatası 0,003 yüksek. Ciro sınıfına
+göre pay mağaza planından neredeyse farksız: bulunabilirlikte 0,2 puan
+önde, ama elde kalanda, pay hatasında ve brüt kârda geride. Brüt kârdaki
+açığı 2.502.288 TL. Bölgeye göre pay bulunabilirlikte 0,4 puan önde.
 
 **Mağazanın kendi geçmişinden iyi mi?** Hayır; eşit. Bulunabilirlikte
 %69,53'e karşı %69,51, bir ondalıkla fark 0,0 puan. Elde kalan aynı. Pay
@@ -127,17 +142,17 @@ bulunabilirlikte 0,9 puan önde. Pay hatası 0,171'e karşı 0,230.
 
 ### Kusursuz küme bile
 
-Tablonun beşinci satırı cevap anahtarına göre kurulan kümeler. Gerçek
+Tablodaki cevap anahtarı satırı, anahtara göre kurulan kümeler. Gerçek
 hayatta böyle bir kol olamaz; burada yalnız bir soru için var: gruplama
 kusursuz olsaydı ne olurdu?
 
 Hiçbir şey: satış karışımı kümeleriyle bulunabilirlik farkı 0,0 puan.
-Burada dürüst olmam gerekiyor: bu karşılaştırma bu veride neredeyse boş. Satış
-karışımı kümeleri 67 mağazada zaten anahtarla birebir aynı. İki kolun
+Burada dürüst olmam gerekiyor: bu karşılaştırma bu veride neredeyse boş.
+Satış karışımı kümeleri 67 mağazada zaten anahtarla birebir aynı. İki kolun
 kümeleri yalnız bir mağazada ayrışıyor: İzmir 2. Beş komşu onu metropol
 genç kümesine koymuştu; anahtar Anadolu aile kümesine koyuyor. Bir de
-kalibrasyon iki kola ayrı eşik seçti: cevap anahtarı kolu oyun sezonunda
-bütün ürünlerde üst kategoriye iniyor. Yani bu satır "küme daha iyi
+kalibrasyon iki kola ayrı ayar seçti, başlangıç düzeyi de eşik de farklı:
+cevap anahtarı kolu oyun sezonunda bütün ürünlerde üst kategoriye iniyor. Yani bu satır "küme daha iyi
 olsaydı" sorusuna pek cevap vermiyor; kümeler zaten neredeyse aynı.
 
 Asıl ilginç olan tablonun öteki ucu. Cevap anahtarıyla uyumu 0,035 olan
@@ -145,9 +160,10 @@ ciro sınıfı kümeleriyle bulunabilirlik %69,19. Uyumu 1,000 olan satış
 karışımı kümeleriyle %69,53. Gruplama rastgele düzeyinden kusursuza
 çıkıyor; bulunabilirlik ise yalnız %69,19'dan %69,53'e.
 
-— Bu kadar uğraştık, bir şey değişmedi mi? diyor Pelin.
+— Yani kümeyi kusursuz yapmak bu kadar az mı değiştiriyor? diyor Pelin.
 
-— İlk sevkiyatın payında değişmedi, diyor Pars. Bence nedeni şu: bu 67
+— Mağazanın kendi geçmişine göre değiştirmiyor, diyor Pars. Bence nedeni
+şu: bu 67
 mağazanın her birinin en az yarım yıllık satışı var. Kümenin bildiği şeyi,
 mağazanın ne sattığını, mağazanın kendi geçmişi de biliyor. Küme payı
 mağazanın kendi geçmişinden daha iyi bir geçmiş bulamıyor; aynı bilgiyi
@@ -163,30 +179,34 @@ ince düzey gürültülü çıktı ve yüksek bir örnek eşiği seçildi.
 Bütün bunlar tek bir müşteri akışından. İlk Sevkiyat'taki gibi aynı
 dünyada dört akış daha var. Satış karışımı kümelerini ve cevap anahtarı
 kolunu her yolda yeniden koşturduk. Kümeler de her yolda o yolun kendi
-tablolarından yeniden kuruldu; her yolda aynı büyüklükte beş küme çıktı.
+tablolarından yeniden kuruldu; her yolda aynı boyutlarda beş küme çıktı
+(33 / 14 / 8 / 7 / 7). Lumoda'nın gruplarını ve öteki kural gruplamalarını
+yalnız yayımlanan müşteri akışında koşturduk; yollarda onlar yok.
 
 Bulunabilirlikte, beş yol:
 
 | Karşılaştırma | Kaç yolda önde | Farkın yol medyanı |
 |---|---:|---:|
-| Satış karışımı kümesi − Lumoda | 5/5 | +0,6 puan |
+| Satış karışımı kümesi − Lumoda'nın mağaza planı | 5/5 | +0,6 puan |
 | Satış karışımı kümesi − mağazanın geçmiş payı | 3/5 | 0,0 puan |
 | Satış karışımı kümesi − model | 0/5 | −0,9 puan |
 | Cevap anahtarı − satış karışımı kümesi | 2/5 | 0,0 puan |
 
-Lumoda'ya karşı sonuç sağlam: beş yolun beşinde bulunabilirlikte önde,
-elde kalanda da pay hatasında da. Mağazanın geçmiş payına karşı eşitlik
+Lumoda'nın mağaza planına karşı sonuç sağlam: beş yolun beşinde
+bulunabilirlikte önde, elde kalanda da pay hatasında da. Mağazanın geçmiş payına karşı eşitlik
 de sağlam. Küme payı beş yolun üçünde önde, ama o yollarda fark bir
 ondalıkla 0,0; öteki ikisinde 0,3 puan geride. Pay hatasında beş yolun
 hiçbirinde geçmiş paydan iyi değil. Model beş yolun beşinde önde.
 
 ## Kümenin yeri
 
-Peki küme işe yaramıyor mu? Bu veride ölçtüğümüz kadarıyla, kendi geçmişi
-olan bir mağazanın ilk sevkiyat payına bir şey eklemiyor. Ama kümenin işi
-yalnız bu değil.
+Peki küme işe yaramıyor mu? Bu veride ölçtüğümüz kadarıyla, Lumoda'nın
+gruplarının yerine konunca ilk sevkiyatın payını biraz iyileştiriyor;
+mağazanın kendi geçmiş payının üstüne ise bir şey eklemiyor. Ama kümenin
+işi yalnız bu değil.
 
-Geçmişi olmayan bir mağaza için elde küme dışında bir şey yok. İzmir 2 ile
+Kendi geçmişi olmayan bir mağazada küme payı, o geçmişin yerine benzer
+mağazaların geçmişini koyuyor. İzmir 2 ile
 Kocaeli 1 paylarını kümeden aldı: karışımı kümesinden, büyüklüğü kümesinin
 ortadaki mağazasından. Mağazanın geçmiş payı kolu onları ortalama mağaza
 sayıyordu. Bu iki mağazanın kendi sonucunu ayrıca ölçmedik; 69 mağazanın
@@ -271,8 +291,8 @@ aynı yerde: kararlılık 0,995, uyum 0,137. Kararlı ama yanlış.
 ## Baştaki soru
 
 İstanbul 13 ile İstanbul 10 aynı hücredeydi: ikisi de İstanbul'da, ikisi de
-C sınıfı, ikisi de Marmara × C'de. Pelin ikisine aynı karışımı yazıyordu.
-Satış karışımı İstanbul 13'ün Eskişehir 2'ye benzediğini gösterdi; Ali'nin
+C sınıfı, ikisi de Marmara × C'de. Pelin ikisinin planına aynı karışımdan
+başlıyordu. Satış karışımı İstanbul 13'ün Eskişehir 2'ye benzediğini gösterdi; Ali'nin
 mağazası Veli'nin mağazaları gibi satıyordu.
 
 Altı yazı sonra elimizde şunlar var. Ciro sınıfı müşteri hakkında bir şey
@@ -281,15 +301,16 @@ metropol dışında çok şey biliyor, metropolde hiçbir şey. Satış karış�
 iki tarafı da görüyor, ama tek bir yılın satışıyla kurulunca oynuyor.
 Yeni mağazayı satış görmeden doğru kümeye koymak metropol dışında kolay,
 metropolde yarı yarıya. Hakemsiz ölçütler birbirini tutmuyor. İlk
-sevkiyatta da kümeye göre pay Lumoda'nın planını geçiyor ama mağazanın
-kendi geçmişini geçemiyor.
+sevkiyatta satış karışımı kümelerine göre pay, Lumoda'nın gruplarından da
+mağaza planından da biraz iyi; ama mağazanın kendi geçmişini geçemiyor.
 
 Beklediğim sonuç bu değildi. Kümeyi kendisine bakarak ölçmek kolaydı:
 siluet, kararlılık, cevap anahtarı. Kararla ölçünce tablo değişti. Doğru
 küme müşteriyi gösteriyor; ama kendi geçmişi olan bir mağazada ilk
-sevkiyatın payına, o geçmişin bilmediği bir şey söylemiyor. Bu veride
-kümenin ilk sevkiyata kattığı şey, geçmişi olmayan mağazaya benzerlerinden
-bir pay vermesi. Bir kümelemenin iyi olduğunu da ona göre verdiğiniz
+sevkiyatın payına, o geçmişin bildiğinden fazlasını söylemiyor gibi
+görünüyor. Geçmişi olmayan mağazaya kendi geçmişi yerine benzerlerinden
+bir pay veriyor; bunun ne kazandırdığını ölçmedik ve İzmir 2'de küme
+yanlıştı. Bir kümelemenin iyi olduğunu da ona göre verdiğiniz
 kararı ölçmeden bilemezsiniz. Bu dizinin asıl işi buydu. 🙂
 
 <Lumtify>

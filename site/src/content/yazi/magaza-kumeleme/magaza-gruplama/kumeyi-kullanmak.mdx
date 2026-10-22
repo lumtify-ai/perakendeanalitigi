@@ -50,9 +50,10 @@ Asıl kümeler ise iki yılın satışını birlikte görüyor ve anahtarla uyum
 1,000.
 
 Verinin kurgusunda her mağazanın müşteri profili bir kez verildi; iki yıl
-arasında değişmiyor. Yani oynayan şey müşteri değil. Bir yılın satışı,
-mağazanın ne sattığını iki yılınki kadar net göstermiyor; kümeler de bu
-bulanıklıkla kayıyor. İki yıllık pencere kümeyi oturtuyor.
+arasında değişmiyor. Yani oynayan şey müşteri değil. Görünen o ki bir
+yılın satışı, mağazanın ne sattığını iki yılınki kadar net göstermiyor;
+iki yıllık pencere kümeyi anahtara oturtuyor. İki yılın arasındaki farkı,
+0,950'ye karşı 0,688'i, ayrıca açıklamadık.
 
 Üçüncü yazıda bunu tersinden göreceğimizi söylemiştik. Ciro sınıfı yıldan
 yıla 0,834 dayanıyor ve cevap anahtarıyla uyumu 0,035. Satış karışımı
@@ -178,9 +179,11 @@ ettiğini görmüştük; orada şehir müşteri hakkında çok şey söylüyor.
 
 Metropolde ise beş komşu 21 mağazanın 10'unu buluyor. Taban 7. Metropoldeki
 21 mağazada üç profil var ve statik bilgi onları ayırmaya pek yetmiyor. En
-yakın küme merkezi metropolde tabanın bile altında kalıyor. Nedeni kümelerin biçimi: en büyük küme hem Anadolu'nun
-metropol dışı mağazalarını hem İstanbul'un bir kısmını taşıyor. Merkezi bu
-iki grubun ortasına düşüyor ve iki gruba da tam benzemiyor. Komşu yöntemi
+yakın küme merkezi metropolde tabanın bile altında kalıyor. Olası nedeni
+kümelerin biçimi; bunu ayrıca ölçmedik. En büyük küme hem Anadolu'nun
+metropol dışı mağazalarını hem İstanbul'un bir kısmını taşıyor. Merkezi
+büyük olasılıkla bu iki grubun ortasına düşüyor ve iki gruba da tam
+benzemiyor. Komşu yöntemi
 ise yalnız yakındakilere bakıyor. Bütün mağazalarda iki yöntemin farkı
 11,9 puan.
 
@@ -200,9 +203,8 @@ anahtarına göre de müşterisi Anadolu aile: isabet.
 komşu onu metropol genç kümesine koyuyor, en yakın merkez de. Cevap
 anahtarına göre müşterisi Anadolu aile: ıska.
 
-— İstanbul 13 gibi, diyor Ali.
-
-Evet. İzmir 2, ilk yazıdaki İstanbul 13'ün durumunda: metropolde bir
+Ali ile Veli bunu bilmiyor; cevap anahtarını yalnız ben görüyorum. Ama
+İzmir 2, ilk yazıdaki İstanbul 13'ün durumunda: metropolde bir
 Anadolu aile mağazası. İstanbul 13'ü satışından tanıdık. İzmir 2'nin
 satışı yok; haritadaki yeri onu metropolün genç müşterisine benzetiyor.
 
@@ -314,7 +316,7 @@ kümelerinde pay hatası, en ince düzeyden başlayınca:
 ince düzey küme düzeyinde de gürültülü; eşik büyüdükçe hata düşüyor ve
 40'ta düzleşiyor. Doğrudan üst kategoriden ya da yalnız genelden
 başlamak da aynı hatayı veriyor: 0,237. Aynı sezonda mağazanın geçmiş
-payının hatası 0,235, Lumoda'nın plan payınınki 0,236.
+payının hatası 0,235, Lumoda'nın mağaza planınınki 0,236.
 
 Kalibrasyon en az 40 benzer ürün eşiğini seçti. Bu eşik kalibrasyon
 sezonunda hiçbir üründe alt kategoriye inmiyordu. Oyun sezonunda
@@ -325,23 +327,30 @@ düzey hiçbir üründe kullanılmıyor.
 
 Yani hipotez bu veride tutmadı. Kalibrasyon, geçmiş sezonda kaba düzeye
 denk gelen yüksek bir örnek eşiği seçti; ince düzey ancak çok örnek
-olduğunda kullanılıyor. İlk Sevkiyat'ta mağazanın geçmiş payının kaba
-düzeye inmesi kümede de tekrarlandı.
+olduğunda kullanılıyor. İlk Sevkiyat'ta kalibrasyonun gevşek benzerliği
+seçmesi kümede de tekrarlandı.
 
 ## İlk Sevkiyat'a köprü
 
-Küme payını İlk Sevkiyat'ın oyun sezonunda dört gruplamayla koşturduk:
-ciro sınıfı, bölge, satış karışımı kümeleri ve cevap anahtarının
-kendisi. Sonuncusu yalnız ölçüm için: gruplama kusursuz olsaydı ne
-olurdu? Dört kol da Lumoda'yla aynı malı gönderiyor; yalnız mal
-mağazalara başka paylarla bölünüyor.
+Küme payını İlk Sevkiyat'ın oyun sezonunda beş gruplamayla koşturduk:
+ciro sınıfı, bölge, ikisinin ızgarası, yani Lumoda'nın kendi grupları,
+satış karışımı kümeleri ve cevap anahtarının kendisi. Sonuncusu yalnız
+ölçüm için: gruplama kusursuz olsaydı ne olurdu? Beş kol da Lumoda'yla
+aynı malı gönderiyor; yalnız mal mağazalara başka paylarla bölünüyor.
+
+İlk Sevkiyat'taki Lumoda kolu ise bir gruplama değil: Lumoda'nın
+yayımlanan planı, mağaza mağaza kurulmuş hâliyle. Pelin'in hücrelerden
+başlayıp mağaza mağaza düzelttiği plan bu. Aşağıda ona Lumoda'nın mağaza
+planı diyorum.
 
 İlk Sevkiyat'ın asıl ölçütü bulunabilirlikti: fiziksel bir mağazada bir
 bedene talep olan günlerin yüzde kaçında o beden raftaydı. Satış karışımı
-kümeleriyle %69,53. Mağazanın geçmiş payı %69,51, Lumoda'nın plan payı
-%68,98, mağaza mağaza tahmin yapan LightGBM modeli %70,41.
+kümeleriyle %69,53. Lumoda'nın gruplarıyla %69,35, Lumoda'nın mağaza
+planıyla %68,98. Mağazanın geçmiş payı %69,51, mağaza mağaza tahmin yapan
+LightGBM modeli %70,41.
 
-Küme payı Lumoda'nın planını geçiyor, mağazanın kendi geçmişine
+Bulunabilirlikte satış karışımı kümelerine göre pay Lumoda'nın gruplarını
+0,2 puan, mağaza planını 0,6 puan geçiyor; mağazanın kendi geçmişine
 yetişiyor, ama geçmiyor. Model önde. Ötekiler, beş müşteri akışı ve
 kümenin bu sonuçta neyi değiştirip neyi değiştirmediği, son yazının
 konusu.
