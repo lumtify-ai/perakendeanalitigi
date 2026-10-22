@@ -50,6 +50,21 @@ ve testlere aittir. `egri` yayımlanan `sevkiyat` tablosunu istemez: replenishme
 karışımı gizli gerçeği bilen Lumoda'nın planını taşır. İkisi de AST kilidiyle sınanır
 (`tests/test_sizinti.py`); henüz yazılmamış modüllerin kontrolü atlanır, modül gelince devreye girer.
 
+## Koşucu
+
+İlk Sevkiyat'ın `motor.kos`'u paket seçimini açmadığı için vaka kendi koşucusunu kurar
+(`beden_paket.kosucu`): yayımlanan dünyanın `paketler`'i ayrılmış kopyası (`politika.paket_ekle`;
+yeni paketler standartların ardına), oyun option'larında (SS25 Collection) mağazanın deseni
+(`PaketSecimi`) ve Lumoda'nın **giden** paket sayısı (`GidenIlkDagitim`, `lumoda_giden`); öteki her
+şey Lumoda'nın. Koşu önbelleği `cikti/kosular/` (İlk Sevkiyat motorunun düzeni ve anahtarı + vaka
+kodu); İlk Sevkiyat'ın önbelleği yalnız salt okunur açılır. Ölçüt `kosucu.olc`: İlk Sevkiyat'ın
+ölçütleri, kırpma pakete duyarlı.
+
+Doğrulama kolu standart paket ve Lumoda'nın kendi ilk dağıtımıyla İlk Sevkiyat'ın `lumoda` koşusunu
+birebir üretir (KÜÇÜK'te `test_dogrulama_kucuk`; TAM'da, ~4–7 dk, ~8 GB):
+
+    .venv/Scripts/python -m beden_paket.kosucu dogrulama            # yol 0; --yol P ile yol P
+
 ## Sınırlar
 
 Bu iskelet yalnız okuma ve kapsamı içerir; ölçüm bulguları sonraki görevlerle gelir.
