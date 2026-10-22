@@ -15,7 +15,8 @@ satırları; eğri `egri.magaza_egrisi` (oyunun yol 0'ındaki eğriyle aynı kur
 
 Kayıt (`hikaye.json`): sahne (`Hikaye.sozluk`), iki mağazanın künyesi (ad, şehir, bölge, tip, m²),
 `kod` (paket kodunun özeti; rapor eski kaydı reddeder) ve hakemsiz seçimin aynı sahneyi verip
-vermediği (`hakemsiz_ayni`).
+vermediği (`hakemsiz_ayni`); "hedef bedenler önce biter" şartı sonuç görüldükten sonra eklendiği için şartsız
+seçimin özeti (`once_sarti`).
 """
 
 import argparse
@@ -63,15 +64,21 @@ def girdiler(karar_gunu=sabitler.KARAR_GUNU) -> dict:
 
 
 def calistir(g: dict, *, gizli: bool = True):
-    """Üç değer döndürür: `(h, hakemsiz, kayma)`.
+    """Dört değer döndürür: `(h, hakemsiz, kayma, oncesiz)`.
 
     h         seçilen `Hikaye` (`gizli=True` ise hakemin kaymasıyla doğrulanmış)
     hakemsiz  aynı seçimin hakemsiz hâli (`gizli=False` ise `None`)
-    kayma     hakemden okunan mağaza → etkin gizli kayma (`gizli=False` ise `None`)"""
+    kayma     hakemden okunan mağaza → etkin gizli kayma (`gizli=False` ise `None`)
+    oncesiz   "önce biter" şartı olmadan (sonradan eklenen şart; `hikaye_sec.sec(once=False)`) aynı hakemle
+              seçilecek sahne ya da sahne yoksa `None`"""
     kayma = hakem.kayma() if gizli else None
     h = hikaye_sec.sec(g["tablolar"], g["egri"], g["karar_gunu"], kayma=kayma)
     hakemsiz = hikaye_sec.sec(g["tablolar"], g["egri"], g["karar_gunu"]) if gizli else None
-    return h, hakemsiz, kayma
+    try:
+        oncesiz = hikaye_sec.sec(g["tablolar"], g["egri"], g["karar_gunu"], kayma=kayma, once=False)
+    except ValueError:
+        oncesiz = None
+    return h, hakemsiz, kayma, oncesiz
 
 
 def _kunye(g: dict, h: hikaye_sec.Hikaye) -> dict:
@@ -88,13 +95,22 @@ def _ayni(a: hikaye_sec.Hikaye, b: hikaye_sec.Hikaye) -> bool:
     return all(a_[x] == b_[x] for a_, b_ in ((a.buyuk, b.buyuk), (a.kucuk, b.kucuk)) for x in ("magaza", "option"))
 
 
-def kayit(g: dict, h, hakemsiz) -> dict:
+def _ozet(h: hikaye_sec.Hikaye | None) -> dict | None:
+    if h is None:
+        return None
+    return {"buyuk": h.buyuk["magaza"], "kucuk": h.kucuk["magaza"], "option_buyuk": h.buyuk["option"],
+            "option_kucuk": h.kucuk["option"], "kademe": int(h.kademe), "gevseyen": list(h.gevseyen), "roller": h.roller}
+
+
+def kayit(g: dict, h, hakemsiz, oncesiz=None) -> dict:
     out = {"surum": KAYIT_SURUMU, "kod": kod_ozeti(), "karar_gunu": g["karar_gunu"].date().isoformat(),
            **h.sozluk()}
     out["magazalar"] = _kunye(g, h)
     if h.alternatif is not None:
         out["alternatif"]["magazalar"] = _kunye(g, h.alternatif)
     out["hakemsiz_ayni"] = None if hakemsiz is None else _ayni(h, hakemsiz)
+    out["once_sarti"] = {"sonradan": True, "oncesiz": _ozet(oncesiz),
+                         "ayni": None if oncesiz is None else _ayni(h, oncesiz)}
     return out
 
 
@@ -106,8 +122,8 @@ def main(argv=None) -> int:
     p.add_argument("--cikti", type=Path, default=YOL)
     a = p.parse_args(argv)
     g = girdiler()
-    h, hakemsiz, _ = calistir(g, gizli=not a.gizlisiz)
-    out = kayit(g, h, hakemsiz)
+    h, hakemsiz, _, oncesiz = calistir(g, gizli=not a.gizlisiz)
+    out = kayit(g, h, hakemsiz, oncesiz)
     a.cikti.parent.mkdir(parents=True, exist_ok=True)
     a.cikti.write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8", newline="\n")
     print(f"hikaye: büyük {h.buyuk['magaza']} / küçük {h.kucuk['magaza']} ({h.buyuk['option']}, "

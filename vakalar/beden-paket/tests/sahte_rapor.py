@@ -21,23 +21,27 @@ MAGAZALAR = ("M1", "M2", "M3", "M4")
 PROFIL = {"M1": "buyuk", "M2": "buyuk", "M3": "orta", "M4": "kucuk"}
 DESEN = {"p1": ["1-1-2-2-1"], "p2": ["1-1-2-2-1", "1-2-2-1-1"], "p1_12": ["1-3-4-3-1"],
          "p3_12": ["1-2-3-4-2", "1-3-4-3-1", "2-3-4-2-1"], "pm_12": ["1-2-3-4-2", "1-3-4-3-1", "2-3-4-2-1"],
-         "p2_ham": ["1-1-2-2-1", "1-2-2-1-1"]}
+         "p2_ham": ["1-1-2-2-1", "1-2-2-1-1"], "p2_12": ["1-2-4-3-2", "2-3-4-2-1"], "p1_14": ["2-2-4-4-2"]}
 ATAMA = {"p1": dict.fromkeys(MAGAZALAR, "1-1-2-2-1"),
          "p2": {"M1": "1-1-2-2-1", "M2": "1-1-2-2-1", "M3": "1-1-2-2-1", "M4": "1-2-2-1-1"},
          "p1_12": dict.fromkeys(MAGAZALAR, "1-3-4-3-1"),
          "p3_12": {"M1": "1-2-3-4-2", "M2": "1-2-3-4-2", "M3": "1-3-4-3-1", "M4": "2-3-4-2-1"}}
 ATAMA["pm_12"] = ATAMA["p3_12"]
+ATAMA["p2_12"] = {"M1": "1-2-4-3-2", "M2": "1-2-4-3-2", "M3": "1-2-4-3-2", "M4": "2-3-4-2-1"}
+ATAMA["p1_14"] = dict.fromkeys(MAGAZALAR, "2-2-4-4-2")
 ATAMA["p2_ham"] = ATAMA["p2"]
-K_DEGERI = {"p1": 1, "p2": 2, "p1_12": 1, "p3_12": 3, "pm_12": "magaza", "p2_ham": 2}
+K_DEGERI = {"p1": 1, "p2": 2, "p1_12": 1, "p3_12": 3, "pm_12": "magaza", "p2_ham": 2, "p2_12": 2, "p1_14": "sabit"}
 # kol → (ilk 4 hafta bulunabilirlik, beden kaybı, kırık set, brüt kâr) farkı Lumoda'ya
 ETKI = {"dogrulama": (0, 0, 0, 0), "p1": (0.31, -1.2, -2.0, 50_000), "p2": (0.42, -1.5, -2.2, 70_000),
-        "p1_12": (0.2, -4.0, -3.0, 300_000), "p3_12": (0.5, -6.0, -3.5, 350_000)}
+        "p1_12": (0.2, -4.0, -3.0, 300_000), "p3_12": (0.5, -6.0, -3.5, 350_000),
+        "p2_12": (0.4, -5.0, -3.2, 320_000), "p1_14": (0.25, -2.0, -2.4, 90_000)}
 
 
 def olcutler(kol: str, yol: int) -> dict:
     d4, bk, kr, bt = ETKI[kol]
     o = {"bulunabilirlik": 69.0 + 0.1 * yol + d4 / 3, "bulunabilirlik_ilk4": 80.0 + 0.1 * yol + d4,
-         "beden_kayip_payi": 40.04 + 0.2 * yol + bk, "kirik_cift_pay_yuzde": 30.0 + kr, "sezon_sonu_kalan_yuzde": 20.0 - bk / 10,
+         "beden_kayip_payi": 45.0 + 0.2 * yol + bk, "kirik_cift_pay_yuzde": 31.0 + kr,
+         "beden_kayip_payi_ilk4": 40.04 + 0.2 * yol + bk, "kirik_cift_pay_yuzde_ilk4": 30.0 + kr, "sezon_sonu_kalan_yuzde": 20.0 - bk / 10,
          "tam_fiyat_str": 50.0 - bk / 10, "kayip_orani": 30.0, "brut_kar_tl": 100_000_000.0 + 1_000 * yol + bt,
          "markdown_tl": 1_000.0, "ilk_dagitim_adet": 7_000.0 if kol in ("dogrulama", "p1", "p2") else 7_012.0,
          "replenishment_adet": 500.0, "tukenen_hucre_yuzde": 70.0, "talep_adet": 10_000.0 + yol,
@@ -83,7 +87,7 @@ def analiz_kaydi(oyun_k: dict) -> dict:
     kap = [{"magaza_id": m, "ad": f"Mağaza {m}", "sehir": "İstanbul" if m == "M4" else "Konya", "bolge": "Marmara",
             "istanbul": m == "M4", "tip": "AVM", "gecmis_hafta": 100, "yeni": False} for m in MAGAZALAR]
     tasarim = {"lumoda": {"paket_adet": 7, "desenler": ["1-2-2-1-1"], "giden_gercek_l1": 0.30, "giden_egri_l1": 0.31}}
-    for kol in ("p1", "p2", "p1_12", "p3_12", "pm_12", "p2_ham"):
+    for kol in ("p1", "p2", "p1_12", "p3_12", "pm_12", "p2_12", "p1_14", "p2_ham"):
         say = {}
         for d in ATAMA[kol].values():
             say[d] = say.get(d, 0) + 1
@@ -93,8 +97,8 @@ def analiz_kaydi(oyun_k: dict) -> dict:
                         "profil_desen": {"satirlar": ["buyuk", "kucuk", "orta"], "sutunlar": DESEN[kol],
                                          "degerler": [[sum(1 for m in MAGAZALAR if PROFIL[m] == p and ATAMA[kol][m] == d)
                                                        for d in DESEN[kol]] for p in ("buyuk", "kucuk", "orta")]},
-                        "toplam_uyumsuzluk": 100.0, "paket_basina": 0.5, "en_iyi_mi": True, "yontem": "tam",
-                        "depo_uygun": True, "ayni": {"pm_12": "p3_12", "p2_ham": "p2"}.get(kol),
+                        "toplam_uyumsuzluk": 100.0, "paket_basina": 0.5, "en_iyi_mi": kol != "p1_14",
+                        "yontem": "sabit" if kol == "p1_14" else "tam", "depo_uygun": True, "ayni": {"pm_12": "p3_12", "p2_ham": "p2"}.get(kol),
                         "giden_gercek_l1": 0.2, "giden_egri_l1": 0.18}
     k_egrisi = [_k(7, "lumoda", ["1-2-2-1-1"], 0.95), _k(7, 1, DESEN["p1"], 0.85), _k(7, 2, DESEN["p2"], 0.58),
                 _k(7, 3, DESEN["p2"], 0.58, 2), _k(7, 4, DESEN["p2"], 0.58, 2), _k(7, "magaza", DESEN["p2"], 0.58, 2),
@@ -143,7 +147,9 @@ def analiz_kaydi(oyun_k: dict) -> dict:
                   "gercek_l1": {"ortalama": 0.26, "en_cok": 0.41, "magaza": 4},
                   "ilk_siparis": [1100, 2200, 3200, 2400, 1200], "depo": [1000, 2150, 3150, 2350, 1150],
                   "ilk_dagitim": [1000, 2000, 2000, 1000, 1000], "replenishment": [10, 50, 150, 200, 40],
-                  "aday_7": 70, "aday_12": 715},
+                  "aday_7": 70, "aday_12": 715,
+                  "paket_tablosu": {"bes_bedenli_set": 2, "set_basina_paket_tipi": [1], "desenler": ["1-2-2-1-1"],
+                                    "tek_bedenli_set": 1, "tek_bedenli_adet": [6]}},
         "egri": egri, "tasarim": tasarim, "k_egrisi": k_egrisi,
         "kahin": {"ayni_atama": False, "farkli_magaza": ["M3"], "magaza": 4, "ari": 1.0, "ari_magaza": 4,
                   "uyumsuzluk_gercek_tasarim": 66.4, "uyumsuzluk_gercek_kahin": 64.8, "farkli_agirlik_payi": 0.021,
@@ -154,8 +160,8 @@ def analiz_kaydi(oyun_k: dict) -> dict:
                                "oyun": [0.157, 0.314, 0.457, 0.343, 0.171]},
                          "12": {"siparis": [0.157, 0.314, 0.457, 0.343, 0.171], "hatali_dusulmus": [0.143, 0.31, 0.45, 0.34, 0.16],
                                 "oyun": [0.157, 0.314, 0.457, 0.343, 0.171]}},
-                 "tasarim_ayni": {k: {"iki_tanim": True, "oyun_siparis": True}
-                                  for k in ("p1", "p2", "p1_12", "p3_12", "pm_12", "p2_ham")}},
+                 "tasarim_ayni": {k: {"iki_tanim": True}
+                                  for k in ("p1", "p2", "p1_12", "p3_12", "pm_12", "p2_12", "p1_14", "p2_ham")}},
         "ilk_sevkiyat": {str(p): {"anahtar_ayni": True, "onbellekte": True} for p in range(5)},
     }
 
@@ -180,7 +186,10 @@ def hikaye_kaydi() -> dict:
                                                     "metrekare": 400, "istanbul": False},
                                              "M4": {"ad": "İstanbul 1", "sehir": "İstanbul", "bolge": "Marmara", "tip": "AVM",
                                                     "metrekare": 900, "istanbul": True}},
-            "hakemsiz_ayni": True}
+            "hakemsiz_ayni": True,
+            "once_sarti": {"sonradan": True, "ayni": False,
+                           "oncesiz": {"buyuk": "M2", "kucuk": "M4", "option_buyuk": "OPT-B", "option_kucuk": "OPT-A",
+                                       "kademe": 1, "gevseyen": ["erken pencere: 3 hafta"], "roller": "kadro"}}}
 
 
 def kumeler_kaydi() -> dict:

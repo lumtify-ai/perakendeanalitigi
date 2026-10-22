@@ -100,6 +100,8 @@ def test_hikaye_hedef_bedenler_once_biter(tablolar):
     h = hikaye_sec.sec(t, _sahne_egrisi(), KARAR)
     assert (h.buyuk["magaza"], h.kucuk["magaza"]) == ("S06", "S01")
     assert h.kademe == len(hikaye_sec.MERDIVEN) - 2 and "sıra" in h.gevseyen[-1]
+    h0 = hikaye_sec.sec(t, _sahne_egrisi(), KARAR, once=False)       # sonradan eklenen şart olmadan: sıkı kademe
+    assert (h0.buyuk["magaza"], h0.kucuk["magaza"], h0.kademe) == ("S06", "S01", 0)
 
 
 def test_hikaye_benzer_option(tablolar):
@@ -174,8 +176,10 @@ def test_hikaye_kos_kaydi(tablolar):
     t = _sahne(tablolar)
     g = {"tablolar": t, "kapsam": kaynak.kapsam(t, KARAR), "egri": _sahne_egrisi(), "karar_gunu": KARAR}
     h = hikaye_sec.sec(t, g["egri"], KARAR)
-    out = hikaye_kos.kayit(g, h, h)
+    out = hikaye_kos.kayit(g, h, h, hikaye_sec.sec(t, g["egri"], KARAR, once=False))
     assert out["kod"] == hikaye_kos.kod_ozeti() and out["karar_gunu"] == "2025-02-07"
     assert set(out["magazalar"]) == {"S06", "S01"} and out["magazalar"]["S01"]["istanbul"] is True
     assert out["hakemsiz_ayni"] is True and out["buyuk"]["magaza"] == "S06"
+    assert out["once_sarti"]["sonradan"] is True and out["once_sarti"]["ayni"] is True
+    assert out["once_sarti"]["oncesiz"]["kademe"] == 0
     assert json.loads(json.dumps(out, ensure_ascii=False)) == out

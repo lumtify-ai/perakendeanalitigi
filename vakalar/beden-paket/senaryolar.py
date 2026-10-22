@@ -3,18 +3,19 @@
     cd vakalar/beden-paket
     PYTHONIOENCODING=utf-8 .venv/Scripts/python senaryolar.py   # site/src/data/senaryolar/beden-paket.json
 
-Kadran iki eksenli (spec §8): paket tipi sayısı K {1, 2, 3, mağazaya özel} × paket büyüklüğü {7, 12}.
+Kadran iki eksenli (spec §8): paket tipi sayısı K {1, 2, 3, 4, mağazaya özel} × paket büyüklüğü {7, 12} = 10 bileşim.
 Bir bileşim yol 0'ın ölçülmüş koşusudur (`cikti/oyun.json`); koşulmamış bir bileşim, koşusuz K
 eğrisinde (`cikti/analiz.json`, `k_egrisi`) aynı desen ve atamayı veren daha küçük K'nın koşusunu
-alır (`esdeger_K`; ör. 7'li K = 3 ve mağazaya özel = P2, 12'li mağazaya özel = P3; Ruling R10). Ne
-koşusu ne ikizi olan bileşim dosyaya girmez (`eksik`; ör. 12'li K = 2 koşulmadı, K eğrisinde K = 3'ten
-ayrı).
+alır (`esdeger_K`; ör. 7'li K = 3, 4 ve mağazaya özel = P2, 12'li K = 4 ve mağazaya özel = P3; Ruling R10);
+hangi bileşimin hangisinin ikizi olduğu dosyanın `ikizler` alanındadır. 12'li K = 2 ayrı koşudur (`p2_12`,
+Ruling R21). Ne koşusu ne ikizi olan bileşim dosyaya girmez (`eksik`; arayüzde ölü seçim olur, rapor
+korunumu bunu reddeder).
 
 **Yalnız çıktılardan.** Bu dosya simülasyonu koşmaz, veriyi okumaz; `oyun.json` ya da `analiz.json`
 yoksa ya da bir bileşimin koşusu ölçülmemişse `RuntimeError`.
 
-Sonuç kartları (`OZET_OLCUTLERI`, spec §0/12 ve §8): ilk 4 hafta bulunabilirlik, beden kaybı payı,
-kırık set (stoklu çiftte çekirdek bedeni boş pay), brüt kâr. Yüzdeler bir ondalık: iki ondalıklı
+Sonuç kartları (`OZET_OLCUTLERI`, spec §0/12 ve §8, Ruling R19): ilk 4 hafta bulunabilirlik, ilk 4 hafta beden
+kaybı payı, ilk 4 hafta kırık set (stoklu çiftte çekirdek bedeni boş pay), brüt kâr (sezon). Yüzdeler bir ondalık: iki ondalıklı
 değerin bir kez yarım yukarı yuvarlanmışı (rapor KOLLAR bölümü iki ondalık basar; tek yuvarlama
 kuralı), brüt kâr tam TL. `satirlar`: bileşimin desenleri ve her desenin mağaza sayısı (çoktan aza),
 koşunun adı (`kosu`) ve ikizse ikizin adı (`ayni`).
@@ -35,22 +36,23 @@ DIZI = "beden-paket"
 HEDEF = KOK.parents[1] / "site" / "src" / "data" / "senaryolar" / f"{DIZI}.json"
 BUTCE = 500 * 1024
 
-PAKET_TIPLERI = (1, 2, 3, "magaza")
+PAKET_TIPLERI = (1, 2, 3, 4, "magaza")
 ADETLER = (7, 12)
 # yol 0'ın tasarımlı ana kolları (oyun.KOLLAR; p2_ham ablasyondur, demoya girmez): (K, adet) → kol
-KOLLAR = {(1, 7): "p1", (2, 7): "p2", (1, 12): "p1_12", (3, 12): "p3_12", ("magaza", 12): "pm_12"}
+KOLLAR = {(1, 7): "p1", (2, 7): "p2", (1, 12): "p1_12", (2, 12): "p2_12", (3, 12): "p3_12", ("magaza", 12): "pm_12"}
 
 PARAMETRELER = [
     {"ad": "paket_tipi", "etiket": "Paket tipi sayısı", "degerler": list(PAKET_TIPLERI),
-     "deger_etiketleri": {"1": "1 paket tipi", "2": "2 paket tipi", "3": "3 paket tipi",
+     "deger_etiketleri": {"1": "1 paket tipi", "2": "2 paket tipi", "3": "3 paket tipi", "4": "4 paket tipi",
                           "magaza": "mağazaya özel paket"}},
     {"ad": "adet", "etiket": "Paket büyüklüğü", "degerler": list(ADETLER),
      "deger_etiketleri": {str(a): f"{a} adet" for a in ADETLER}},
 ]
 
 # kart → (oyun.json ölçütü, basamak)
-OZET_OLCUTLERI = {"bulunabilirlik_ilk4": ("bulunabilirlik_ilk4", 1), "beden_kayip_payi": ("beden_kayip_payi", 1),
-                  "kirik_cift_pay_yuzde": ("kirik_cift_pay_yuzde", 1), "brut_kar_tl": ("brut_kar_tl", 0)}
+OZET_OLCUTLERI = {"bulunabilirlik_ilk4": ("bulunabilirlik_ilk4", 1),
+                  "beden_kayip_payi_ilk4": ("beden_kayip_payi_ilk4", 1),
+                  "kirik_cift_pay_yuzde_ilk4": ("kirik_cift_pay_yuzde_ilk4", 1), "brut_kar_tl": ("brut_kar_tl", 0)}
 
 
 def anahtar(K, adet: int) -> str:
@@ -125,11 +127,18 @@ def _surum(govde: dict) -> str:
     return hashlib.sha256(m.encode("utf-8")).hexdigest()[:12]
 
 
+def ikizler(k_egrisi: list[dict]) -> dict[str, str]:
+    """Kendi koşusu olmayan bileşim → aynı desen ve atamayı veren bileşim (`esdeger_K`)."""
+    return {anahtar(K, a): anahtar(esdeger_K(k_egrisi, K, a), a) for K in PAKET_TIPLERI for a in ADETLER
+            if esdeger_K(k_egrisi, K, a) != K}
+
+
 def uret(oyun_kaydi: dict | None = None, analiz: dict | None = None) -> dict:
-    """Demo dosyasının içeriği: `{surum, parametreler, sonuclar}`."""
+    """Demo dosyasının içeriği: `{surum, parametreler, ikizler, sonuclar}`."""
     oyun_kaydi = _oku(OYUN, "python -m beden_paket.oyun izgara") if oyun_kaydi is None else oyun_kaydi
     analiz = _oku(ANALIZ, "python analiz.py") if analiz is None else analiz
-    govde = {"parametreler": PARAMETRELER, "sonuclar": sonuclar(oyun_kaydi, analiz)}
+    govde = {"parametreler": PARAMETRELER, "ikizler": ikizler(analiz["k_egrisi"]),
+             "sonuclar": sonuclar(oyun_kaydi, analiz)}
     return {"surum": _surum(govde), **govde}
 
 

@@ -53,10 +53,10 @@ def test_tek_yuvarlama():
 
 
 def test_rapor_farklari_basilan_degerlerden(tmp_path):
-    """KOLLAR'ın fark satırı iki ondalıklı farkı ve onun bir kez yuvarlanmışını basar (sahte veride beden kaybı
-    P1 − Lumoda = 38,84 − 40,04 = −1,20 → −1,2)."""
+    """KOLLAR'ın fark satırı iki ondalıklı farkı ve onun bir kez yuvarlanmışını basar (sahte veride ilk 4 hafta
+    beden kaybı P1 − Lumoda = 38,84 − 40,04 = −1,20 → −1,2)."""
     m = _bolum(_metin(tmp_path), "KOLLAR")
-    assert "beden kaybı payı −1,20 puan (−1,2)" in m
+    assert "ilk 4 hf beden kaybı −1,20 puan (−1,2)" in m
     for iki, bir in re.findall(r"([+−]\d+,\d\d) puan \(([+−]?\d+,\d)\)", m):
         x2 = float(iki.replace("−", "-").replace(",", "."))
         assert rapor.s(rapor.tek_ondalik(x2), 1) == bir.lstrip("+")
@@ -152,15 +152,14 @@ def test_rapor_kosullu_iddialar(tmp_path, monkeypatch):
     assert "ızgaranın üst ucu" in eg and "kıl payı" in eg and "daraltma sonucu değiştirmiyor" in eg
     assert "hakemsiz ölçüt havuz hattını seçer, hakemli ölçüt Collection hattını" in eg
     assert "sansür düzeltmesi 7'li tasarımı değiştirmiyor" in ab
+    assert "12'li karşılığı kurulamaz" in ab and "yalnız paket büyüklüğü (aynı içerik): P1 14'lü − P1" in ab
+    assert re.search(r"P3 12'li − P1 12'li: ilk 4 hf bulun\. [+−]\d+,\d\d puan \([+−]?\d+,\d\)", ab)
     assert "iki eksen bağımsız" not in km and "(bağımsız)" not in km      # sahte kümeler profille ilişkili
     assert "kahin atamayı yalnız şu mağazada değiştirir: M3" in ke
     assert "depo tanımı bu veride tasarımı değiştirmiyor" in _bolum(m, "TASARIM")
     assert "en iyi tek paket Lumoda'nınki değil" in _bolum(m, "PAKET")
 
     g2 = copy.deepcopy(g)
-    for r in g2["analiz"]["k_egrisi"]:
-        if r["adet"] == 7 and r["K"] == 3:
-            r["ayni"] = None
     g2["analiz"]["egri"]["kappa"] = 1600.0
     g2["analiz"]["egri"]["kappa_tablosu"][1]["l1"] = 0.0270
     g2["analiz"]["egri"]["yeni_secim"]["l1_zincir"] = 0.19
@@ -170,13 +169,43 @@ def test_rapor_kosullu_iddialar(tmp_path, monkeypatch):
     g2["analiz"]["kahin"] |= {"ayni_atama": True, "farkli_magaza": [], "farkli": {}}
     m2 = _metin(tmp_path / "b", g2)
     ke2, eg2, km2 = (_bolum(m2, b) for b in ("K EĞRİSİ", "EĞRİ", "KÜMELEME ÇAPRAZI"))
-    assert "doyuyor" not in ke2 and "doyum" not in ke2
-    assert "K = 3       koşulmadı" in ke2
     assert "ızgaranın üst ucu" not in eg2 and "kıl payı" not in eg2 and "daraltma sonucu değiştirmiyor" not in eg2
     assert "depo tanımı bu veride tasarımı değiştirmiyor" not in _bolum(m2, "TASARIM")
     assert "iki eksen bağımsız" in km2 and "(bağımsız)" in km2
     assert "kahin atamayı değiştirmez" in ke2
-    assert re.search(r"dosyada olmayan bileşim.*3\|7", _bolum(m2, "DEMO"))
+    assert "sonuç görüldükten sonra eklendi" in _bolum(m2, "HİKÂYE") and "once_sarti" in _bolum(m2, "ANLATI VARSAYIMLARI")
+    assert "seçilmeyen zincir seçilseydi" not in eg2                   # sahte veride okunamayan mağaza yok
+
+
+def test_rapor_doyum_ve_olu_secim(tmp_path, capsys):
+    """7'li K = 3'ün ikizi yoksa doyum cümlesi basılmaz, K = 3 "koşulmadı" görünür ve demo bileşimi 3|7 sonuçsuz
+    kalır: arayüzde ölü seçim korunumu bozar."""
+    g = sahte_rapor.girdiler()
+    for r in g["analiz"]["k_egrisi"]:
+        if r["adet"] == 7 and r["K"] == 3:
+            r["ayni"] = None
+    v = rapor.hazirla(**sahte_rapor.yaz(tmp_path, g))
+    ek = []
+    rapor.k_egrisi_bolumu(v, ek)
+    rapor.demo_bolumu(v, ek)
+    out = capsys.readouterr().out
+    assert "doyuyor" not in out and "doyum" not in out and "K = 3       koşulmadı" in out
+    assert re.search(r"dosyada olmayan bileşim.*3\|7", out)
+    assert ("DEMO: arayüzün her bileşiminin sonucu var", False) in ek
+    assert rapor.tamponla(lambda: rapor.govde(v)) == (1, "")
+
+
+def test_rapor_yeni_magaza_secilmeyen_egriyle(tmp_path):
+    """Okunamayan mağazanın hakem etiketi, kuralın seçmediği eğriye göredir (zincir seçildiyse statik profile)."""
+    g = sahte_rapor.girdiler()
+    g["analiz"]["egri"]["yeni"] = {
+        "M9": {"kaynak": "zincir", "n": 0.0, "statik_profil": "buyuk", "profil": "orta", "kayma": -1, "l1_son": 0.24,
+               "l1_zincir": 0.24, "l1_statik_profil": 0.43}}
+    eg = _bolum(_metin(tmp_path / "a", g), "EĞRİ")
+    assert "seçilmeyen statik profil seçilseydi 0,4300 (hakeme göre seçim iyi)" in eg
+    g["analiz"]["egri"]["yeni"]["M9"] |= {"kaynak": "profil", "l1_son": 0.43}
+    eg = _bolum(_metin(tmp_path / "b", g), "EĞRİ")
+    assert "seçilmeyen zincir seçilseydi 0,2400 (hakeme göre seçim kötü)" in eg
 
 
 def test_rapor_bayt_bayt_ayni(tmp_path):
@@ -186,3 +215,12 @@ def test_rapor_bayt_bayt_ayni(tmp_path):
 def test_analiz_kod_ozeti_hikaye_disinda():
     """Analizin kod özeti paketin hikâye dışındaki modüllerini ve analiz.py'yi kapsar."""
     assert len(analiz.kod_ozeti()) == 64 and analiz.kod_ozeti() == analiz.kod_ozeti()
+
+
+def test_analiz_onbellek_yoksa_kosmaz(tmp_path):
+    """analiz.py koşusuzdur: yol 0 doğrulama koşusu önbellekte yoksa `Eksik` verir, simülasyon başlatmaz."""
+    from beden_paket import oyun as oyun_modulu
+    ortam = oyun_modulu.Ortam(olcek="kucuk", onbellek=tmp_path / "kosular", cikti=tmp_path, ilerleme=False)
+    with pytest.raises(analiz.Eksik, match="önbelleğinde yok"):
+        analiz.kur(ortam)
+    assert not (tmp_path / "kosular").exists() or not any((tmp_path / "kosular").iterdir())

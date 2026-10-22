@@ -37,7 +37,9 @@ beden setli (benzer) option'ları; (4) option kalibrasyon sezonundan (`KAL_KARAR
 ilk lansmanın sezonu; SS24) değil, karar öncesi her Collection sezonundan; (5) roller serbest:
 bölge-profil dağılımı veride tersse büyüğe kayık mağaza İstanbul'da, küçüğe kayık Anadolu'da olabilir
 (kurgu veriye uyar, kimin mağazası olduğu değişir, ders aynı kalır; sırada kadroya uyan önce); (6)
-hedef bedenlerin öteki bedenlerden önce bitmesi şartı kalkar; (7) biten hedef bedenlerin ikisi birden
+hedef bedenlerin öteki bedenlerden önce bitmesi şartı kalkar (bu şart ilk sürümde yoktu; gerçek veride
+zayıf bir sahne görüldükten sonra eklendi, `sec(..., once=False)` şartsız seçimi verir ve rapor ikisini
+basar); (7) biten hedef bedenlerin ikisi birden
 değil biri (büyükte 4. ya da 5., küçükte 1. ya da 2.). Ders en son gevşer. Hiçbir kademede sahne yoksa hata.
 
 **Hakem.** `kayma` verilirse (mağaza → etkin gizli kayma, −1 / 0 / +1) sahne sırasında ilk
@@ -329,9 +331,9 @@ def _kayit(h: pd.DataFrame, dunya: dict, hucre: tuple[str, str]) -> dict:
             "satis": int(sum(x["satis"] for x in bedenler)), "bedenler": bedenler}
 
 
-def _bul(h: pd.DataFrame, dunya: dict, kayma, haric: frozenset) -> Hikaye:
+def _bul(h: pd.DataFrame, dunya: dict, kayma, haric: frozenset, merdiven=MERDIVEN) -> Hikaye:
     elenen = 0
-    for i, kademe in enumerate(MERDIVEN):
+    for i, kademe in enumerate(merdiven):
         for b, k, ters in _sahneler(h, dunya, kademe, haric):
             dog = None
             if kayma is not None:
@@ -354,13 +356,15 @@ def _bul(h: pd.DataFrame, dunya: dict, kayma, haric: frozenset) -> Hikaye:
 # ---------------------------------------------------------------------------
 
 
-def sec(tablolar: dict, egri, karar_gunu, *, kayma: pd.Series | None = None) -> Hikaye:
+def sec(tablolar: dict, egri, karar_gunu, *, kayma: pd.Series | None = None, once: bool = True) -> Hikaye:
     """Sahneyi seçer (modül notu).
 
     tablolar   yayımlanan: magaza, magaza_olay, urun, satis (en az tarih, magaza_id, urun_id, adet;
                günlük ya da haftalık), stok (pazartesi fotoğrafları), sevkiyat, paket
     egri       karar anındaki `egri.Egri` (profil, kaynak, mağaza eğrisi, zincir)
-    kayma      mağaza → etkin gizli kayma (isteğe bağlı; yalnız doğrulama, ölçüm tarafı verir)"""
+    kayma      mağaza → etkin gizli kayma (isteğe bağlı; yalnız doğrulama, ölçüm tarafı verir)
+    once       False: "hedef bedenler önce biter" şartı hiçbir kademede aranmaz (şart sonuç görüldükten sonra
+               eklendi; rapor şartsız seçimi de basar). Kademe indisleri aynı kalır."""
     k = kaynak.kapsam(tablolar, karar_gunu).set_index("magaza_id")
     adaylar = [m for m in egri.magaza.index if egri.kaynak.get(m) == "magaza" and m in k.index
                and egri.profil.get(m) in HEDEF]
@@ -375,9 +379,10 @@ def sec(tablolar: dict, egri, karar_gunu, *, kayma: pd.Series | None = None) -> 
     h = hucreler(tablolar, adaylar, karar_gunu)
     if h.empty:
         raise ValueError("uygun hikâye sahnesi bulunamadı: aday mağazaların karar öncesi ilk dağıtımı yok")
-    birinci = _bul(h, dunya, kayma, frozenset())
+    merdiven = MERDIVEN if once else tuple(replace(k, once=False) for k in MERDIVEN)
+    birinci = _bul(h, dunya, kayma, frozenset(), merdiven)
     try:
-        alt = _bul(h, dunya, kayma, frozenset({birinci.buyuk["magaza"], birinci.kucuk["magaza"]}))
+        alt = _bul(h, dunya, kayma, frozenset({birinci.buyuk["magaza"], birinci.kucuk["magaza"]}), merdiven)
     except ValueError:
         alt = None
     return replace(birinci, alternatif=alt)

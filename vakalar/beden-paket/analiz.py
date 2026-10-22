@@ -8,7 +8,7 @@
 kayma; yalnız ölçü), simülasyon koşmaz. Yol 0'ın kararları oyunun kendi girdisinden kurulur
 (`oyun.YolGirdisi(0)`: eğri, ns, ağırlık, depo, tasarımlar), böylece rapordaki tasarım oyun.json'daki
 koşuların tasarımıyla aynıdır (rapor bunu denetler). Yolun Lumoda koşusu (doğrulama kolu) önbellekte
-olmalıdır (`python -m beden_paket.kosucu dogrulama`); yoksa koşulur.
+olmalıdır (`python -m beden_paket.kosucu dogrulama`); yoksa `Eksik` (çıkış 1): analiz simülasyon başlatmaz.
 
 Bloklar (`analiz.json`):
 
@@ -44,13 +44,17 @@ from allocation import motor
 from allocation import oyun as al_oyun
 
 from beden_paket import egri as egri_modulu
-from beden_paket import hakem, kaynak, kosucu, olcutler_egri, oyun, paket_tasarim, sabitler
+from beden_paket import hakem, kaynak, kosucu, olcutler_egri, oyun, paket_tasarim, sabitler, simulasyon
 
 KOK = Path(__file__).resolve().parent
 SURUM = 1
 SUTUNLAR = list(paket_tasarim.SUTUNLAR)
 HATLAR = {"havuz": egri_modulu.HATLAR, "Collection": ("Collection",), "Basic+NOS": ("Basic", "NOS")}
-TASARIM_KOLLARI = ("p1", "p2", "p1_12", "p3_12", "pm_12", "p2_ham")
+TASARIM_KOLLARI = ("p1", "p2", "p1_12", "p3_12", "pm_12", "p2_12", "p1_14", "p2_ham")
+
+
+class Eksik(RuntimeError):
+    """Analizin dayandığı koşu önbellekte yok: analiz simülasyon başlatmaz (stderr, çıkış 1)."""
 
 
 def hedef(olcek: str = "tam") -> Path:
@@ -110,6 +114,22 @@ def _replenishment_beden(G: oyun.YolGirdisi) -> list[int]:
     return [int(x) for x in t]
 
 
+def paket_tablosu(paketler: pd.DataFrame) -> dict:
+    """Yayımlanan `paket` tablosu (yeniden ölçüm): beş bedenli (beden sırası 1..5) setlerin sayısı, set başına
+    paket tipi sayısı ve görülen içerikler (beden sırası sırasıyla); tek bedenli setler ayrı."""
+    p = paketler.assign(paket_id=paketler["paket_id"].astype(str), beden_seti=paketler["beden_seti"].astype(str))
+    sira = p.groupby("beden_seti")["beden_sira"].agg(lambda x: set(int(v) for v in x))
+    bes = sorted(a for a, v in sira.items() if v == set(range(1, sabitler.BEDEN_SAYISI + 1)))
+    q = p[p["beden_seti"].isin(bes)]
+    icerik = {pid: "-".join(str(int(x)) for x in g.sort_values("beden_sira")["adet"])
+              for pid, g in q.groupby("paket_id")}
+    tip = q.groupby("beden_seti")["paket_id"].nunique()
+    tek = p[~p["beden_seti"].isin(bes)]
+    return {"bes_bedenli_set": len(bes), "set_basina_paket_tipi": sorted({int(x) for x in tip}),
+            "desenler": sorted(set(icerik.values())), "tek_bedenli_set": int(tek["beden_seti"].nunique()),
+            "tek_bedenli_adet": sorted({int(x) for x in tek.groupby("paket_id")["adet"].sum()})}
+
+
 def paket_blogu(G: oyun.YolGirdisi, gercek: pd.DataFrame, ok: list[str]) -> dict:
     e = G.egri
     L = np.asarray(sabitler.LUMODA_PAKET, dtype="float64")
@@ -119,6 +139,7 @@ def paket_blogu(G: oyun.YolGirdisi, gercek: pd.DataFrame, ok: list[str]) -> dict
     hakemli = _l1(Lp, gercek, list(e.magaza.index))
     d = G.bilgi()["depo"]
     return {"lumoda": [int(x) for x in sabitler.LUMODA_PAKET], "adet": int(L.sum()),
+            "paket_tablosu": paket_tablosu(G.w.paketler),
             "zincir": _satir(e.zincir), "zincir_l1": float(np.abs(p - e.zincir).sum()),
             "magaza_l1": {"ortalama": float(hakemsiz.mean()), "en_az": float(hakemsiz.min()),
                           "en_cok": float(hakemsiz.max()), "en_cok_magaza": str(hakemsiz.idxmax()),
@@ -263,12 +284,7 @@ def depo_blogu(G: oyun.YolGirdisi) -> dict:
         out["pay"][str(a)] = {"siparis": _satir(sip.to_numpy() / (a * w)), "hatali_dusulmus": _satir(dep.to_numpy() / (a * w)),
                               "oyun": _satir(G.depo_payi(a))}
     for kol in TASARIM_KOLLARI:
-        k = oyun.KOLLAR[kol]
-        w = G.agirlik(k.adet)
-        tas = {ad: paket_tasarim.tasarla(G.egri_tablosu(k.egri), w, k.K, np.asarray(out["pay"][str(k.adet)][ad]),
-                                         adet=k.adet) for ad in ("siparis", "hatali_dusulmus")}
-        out["tasarim_ayni"][kol] = {"iki_tanim": oyun.ayni_tasarim(tas["siparis"], tas["hatali_dusulmus"]),
-                                    "oyun_siparis": oyun.ayni_tasarim(G.tasarim(kol), tas["siparis"])}
+        out["tasarim_ayni"][kol] = {"iki_tanim": oyun.ayni_tasarim(G.tasarim(kol, "siparis"), G.tasarim(kol, "depo"))}
     return out
 
 
@@ -289,6 +305,10 @@ def ilk_sevkiyat_blogu(olcek: str) -> dict | None:
 
 def kur(ortam: oyun.Ortam) -> dict:
     t0 = time.perf_counter()
+    h = simulasyon.dogrulama_hazirla(0, ortam.olcek, gun_sayisi=ortam.gun_sayisi)
+    if not simulasyon.onbellekte_mi(h, ortam.onbellek):
+        raise Eksik(f"doğrulama kolu ({h.ad}_{h.anahtar[:20]}) {ortam.onbellek} önbelleğinde yok: analiz simülasyon "
+                    "başlatmaz; önce python -m beden_paket.kosucu dogrulama (ya da oyun izgara)")
     G = oyun.YolGirdisi(0, ortam)
     gercek, kayma = hakem.gercek_pay(G.w), hakem.kayma(G.w)
     con, sakla = G._baglanti()
@@ -339,7 +359,12 @@ def main(argv=None) -> int:
     olcek = a.olcek.lower()
     ortam = oyun.Ortam(olcek=olcek, cikti=sabitler.CIKTI if olcek == "tam" else sabitler.CIKTI / "kucuk",
                        ilerleme=False)
-    print(f"yazıldı: {yaz(kur(ortam), hedef(olcek))}")
+    try:
+        sonuc = kur(ortam)
+    except Eksik as e:
+        print(f"Eksik: {e}", file=sys.stderr)
+        return 1
+    print(f"yazıldı: {yaz(sonuc, hedef(olcek))}")
     return 0
 
 
