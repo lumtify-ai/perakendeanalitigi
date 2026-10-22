@@ -57,6 +57,7 @@ def test_kol_adlari():
     assert oyun.kosu_adi(0, "p2") == "p2" and oyun.kosu_adi(3, "p3_12") == "y3_p3_12"
     assert oyun.kosu_adi(2, "dogrulama") == simulasyon.dogrulama_adi(2) == "y2_dogrulama"
     assert set(oyun.KOSULMAYAN) == {"p3", "p4", "pm", "pk"} and not set(oyun.KOSULMAYAN) & set(oyun.KOLLAR)
+    assert "R15" in oyun.KOSULMAYAN["pk"] and "M027" in oyun.KOSULMAYAN["pk"]
     with pytest.raises(KeyError):
         oyun.kosu_adi(0, "p3")
 
@@ -163,7 +164,7 @@ def test_yol_kendi_tablolari(G0, G1, ortam, monkeypatch):
 
 def test_depo_lumodayi_uretir(G0):
     """Depo (ilk sipariş − hatalı) Lumoda'nın giden paketini birebir üretir: beş bedenli her oyun option'ında
-    giden = min(istenen, min_b ⌊depo_b ÷ 1-2-2-1-1_b⌋); `depo_payi` = depo ÷ (a × Σ ağırlık)."""
+    giden = min(istenen, min_b ⌊depo_b ÷ 1-2-2-1-1_b⌋); `depo_payi(a, "depo")` = depo ÷ (a × Σ ağırlık)."""
     w = G0.w
     kayit = G0.lumoda.kayitlar["ilk_dagitim"]
     oid = w.optionlar["option_id"].astype(str).to_numpy()
@@ -175,8 +176,42 @@ def test_depo_lumodayi_uretir(G0):
         tavan = int(np.min(G0.depo.loc[o].to_numpy() // c))
         assert int(giden.get(o, 0)) == min(int(istenen.get(o, 0)), tavan), o
     for a in (7, 12):
-        np.testing.assert_allclose(G0.depo_payi(a) * a * G0.agirlik(a).sum(), G0.depo.sum(axis=0).to_numpy())
+        np.testing.assert_allclose(G0.depo_payi(a, "depo") * a * G0.agirlik(a).sum(), G0.depo.sum(axis=0).to_numpy())
     assert set(G0.agirlik(7).index) == set(G0.egri.magaza.index) and G0.agirlik(7).sum() > 0
+
+
+def test_depo_payi_karar_oncesi(G0, G1):
+    """Tasarımın depo payı karar öncesi bilgiden: ilk sipariş adedi (Ruling R16); hata düşülmüş depo
+    yalnız ön denetimde. İki tanımla bütün kolların tasarımı ve bağları aynı (KÜÇÜK yol 0 ve 1)."""
+    for G in (G0, G1):
+        for a in (7, 12):
+            np.testing.assert_allclose(G.depo_payi(a) * a * G.agirlik(a).sum(), G.siparis_deposu.sum(axis=0))
+            np.testing.assert_allclose(G.depo_payi(a, "depo") * a * G.agirlik(a).sum(), G.depo.sum(axis=0))
+        assert (G.siparis_deposu >= G.depo).to_numpy().all()
+        assert oyun.depo_tanimlari_ayni(G) == {"ayni": True, "farkli": []}
+
+
+def test_olcum_kodu_kapsami():
+    """Ölçüm kodu özeti içe aktarma anında bir kez kurulur (süreç sürerken dosya değişse de o sürecin
+    koduyla ölçülmüş kaydı adlandırır) ve oyun'un ölçüm tarafı yardımcılarını kapsar; kaynak ya da
+    `OLCUM_SURUMU` değişince değişir."""
+    assert {"olcum_kaydi", "YolGirdisi._giden", "YolGirdisi.giden_adet", "YolGirdisi.bes_optionlar",
+            "YolGirdisi.oyun_ids"} <= set(oyun.OLCUM_FONKSIYONLARI)
+    assert oyun.olcum_kodu() == oyun.OLCUM_OZETI
+    m = oyun.olcum_metinleri()
+    assert set(m) >= {"kosucu.py", "olcutler.py", "olcum_kaydi", "YolGirdisi.giden_adet"}
+    taban = oyun.olcum_ozeti(m, oyun.OLCUM_SURUMU)
+    assert taban == oyun.OLCUM_OZETI
+    assert oyun.olcum_ozeti(m | {"YolGirdisi.bes_optionlar": "değişti"}, oyun.OLCUM_SURUMU) != taban
+    assert oyun.olcum_ozeti(m, oyun.OLCUM_SURUMU + 1) != taban
+
+
+def test_ayni_kol_yolun_kol_kumesinde(G1):
+    """`ayni_kol` yalnız yolun kol kümesindeki kollara bağlar: yolda p3_12 için p1_12 tasarlanmaz."""
+    G1._tasarimlar.clear()
+    assert oyun.ayni_kol(G1, "p3_12") is None
+    assert (1, 12) not in {(K, a) for K, a, *_ in G1._tasarimlar}       # p1_12 yolun kolu değil
+    assert oyun.ayni_kol(G1, "p2") is None and oyun.ayni_kol(G1, "p1") is None
 
 
 def test_k_egrisi_kucuk(G0):
@@ -246,9 +281,14 @@ def test_ayni_mal_option_basina(ortam):
         assert k["ayni_mal"] is True
     assert kayit["p2"]["korunum"]["fark_adet"] == 0 and kayit["p2"]["korunum"]["hucre"] > 0
     assert kayit["p3_12"]["olcutler"]["paket_tipi"] == len(kayit["p3_12"]["desenler"])
-    d = kayit["p3_12"]["donusum"]
-    assert d["kol_adet"] - d["lumoda_adet"] == d["fark_adet"]
+    # 12'li dönüşüm option toplamını korur: her beş bedenli option'da |12 × Σ paket − Σ Lumoda adedi| ≤ 6
     G = oyun.YolGirdisi(0, ortam)
+    lum = pd.Series({a: v for a, v in G.giden_adet.items() if a[0] in set(G.bes_optionlar)}).groupby(level=0).sum()
+    kol = pd.Series({a: v for a, v in G.ns(12).items() if a[0] in set(G.bes_optionlar)}).groupby(level=0).sum() * 12
+    fark = (kol.reindex(lum.index, fill_value=0) - lum).abs()
+    assert len(fark) == len(G.bes_optionlar) and fark.max() <= 6
+    d = kayit["p3_12"]["donusum"]
+    assert d["option_en_buyuk_fark"] == int(fark.max()) and d["option"] == len(fark)
     assert oyun.ayni_tasarim(G.tasarim("pm_12"), G.tasarim("p3_12"))      # KÜÇÜK verisinde
     assert kayit["pm_12"]["ayni"] == "p3_12" and kayit["pm_12"]["anahtar"] == kayit["p3_12"]["anahtar"]
     assert not any(p.name.startswith("pm_12_") for p in ortam.onbellek.iterdir())
@@ -287,6 +327,29 @@ def test_tam_yol0_tasarimlar():
     # aynı koşu iki adla (ızgaranın koşu sayısı buna dayanır): pm_12 = p3_12, p2_ham = p2
     assert oyun.ayni_kol(G, "pm_12") == "p3_12" and oyun.ayni_kol(G, "p2_ham") == "p2"
     assert [oyun.ayni_kol(G, k) for k in ("p1", "p2", "p1_12", "p3_12")] == [None] * 4
+    # R16: karar öncesi (sipariş) ve hata düşülmüş depoyla tasarımlar ve bağlar aynı (koşan TAM geçerli)
+    assert oyun.depo_tanimlari_ayni(G) == {"ayni": True, "farkli": []}
     kahin = G.kahin("p2")
     print(kahin)
-    assert kahin["ari"] == 1.0
+    assert kahin["ari"] == 1.0 and kahin["farkli_magaza"] == ["M027"]          # Ruling R15
+    print("12'li dönüşüm", G.bilgi()["donusum_12"])
+    assert G.bilgi()["donusum_12"]["option_en_buyuk_fark"] <= 6
+
+
+@pytest.mark.veri
+def test_tam_yollar_depo_tanimi():
+    """TAM yollar 1–4: doğrulama koşusu vakanın önbelleğindeyse (salt okunur; koşmaz, silmez) iki depo
+    tanımıyla tasarımlar ve bağlar aynı (R16). Önbellekte olmayan yol atlanır."""
+    sinanan = []
+    for p in oyun.YOLLAR:
+        h = simulasyon.dogrulama_hazirla(p, "tam")
+        k = kosucu.salt_okunur_kayit(motor._dizin(simulasyon.KOSU_DIZINI, h.ad, h.anahtar), h.anahtar)
+        if k is None:
+            continue
+        G = oyun.YolGirdisi(p, oyun.Ortam(ilerleme=False))
+        G.__dict__["lumoda"] = k
+        assert oyun.depo_tanimlari_ayni(G) == {"ayni": True, "farkli": []}, p
+        sinanan.append(p)
+    print("sınanan yollar", sinanan)
+    if not sinanan:
+        pytest.skip("yolların TAM doğrulama koşusu önbellekte yok")

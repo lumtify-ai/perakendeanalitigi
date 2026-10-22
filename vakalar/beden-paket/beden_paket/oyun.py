@@ -40,14 +40,19 @@ o yolun tablolarıyla; ayrı bir kalibrasyon komutu yoktur), kapsam `kaynak.kaps
                option toplamı ⌊Σ adet ÷ 12 + ½⌋, mağazalara en büyük kalanla); aksesuar ns(7)
     agirlik(a) tasarımın ağırlığı: mağazanın beş bedenli oyun option'larındaki ns(a) toplamı
                (kapsamın paket almayan mağazası 0)
-    depo       beş bedenli oyun option'ı × beden: ilk dağıtım anındaki depo = ilk siparişin teslim
-               edilen adedi − kalite kontrolde hatalı çıkanlar (yayımlanan `siparis` tip `ilk` ve
-               `kalite_kontrol`; hatalı adet motorun kuralıyla SKU'lara en büyük kalanla, beden
-               sırasıyla). Yeni Collection option'ının depoda ondan başka malı yoktur: Lumoda'nın
-               giden paketini bu depoyla birebir yeniden üretir (`test_depo_lumodayi_uretir`)
-    depo_payi(a)  Σ_option depo_b ÷ (a × Σ agirlik(a)), yani depo / kolun giden adedi (7'lide
-               Lumoda'nın giden adedi). `paket_tasarim.tasarla`'nın kısıtı Σ_m w_m p_b ≤ depo_payi_b ×
-               a × Σw böylece tam Σ_option depo_b olur (toplamda; Ruling R11)
+    siparis_deposu  beş bedenli oyun option'ı × beden: ilk siparişin adedi (yayımlanan `siparis` tip
+               `ilk`; bütün siparişler karar gününden önce verilmiştir). Tasarımın beklediği depo
+               budur, karar anında bilinen (spec §0/11, Ruling R16)
+    depo       aynı tablo, kalite kontrolde hatalı çıkanlar düşülmüş (`kalite_kontrol`; hatalı adet
+               motorun kuralıyla SKU'lara en büyük kalanla, beden sırasıyla): ilk dağıtım anında
+               motorun deposunun kendisi (yeni Collection option'ının depoda başka malı yoktur;
+               Lumoda'nın giden paketini birebir üretir, `test_depo_lumodayi_uretir`). Hatalar
+               teslimde, çoğu karar gününden sonra ortaya çıkar: yalnız ön denetimde ve korunumda
+    depo_payi(a)  Σ_option siparis_deposu_b ÷ (a × Σ agirlik(a)), yani beklenen depo / kolun giden
+               adedi (7'lide Lumoda'nın giden adedi). `paket_tasarim.tasarla`'nın kısıtı Σ_m w_m p_b ≤
+               depo_payi_b × a × Σw böylece tam Σ_option siparis_deposu_b olur (toplamda; Ruling R11).
+               `depo_payi(a, "depo")` hata düşülmüş depoyla; iki tanımla tasarımlar ve bağlar aynıdır
+               (`depo_tanimlari_ayni`; TAM yol 0'da ve KÜÇÜK'te test)
 
 **Tasarım** (`tasarim(kol)`): `paket_tasarim.tasarla(eğri, agirlik(a), K, depo_payi(a), adet=a)`;
 p2_ham'da eğri `ham_egri` (okunabilen mağazada ham satış payı, okunamayanda ana eğrinin yedeği;
@@ -60,15 +65,18 @@ kırpma ölçülür (`kirpilan_adet`, `kirpilan_option`) ve kayıtta `ayni_mal`:
 
 **Koşu ve ölçüm** (`kos_bir`; Ruling R14). Simülasyon önbelleği `cikti/kosular/`
 (`simulasyon.kos`, anahtar yalnız simülasyonu değiştirenler). Ölçütler `cikti/oyun.json`'da kayıt
-başına `anahtar` ve `olcum_kodu` (ölçüm kodunun özeti: `kosucu.py`, İlk Sevkiyat `olcutler.py`,
-bu modülün `olcum_kaydi`'sı, `OLCUM_SURUMU`) ile: anahtar ve ölçüm kodu aynıysa yeniden
-ölçülmez; ölçüm kodu değiştiyse koşu önbellekten okunur, yalnız ölçüm yeniden yapılır. Biten her
+başına `anahtar` ve `olcum_kodu` (ölçüm kodunun özeti `OLCUM_OZETI`: `kosucu.py`, İlk Sevkiyat
+`olcutler.py`, bu modülün ölçüm tarafı işlevleri `OLCUM_FONKSIYONLARI`, `OLCUM_SURUMU`; içe aktarma
+anında bir kez kurulur, süreç sürerken dosya değişse de kayıt o sürecin koduyla adlanır) ile:
+anahtar ve ölçüm kodu aynıysa yeniden ölçülmez; ölçüm kodu değiştiyse koşu önbellekten okunur,
+yalnız ölçüm yeniden yapılır. Ölçümü değiştiren ama `OLCUM_FONKSIYONLARI` ve `kosucu.py` dışında
+kalan bir düzeltmede `OLCUM_SURUMU` bir artırılır. Biten her
 koşu `cikti/ilerleme.jsonl`'a bir JSON satırı (İlk Sevkiyat `oyun._ilerleme`). `oyun.json`:
 `kosular` (ad → yol, kol, paket adedi, K, desenler, atama, eğri ve ns kaynağı, tasarım, ön
 denetim, anahtar, ölçüm kodu, ölçütler, korunum), `yollar` (yol → girdilerin özeti).
 
 **K eğrisi** (`k_egrisi`; koşusuz, Task 6'nın raporu için): K = 1..4 ve "magaza" için 7 ve 12'li
-tasarımın uyumsuzluğu (gerçek ağırlık ve depo), Lumoda paketinin uyumsuzluğu ve her satırda aynı
+tasarımın uyumsuzluğu (gerçek ağırlık, karar öncesi depo), Lumoda paketinin uyumsuzluğu ve her satırda aynı
 desen ve atamayı veren daha küçük K (`ayni`). **Kahin** (`kahin_ayni_mi`): tasarımın desenleri
 gerçek beden payına göre atanırsa atama değişir mi; profilin etkin kaymaya ARI'si.
 """
@@ -95,7 +103,12 @@ from beden_paket import hakem, kaynak, kosucu, olcutler_egri, paket_tasarim, pol
 
 ILERLEME = sabitler.CIKTI / "ilerleme.jsonl"
 OYUN_JSON = sabitler.CIKTI / "oyun.json"
-OLCUM_SURUMU = 1
+# Ölçüm sabitleri burada, `sabitler`'de değil (Ruling R18: `sabitler` simülasyon anahtarındadır).
+# OLCUM_SURUMU: ölçümü değiştiren ama OLCUM_FONKSIYONLARI ve kosucu.py dışında kalan her düzeltmede
+# bir artırılır (2: R16 düzeltme turu; özet içe aktarma anında, kapsamı genişledi).
+OLCUM_SURUMU = 2
+OLCUM_FONKSIYONLARI = ("olcum_kaydi", "YolGirdisi._giden", "YolGirdisi.giden_adet", "YolGirdisi.bes_optionlar",
+                       "YolGirdisi.oyun_ids")
 OLCUM_ALANLARI = ("olcutler", "korunum", "donusum", "ayni_mal", "ilk_sevkiyat", "olcum_sn")
 SUTUNLAR = list(paket_tasarim.SUTUNLAR)
 DOGRULAMA = "dogrulama"
@@ -132,8 +145,8 @@ KOSULMAYAN = {
     "p3": "7'li K = 3: P2 ile aynı desen ve atama (k_egrisi `ayni`; Ruling R10)",
     "p4": "7'li K = 4: P2 ile aynı desen ve atama (k_egrisi `ayni`; Ruling R10)",
     "pm": "7'li mağazaya özel: P2 ile aynı desen ve atama (k_egrisi `ayni`; Ruling R10)",
-    "pk": "7'li kahin: profil kaymayla ARI 1 (okunabilen mağazalar); P2'den ayrılan mağazalar "
-          "kahin_ayni_mi'de (Ruling R10)",
+    "pk": "7'li kahin: profil kaymayla ARI 1 (okunabilen 68 mağaza); atama P2'den yalnız eğrisi okunamayan "
+          "M027'de ayrılır (ağırlığın %2,1'i), fark koşusuz basılır (kahin_ayni_mi; Ruling R15)",
 }
 
 
@@ -292,7 +305,7 @@ class YolGirdisi:
         ham = egri_modulu.ham(et, kapsam, sabitler.KARAR_GUNU)
         del et
         depo = depo_tablosu(dt["siparis"], dt["kalite_kontrol"], dt["urun"], self.bes_optionlar)
-        sip = depo_tablosu(dt["siparis"], dt["kalite_kontrol"].iloc[:0], dt["urun"], self.bes_optionlar)
+        sip = depo_tablosu(dt["siparis"], dt["kalite_kontrol"].iloc[:0], dt["urun"], self.bes_optionlar)  # R16
         del dt
         sn = time.perf_counter() - t0
         al_oyun._ilerleme(f"y{self.yol}_girdiler", sn, False, self.ortam.ilerleme_yolu, kaynak=self.kaynak_adi,
@@ -306,7 +319,27 @@ class YolGirdisi:
 
     @property
     def depo(self) -> pd.DataFrame:
+        """Hata düşülmüş depo (motorun deposu): yalnız ön denetim ve korunum (modül notu)."""
         return self._kararlar["depo"]
+
+    @property
+    def siparis_deposu(self) -> pd.DataFrame:
+        """İlk sipariş adedi (karar öncesi): tasarımın beklediği depo (R16)."""
+        return self._kararlar["siparis"]
+
+    def egri_tanisi(self) -> dict:
+        """Eğrinin tanısı (Task 6 raporu; ayrı `kalibrasyon` komutu yok, Ruling R17): seçilen κ, κ tablosu
+        (her κ için SS24 karar anında kurulan eğrinin SS24 Collection ilk haftalarının gerçekleşen
+        payına ortalama L1'i; `egri.kappa_sec`), seçilenin L1'i, ızgara ucunda mı, yeni mağaza kuralı,
+        sansür tanısı."""
+        e = self.egri
+        t = e.kappa_tablosu
+        satir = [] if t is None else [{"kappa": float(r.kappa), "l1": float(r.l1), "magaza": int(r.magaza)}
+                                       for r in t.itertuples(index=False)]
+        secilen = next((s["l1"] for s in satir if s["kappa"] == e.kappa), None)
+        return {"kappa": e.kappa, "kappa_tablosu": satir, "ss24_l1": secilen,
+                "izgara_ucunda": bool(satir) and e.kappa == max(s["kappa"] for s in satir),
+                "yeni_secim": e.yeni_secim, "sansur": e.sansur}
 
     def egri_tablosu(self, tur: str = "duzeltilmis") -> pd.DataFrame:
         return self._kararlar["ham_egri"] if tur == "ham" else self.egri.magaza
@@ -368,19 +401,28 @@ class YolGirdisi:
                              f"{disari[:5]}")
         return pd.Series({m: float(toplam.get(m, 0)) for m in ids}, name="agirlik").rename_axis("magaza_id")
 
-    def depo_payi(self, adet: int = sabitler.PAKET_ADET) -> np.ndarray:
-        """Beden başına depo ÷ kolun giden adedi (a × Σ agirlik), modül notu."""
-        return self.depo.sum(axis=0).to_numpy(dtype="float64") / (int(adet) * float(self.agirlik(adet).sum()))
+    def depo_payi(self, adet: int = sabitler.PAKET_ADET, tanim: str = "siparis") -> np.ndarray:
+        """Beden başına beklenen depo ÷ kolun giden adedi (a × Σ agirlik), modül notu. `tanim`
+        "siparis" (karar öncesi, tasarımın girdisi; R16) ya da "depo" (hata düşülmüş; yalnız sınama)."""
+        if tanim not in ("siparis", "depo"):
+            raise ValueError(f"depo tanımı 'siparis' ya da 'depo': {tanim!r}")
+        d = self.siparis_deposu if tanim == "siparis" else self.depo
+        return d.sum(axis=0).to_numpy(dtype="float64") / (int(adet) * float(self.agirlik(adet).sum()))
 
-    def tasarim(self, kol: str) -> paket_tasarim.Tasarim:
+    def tasarim(self, kol: str, depo: str = "siparis") -> paket_tasarim.Tasarim:
         k = KOLLAR[kol]
         if k.K is None:
             raise ValueError("doğrulama kolunun tasarımı yok (Lumoda'nın standart paketi)")
-        anahtar = (k.K, k.adet, k.egri)
+        anahtar = (k.K, k.adet, k.egri, depo)
         if anahtar not in self._tasarimlar:
             self._tasarimlar[anahtar] = paket_tasarim.tasarla(
-                self.egri_tablosu(k.egri), self.agirlik(k.adet), k.K, self.depo_payi(k.adet), adet=k.adet)
+                self.egri_tablosu(k.egri), self.agirlik(k.adet), k.K, self.depo_payi(k.adet, depo), adet=k.adet)
         return self._tasarimlar[anahtar]
+
+    @property
+    def kollar(self) -> tuple[str, ...]:
+        """Yolun kol kümesi (yol 0 `YOL0_KOLLARI`, yollar `YOL_KOLLARI`)."""
+        return YOL0_KOLLARI if self.yol == 0 else YOL_KOLLARI
 
     def kos(self, kol: str):
         """Kolun simülasyonu (önbellekten ya da koşulur)."""
@@ -424,7 +466,12 @@ class YolGirdisi:
             "depo": {"ilk_siparis": [int(x) for x in sip], "depo": [int(x) for x in dep],
                      "lumoda_giden": [int(x) for x in giden_beden],
                      "depo_payi_7": [round(float(x), 6) for x in self.depo_payi(7)],
-                     "depo_payi_12": [round(float(x), 6) for x in self.depo_payi(12)]},
+                     "depo_payi_12": [round(float(x), 6) for x in self.depo_payi(12)],
+                     "depo_payi_7_hatali_dusulmus": [round(float(x), 6) for x in self.depo_payi(7, "depo")],
+                     "depo_payi_12_hatali_dusulmus": [round(float(x), 6) for x in self.depo_payi(12, "depo")],
+                     "tanim": "tasarım ilk sipariş adediyle (karar öncesi, R16); hata düşülmüş depo ön denetimde",
+                     "tanimlar_ayni": depo_tanimlari_ayni(self)},
+            "egri_tanisi": {a: v for a, v in self.egri_tanisi().items() if a != "sansur"},
             "donusum_12": kosucu.donusum_ozeti({a: v for a, v in self.giden_adet.items() if a[0] in bes},
                                                {a: v for a, v in self.ns(12).items() if a[0] in bes}, 12),
         }
@@ -523,13 +570,32 @@ def olcum_kaydi(k, G: YolGirdisi, kol: str) -> dict:
     return kay
 
 
-def olcum_kodu() -> str:
-    """Ölçüm kodunun özeti (modül notu): değişirse kayıt önbellekteki koşudan yeniden ölçülür."""
+def olcum_metinleri() -> dict[str, str]:
+    """Ölçüm özetinin girdileri: `kosucu.py`, İlk Sevkiyat `olcutler.py` (dosya) ve bu modülün
+    `OLCUM_FONKSIYONLARI` kaynağı (satır sonları LF)."""
+    m = {Path(y).name: Path(y).read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
+         for y in (kosucu.__file__, al_olcutler.__file__)}
+    for ad in OLCUM_FONKSIYONLARI:
+        nesne = globals()[ad.split(".")[0]]
+        for parca in ad.split(".")[1:]:
+            nesne = vars(nesne)[parca]
+        nesne = getattr(nesne, "func", None) or getattr(nesne, "fget", None) or nesne
+        m[ad] = inspect.getsource(nesne)
+    return m
+
+
+def olcum_ozeti(metinler: dict[str, str], surum: int) -> str:
     h = hashlib.sha256()
-    for y in (Path(kosucu.__file__), Path(al_olcutler.__file__)):
-        h.update(y.name.encode() + b"\0" + y.read_bytes().replace(b"\r\n", b"\n") + b"\0")
-    h.update(inspect.getsource(olcum_kaydi).encode("utf-8") + f"\0{OLCUM_SURUMU}".encode())
+    for ad in sorted(metinler):
+        h.update(ad.encode("utf-8") + b"\0" + metinler[ad].encode("utf-8") + b"\0")
+    h.update(f"surum={int(surum)}".encode())
     return h.hexdigest()
+
+
+def olcum_kodu() -> str:
+    """Ölçüm kodunun özeti (modül notu; içe aktarma anında kurulan `OLCUM_OZETI`): değişirse kayıt
+    önbellekteki koşudan yeniden ölçülür."""
+    return OLCUM_OZETI
 
 
 def tasarim_kaydi(G: YolGirdisi, kol: str) -> dict:
@@ -576,18 +642,29 @@ def kos_bir(yol: int, kol: str, G: YolGirdisi, onceki: dict | None = None) -> di
     return kayit
 
 
-def ayni_kol(G: YolGirdisi, kol: str) -> str | None:
-    """Aynı yolda `kol`'dan önce gelen (`KOLLAR` sırası), aynı paket adedinde aynı desen ve atamayı veren
-    kol: simülasyonu adı dışında birebir aynıdır (ns paket adedine bağlı), bir kez koşulur. Yoksa None."""
+def ayni_kol(G: YolGirdisi, kol: str, depo: str = "siparis") -> str | None:
+    """Aynı yolun kol kümesinde (`G.kollar`) `kol`'dan önce gelen, aynı paket adedinde aynı desen ve atamayı
+    veren kol: simülasyonu adı dışında birebir aynıdır (ns paket adedine bağlı), bir kez koşulur. Yoksa
+    None. `depo`: tasarımın depo tanımı (`YolGirdisi.depo_payi`)."""
     k = KOLLAR[kol]
     if k.K is None:
         return None
-    for onceki in KOLLAR.values():
-        if onceki.ad == kol:
+    for ad in G.kollar:
+        if ad == kol:
             return None
-        if onceki.K is not None and onceki.adet == k.adet and ayni_tasarim(G.tasarim(onceki.ad), G.tasarim(kol)):
-            return onceki.ad
+        o = KOLLAR[ad]
+        if o.K is not None and o.adet == k.adet and ayni_tasarim(G.tasarim(ad, depo), G.tasarim(kol, depo)):
+            return ad
     return None
+
+
+def depo_tanimlari_ayni(G: YolGirdisi) -> dict:
+    """R16 sınaması (koşusuz): yolun her kolunda karar öncesi (sipariş) ve hata düşülmüş depoyla tasarım
+    ve `ayni_kol` bağı aynı mı. Aynıysa koşuların simülasyon anahtarı tanımdan bağımsızdır."""
+    farkli = [kol for kol in G.kollar if KOLLAR[kol].K is not None
+              and (not ayni_tasarim(G.tasarim(kol), G.tasarim(kol, "depo"))
+                   or ayni_kol(G, kol) != ayni_kol(G, kol, "depo"))]
+    return {"ayni": not farkli, "farkli": farkli}
 
 
 def kos_hepsi(blok: str = "hepsi", ortam: Ortam | None = None, adlar=None) -> dict:
@@ -636,6 +713,8 @@ def main(argv=None) -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(prog="python -m beden_paket.oyun")
+    # Ayrı bir `kalibrasyon` komutu yok (Ruling R17): κ eğrinin içinde seçilir (`egri.kappa_sec`, R8); κ
+    # tablosu ve SS24 uyumu `YolGirdisi.egri_tanisi()` ve oyun.json `yollar.<p>.egri_tanisi`'nde.
     alt = ap.add_subparsers(dest="komut", required=True)
     iz = alt.add_parser("izgara", help="oyun ızgarası (cikti/oyun.json, cikti/ilerleme.jsonl)")
     iz.add_argument("--blok", default="hepsi", choices=[*BLOK_SIRASI, "hepsi"])
@@ -648,6 +727,10 @@ def main(argv=None) -> None:
     ortam = Ortam(olcek=olcek, cikti=sabitler.CIKTI if olcek == "tam" else sabitler.CIKTI / "kucuk")
     kos_hepsi(a.blok, ortam, adlar=None if a.ad is None else set(a.ad))
     print(f"ızgara bitti: {time.perf_counter() - t0:.0f} sn", flush=True)
+
+
+# Ölçüm kodunun özeti, içe aktarma anında bir kez (bütün işlevler tanımlandıktan sonra)
+OLCUM_OZETI = olcum_ozeti(olcum_metinleri(), OLCUM_SURUMU)
 
 
 if __name__ == "__main__":

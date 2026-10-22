@@ -47,6 +47,8 @@ def test_ns_donustur_12():
     assert oz["lumoda_adet"] == 147 and oz["kol_adet"] == 12 * 12
     assert oz["fark_adet"] == 144 - 147
     assert oz["sifir_hucre"] == 1 and oz["hucre"] == 6
+    # option toplamı korunur: |12 × Σ paket − Σ adet| ≤ 6 (O1: 120 − 119 = 1, O2: 24 − 28 = −4)
+    assert oz["option_en_buyuk_fark"] == 4 and oz["option_fark_siniri"] == 6
     az = kosucu.ns_donustur({("O1", "M1"): 21, ("O1", "M2"): 7, ("O1", "M3"): 7}, 12)
     assert az == {("O1", "M1"): 2, ("O1", "M2"): 1}                   # 35 → 3 paket; M3 0
     assert kosucu.donusum_ozeti({("O1", "M1"): 21, ("O1", "M2"): 7, ("O1", "M3"): 7}, az, 12)[

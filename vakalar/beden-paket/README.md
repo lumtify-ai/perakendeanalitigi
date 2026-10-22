@@ -73,7 +73,7 @@ da kayıtlı ölçütü yoksa komut başarısızdır (çıkış 1):
 
 `beden_paket.oyun`: kollar (Ruling R10) yol 0'da `dogrulama`, `p1`, `p2`, `p1_12`, `p3_12`, `pm_12`,
 `p2_ham`; yollar 1–4'te `dogrulama`, `p1`, `p2`, `p3_12` (23 kayıt). Her yolda eğri, tasarım, `ns` ve
-depo o yolun doğrulama koşusunun (yol 0 TAM'da yayımlanan verinin) karar günü tablolarından. Tasarımı
+depo o yolun doğrulama koşusunun (yol 0 TAM'da yayımlanan verinin) tablolarından, karar günü bilgisiyle. Tasarımı
 aynı yolda daha önceki bir kolunkiyle aynı olan kol koşulmaz, kaydı `ayni` ile bağlanır (TAM yol 0'da
 pm_12 = p3_12, p2_ham = p2). Sonuç `cikti/oyun.json`, ilerleme `cikti/ilerleme.jsonl`:
 
@@ -81,6 +81,23 @@ pm_12 = p3_12, p2_ham = p2). Sonuç `cikti/oyun.json`, ilerleme `cikti/ilerleme.
     .venv/Scripts/python -m beden_paket.oyun izgara --blok ablasyon  # yol 0: p2_ham
     .venv/Scripts/python -m beden_paket.oyun izgara --blok yol       # yollar 1–4
     .venv/Scripts/python -m beden_paket.oyun izgara --olcek KUCUK    # KÜÇÜK dünya: cikti/kucuk/oyun.json
+
+**Depo** (Ruling R16). Tasarımın depo kısıtı karar anında bilinenden kurulur: ilk siparişin beden
+adedi (`YolGirdisi.siparis_deposu`). Kalite kontrol hatası düşülmüş depo (`YolGirdisi.depo`; motorun
+ilk dağıtım anındaki deposu, hataların çoğu karar gününden sonraki teslimlerde) yalnız koşmadan option
+başına sınamada (`on_denetim`) ve korunumda kullanılır. İki tanımla tasarımlar ve bağlar aynıdır
+(`depo_tanimlari_ayni`, oyun.json `yollar.<p>.depo.tanimlar_ayni`).
+
+**Kalibrasyon komutu yok** (Ruling R17): κ eğrinin içinde, yolun kendi tablolarıyla seçilir
+(`egri.kappa_sec`); κ tablosu ve SS24 uyumu `YolGirdisi.egri_tanisi()` ve oyun.json
+`yollar.<p>.egri_tanisi`'nde.
+
+**Sabitler kuralı** (Ruling R18). `beden_paket/sabitler.py` simülasyon anahtarındadır
+(`politika` onu içe aktarır): değişirse bütün koşular yeniden simüle edilir. TAM koşulduktan sonra
+oraya yalnız simülasyonu değiştiren sabit girer; ölçüm, ızgara ve rapor sabitleri kendi modüllerinde
+durur (ör. `oyun.OLCUM_SURUMU`, `oyun.OLCUM_FONKSIYONLARI`). Ölçüm kodu özeti (`oyun.OLCUM_OZETI`)
+`kosucu.py`'yi, İlk Sevkiyat `olcutler.py`'yi ve `oyun`'un ölçüm tarafı işlevlerini kapsar; bunların
+dışında ölçümü değiştiren bir düzeltmede `OLCUM_SURUMU` bir artırılır.
 
 ## Sınırlar
 

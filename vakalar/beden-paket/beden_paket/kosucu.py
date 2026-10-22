@@ -168,12 +168,21 @@ def ns_donustur(giden_adet: dict, paket_adet: int) -> dict[tuple[str, str], int]
 
 def donusum_ozeti(giden_adet: dict, ns: dict, paket_adet: int) -> dict[str, int]:
     """`ns_donustur`'un bedeli: Lumoda'nın ve kolun toplam adedi, fark (kol − Lumoda), adetli çift ve
-    paketi 0'a düşen çift sayısı."""
+    paketi 0'a düşen çift sayısı; option başına en büyük |paket_adet × Σ paket − Σ adet| ve sınırı
+    (⌊paket_adet ÷ 2⌋: option toplamı en yakın tam pakete yuvarlanır, `ns_donustur`)."""
+    a = int(paket_adet)
     lum = {(str(o), str(m)): int(v) for (o, m), v in giden_adet.items() if int(v) > 0}
-    kol = int(sum(int(v) for v in ns.values())) * int(paket_adet)
+    kol = int(sum(int(v) for v in ns.values())) * a
+    opt_lum: dict[str, int] = {}
+    opt_kol: dict[str, int] = {}
+    for (o, _), v in lum.items():
+        opt_lum[o] = opt_lum.get(o, 0) + v
+    for (o, _), v in ns.items():
+        opt_kol[str(o)] = opt_kol.get(str(o), 0) + int(v) * a
+    en_buyuk = max((abs(opt_kol.get(o, 0) - v) for o, v in opt_lum.items()), default=0)
     return {"lumoda_adet": int(sum(lum.values())), "kol_adet": kol, "fark_adet": kol - int(sum(lum.values())),
             "hucre": len(lum), "sifir_hucre": int(sum(1 for k in lum if int(ns.get(k, 0)) == 0)),
-            "option": len({o for o, _ in lum})}
+            "option": len(opt_lum), "option_en_buyuk_fark": int(en_buyuk), "option_fark_siniri": a // 2}
 
 
 def korunum(kosu, referans_adet: dict) -> dict[str, int]:
@@ -284,7 +293,14 @@ def allocation_lumoda(yol: int = 0, olcek: str = "tam") -> motor.KosuKaydi | Non
     tutan tam bir kayıt yoksa None. Hiçbir dosyayı yazmaz ya da silmez (`motor._oku_tembel`'in
     aksine)."""
     anahtar = allocation_anahtari(yol, olcek)
-    dizin = motor._dizin(motor.KOSU_DIZINI, al_oyun.lumoda_adi(yol), anahtar)
+    return salt_okunur_kayit(motor._dizin(motor.KOSU_DIZINI, al_oyun.lumoda_adi(yol), anahtar), anahtar)
+
+
+def salt_okunur_kayit(dizin: Path, anahtar: str) -> motor.KosuKaydi | None:
+    """`dizin`'deki koşu kaydı, salt okunur ve tembel; anahtarı tutan tam bir kayıt yoksa None. Hiçbir
+    dosyayı yazmaz ya da silmez: başka bir süreç aynı önbelleğe yazarken de güvenli (`motor._oku_tembel`
+    ve `simulasyon.kos` yarım kalmış yazımları siler)."""
+    dizin = Path(dizin)
     meta_yolu = dizin / "meta.json"
     if not meta_yolu.is_file():
         return None
