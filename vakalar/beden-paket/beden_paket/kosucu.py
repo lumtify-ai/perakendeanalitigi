@@ -150,13 +150,16 @@ def giden_adet(kosu_tablolari) -> dict[tuple[str, str], int]:
     return _sozluk(ilk_dagitim_tablosu(kosu_tablolari), "adet")
 
 
-def ns_donustur(giden_adet: dict, paket_adet: int) -> dict[tuple[str, str], int]:
+def ns_donustur(giden_adet: dict, paket_adet: int, yuvarlama: str = "yakin") -> dict[tuple[str, str], int]:
     """Adetten `paket_adet`'lik paket sayısına (12'li kollar, R10): option başına toplam ⌊Σ adet ÷
-    paket_adet + ½⌋ paket, mağazalara adet payıyla en büyük kalanla (v4 `en_buyuk_kalan`; eşitlikte
+    paket_adet + ½⌋ paket (`yuvarlama` "yakin"; "asagi": ⌊Σ adet ÷ paket_adet⌋, kol Lumoda'dan fazla
+    adet istemesin diye, R22), mağazalara adet payıyla en büyük kalanla (v4 `en_buyuk_kalan`; eşitlikte
     magaza_id sırası). Payı 0'a düşen mağaza 0 paket alır (sözlükte yok; `donusum_ozeti` sayar)."""
     a = int(paket_adet)
     if a <= 0:
         raise ValueError(f"paket adedi pozitif olmalı: {paket_adet}")
+    if yuvarlama not in ("yakin", "asagi"):
+        raise ValueError(f"yuvarlama 'yakin' ya da 'asagi': {yuvarlama!r}")
     option: dict[str, dict[str, int]] = {}
     for (o, m), v in giden_adet.items():
         if int(v) < 0:
@@ -166,17 +169,18 @@ def ns_donustur(giden_adet: dict, paket_adet: int) -> dict[tuple[str, str], int]
     for o, d in sorted(option.items()):
         mag = sorted(d)
         adet = np.array([d[m] for m in mag], dtype=np.int64)
-        toplam = int((2 * int(adet.sum()) + a) // (2 * a))         # ⌊Σ/a + ½⌋, tamsayıyla
+        toplam = (int((2 * int(adet.sum()) + a) // (2 * a)) if yuvarlama == "yakin"   # ⌊Σ/a + ½⌋, tamsayıyla
+                  else int(adet.sum()) // a)
         for m, n in zip(mag, en_buyuk_kalan(toplam, adet)):
             if n > 0:
                 ns[(o, m)] = int(n)
     return ns
 
 
-def donusum_ozeti(giden_adet: dict, ns: dict, paket_adet: int) -> dict[str, int]:
+def donusum_ozeti(giden_adet: dict, ns: dict, paket_adet: int, yuvarlama: str = "yakin") -> dict[str, int]:
     """`ns_donustur`'un bedeli: Lumoda'nın ve kolun toplam adedi, fark (kol − Lumoda), adetli çift ve
     paketi 0'a düşen çift sayısı; option başına en büyük |paket_adet × Σ paket − Σ adet| ve sınırı
-    (⌊paket_adet ÷ 2⌋: option toplamı en yakın tam pakete yuvarlanır, `ns_donustur`)."""
+    (`yuvarlama` "yakin": ⌊paket_adet ÷ 2⌋, option toplamı en yakın tam pakete; "asagi": paket_adet − 1)."""
     a = int(paket_adet)
     lum = {(str(o), str(m)): int(v) for (o, m), v in giden_adet.items() if int(v) > 0}
     kol = int(sum(int(v) for v in ns.values())) * a
@@ -189,7 +193,8 @@ def donusum_ozeti(giden_adet: dict, ns: dict, paket_adet: int) -> dict[str, int]
     en_buyuk = max((abs(opt_kol.get(o, 0) - v) for o, v in opt_lum.items()), default=0)
     return {"lumoda_adet": int(sum(lum.values())), "kol_adet": kol, "fark_adet": kol - int(sum(lum.values())),
             "hucre": len(lum), "sifir_hucre": int(sum(1 for k in lum if int(ns.get(k, 0)) == 0)),
-            "option": len(opt_lum), "option_en_buyuk_fark": int(en_buyuk), "option_fark_siniri": a // 2}
+            "option": len(opt_lum), "option_en_buyuk_fark": int(en_buyuk),
+            "option_fark_siniri": a // 2 if yuvarlama == "yakin" else a - 1}
 
 
 def korunum(kosu, referans_adet: dict) -> dict[str, int]:

@@ -55,6 +55,15 @@ def test_ns_donustur_12():
         "sifir_hucre"] == 1
     with pytest.raises(ValueError):
         kosucu.ns_donustur(giden, 0)
+    # aşağı yuvarlama (14'lü, R22): ⌊Σ ÷ a⌋; O1 119 adet → 8 paket (112 ≤ 119), O2 28 → 2
+    asagi = kosucu.ns_donustur(giden, 14, "asagi")
+    tops = pd.Series(asagi).groupby(level=0).sum()
+    assert tops.to_dict() == {"O1": 8, "O2": 2}
+    oz14 = kosucu.donusum_ozeti(giden, asagi, 14, "asagi")
+    assert oz14["option_en_buyuk_fark"] == 7 and oz14["option_fark_siniri"] == 13     # 119 − 112 ≤ 13
+    assert sum(kosucu.ns_donustur(giden, 14).values()) == 9 + 2                      # yakın: ⌊8,5 + ½⌋ = 9
+    with pytest.raises(ValueError):
+        kosucu.ns_donustur(giden, 14, "yukari")
 
 
 def _tablolar(sevk_satirlari, paket=None):

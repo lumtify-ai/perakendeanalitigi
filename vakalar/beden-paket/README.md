@@ -73,14 +73,14 @@ da kayıtlı ölçütü yoksa komut başarısızdır (çıkış 1):
 
 ## Oyun ızgarası
 
-`beden_paket.oyun`: kollar (Ruling R10, R20, R21) yol 0'da `dogrulama`, `p1`, `p2`, `p1_12`, `p3_12`,
-`pm_12`, `p2_12`, `l0_12` (ayrıştırma kontrolü: Lumoda paketinin 12'li karşılığı 2-3-3-2-2, tasarım
-aranmaz), `p2_ham`; yollar 1–4'te `dogrulama`, `p1`, `p2`, `p3_12` (25 kayıt). Her yolda eğri, tasarım, `ns` ve
+`beden_paket.oyun`: kollar (Ruling R10, R21, R22) yol 0'da `dogrulama`, `p1`, `p2`, `p1_12`, `p3_12`,
+`pm_12`, `p2_12`, `p1_14` (ayrıştırma kontrolü: P1'in iki katı 2-2-4-4-2, tasarım aranmaz, ns 14'lü
+dönüşüm aşağı yuvarlanır; p1_14 − p1 paket büyüklüğünün etkisi), `p2_ham`; yollar 1–4'te `dogrulama`, `p1`, `p2`, `p3_12` (25 kayıt). Her yolda eğri, tasarım, `ns` ve
 depo o yolun doğrulama koşusunun (yol 0 TAM'da yayımlanan verinin) tablolarından, karar günü bilgisiyle. Tasarımı
 aynı yolda daha önceki bir kolunkiyle aynı olan kol koşulmaz, kaydı `ayni` ile bağlanır (TAM yol 0'da
 pm_12 = p3_12, p2_ham = p2). Sonuç `cikti/oyun.json`, ilerleme `cikti/ilerleme.jsonl`:
 
-    .venv/Scripts/python -m beden_paket.oyun izgara --blok ana       # yol 0: dogrulama … l0_12
+    .venv/Scripts/python -m beden_paket.oyun izgara --blok ana       # yol 0: dogrulama … p1_14
     .venv/Scripts/python -m beden_paket.oyun izgara --blok ablasyon  # yol 0: p2_ham
     .venv/Scripts/python -m beden_paket.oyun izgara --blok yol       # yollar 1–4
     .venv/Scripts/python -m beden_paket.oyun izgara --olcek KUCUK    # KÜÇÜK dünya: cikti/kucuk/oyun.json
