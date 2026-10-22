@@ -24,6 +24,9 @@ K_LISTESI = (1, 2, 3, 4)        # ortak paket deseni sayısı
 
 EGRI_PENCERE_HAFTA = 8          # eğri: option lansmanından sonraki ilk haftalar
 GECMIS_PENCERE_HAFTA = 104      # eğri: karar gününden önceki son tamamlanmış hafta sayısı
+EGRI_EN_AZ_ADET = 500           # eğri okunabilir: penceredeki beş bedenli brüt satış en az bu kadar
+                                # adet (Ruling R7; sonuç görülmeden konuldu: 500 adette beden payının
+                                # örnekleme hatası ~0,02); altındaki mağaza yedek eğriyi birebir alır
 
 TOHUM = 20261022
 YOL_SAYISI = 5                  # İlk Sevkiyat ile aynı: talep tohumu yolları

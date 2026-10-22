@@ -200,26 +200,65 @@ def test_profil_etiketi_sirali(tablolar):
     assert set(p4) == {"P1", "P2"}
 
 
+def _yedek(e, m):
+    return e.profil_egrisi.loc[e.yeni_atama[m]].to_numpy() if e.kaynak[m] == "profil" else e.zincir
+
+
 def test_yeni_magaza_egri(tablolar):
+    """Ruling R7: S08'in beş bedenli satışı (151 adet) `EGRI_EN_AZ_ADET`'in (500) altında: eğrisi
+    okunamaz, yedek eğriyi birebir alır (w = 0, kendi satışı karışmaz)."""
     k = _kapsam(tablolar)
     e = egri.magaza_egrisi(tablolar, k, KARAR)
+    assert 0 < e.n[YENI] < sabitler.EGRI_EN_AZ_ADET                 # 9 haftalık Basic geçmişi
     assert e.kaynak[YENI] in ("profil", "zincir")
     assert {m: v for m, v in e.kaynak.items() if m != YENI} == {m: "magaza" for m in k["magaza_id"] if m != YENI}
     assert e.yeni_secim["secim"] == e.kaynak[YENI]
     assert set(e.yeni_secim) >= {"secim", "l1_profil", "l1_zincir", "isabet", "magaza"}
     assert e.profil[YENI] in egri.PROFIL_ADLARI
-    assert e.n[YENI] > 0                                     # 9 haftalık Basic geçmişi
+    np.testing.assert_allclose(e.magaza.loc[YENI].to_numpy(), _yedek(e, YENI), atol=1e-12)
+    assert e.agirlik[YENI] == 0
+    okunur = [m for m in k["magaza_id"] if m != YENI]
+    np.testing.assert_allclose(e.agirlik[okunur], e.n[okunur] / (e.n[okunur] + e.kappa))
     _bire(e.magaza)
-    # geçmişi hiç yoksa eğri öncülün kendisi
+    # geçmişi hiç yoksa da yedek eğri
     t = {ad: df.copy() for ad, df in tablolar.items()}
     t["satis"] = t["satis"][(t["satis"]["magaza_id"] != YENI) | (t["satis"]["tarih"] >= KARAR)]
     t["stok"] = t["stok"][t["stok"]["magaza_id"] != YENI]
-    k2 = _kapsam(t)
-    e2 = egri.magaza_egrisi(t, k2, KARAR)
-    assert e2.n[YENI] == 0
-    oncul = (e2.profil_egrisi.loc[e2.yeni_atama[YENI]].to_numpy() if e2.kaynak[YENI] == "profil"
-             else e2.zincir)
-    np.testing.assert_allclose(e2.magaza.loc[YENI].to_numpy(), oncul, atol=1e-12)
+    e2 = egri.magaza_egrisi(t, _kapsam(t), KARAR)
+    assert e2.n[YENI] == 0 and e2.kaynak[YENI] in ("profil", "zincir")
+    np.testing.assert_allclose(e2.magaza.loc[YENI].to_numpy(), _yedek(e2, YENI), atol=1e-12)
+
+
+def test_okunabilen_yeni_magaza_kendi_egrisini_alir(tablolar):
+    """Kapsamda yeni (26 haftadan az) ama eşiği geçen mağaza okunabilir: kaynak `magaza`, eğrisi
+    kendi profiline w = n/(n+κ) ile daraltılmış düzeltilmiş eğrisi."""
+    k = _kapsam(tablolar)
+    assert k.set_index("magaza_id").at[YENI, "yeni"]
+    e = egri.magaza_egrisi(tablolar, k, KARAR, kappa=100.0, en_az_adet=100)
+    assert e.kaynak[YENI] == "magaza" and e.yeni_atama == {}
+    w = e.n[YENI] / (e.n[YENI] + 100.0)
+    assert e.agirlik[YENI] == pytest.approx(w)
+    beklenen = w * e.duzeltilmis.loc[YENI] + (1 - w) * e.profil_egrisi.loc[e.profil[YENI]]
+    np.testing.assert_allclose(e.magaza.loc[YENI], beklenen / beklenen.sum(), atol=1e-12)
+    assert e.yeni_secim["magaza"] == 8
+
+
+def test_okunabilir_esik():
+    d = pd.DataFrame([[0.2] * 5, [0.2] * 5, [np.nan] * 5], index=["A", "B", "C"], columns=S)
+    n = pd.Series({"A": 499.0, "B": 500.0, "C": 900.0})
+    assert egri.okunabilir(d, n).to_dict() == {"A": False, "B": True, "C": False}
+
+
+def test_sansur_tanisi(tablolar):
+    """Stoklu günü 0 ama satışlı hücre sayılır (satışı düzeltilmiş talepte düşer)."""
+    t = {ad: df.copy() for ad, df in tablolar.items()}
+    st = t["stok"]
+    st.loc[(st["magaza_id"] == "S06") & (st["urun_id"] == "OPT-BAS-XL"), "stoklu_gun"] = 0
+    k = _kapsam(t)
+    tani = egri.sansur_tanisi(t, k, KARAR)
+    assert tani["stoksuz_satisli_hucre"] == 1 and tani["stoksuz_satisli_adet"] > 0
+    assert egri.sansur_tanisi(tablolar, k, KARAR)["stoksuz_satisli_hucre"] == 0
+    assert egri.magaza_egrisi(t, k, KARAR, kappa=0.0).sansur["stoksuz_satisli_hucre"] == 1
 
 
 def test_yeni_secim_kurali(tablolar):
@@ -263,12 +302,17 @@ def test_egri_ss25(ss25):
     assert len(e.magaza) == 69 and list(e.magaza.index) == list(k["magaza_id"])
     _bire(e.magaza)
     assert not e.profil.isna().any() and set(e.profil) <= set(egri.PROFIL_ADLARI)
-    assert {m for m, v in e.kaynak.items() if v != "magaza"} == {"M027", "M041"}
-    assert e.n["M027"] == 0 and e.n["M041"] > 0
+    assert {m for m, v in e.kaynak.items() if v != "magaza"} == {"M027"}       # Ruling R7
+    assert e.n["M027"] == 0 and e.n["M041"] >= sabitler.EGRI_EN_AZ_ADET
+    assert e.agirlik["M027"] == 0 and 0 < e.agirlik["M041"] < 1
     # yükleyicinin satışı kapsamı aynı kurar (gecmis_hafta beş bedenli haftalık satıştan)
     pd.testing.assert_frame_equal(kaynak.kapsam(t, sabitler.KARAR_GUNU), k)
+    con = kaynak.baglan()                                    # κ kalibrasyonunun kapsamı da resmî kapsam
+    kal = sabitler.KAL_KARAR_GUNU
+    pd.testing.assert_frame_equal(kaynak.kapsam(t, kal), kaynak.kapsam(kaynak.kapsam_tablolari(con, kal), kal))
     print("\nprofil dağılımı:", e.profil.value_counts().to_dict(), "κ =", e.kappa,
-          "yeni:", e.kaynak["M027"], e.kaynak["M041"], e.yeni_secim)
+          "kaynak:", {m: e.kaynak[m] for m in ("M027", "M041")},
+          "w:", e.agirlik[["M027", "M041"]].round(4).to_dict(), e.yeni_secim, "sansür:", e.sansur)
 
 
 @pytest.mark.veri

@@ -1,4 +1,4 @@
-"""Mağaza beden eğrisi: ham pay, sansür düzeltmesi, daraltma, profil, zincir, yeni mağaza.
+"""Mağaza beden eğrisi: ham pay, sansür düzeltmesi, daraltma, profil, zincir, okunamayan mağaza.
 
 Kural: bu bir karar modülüdür; yalnız yayımlanan satış ve stoktan (ve ürün, mağaza tablolarından)
 okur. Gizli gerçeğe (`perakende_veri`, gizli mağaza tablosu, beden kayması) ve ölçüm modüllerine
@@ -39,6 +39,17 @@ Mağaza × option'da hiçbir beden gözlenmediyse (stok fotoğrafı yok ya da he
 düşer. Düzeltilmiş pay mağazanın bedenlere göre toplam talebinin payıdır. Bütün bedenleri bir
 option'da hiç stoklanmamış bir mağazanın düzeltilmiş payı, o bedende zincir payını alır.
 
+İki bilinen bedel (ölçülür: `sansur_tanisi`; rapor basar):
+
+- f = 0 ama s > 0 olan hücrenin (stok fotoğrafı stoksuz gösterdiği hâlde satış: kayıt kirliliği
+  ya da fotoğraflar arası giriş-çıkış) satışı düzeltilmiş talepte **düşer**, yerine zincir
+  doldurması gelir (ham payda sayılır). SS25 karar anında 5 hücre, 34 adet (11,7 milyonda).
+- Eşik f ≥ 3 İlk Sevkiyat'ın kısa erken penceresi için konmuştu; burada 104 haftalık Basic/NOS
+  penceresinde de mutlak 3 gündür: 3 stoklu günde 1 satış L = 728 günde 243 adede büyür. Eşik
+  bilerek göreli yapılmadı (allocation kuralıyla birebir kalsın; sonuç görüldükten sonra kural
+  değişmesin). Güvenli, çünkü bu hücreler talebin ihmal edilir payıdır: SS25'te 3 ≤ f < L/10
+  olan 143 hücre, düzeltilmiş talebin %0,09'u (`sansur_tanisi` her koşuda yeniden ölçer).
+
 **Zincir** (`zincir`). Fiziksel, outlet olmayan bütün mağazaların (yayımlanan `magaza` tablosu;
 kapsamdan bağımsız) aynı pencerelerdeki havuzlanmış ham satış payı. Ham alınır (düzeltmenin
 doldurma eğrisi olduğu için döngüsel olmasın diye).
@@ -48,34 +59,40 @@ tohum `sabitler.TOHUM`; girdi beden payları olduğu gibi: beş sütun aynı öl
 payların arasındaki farkı bozardı). Kümeler eğrilerinin ortalama beden sırasına (Σ b·p_b) göre
 sıralanır; k = 3'te adlar `kucuk`, `orta`, `buyuk` (`PROFIL_ADLARI`), başka k'da `P1`..`Pk`.
 Profil eğrisi (`profil_egrileri`) üye mağazaların düzeltilmiş eğrilerinin ortalamasıdır.
-Profiller yalnız kapsamın yeni olmayan mağazalarıyla kurulur (`kaynak.kapsam`, `yeni`).
+Profiller yalnız eğrisi **okunabilen** mağazalarla kurulur (aşağıda).
 
-**Daraltma** (`daralt`). Mağazanın düzeltilmiş eğrisi öncüle çekilir: ağırlık w = n / (n + κ),
-eğri = w × kendi + (1 − w) × öncül (satır bire yeniden ölçeklenir). n = 0'da eğri öncüldür.
-Öncül: yeni olmayan mağazada kendi profilinin eğrisi; yeni mağazada aşağıdaki kuralın seçtiği
-eğri (statikle atanmış profilin eğrisi ya da zincir).
+**Okunabilir eğri** (Ruling R7). Mağazanın eğrisi, penceredeki yayımlanan beş bedenli brüt
+satışı n ≥ `sabitler.EGRI_EN_AZ_ADET` (500 adet; sonuç görülmeden konan sabit) ve düzeltilmiş
+eğrisi tanımlıysa okunabilir. Eşik satış adedidir, hafta sayısı değil: Kümeleme'nin 26 haftası
+satış karışımı içindi; beden payının kesinliği adede bağlıdır (500 adette beden başına pay
+hatası ~0,02). Yeni açılmış ama yeterince satmış mağaza (SS25'te M041) okunabilir.
+
+**Daraltma** (`daralt`). Okunabilen mağazanın düzeltilmiş eğrisi kendi profilinin eğrisine
+çekilir: ağırlık w = n / (n + κ), eğri = w × kendi + (1 − w) × profil (satır bire yeniden
+ölçeklenir). `Egri.agirlik` mağaza başına w'yi taşır; okunamayan mağazada w = 0.
 
 **κ seçimi** (`kappa_sec`; hakemsiz, kural sonuç görülmeden yazıldı). Izgara `KAPPA_IZGARASI`
 (adet). Kalibrasyon sezonunun karar gününde (`KAL_KARAR_GUNU`) bütün yöntem o güne kadarki
-veriyle kurulur (kapsam, pencereler, zincir, profiller, yeni mağaza kuralı o güne göre); her κ
-için daraltılmış eğrinin, o sezonun Collection option'larının gerçekleşen ilk
-`EGRI_PENCERE_HAFTA` haftasının düzeltilmiş payına (`gerceklesen_pay`; yayımlanan veri, hakem
-değil; stoksuz beden hedefin kendi havuz payıyla doldurulur) L1 uzaklığının kapsam mağazaları üzerinde ortalaması alınır. En küçük ortalama seçilir;
-eşitlikte küçük κ. Hedef pencerelerin hepsi oyun karar gününün geçmiş penceresi içinde bitmelidir
-(yoksa hata): κ oyun karar anında bilinen veriyle seçilir.
+veriyle kurulur (kapsam, pencereler, zincir, okunabilirlik, profiller o güne göre); her κ için
+okunabilen mağazaların daraltılmış eğrisinin, o sezonun Collection option'larının gerçekleşen
+ilk `EGRI_PENCERE_HAFTA` haftasının düzeltilmiş payına (`gerceklesen_pay`; yayımlanan veri,
+hakem değil; stoksuz beden hedefin kendi havuz payıyla doldurulur) L1 uzaklığının ortalaması
+alınır (okunamayan mağazanın eğrisi κ'ya bağlı değildir, sıralamayı değiştirmez; bu yüzden
+kalibrasyonda yedek eğri kuralı koşulmaz). En küçük ortalama seçilir; eşitlikte küçük κ. Hedef
+pencerelerin hepsi oyun karar gününün geçmiş penceresi içinde bitmelidir (yoksa hata): κ oyun
+karar anında bilinen veriyle seçilir.
 
-**Yeni mağaza** (spec §0/10; kural sonuç görülmeden yazıldı). Kapsamın yeni mağazasının
-(Kümeleme eşiği: 26 haftadan az satışlı geçmiş) öncülü iki adaydan biridir: statik özelliklerle
-atanmış profilin eğrisi (`kumeleme.yeni_magaza.ata`, 5 komşu, Kümeleme R10 kalıbı) ya da zincir
-eğrisi. Seçim bırakbirle, hakemsiz: yeni olmayan her mağaza "yeniymiş gibi" profiller onsuz
-yeniden kurulur, mağaza yalnız statikleriyle o profillerden birine atanır; atanan profilin eğrisi
-ile zincirin, mağazanın kendi düzeltilmiş eğrisine L1 uzaklıkları ortalanır. Profilin ortalaması
-zincirinkinden küçükse `profil`, değilse `zincir` (`Egri.yeni_secim`; atama isabeti de basılır:
-bırakbir profilinin, ada göre, mağazanın tam profiliyle aynı olma oranı). Yeni mağazanın kendi
-kısa geçmişi atılmaz: daraltma onu n ağırlığıyla öncüle katar (n = 0'da eğri öncüldür).
-`Egri.kaynak` mağaza → `magaza` (yeni olmayan) ya da öncülün kaynağı (`profil` / `zincir`).
-Yeni mağazanın `Egri.profil`'i son eğrisine L1'de en yakın profil eğrisidir; statik ataması
-`Egri.yeni_atama`'da.
+**Okunamayan mağaza** (spec §0/10, Ruling R7; kural sonuç görülmeden yazıldı). Eğrisi okunamayan
+mağaza (SS25'te M027: geçmişi yok) yedek eğriyi **birebir** alır, kendi satışı karışmaz. Yedek iki
+adaydan biridir: statik özelliklerle atanmış profilin eğrisi (`kumeleme.yeni_magaza.ata`, 5
+komşu, Kümeleme R10 kalıbı) ya da zincir eğrisi. Seçim bırakbirle, hakemsiz: okunabilen her
+mağaza "okunamazmış gibi" profiller onsuz yeniden kurulur, mağaza yalnız statikleriyle o
+profillerden birine atanır; atanan profilin eğrisi ile zincirin, mağazanın kendi düzeltilmiş
+eğrisine L1 uzaklıkları ortalanır. Profilin ortalaması zincirinkinden küçükse `profil`, değilse
+`zincir` (`Egri.yeni_secim`; atama isabeti de basılır: bırakbir profilinin, ada göre, mağazanın
+tam profiliyle aynı olma oranı). `Egri.kaynak`: okunabilen mağaza `magaza`, okunamayan `profil`
+ya da `zincir`. Okunamayan mağazanın `Egri.profil`'i eğrisine L1'de en yakın profil eğrisidir;
+statik ataması `Egri.yeni_atama`'da.
 """
 
 from dataclasses import dataclass, field
@@ -105,14 +122,16 @@ class Egri:
     magaza: pd.DataFrame            # son eğri (daraltılmış); satırlar bire toplanır
     profil: pd.Series               # mağaza → profil adı
     zincir: np.ndarray              # [5] zincir eğrisi
-    kaynak: dict                    # mağaza → "magaza" | "profil" | "zincir"
+    kaynak: dict                    # mağaza → "magaza" (okunabilir) | "profil" | "zincir" (yedek)
     kappa: float = 0.0
     n: pd.Series = field(default_factory=lambda: pd.Series(dtype="float64"))   # örneklem (adet)
-    duzeltilmis: pd.DataFrame | None = None       # daraltma öncesi (yeni mağazada NaN olabilir)
+    agirlik: pd.Series = field(default_factory=lambda: pd.Series(dtype="float64"))  # w; okunamayanda 0
+    duzeltilmis: pd.DataFrame | None = None       # daraltma öncesi (okunamayan mağazada NaN olabilir)
     profil_egrisi: pd.DataFrame | None = None     # profil → eğri
-    yeni_atama: dict = field(default_factory=dict)            # yeni mağaza → statik profil
-    yeni_secim: dict = field(default_factory=dict)            # yeni mağaza kuralının ölçümü
+    yeni_atama: dict = field(default_factory=dict)            # okunamayan mağaza → statik profil
+    yeni_secim: dict = field(default_factory=dict)            # yedek eğri kuralının ölçümü
     kappa_tablosu: pd.DataFrame | None = None
+    sansur: dict = field(default_factory=dict)                # `sansur_tanisi` (kapsam mağazaları)
 
 
 # ---------------------------------------------------------------------------
@@ -395,7 +414,7 @@ def _en_yakin_profil(egri: pd.DataFrame, P: pd.DataFrame) -> pd.Series:
 
 
 # ---------------------------------------------------------------------------
-# Yeni mağaza
+# Okunabilirlik, yedek eğri
 # ---------------------------------------------------------------------------
 
 
@@ -405,18 +424,23 @@ def _statik(kapsam: pd.DataFrame) -> pd.DataFrame:
     return k
 
 
-def yeni_secim(kapsam: pd.DataFrame, duz: pd.DataFrame, zincir_egrisi, k: int = 3,
+def okunabilir(duz: pd.DataFrame, n: pd.Series, en_az_adet: float = sabitler.EGRI_EN_AZ_ADET) -> pd.Series:
+    """Mağaza → eğrisi okunabilir mi (modül notu): n ≥ `en_az_adet` ve düzeltilmiş eğri tanımlı."""
+    nn = n.reindex(duz.index).fillna(0.0)
+    return ((nn >= en_az_adet) & ~duz.isna().any(axis=1)).rename("okunabilir")
+
+
+def yeni_secim(kapsam: pd.DataFrame, duz: pd.DataFrame, okunur: list[str], zincir_egrisi, k: int = 3,
                tohum: int = sabitler.TOHUM) -> dict:
-    """Yeni mağaza öncülü kuralı (modül notu): bırakbirde statik profil ile zincirin, yeni olmayan
-    mağazaların kendi düzeltilmiş eğrisine ortalama L1'i. Dönüş: `secim`, `l1_profil`,
+    """Okunamayan mağazanın yedek eğrisi kuralı (modül notu): bırakbirde statik profil ile zincirin,
+    okunabilen mağazaların kendi düzeltilmiş eğrisine ortalama L1'i. Dönüş: `secim`, `l1_profil`,
     `l1_zincir`, `isabet`, `magaza` (bırakbir mağaza sayısı)."""
     st = _statik(kapsam).set_index("magaza_id", drop=False)
-    eski = [m for m in st.index[~st["yeni"].to_numpy(dtype=bool)] if not duz.loc[m].isna().any()]
-    tam = profiller(duz.loc[eski], k, tohum)
+    tam = profiller(duz.loc[okunur], k, tohum)
     z = np.asarray(zincir_egrisi, dtype="float64")
     l1_p, l1_z, isabet = [], [], []
-    for m in eski:
-        diger = [i for i in eski if i != m]
+    for m in okunur:
+        diger = [i for i in okunur if i != m]
         p = profiller(duz.loc[diger], k, tohum)
         P = profil_egrileri(duz.loc[diger], p)
         a = yeni_magaza.ata(st.loc[[m]], st.loc[diger], p, komsu=KOMSU).iloc[0]
@@ -426,7 +450,36 @@ def yeni_secim(kapsam: pd.DataFrame, duz: pd.DataFrame, zincir_egrisi, k: int = 
         isabet.append(a == tam[m])
     lp, lz = float(np.mean(l1_p)), float(np.mean(l1_z))
     return {"secim": "profil" if lp < lz else "zincir", "l1_profil": lp, "l1_zincir": lz,
-            "isabet": float(np.mean(isabet)), "magaza": len(eski)}
+            "isabet": float(np.mean(isabet)), "magaza": len(okunur)}
+
+
+# ---------------------------------------------------------------------------
+# Sansür tanısı
+# ---------------------------------------------------------------------------
+
+
+def _tani(h: pd.DataFrame, talep: np.ndarray) -> dict:
+    s, f, L = (h[c].to_numpy(dtype="float64") for c in ("s", "f", "L"))
+    t = np.nan_to_num(talep)
+    sifir = (f == 0) & (s > 0)
+    seyrek = (f >= EN_AZ_STOKLU_GUN) & (f < L / 10)
+    return {"hucre": int(len(h)), "adet": float(s.sum()),
+            "stoksuz_satisli_hucre": int(sifir.sum()), "stoksuz_satisli_adet": float(s[sifir].sum()),
+            "az_gunlu_hucre": int(((f >= 1) & (f < EN_AZ_STOKLU_GUN)).sum()),
+            "seyrek_hucre": int(seyrek.sum()),
+            "seyrek_talep_payi": float(t[seyrek].sum() / t.sum()) if t.sum() > 0 else 0.0,
+            "en_buyuk_carpan": float(np.max(np.divide(L, f, out=np.zeros_like(f), where=f >= EN_AZ_STOKLU_GUN),
+                                            initial=0.0))}
+
+
+def sansur_tanisi(tablolar, kapsam, karar_gunu, hatlar=HATLAR, zincir_egrisi=None) -> dict:
+    """Düzeltmenin iki bilinen bedelinin ölçüsü (modül notu): stoklu günü 0 ama satışlı hücreler
+    (satışı düşen; hücre ve adet), stoklu günü 1–2 hücreler, 3 ≤ f < L/10 seyrek hücreler ve
+    düzeltilmiş talepteki payları, en büyük L/f çarpanı."""
+    ids = _ids(kapsam)
+    z = zincir(tablolar, karar_gunu, hatlar) if zincir_egrisi is None else np.asarray(zincir_egrisi)
+    h = _hucreler(tablolar, ids, option_pencereleri(tablolar["urun"], karar_gunu, hatlar), karar_gunu)
+    return _tani(h, hucre_talebi(h, z))
 
 
 # ---------------------------------------------------------------------------
@@ -439,51 +492,66 @@ class _Kurulum:
     duz: pd.DataFrame
     n: pd.Series
     zincir: np.ndarray
-    profil: pd.Series               # yeni olmayanlar
+    okunur: list                    # eğrisi okunabilen mağazalar (kapsam sırası)
+    profil: pd.Series               # okunabilenler
     P: pd.DataFrame
-    oncul: pd.DataFrame
+    oncul: pd.DataFrame             # okunabilende profil eğrisi, okunamayanda yedek eğri
     kaynak: dict
     yeni_atama: dict
     yeni_secim: dict
+    tani: dict
 
 
-def _kur(tablolar, kapsam: pd.DataFrame, karar_gunu, hatlar, k: int, tohum: int) -> _Kurulum:
-    """κ dışındaki her şey: düzeltilmiş eğri, n, zincir, profiller, öncüller (modül notu)."""
+def _kur(tablolar, kapsam: pd.DataFrame, karar_gunu, hatlar, k: int, tohum: int, en_az_adet: float,
+         yedek: bool = True) -> _Kurulum:
+    """κ dışındaki her şey: düzeltilmiş eğri, n, zincir, okunabilirlik, profiller, öncüller ve yedek
+    eğri (modül notu). Hücreler bir kez kurulur. `yedek` False ise (κ kalibrasyonu) bırakbir
+    yedek kuralı koşulmaz; okunamayanların öncülü zincirdir ve kullanılmaz."""
     ids = _ids(kapsam)
     fiz = _fiziksel(tablolar["magaza"])
     hepsi = list(dict.fromkeys(fiz + ids))
     h = _hucreler(tablolar, hepsi, option_pencereleri(tablolar["urun"], karar_gunu, hatlar), karar_gunu)
     z = _havuz(h[h["magaza_id"].isin(fiz)])
     h = h[h["magaza_id"].isin(ids)]
-    duz = _paya(h, hucre_talebi(h, z), ids)
+    talep = hucre_talebi(h, z)
+    duz = _paya(h, talep, ids)
     n = h.groupby("magaza_id")["s"].sum().reindex(ids, fill_value=0.0).rename("n").astype("float64")
-    yeni = dict(zip(ids, kapsam["yeni"].to_numpy(dtype=bool)))
-    eski = [m for m in ids if not yeni[m]]
-    eksik = [m for m in eski if duz.loc[m].isna().any()]
-    if eksik:
-        raise ValueError(f"yeni olmayan mağazanın penceresinde gözlem yok: {eksik}")
-    if len(eski) <= k:
-        raise ValueError(f"profil için yeni olmayan mağaza az: {len(eski)} (k = {k})")
-    profil = profiller(duz.loc[eski], k, tohum)
-    P = profil_egrileri(duz.loc[eski], profil)
-    yeniler = [m for m in ids if yeni[m]]
-    secim = yeni_secim(kapsam, duz, z, k, tohum)
+    ok = okunabilir(duz, n, en_az_adet)
+    okunur = [m for m in ids if ok[m]]
+    okunamaz = [m for m in ids if not ok[m]]
+    if len(okunur) <= k:
+        raise ValueError(f"profil için eğrisi okunabilen mağaza az: {len(okunur)} (k = {k})")
+    profil = profiller(duz.loc[okunur], k, tohum)
+    P = profil_egrileri(duz.loc[okunur], profil)
+    secim = yeni_secim(kapsam, duz, okunur, z, k, tohum) if yedek else {}
     st = _statik(kapsam).set_index("magaza_id", drop=False)
-    atama = (yeni_magaza.ata(st.loc[yeniler], st.loc[eski], profil, komsu=KOMSU).to_dict()
-             if yeniler else {})
+    atama = (yeni_magaza.ata(st.loc[okunamaz], st.loc[okunur], profil, komsu=KOMSU).to_dict()
+             if okunamaz else {})
     O = pd.DataFrame(index=pd.Index(ids, name="magaza_id"), columns=SUTUNLAR, dtype="float64")
     kay = {}
     for m in ids:
-        if not yeni[m]:
+        if ok[m]:
             O.loc[m] = P.loc[profil[m]].to_numpy()
             kay[m] = "magaza"
-        elif secim["secim"] == "profil":
+        elif secim.get("secim") == "profil":
             O.loc[m] = P.loc[atama[m]].to_numpy()
             kay[m] = "profil"
         else:
             O.loc[m] = z
             kay[m] = "zincir"
-    return _Kurulum(duz, n, z, profil, P, O, kay, atama, secim)
+    return _Kurulum(duz, n, z, okunur, profil, P, O, kay, atama, secim, _tani(h, talep))
+
+
+def _son_egri(kur: _Kurulum, kappa: float) -> tuple[pd.DataFrame, pd.Series]:
+    """Okunabilen: daraltılmış kendi eğrisi; okunamayan: yedek eğri birebir. Dönüş (eğri, w)."""
+    E = kur.oncul.copy()
+    if kur.okunur:
+        E.loc[kur.okunur] = daralt(kur.duz.loc[kur.okunur], kur.n, kur.oncul.loc[kur.okunur],
+                                   kappa=kappa).to_numpy()
+    w = pd.Series(0.0, index=E.index, name="agirlik")
+    nn = kur.n.loc[kur.okunur].to_numpy()
+    w.loc[kur.okunur] = np.divide(nn, nn + kappa, out=np.ones_like(nn), where=(nn + kappa) > 0)
+    return E, w
 
 
 def gerceklesen_pay(tablolar, kal_karar_gunu, karar_gunu, kapsam) -> pd.DataFrame:
@@ -512,20 +580,21 @@ def gerceklesen_pay(tablolar, kal_karar_gunu, karar_gunu, kapsam) -> pd.DataFram
 
 
 def kappa_sec(tablolar, karar_gunu, *, kal_karar_gunu=sabitler.KAL_KARAR_GUNU, izgara=KAPPA_IZGARASI,
-              hatlar=HATLAR, k: int = 3, tohum: int = sabitler.TOHUM) -> tuple[float, pd.DataFrame]:
+              hatlar=HATLAR, k: int = 3, tohum: int = sabitler.TOHUM,
+              en_az_adet: float = sabitler.EGRI_EN_AZ_ADET) -> tuple[float, pd.DataFrame]:
     """Hakemsiz κ (modül notu). Dönüş: (κ, tablo `kappa, l1, magaza`)."""
     kal = pd.Timestamp(kal_karar_gunu).normalize()
     if kal >= pd.Timestamp(karar_gunu).normalize():
         raise ValueError("kalibrasyon karar günü oyun karar gününden önce olmalı")
     kapsam_kal = kaynak.kapsam(tablolar, kal)
     hedef = gerceklesen_pay(tablolar, kal, karar_gunu, kapsam_kal).dropna()
-    kur = _kur(tablolar, kapsam_kal, kal, hatlar, k, tohum)
-    ids = [m for m in _ids(kapsam_kal) if m in hedef.index]
+    kur = _kur(tablolar, kapsam_kal, kal, hatlar, k, tohum, en_az_adet, yedek=False)
+    ids = [m for m in kur.okunur if m in hedef.index]
+    H = hedef.loc[ids].to_numpy()
     satir = []
     for kp in izgara:
-        E = daralt(kur.duz, kur.n, kur.oncul, kappa=kp).loc[ids]
-        satir.append({"kappa": kp, "l1": float(np.abs(E.to_numpy() - hedef.loc[ids].to_numpy()).sum(axis=1).mean()),
-                      "magaza": len(ids)})
+        E = daralt(kur.duz.loc[ids], kur.n, kur.oncul.loc[ids], kappa=kp)
+        satir.append({"kappa": kp, "l1": float(np.abs(E.to_numpy() - H).sum(axis=1).mean()), "magaza": len(ids)})
     tablo = pd.DataFrame(satir)
     en = tablo["l1"].round(12).min()
     secilen = tablo.loc[tablo["l1"].round(12) == en, "kappa"].min()
@@ -533,21 +602,22 @@ def kappa_sec(tablolar, karar_gunu, *, kal_karar_gunu=sabitler.KAL_KARAR_GUNU, i
 
 
 def magaza_egrisi(tablolar, kapsam: pd.DataFrame, karar_gunu, *, kappa: float | None = None,
-                  hatlar=HATLAR, k: int = 3, tohum: int = sabitler.TOHUM) -> Egri:
+                  hatlar=HATLAR, k: int = 3, tohum: int = sabitler.TOHUM,
+                  en_az_adet: float = sabitler.EGRI_EN_AZ_ADET) -> Egri:
     """Karar anında kapsamın her mağazasının beden eğrisi (modül notu). `kappa` verilmezse
     `kappa_sec` ile seçilir."""
     tablo = None
     if kappa is None:
-        kappa, tablo = kappa_sec(tablolar, karar_gunu, hatlar=hatlar, k=k, tohum=tohum)
-    kur = _kur(tablolar, kapsam, karar_gunu, hatlar, k, tohum)
-    E = daralt(kur.duz, kur.n, kur.oncul, kappa=kappa)
+        kappa, tablo = kappa_sec(tablolar, karar_gunu, hatlar=hatlar, k=k, tohum=tohum, en_az_adet=en_az_adet)
+    kur = _kur(tablolar, kapsam, karar_gunu, hatlar, k, tohum, en_az_adet)
+    E, w = _son_egri(kur, kappa)
     profil = pd.Series({m: kur.profil[m] if kay == "magaza" else None for m, kay in kur.kaynak.items()},
                        dtype=object)
-    yeniler = [m for m, kay in kur.kaynak.items() if kay != "magaza"]
-    if yeniler:
-        profil.loc[yeniler] = _en_yakin_profil(E.loc[yeniler], kur.P).to_numpy()
+    okunamaz = [m for m, kay in kur.kaynak.items() if kay != "magaza"]
+    if okunamaz:
+        profil.loc[okunamaz] = _en_yakin_profil(E.loc[okunamaz], kur.P).to_numpy()
     profil = profil.reindex(E.index).rename("profil")
     profil.index.name = "magaza_id"
     return Egri(magaza=E, profil=profil, zincir=kur.zincir, kaynak=kur.kaynak, kappa=float(kappa), n=kur.n,
-                duzeltilmis=kur.duz, profil_egrisi=kur.P, yeni_atama=kur.yeni_atama,
-                yeni_secim=kur.yeni_secim, kappa_tablosu=tablo)
+                agirlik=w, duzeltilmis=kur.duz, profil_egrisi=kur.P, yeni_atama=kur.yeni_atama,
+                yeni_secim=kur.yeni_secim, kappa_tablosu=tablo, sansur=kur.tani)
