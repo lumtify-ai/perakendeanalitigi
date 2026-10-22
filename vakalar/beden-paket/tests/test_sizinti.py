@@ -366,7 +366,8 @@ def sevkiyat_istekleri_dosya(yol: Path) -> list[tuple[int, str]]:
     belge = belge_dugumleri(agac)
     bulunan = []
     for d in ast.walk(agac):
-        if isinstance(d, ast.Constant) and isinstance(d.value, str) and id(d) not in belge                 and SEVKIYAT.search(d.value):
+        if isinstance(d, ast.Constant) and isinstance(d.value, str) and id(d) not in belge \
+                and SEVKIYAT.search(d.value):
             bulunan.append((d.lineno, "dizge"))
         elif isinstance(d, ast.Attribute) and d.attr == "sevkiyat":
             bulunan.append((d.lineno, "öznitelik"))
@@ -389,6 +390,11 @@ def sevkiyat_istekleri(paket: Path) -> dict:
 
 
 def test_egri_sevkiyat_istemez():
+    """Gerçek pakette `egri` bir dosya olarak vardır ve gerçekten taranır (yoksa ya da paket
+    dizini olarak gelirse kırmızı: sessizce geçmez)."""
+    assert (PAKET / "egri.py").is_file(), "egri.py yok: sevkiyat taraması boş geçerdi"
+    assert not (PAKET / "egri").exists(), "egri bir paket dizini: tarayıcı yalnız egri.py'yi okur"
+    assert "egri" in erisim(PAKET, "egri")[0]
     bulunan = sevkiyat_istekleri(PAKET)
     assert not bulunan, f"egri (ya da erişilen modül) sevkiyat tablosunu istiyor: {bulunan}"
 
