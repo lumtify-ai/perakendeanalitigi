@@ -1,0 +1,196 @@
+---
+baslik: Bu Karar Nasıl Verilir
+tip: anlatici
+sira: 2
+ozet: >-
+  Küme ne işe yarar, mağazalar neye göre benzer sayılır, kaç küme kurulur?
+  Ciro mağazanın ne kadar sattığını söyler, ne sattığını söylemez. Bir de
+  iş kısıtları ve sektörün en sık dört hatası.
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import T from '../../../../components/T.astro'
+
+Geçen yazıyı tek cümlelik bir tanıma bağlamıştık: mağaza kümesi, satış karışımı
+birbirine benzeyen mağazaların, planın ve ilk sevkiyatın tek birim gibi ele
+aldığı grubudur. Bu yazıda o kararı parçalarına ayırıyoruz. Formül yok;
+kuralları üçüncü yazıda, makine öğrenmesini dördüncü yazıda kuracağız. Bu
+yazının işi, o yöntemlerin hangi sorulara cevap vereceğini netleştirmek.
+
+## Küme ne işe yarar
+
+Bir <T k="kume">küme</T> tek başına bir karar değildir; başka kararların
+birimidir. Perakendede en az dört kararın birimi.
+
+**Plan.** Plan kümeyle kurulursa her kümeye bir kategori karışımı
+verilir: bu kümede satışın ne kadarı elbise, ne kadarı pantolon olacak?
+Mağazanın büyüklüğü yalnız kendi toplamını belirler. Pelin'in ızgarasında
+İstanbul 13 ile İstanbul 10 aynı hücrede; ikisi aynı karışımı alacaktı.
+
+**Çeşit.** Hangi ürünün hangi mağazada satılacağı. Oversize kalıbı çok
+satan bir mağazaya oversize ürünü koymamak, satışı baştan kaybetmektir.
+Çeşidi kurmak ayrı bir aşamanın işi; bu dizide çeşide dokunmuyoruz,
+mağazaların taşıdığı ürünler sabit.
+
+**İlk sevkiyat.** [İlk Sevkiyat](/allocation/ilk-sevkiyat/) dizisinde
+Lumoda'nın kuralı yeni bir ürünü mağazalara kategori planındaki paylarıyla
+bölüyordu. Plan kümeye göre kurulursa pay da kümeden gelir. Daha ilginci,
+benzer ürünlerin geçmişine bakan bir yöntem tek tek mağazalarda göremediği
+ince farkları kümede görebilir: bir mağazada yeterli geçmiş olmayabilir,
+aynı kümedeki yedi mağazada olur. Bu bir hipotez; beşinci yazıda
+kuruyor ve sınıyoruz.
+
+**İndirim.** Ne zaman ve ne kadar indirim yapılacağı da çoğu zincirde
+grup grup kararlaştırılır. Aynı ürün bir kümede tam fiyatla satarken öteki
+kümede rafta bekleyebilir.
+
+Dördünde de soru aynı: hangi mağazalar birlikte ele alınabilir?
+
+## Neye bakılır: ölçek değil karışım
+
+Lumoda'da hazır duran cevap ciro. <T k="ciro-sinifi">Ciro sınıfı</T> son on
+iki ayın net cirosuyla kurulu: 13 mağaza A, 20 mağaza B, 34 mağaza C. A
+sınıfının alt sınırı 116,4 milyon TL, B'ninki 53,4 milyon TL.
+
+— Büyük mağaza başka satar, diyor Pelin. Büyük mağazanın müşterisi ile
+küçük mağazanınki aynı olamaz.
+
+— Neden olamasın? diyor Pars. İki mağaza açalım.
+
+İstanbul 8 bir AVM mağazası, 717 metrekare, B sınıfı. Son on iki ayın
+cirosu 95,0 milyon TL. Konya 3 bir cadde mağazası, 407 metrekare, C
+sınıfı; cirosu 36,1 milyon TL. Biri Ali'nin, öteki Veli'nin.
+
+| Basic ve NOS ürünlerinde payı | İstanbul 8 | Konya 3 |
+|---|---:|---:|
+| Relaxed kalıp | %22,4 | %18,9 |
+| Orta fiyat segmenti | %44,8 | %43,8 |
+| Şort | %2,2 | %2,0 |
+
+İstanbul 8 Konya 3'ten çok daha fazla satıyor, ama aynı şeyleri
+satıyor. Satış karışımından bulunan kümelerde ikisi aynı kümede.
+
+— Büyük mağaza ile küçük mağaza aynı şeyi satabilir, diyor Pars. Ciro yalnız
+ne kadar sattığını söyler.
+
+Bu yüzden kümeyi kurarken mağazanın büyüklüğüne değil,
+<T k="satis-karisimi">satış karışımına</T> bakıyoruz: satışın alt
+kategorilere, fiyat segmentlerine ve kalıplara nasıl dağıldığına. Alt
+kategori ve kalıbı [Ürün Hiyerarşisi](/temeller/urun-hiyerarsisi/) yazısı
+anlatıyor. Karışım paylarla ölçülür; payların toplamı her mağazada aynıdır,
+büyük mağaza büyük olduğu için öne çıkmaz. Ölçek kaybolmaz, planın ikinci
+adımında, kümenin planı mağazalara bölünürken işe girer.
+
+## Bir gruplamanın iyi olduğunu nereden bileceğiz?
+
+Gerçek hayatta bu sorunun kolay bir cevabı yok. Mağazanın müşterisini
+gösteren bir cevap anahtarı olmaz. Lumoda'da var, çünkü veriyi ben ürettim:
+her mağazanın yayımlanan veride görünmeyen bir müşteri profili var.
+Kararlar bu profili hiç görmüyor; ben onu yalnız sonradan ölçmek için
+kullanıyorum.
+
+Ölçü basit bir sayı: bir gruplama cevap anahtarıyla ne kadar uyumlu? 1
+kusursuz, yani anahtarla birebir aynı bölme demek. 0 ise mağazaları rastgele
+gruplasaydınız alacağınız uyum. Bu ölçünün adı ARI (düzeltilmiş Rand
+indeksi).
+
+Ciro sınıfının uyumu 0,035. Rastgele bir gruplamadan farkı yok. Bölgenin
+uyumu 0,209; bir şey biliyor ama az.
+
+Cevap anahtarı olmayan bir zincir ne yapacak? Anahtarsız ölçütlere
+bakacak: kümeler birbirinden ne kadar ayrık, sezondan sezona ne kadar
+dayanıyor ve en önemlisi, kümeye göre verilen kararlar daha iyi mi? Bu
+dizide üçünü de ölçüyoruz, çünkü gerçek hayatta elinizde yalnız bunlar
+olacak.
+
+## Kaç küme
+
+Pelin'in ızgarasında 12 hücre vardı. Satış karışımına bakan yöntem beş
+küme buldu.
+
+— Beş mi? diyor Pelin. Ben on iki hücre önermiştim, Ali ile Veli
+ikiye indirmek istiyordu. Doğru sayıyı neye göre seçeceğiz?
+
+— Sayıya değil, gruptaki mağazaların birbirine benzemesine bakarak, diyor
+Pars. Aynı müşteriye satan on mağazayı ikiye bölmek planı inceltmez, yalnız
+gürültüsünü artırır. Başka müşterilere satan mağazaları tek grupta toplamak
+da planı bulandırır.
+
+— Kaç küme kurulacağına cevap anahtarına bakmadan karar veriyoruz, diye
+devam ediyor Pars. Ölçütün adı siluet. Her mağazaya bakar: kendi kümesindeki
+mağazalara ne kadar yakın, en yakın öteki kümeye ne kadar uzak? 1'e
+yaklaştıkça kümeler birbirinden net ayrılıyor, 0'a yaklaştıkça iç içe
+geçiyor. Lumoda'da en yüksek siluet beş kümede çıkıyor: 0,308.
+
+— Bu düşük değil mi? diyor Pelin.
+
+— Neye göre düşük olduğuna bakmak lazım, diyor Pars. Aynı veriyi yapısını
+bozarak kümeledik; her sütunu kendi içinde karıştırdık. Yapısız veride
+siluet 0,047. Gerçek veride bir yapı var.
+
+## İş kısıtları
+
+Hiçbir yöntem kümeyi boşlukta kurmaz. Lumoda'da üç sınır var.
+
+**Outlet ayrı bir gruptur.** Outlet mağazaları başka line'dan mal satar.
+Onları Collection satan mağazalarla aynı kümeye koymanın anlamı yok;
+kümelemeye hiç girmezler. Online kanal da kapsam dışı.
+
+**En küçük küme üç mağazadır.** Lumoda'da üç mağazadan küçük bir plan
+grubu kurulmuyor. Tek mağazalık bir küme, o mağaza için ayrı plan demektir;
+grubun bütün amacı da bundan kaçmak. Siluet bir kümeyi tek bir mağazaya
+indirmeyi önerse bile o bölme seçilmez.
+
+**Yeni mağaza.** Bu sezon iki mağazanın yeterli geçmişi yok. İzmir 2
+sezonun ilk gününde açılıyor, hiç satışı yok. Kocaeli 1'in 19 haftalık
+satışı var; yarım yılı doldurmamış. Satış karışımı olmayan bir mağazayı
+karışıma göre kümeleyemezsiniz. Onu satış görmeden, yalnız bildiğimiz
+şeylere bakarak (şehir, bölge, mağaza tipi, metrekare) bir kümeye koymak
+gerekiyor. Bunu beşinci yazıda ölçüyoruz. Ciro sınıfının cevabı daha da
+kaba: yeni mağaza sıralamaya girmez, C alır. Kocaeli 1'in cirosu bir yıla
+tamamlansa 125,9 milyon TL ediyor; A sınıfının sınırının üstünde.
+
+Bir de beklenti var: kümeler sezondan sezona dayanmalı. Mağazaları her
+sezon başka kümelere taşıyan bir yöntemle Pelin her sezon sıfırdan başlamış
+olur. Kümelerin ne kadar dayandığını da beşinci yazıda ölçüyoruz.
+
+## Sektörün dört hatası
+
+**Ciroya göre gruplamak.** En yaygın olanı. Ciro kolay ölçülür, herkes
+anlar ve sezondan sezona pek değişmez. Ama müşteri hakkında bir şey
+söylemez. Lumoda'da ciro sınıfının cevap anahtarıyla uyumu 0,035; mağazaları
+kurayla gruplamaktan farkı yok.
+
+**Bölgeye göre gruplamak.** Bölge çoğu zaman örgüt şemasından gelir: hangi
+bölge müdürü hangi mağazalara bakıyorsa grup odur. Bu, işi bölmek için iyi
+bir yol, müşteriyi anlamak için değil. Bölgenin uyumu 0,209. Marmara'nın 18
+mağazasında cevap anahtarına göre üç ayrı müşteri profili var.
+
+**Ölçeği karışımla aynı ölçüye koymak.** Bu hata daha sinsi. Ciroyu,
+metrekareyi ve kapasiteyi satış karışımının yanına ekleyip birlikte
+kümelerseniz siluet yükselir: 0,308 yerine 0,351. Kâğıt üstünde daha iyi
+bir bölme. Ama o bölme ciro sınıfına benziyor (aralarındaki uyum 0,582),
+cevap anahtarına benzemiyor (0,138). Ölçek mağazaları büyük ve küçük diye
+kolayca ayırır, ayrım netleşir ve siluet bunu ödüllendirir. Ayrılan şey
+müşteri değil, büyüklüktür. Siluete bakarak karar veren biri ölçekli bölmeyi
+seçerdi.
+
+**Çeşidin yansımasını müşteri sanmak.** Bir mağaza yalnız elindekini
+satar. Oversize ürün hiç gönderilmemiş bir mağazanın satışında oversize
+payı düşük çıkar; müşterisi istemediği için değil, rafta olmadığı için.
+Satış karışımı kısmen müşteriyi, kısmen de mağazaya gönderilen çeşidi
+yansıtır. Lumoda'nın verisinde bu etki küçük çıktı; dördüncü yazıda
+nasıl ölçtüğümüzü göstereceğiz. Sizin verinizde küçük olacağının garantisi
+yok.
+
+## Üç soru
+
+Kümeleme kararı sonunda üç soruya iniyor: mağazalar neye göre benzer
+sayılır, kaç küme kurulur ve satış geçmişi olmayan mağaza nereye konur?
+Cevapların hiçbiri haritada ya da ciro tablosunda yazmıyor. Kasadan geçen
+üründe yazıyor.
+
+Sonraki yazıda Lumoda'nın kurallarını açıyoruz: bölge, ciro sınıfı,
+ikisinin ızgarası ve bir de konuma bakan bir kural. Hangisi müşteriyi ne
+kadar görüyor ve hangisi sezondan sezona dayanıyor?

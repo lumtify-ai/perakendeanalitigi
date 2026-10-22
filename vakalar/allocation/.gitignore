@@ -1,0 +1,4 @@
+.venv/
+cikti/
+__pycache__/
+*.egg-info/

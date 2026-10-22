@@ -1,0 +1,216 @@
+---
+baslik: Ali'nin Anadolu Mağazası
+tip: hikaye
+sira: 1
+ozet: >-
+  Pelin bu sezonun planını bölgeye ve ciroya göre kurulan gruplarla yapmak
+  istiyor. İstanbul 13 ile İstanbul 10 aynı grupta, ama aynı şeyi
+  satmıyorlar. İstanbul 13 daha çok Eskişehir'deki bir mağazaya benziyor.
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import Kadro from '../../../../components/Kadro.astro'
+import T from '../../../../components/T.astro'
+
+<Kadro />
+
+[İlk Sevkiyat](/allocation/ilk-sevkiyat/) dizisinde malı mağazalara
+paylaştırırken hep aynı yere yaslandık: Pelin'in planına. Kural, bir
+ürünün paketlerini her mağazanın kategori planındaki payıyla bölüyordu.
+Planı hep hazır aldık. Bu dizi bir adım geri gidiyor: plan mağaza mağaza
+değil de gruplarla kurulsaydı, gruplar nasıl seçilmeliydi?
+
+Mağaza sayısı büyüdükçe her mağazaya ayrı ayrı plan kurmak ağırlaşır. Çoğu
+zincir bu yüzden mağazaları gruplar, her gruba bir plan yapar, grubun
+planını da mağazalara büyüklüklerine göre böler. Sahada buna kümeleme
+denir, İngilizcesi clustering. Grubun adı da <T k="kume">küme</T>. Kulağa
+teknik bir ayrıntı gibi geliyor, ama bir mağazaya hangi malın gideceğini
+çoğu zaman o mağazanın hangi gruba konduğu belirliyor.
+
+## Pelin'in ızgarası
+
+Sahne yine Lumoda. İlkbahar-yaz sezonu açılırken 69 mağaza mal alacak.
+İkisi yeni: biri sezonun ilk gününde açılıyor, ötekinin yarım yıllık
+geçmişi bile yok. Kalan 67 mağazanın en az yarım yıllık satışı var. Outlet
+mağazaları bu hesaba girmiyor; onlar başka mal satıyor ve kendi gruplarında
+planlanıyor.
+
+Mağazalar Ali ile Veli arasında bölgeye göre bölünmüş. Bu 67 mağazanın
+12'si İstanbul'da ve Ali'de, 55'i Anadolu'da ve Veli'de.
+
+Lumoda'nın yayımlanan planı mağaza mağaza: her mağazanın her kategoride ne
+satacağı Pelin'in tablosunda ayrı bir satır. Bu sezon Pelin işi gruplarla
+kurmak istiyor. Lumoda'da hazır iki gruplama var. Biri bölge: Marmara, İç
+Anadolu, Akdeniz ve öteki dört bölge. Öteki
+<T k="ciro-sinifi">ciro sınıfı</T>: mağazalar son on iki ayın cirosuna göre sıralanıyor, ilk %20'si
+A, sonraki %30'u B, kalanı C oluyor. İkisinin çaprazında az mağazalı
+hücreler komşu sınıfla birleşince ortaya 12 grup çıkıyor. Pelin'in fikri her
+hücreye bir kategori karışımı vermek; aynı hücredeki mağazalar aynı karışımı
+alacak, büyüklükleri yalnız toplamlarını belirleyecek.
+
+## Toplantı
+
+Pelin ızgarayı duvara yansıtıyor.
+
+— Bu sezonun planını bu on iki hücreye kuracağım, diyor. Mağazalarınızı ben
+değil siz tanıyorsunuz. Hücreler doğru mu?
+
+Marmara × C hücresinde 12 mağaza var; 8'i İstanbul'un. Ali listeye bakıp
+itiraz ediyor.
+
+— İstanbul'u Marmara'nın geri kalanıyla aynı hücreye koyma. İstanbul'un
+müşterisi başka. Benim on iki mağazam birbirine benzer; hepsini bir grup
+yap.
+
+— O zaman benimkiler de bir grup olsun, diyor Veli. Anadolu'nun müşterisi
+de belli. Bölge bölge ayırmaya gerek yok.
+
+— Bölge bölge ayırıyorum çünkü siz öyle çalışıyorsunuz, diyor Pelin. Ciro
+sınıfını da büyük mağazaya büyük plan gitsin diye koydum. Siz şimdi
+ikisini de bozmamı istiyorsunuz.
+
+İkisi de haklı olduğunu düşünüyor. İkisi de kendi mağazalarını yıllardır
+tanıyor.
+
+## Pars iki mağaza istiyor
+
+Pars konuşmanın sonunu kapının yanında ayakta dinlemiş.
+
+— Hücreyi bir kenara bırakalım, diyor. Bana aynı hücreden iki mağaza
+söyleyin.
+
+— İstanbul 13 ile İstanbul 10, diyor Ali. İkisi de benim. İkisi de cadde
+mağazası, ikisi de C sınıfı, ikisi de Marmara × C'de. Biri 304, öteki 374
+metrekare. Son on iki ayın cirosu 31,5 ve 39,2 milyon TL. Bunlar ikiz.
+
+Pars iki mağazanın son iki yıllık satışını açıyor.
+
+— Ne kadar sattıklarına bakmayalım, diyor. Ne sattıklarına bakalım.
+Satışın yüzde kaçı hangi alt kategoride, hangi fiyat segmentinde, hangi
+kalıpta? Buna <T k="satis-karisimi">satış karışımı</T> diyoruz.
+
+Ekrana Collection ürünlerinden üç satır geliyor:
+
+| Collection'da payı | İstanbul 13 | İstanbul 10 |
+|---|---:|---:|
+| Sweatshirt | %3,7 | %15,8 |
+| Giriş fiyat segmenti | %23,8 | %45,5 |
+| Regular kalıp | %30,8 | %13,0 |
+
+— İstanbul 10'un Collection satışının neredeyse yarısı giriş fiyatlı ürün,
+diyor Pars. İstanbul 13'te dörtte biri. Sweatshirt payı İstanbul 10'da
+çok daha yüksek. Regular kalıpta tersi.
+
+— Ama ikisi de İstanbul, diyor Ali. Hücreleri de aynı.
+
+— Hücreleri aynı, satışları değil, diyor Pars. Bakalım İstanbul 13 kime
+benziyor.
+
+Pars İstanbul 10'un sütununu kapatıp başka bir mağazanınkini açıyor.
+
+| Collection'da payı | İstanbul 13 | Eskişehir 2 |
+|---|---:|---:|
+| Sweatshirt | %3,7 | %7,7 |
+| Giriş fiyat segmenti | %23,8 | %26,9 |
+| Regular kalıp | %30,8 | %31,5 |
+
+Eskişehir 2 Veli'nin mağazası. O da bir cadde mağazası, 279 metrekare, o da
+C sınıfı. Ama İç Anadolu'da, Pelin'in ızgarasında başka bir hücrede. Regular
+kalıpta iki mağaza arasında 0,6 puan var; İstanbul 10 ile arada 17,9 puan.
+
+— Benim mağazam Veli'nin mağazası gibi satıyor, diyor Ali.
+
+— Hoş geldin, diyor Veli.
+
+## Cevap anahtarı
+
+Burada bir şeyi açıkça söylemem gerekiyor. Lumoda sentetik bir zincir ve
+verisini ben ürettim. Her mağazaya, yayımlanan veride görünmeyen bir
+müşteri profili verdim. Gerçek hayatta böyle bir cevap anahtarı yoktur;
+burada var ve onu yalnız ölçmek için kullanıyorum. Ali, Veli, Pelin ve
+Pars onu bilmiyor.
+
+Cevap anahtarına göre İstanbul 13 bir Anadolu aile mağazası. Mağaza
+İstanbul'da, müşterisi Eskişehir 2'ninkiyle aynı. İstanbul 10'un müşterisi
+ise metropolün genç müşterisi. Ali'nin ikizleri aynı şehirde, aynı sınıfta,
+aynı hücrede; müşterileri farklı.
+
+## 45 sayı, 45 basamak
+
+Pars'ın baktığı üç pay, bir mağazanın satışını anlatan payların yalnız üçü.
+Lumoda'da bir mağazanın satış karışımını 45 sayı anlatıyor: iki line
+grubunda, Collection ile Basic ve NOS ürünlerinde, alt kategori, fiyat
+segmenti ve kalıp payları. Bir mağaza 45 sayı, zincir 67 mağaza.
+
+Bu 67 mağazayı beş gruba bölmek istediğinizi düşünün. Kaç farklı yolu var?
+
+**564.687.724.083.229.495.998.241.410.642.735.921.006.446.990**
+
+Yaklaşık 5,6 × 10⁴⁴; 45 basamaklı bir sayı. Hepsini tek tek deneyip en
+iyisini seçmenin yolu yok. Pelin'in ızgarası bu yüzden var: iki bilgiyle
+bu sayıyı 12 hücreye indiriyor. Sorun şu ki seçtiği iki bilgi, bölge ve
+ciro, mağazanın ne sattığı hakkında pek bir şey söylemiyor.
+
+Pars başka bir yol deniyor. Bilgisayara yalnız 45 sayıyı veriyor; ne bölge
+var, ne ciro, ne metrekare. Karışımları birbirine benzeyen mağazaları bir
+araya toplamasını istiyor. Bunu nasıl yaptığını dördüncü yazıda
+anlatacağım. Sonuç beş küme.
+
+Kümelerden biri 32 mağazalık. Eskişehir 2 orada, İstanbul 13 de orada.
+İstanbul 10 başka bir kümede. İstanbul'un 12 mağazasından 7'si bu 32
+mağazalık kümeye düşüyor; yani Ali'nin mağazalarının yarıdan fazlası,
+tıpkı İstanbul 13 gibi, Anadolu'nun aile mağazalarına benzer satıyor.
+
+— Benim Anadolu'm da tek parça değil, diyor Veli ekrana bakarak.
+
+Değil. Metropol dışındaki sıcak sahil şehirlerinin 14 mağazası kendi
+kümesinde, soğuk şehirlerin 7 mağazası da kendi kümesinde.
+
+## Kimin mağazası?
+
+Pelin bir süre ekrana bakıyor.
+
+— Yani ben İstanbul 13'e İstanbul 10'la aynı karışımı verecektim.
+
+— Verecektin, diyor Pars. Bu ikisini aynı karışımdan planlarsan en az birine
+yanlış mal gider: ya İstanbul 10 sweatshirt bekler, ya İstanbul 13'ün
+deposunda sweatshirt birikir.
+
+— O zaman İstanbul 13'ü Veli'ye vereyim, diyor Ali gülerek.
+
+— Mağazayı kimin yönettiği haritadan gelebilir, diyor Pars. İstanbul
+13'ün telefonu yine sana gelsin. Ama mağazaya hangi planın gideceği
+haritadan gelmemeli. Mağazayı haritadaki yerine ya da büyüklüğüne göre
+değil, müşterisinin ne aldığına göre grupla.
+
+— Ben de yıllardır bu mağazaları tanıdığımı sanıyordum, diyor Veli.
+
+— Tanıyorsunuz. Mağazayı tanımak ile müşterisini tanımak aynı şey değil.
+Siz kardeşsiniz; bunun kavgası olmaz.
+
+## Bu dizide ne yapacağız
+
+Bu dizide Lumoda'nın kurallarını, yani bölgeyi, ciro sınıfını ve ikisinin
+ızgarasını, satış karışımından bulunan kümelerle aynı mağazalarda
+yarıştıracağız. Cevap anahtarına ne kadar oturduklarını ölçeceğiz, ama
+gerçek hayatta o anahtar olmadığı için anahtarsız ölçütleri de ayrıca
+kuracağız. Kümelerin sezondan sezona ne kadar dayandığına, hiç satış
+geçmişi olmayan yeni bir mağazanın nereye konacağına bakacağız. En sonunda
+da asıl soruya geleceğiz: kümeye göre yapılan plan, İlk Sevkiyat'taki malı
+daha doğru mağazalara gönderiyor mu?
+
+## Tanım
+
+**Mağaza kümesi, satış karışımı birbirine benzeyen mağazaların, planın ve
+ilk sevkiyatın tek birim gibi ele aldığı grubudur.**
+
+Bu konuyu neden sevdiğimi de söyleyeyim. Harita çok ikna edicidir. Her
+allocator kendi bölgesini tanır ve çoğu zaman haklıdır: hangi mağazanın
+deposu küçük, hangisinin müdürü titiz, hangisinin satışı bayramda patlar,
+bilir. Ama haritada aynı noktada duran iki mağazanın müşterisi bambaşka olabilir.
+Bunu görmek için mağazaya değil, kasadan geçen ürüne bakmak gerekiyor.
+
+Bir sonraki yazıda kararı parçalarına ayırıyoruz: küme ne işe yarar, neye
+bakılır, kaç küme kurulur? İstanbul 13'ü de aklınızda tutun: Ali'nin
+Anadolu mağazası. 🙂

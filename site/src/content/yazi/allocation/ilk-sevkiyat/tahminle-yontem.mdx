@@ -1,0 +1,191 @@
+---
+baslik: Tahminle Yöntem
+tip: teknik
+sira: 4
+ozet: >-
+  Geçmişi olmayan bir ürünün mağaza mağaza talebini tahmin etmek. LightGBM
+  aynı malla planı ve mağazanın geçmiş payını geçiyor. Payları neredeyse
+  kusursuz bilen kahin ise sanıldığı kadar öne geçmiyor.
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import T from '../../../../components/T.astro'
+
+Geçen yazıda benzer ürünü elle tanımladık. Kalibrasyon bize en iyi
+"benzer"in neredeyse hiç benzer olmadığını söyledi: mağazanın geçmişteki
+kaba payı. Bu yazıda benzerliği tanımlamayı bırakıp bir modele
+öğretiyoruz.
+
+Yöntemin iskeleti geçen yazıdakiyle aynı. Aday mağazalar, gönderilecek
+paket ve paylaştırma aynı; değişen tek şey mağazaların payı. Bu yazıda da
+her kol aynı malı gönderiyor: tavansız, depoda ek mal tutmadan.
+
+## Geçmişi olmayan ürün
+
+Yeni bir ürünün kendi satışı yok. Ama geçmiş sezonlarda yüzlerce ürünün
+her mağazada ilk altı haftada ne sattığı belli. Bunu bir tabloya
+çeviriyoruz: her satır geçmiş bir (ürün, mağaza) çifti, hedef o çiftin ilk
+altı haftalık talebi. Talep geçen yazıdaki gibi stoksuz günlere göre
+düzeltilmiş.
+
+Her satırın yanına üç tür bilgi koyuyoruz: ürünün kaydındaki öznitelikler,
+mağazanın kendisi, bir de mağazanın geçmişte ne tür ürün sattığı.
+
+Kodda özellik listesi şu:
+
+```python
+# allocation/tahmin.py
+OPTION_KATEGORIK = ("ust_kategori", "alt_kategori", "fiyat_segmenti", "kalip", "kumas", "renk", "desen",
+                    "cinsiyet")
+OPTION_SAYISAL = ("dalga", "liste_fiyati", "ilk_alim")
+KARISIM_OZELLIKLERI = ("alt_kategori", "kalip", "fiyat_segmenti")
+PAY_SUTUNLARI = [f"pay_{s}" for s in KARISIM_OZELLIKLERI]
+OZELLIKLER = [
+    *OPTION_KATEGORIK, "sezon_tipi", *OPTION_SAYISAL,
+    "magaza_tip", "magaza_bolge", "magaza_sehir", "metrekare", "kapasite",
+    *PAY_SUTUNLARI,
+]
+```
+
+Bu tabloya tek bir LightGBM modeli kuruyoruz. Amaç fonksiyonu Poisson,
+çünkü talep bir sayım. Model yalnız karar gününde kapanmış sezonlardan
+öğreniyor; ilkbahar-yaz ile sonbahar-kış ayrı model değil, mevsim bir
+özellik.
+
+Yeni ürün geldiğinde, her aday mağaza için bir satır kuruluyor: ürünün
+öznitelikleri, mağazanın özellikleri ve mağazanın geçmiş karışımı. Model
+her satır için bir talep tahmin ediyor. Mağazanın payı, tahmininin adayların
+toplam tahminine oranı.
+
+## Modelin kendi cevabını görmemesi
+
+Bir yerde dikkatli olmak gerekiyor. "Mağazanın geçmişte ne sattığı"
+özelliğini eğitim tablosunun tamamından hesaplarsak, her satır kendi
+hedefini özelliğinin içinde görür. Model eğitimde olduğundan iyi görünür,
+yeni üründe beklenenden kötü çıkar, çünkü yeni ürünün talebi geçmişte
+yoktur.
+
+Bu yüzden eğitimde ürünleri katlara bölüyoruz. Bir katın satırları, o
+mağazanın karışımını yalnız öteki katlardaki ürünlerden alıyor:
+
+```python
+# allocation/tahmin.py (egitim_ozellikleri)
+for k in np.unique(katlar):
+    ic = katlar == k
+    pay[ic] = _paylar(t[ic], karisim(t[~ic])).to_numpy()
+```
+
+Tahmin anında ise karışım bütün geçmişten hesaplanıyor; yeni ürün zaten o
+geçmişin içinde değil.
+
+Modelin neye dayandığını da doğru söyleyelim. Model bu ürünü hiç
+görmedi. Tek tek benzerlerini de seçmedi. Gördüğü şey, geçmişte hangi
+mağazanın ne tür üründen ne kadar sattığıydı.
+
+## Kalibrasyonda
+
+Modelin ayarını da oyun sezonuna bakmadan, bir önceki ilkbahar-yaz
+sezonunda seçtik. Aynı pay hatasıyla (geçen yazıda tanımladık; 0 aynı
+paylar, 1 tamamen ayrık):
+
+| | Pay hatası |
+|---|---:|
+| Eşit | 0,292 |
+| Lumoda (plan payı) | 0,236 |
+| Mağazanın geçmiş payı | 0,235 |
+| Model | 0,197 |
+
+Kalibrasyonda model, planla mağazanın geçmiş payı arasındaki farktan çok
+daha büyük bir adım atıyor. Asıl soru bunun sahada, sezonun sonunda neye
+dönüştüğü.
+
+## Oyun sezonunda, aynı malla
+
+Bir kol daha ekliyoruz: kahin. Kahin, her mağazanın ilk altı haftadaki
+gerçek talebini biliyor. Bu bilgi aynı müşteri akışının başka bir
+koşusunda ölçülmüş; yani kahin, gizli gerçeği bilseydik ne olacağının
+cevabı. Payı bu talebe orantılı veriyor; bunun en iyi dağıtım olduğu
+kanıtlanmış değil. Gerçek hayatta böyle bir kol yok. Burada payı neredeyse
+kusursuz bilseydik ne olacağını göstermek için var.
+
+Beş kol, aynı ilk sevkiyat, aynı sezon:
+
+| | Pay hatası | Bulunabilirlik | Sezon sonunda elde kalan | Tam fiyat <T k="str">STR</T> | Brüt kâr |
+|---|---:|---:|---:|---:|---:|
+| Eşit | 0,297 | %67,62 | %22,23 | %51,33 | 519.113.339 TL |
+| Lumoda (plan payı) | 0,235 | %68,98 | %19,77 | %52,69 | 534.433.105 TL |
+| Mağazanın geçmiş payı | 0,229 | %69,51 | %19,65 | %52,85 | 535.147.736 TL |
+| Model | 0,171 | %70,41 | %17,74 | %53,99 | 550.029.513 TL |
+| Kahin | 0,006 | %71,23 | %17,06 | %54,41 | 563.610.800 TL |
+
+Sıra beklendiği gibi: kahin, model, mağazanın geçmiş payı, plan, eşit.
+Model aynı malla, yayımlanan akışta bulunabilirlikte planın 1,43 puan
+önünde. Sezon sonunda elde kalan mal 2,03 puan az, brüt kâr 15.596.408 TL
+fazla.
+
+Aynı karşılaştırmayı dört müşteri akışında daha tekrarladık; ürünlerin
+başarısı her yolda aynı, yalnız müşteri akışı değişiyor. Beş yolun beşinde
+sıra aynı; model yolların medyanında planın 1,45, kahin de modelin 0,82
+puan önünde.
+
+Kahin ile plan arasındaki farkı, kolların ne kadar kapattığıyla ölçelim.
+Mağazanın geçmiş payı bulunabilirlik farkının %24'ünü, pay hatası farkının
+%3'ünü kapatıyor. Model bulunabilirlikte %64'ünü, pay hatasında %28'ini.
+
+İki sayı arasındaki uçuruma dikkat. Model pay hatasının yalnız dörtte
+birinden biraz fazlasını kapatıyor, bulunabilirliğin ise üçte ikiye yakınını.
+Pay hatasındaki ilk iyileşme bulunabilirliğe çok şey getiriyor; payı
+kusursuza yaklaştırmanın getirisi giderek azalıyor.
+
+İlk sevkiyat alan çiftlerden dört haftada ilk gelenin beşte birini bile
+satamayanlar planda 1.065 (%19,9), modelde 940 (%17,6); kahinde 441
+(%8,2).
+
+## Kahinin sınırı
+
+Kahinin pay hatası 0,006. Neredeyse kusursuz: her mağazaya talebiyle
+orantılı mal gidiyor. Buna karşın bulunabilirlikte planın yalnız 2,25 puan
+önünde.
+
+Bu dizinin en önemli bulgularından biri bu. Malın mağazalar arasında doğru
+bölünmesi, sezonun kalanını çözmüyor. Kahinde bile kaybın beden kaynaklı
+payı plandakiyle aynı düzeyde: %42,8'e karşı %42,3. Kahin mağazayı doğru
+seçiyor, ama paketin bedenlerini değiştirmiyor. Sezon içinde gelen
+replenishment, tekrar sipariş ve indirim de aynı kurallarla işliyor. Kahinin
+2,25 puanının içinde bile tekrar sipariş ve indirimin tepkisinden gelen bir
+pay var: 1,96 puanı dağıtımın kendisinden, 0,29 puanı o tepkiden. Beden
+uyumsuzluğunun bedelini altıncı yazıda ölçeceğiz.
+
+— Payı doğru bilmek sezonun hepsini çözmüyor, diyor Pars. Ama aynı malla
+payı kusursuza yakın bilmenin ne kazandırdığını artık biliyoruz: bu kadar.
+
+## Elbiseye dönüş
+
+İlk yazının elbisesini hatırlayın. Lumoda İzmir 4'e 448, Erzurum 2'ye 112
+adet göndermişti. Model, yalnız o gece bilinenle, İzmir 4'e 119 adet
+önerirdi: Lumoda'nın gönderdiğinin %26,6'sı. Erzurum 2'ye 609: Lumoda'nın
+5,4 katı.
+
+Model bu elbiseyi tanımıyordu. Tanıdığı, İzmir 4 ile Erzurum 2'nin bu tür
+ürünlerde geçmişte nasıl sattığıydı. Tek bir elbise yine bir şey
+kanıtlamaz; sezonun tamamındaki farkı yukarıdaki tablo söylüyor.
+
+## Sizin verinizde zor olan
+
+Birincisi öznitelik verisi. Bu modelin gördüğü her şey ürünün kaydından
+geliyor: kategori, kalıp, kumaş, desen, fiyat segmenti. Gerçek bir ERP'de
+bu alanlar çoğu zaman dağınıktır. Aynı kalıp farklı adlarla girilir,
+kumaş alanı boş bırakılır, fiyat segmenti hiç tanımlanmamıştır. Model
+ancak bu kayıt kadar iyi olur. Lumoda'da kayıt eksiksiz; sizinkinde ilk iş
+muhtemelen kaydı düzeltmek.
+
+İkincisi plan ile satışın aynı hiyerarşide tutulmaması. Lumoda'da plan,
+satış ve ürün aynı kategori ağacını kullanıyor: planın üst kategorisi,
+ürünün üst kategorisiyle birebir eşleşiyor. Pek çok zincirde plan başka bir sistemde, başka bir kategori ağacıyla tutulur.
+İkisini eşleştirmeden ne planı ne modeli ölçebilirsiniz.
+
+Bir de bu yazının kendi dersi var. Pay ne kadar iyileşirse iyileşsin,
+kahinin bile ulaşabildiği yer sınırlı. Geri kalanını ilk sevkiyattan sonra
+olan şeyler belirliyor. Sonraki yazıda bunlardan ilkine, depoda tutulan
+mala bakıyoruz.

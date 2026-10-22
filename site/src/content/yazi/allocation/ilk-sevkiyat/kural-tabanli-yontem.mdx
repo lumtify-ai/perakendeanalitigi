@@ -1,0 +1,436 @@
+---
+baslik: Kural Tabanlı Yöntem
+tip: teknik
+sira: 3
+ozet: >-
+  Lumoda'nın plan payı, herkese eşit dağıtım ve benzer ürünlerin izi aynı
+  malla yarışıyor. En iyi "benzer ürün" beklenenden kaba çıktı; kapsama
+  tavanının kazancı da sanıldığı yerden gelmiyor.
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import T from '../../../../components/T.astro'
+
+İki yazı boyunca kararı kavram olarak konuştuk. Şimdi hesabı yazıyoruz.
+
+Aşağıdaki Python parçaları `vakalar/allocation/` altındaki çalışan koddan,
+Lumoda'nın kendi kuralı da yayımlanan veri üretecinden alındı. SQL sorgusu
+yayımlanan tablolar üzerinde koşuyor. Yazıdaki her sayı vakanın rapor
+çıktısından geliyor.
+
+## Bütün yöntemlerin ortak iskeleti
+
+Bu dizide yarışan her yöntemi bir "kol" diye kuruyoruz. Kollar bir option
+için aynı adımları atıyor. Kolları birbirinden ayıran tek şey, malı
+mağazalara hangi payla böldükleri:
+
+```python
+# allocation/politika.py (IlkDagitimKolu.__call__; kayıt satırları çıkarıldı)
+aday = aday_maskesi(g, o, self.harita)
+U = ust_sinir(g, o, self.harita)
+t = self._tutma(g, o)
+toplam = int(_taban(U * (1.0 - t)))
+paket, tavan, duzey, geri = self._karar(g, o, aday, U, t, toplam)
+```
+
+`aday`, Lumoda'nın aday mağazaları; kod Lumoda'nın tanımını aynen
+kopyalıyor. `U`, geçen yazıda konuştuğumuz gönderilebilecek en çok paket.
+`t` depoda tutulan pay. Ana karşılaştırmada t sıfır: her kol `U`'nun
+tamamını, toplamda 824.165 adet gönderiyor. Yani mal aynı, değişen tek şey
+malın kime gittiği.
+
+`U`'nun kodu kısa:
+
+```python
+# allocation/paylastir.py
+def ust_sinir(g, o: int, harita) -> int:
+    """Option `o` için gönderilebilir üst sınır `U` (paket); modül notuna bakın."""
+    w = g.dunya
+    sira, icerik = _paket_satirlari(w, o)
+    # Lumoda'nın ifadesi bit bit aynı (kayan nokta; bkz. modül notu): np.int64 * float // int
+    u = int(w.ilk_alim[o] * sabitler.LUMODA_ILK_PAYI // int(icerik.sum()))
+    skular = np.flatnonzero(harita.sku_option == o)
+    sku_beden = dict(zip(harita.sku_beden_sira[skular].tolist(), skular.tolist()))
+    for b, c in zip(sira.tolist(), icerik.tolist()):
+        if b not in sku_beden:
+            raise ValueError(f"option {o}: paketteki beden {b} için SKU yok")
+        u = min(u, int(g.depo[sku_beden[b]]) // c)
+    return max(u, 0)
+```
+
+İlk satır Lumoda'nın kuralı: ilk alımın yüzde yetmişi, paket adedine
+bölünmüş. Döngünün her adımı bir beden: depodaki adedi paketteki adedine
+bölüp küçüğü tutuyor. Geçen yazıda "pakette kendi payına göre en önce biten
+beden" dediğimiz şeyin kodu bu `min`.
+
+Paylar paketlere en büyük kalan yöntemiyle çevriliyor: herkes payının tam
+kısmını alıyor, artan paketler kesri en büyük olanlara gidiyor. Bizim
+kollarımızda bir de en az gösterim var: payı bir paketin altında kalan
+adaylar artan paketleri önce alıyor; paket kalmazsa hiç almıyor. Yani
+böyle bir aday ya bir paket alıyor ya hiç. Lumoda'nın kuralında bu yok.
+
+## Lumoda'nın kuralı: plan payı
+
+Lumoda'nın kuralı veri üretecinde şöyle yazılı:
+
+```python
+# veri/src/perakende_veri/v4/politika.py (lumoda_ilk_dagitim; aday kümesi satırları çıkarıldı)
+mp = w.plan_tablolari["magaza_plan"]
+sec = mp[(mp.sezon_kodu == opt.at[o, "sezon_kodu"]) & (mp.ust_kategori == opt.at[o, "ust_kategori"])]
+hedef = (
+    sec.set_index("magaza_id")["satis_hedefi"]
+    .reindex(mag["magaza_id"]).fillna(0).to_numpy(dtype=float)
+)
+pay = np.where(aday, hedef, 0.0)
+if pay.sum() <= 0:
+    pay = aday.astype(float)
+
+_, set_idx, icerik = paket_tablosu(w.paketler)
+paket_adedi = int(icerik[set_idx[opt.at[o, "beden_seti"]]].sum())
+toplam = int(w.ilk_alim[o] * sabitler.ILK_DAGITIM_PAYI // paket_adedi)
+return en_buyuk_kalan(toplam, pay)
+```
+
+Mağazanın payı, Pelin'in planında o sezon o üst kategori için yazdığı
+satış hedefi. Adayların hiçbirinin plan hedefi yoksa pay eşit. Kapsama
+tavanı yok, en az gösterim yok.
+
+Bu kararı yayımlanan tablolardan geri okumak da mümkün. Aşağıdaki sorgu
+vakanın kodu değil; bir option'ın ilk sevkiyatını mağazaların plan
+hedefiyle yan yana koyuyor:
+
+```sql
+-- Bir option'ın ilk sevkiyatı ve paket alan mağazaların plan hedefi.
+-- $option_id: incelenen option.
+with ilk as (
+    select s.hedef::varchar as magaza_id,
+           sum(s.adet) as ilk_adet
+    from sevkiyat s
+    join urun u on u.urun_id = s.urun_id::varchar
+    where s.tip = 'ilk_dagitim'
+      and u.option_id = $option_id
+    group by 1
+),
+plan as (
+    select p.magaza_id, p.satis_hedefi
+    from magaza_plan p
+    join (select distinct sezon_kodu, ust_kategori
+          from urun where option_id = $option_id) o
+      using (sezon_kodu, ust_kategori)
+)
+select m.ad,
+       i.ilk_adet,
+       p.satis_hedefi,
+       round(100.0 * i.ilk_adet / sum(i.ilk_adet) over (), 1) as option_payi,
+       round(100.0 * p.satis_hedefi / sum(p.satis_hedefi) over (), 1) as plan_payi
+from ilk i
+join plan p using (magaza_id)
+join magaza m using (magaza_id)
+order by i.ilk_adet desc;
+```
+
+`$option_id` yerine ilk yazının elbisesini (`MDL0553-IND`) koyunca sorgu
+25 mağaza döndürüyor. En üstte İzmir 4: 448 adet, 18.132 hedef. Erzurum 2'de
+112 adet, 4.631 hedef. İki pay sütunu mağaza mağaza neredeyse aynı;
+aradaki küçük farkı paket yuvarlaması yapıyor. Kural, ilk yazıdaki gibi,
+plan böyle dediği için böyle dağıtıyor.
+
+Plan payının bir huyu var: malı yoğunlaştırıyor. Option'ların yarısında en
+büyük mağaza malın en az %9,1'ini alıyor; en uçta %15,2. Herkese eşit
+bölseydik bu payın medyanı %4,0 olurdu. İlk adet ile ilk dört haftanın
+satışı arasındaki korelasyon 0,58. Bunu fazla okumamak gerekiyor: mağaza
+ancak kendisine gönderilen kadar satabilir, yani bu ilişkinin bir kısmını
+ilk sevkiyatın kendisi kuruyor.
+
+## Herkese eşit
+
+Eşit kolun payı tek satır:
+
+```python
+# allocation/politika.py (EsitKol; belge metni çıkarıldı)
+class EsitKol(IlkDagitimKolu):
+    ad = "esit"
+    TAVANLI = False
+
+    def _pay(self, g, o, aday):
+        return aday.astype(float), None, -1
+```
+
+Her aday mağazanın payı 1. Bu kolun tavanı yok, çünkü saf "herkese eşit"
+olsun istedik.
+
+Kolları neyle karşılaştıracağımızı da burada tanımlayalım. Her option
+için kolun mağaza paylarını, o mağazaların ilk altı haftadaki gerçek talep
+paylarıyla karşılaştırıyoruz. Mağaza mağaza farkların mutlak değerlerini
+toplayıp ikiye bölünce, payın ne kadarının yanlış yere gittiği çıkıyor: 0 tamamen aynı paylar, 1 tamamen
+ayrık. Option'ları ilk alımlarıyla ağırlıklandırıp ortalamasını alıyoruz.
+Buna pay hatası diyeceğim (sektörde WAPE diye geçer).
+
+Oyun sezonunda gerçek talep payını hakem biliyor, kollar bilmiyor. Bu
+yalnız Lumoda gibi sentetik bir zincirde ölçülebilen bir şey. Pay hatasının
+kalibrasyonunda hakemi kullanmıyoruz: gerçek payın yerine, yayımlanan satıştan sansürü
+düzeltilmiş talebi koyuyoruz.
+
+Bir önceki ilkbahar-yaz sezonunda, hiçbir şey koşmadan, yalnız yayımlanan
+veriden: Lumoda'nın pay hatası 0,236, eşit dağıtımın 0,292. Oyun
+sezonunda: 0,235'e karşı 0,297. Fark iki sezonda da aynı yönde ve benzer
+büyüklükte. Plan bir şey biliyor.
+
+## Benzer ürünün izi
+
+Yeni bir ürünün geçmişi yok, ama ona benzeyen ürünlerin geçmişi var.
+<T k="benzer-urun">Benzer ürün</T> yönteminin fikri bu: geçmişte benzer
+ürünler hangi mağazada iyi sattıysa, yeni ürün de orada iyi satar.
+
+İki sorunun cevabı gerekiyor. Benzer ne demek? Ve geçmiş ürünlerin
+satışını, ölçeği ve mağaza kümesi birbirinden farklıyken nasıl
+birleştireceğiz?
+
+Benzerliği bir hiyerarşiyle tanımladık, en özelden en genele:
+
+```python
+# allocation/benzer.py
+HIYERARSI = (("alt_kategori", "fiyat_segmenti", "kalip"), ("alt_kategori", "fiyat_segmenti"),
+             ("alt_kategori",), ("ust_kategori",), ())
+```
+
+Yeni ürün için, yeterince çok benzeri olan ilk düzey seçiliyor. Son düzey
+boş: mağazanın bütün geçmiş ilkbahar-yaz Collection'ı. Benzer ürün kolu
+yalnız geçmiş ilkbahar-yaz sezonlarından öğreniyor. Seçim tek satır:
+
+```python
+# allocation/benzer.py (Endeks._hesap)
+secilen = next((i for i, e in enumerate(eslesme) if e.sum() >= self.en_az), len(HIYERARSI) - 1)
+```
+
+Birleştirmek için göreli hız kullanıyoruz. Her geçmiş ürün için mağazanın
+talebini, o ürünü almış mağazaların ortalama talebine bölüyoruz. Ortalama
+bir mağaza 1 çıkıyor, iki kat satan 2. Böylece büyük ve küçük ürünler aynı
+birimde buluşuyor:
+
+```python
+# allocation/benzer.py (ogren)
+goreli = talep / ort[:, None]
+```
+
+Mağazanın yeni üründeki payı, seçilen düzeydeki benzer ürünlerde göreli
+hızının ortalaması. O düzeyde geçmişi olmayan aday bir üst düzeyin
+değerini alıyor; hiç geçmişi olmayan aday ortalama mağaza sayılıyor.
+
+"Yeterince çok benzer" kaç ürün? Bunu oyun sezonuna hiç bakmadan, bir
+önceki ilkbahar-yaz sezonunda ölçtük. Sonuç beklediğimizin tersi çıktı:
+
+| En az benzer ürün | Pay hatası |
+|---|---:|
+| 3 | 0,256 |
+| 5 | 0,249 |
+| 10 | 0,243 |
+| 20 | 0,238 |
+| 40 | 0,235 |
+| 80 | 0,235 |
+
+Eşik büyüdükçe hata düşüyor; 40'tan sonra düz kalıyor, ama yeniden
+yükselmiyor. Yani benzerlik ne kadar gevşekse o kadar iyi.
+En olası açıklama gürültü: birkaç benzer ürünün mağaza mağaza satışı rastlantıyla
+dolu, çok ürünün ortalaması bu rastlantıyı siliyor. Ama bu kadar geniş bir
+küme artık "benzer" sayılmaz.
+
+Seçilen eşikte, oyun sezonunun 210 yeni ürününün 143'ü için "benzer",
+aynı üst kategorinin bütün geçmiş ürünleri oluyor; kalan 67'si için
+mağazanın bütün geçmiş ilkbahar-yaz Collection'ı. Daha özel düzeylerin
+hiçbiri tek bir üründe bile seçilmiyor. Bu kola dürüst bir ad koyalım: benzer ürün
+değil, **mağazanın geçmiş payı**. Yazının geri kalanında da öyle
+anacağım.
+
+Mağazanın kategorideki geçmiş payı, Lumoda'nın planına çok benzeyen bir
+şey. Plan da tam bu düzeyde kurulur: mağaza × üst kategori. Sonuçlar da
+yakın: kalibrasyonda 0,235'e karşı Lumoda 0,236; oyun sezonunda 0,229'a
+karşı 0,235. Bulunabilirlikte mağazanın geçmiş payı Lumoda'nın 0,53 puan
+önünde: %69,51'e karşı %68,98.
+
+## Mağazalar bir araya gelince
+
+Gürültü açıklaması bir soruyu açık bırakıyor. Tek bir mağazanın birkaç
+benzer üründeki satışı rastlantıyla doluysa, birbirine benzeyen mağazaları
+bir araya koymak bu rastlantıyı azaltmalı. Ürünün satışı tek mağazada değil,
+bir grup mağazada ortalanır. O zaman ince benzerlik işe yarar mı?
+
+Bunu [Mağaza Gruplama](/magaza-kumeleme/magaza-gruplama/) dizisinin
+gruplarıyla sınadık. O dizinin gruplamalarından dördünü aldık: bölge, ciro
+sınıfı, ikisinin ızgarası (Lumoda'nın kendi grupları) ve satış karışımından
+makine öğrenmesiyle bulunan kümeler; bunlara kısaca satış karışımı kümeleri
+diyeceğim. Beşincisi mağazaların gizli profili, yani o dizinin cevap
+anahtarı. Bu yalnız bir ölçü; gerçek hayatta bu profili kimse bilmiyor.
+Kümelemenin ulaşabileceği en iyi yapıyı gösteriyor.
+
+Hesap bu yazınınkiyle aynı, yalnız bir düzey yukarıda. Bir geçmiş üründe
+kümenin göreli hızı, üye mağazaların göreli hızlarının ortalaması. Mağazanın
+payı, kümesinin göreli hızı çarpı mağazanın kümesi içindeki büyüklüğü.
+
+Kalibrasyonu yine bir önceki ilkbahar-yaz sezonunda, oyun sezonuna
+bakmadan yaptık. Izgaraya bir boyut ekledik: benzerliğin hiyerarşinin hangi
+düzeyinden başlayacağı. Sonuç tek mağazadakiyle aynı çıktı. En özel
+düzeyden başlayıp 3 benzer üründe yetinen ayar, beş gruplamanın hepsinde
+en kötüsü; satış karışımı kümelerinde pay hatası 0,259. Orada eşik
+büyüdükçe hata düşüyor ve kaba düzeylerin hatasına iniyor: 0,237.
+
+Kalibrasyonun seçtiği ayarlar, geçmiş sezonda kaba düzeye denk geliyor:
+ya doğrudan üst kategoriden başlıyor ya da o kadar yüksek bir örnek eşiği
+istiyor ki geçmiş sezonun hiçbir ürününde ince düzeye inilmiyor. İnce düzey
+ancak çok benzer ürün olduğunda devreye giriyor. Oyun sezonunda aynı ayar,
+satış karışımı kümelerinde 210 ürünün 68'i için alt kategoriye iniyor;
+109'u üst kategoride, 33'ü en genel düzeyde kalıyor.
+
+En iyi ayarda pay hatası ciro sınıfında 0,238, bölgede 0,235; Lumoda'nın
+gruplarında, satış karışımı kümelerinde ve cevap anahtarında 0,237.
+Mağazanın kendi geçmiş payı aynı sezonda 0,235'ti. Gruplama hatayı
+düşürmedi.
+
+Yani benzerliği gevşek tutmanın kazandırması tek mağazanın gürültüsünden
+ibaret değil; kümede de en iyi ayar, benzerliği gevşek tutan ayar. Akla
+yatkın bir açıklama şu: kümeler mağazaları topluyor, ürünleri değil. Birkaç
+benzer ürün, kaç mağazada ortalanırsa ortalansın, birkaç ürün olarak
+kalıyor.
+
+Oyun sezonunda da satış karışımı kümelerinin pay hatası 0,230, mağazanın
+kendi geçmiş payınınki 0,229. Kümeye göre planın sezon sonunda ne verdiğini
+altıncı yazıda topluyoruz.
+
+## Sansür düzeltmesi
+
+Benzer ürünlerin geçmiş satışı bir şeyi saklıyor. Bir mağazada ürün erken
+bittiyse, o mağazanın satışı talebinden düşük görünür. Raf boşken gelen
+müşteri hiçbir kasaya yazılmaz. Buna <T k="sansurlu-talep">sansürlü
+talep</T> deniyor; [Satış Kaybı](/is-zekasi/satis-kaybi/) dizisi bütünüyle
+bu konuyu anlatıyor.
+
+Geçmiş ürünlerin talebini ilk altı hafta için, beden beden düzeltiyoruz.
+Bir bedenin o pencerede satışı, rafta olduğu gün sayısına bölünüp
+pencerenin uzunluğuyla çarpılıyor:
+
+```python
+# allocation/ogrenme.py (erken_talep)
+oran = np.divide(sku_satis * L, sku_stoklu, out=np.zeros(len(j)), where=sku_stoklu > 0)
+sku_talep = np.where(sku_stoklu >= EN_AZ_STOKLU_GUN, oran, sku_satis.astype(np.float64))
+```
+
+Çok az stoklu günü olan bedende oran güvenilmez, satış olduğu gibi
+alınıyor. Hiç stoklu günü olmayan beden hesaba girmiyor. Satış Kaybı
+dizisinin kestiricisini burada kullanmadık. Stoklu güne bölmek daha kaba
+(haftanın gününe, ürünün yaşına bakmıyor), ama geçmiş sezonların kapanmış
+kaydıyla doğrudan hesaplanıyor. Bedeli de var: ürünün
+bittiği gün tam bir stoklu gün sayılıyor. Bu düzeltmenin etkisini ayrıca
+ölçmedik. Bir sonraki yazıdaki model de aynı düzeltilmiş talepten
+öğreniyor.
+
+## Kapsama tavanı
+
+İkinci yazıda bir kısıttan söz etmiştik: bir mağazaya ilk haftalarda
+satabileceğinden fazlası gitmesin. Öngörüsü olan kollarda, yani mağazanın
+geçmiş payında ve bir sonraki yazının modelinde, bu tavanı kurabiliyoruz:
+
+```python
+# allocation/politika.py (IlkDagitimKolu._kapsama_tavani)
+def _kapsama_tavani(self, g, o: int, ongoru: np.ndarray) -> np.ndarray:
+    """[M] paket: ⌈öngörü × TAVAN_KAPSAMA ÷ paket adedi⌉, en az 1; NaN öngörü `TAVANSIZ`."""
+    ongoru = np.asarray(ongoru, dtype=float)
+    var = np.isfinite(ongoru)
+    tavan = np.full(len(ongoru), TAVANSIZ, dtype=np.int64)
+    pk = paket_adedi(g.dunya, o)
+    tavan[var] = np.maximum(_tavan(np.maximum(ongoru[var], 0.0) * sabitler.TAVAN_KAPSAMA / pk), 1)
+    return tavan
+```
+
+Mağazanın tavanı, öngörülen ilk altı haftalık talebi kadar paket; yukarı
+yuvarlanıyor, en az bir paket. Tavanına dayanan mağazanın fazlası öteki
+mağazalara paylarıyla dağılıyor. Herkes tavandaysa kalan paketler depoda
+kalıyor.
+
+Son cümleye dikkat. Tavanlı bir kol, `U`'nun bir kısmını göndermiyor.
+Yani tavan aynı zamanda gizli bir depoda tutma. Mağazanın geçmiş payında
+tavan `U`'nun %20,9'unu, modelde %34,1'ini depoda bırakıyor: 172.289 ve
+281.011 adet.
+
+Kalibrasyonda tavan iyi görünmüştü: bulunabilirliği mağazanın geçmiş
+payında 1,71, modelde 1,30 puan artırıyordu. Tavanı açık seçtik. Ama o
+ölçüm iki etkiyi birbirinden ayırmıyordu: tavanın malı başka mağazalara
+yönlendirmesi ve depoda mal bırakması.
+
+Oyun sezonunda bu ikisini ayırdık. Tavansız kolu bir kez daha koşturduk,
+bu sefer tavanlı kolun depoda bıraktığı kadar malı kendimiz tutarak.
+Tavanlı kol ile bu eşleşik kol neredeyse aynı malı gönderiyor. Aradaki
+fark tavanın dağıtım biçiminden geliyor: malı hangi mağazaya gönderdiği, bir
+de hangi ürünü daha çok depoda bıraktığı (eşleşik kol her üründe aynı oranı
+tutuyor). Eşleşik kol ile tavansız kol arasındaki fark ise depoda tutmanın
+etkisi. Bulunabilirlikte, puan olarak:
+
+| | Toplam | Dağıtım biçimi | Depoda tutma |
+|---|---:|---:|---:|
+| Mağazanın geçmiş payı | +0,95 | −0,18 | +1,13 |
+| Model | +0,96 | +0,02 | +0,94 |
+
+Tavanın dağıtım biçiminden gelen fark iki kolda da sıfıra yakın. Modelde
+öteki ölçütlerde biraz ters bile: sezon sonunda elde kalan +0,45 puan,
+<T k="str">tam fiyat STR</T> −0,56 puan.
+
+Neden böyle? Mağazanın geçmiş payı kolunda 5.354 aday çiftin 5.146'sı
+tavanına dayanmış; modelde 4.733'ü. Tavan neredeyse her yerde
+devredeyse, malı bir mağazadan ötekine kaydırmıyor, toplamı kesiyor.
+Paylar da neredeyse hiç değişmiyor: tavanlı kolun pay hatası eşleşik koldan
+yalnız +0,004 ve +0,001 farklı. Bulunabilirlikteki kazancın hepsi, tavanın
+depoda bıraktığı maldan geliyor.
+
+Pars bunu tek cümleye indiriyor:
+
+— Tavan malın mağazalar arasında nasıl bölündüğünü değil, ne kadarının
+depoda kaldığını değiştirdi.
+
+Bu yüzden dizinin geri kalanında yöntemleri tavansız, aynı malla
+karşılaştırıyoruz. Depoda tutmayı da gizli bir yan etki olarak değil, ayrı
+bir karar olarak beşinci yazıda kuracağız.
+
+## Üç kural, aynı mal
+
+Bu yazının üç kolunu yan yana koyalım. Üçü de aynı malı, tavansız ve
+depoda ek mal tutmadan gönderiyor. Aynı mal derken ilk sevkiyatı
+kastediyorum: sezon içinde RPT her kolun satışına ayrıca tepki veriyor,
+beşinci yazı buna dönüyor.
+
+| | Pay hatası | Bulunabilirlik | Sezon sonunda elde kalan | Brüt kâr |
+|---|---:|---:|---:|---:|
+| Eşit | 0,297 | %67,62 | %22,23 | 519.113.339 TL |
+| Lumoda (plan payı) | 0,235 | %68,98 | %19,77 | 534.433.105 TL |
+| Mağazanın geçmiş payı | 0,229 | %69,51 | %19,65 | 535.147.736 TL |
+
+Bu üç kolu dört müşteri akışında daha koşturduk. Her yolda ürünlerin
+başarısı aynı, yalnız müşterilerin hangi gün hangi mağazaya gelip ne
+aldığı değişiyor; yani bu, farklı ürün başarılarına değil, rastlantıya
+karşı bir sınama. Eşit dağıtım beş yolun beşinde plan payının gerisinde
+(bulunabilirlikte yol medyanı −1,36 puan). Mağazanın geçmiş payı beş yolun
+beşinde Lumoda'nın önünde (yol medyanı +0,71 puan); yayımlanan akıştaki +0,53,
+beş yolun en küçüğü.
+
+Plan payı eşitten açıkça iyi. Mağazanın geçmiş payı plandan biraz iyi,
+ama ikisi de aynı şeyi biliyor: hangi mağazanın büyük olduğunu. İkisi de
+bu ürünün nerede tutacağını bilmiyor. İlk yazının elbisesi tam bu
+boşlukta kalmıştı.
+
+## Sizin verinizde zor olan
+
+Birincisi öznitelik verisi. Benzer ürünü tanımlamak için alt kategori,
+fiyat segmenti, kalıp gibi alanların her üründe doğru ve tutarlı
+kaydedilmesi gerekiyor. Lumoda'da bu alanlar eksiksiz, yine de ince
+benzerlik kazandırmadı; mağazaları kümelere toplayınca bile. Gerçek bir
+zincirde aynı kalıba üç farklı ad verilmiş, alanların yarısı boş bırakılmış
+olabilir. Orada benzer ürün
+yöntemi, kâğıt üstünde göründüğünden de zayıf kalır.
+
+İkincisi sansürlü geçmiş. Geçmiş ürünlerin talebini düzeltmek için her
+mağaza, her beden, her gün "raf boş muydu" sorusunun cevabı lazım. Bu kayıt
+eksikse, erken biten ürün en iyi sattığı mağazada yavaş görünür ve yöntem
+bir sonraki ürünü oraya az gönderir.
+
+Sonraki yazıda benzerliği elle tanımlamayı bırakıp bir modele
+öğretiyoruz. Bakalım model, mağazanın geçmiş payından fazlasını görebiliyor
+mu.
