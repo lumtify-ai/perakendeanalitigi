@@ -12,7 +12,7 @@ büyük bedene kayar. Kayma yalnız `gizli` fikstüründe ve satışı üreten `
     S05 Konya Cadde       İç Anadolu    orta
     S06 Erzurum AVM       Doğu Anadolu  buyuk
     S07 Antalya AVM       Akdeniz       buyuk
-    S08 Kocaeli AVM       Marmara       orta; YENİ: 2024-12-02'de açıldı (10 tam satışlı hafta,
+    S08 Kocaeli AVM       Marmara       orta; YENİ: 2024-12-02'de açıldı (9 tam satışlı hafta,
                                         yalnız Basic ve NOS satışı: Collection geçmişi yok)
 
 Kapsam: 8 aday; 7 kümelenir (Kümeleme eşiği 26 hafta), S08 yeni.
