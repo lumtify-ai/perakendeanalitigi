@@ -45,7 +45,8 @@ PAKET = Path(beden_paket.__file__).resolve().parent
 PAKET_ADI = "beden_paket"
 
 KARAR_MODULLERI = ("sabitler", "kaynak", "egri", "paket_tasarim", "politika", "hikaye_sec")
-IZINLI_MODULLER = ("hakem", "olcutler_egri", "olcutler", "kosucu", "oyun", "hikaye_kos", "senaryolar")
+IZINLI_MODULLER = ("hakem", "olcutler_egri", "olcutler", "simulasyon", "kosucu", "oyun", "hikaye_kos",
+                   "senaryolar")
 DIS_YASAK = (
     "kumeleme.hakem", "kumeleme.olcutler", "kumeleme.oyun", "kumeleme.senaryolar",
     "kumeleme.hikaye_kos",

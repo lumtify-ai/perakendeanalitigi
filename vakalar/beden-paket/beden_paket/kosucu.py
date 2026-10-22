@@ -1,56 +1,38 @@
-"""Vakanın koşucusu: yayımlanan dünyanın paketli kopyası, Lumoda'nın giden paketi, doğrulama kolu,
-koşu önbelleği, pakete duyarlı ölçütler, talep yolları (spec §0/5–7, §0/11, §0/16, §4.2).
+"""Vakanın ölçüm tarafı: Lumoda'nın giden paketi, ns dönüşümü, korunum, pakete duyarlı ölçütler,
+İlk Sevkiyat önbelleği (salt okunur), doğrulama komutu (spec §0/5–7, §0/11, §0/16, §4.2).
 
-    ns = lumoda_giden(allocation_lumoda(0))                 # Lumoda'nın giden paketi (option, mağaza)
-    k = kos("p2", desenler, atama, ns)                       # KosuKaydi (TAM, önbellekli, tembel)
+    ns = lumoda_giden(kos_dogrulama(0))                     # Lumoda'nın giden paketi (option, mağaza)
+    k = kos("p2", desenler, atama, ns)                       # simülasyon (`simulasyon.kos`)
     olc(k)                                                   # İlk Sevkiyat ölçütleri + paket ölçütleri
-    kos("dogrulama", [LUMODA_PAKET], None, None)             # doğrulama kolu (İlk Sevkiyat Lumoda'sı)
 
     .venv/Scripts/python -m beden_paket.kosucu dogrulama [--yol P] [--olcek tam|kucuk]
 
 Bu modül ölçüm tarafındadır (`tests/test_sizinti.py`'de izinli): `perakende_veri`'yi ve İlk
 Sevkiyat'ın motorunu ve ölçütlerini içe aktarır. Karar modülleri (`politika` dahil) bunu aktarmaz.
 
-**Koşu** (`kos`). İlk Sevkiyat'ın `motor.kos`'u `paket_secimi` yuvasını açmaz ve yayımlanan dünyayı
-koşar; vaka aynı adımları kendi dünya kopyasıyla yapar, motorun parçalarını içe aktararak:
-
-    w2      = dataclasses.replace(w, paketler=paket_ekle(w.paketler, desenler))   (dunya_kopyasi)
-    yuvalar paket_secimi = PaketSecimi(atama)          oyun option'larında mağazanın deseni
-            ilk_dagitim  = GidenIlkDagitim(ns)         oyun option'larında Lumoda'nın giden paketi;
-                           ns None ise Lumoda'nın kendi kuralı (doğrulama kolu)
-            replenishment, RPT, markdown Lumoda'nın (İlk Sevkiyat'taki gibi, tepkili)
-    simule_et(w2, Politikalar(...), kayit_talep=True, talep_tohumu, operasyon_tohumu)
-    gercek  = motor.gercek_tablosu(w2, ham); tablolar = hareket_tablolari(w2, ham)
-
-Oyun option'ları İlk Sevkiyat'ınkiler (SS25 Collection, `allocation.kaynak.oyun_optionlari`); öteki
-option'lar Lumoda'nın standart paketi ve ilk dağıtımıdır. İlk dağıtım, RPT ve markdown
-`motor.Kaydedici`'yle sarılır (çıktıyı değiştirmez; `kayitlar` İlk Sevkiyat biçiminde); paket
-seçimi `PaketKaydi`'yla (oyun option'larında her çağrının [M] indisi; `kayitlar["paket_secimi"]`).
-Kayıtlar kararın kendisidir; motorun kırpması `motor.kirpma_tablosu`'nda.
-
-**Önbellek.** `onbellek` (varsayılan `cikti/kosular/`) altında `<ad>_<anahtar[:20]>`, İlk Sevkiyat
-motorunun yazıcısı ve okuyucusuyla (aynı dosya düzeni, `meta.json` en son, bozuk kayıt silinir).
-İlk Sevkiyat'ın önbelleğine (`vakalar/allocation/cikti/`) yazılmaz: oraya işaret eden `onbellek`
-reddedilir; o önbellek yalnız `allocation_lumoda` ile salt okunur (hiçbir dosya silinmez). Anahtar
-(`hazirla`): İlk Sevkiyat'ın `anahtar_icerigi` (ad, parametreler, enjekte edilen yuvaların türü ve
-`parametreler()` kimliği, tohumlar, ölçek, gün sayısı, `KOSU_MODULLERI` + ortak kapanış + v4 kod
-özeti, v4 DuckDB parmak izi, kütüphane sürümleri) ve `vaka` (bu paketin koşuyu etkileyen kodu,
-`VAKA_KOSU_MODULLERI`). `parametreler`: yol, sezon, desenler, eklenen paket satırlarının özeti; paket
-seçiminin kimliği atamayı ve haritayı, ilk dağıtımınki ns'in içerik özetini taşır.
+**Simülasyon ayrı** (Ruling R14). Koşu, dünya kopyası, politikalar ve önbellek anahtarı
+`beden_paket.simulasyon`'dadır (`kos`, `hazirla`, `kos_dogrulama` kolaylık için buradan da aynı
+adlarla alınabilir). Bu modül simülasyon anahtarına girmez: ölçümdeki bir değişiklik önbellekteki
+koşuları bozmaz, ölçüm önbellekteki tablolardan yeniden yapılır (`oyun`, ölçüm kodu özeti).
 
 **Ölçüm** (`olc`). İlk Sevkiyat'ın `olcutler.hesapla`'sı (yayımlanan dünyanın açık alanlarıyla;
 paket kopyası yalnız `paketler`'de ayrılır) ve pakete duyarlı kayıt ölçütleri (`paket_olcutleri`):
 İlk Sevkiyat'ın `kirpilan_adet`'i standart paketi varsayar (`paket_adedi`); vakada
 
-    kirpilan_adet   Σ (istenen − giden paket) × seçilen paketin adedi (`motor.kirpma_tablosu`,
-                    oyun option'ları; seçilen paket `kayitlar["paket_secimi"]`'nden, kayıt yoksa
-                    setin standart paketi). 7'li paketlerde İlk Sevkiyat'ınkiyle aynı sayı
-    kirpilan_hucre  kırpılan (option, mağaza) çifti
-    istenen_adet    Σ istenen paket × seçilen paketin adedi (oyun option'ları)
-    paket_tipi      oyun option'larının ilk dağıtımında giden ayrı `paket_id` sayısı
+    kirpilan_adet    Σ (istenen − giden paket) × seçilen paketin adedi (`motor.kirpma_tablosu`,
+                     oyun option'ları; seçilen paket `kayitlar["paket_secimi"]`'nden, kayıt yoksa
+                     setin standart paketi). 7'li paketlerde İlk Sevkiyat'ınkiyle aynı sayı
+    kirpilan_hucre   kırpılan (option, mağaza) çifti
+    kirpilan_option  en az bir çifti kırpılan oyun option'ı
+    istenen_adet     Σ istenen paket × seçilen paketin adedi; kırpmayla aynı kapsam: sevkleri bütünüyle
+                     koşunun penceresinde olan oyun option'ları (`kiyas_optionlari`, `kirpma_tablosu`'nun
+                     kuralı). Tam pencerede bütün oyun option'larıdır ve istenen − giden = kırpılan
+    paket_tipi       oyun option'larının ilk dağıtımında beş bedenli setlere giden ayrı beden deseni
+                     sayısı (paket kimliği değil: aynı desen her sete ayrı `paket_id`'yle eklenir;
+                     aksesuarın tek bedenli paketi desen değildir, sayılmaz). Lumoda 1, P1 1, P2 2
 
-Doğrulama kolunda (`ns=None`, standart paket) bütün ölçütler İlk Sevkiyat'ın `lumoda` koşusunun
-ölçütleriyle birebir aynıdır (`test_dogrulama_kucuk`; TAM'da `python -m beden_paket.kosucu
+Doğrulama kolunda (`ns=None`, standart paket) bütün İlk Sevkiyat ölçütleri İlk Sevkiyat'ın `lumoda`
+koşusunun ölçütleriyle birebir aynıdır (`test_dogrulama_kucuk`; TAM'da `python -m beden_paket.kosucu
 dogrulama`). Paket kollarında aynı mal: oyun (option, mağaza) başına giden adet Lumoda'nın giden
 adedine eşit, kırpma 0 (`korunum`).
 
@@ -59,18 +41,20 @@ paket sayısı = beden adedi ÷ paketin (`paket_id`, koşunun `paket` tablosu) o
 kollar için `ns_donustur` (adet ÷ 12, option toplamı en büyük kalanla mağazalara) ve
 `donusum_ozeti` (adet farkı, sıfıra düşen çift).
 
-**Yollar.** `kos(..., yol=p)`: talep tohumu İlk Sevkiyat'ın `oyun.talep_tohumu(p)`'si (yol 0
-yayımlanan dünya). `lumoda_ns(p)`: yolun Lumoda `ns`'i; İlk Sevkiyat'ın önbellekli `lumoda` /
-`y<p>_lumoda` koşusu salt okunur açılabiliyorsa ondan, yoksa vakanın o yoldaki doğrulama kolundan.
+**Yollar.** `lumoda_ns(p)`: yolun Lumoda `ns`'i; İlk Sevkiyat'ın önbellekli `lumoda` / `y<p>_lumoda`
+koşusu salt okunur açılabiliyorsa ondan, yoksa vakanın o yoldaki doğrulama kolundan. Izgara (`oyun`)
+yolun ns'ini her zaman vakanın kendi doğrulama kolundan alır.
+
+**Doğrulama komutu** (`dogrula`). Doğrulama kolunu koşar ya da önbellekten okur; giden paketi
+İlk Sevkiyat'ın önbellekli Lumoda koşusuyla, ölçütleri İlk Sevkiyat'ın kayıtlı ölçütleriyle
+(`oyun.json` / `yollar.json`) kıyaslar. İkisinden biri yoksa (önbellek ya da kayıt) kıyas yapılmış
+sayılmaz, çıkış 1.
 """
 
 import argparse
-import dataclasses
-import hashlib
 import json
 import sys
 import time
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -79,225 +63,13 @@ from allocation import kaynak as al_kaynak
 from allocation import motor
 from allocation import olcutler as al_olcutler
 from allocation import oyun as al_oyun
-from allocation import sabitler as al_sabitler
-from perakende_veri.v4 import tablolar as v4_tablolar
-from perakende_veri.v4.motor import simule_et
+from perakende_veri.v4 import sabitler as v4_sabitler
 from perakende_veri.v4.plan import en_buyuk_kalan
-from perakende_veri.v4.politika import Politikalar
 
-from beden_paket import politika, sabitler
-
-OYUN_SEZONU = al_sabitler.OYUN_SEZONU
-KOSU_DIZINI = sabitler.CIKTI / "kosular"
-PAKET_KOKU = Path(__file__).resolve().parent
-# Anahtarın vaka kodu: koşuyu etkileyen modüller (kosucu'nun paket içi içe aktarmaları dahil; test)
-VAKA_KOSU_MODULLERI = ("__init__", "kosucu", "politika", "sabitler")
-_YOLDAN = "yoldan"           # talep_tohumu verilmezse yolun tohumu
-
-
-# ---------------------------------------------------------------------------
-# Kod özeti, dünya kopyası
-# ---------------------------------------------------------------------------
-
-
-def vaka_kod_dosyalari() -> dict[str, Path]:
-    return {f"beden_paket/{m}.py": PAKET_KOKU / f"{m}.py" for m in sorted(VAKA_KOSU_MODULLERI)}
-
-
-def vaka_kod_ozeti() -> str:
-    """`vaka_kod_dosyalari`'nın göreli yol + içerik sha256'sı (satır sonları LF; `motor.kod_ozeti` gibi)."""
-    ozet = hashlib.sha256()
-    for ad, yol in vaka_kod_dosyalari().items():
-        ozet.update(ad.encode("utf-8") + b"\0")
-        ozet.update(yol.read_bytes().replace(b"\r\n", b"\n") + b"\0")
-    return ozet.hexdigest()
-
-
-def dunya_kopyasi(w, desenler):
-    """(`dataclasses.replace(w, paketler=…)`, harita): yayımlanan dünya değişmez; kopya yalnız
-    `paketler`'de ayrılır (öteki alanlar aynı nesneler, önbellekleri `__post_init__` kurar)."""
-    df, harita = politika.paket_ekle(w.paketler, desenler)
-    return dataclasses.replace(w, paketler=df), harita
-
-
-def oyun_optionlari(w) -> np.ndarray:
-    """Oyun option'larının indisleri (İlk Sevkiyat: `OYUN_SEZONU`'nun Collection option'ları)."""
-    return al_kaynak.oyun_optionlari(w, OYUN_SEZONU)
-
-
-def _option_idleri(w, idx) -> list[str]:
-    return w.optionlar["option_id"].astype(str).to_numpy()[np.asarray(idx, dtype=np.int64)].tolist()
-
-
-# ---------------------------------------------------------------------------
-# Hazırlık ve anahtar
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True, eq=False)
-class Hazirlik:
-    """Bir koşunun belirlenmiş girdileri ve anahtarı (koşmadan; `hazirla`)."""
-
-    ad: str
-    olcek: str
-    yol: int
-    talep_tohumu: int | None
-    operasyon_tohumu: int
-    gun_sayisi: int | None
-    dunya: object                   # paket kopyası
-    harita: dict
-    desenler: np.ndarray
-    oyun: np.ndarray                # oyun option indisleri
-    politikalar: dict               # yuva → enjekte edilen politika (sarılmamış)
-    icerik: dict
-    anahtar: str
-
-
-def hazirla(ad: str, desenler, atama, ns, *, yol: int = 0, olcek: str = "tam", talep_tohumu=_YOLDAN,
-            operasyon_tohumu: int = motor.TOHUM, gun_sayisi: int | None = None) -> Hazirlik:
-    """Dünya kopyası, politikalar, anahtar içeriği (modül notu). `atama` None ya da boş: herkes
-    standart paket. `ns` None: Lumoda'nın kendi ilk dağıtımı."""
-    if not motor._AD_DESENI.match(ad):
-        raise ValueError(f"koşu adı dosya adına uygun olmalı: {ad!r}")
-    olcek = str(olcek).lower()
-    if olcek not in motor.OLCEKLER:
-        raise ValueError(f"ölçek {sorted(motor.OLCEKLER)}'den biri olmalı: {olcek!r}")
-    yol = int(yol)
-    tt = al_oyun.talep_tohumu(yol) if talep_tohumu is _YOLDAN else talep_tohumu
-    w = motor.dunya(olcek)
-    D = politika.desen_dizisi(desenler)
-    w2, harita = dunya_kopyasi(w, D)
-    oyun = oyun_optionlari(w)
-    ids = _option_idleri(w, oyun)
-    magazalar = set(w.magazalar["magaza_id"].astype(str))
-    bilinmeyen = sorted({str(m) for m in (dict(atama) if atama is not None else {})} - magazalar)
-    if ns is not None:
-        oyun_kumesi = set(ids)
-        bilinmeyen += sorted({str(m) for o, m in ns if str(o) in oyun_kumesi} - magazalar)
-    if bilinmeyen:
-        raise ValueError(f"atamada ya da ns'te dünyada olmayan mağaza: {bilinmeyen[:5]}")
-    verilen = {"paket_secimi": politika.PaketSecimi(atama, harita, desenler=D, optionlar=ids)}
-    if ns is not None:
-        verilen["ilk_dagitim"] = politika.GidenIlkDagitim(ns, motor.lumoda("ilk_dagitim"), ids)
-    turler = {a: motor._tur_adi(p) for a, p in verilen.items()}
-    kimlikler = {a: k for a, p in verilen.items() if (k := motor.politika_kimligi(p))}
-    yeni = w2.paketler.iloc[len(w.paketler):]
-    parametreler = {"yol": yol, "sezon": OYUN_SEZONU, "desenler": D.tolist(),
-                    "paket_satirlari": politika._ozet(yeni.astype(str).to_numpy().tolist())}
-    icerik = motor.anahtar_icerigi(ad=ad, parametreler=parametreler, talep_tohumu=tt,
-                                   operasyon_tohumu=operasyon_tohumu, olcek=olcek, gun_sayisi=gun_sayisi,
-                                   turler=turler, politikalar=kimlikler)
-    icerik["vaka"] = vaka_kod_ozeti()
-    return Hazirlik(ad=ad, olcek=olcek, yol=yol, talep_tohumu=tt, operasyon_tohumu=int(operasyon_tohumu),
-                    gun_sayisi=gun_sayisi, dunya=w2, harita=harita, desenler=D, oyun=oyun,
-                    politikalar=verilen, icerik=icerik, anahtar=motor._ozet(icerik))
-
-
-# ---------------------------------------------------------------------------
-# Koşu
-# ---------------------------------------------------------------------------
-
-
-class PaketKaydi:
-    """`paket_secimi`'ni sarar: aynen çağırır, aynı nesneyi döndürür; oyun option'larında her çağrının
-    [M] indisini kaydeder (çıktıyı değiştirmez). `kayit_tablosu()`: `gun, arg0` (option), `indis`
-    (mağaza), `deger` (paket indisi), her mağaza bir satır (indis 0 dahil; `motor.Kaydedici` sıfırı atar)."""
-
-    def __init__(self, temel, oyun):
-        self.temel = temel
-        self._oyun = frozenset(int(o) for o in oyun)
-        self.kayit: list[tuple[int, int, np.ndarray]] = []
-
-    def __call__(self, g, o: int):
-        c = self.temel(g, o)
-        if int(o) in self._oyun:
-            self.kayit.append((int(g.gun), int(o), np.array(c, dtype=np.int64)))
-        return c
-
-    def kayit_tablosu(self) -> pd.DataFrame:
-        if not self.kayit:
-            return pd.DataFrame({s: np.zeros(0, dtype=np.int64) for s in ("gun", "arg0", "indis", "deger")})
-        return pd.DataFrame({
-            "gun": np.concatenate([np.full(len(c), g) for g, _, c in self.kayit]).astype(np.int64),
-            "arg0": np.concatenate([np.full(len(c), o) for _, o, c in self.kayit]).astype(np.int64),
-            "indis": np.concatenate([np.arange(len(c)) for *_, c in self.kayit]).astype(np.int64),
-            "deger": np.concatenate([c for *_, c in self.kayit]).astype(np.int64)})
-
-
-def _yazilabilir(onbellek: Path) -> Path:
-    onbellek = Path(onbellek)
-    yasak = motor.KOSU_DIZINI.resolve().parent                    # vakalar/allocation/cikti
-    if onbellek.resolve().is_relative_to(yasak):
-        raise ValueError(f"İlk Sevkiyat'ın önbelleği salt okunur: {onbellek}")
-    return onbellek
-
-
-def kos(ad: str, desenler, atama, ns, yol: int = 0, olcek: str = "tam", talep_tohumu=_YOLDAN,
-        operasyon_tohumu: int = motor.TOHUM, *, onbellek: Path | None = KOSU_DIZINI,
-        gun_sayisi: int | None = None, tembel: bool = True):
-    """Paketli dünya kopyasında koşu (modül notu); önbellekte varsa koşmadan okur. Dönüş:
-    `motor.KosuKaydi` (`tembel`; tablolar istendikçe diskten) ya da `motor.Kosu`. `onbellek=None`
-    önbelleği kapatır (tembel olamaz). `olcek` "tam" | "kucuk" (büyük-küçük harf fark etmez);
-    `gun_sayisi` testler içindir."""
-    if tembel and onbellek is None:
-        raise ValueError("tembel koşu kaydı önbellek ister (onbellek=None verildi)")
-    h = hazirla(ad, desenler, atama, ns, yol=yol, olcek=olcek, talep_tohumu=talep_tohumu,
-                operasyon_tohumu=operasyon_tohumu, gun_sayisi=gun_sayisi)
-    if onbellek is not None:
-        onbellek = _yazilabilir(onbellek)
-        motor._artiklari_sil(onbellek)
-        k = (motor._oku_tembel if tembel else motor._oku)(motor._dizin(onbellek, ad, h.anahtar), h.anahtar)
-        if k is not None:
-            return k
-
-    t0 = time.perf_counter()
-    kaydediciler = {a: motor.Kaydedici(motor.lumoda(a)) for a in motor.KAYDEDILENLER if a not in h.politikalar}
-    if "ilk_dagitim" in h.politikalar:
-        kaydediciler["ilk_dagitim"] = motor.Kaydedici(h.politikalar["ilk_dagitim"])
-    paket = PaketKaydi(h.politikalar["paket_secimi"], h.oyun)
-    ham = simule_et(h.dunya, Politikalar(**kaydediciler, paket_secimi=paket), gun_sayisi=gun_sayisi,
-                    operasyon_tohumu=h.operasyon_tohumu, kayit_talep=True, talep_tohumu=h.talep_tohumu,
-                    gecmis_kaydi=False)
-    t1 = time.perf_counter()
-    gercek = motor.gercek_tablosu(h.dunya, ham)
-    del ham["talep"]
-    tablolar = v4_tablolar.hareket_tablolari(h.dunya, ham)
-    del ham
-    kayitlar = {a: pd.DataFrame(p.kayit_tablosu()).reset_index(drop=True)
-                for a, p in {**kaydediciler, "paket_secimi": paket}.items()}
-    meta = {
-        "anahtar": h.anahtar,
-        **h.icerik,
-        "motor_sn": round(t1 - t0, 1),
-        "sure_sn": round(time.perf_counter() - t0, 1),
-        "tepe_bellek_gb": motor._tepe_bellek_gb(),
-        "tablolar": sorted(tablolar),
-        "kayitlar": sorted(kayitlar),
-        "satir_sayilari": {a: len(d) for a, d in sorted(tablolar.items())} | {"gercek": len(gercek)},
-        "gercek_toplamlari": {s: int(gercek[s].to_numpy().sum(dtype=np.int64)) for s in motor.GERCEK_SUTUNLARI},
-    }
-    kosu = motor.Kosu(tablolar=tablolar, gercek=gercek, meta=meta, kayitlar=kayitlar)
-    if onbellek is None:
-        return motor._gidis_donus(kosu)
-    dizin = motor._dizin(onbellek, ad, h.anahtar)
-    motor._yaz(dizin, kosu)
-    del kosu, tablolar, gercek
-    if tembel:
-        k = motor._oku_tembel(dizin, h.anahtar)
-        if k is None:
-            raise RuntimeError(f"koşu yazıldı ama okunamadı: {dizin}")
-        k.onbellekten = False
-        return k
-    return motor._oku_zorunlu(dizin, h.anahtar)
-
-
-def dogrulama_adi(yol: int = 0) -> str:
-    return "dogrulama" if int(yol) == 0 else f"y{int(yol)}_dogrulama"
-
-
-def kos_dogrulama(yol: int = 0, olcek: str = "tam", **ek):
-    """Doğrulama kolu: standart paket (Lumoda'nın deseni eklenir, atanmaz), Lumoda'nın ilk dağıtımı."""
-    return kos(dogrulama_adi(yol), [sabitler.LUMODA_PAKET], None, None, yol=yol, olcek=olcek, **ek)
+from beden_paket import politika, simulasyon
+from beden_paket.simulasyon import (KOSU_DIZINI, OYUN_SEZONU, Hazirlik, PaketKaydi,  # noqa: F401 (kolaylık)
+                                    dogrulama_adi, dunya_kopyasi, hazirla, kos, kos_dogrulama,
+                                    oyun_optionlari)
 
 
 # ---------------------------------------------------------------------------
@@ -422,20 +194,40 @@ def korunum(kosu, referans_adet: dict) -> dict[str, int]:
 # ---------------------------------------------------------------------------
 
 
-def _paket_boylari(kosu) -> tuple[np.ndarray, dict[str, int], np.ndarray]:
-    """Koşunun `paket` tablosundan (paket_idleri, set → standart indis, [P] paket adedi)."""
+def _paket_boylari(kosu) -> tuple[np.ndarray, dict[str, int], np.ndarray, pd.DataFrame]:
+    """Koşunun `paket` tablosundan (paket_idleri, set → standart indis, [P] paket adedi, içerik
+    tablosu paket_id × beden_sira)."""
     p = kosu.tablo("paket", sutunlar=["paket_id", "beden_seti", "beden_sira", "adet"])
     ids, standart = politika.paket_indisleri(p)
     boy = p.groupby("paket_id", sort=False)["adet"].sum().reindex(ids).to_numpy(dtype=np.int64)
-    return ids, standart, boy
+    icerik = p.pivot_table(index=p["paket_id"].astype(str), columns="beden_sira", values="adet",
+                           aggfunc="sum", fill_value=0)
+    return ids, standart, boy, icerik
+
+
+def kiyas_optionlari(kosu, w) -> np.ndarray:
+    """Sevkleri bütünüyle koşunun penceresinde olan option indisleri (`motor.kirpma_tablosu`'nun
+    kıyas kuralı, aynen): ilk dağıtım kaydındaki ilk karar günü pencere başında ya da sonra ve
+    max(lansman, son karar günü) pencerenin ve koşunun son gününde ya da önce."""
+    kayit = kosu.kayitlar["ilk_dagitim"]
+    if not len(kayit):
+        return np.zeros(0, dtype=np.int64)
+    tarih = pd.DatetimeIndex(pd.to_datetime(w.takvim["tarih"]))
+    D = min(int(kosu.meta.get("gun_sayisi") or w.gun_sayisi), len(tarih))
+    bas, son = pd.Timestamp(v4_sabitler.BASLANGIC), min(pd.Timestamp(v4_sabitler.BITIS), tarih[D - 1])
+    karar = kayit.groupby("arg0")["gun"].agg(["min", "max"])
+    o = karar.index.to_numpy(dtype=np.int64)
+    lansman = pd.DatetimeIndex(pd.to_datetime(w.optionlar["lansman_tarihi"]))[o]
+    tam = (tarih[karar["min"].to_numpy()] >= bas) & (np.maximum(lansman, tarih[karar["max"].to_numpy()]) <= son)
+    return o[np.asarray(tam)]
 
 
 def paket_olcutleri(kosu, w) -> dict[str, float]:
     """Pakete duyarlı kayıt ölçütleri (modül notu), oyun option'larında."""
     oyun = oyun_optionlari(w)
-    oyun_ids = set(_option_idleri(w, oyun))
+    oyun_ids = set(simulasyon.option_idleri(w, oyun))
     O, M = len(w.optionlar), len(w.magazalar)
-    ids, standart, boy = _paket_boylari(kosu)
+    ids, standart, boy, icerik = _paket_boylari(kosu)
     seti = w.optionlar["beden_seti"].astype(str).to_numpy()
     secim = np.full((O, M), -1, dtype=np.int64)
     for o in oyun:
@@ -446,8 +238,9 @@ def paket_olcutleri(kosu, w) -> dict[str, float]:
         secim[son["arg0"].to_numpy(), son["indis"].to_numpy()] = son["deger"].to_numpy()
     adet = np.where(secim >= 0, boy[np.maximum(secim, 0)], 0)
 
+    kiyas = np.intersect1d(oyun, kiyas_optionlari(kosu, w))
     kayit = kosu.kayitlar["ilk_dagitim"]
-    k = kayit[np.isin(kayit["arg0"].to_numpy(), oyun) & (kayit["indis"].to_numpy() >= 0)]
+    k = kayit[np.isin(kayit["arg0"].to_numpy(), kiyas) & (kayit["indis"].to_numpy() >= 0)]
     istenen = np.maximum(k["deger"].to_numpy(dtype=np.int64), 0)
     istenen_adet = int((istenen * adet[k["arg0"].to_numpy(), k["indis"].to_numpy()]).sum())
 
@@ -457,8 +250,11 @@ def paket_olcutleri(kosu, w) -> dict[str, float]:
     m_idx = pd.Index(w.magazalar["magaza_id"].astype(str)).get_indexer(kirp["magaza_id"])
     kirpilan = int(((kirp["istenen_paket"] - kirp["giden_paket"]).to_numpy() * adet[o_idx, m_idx]).sum())
     t = ilk_dagitim_tablosu(kosu)
-    tip = t.loc[t["option_id"].isin(oyun_ids), "paket_id"].nunique()
+    giden = t.loc[t["option_id"].isin(oyun_ids), "paket_id"].astype(str).unique()
+    bes = icerik.loc[[i for i in giden if (icerik.loc[i] > 0).sum() > 1]]
+    tip = len({tuple(int(x) for x in r) for r in bes.to_numpy()})
     return {"kirpilan_adet": float(kirpilan), "kirpilan_hucre": float(len(kirp)),
+            "kirpilan_option": float(kirp["option_id"].nunique()),
             "istenen_adet": float(istenen_adet), "paket_tipi": float(tip)}
 
 
@@ -533,8 +329,9 @@ def _referans(yol: int) -> dict | None:
 
 
 def dogrula(yol: int = 0, olcek: str = "tam") -> int:
-    """Doğrulama kolunu koşar (ya da önbellekten okur), ölçütlerini İlk Sevkiyat'ın Lumoda'sınınkiyle
-    kıyaslar; birebir ise 0."""
+    """Doğrulama kolunu koşar (ya da önbellekten okur), giden paketini ve ölçütlerini İlk Sevkiyat'ın
+    Lumoda'sınınkiyle kıyaslar; ikisi de yapılıp birebir ise 0 (İlk Sevkiyat'ın önbelleği ya da kayıtlı
+    ölçütü yoksa 1)."""
     t0 = time.perf_counter()
     k = kos_dogrulama(yol, olcek)
     print(f"koşu {dogrulama_adi(yol)}: {'önbellekten' if k.onbellekten else 'koşuldu'}, "
@@ -544,11 +341,14 @@ def dogrula(yol: int = 0, olcek: str = "tam") -> int:
     print(f"ölçüm: {time.perf_counter() - t0:.0f} sn; bulunabilirlik {o['bulunabilirlik']:.4f}, "
           f"kirpilan_adet {o['kirpilan_adet']:.0f}", flush=True)
     al = allocation_lumoda(yol, olcek)
-    sonuc = 0
-    if al is not None:
+    if al is None:
+        print(f"İlk Sevkiyat'ın önbellekli Lumoda koşusu yok ({allocation_anahtari(yol, olcek)[:20]}): "
+              "giden paket kıyaslanamadı", flush=True)
+        sonuc = 1
+    else:
         ayni = lumoda_giden(k) == lumoda_giden(al)
         print(f"giden paket (option, mağaza) İlk Sevkiyat {al.dizin.name} ile {'aynı' if ayni else 'FARKLI'}")
-        sonuc |= not ayni
+        sonuc = int(not ayni)
     ref = _referans(yol) if str(olcek).lower() == "tam" else None
     if ref is None:
         print("İlk Sevkiyat'ın kayıtlı ölçütü yok (yalnız TAM): kıyas yapılmadı")

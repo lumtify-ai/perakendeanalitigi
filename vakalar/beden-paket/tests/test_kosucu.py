@@ -19,7 +19,7 @@ from allocation import olcutler as al_olcutler
 from allocation import oyun as al_oyun
 
 import beden_paket
-from beden_paket import kosucu, politika, sabitler
+from beden_paket import kosucu, politika, sabitler, simulasyon
 
 P1 = np.array([[1, 1, 2, 2, 1]])
 P12 = np.array([[1, 2, 4, 3, 2]])
@@ -90,21 +90,67 @@ def test_lumoda_giden_oyuncak():
         kosucu.lumoda_giden(_tablolar(bozuk))
 
 
-def test_vaka_kodu_kosuyu_etkileyenleri_kapsar():
-    """Anahtarın vaka kodu (`VAKA_KOSU_MODULLERI`) `kosucu`'nun paket içi bütün içe aktarmalarını
-    kapsar (koşuyu etkileyen vaka kodu anahtarda)."""
-    paket = Path(beden_paket.__file__).resolve().parent
-    agac = ast.parse((paket / "kosucu.py").read_text(encoding="utf-8"))
+def _paket_ici_ice_aktarmalar(yol: Path) -> set[str]:
+    agac = ast.parse(yol.read_text(encoding="utf-8"))
     adlar = set()
     for d in ast.walk(agac):
         if isinstance(d, ast.ImportFrom) and (d.module or "").startswith("beden_paket"):
             adlar |= {a.name for a in d.names} if d.module == "beden_paket" else {d.module.split(".")[1]}
         elif isinstance(d, ast.Import):
             adlar |= {a.name.split(".")[1] for a in d.names if a.name.startswith("beden_paket.")}
-    assert adlar <= set(kosucu.VAKA_KOSU_MODULLERI)
-    assert {"kosucu", "politika", "sabitler"} <= set(kosucu.VAKA_KOSU_MODULLERI)
-    dosyalar = kosucu.vaka_kod_dosyalari()
-    assert {f"beden_paket/{m}.py" for m in ("kosucu", "politika", "sabitler")} <= set(dosyalar)
+    return adlar
+
+
+def test_vaka_kodu_kosuyu_etkileyenleri_kapsar():
+    """Anahtarın vaka kodu (`SIMULASYON_MODULLERI`) `simulasyon`'un paket içi içe aktarma kapanışını
+    kapsar (simülasyonu etkileyen vaka kodu anahtarda); ölçüm ve ızgara (kosucu, oyun) dışarıda."""
+    paket = Path(beden_paket.__file__).resolve().parent
+    kapanis, sira = set(), ["simulasyon"]
+    while sira:
+        m = sira.pop()
+        if m in kapanis:
+            continue
+        kapanis.add(m)
+        sira += sorted(_paket_ici_ice_aktarmalar(paket / f"{m}.py"))
+    assert kapanis | {"__init__"} == set(simulasyon.SIMULASYON_MODULLERI)
+    assert not {"kosucu", "oyun", "egri", "paket_tasarim", "hakem"} & set(simulasyon.SIMULASYON_MODULLERI)
+    assert set(simulasyon.vaka_kod_dosyalari()) == {f"beden_paket/{m}.py" for m in simulasyon.SIMULASYON_MODULLERI}
+
+
+def test_her_modul_simulasyon_siniflandirilmis():
+    """Paketin her modülü `SIMULASYON_MODULLERI` ya da `SIMULASYON_DISI`'ndadır, ikisinde birden değil
+    (İlk Sevkiyat `KOSU_MODULLERI` / `KOSU_DISI` kalıbı)."""
+    paket = Path(beden_paket.__file__).resolve().parent
+    var = {y.stem for y in paket.glob("*.py")}
+    ic, dis = set(simulasyon.SIMULASYON_MODULLERI), set(simulasyon.SIMULASYON_DISI)
+    assert not ic & dis
+    assert var <= ic | dis, sorted(var - ic - dis)
+
+
+def test_olcum_degisikligi_simulasyonu_bozmaz(tmp_path, monkeypatch):
+    """Ölçüm ve ızgara kodu (kosucu, oyun, eğri, tasarım) değişince simülasyonun vaka kodu özeti ve
+    koşu anahtarı aynı kalır (yalnız ölçüm yeniden yapılır, Ruling R14); politika değişince değişir."""
+    paket = Path(beden_paket.__file__).resolve().parent
+    kopya = tmp_path / "beden_paket"
+    kopya.mkdir()
+    for y in paket.glob("*.py"):
+        (kopya / y.name).write_bytes(y.read_bytes())
+    once = simulasyon.vaka_kod_ozeti(kopya)
+    assert once == simulasyon.vaka_kod_ozeti()
+    w = motor.dunya("kucuk")
+    m = w.magazalar["magaza_id"].astype(str).tolist()[:3]
+    h0 = simulasyon.hazirla("p1", P1, {a: 0 for a in m}, None, olcek="kucuk")
+    for ad in ("kosucu", "oyun", "egri", "paket_tasarim", "hakem"):
+        y = kopya / f"{ad}.py"
+        if y.exists():
+            y.write_text(y.read_text(encoding="utf-8") + "\n# ölçüm değişikliği\n", encoding="utf-8")
+    assert simulasyon.vaka_kod_ozeti(kopya) == once
+    monkeypatch.setattr(simulasyon, "PAKET_KOKU", kopya)
+    assert simulasyon.hazirla("p1", P1, {a: 0 for a in m}, None, olcek="kucuk").anahtar == h0.anahtar
+    y = kopya / "politika.py"
+    y.write_text(y.read_text(encoding="utf-8") + "\n# politika değişikliği\n", encoding="utf-8")
+    assert simulasyon.vaka_kod_ozeti(kopya) != once
+    assert simulasyon.hazirla("p1", P1, {a: 0 for a in m}, None, olcek="kucuk").anahtar != h0.anahtar
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +179,7 @@ def test_anahtar_degisir(w_kucuk, fiziksel):
     ayni = kosucu.hazirla("p1", P1.tolist(), pd.Series(dict(reversed(atama.items()))), dict(ns),
                           olcek="KUCUK")
     assert h.anahtar == ayni.anahtar
-    assert h.icerik["vaka"] == kosucu.vaka_kod_ozeti()
+    assert h.icerik["vaka"] == simulasyon.vaka_kod_ozeti()
     assert h.icerik["kod"] == motor.kod_ozeti()
     assert h.icerik["olcek"] == "kucuk" and h.icerik["talep_tohumu"] is None
     iki = np.vstack([P1, [[1, 2, 2, 1, 1]]])
@@ -208,6 +254,8 @@ def test_dogrulama_kucuk(lumoda_kucuk, dogrulama, w_kucuk):
     bulunan = kosucu.olc(dogrulama)
     assert {a: bulunan[a] for a in beklenen} == beklenen
     assert beklenen["kirpilan_adet"] > 0                  # Lumoda'nın paketini motor kırpıyor
+    assert bulunan["paket_tipi"] == 1                     # 1-2-2-1-1, her beş bedenli sete
+    assert bulunan["istenen_adet"] - bulunan["ilk_dagitim_adet"] == bulunan["kirpilan_adet"]
     pd.testing.assert_frame_equal(dogrulama.gercek, lumoda_kucuk.gercek)
     for ad, df in lumoda_kucuk.tablolar.items():
         d = dogrulama.tablolar[ad]
@@ -247,7 +295,8 @@ def test_ayni_mal_kucuk(lumoda_kucuk, w_kucuk, fiziksel, onbellek):
     assert kol == lum and sum(kol.values()) > 0
     assert kosucu.korunum(k, lum) == {"hucre": len(lum), "fark_hucre": 0, "fark_adet": 0, "net_fark_adet": 0}
     o = kosucu.olc(k)
-    assert o["kirpilan_adet"] == 0 and o["kirpilan_hucre"] == 0 and o["paket_tipi"] >= 2
+    assert o["kirpilan_adet"] == 0 and o["kirpilan_hucre"] == 0 and o["kirpilan_option"] == 0
+    assert o["paket_tipi"] == 1                           # tek desen (1-1-2-2-1), set başına ayrı kimlik
     t = kosucu.ilk_dagitim_tablosu(k)
     t = t[t["option_id"].isin(oyun)]
     seti = w_kucuk.optionlar.set_index(w_kucuk.optionlar["option_id"].astype(str))["beden_seti"].astype(str)
@@ -282,6 +331,24 @@ def test_kirpma_pakete_duyarli_kucuk(lumoda_kucuk, w_kucuk, fiziksel, onbellek):
     standart_varsayan = al_olcutler.hesapla(k, w_kucuk, al_kaynak.harita_kur(w_kucuk))["kirpilan_adet"]
     assert standart_varsayan != beklenen                      # İlk Sevkiyat'ın 7'yi varsayan sayısı
     assert o["istenen_adet"] - o["ilk_dagitim_adet"] == beklenen
+
+
+def test_dogrula_onbellek_yoksa_basarisiz(dogrulama, monkeypatch, capsys):
+    """`dogrula` İlk Sevkiyat'ın önbellekli Lumoda koşusu yoksa kıyası yapılmış saymaz (çıkış 1), ölçütler
+    birebir olsa bile; önbellek varsa ve aynıysa 0."""
+    o = {"bulunabilirlik": 0.5, "kirpilan_adet": 3.0}
+    monkeypatch.setattr(kosucu, "kos_dogrulama", lambda yol, olcek: dogrulama)
+    monkeypatch.setattr(kosucu, "olc", lambda k: dict(o))
+    monkeypatch.setattr(kosucu, "_referans", lambda yol: dict(o))
+    monkeypatch.setattr(kosucu, "allocation_lumoda", lambda yol, olcek: None)
+    assert kosucu.dogrula(0, "tam") == 1
+    assert "giden paket kıyaslanamadı" in capsys.readouterr().out
+    class Kayit:                                          # İlk Sevkiyat önbelleği yerine (dizin adı)
+        dizin = Path("lumoda_x")
+        tablo = staticmethod(dogrulama.tablo)
+
+    monkeypatch.setattr(kosucu, "allocation_lumoda", lambda yol, olcek: Kayit())
+    assert kosucu.dogrula(0, "tam") == 0
 
 
 # ---------------------------------------------------------------------------
@@ -345,4 +412,4 @@ def test_olc_ilk_sevkiyat_lumoda():
     o = kosucu.olc(k)
     assert {a: o[a] for a in ref} == ref
     assert o["istenen_adet"] - o["ilk_dagitim_adet"] == o["kirpilan_adet"] > 0
-    assert o["paket_tipi"] == 7
+    assert o["paket_tipi"] == 1                           # 1-2-2-1-1 (aksesuar desen sayılmaz)
