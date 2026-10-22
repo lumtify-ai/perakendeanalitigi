@@ -256,6 +256,92 @@ def test_girdi_denetimi():
         pt.tasarla(E, w, 0)
     with pytest.raises(ValueError):
         pt.tasarla(E, w, 2, depo_payi=np.ones(4))
+    with pytest.raises(ValueError):                                  # yinelenen magaza_id
+        pt.tasarla(pd.concat([E, E.iloc[:1]]), w, 2)
+
+
+def _inceleme_girdisi():
+    """İnceleyicinin yeniden üretimi: rng(11)'in ikinci çekilişi, 6 mağaza."""
+    rng = np.random.default_rng(11)
+    for _ in range(2):
+        E = rng.dirichlet(np.full(5, 4.0), size=6)
+        w = rng.integers(1, 6, size=6).astype(float)
+    egri = pd.DataFrame(E, index=pd.Index([f"M{i}" for i in range(6)], name="magaza_id"), columns=S)
+    return egri, pd.Series(w, index=egri.index)
+
+
+def test_uygunsuz_depo_cozucu_hatasi_cokmez(capfd):
+    """Sağlanamayan depo (çekirdek bedenlerde Σw'nin altında): eskiden HiGHS 'Solve error' ile
+    düşüyordu. En küçük aşım (2. ve 3. bedende 16 − 11,2 = 4,8 adet) ve o aşımla en küçük uyumsuzluk
+    (bağımsız kaba kuvvet 35,92847), kanıtlı; HiGHS stdout'a bir şey basmaz."""
+    E, w = _inceleme_girdisi()
+    assert w.tolist() == [2.0, 4.0, 1.0, 2.0, 3.0, 4.0]
+    t = pt.tasarla(E, w, 3, depo_payi=np.array([0.05, 0.1, 0.1, 1, 1]))
+    assert t.depo_uygun is False and t.en_iyi_mi
+    np.testing.assert_allclose(t.depo_asimi, [0, 4.8, 4.8, 0, 0], atol=1e-6)
+    assert t.toplam_uyumsuzluk == pytest.approx(35.92847175917345, abs=1e-7)
+    assert (t.desenler[:, 1:3] == 1).all() and len(t.desenler) <= 3
+    assert capfd.readouterr().out == ""
+
+
+def test_cozucu_hatasinda_kanitsiz(monkeypatch):
+    """Çözücü hiç çözemezse tasarım düşmez; en iyilik iddia edilmez."""
+    from types import SimpleNamespace
+
+    E = _egri({m: PAY[PROFIL[m]] for m in ("S01", "S04", "S06", "S07", "S05")})
+    w = _agirlik(E, [3.0, 1.0, 2.0, 2.0, 1.0])
+    serbest = pt.tasarla(E, w, 2)
+    depo = np.array([1.0, 1.0, 1.0, 1.0, _yuk(serbest, w)[4] / (7 * w.sum()) - 0.05])
+    cagri = []
+
+    def bozuk(*a, **k):
+        cagri.append(k["options"]["presolve"])
+        return SimpleNamespace(status=4, x=None, fun=None, message="Solve error")
+
+    monkeypatch.setattr(pt, "milp", bozuk)
+    for K in (2, "magaza"):
+        t = pt.tasarla(E, w, K, depo_payi=depo)
+        assert not t.en_iyi_mi and t.yontem == "mip" and len(t.atama) == len(E)
+    assert True in cagri and False in cagri                          # ön işlemesiz yeniden denendi
+
+
+def test_kisitli_belirlenimci():
+    E = _egri({m: PAY[PROFIL[m]] for m in ("S01", "S04", "S06", "S07", "S05")})
+    w = _agirlik(E, [3.0, 1.0, 2.0, 2.0, 1.0])
+    depo = np.array([1.0, 1.0, 1.0, 1.0, _yuk(pt.tasarla(E, w, 2), w)[4] / (7 * w.sum()) - 0.05])
+    for K in (2, 3, "magaza"):
+        a = pt.tasarla(E, w, K, depo_payi=depo)
+        b = pt.tasarla(E.iloc[::-1], w.iloc[::-1], K, depo_payi=depo)
+        assert a.yontem == "mip"
+        np.testing.assert_array_equal(a.desenler, b.desenler)
+        pd.testing.assert_series_equal(a.atama, b.atama.loc[a.atama.index])
+        np.testing.assert_array_equal(a.desenler, pt.tasarla(E, w, K, depo_payi=depo).desenler)
+
+
+def test_sifir_agirlik_desen_sayilmaz():
+    """Desen sayımı ağırlıklı mağazalardan: büyük profil sıfır ağırlıklıysa K = 3'te iki desen kalır
+    (eskiden optimal kümenin kullanılmayan deseni sıfır ağırlıklı mağazaya gidiyordu)."""
+    E = _oyuncak()
+    w = _agirlik(E)
+    w[["S06", "S07"]] = 0.0
+    for depo in (None, np.full(5, 1.0)):
+        t = pt.tasarla(E, w, 3, depo_payi=depo)
+        assert len(t.desenler) == 2
+        assert set(t.atama[w > 0]) == {0, 1}
+
+
+def test_buyuk_paket_kisitli_desen_aranir():
+    """12'li pakette K = 3 dönüşümlü yol: depo bağlarsa desenler kısıt altında aranır; sonuç kısıtı
+    sağlar ve K = 2'nin kısıtlı en iyisinden kötü değildir (tekdüze)."""
+    E, w = _oyuncak(), _agirlik(_oyuncak())
+    serbest = pt.tasarla(E, w, 3, adet=12)
+    yuk = _yuk(serbest, w) / (12 * w.sum())
+    depo = np.array([1.0, 1.0, 1.0, yuk[3] - 0.02, yuk[4] - 0.03])
+    t = {K: pt.tasarla(E, w, K, depo_payi=depo, adet=12) for K in (1, 2, 3)}
+    assert all(t[K].depo_uygun and t[K].yontem == "mip" for K in t)
+    assert all((_yuk(t[K], w) <= depo * 12 * w.sum() + 1e-6).all() for K in t)
+    assert t[1].toplam_uyumsuzluk >= t[2].toplam_uyumsuzluk - 1e-9 >= t[3].toplam_uyumsuzluk - 2e-9
+    assert t[3].toplam_uyumsuzluk > serbest.toplam_uyumsuzluk
 
 
 # ---------------------------------------------------------------------------
@@ -287,6 +373,21 @@ def test_tasarim_ss25():
         assert t.atama.index.equals(e.magaza.index)
         assert K == "magaza" or len(t.desenler) <= K
         onceki = t.toplam_uyumsuzluk
+    # gerçekçi depo (R11): SS25 Collection ilk siparişinin beden payı / ilk dağıtım oranı ~0,70
+    alim = con.execute("""
+        select u.beden_sira, sum(s.adet) from siparis s join urun u using (urun_id)
+        where u.sezon_kodu = 'SS25' and u.line = 'Collection' and s.tip = 'ilk'
+          and s.siparis_tarihi < ? and u.beden_sira between 1 and 5 and u.beden_seti <> 'Standart'
+        group by 1 order by 1""", [sabitler.KARAR_GUNU]).fetchnumpy()
+    pay = alim["sum(s.adet)"].astype(float) / alim["sum(s.adet)"].sum()
+    depo = pay / 0.70
+    print(f"alım payı {np.round(pay, 4).tolist()}; depo_payi (/0,70) {np.round(depo, 4).tolist()}")
+    for adet, Kler in ((7, (1, 2)), (12, (1, 2, 3, "magaza"))):
+        for K in Kler:
+            t = pt.tasarla(e.magaza, w, K, depo_payi=depo, adet=adet)
+            print(f"{adet}'li K={K} depo: {[pt.desen_adi(d) for d in t.desenler]} uyumsuzluk "
+                  f"{t.toplam_uyumsuzluk:.3f} yontem={t.yontem} uygun={t.depo_uygun} en_iyi_mi={t.en_iyi_mi}")
+            assert t.depo_uygun and t.en_iyi_mi
     # tanı (yalnız ölçüm): gerçek beden payıyla tasarlansaydı
     from beden_paket import hakem
 

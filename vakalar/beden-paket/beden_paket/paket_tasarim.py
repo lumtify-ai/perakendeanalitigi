@@ -48,27 +48,47 @@ depodaki adedi aşmaz:
 yani `depo_payi_b` = depodaki b adedi / ilk dağıtımda giden toplam adet (a × Σ w); toplamı 1'den
 büyük olabilir (depoda kalan mal). Hedef sözlükseldir: önce toplam aşım (adet) en aza, sonra o
 aşımla uyumsuzluk en aza. Arama önce kısıtsız en iyiyi bulur; o kısıtı sağlıyorsa en iyidir (kısıt
-yalnız maliyeti artırabilir). Sağlamıyorsa (`yontem = "mip"`):
-1. Mağazaya özel kısıtlı tasarım karışık tamsayılı modelle çözülür (`_kisitli_ata`: HiGHS,
-   `mip_rel_gap = 0`; mağaza → aday ataması ve beden başına aşım). Bu her K için alt sınırdır;
-   K = "magaza"da ya da en çok K desen kullanıyorsa sonuçtur.
-2. Değilse K'lı kümelerde dal-sınır (`_kisitli_kume`): her kümenin aşım alt sınırı (her mağaza
-   kümenin o bedende en az adetli desenini alsa) ve uyumsuzluk alt sınırı (kısıtsız toplam) ucuzdur;
-   kümeler bu sınırlara göre sıralanıp sırayla kısıtlı atamayla çözülür, sınır en iyi değeri geçince
-   durulur. Eşit değerlerde bu işlenme sırasında (sınırlar, sonra sözlük sırası) ilk küme kalır;
-   küme içi atamanın eşitliklerini çözücü (belirlenimci) bozar. `_MIP_EN_COK` model aşılırsa en iyi
-   bulunan döner, `en_iyi_mi = False`. Dönüşümlü arama yolunda yalnız bulunan desenlerle kısıtlı
-   atama yapılır (`en_iyi_mi = False`).
+yalnız maliyeti artırabilir). Sağlamıyorsa (`yontem = "mip"`, `_kisitli`):
+0. K = 1: her aday doğrudan değerlenir (tek atama), tam.
+1. Bir bedende en az adetli desen bile depoyu aşıyorsa (Σw × min_p p_b > depo_b) o bedende fazladan
+   her adet aşımı bir artırır, öteki bedenlerdeki aşımı en çok bir azaltır: en küçük aşım yalnız bu
+   bedenlerde en az adetli desenlerle kurulur. Aday kümesi bunlara indirilir, o bedenlerin kısıtı
+   kalkar, kalan problem aynı yolla çözülür (sağlanamayan depoda dal-sınırın budamamasının çaresi).
+   Kalan problemde aşım kalırsa eşitlik ihtimali yüzünden `en_iyi_mi = False`.
+2. Mağazaya özel kısıtlı tasarım karışık tamsayılı modelle çözülür (`_kisitli_ata`: HiGHS,
+   `mip_rel_gap = 0`; mağaza → aday ataması ve beden başına aşım; bağlayabilen bedenlerde baskılanan
+   (mağaza, desen) çiftleri modele girmez; ilk aşamanın LP gevşetmesi aşımı sıfır verirse doğrudan
+   "aşım yok" altında çözülür). Bu her K için alt sınırdır; K = "magaza"da ya da en çok K desen
+   kullanıyorsa sonuçtur.
+3. Değilse K'lı kümelerde dal-sınır (`_kisitli_kume`): her kümenin aşım alt sınırı (her mağaza
+   kümenin o bedende en az adetli desenini alsa; 2'nin aşımından küçükse o) ve uyumsuzluk alt sınırı
+   (kısıtsız toplam) ucuzdur. Kümeler bu sınırlara göre sıralanır; önce alt sınır aşımına
+   inebilecekler tek aşamalı modelle (aşım ≤ alt sınır; inemeyen kanıtla atlanır), hiçbiri inemezse
+   bütün kümeler iki aşamalı modelle çözülür; sınır en iyi değeri geçince ya da en iyi değer 2'nin
+   alt sınırına eşitlenince durulur. Eşit değerlerde bu işlenme sırasında (sınırlar, sonra sözlük
+   sırası) ilk küme kalır; küme içi atamanın eşitliklerini çözücü (belirlenimci) bozar.
+   `_MIP_EN_COK` model aşılırsa en iyi bulunan döner, `en_iyi_mi = False` (süre sınırı yok:
+   tekrarlanabilirliği bozardı).
+4. Küme sayısı tam arama sınırını aşarsa (12'li pakette K ≥ 3) kısıtlı dönüşümlü arama
+   (`_kisitli_donusumlu`): kümede kısıtlı atama ↔ her grubun, öteki gruplar sabitken (aşım,
+   uyumsuzluk) en küçük deseni. Başlangıçlar: kısıtsız dönüşümlü aramanın desenleri, mağazaya özel
+   kısıtlı tasarımın en ağır K deseni ve K − 1'in kısıtlı tasarımına bir desen eklenmişi (sonuç
+   K − 1'inkinden kötü olmaz). `en_iyi_mi` yalnız 2'nin alt sınırına erişilirse doğrudur.
+Çözücü bir modeli çözemezse (HiGHS "Solve error") ön işlemesiz yeniden denenir; yine çözülemezse o
+küme kanıtsız atlanır, `en_iyi_mi = False`; tasarım düşmez. HiGHS'in stdout'a bastıkları susturulur.
 Aşım sıfır değilse hiçbir tasarım kısıtı sağlamaz: en küçük toplam aşımlı tasarımlar arasında en
 küçük uyumsuzluklu olan döner, `depo_uygun = False`, `depo_asimi` beden başına aşan adet.
 `en_iyi_mi` tam aramada ve çözücünün kanıtlı optimumunda doğrudur; dönüşümlü arama mağazaya özel
-alt sınıra (Σ_m min_p U) erişirse de doğrudur.
+alt sınıra erişirse de doğrudur. Desenler yalnız ağırlıklı mağazaların kullandıklarından sayılır.
 
 **Belirlenimcilik.** Rastgelelik yalnız dönüşümlü aramada ve tohumludur; aynı girdi aynı çıktıyı
 verir; mağaza satırlarının sırası sonucu değiştirmez (mağazalar içeride `magaza_id` sırasıyla
 işlenir).
 """
 
+import os
+import sys
+from contextlib import contextmanager
 from dataclasses import dataclass
 from itertools import chain, combinations, islice
 from math import comb
@@ -88,7 +108,7 @@ _DONUSUM_EN_COK = 100
 _ESITLIK = 1e-9                 # göreli eşitlik toleransı (sözlük sırası bozar)
 _DEPO_TOL = 1e-6                # adet; depo kısıtı ve aşım toleransı
 _PARCA = 16_384                 # tam aramada bir seferde değerlendirilen küme sayısı
-_MIP_EN_COK = 20_000            # kısıtlı dal-sınırda en çok küme modeli (aşılırsa en_iyi_mi = False)
+_MIP_EN_COK = 3_000             # kısıtlı dal-sınırda en çok küme modeli (aşılırsa en_iyi_mi = False)
 
 
 @dataclass(frozen=True)
@@ -208,32 +228,109 @@ def _asim(w: np.ndarray, A: np.ndarray, secim: np.ndarray, cap: np.ndarray) -> n
     return a
 
 
-def _kisitli_ata(C: np.ndarray, w: np.ndarray, A: np.ndarray, cap: np.ndarray):
-    """Verilen desenlerle (A'nın satırları) depo kısıtlı atama, karışık tamsayılı model (HiGHS,
-    `mip_rel_gap = 0`): önce en küçük toplam aşım (adet), sonra o aşımla en küçük uyumsuzluk.
-    Döner: (mağaza başına A satır indisi, toplam aşım, uyumsuzluk, kanıtlı optimal mi)."""
-    M, n = C.shape
+@contextmanager
+def _sessiz():
+    """HiGHS'in C düzeyinde stdout'a (dosya tanıtıcısı 1) bastığı satırları susturur."""
+    try:
+        sys.stdout.flush()
+        eski = os.dup(1)
+    except (OSError, ValueError, AttributeError):
+        eski = None
+    if eski is None:
+        yield
+        return
+    bos = os.open(os.devnull, os.O_WRONLY)
+    try:
+        os.dup2(bos, 1)
+        yield
+    finally:
+        os.dup2(eski, 1)
+        os.close(bos)
+        os.close(eski)
+
+
+def _coz(amac, tamsayi, sinir, kisit):
+    """`milp` (HiGHS, `mip_rel_gap = 0`); çözücü hatasında ön işlemesiz yeniden. Döner (sonuç | None,
+    durum): "optimal", "uygunsuz" (kanıtlı), "kanitsiz" (çözüm var, optimallik kanıtı yok), "hata"."""
+    yedek = None
+    for on_isleme in (True, False):
+        with _sessiz():
+            r = milp(amac, integrality=tamsayi, bounds=sinir, constraints=kisit,
+                     options={"mip_rel_gap": 0.0, "presolve": on_isleme})
+        if r.status == 0 and r.x is not None:
+            return r, "optimal"
+        if r.status == 2:
+            return None, "uygunsuz"
+        if r.x is not None and yedek is None:
+            yedek = r
+    return (yedek, "kanitsiz") if yedek is not None else (None, "hata")
+
+
+def _baskilanmayan(C: np.ndarray, w: np.ndarray, A: np.ndarray, cap: np.ndarray) -> list[np.ndarray]:
+    """Mağaza başına baskılanmayan adaylar. q, p'yi baskılar ⇔ q'nun uyumsuzluğu ≤ ve bağlayabilecek
+    her bedende (Σw × en çok adet > depo) adedi ≤ (hepsinde eşitse küçük indis). Baskılanan deseni
+    alan mağaza baskılayana geçince ne aşım ne uyumsuzluk artar: model yalnız baskılanmayan
+    (mağaza, desen) çiftleriyle kurulur ve yine tamdır."""
+    n = C.shape[1]
+    bag = w.sum() * A.max(axis=0) > cap + _DEPO_TOL
+    Ab = A[:, bag]
+    az = (Ab[:, None, :] <= Ab[None, :, :]).all(axis=2)          # [q, p]: q her bağlayan bedende ≤ p
+    ayni = (Ab[:, None, :] == Ab[None, :, :]).all(axis=2)
+    once = np.arange(n)[:, None] < np.arange(n)[None, :]
+    sonuc = []
+    for c in C:
+        ucuz, esit = c[:, None] <= c[None, :], c[:, None] == c[None, :]
+        bask = (az & ucuz & ~(ayni & esit)) | (ayni & esit & once)
+        sonuc.append(np.flatnonzero(~bask.any(axis=0)))
+    return sonuc
+
+
+def _kisitli_ata(C: np.ndarray, w: np.ndarray, A: np.ndarray, cap: np.ndarray, asim_ust: float | None = None):
+    """Verilen desenlerle (A'nın satırları) depo kısıtlı atama, karışık tamsayılı model: önce en
+    küçük toplam aşım (adet), sonra o aşımla en küçük uyumsuzluk. `asim_ust` verilirse ilk aşama
+    atlanır, aşım ≤ `asim_ust` altında uyumsuzluk en aza indirilir. Döner (mağaza başına A satır
+    indisi | None, toplam aşım, uyumsuzluk, durum) — durum `_coz`'unki."""
+    M = C.shape[0]
     B = A.shape[1]
-    nx, nv = M * n, M * n + B                        # x (m, p) | s (b)
-    tek = sparse.hstack([sparse.kron(sparse.eye_array(M), np.ones((1, n))),
-                         sparse.csr_array((M, B))])  # her mağaza tek desen
-    yuk = np.hstack([np.einsum("m,pb->bmp", w, A).reshape(B, nx), -np.eye(B)])   # Σ w A x − s ≤ cap
+    ciftler = _baskilanmayan(C, w, A, cap)
+    mi = np.concatenate([np.full(len(c), m) for m, c in enumerate(ciftler)])
+    pi = np.concatenate(ciftler)
+    nx, nv = len(mi), len(mi) + B                    # x (mağaza, desen çifti) | s (b)
+    tek = sparse.csr_array((np.ones(nx), (mi, np.arange(nx))), shape=(M, nv))      # her mağaza tek desen
+    yuk = np.hstack([w[mi][None, :] * A[pi].T, -np.eye(B)])                        # Σ w A x − s ≤ cap
     kisit = [LinearConstraint(tek, 1.0, 1.0), LinearConstraint(yuk, -np.inf, cap)]
     tamsayi = np.r_[np.ones(nx), np.zeros(B)]
     sinir = Bounds(np.zeros(nv), np.r_[np.ones(nx), np.full(B, np.inf)])
-    secenek = {"mip_rel_gap": 0.0, "presolve": True}
     amac1 = np.r_[np.zeros(nx), np.ones(B)]
-    r1 = milp(amac1, integrality=tamsayi, bounds=sinir, constraints=kisit, options=secenek)
-    if r1.x is None:
-        raise RuntimeError(f"depo modeli çözülemedi: {r1.message}")
-    kisit.append(LinearConstraint(amac1[None, :], -np.inf, float(r1.fun) + _DEPO_TOL))
-    r2 = milp(np.r_[C.ravel(), np.zeros(B)], integrality=tamsayi, bounds=sinir, constraints=kisit,
-              options=secenek)
-    if r2.x is None:
-        raise RuntimeError(f"depo modeli çözülemedi: {r2.message}")
-    secim = np.argmax(r2.x[:nx].reshape(M, n), axis=1)
-    return (secim, float(_asim(w, A, secim, cap).sum()), float(C[np.arange(M), secim].sum()),
-            bool(r1.status == 0 and r2.status == 0))
+    amac2 = np.r_[C[mi, pi], np.zeros(B)]
+
+    def sonuc(r, durum):
+        x = r.x[:nx]
+        o = np.lexsort((-x, mi))
+        ilk = np.r_[True, mi[o][1:] != mi[o][:-1]]
+        secim = np.empty(M, dtype=np.int64)
+        secim[mi[o][ilk]] = pi[o][ilk]
+        return secim, float(_asim(w, A, secim, cap).sum()), float(C[np.arange(M), secim].sum()), durum
+
+    kesin = True
+    if asim_ust is None:
+        # ilk aşamanın LP gevşetmesi aşımı sıfır veriyorsa doğrudan "aşım yok" altında çöz (sık
+        # durum; ilk aşamanın tamsayı modeli pahalı olabilir); olmazsa tamsayı ilk aşama
+        r0, _ = _coz(amac1, np.zeros(nv), sinir, kisit)
+        if r0 is not None and float(r0.fun) <= _DEPO_TOL:
+            ek = LinearConstraint(amac1[None, :], -np.inf, _DEPO_TOL)
+            r2, d2 = _coz(amac2, tamsayi, sinir, kisit + [ek])
+            if r2 is not None:
+                return sonuc(r2, "optimal" if d2 == "optimal" else "kanitsiz")
+        r1, d1 = _coz(amac1, tamsayi, sinir, kisit)
+        if r1 is None:                               # aşım değişkenleriyle model her zaman uygundur
+            return None, np.inf, np.inf, "hata"
+        asim_ust, kesin = float(r1.fun) + _DEPO_TOL, d1 == "optimal"
+    kisit.append(LinearConstraint(amac1[None, :], -np.inf, asim_ust))
+    r2, d2 = _coz(amac2, tamsayi, sinir, kisit)
+    if r2 is None:
+        return None, np.inf, np.inf, d2
+    return sonuc(r2, "optimal" if kesin and d2 == "optimal" else "kanitsiz")
 
 
 def _onde(a: tuple, b: tuple) -> bool:
@@ -243,52 +340,172 @@ def _onde(a: tuple, b: tuple) -> bool:
     return abs(a[0] - b[0]) <= _DEPO_TOL and a[1] < b[1] - _ESITLIK * max(1.0, abs(b[1]))
 
 
-def _kisitli_kume(C: np.ndarray, w: np.ndarray, A: np.ndarray, cap: np.ndarray, K: int,
-                  alt_sinir: tuple):
-    """K'lı kümeler üzerinde depo kısıtlı tam arama (dal-sınır). Her kümenin iki alt sınırı ucuz:
-    aşım ≥ Σ_b max(0, Σw × min_{p∈S} A_pb − cap_b), uyumsuzluk ≥ kısıtsız toplam. Kümeler bu
-    sınırlara (sonra sözlük sırasına) göre sıralanır; kısıtsız ataması uygun olan kümenin değeri
-    kısıtsız toplamıdır, öteki kümelerde `_kisitli_ata` çözülür. Sınır en iyi değeri geçince ya da en
-    iyi değer `alt_sinir`'a (mağazaya özel kısıtlı tasarım: her K için alt sınır) eşitlenince durur.
-    Eşit değerlerde bu işlenme sırasında ilk küme. Döner: (mağaza başına aday indisi, en iyi mi)."""
+def _deger(C, w, A, secim, cap) -> tuple:
+    return float(_asim(w, A, secim, cap).sum()), float(C[np.arange(len(w)), secim].sum())
+
+
+def _ozel(C: np.ndarray, w: np.ndarray, A: np.ndarray, cap: np.ndarray):
+    """Mağazaya özel kısıtlı tasarım ve her K için geçerli alt sınır (aşım, uyumsuzluk). Model
+    kanıtlı çözülemezse alt sınır ucuz sınırdır: aşım ≥ Σ_b max(0, Σw × min_p A_pb − cap_b),
+    uyumsuzluk ≥ Σ_m min_p U. Döner (atama | None, alt sınır, kanıtlı mı)."""
+    secim, a, m, durum = _kisitli_ata(C, w, A, cap)
+    if durum == "optimal":
+        return secim, (a, m), True
+    ucuz = (float(np.maximum(0.0, w.sum() * A.min(axis=0) - cap).sum()), float(C.min(axis=1).sum()))
+    return secim, ucuz, False
+
+
+def _kisitli_kume(C: np.ndarray, w: np.ndarray, A: np.ndarray, cap: np.ndarray, K: int, alt_sinir: tuple):
+    """K'lı kümeler üzerinde depo kısıtlı tam arama (dal-sınır; modül notu). Döner (mağaza başına
+    aday indisi, en iyi mi)."""
     W = w.sum()
+    s_alt = alt_sinir[0]                            # K'dan bağımsız aşım alt sınırı
     anahtar, kumeler = [], []
     for blok, toplam in _kumeler(C, K):
-        sl = np.maximum(0.0, W * A[blok].min(axis=1) - cap).sum(axis=1)
+        sl = np.maximum(np.maximum(0.0, W * A[blok].min(axis=1) - cap).sum(axis=1), s_alt)
         anahtar.append(np.c_[np.round(sl, 9), np.round(toplam, 9)])
         kumeler.append(blok)
     anahtar, kumeler = np.vstack(anahtar), np.vstack(kumeler)
     sira = np.lexsort((np.arange(len(kumeler)), anahtar[:, 1], anahtar[:, 0]))
-    en_iyi, secim, kanit, cozulen = (np.inf, np.inf), None, True, 0
-    for i in sira:
-        sl, alt_t = anahtar[i]
-        if sl > en_iyi[0] + _DEPO_TOL or (sl >= en_iyi[0] - _DEPO_TOL
-                                         and alt_t > en_iyi[1] + _ESITLIK * max(1.0, abs(en_iyi[1]))):
-            break
-        if secim is not None and not _onde(alt_sinir, en_iyi):
-            break                                   # alt sınıra erişildi: daha iyisi yok
-        S = kumeler[i]
-        yerel = np.argmin(C[:, S], axis=1)
-        if not _asim(w, A, S[yerel], cap).any():
-            deger, kesin = (0.0, float(C[np.arange(len(w)), S[yerel]].sum())), True
-        else:
-            if cozulen >= _MIP_EN_COK:
-                kanit = False
+    d = {"en_iyi": (np.inf, np.inf), "secim": None, "kanit": True, "model": 0}
+
+    def gecis(sira_, hedef):
+        for i in sira_:
+            sl, alt_t = anahtar[i]
+            e = d["en_iyi"]
+            esik = e[1] + _ESITLIK * max(1.0, abs(e[1]))
+            if sl > e[0] + _DEPO_TOL or (sl >= e[0] - _DEPO_TOL and alt_t > esik):
+                return
+            if d["secim"] is not None and not _onde(alt_sinir, e):
+                return                              # alt sınıra erişildi: daha iyisi yok
+            S = kumeler[i]
+            yerel = np.argmin(C[:, S], axis=1)
+            deger = _deger(C, w, A, S[yerel], cap)
+            kesin = True
+            if deger[0] > s_alt + _DEPO_TOL:        # kısıtsız atama alt sınıra inmiyor: model
+                if d["model"] >= _MIP_EN_COK:
+                    d["kanit"] = False
+                    return
+                d["model"] += 1
+                y, a, m, durum = _kisitli_ata(C[:, S], w, A[S], cap, hedef)
+                if durum == "uygunsuz":             # küme hedef aşıma inemez (kanıtlı): atla
+                    continue
+                if y is None:
+                    d["kanit"] = False
+                    continue
+                yerel, deger, kesin = y, (a, m), durum == "optimal"
+            if d["secim"] is None or _onde(deger, e):
+                d["en_iyi"], d["secim"] = deger, S[yerel]
+            d["kanit"] = d["kanit"] and kesin
+
+    # 1. geçiş: aşımı alt sınıra inebilecek kümeler, tek aşamalı model (aşım ≤ alt sınır)
+    gecis(sira[anahtar[sira, 0] <= s_alt + _DEPO_TOL], s_alt + _DEPO_TOL)
+    if d["secim"] is None or d["en_iyi"][0] > s_alt + _DEPO_TOL:
+        # hiçbir K'lı küme alt sınıra inemedi: bütün kümeler, iki aşamalı model
+        d["en_iyi"], d["secim"] = (np.inf, np.inf), None
+        gecis(sira, None)
+    return d["secim"], d["kanit"] and d["secim"] is not None
+
+
+def _kisitli_donusumlu(C: np.ndarray, w: np.ndarray, A: np.ndarray, cap: np.ndarray, baslangiclar):
+    """Depo kısıtlı dönüşümlü arama: kümede kısıtlı atama (`_kisitli_ata`) ↔ her grubun, öteki
+    gruplar sabitken (aşım, uyumsuzluk) en küçük deseni. Her adım değeri artırmaz. Döner en iyi
+    atama (aday indisi)."""
+    n = C.shape[1]
+    en_iyi, secilen = None, None
+
+    def aday(secim):
+        nonlocal en_iyi, secilen
+        deger = _deger(C, w, A, secim, cap)
+        if secilen is None or _onde(deger, en_iyi) or (
+                not _onde(en_iyi, deger) and tuple(np.unique(secim)) < tuple(np.unique(secilen))):
+            en_iyi, secilen = deger, secim.copy()
+
+    for S0 in baslangiclar:
+        S = np.unique(S0)
+        for _ in range(_DONUSUM_EN_COK):
+            y = _kisitli_ata(C[:, S], w, A[S], cap)[0]
+            if y is None:
                 break
-            yerel, asim, mal, kesin = _kisitli_ata(C[:, S], w, A[S], cap)
-            deger, cozulen = (asim, mal), cozulen + 1
-        if secim is None or _onde(deger, en_iyi):
-            en_iyi, secim = deger, S[yerel]
-        kanit = kanit and kesin
-    return secim, kanit
+            sec = S[y]
+            aday(sec)
+            yuk = w @ A[sec]
+            for g in np.unique(sec):
+                uye = sec == g
+                Wg = w[uye].sum()
+                if Wg == 0:
+                    continue
+                taban = yuk - Wg * A[g]
+                asim = np.maximum(0.0, taban[None, :] + Wg * A - cap[None, :])
+                asim[asim <= _DEPO_TOL] = 0.0
+                p = int(np.lexsort((np.arange(n), np.round(C[uye].sum(axis=0), 9),
+                                    np.round(asim.sum(axis=1), 6)))[0])
+                sec[uye] = p
+                yuk = taban + Wg * A[p]
+            aday(sec)
+            yeni = np.unique(sec)
+            if np.array_equal(yeni, S):
+                break
+            S = yeni
+    return secilen
+
+
+def _kisitli(C: np.ndarray, w: np.ndarray, A: np.ndarray, cap: np.ndarray, K: int | None,
+             tohum: int, ozel=None) -> tuple[np.ndarray, bool]:
+    """Depo kısıtlı tasarım (modül notu). `ozel`: aynı problemin önceden çözülmüş `_ozel`'i
+    (K − 1 özyinelemesinde yeniden çözülmesin). Döner (atama, en iyi mi)."""
+    K = None if K is None else min(K, C.shape[1])
+    W, en_az = w.sum(), A.min(axis=0)
+    if K == 1:                                       # tek desen: her aday doğrudan değerlenir
+        asim = np.maximum(0.0, W * A - cap[None, :])
+        asim[asim <= _DEPO_TOL] = 0.0
+        anahtar = (np.arange(len(A)), np.round(C.sum(axis=0), 9), np.round(asim.sum(axis=1), 6))
+        p = int(np.lexsort(anahtar)[0])
+        return np.full(len(w), p), True
+    asiri = W * en_az - cap > _DEPO_TOL
+    if asiri.any():
+        # Bu bedenlerde her desen depoyu aşar; fazladan her adet aşımı bir artırır, öteki bedenlerde
+        # en çok bir azaltır: en küçük aşım yalnız bu bedenlerde en az adetli desenlerle (R) kurulur.
+        R = np.flatnonzero((A[:, asiri] == en_az[asiri]).all(axis=1))
+        cap_R = np.where(asiri, np.inf, cap)
+        yerel, kesin = _kisitli(C[:, R], w, A[R], cap_R, K, tohum)
+        # R dışı bir desen ancak öteki bedenlerdeki aşımı aynı miktar azaltırsa eşit kalır: alt
+        # problemde aşım yoksa bu imkânsızdır, varsa en iyilik iddia edilmez
+        return R[yerel], kesin and not _asim(w, A[R], yerel, cap_R).any()
+    if ozel is None:
+        ozel = _ozel(C, w, A, cap)
+    y, alt, ozel_kesin = ozel
+    poz = w > 0
+    if y is not None and ozel_kesin and (K is None or len(np.unique(y[poz])) <= K):
+        return y, True
+    if K is None:
+        return (y if y is not None else np.argmin(C, axis=1)), False
+    n = C.shape[1]
+    if comb(n, K) <= TAM_ARAMA_SINIRI:
+        return _kisitli_kume(C, w, A, cap, K, alt)
+    baslangiclar = [_donusumlu(C, K, tohum)]
+    sira = []
+    if y is not None:                                # mağazaya özel tasarımın en ağır desenleri
+        agir = np.bincount(y[poz], weights=w[poz], minlength=n)
+        sira = [int(p) for p in np.lexsort((np.arange(n), -agir)) if agir[p] > 0]
+        baslangiclar.append(np.array(sira[:K]))
+    if K > 1:                                        # K − 1'in kısıtlı tasarımı + bir desen: tekdüzelik
+        onceki = np.unique(_kisitli(C, w, A, cap, K - 1, tohum, ozel)[0][poz])
+        ek = [p for p in sira + list(baslangiclar[0]) if p not in set(onceki)]
+        baslangiclar.append(np.r_[onceki, ek[:1]].astype(np.int64))
+    secim = _kisitli_donusumlu(C, w, A, cap, baslangiclar)
+    return secim, ozel_kesin and not _onde(alt, _deger(C, w, A, secim, cap))
 
 
 def tasarla(egri: pd.DataFrame, agirlik: pd.Series, K: int | Literal["magaza"],
             depo_payi=None, *, adet: int = sabitler.PAKET_ADET, tohum: int = sabitler.TOHUM) -> Tasarim:
     """Mağaza eğrilerine (`egri`, satır `magaza_id`, sütun b1..b5, satırlar bire toplanır) K ortak
-    desen ve atama; `depo_payi` [5] verilirse beden başına depo kısıtı (modül notu)."""
+    desen ve atama; `depo_payi` [5] verilirse beden başına depo kısıtı (modül notu). Yinelenen
+    `magaza_id` hatadır."""
     if K != "magaza" and not (isinstance(K, (int, np.integer)) and K >= 1):
         raise ValueError(f"K pozitif tamsayı ya da 'magaza' olmalı: {K!r}")
+    if not egri.index.is_unique or not agirlik.index.is_unique:
+        raise ValueError("magaza_id yinelenmemeli (eğri ve ağırlık)")
     sira = sorted(egri.index)
     E = egri.loc[sira, list(SUTUNLAR)].to_numpy(dtype="float64")
     if np.isnan(E).any() or not np.allclose(E.sum(axis=1), 1.0, atol=1e-6) or (E < 0).any():
@@ -308,8 +525,7 @@ def tasarla(egri: pd.DataFrame, agirlik: pd.Series, K: int | Literal["magaza"],
     n = len(A)
     D = _eksik(E, A)
     C = w[:, None] * D
-    # atama anahtarı: sıfır ağırlıklı mağaza maliyete girmez, kendi eğrisine en yakın deseni alır
-    Ca = np.where(w[:, None] > 0, C, D)
+    poz = w > 0
 
     kume_k = None if K == "magaza" else min(int(K), n)
     if kume_k is None:
@@ -318,34 +534,25 @@ def tasarla(egri: pd.DataFrame, agirlik: pd.Series, K: int | Literal["magaza"],
         kume, en_iyi, yontem = _tam(C, kume_k), True, "tam"
     else:
         kume, en_iyi, yontem = _donusumlu(C, kume_k, tohum), False, "donusumlu"
-    secim = kume[np.argmin(Ca[:, kume], axis=1)]
-    toplam = float(C[np.arange(len(w)), secim].sum())
-    if not en_iyi and _esit_ya_da_kucuk(toplam, float(C.min(axis=1).sum())):
+    secim = kume[np.argmin(C[:, kume], axis=1)]
+    if not en_iyi and _esit_ya_da_kucuk(float(C[np.arange(len(w)), secim].sum()), float(C.min(axis=1).sum())):
         en_iyi = True                                    # mağazaya özel alt sınıra erişti
-    yontem_k = yontem
 
     depo_uygun = depo_asimi = None
     if depo_payi is not None:
         cap = depo_payi * adet * w.sum()
         if _asim(w, A, secim, cap).any():
             yontem = "mip"
-            ozel, asim, mal, ozel_kesin = _kisitli_ata(C, w, A, cap)   # mağazaya özel: alt sınır
-            if kume_k is None or len(np.unique(ozel)) <= kume_k:
-                secim, en_iyi = ozel, ozel_kesin
-            elif yontem_k == "tam":
-                secim, kesin = _kisitli_kume(C, w, A, cap, kume_k, (asim, mal))
-                en_iyi = kesin and ozel_kesin
-            else:                                        # dönüşümlü aramanın desenleriyle
-                yerel = _kisitli_ata(C[:, kume], w, A[kume], cap)[0]
-                secim, en_iyi = kume[yerel], False
-            kullanilan = np.unique(secim)
-            sifir = w == 0
-            if sifir.any():
-                secim[sifir] = kullanilan[np.argmin(D[np.ix_(sifir, kullanilan)], axis=1)]
+            secim, en_iyi = _kisitli(C, w, A, cap, kume_k, tohum)
         depo_asimi = _asim(w, A, secim, cap)
         depo_uygun = not depo_asimi.any()
 
-    kullanilan = np.unique(secim)                    # aday indisleri sözlük sırasında
+    # desen sayımı ağırlıklı mağazalardan; sıfır ağırlıklı mağaza (maliyete ve depoya girmez)
+    # kullanılan desenlerden kendi eğrisine en yakınını alır
+    kullanilan = np.unique(secim[poz]) if poz.any() else np.unique(secim)
+    if (~poz).any():
+        secim = secim.copy()
+        secim[~poz] = kullanilan[np.argmin(D[np.ix_(~poz, kullanilan)], axis=1)]
     atama = pd.Series(np.searchsorted(kullanilan, secim), index=pd.Index(sira, name="magaza_id"),
                       name="desen").reindex(egri.index)
     atama.index.name = "magaza_id"
