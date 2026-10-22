@@ -114,8 +114,8 @@ def sonuc() -> dict:
                "istanbul": ist, "metropol": met, "gecmis_hafta": 0 if m == YENI else (40 if m == "M06" else 104),
                "kumelenir": m != YENI, "yeni": m == YENI}
               for m, (a, sh, b, t, m2, met, ist) in _MAGAZA.items()]
-    oz = {"bloklar": ["karisim"], "magaza": 8, "sutun": 4, "standart_sutun": 4, "blok_sutun": {"karisim": 4},
-          "alt_blok": {"karisim": 2}, "doldurulan": {}, "dusen_satis": {}, "kimlik": "a" * 64}
+    oz = {"bloklar": ["karisim"], "magaza": 8, "sutun": 6, "standart_sutun": 6, "blok_sutun": {"karisim": 6},
+          "alt_blok": {"karisim": 6}, "doldurulan": {}, "dusen_satis": {}, "kimlik": "a" * 64}
     ml_kimlik = ogren.bolme_kimligi(pd.Series(ML))
     ml_ari = olcutler.ari_ami(_s(ML), _s(GIZLI))[0]
     aday = [_aday("S1", "kmeans", 2, _iki(ML), ari=0.4),
@@ -132,6 +132,8 @@ def sonuc() -> dict:
                  "disarida": [{"magaza_id": "M10", "ad": "İstanbul 3", "neden": "kapanmış ya da kapanış kararı verilmiş",
                                "acilis": "2016-05-02", "kapanis": "2024-09-18"}],
                  "kapsam": kapsam, "ozellik_penceresi": ["2023-02-06", "2025-02-02"],
+                 "kal_ozellik_penceresi": {"karar_gunu": "2024-02-09", "bas": "2022-02-07", "bit": "2024-02-04",
+                                           "hafta": 104, "ilk_satis": "2023-01-01", "veri_hafta": 57},
                  "ciro_penceresi": ["2024-02-07", "2025-02-06"], "gecmis_hafta_esigi": 26},
         "kural": {"etiketler": {"k1": K1, "k2": K2, "k3": K3, "k4": K4}, "net_ciro": CIRO,
                   "esikler": {"A": 8e7, "B": 4e7}, "yillik_kisa": ["M06"], "oranlar": {"A": 0.2, "B": 0.3},

@@ -34,7 +34,8 @@ kalibrasyonun seçimi (`kalibrasyon.json`), yalnız benzer ve tahminde etkin.
     kume          küme kolları (Mağaza Kümeleme vakası, spec 2026-10-20 §4.4): kume_k2 (ciro sınıfı),
                   kume_k1 (bölge), kume_k3 (bölge × ciro ızgarası: Lumoda'nın grupları, Ruling R21),
                   kume_ml (önerilen ML kümesi, yeni mağaza 5-NN), kume_gizli (gizli segment:
-                  kümelemenin ulaşabileceği en iyi yapı, YALNIZ ÖLÇÜM kolu); k1, k2, k3 yalnız yol 0; pay =
+                  kümelemenin ulaşabileceği en iyi yapı, YALNIZ ÖLÇÜM kolu); k1, k2 yalnız yol 0, ml, gizli
+                  ve k3 yollarda da (Ruling R23; yolda K3 ızgarası o yolun tablolarından yeniden kurulur); pay =
                   `kumeleme.kume_payi` (küme düzeyi benzer endeksi × mağaza ölçeği), `KahinKol` ile
                   (kayıttaki kol adı "kahin", Ruling R2), t = 0, tavansız: Lumoda'yla aynı mal (⌊U⌋)
 
@@ -352,8 +353,10 @@ IZGARA: dict[str, tuple[Kosum, ...]] = {
 
 # Yollar (`allocation.yollar`): yol başına koşulan kollar (kısa ad → yol 0'daki ızgara koşusu)
 YOL_KOLLARI = ("lumoda", "esit", "benzer", "tahmin", "kahin")
-# Yollarda küme kolları (kısa ad = yol 0'daki ad): önerilen ML kümesi ve gizli segment (spec §4.4)
-YOL_KUME_KOLLARI = ("kume_ml", "kume_gizli")
+# Yollarda küme kolları (kısa ad = yol 0'daki ad): önerilen ML kümesi ve gizli segment (spec §4.4), Lumoda'nın
+# grupları (K3 bölge × ciro ızgarası, Ruling R23: ML ↔ ızgara dizinin merkez karşılaştırması). Yolda kümeler o yolun
+# tablolarından kurulur (`kumeleri_kur`); yol 0'da aynı Kosum (anahtar ızgaranınki)
+YOL_KUME_KOLLARI = ("kume_ml", "kume_gizli", "kume_k3")
 
 
 def tum_kosumlar() -> dict[str, Kosum]:

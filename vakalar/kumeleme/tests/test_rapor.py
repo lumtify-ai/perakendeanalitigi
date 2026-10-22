@@ -301,6 +301,45 @@ def test_kosullu_iddialar(tmp_path):
     assert "bu bölmeyi seçerdi" not in _metin(tmp_path / "c", sonuc=s)
 
 
+def test_bos_siluet_bir_ailede_aday_yoksa_fark_basilmaz(tmp_path):
+    """Bir ailenin adayı yoksa ortalama ve fark basılmaz (0'a düşen ortalamayla yanıltıcı fark yok)."""
+    s = sahte_sonuc.sonuc()
+    s["ml"]["bos_siluet"] = [b for b in s["ml"]["bos_siluet"] if b["aile"] == "S1"]
+    m = _metin(tmp_path, sonuc=s)
+    assert "boş siluet ortalaması" not in m and "boş siluet eşitlik payı içinde" not in m
+    assert "boş siluet yalnız S1 adaylarında ölçüldü (S2 ailesinde aday yok)" in m
+
+
+def test_kalibrasyon_penceresi_basilir(tmp_path):
+    """Ruling R6: kalibrasyon sezonunun karar günündeki özellik penceresi ve veri taşıyan hafta sayısı."""
+    veri = _bolumler(_metin(tmp_path))["VERİ"]
+    assert ("kalibrasyon sezonunun karar günü 2024-02-09" in veri and "özellik penceresi 2022-02-07 … 2024-02-04 (104 hafta)"
+            in veri and "veri 2023-01-01'de başlar, pencerenin 57 tamamlanmış haftası veri taşır" in veri)
+
+
+@pytest.mark.parametrize("bozma, denetim", [
+    ("k3_bolge", "KURAL: K3 etiketinin bölgesi"),
+    ("k3_sinif", "KURAL: K3 etiketinin bölgesi"),
+    ("blok_sutun", "ÖZELLİKLER: aynı blok her ailede"),
+    ("alt_blok", "ÖZELLİKLER: karışımda alt blok"),
+])
+def test_bagimsiz_korunumlar(tmp_path, capsys, bozma, denetim):
+    """K3 etiketi K1 ve K2'yle, blok sütunları aileler arasında, karışımın alt blokları tanımla tutar (totoloji
+    değil: her biri ayrı kurulan iki değeri karşılaştırır)."""
+    s = sahte_sonuc.sonuc()
+    e = s["kural"]["etiketler"]
+    if bozma == "k3_bolge":
+        e["k3"]["M04"] = "Ege×AB"
+    elif bozma == "k3_sinif":
+        e["k3"]["M05"] = "İç Anadolu×AB"           # K2'si C
+    elif bozma == "blok_sutun":
+        s["ozellik"]["S2"]["blok_sutun"] = {"karisim": 5}
+    else:
+        s["ozellik"]["S1"]["alt_blok"] = {"karisim": 5}
+    assert rapor.tamponla(lambda: rapor.govde(_veri(tmp_path, s))) == (1, "")
+    assert denetim in capsys.readouterr().err
+
+
 def test_demo_bayt_butcesi_denetlenir(tmp_path, capsys):
     v = _veri(tmp_path)
     v.demo_bayt = senaryolar.BUTCE

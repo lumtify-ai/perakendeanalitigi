@@ -314,19 +314,19 @@ def kol_metni(e: dict) -> str:
     return " · ".join(parca)
 
 
-def _kiyas_tablosu(v, satirlar: list[tuple[str, str]], olcutler=KIYAS) -> None:
-    print(f"  {'kol':<26}" + "".join(f"{bas:>15}" for _, bas, _ in olcutler))
+def _kiyas_tablosu(v, satirlar: list[tuple[str, str]], olcutler=KIYAS, genislik: int = 26) -> None:
+    print(f"  {'kol':<{genislik}}" + "".join(f"{bas:>15}" for _, bas, _ in olcutler))
     for etiket, ad in satirlar:
         o = O(v, ad)
-        print(f"  {etiket:<26}" + "".join(
+        print(f"  {etiket:<{genislik}}" + "".join(
             f"{(yd(o[m], n) if BICIM[m][0] == 'y' else s(o[m], n)):>15}" for m, _, n in olcutler))
 
 
-def _mal_tablosu(v, satirlar: list[tuple[str, str]]) -> None:
-    print(f"  {'kol':<26}" + "".join(f"{bas:>15}" for _, bas in MAL))
+def _mal_tablosu(v, satirlar: list[tuple[str, str]], genislik: int = 26) -> None:
+    print(f"  {'kol':<{genislik}}" + "".join(f"{bas:>15}" for _, bas in MAL))
     for etiket, ad in satirlar:
         o = O(v, ad)
-        print(f"  {etiket:<26}" + "".join(f"{s(o[m]):>15}" for m, _ in MAL))
+        print(f"  {etiket:<{genislik}}" + "".join(f"{s(o[m]):>15}" for m, _ in MAL))
 
 
 def _fark_satiri(v, a: str, c: str, olcutler=KIYAS) -> str:
@@ -1058,11 +1058,12 @@ def demo_bolumu(v, ek) -> None:
 KUME_KOLLARI = (("küme: ciro sınıfı (K2)", "kume_k2"), ("küme: bölge (K1)", "kume_k1"),
                 ("küme: bölge × ciro ızgarası (K3)", "kume_k3"), ("küme: ML önerisi", "kume_ml"),
                 ("küme: gizli segment", "kume_gizli"))
-YALNIZ_YOL0_KUME = ("kume_k2", "kume_k1", "kume_k3")         # yollarda koşulmaz (Ruling R21: k3 de k1/k2 gibi)
+YALNIZ_YOL0_KUME = ("kume_k2", "kume_k1")         # yollarda koşulmaz (k3 yollarda da, Ruling R23)
 KUME_KARSILASTIRMA = (("lumoda", "lumoda"), ("esit", "pay_esit"), ("benzer (mağaza geçmişi)", "pay_benzer_tavansiz"),
                       ("tahmin (LightGBM)", "pay_tahmin_tavansiz"), ("kahin", "pay_kahin"))
-KUME_YOL_KOLLARI = ("lumoda", "benzer", "tahmin", "kume_ml", "kume_gizli")
-KUME_YOL_CIFTLERI = (("kume_ml", "lumoda"), ("kume_ml", "benzer"), ("kume_ml", "tahmin"), ("kume_gizli", "kume_ml"))
+KUME_YOL_KOLLARI = ("lumoda", "benzer", "tahmin", "kume_k3", "kume_ml", "kume_gizli")
+KUME_YOL_CIFTLERI = (("kume_ml", "lumoda"), ("kume_ml", "benzer"), ("kume_ml", "tahmin"), ("kume_gizli", "kume_ml"),
+                     ("kume_ml", "kume_k3"), ("kume_k3", "lumoda"))
 
 
 def yon1(a, b, yuksek_iyi: bool = True) -> str:
@@ -1071,6 +1072,18 @@ def yon1(a, b, yuksek_iyi: bool = True) -> str:
     if d == 0:
         return "eşit"
     return "önde" if (d > 0) == yuksek_iyi else "geride"
+
+
+def yol_yonu(f: dict) -> str:
+    """Yollarda a − b'nin yönü, yol başına basılan iki ondalıklı farklardan (`yol_farklari`; yüksek iyi):
+    hepsinde önde / hepsinde geride / k/n yolda önde, j/n yolda geride (eşitler ayrıca)."""
+    n, on, ge = f["n"], f["pozitif"], f["negatif"]
+    if n and on == n:
+        return f"{n} yolun hepsinde önde"
+    if n and ge == n:
+        return f"{n} yolun hepsinde geride"
+    esit = n - on - ge
+    return f"{on}/{n} yolda önde, {ge}/{n} yolda geride" + (f", {esit}/{n} yolda eşit" if esit else "")
 
 
 def etkin_duzey(duzey_tam: dict) -> int | None:
@@ -1155,8 +1168,9 @@ def kume_bolumu(v, ek) -> None:
     alt("yol 0 (oyun sezonu; aynı mal, t = 0, tepkili RPT ve markdown)")
     kars = [(et, ad) for et, ad in KUME_KARSILASTIRMA if ad != "pay_kahin" or kahin_olculur(v)]
     satirlar = kars + list(KUME_KOLLARI)
-    _kiyas_tablosu(v, satirlar)
-    _mal_tablosu(v, satirlar)
+    genislik = max(26, max(len(et) for et, _ in satirlar) + 1)     # en uzun etiket sığar (satırlar hizalı)
+    _kiyas_tablosu(v, satirlar, genislik=genislik)
+    _mal_tablosu(v, satirlar, genislik=genislik)
     kd = v.kume_denetim or {}
     for _, ad in KUME_KOLLARI:
         d = kd.get(ad)
@@ -1187,6 +1201,9 @@ def kume_bolumu(v, ek) -> None:
         print(f"  yol {p}: ML {km['kaynak']}, {km.get('aile')} {km.get('yontem')} k = {s(km.get('k'))} "
               f"({' / '.join(s(n) for n in km['boyutlar'])}), yeni mağaza ataması "
               + (", ".join(f"{m} → {c}" for m, c in sorted((km.get("yeni_atama") or {}).items())) or "yok"))
+        k3 = yl[p]["kosular"]["kume_k3"]["kume"]["kumeleme"]
+        print(f"    K3 (Lumoda'nın grupları): {k3['kaynak']}, {s(k3['grup'])} grup ({' / '.join(s(n) for n in k3['boyutlar'])}), "
+              f"kimlik {k3['kimlik'][:12]}")
     deger = {(k, o): [yl[p]["kosular"][k]["olcutler"][o] for p in p_sira] for k in KUME_YOL_KOLLARI
              for o in ("bulunabilirlik", "sezon_sonu_kalan_yuzde", "pay_wape")}
     for o, n in (("bulunabilirlik", 2), ("sezon_sonu_kalan_yuzde", 2), ("pay_wape", 3)):
@@ -1211,6 +1228,7 @@ def kume_bolumu(v, ek) -> None:
     ml, bz, tm, lu = (O(v, a) for a in ("kume_ml", "pay_benzer_tavansiz", "pay_tahmin_tavansiz", "lumoda"))
     k2, k3, gz = O(v, "kume_k2"), O(v, "kume_k3"), O(v, "kume_gizli")
     yb = lambda a, c: onde[(a, c, "bulunabilirlik")]  # noqa: E731
+    mk, kl = yb("kume_ml", "kume_k3")[1], yb("kume_k3", "lumoda")[1]
     print(f"KÜME SORU 7 · Kümeye göre plan İlk Sevkiyat'ta mağazanın kendi geçmişinden ve LightGBM'den iyi mi; ciro sınıfına "
           f"göre ve Lumoda'nın gruplarına (bölge × ciro ızgarası) göre plan ne veriyor; gizli segment ne kadar ileride? "
           f"Yol 0 bulunabilirlik: ML kümesi {yd(ml['bulunabilirlik'], 1)} "
@@ -1227,7 +1245,9 @@ def kume_bolumu(v, ek) -> None:
           f" · yollarda ML bulunabilirlikte benzerden {yb('kume_ml', 'benzer')[0]}/{yb('kume_ml', 'benzer')[1]['n']}, tahminden "
           f"{yb('kume_ml', 'tahmin')[0]}/{yb('kume_ml', 'tahmin')[1]['n']}, Lumoda'dan {yb('kume_ml', 'lumoda')[0]}/"
           f"{yb('kume_ml', 'lumoda')[1]['n']} yolda önde; gizli segment ML'den {yb('kume_gizli', 'kume_ml')[0]}/"
-          f"{yb('kume_gizli', 'kume_ml')[1]['n']} yolda önde (medyan fark {isaretli(tek_ondalik(yb('kume_gizli', 'kume_ml')[1]['medyan']), 1)} puan)")
+          f"{yb('kume_gizli', 'kume_ml')[1]['n']} yolda önde (medyan fark {isaretli(tek_ondalik(yb('kume_gizli', 'kume_ml')[1]['medyan']), 1)} puan)"
+          f" · yollarda ML kümesi Lumoda'nın gruplarına göre {yol_yonu(mk)} (medyan fark {isaretli(tek_ondalik(mk['medyan']), 1)} puan); "
+          f"Lumoda'nın grupları Lumoda'nın mağaza planına göre {yol_yonu(kl)} (medyan fark {isaretli(tek_ondalik(kl['medyan']), 1)} puan)")
 
     # korunum
     U = v.kural["U_adet"] if v.kural else None
@@ -1251,7 +1271,7 @@ def kume_bolumu(v, ek) -> None:
     for ad, anahtar in oyun.MEVCUT_ANAHTARLAR.items():
         ek.append((f"KÜME: mevcut koşu {ad}'nın anahtarı değişmedi", K(v, ad)["anahtar"] == anahtar))
     ek += kume_kalibrasyon_tazeligi(v)
-    ek.append(("KÜME: kume_k1, kume_k2, kume_k3 yalnız yol 0'da (yollarda yok)",
+    ek.append(("KÜME: kume_k1, kume_k2 yalnız yol 0'da (yollarda yok)",
                not any(k in YALNIZ_YOL0_KUME for p in p_sira for k in yl[p].get("kosular", {}))))
     for p in p_sira:
         if int(p) == 0:

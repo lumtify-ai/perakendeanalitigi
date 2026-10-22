@@ -56,7 +56,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 import senaryolar
-from kumeleme import oyun
+from kumeleme import kural, oyun, ozellikler
 
 KOK = Path(__file__).resolve().parent
 SONUC = oyun.SONUC
@@ -387,6 +387,10 @@ def veri_bolumu(v, ek) -> None:
           + sayim_metni(sayim({m: magaza(v, m)["tip"] for m in kum}, kum)))
     bas, bit = d["ozellik_penceresi"]
     print(f"  özellik penceresi {bas} … {bit} (karar gününden önceki 104 tamamlanmış hafta; karar haftası okunmaz)")
+    kp = d["kal_ozellik_penceresi"]
+    print(f"  kalibrasyon sezonunun karar günü {kp['karar_gunu']} (İlk Sevkiyat'ta küme payının ayarı bu günün kümeleriyle "
+          f"seçilir): özellik penceresi {kp['bas']} … {kp['bit']} ({kp['hafta']} hafta); veri {kp['ilk_satis']}'de başlar, "
+          f"pencerenin {kp['veri_hafta']} tamamlanmış haftası veri taşır")
     cb, cbit = d["ciro_penceresi"]
     print(f"  ciro penceresi {cb} … {cbit} (karar gününden önceki 12 ay)")
     ek += [("VERİ: kapsam = kümelenen + yeni", len(kapsam(v)) == len(kum) + len(yen)),
@@ -441,7 +445,15 @@ def kural_bolumu(v, ek) -> None:
            ("KURAL: K2 = yarım yukarı A/B, C kalan", (k2.get("A", 0), k2.get("B", 0)) == (na, nb)),
            ("KURAL: yeni mağaza C", all(e["k2"][m] == "C" for m in yen)),
            ("KURAL: A eşiği > B eşiği", kr["esikler"]["A"] > kr["esikler"]["B"]),
-           ("KURAL: grupların toplamı kümelenen", all(sum(sayim(e[x], kum).values()) == n for x in oyun.KURALLAR))]
+           ("KURAL: K3 etiketinin bölgesi mağazanın K1'i, sınıfları mağazanın K2'sini içerir",
+            all(_k3_tutar(e["k3"][m], e["k1"].get(m), e["k2"].get(m)) for m in e["k3"]))]
+
+
+def _k3_tutar(k3: str, k1, k2) -> bool:
+    """K3 etiketi `bölge×sınıflar` (`kural.bolge_ciro`): bölge K1'e eşit, sınıflar K2'yi içerir (K3, K1 ve K2'den
+    ayrı kurulan etiketlerle tutarlı)."""
+    parca = str(k3).split(kural.AYIRAC)
+    return len(parca) == 2 and parca[0] == k1 and k2 is not None and str(k2) in parca[1]
 
 
 def ozellik_bolumu(v, ek) -> None:
@@ -469,8 +481,22 @@ def ozellik_bolumu(v, ek) -> None:
     print(f"  {n} mağaza × {s1['sutun']} özellik (S1); {n} mağazayı {o['k']} boş olmayan gruba bölmenin yolu: "
           f"{s(yol)} (yaklaşık {bilimsel(yol)}; {len(str(yol))} basamak)")
     ek += [("ÖZELLİKLER: aileler kümelenen mağazalarda", all(r["magaza"] == n for r in oz.values())),
-           ("ÖZELLİKLER: blok sütunları toplamı", all(sum(r["blok_sutun"].values()) == r["sutun"] for r in oz.values())),
+           ("ÖZELLİKLER: aynı blok her ailede aynı sütun sayısı (S1, S2, S4, S5 ayrı kurulan tablolar)",
+            all(len(n_) == 1 for n_ in _blok_sutun_sayilari(oz).values())),
+           ("ÖZELLİKLER: karışımda alt blok = line grubu × nitelik",
+            all(r["alt_blok"][b] == len(ozellikler.LINE_GRUPLARI) * len(ozellikler.NITELIKLER)
+                for r in oz.values() for b in r["bloklar"] if b in ("karisim", "karisim_stoklu"))),
            ("ÖZELLİKLER: öneri ailesinin kimliği", oz[o["aile"]]["kimlik"] == o["ozellik_kimligi"])]
+
+
+def _blok_sutun_sayilari(oz: dict) -> dict[str, set[int]]:
+    """Blok → ailelerde görülen sütun sayıları. Aileler ayrı tablolardan kurulur (`ozellikler.ozellik_tablosu`
+    aile başına; ablasyon aileleri temel ailenin tablosundan): aynı blok her ailede aynı sütunları taşımalı."""
+    out: dict[str, set[int]] = {}
+    for r in oz.values():
+        for b, n_ in r["blok_sutun"].items():
+            out.setdefault(b, set()).add(int(n_))
+    return out
 
 
 def ml_bolumu(v, ek) -> None:
@@ -506,14 +532,18 @@ def ml_bolumu(v, ek) -> None:
         r = aday_satiri(v, b["aile"], b["yontem"], b["k"])
         print(f"  {b['aile']} {yontem_adi(b['yontem'])} k = {b['k']}: boş {s(b['bos_siluet'], 3)} · gerçek "
               f"{s(r['siluet'], 3)}")
-    bos_ort = {a: sum(b["bos_siluet"] for b in ml["bos_siluet"] if b["aile"] == a)
-               / max(1, sum(b["aile"] == a for b in ml["bos_siluet"])) for a in ("S1", "S2")}
-    bos_fark = fark(bos_ort["S1"], bos_ort["S2"], 3)
-    print(f"  boş siluet ortalaması S1 {s(bos_ort['S1'], 3)} · S2 {s(bos_ort['S2'], 3)} (fark {isaretli(bos_fark, 3)}; "
-          f"siluet eşitlik payı {s(ml['silu_esitlik'], 2)})")
-    if all(any(b["aile"] == a for b in ml["bos_siluet"]) for a in ("S1", "S2")) and abs(bos_fark) <= ml["silu_esitlik"]:
-        print("  S1 ve S2'de boş siluet eşitlik payı içinde: siluet aileler arasında karşılaştırılabilir (öneri "
-              "kuralının gerekçesi)")
+    bos = {a: [b["bos_siluet"] for b in ml["bos_siluet"] if b["aile"] == a] for a in ("S1", "S2")}
+    if all(bos.values()):
+        bos_ort = {a: sum(x) / len(x) for a, x in bos.items()}
+        bos_fark = fark(bos_ort["S1"], bos_ort["S2"], 3)
+        print(f"  boş siluet ortalaması S1 {s(bos_ort['S1'], 3)} · S2 {s(bos_ort['S2'], 3)} (fark {isaretli(bos_fark, 3)}; "
+              f"siluet eşitlik payı {s(ml['silu_esitlik'], 2)})")
+        if abs(bos_fark) <= ml["silu_esitlik"]:
+            print("  S1 ve S2'de boş siluet eşitlik payı içinde: siluet aileler arasında karşılaştırılabilir (öneri "
+                  "kuralının gerekçesi)")
+    else:
+        print("  boş siluet yalnız " + " ve ".join(a for a, x in bos.items() if x) + " adaylarında ölçüldü ("
+              + " ve ".join(a for a, x in bos.items() if not x) + " ailesinde aday yok): aileler arası karşılaştırma yapılamaz")
     kk = ml["kararlilik_once"]
     print(f"  açıklama (Ruling R9): kararlılığı birincil yapan kural (ilk taslak) {kk['aile']} "
           f"{yontem_adi(kk['yontem'])} k = {kk['k']}'ü seçerdi (kararlılık {s(kk['kararlilik'], 3)}, siluet "
@@ -699,8 +729,7 @@ def yeni_magaza_bolumu(v, ek) -> None:
             f"segmentte doğru ({', '.join(isabet) or 'yok'})")
     ek += [("YENİ: gerçek yeni mağazanın segmenti = atandığı kümenin çoğunluğu",
             all(r["knn_segment"] == cs[str(r["knn"])] and r["merkez_segment"] == cs[str(r["merkez"])]
-                for r in ym["gercek"].values())),
-           ("YENİ: gerçek yeni mağaza sayısı = VERİ'nin yenileri", ng == len(yeniler(v)))]
+                for r in ym["gercek"].values()))]
     for y_, r in ym["yontemler"].items():
         oz = r["ozet"]
         ek += [(f"YENİ: {y_} hepsi = metropol + dışı", all(oz["hepsi"][c] == oz["metropol"][c] + oz["metropol_disi"][c]

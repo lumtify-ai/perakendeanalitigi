@@ -42,7 +42,8 @@ def test_izgara_adlari_tekil():
     assert len(yol_adlari) == len(set(yol_adlari)) and not set(yol_adlari) & set(adlar)
     assert all(motor._AD_DESENI.match(a) for a in adlar + yol_adlari)
     assert [s.ad for _, s in oyun.yol_listesi(0, KAL)] == ["lumoda", "pay_esit", "pay_benzer_tavansiz",
-                                                           "pay_tahmin_tavansiz", "pay_kahin", "kume_ml", "kume_gizli"]
+                                                           "pay_tahmin_tavansiz", "pay_kahin", "kume_ml", "kume_gizli",
+                                                           "kume_k3"]
     # yollarda benzer ve tahmin tavansız (R44), kalibrasyonun tavanı ne olursa olsun; yol 0 ile aynı çözüm
     for p in range(sabitler.YOL_SAYISI):
         for kal in (KAL, {**KAL, "tavan": True}):
@@ -70,25 +71,30 @@ def test_izgara_adlari_tekil():
 def test_izgara_butcesi():
     """Yol 0 ≤ 45 koşu adı (aynı koşu iki adla sayılır: üst sınır), toplam ≤ 80 (spec §4.5). R43 sonrası
     37 ad (eslesik 2 eklendi), 3'ü takma ad; yollar 20. Küme kolları (Mağaza Kümeleme spec §4.4): yol 0'da
-    5 (kume_k3, Ruling R21), yol 1–4'te 2'şer: 42 ad, yollar 28; yeni TAM koşu 5 + 8 = 13."""
+    5 (kume_k3, Ruling R21), yol 1–4'te 3'er (kume_k3 de, Ruling R23): 42 ad, yollar 32; yeni TAM koşu
+    5 + 12 = 17."""
     n = oyun.kosu_sayisi()
     assert n["yol0"] <= 45 and n["toplam"] <= 80
-    assert (n["yol0"], n["yollar"], n["toplam"]) == (42, 28, 70)
+    assert (n["yol0"], n["yollar"], n["toplam"]) == (42, 32, 74)
     assert n["yollar"] == (sabitler.YOL_SAYISI - 1) * (len(oyun.YOL_KOLLARI) + len(oyun.YOL_KUME_KOLLARI))
-    assert len(oyun.IZGARA["kume"]) + (sabitler.YOL_SAYISI - 1) * len(oyun.YOL_KUME_KOLLARI) == 13
+    assert len(oyun.IZGARA["kume"]) + (sabitler.YOL_SAYISI - 1) * len(oyun.YOL_KUME_KOLLARI) == 17
 
 
 def test_kume_blogu_adlari():
-    """`kume` bloğu: kume_k2 (ciro sınıfı), kume_k1 (bölge), kume_ml (öneri), kume_gizli (gizli segment, yalnız
-    ölçüm); hepsi t = 0, tavansız, tepkili (aynı mal). Çözümleri birbirinden ve pay_kahin'den farklı (aynı
-    koşunun takma adı olmazlar); öteki kolların çözümüne `kume` alanı girmez (imzaları değişmez). Yollarda
-    kume_ml ve kume_gizli."""
+    """`kume` bloğu: kume_k2 (ciro sınıfı), kume_k1 (bölge), kume_k3 (bölge × ciro ızgarası: Lumoda'nın grupları,
+    Ruling R21), kume_ml (öneri), kume_gizli (gizli segment, yalnız ölçüm); hepsi t = 0, tavansız, tepkili (aynı
+    mal). Çözümleri birbirinden ve pay_kahin'den farklı (aynı koşunun takma adı olmazlar); öteki kolların çözümüne
+    `kume` alanı girmez (imzaları değişmez). Yollarda kume_ml, kume_gizli ve kume_k3 (Ruling R23); k1, k2 yalnız
+    yol 0'da."""
     k = {s.ad: s for s in oyun.IZGARA["kume"]}
     assert list(k) == ["kume_k2", "kume_k1", "kume_k3", "kume_ml", "kume_gizli"]
     assert {a: s.kume for a, s in k.items()} == {"kume_k2": "k2", "kume_k1": "k1", "kume_k3": "k3", "kume_ml": "ml",
                                                  "kume_gizli": "gizli"}
     assert oyun.BLOK_SIRASI[-1] == "kume" and set(oyun.KUME_YAPILARI) == {"k2", "k1", "k3", "ml", "gizli"}
-    assert oyun.YOL_KUME_KOLLARI == ("kume_ml", "kume_gizli")          # k1, k2, k3 yalnız yol 0'da
+    assert oyun.YOL_KUME_KOLLARI == ("kume_ml", "kume_gizli", "kume_k3")          # k1, k2 yalnız yol 0'da
+    # yol 0'da yollar ızgaranın Kosum'unu kullanır (kume_k3'ün anahtarı ızgaranınki: önbellekten açılır)
+    yol0 = dict(oyun.yol_listesi(0, KAL))
+    assert all(yol0[a] == k[a] for a in oyun.YOL_KUME_KOLLARI)
     tum = oyun.tum_kosumlar()
     for kal in (KAL, {**KAL, "tavan": True}, {**KAL, "tavan": False}):
         c = {a: oyun.cozumle(s, kal, None) for a, s in k.items()}
@@ -565,19 +571,19 @@ def test_kucuk_kume_kollari(kucuk):
 def test_kucuk_yol_kume_kollari(tmp_path, monkeypatch):
     """Yol 1'de küme kolları (`yollar.yol_kos`, KÜÇÜK; öteki kollar bu testte koşulmaz): kümeler ve öğrenme yolun
     kendi lumoda koşusunun tablolarından yeniden kurulur; koşu adları y1_ önekli, talep tohumu yolunki; kayıtta
-    küme bilgisi (düzey, kümeleme kimliği, pay kimliği); motor kırpmaz, iki kol aynı malı gönderir; sözlükler
-    kume_paylari.json'da."""
+    küme bilgisi (düzey, kümeleme kimliği, pay kimliği); motor kırpmaz, üç kol aynı malı gönderir; sözlükler
+    kume_paylari.json'da; K3 ızgarası yolun tablolarından `kumeleme` işlevleriyle (Ruling R23)."""
     ortam = oyun.Ortam(olcek="kucuk", onbellek=tmp_path / "kosular", cikti=tmp_path / "cikti", ilerleme=False,
                        kume_oneri=KUCUK_ONERI)
     oyun.json_yaz(ortam.cikti / oyun.KUME_KAL_DOSYASI, KUME_KAL)
     monkeypatch.setattr(oyun, "YOL_KOLLARI", ("lumoda",))
     kayit = yollar.yol_kos(1, KAL, ortam, {}, lambda: None)
     k = kayit["kosular"]
-    assert list(k) == ["lumoda", "kume_ml", "kume_gizli"]
+    assert list(k) == ["lumoda", "kume_ml", "kume_gizli", "kume_k3"]
     assert kayit["girdi"]["kaynak"] == k["lumoda"]["anahtar"]
     paylar = json.loads((ortam.cikti / oyun.KUME_PAYLARI_DOSYASI).read_text(encoding="utf-8"))
-    assert set(paylar) == {"y1_kume_ml", "y1_kume_gizli"}
-    for kisa in ("kume_ml", "kume_gizli"):
+    assert set(paylar) == {"y1_kume_ml", "y1_kume_gizli", "y1_kume_k3"}
+    for kisa in ("kume_ml", "kume_gizli", "kume_k3"):
         e = k[kisa]
         assert e["ad"] == f"y1_{kisa}" and e["talep_tohumu"] == oyun.talep_tohumu(1) and e["cozum"]["yol"] == 1
         b = e["kume"]
@@ -585,7 +591,9 @@ def test_kucuk_yol_kume_kollari(tmp_path, monkeypatch):
         assert (b["bas"], b["en_az"]) == (KUME_KAL["secim"][kisa.removeprefix("kume_")]["bas"], 3)
         assert paylar[e["ad"]]["pay"] == b["pay"] and paylar[e["ad"]]["yol"] == 1
         assert e["olcutler"]["kirpilan_adet"] == 0.0 and e["olcutler"]["tavan_kalan_adet"] == 0.0
-    assert k["kume_ml"]["olcutler"]["ilk_dagitim_adet"] == k["kume_gizli"]["olcutler"]["ilk_dagitim_adet"]
+    assert (k["kume_ml"]["olcutler"]["ilk_dagitim_adet"] == k["kume_gizli"]["olcutler"]["ilk_dagitim_adet"]
+            == k["kume_k3"]["olcutler"]["ilk_dagitim_adet"])
+    assert k["kume_k3"]["kume"]["kumeleme"]["grup"] >= 1
 
 
 def test_kucuk_kume_kalibre(kucuk):

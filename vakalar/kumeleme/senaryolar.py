@@ -50,7 +50,7 @@ _NITELIK = {"alt_kategori": "alt kategori", "fiyat_segmenti": "fiyat segmenti", 
 _AYLAR = ("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım",
           "Aralık")
 _FIYAT = {"giris": "giriş", "orta": "orta", "ust": "üst"}
-_OLCEK = {"log_ciro": "günlük ciro", "log_m2": "m²", "log_kapasite": "kapasite"}
+_OLCEK = {"log_gunluk_ciro": "günlük ciro", "log_metrekare": "m²", "log_kapasite": "kapasite"}   # ozellikler._olcek sütunları
 
 
 def ozellik_adi(sutun: str) -> str:

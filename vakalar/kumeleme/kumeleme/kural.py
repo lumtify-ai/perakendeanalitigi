@@ -27,9 +27,10 @@ Yıllıklandırma `TAM_YIL_HAFTA` (52) altındaki **her** mağazaya uygulanır, 
 mağazanın yıllıklandırılmış cirosu yalnız raporlama içindir (SS25'te M041: ham 45,4 M, yıllıklandırılmış
 125,9 M); sınıfı sıralamaya girmediği için ne olursa olsun C kalır.
 
-*Tekilleştirme.* Gerçek `satis`ta birebir aynı satırlar vardır (SS25 karar gününde 200 çift);
-`net_ciro` pencere satırlarındaki birebir yinelenenleri kendisi düşürür (ortak `temiz_satis` /
-`select distinct` ile aynı kural), yani çağıranın tekilleştirmesine bağlı değildir. Kural **gelen
+*Tekilleştirme.* Gerçek `satis`ta birebir aynı satırlar vardır: yayımlanan tablonun tümünde 200 çift,
+SS25 karar gününden önceki 12 aylık ciro penceresinde 70 çift (her biri iki kopya). `net_ciro` pencere
+satırlarındaki birebir yinelenenleri kendisi düşürür (ortak `perakende_analitik.kaynak.temiz_satis`
+görünümünün `select distinct` kuralı), yani çağıranın tekilleştirmesine bağlı değildir. Kural **gelen
 sütunların tümü** üstünden çalışır: ham satırı `urun_id`, `adet` … ile birlikte verin; yalnız
 (`tarih, magaza_id, tutar`) verilirse aynı gün aynı tutarlı iki gerçek satış tek sayılır. Günlük toplam
 verirseniz satırlar zaten tekildir.

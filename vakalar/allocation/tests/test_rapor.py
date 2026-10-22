@@ -201,7 +201,7 @@ def test_tam_rapor_sayilari_turkce(capsys):
                                    "kume_pay_kimligi_farkli", "kume_aday_eksik", "kume_kalibrasyonu_farkli",
                                    "mevcut_anahtar_farkli", "yol_kume_aday_eksik", "yol_kume_mal_farkli",
                                    "kume_kumeleri_eski", "kume_kalibrasyon_eski", "kume_kalibrasyon_karar_gunu",
-                                   "kume_k3_yolda", "kume_k3_kirpti"])
+                                   "kume_k1_yolda", "kume_k3_kirpti", "yol_kume_k3_yol0dan"])
 def test_tam_rapor_korunum_bozulunca_bos(bozma, capsys):
     v = sahte_rapor.tam_veri()
     sahte_rapor.boz(v, bozma)
@@ -239,6 +239,31 @@ def test_kume_bolumu_soru7(capsys):
     yon = rapor.yon1(k3, lu)
     assert f"Lumoda'nın grupları (bölge × ciro ızgarası) {rapor.yd(k3, 1)} (Lumoda'nın mağaza planına göre {bir} puan, {yon};" in satir[0]
     assert f"ML kümesi ızgaraya göre {rapor.isaretli(rapor.tek_ondalik(rapor.fark(k3, ml, 2)), 1)} puan, {rapor.yon1(ml, k3)})" in satir[0]
+    # K3 yollarda da (Ruling R23): yol başına ızgara, satırlar, çiftler ve SORU 7'de yolların yönü
+    yl = v.yollar["yollar"]
+    assert bolum.count("    K3 (Lumoda'nın grupları): yeniden kuruldu") == len(yl) - 1
+    assert "    K3 (Lumoda'nın grupları): kumeler.json" in bolum and "    kume_k3    " in bolum
+    assert "  kume_ml − kume_k3: bulunabilirlik " in bolum and "  kume_k3 − lumoda: bulunabilirlik " in bolum
+    b = {k_: [yl[p]["kosular"][k_]["olcutler"]["bulunabilirlik"] for p in sorted(yl, key=int)]
+         for k_ in ("kume_ml", "kume_k3", "lumoda")}
+    mk, kl = rapor.yol_farklari(b["kume_ml"], b["kume_k3"], 2), rapor.yol_farklari(b["kume_k3"], b["lumoda"], 2)
+    assert (f"yollarda ML kümesi Lumoda'nın gruplarına göre {rapor.yol_yonu(mk)} (medyan fark "
+            f"{rapor.isaretli(rapor.tek_ondalik(mk['medyan']), 1)} puan)") in satir[0]
+    assert f"Lumoda'nın grupları Lumoda'nın mağaza planına göre {rapor.yol_yonu(kl)}" in satir[0]
+    # yol 0 tabloları hizalı: en uzun etiket (K3) sütuna sığar
+    satirlar = bolum.splitlines()
+    for i in [j for j, x in enumerate(satirlar) if x.startswith("  kol ")]:
+        tablo = satirlar[i:i + 1 + len(rapor.KUME_KOLLARI) + len(rapor.KUME_KARSILASTIRMA)]
+        assert len({len(x) for x in tablo}) == 1, tablo
+
+
+def test_yol_yonu_kosullu():
+    """Yolların yönü basılan iki ondalıklı farklardan: hepsinde önde / hepsinde geride / karışık (eşitler ayrıca)."""
+    f = lambda a, b: rapor.yol_farklari(a, b, 2)  # noqa: E731
+    assert rapor.yol_yonu(f([70.1, 70.2], [70.0, 70.0])) == "2 yolun hepsinde önde"
+    assert rapor.yol_yonu(f([69.9, 69.8], [70.0, 70.0])) == "2 yolun hepsinde geride"
+    assert rapor.yol_yonu(f([70.1, 69.9, 70.001], [70.0, 70.0, 70.0])) == "1/3 yolda önde, 1/3 yolda geride, 1/3 yolda eşit"
+    assert rapor.yol_yonu(f([70.1, 69.9], [70.0, 70.0])) == "1/2 yolda önde, 1/2 yolda geride"
 
 
 def test_kume_kosulari_yoksa_taslakta_eksik_kesinde_bos(capsys):

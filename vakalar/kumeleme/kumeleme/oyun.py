@@ -204,6 +204,11 @@ def veri_blogu(g: dict, karar_gunu) -> dict:
                          "acilis": acilis, "kapanis": pd.Timestamp(r["kapanis_tarihi"])
                          if pd.notna(r["kapanis_tarihi"]) else None})
     bas, bit = ozellikler.pencere(karar_gunu)
+    # Ruling R6: kalibrasyon sezonunun (SS24) karar gününde özellik penceresi verinin başlangıcından önce
+    # açılır; pencerenin kaç tamamlanmış haftasının veri taşıdığı (ilk satış gününden sonraki ilk pazartesiden)
+    kb, kbit = ozellikler.pencere(sabitler.KAL_KARAR_GUNU)
+    ilk = pd.Timestamp(g["gunluk"]["tarih"].min()).normalize()
+    ilk_pzt = ilk + pd.Timedelta(days=(7 - ilk.weekday()) % 7)
     return {
         "karar_gunu": pd.Timestamp(karar_gunu), "lansman": lansman,
         "tip_sayilari": {str(a): int(n) for a, n in tip.value_counts().sort_index().items()},
@@ -212,6 +217,9 @@ def veri_blogu(g: dict, karar_gunu) -> dict:
                                            "istanbul", "metropol", "gecmis_hafta", "kumelenir", "yeni")}
                    for _, r in k.iterrows()],
         "ozellik_penceresi": [bas, bit - pd.Timedelta(days=1)],
+        "kal_ozellik_penceresi": {"karar_gunu": sabitler.KAL_KARAR_GUNU, "bas": kb, "bit": kbit - pd.Timedelta(days=1),
+                                  "hafta": sabitler.OZELLIK_HAFTA, "ilk_satis": ilk,
+                                  "veri_hafta": int(max(0, (kbit - max(kb, ilk_pzt)).days // 7))},
         "ciro_penceresi": [pd.Timestamp(karar_gunu) - pd.DateOffset(years=1),
                            pd.Timestamp(karar_gunu) - pd.Timedelta(days=1)],
         "gecmis_hafta_esigi": sabitler.GECMIS_HAFTA_ESIGI,

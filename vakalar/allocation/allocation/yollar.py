@@ -8,7 +8,8 @@ p`): talebin Poisson ve ikame çekilişleri değişir, ürün sürprizleri (λ),
 ürün endeksini ve LightGBM'i o tarihin yayımlanan biçiminden yeniden öğrenir, kahinin erken
 birincil talebini o yolun `lumoda` gizli gerçeğinden alır (`oyun.Girdi`) ve dört kolu koşar: esit,
 benzer, tahmin (ikisi tavansız: Lumoda'yla aynı mal, Ruling R44), kahin; t = 0 (`oyun.yol_listesi`). Sonra
-iki küme kolu (`oyun.YOL_KUME_KOLLARI`: kume_ml, kume_gizli; Mağaza Kümeleme spec §4.4): kümeler o yolun
+üç küme kolu (`oyun.YOL_KUME_KOLLARI`: kume_ml, kume_gizli; Mağaza Kümeleme spec §4.4; kume_k3, Lumoda'nın
+grupları, Ruling R23): kümeler (K3 ızgarası dahil) o yolun
 `lumoda` tablolarından kümeleme paketinin işlevleriyle yeniden kurulur (`oyun.kumeleri_kur`), küme payı
 o yolun öğrenme tablosundan. Kalibrasyon (küme payınınki dahil) yol 0'ınkidir
 (oyundan önceki karar, yol başına yeniden seçilmez). Yol 0'ın koşuları ızgaranın pay bloğuyla aynı
@@ -40,7 +41,7 @@ OZET_OLCUTLERI = ("bulunabilirlik", "bulunabilirlik_ilk4", "kayip_orani", "sezon
 # (a, b): a'nın b'den kaç yolda önde olduğu
 KARSILASTIRMALAR = (("esit", "lumoda"), ("benzer", "lumoda"), ("tahmin", "lumoda"), ("tahmin", "benzer"),
                     ("kahin", "lumoda"), ("kahin", "tahmin"), ("kume_ml", "lumoda"), ("kume_ml", "benzer"),
-                    ("kume_ml", "tahmin"), ("kume_gizli", "kume_ml"))
+                    ("kume_ml", "tahmin"), ("kume_gizli", "kume_ml"), ("kume_ml", "kume_k3"), ("kume_k3", "lumoda"))
 YUKSEK_IYI = {"bulunabilirlik": True, "sezon_sonu_kalan_yuzde": False, "kayip_orani": False,
               "tam_fiyat_str": True, "brut_kar_tl": True, "pay_wape": False}
 
@@ -79,7 +80,7 @@ def ozetle(yollar: dict) -> dict:
 
 
 def yol_kos(yol: int, kal: dict, ortam: oyun.Ortam, kayit: dict, yaz) -> dict:
-    """Bir yolun girdileri ve yedi koşusu (beş kol + iki küme kolu); her koşudan sonra `yaz()` (kayıt
+    """Bir yolun girdileri ve sekiz koşusu (beş kol + üç küme kolu); her koşudan sonra `yaz()` (kayıt
     `kayit`'te büyür)."""
     t0 = time.perf_counter()
     G = oyun.Girdi(yol, ortam, kal)

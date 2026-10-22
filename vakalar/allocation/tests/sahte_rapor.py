@@ -334,9 +334,11 @@ def boz(v: rapor_b.Veri, bozma: str) -> None:
         v.oyun["girdi"]["kume"]["ml"]["en_az"] = 3
     elif bozma == "mevcut_anahtar_farkli":
         k["pay_tahmin_tavansiz"]["anahtar"] = "z" * 64
-    elif bozma == "kume_k3_yolda":
+    elif bozma == "kume_k1_yolda":
         y3 = v.yollar["yollar"]["3"]["kosular"]
-        y3["kume_k3"] = copy.deepcopy(y3["kume_ml"])
+        y3["kume_k1"] = copy.deepcopy(y3["kume_ml"])
+    elif bozma == "yol_kume_k3_yol0dan":
+        v.yollar["yollar"]["2"]["kosular"]["kume_k3"]["kume"]["kumeleme"]["kaynak"] = "kumeler.json"
     elif bozma == "kume_k3_kirpti":
         k["kume_k3"]["olcutler"]["kirpilan_adet"] = 5.0
     elif bozma == "kume_kumeleri_eski":

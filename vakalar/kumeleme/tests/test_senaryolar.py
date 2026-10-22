@@ -75,7 +75,8 @@ def test_ozellik_adi():
     assert a("karisim/Basic+NOS/fiyat_segmenti/giris") == "Basic+NOS · fiyat segmenti · giriş"
     assert a("karisim_stoklu/Collection/alt_kategori/Jean") == "Collection · alt kategori · Jean (stoklu gün başına)"
     assert a("beden/3") == "beden sırası 3" and a("mevsim/07") == "Temmuz payı"
-    assert a("olcek/log_m2") == "m²" and a("bilinmeyen") == "bilinmeyen"
+    assert a("olcek/log_metrekare") == "m²" and a("olcek/log_gunluk_ciro") == "günlük ciro"   # ozellikler._olcek
+    assert a("bilinmeyen") == "bilinmeyen"
 
 
 def test_site_dosyasi_semasi():
