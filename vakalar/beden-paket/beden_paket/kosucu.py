@@ -31,6 +31,12 @@ paket kopyası yalnız `paketler`'de ayrılır) ve pakete duyarlı kayıt ölç�
                      sayısı (paket kimliği değil: aynı desen her sete ayrı `paket_id`'yle eklenir;
                      aksesuarın tek bedenli paketi desen değildir, sayılmaz). Lumoda 1, P1 1, P2 2
 
+ve ilk 4 hafta beden ölçütleri (`ilk4_beden_olcutleri`, Ruling R19; başlık ölçütleri ilk haftalardır,
+spec §0/12): İlk Sevkiyat'ın `kirik_cift_pay_yuzde`, `beden_kayip_payi` ve `stoklu_cift_gun`'ü aynı
+yöntemle (`olcutler._beden`, günlük tablo `olcutler._gunluk` aynı aralıkla), pencere
+`bulunabilirlik_ilk4`'ünki: option'ın ilk varışından `ILK4_GUN` (28) gün, çıkışla kesilir,
+[b_o, min(b_o + 28, c_o)). Adları `_ilk4` ekli.
+
 Doğrulama kolunda (`ns=None`, standart paket) bütün İlk Sevkiyat ölçütleri İlk Sevkiyat'ın `lumoda`
 koşusunun ölçütleriyle birebir aynıdır (`test_dogrulama_kucuk`; TAM'da `python -m beden_paket.kosucu
 dogrulama`). Paket kollarında aynı mal: oyun (option, mağaza) başına giden adet Lumoda'nın giden
@@ -52,6 +58,7 @@ sayılmaz, çıkış 1.
 """
 
 import argparse
+import copy
 import json
 import sys
 import time
@@ -267,13 +274,39 @@ def paket_olcutleri(kosu, w) -> dict[str, float]:
             "istenen_adet": float(istenen_adet), "paket_tipi": float(tip)}
 
 
+ILK4_GUN = al_olcutler.ILK4_GUN
+
+
+def ilk4_beden_olcutleri(kosu, w, harita=None, gun: int = ILK4_GUN) -> dict[str, float]:
+    """İlk `gun` günün kırık set, beden kaybı payı ve stoklu çift-gün sayısı (modül notu): İlk Sevkiyat'ın
+    `_beden`'i, kapsamın çıkış günleri min(çıkış, ilk varış + gun) ile (`_musteri_maskesi`'nin `ufuk`'u
+    gibi). Günlük tablo `hesapla`'nınkiyle aynı aralıktan."""
+    harita = al_kaynak.harita_kur(w) if harita is None else harita
+    k = al_olcutler.Kapsam(w, harita, al_kaynak.oyun_optionlari(w, OYUN_SEZONU))
+    adlar = ("kirik_cift_pay_yuzde", "beden_kayip_payi", "stoklu_cift_gun")
+    if not len(k.opt):
+        return {f"{a}_ilk4": 0.0 for a in adlar}
+    sevk = kosu.tablo("sevkiyat", al_olcutler.SEVK, urunler=k.skular)
+    bas = al_olcutler.baslangiclar(sevk, k)
+    gercek = kosu.tablo("gercek", al_olcutler.GERCEK, urunler=k.skular)
+    ilk = al_olcutler._ilk_adet(sevk, k)
+    gun_bas = pd.Timestamp(bas[k.opt].min()).date()
+    gun_son = (pd.Timestamp(k.cikis[k.opt].max()) - pd.Timedelta(days=1)).date()
+    gunluk = al_olcutler._gunluk(kosu, k, gun_bas, gun_son)
+    k4 = copy.copy(k)
+    k4.cikis = np.minimum(k.cikis, bas + np.timedelta64(int(gun), "D"))
+    r = al_olcutler._beden(gunluk, gercek, ilk, k4, bas)
+    return {f"{a}_ilk4": float(r[a]) for a in adlar}
+
+
 def olc(kosu, w=None) -> dict[str, float]:
     """Koşunun ölçütleri: İlk Sevkiyat'ın `olcutler.hesapla`'sı (oyun sezonu), `kirpilan_adet` pakete
     duyarlı olanla değiştirilmiş, ve `paket_olcutleri` (modül notu). `w`: yayımlanan dünya (verilmezse
     koşunun ölçeğinde)."""
     w = motor.dunya(kosu.meta["olcek"]) if w is None else w
-    sonuc = al_olcutler.hesapla(kosu, w, al_kaynak.harita_kur(w), OYUN_SEZONU)
-    return sonuc | paket_olcutleri(kosu, w)
+    harita = al_kaynak.harita_kur(w)
+    sonuc = al_olcutler.hesapla(kosu, w, harita, OYUN_SEZONU)
+    return sonuc | paket_olcutleri(kosu, w) | ilk4_beden_olcutleri(kosu, w, harita)
 
 
 # ---------------------------------------------------------------------------

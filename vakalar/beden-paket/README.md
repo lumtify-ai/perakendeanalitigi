@@ -61,7 +61,9 @@ kodu); İlk Sevkiyat'ın önbelleği yalnız salt okunur açılır. Anahtarın v
 değiştiren modüllerdir (`simulasyon.SIMULASYON_MODULLERI`: `simulasyon`, `politika`, `sabitler`,
 `__init__`); ölçüm (`kosucu`), ızgara (`oyun`), eğri ve tasarım kodu değişince koşular önbellekten
 okunur, yalnız ölçüm yeniden yapılır (`test_olcum_degisikligi_simulasyonu_bozmaz`). Ölçüt
-`kosucu.olc`: İlk Sevkiyat'ın ölçütleri, kırpma pakete duyarlı, `paket_tipi` giden beden deseni sayısı.
+`kosucu.olc`: İlk Sevkiyat'ın ölçütleri, kırpma pakete duyarlı, `paket_tipi` giden beden deseni sayısı;
+ilk 4 hafta kırık set ve beden kaybı payı (`kirik_cift_pay_yuzde_ilk4`, `beden_kayip_payi_ilk4`; pencere
+`bulunabilirlik_ilk4`'ünki, Ruling R19).
 
 Doğrulama kolu standart paket ve Lumoda'nın kendi ilk dağıtımıyla İlk Sevkiyat'ın `lumoda` koşusunu
 birebir üretir (KÜÇÜK'te `test_dogrulama_kucuk`; TAM'da, ~4–8 dk, ~8 GB). İlk Sevkiyat'ın önbelleği ya
@@ -71,13 +73,14 @@ da kayıtlı ölçütü yoksa komut başarısızdır (çıkış 1):
 
 ## Oyun ızgarası
 
-`beden_paket.oyun`: kollar (Ruling R10) yol 0'da `dogrulama`, `p1`, `p2`, `p1_12`, `p3_12`, `pm_12`,
-`p2_ham`; yollar 1–4'te `dogrulama`, `p1`, `p2`, `p3_12` (23 kayıt). Her yolda eğri, tasarım, `ns` ve
+`beden_paket.oyun`: kollar (Ruling R10, R20, R21) yol 0'da `dogrulama`, `p1`, `p2`, `p1_12`, `p3_12`,
+`pm_12`, `p2_12`, `l0_12` (ayrıştırma kontrolü: Lumoda paketinin 12'li karşılığı 2-3-3-2-2, tasarım
+aranmaz), `p2_ham`; yollar 1–4'te `dogrulama`, `p1`, `p2`, `p3_12` (25 kayıt). Her yolda eğri, tasarım, `ns` ve
 depo o yolun doğrulama koşusunun (yol 0 TAM'da yayımlanan verinin) tablolarından, karar günü bilgisiyle. Tasarımı
 aynı yolda daha önceki bir kolunkiyle aynı olan kol koşulmaz, kaydı `ayni` ile bağlanır (TAM yol 0'da
 pm_12 = p3_12, p2_ham = p2). Sonuç `cikti/oyun.json`, ilerleme `cikti/ilerleme.jsonl`:
 
-    .venv/Scripts/python -m beden_paket.oyun izgara --blok ana       # yol 0: dogrulama … pm_12
+    .venv/Scripts/python -m beden_paket.oyun izgara --blok ana       # yol 0: dogrulama … l0_12
     .venv/Scripts/python -m beden_paket.oyun izgara --blok ablasyon  # yol 0: p2_ham
     .venv/Scripts/python -m beden_paket.oyun izgara --blok yol       # yollar 1–4
     .venv/Scripts/python -m beden_paket.oyun izgara --olcek KUCUK    # KÜÇÜK dünya: cikti/kucuk/oyun.json

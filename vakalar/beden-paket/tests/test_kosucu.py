@@ -275,6 +275,22 @@ def test_dogrulama_kucuk(lumoda_kucuk, dogrulama, w_kucuk):
     assert dogrulama.meta["turler"] == {"paket_secimi": "beden_paket.politika.PaketSecimi"}
 
 
+def test_ilk4_beden_kucuk(dogrulama, w_kucuk):
+    """İlk 4 hafta beden ölçütleri (Ruling R19): pencere `bulunabilirlik_ilk4`'ünki, [b_o, min(b_o + 28,
+    c_o)); yöntem İlk Sevkiyat'ın `_beden`'i: pencere sonsuz olunca tam sezon ölçütleri birebir çıkar."""
+    h = al_kaynak.harita_kur(w_kucuk)
+    tam = al_olcutler.hesapla(dogrulama, w_kucuk, h)
+    sonsuz = kosucu.ilk4_beden_olcutleri(dogrulama, w_kucuk, gun=10**5)
+    assert sonsuz["kirik_cift_pay_yuzde_ilk4"] == tam["kirik_cift_pay_yuzde"]
+    assert sonsuz["beden_kayip_payi_ilk4"] == tam["beden_kayip_payi"]
+    assert sonsuz["stoklu_cift_gun_ilk4"] == tam["stoklu_cift_gun"]
+    o = kosucu.olc(dogrulama)
+    assert al_olcutler.ILK4_GUN == kosucu.ILK4_GUN == 28
+    assert 0 < o["stoklu_cift_gun_ilk4"] < o["stoklu_cift_gun"]
+    assert o == o | kosucu.ilk4_beden_olcutleri(dogrulama, w_kucuk)
+    assert 0 <= o["kirik_cift_pay_yuzde_ilk4"] <= 100 and 0 <= o["beden_kayip_payi_ilk4"] <= 100
+
+
 def test_lumoda_ns_yoldan(dogrulama, lumoda_kucuk, onbellek):
     """Bir yolun Lumoda `ns`'i: İlk Sevkiyat önbelleği KÜÇÜK'te yok, vakanın doğrulama kolu (aynı
     önbellekten okunur) ve İlk Sevkiyat'ın Lumoda'sıyla aynı."""

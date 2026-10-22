@@ -17,10 +17,16 @@ simülasyonu `simulasyon.kos`'la yapar, ölçer, gizli gerçeği yalnız kahin d
     p1_12      tek 12'li desen (K = 1)
     p3_12      üç 12'li desen (K = 3)
     pm_12      mağazaya özel 12'li desen
+    p2_12      iki 12'li desen (K = 2; Ruling R21: demo'nun 2 | 12 bileşimi ölçülsün)
+    l0_12      ayrıştırma kontrolü (Ruling R20): Lumoda paketinin 12'li karşılığı 2-3-3-2-2, her mağazaya,
+               tasarım aranmaz; ns 12'li dönüşüm. l0_12 − dogrulama = dönüşümün (+ hafif içerik) etkisi,
+               p1_12 / p3_12 − l0_12 = 12'lide içerik etkisi. 2-3-3-2-2'nin 1. bedeni (2/12) depodan (1/7)
+               fazla ister: ön denetim her beş bedenli option'da aşım bulur, motor kırpar (`ayni_mal`
+               false; rapor kırpmayı basar)
     p2_ham     ablasyon: P2, sansür düzeltmesiz (ham) eğriyle tasarlanmış
 
-Bloklar: `ana` yol 0'ın dogrulama, p1, p2, p1_12, p3_12, pm_12'si; `ablasyon` yol 0'ın p2_ham'ı;
-`yol` yollar 1–4'ün dogrulama, p1, p2, p3_12'si (yol p'de koşu adı `y<p>_<kol>`). 23 kayıt; tasarımı
+Bloklar: `ana` yol 0'ın dogrulama, p1, p2, p1_12, p3_12, pm_12, p2_12, l0_12'si; `ablasyon` yol 0'ın
+p2_ham'ı; `yol` yollar 1–4'ün dogrulama, p1, p2, p3_12'si (yol p'de koşu adı `y<p>_<kol>`). 25 kayıt; tasarımı
 aynı yolda daha önceki bir kolunkiyle aynı olan kol (`ayni_kol`) ayrıca koşulmaz, kaydı `ayni` ile ona
 bağlanır (`kos_hepsi`). **Koşulmayanlar** (`KOSULMAYAN`, Ruling R10): 7'li P3, P4, PM P2 ile aynı deseni
 ve atamayı verir (`k_egrisi` her yolda hesaplar, `ayni` alanı); 7'li kahin (P2'nin desenleri gerçek
@@ -105,8 +111,9 @@ ILERLEME = sabitler.CIKTI / "ilerleme.jsonl"
 OYUN_JSON = sabitler.CIKTI / "oyun.json"
 # Ölçüm sabitleri burada, `sabitler`'de değil (Ruling R18: `sabitler` simülasyon anahtarındadır).
 # OLCUM_SURUMU: ölçümü değiştiren ama OLCUM_FONKSIYONLARI ve kosucu.py dışında kalan her düzeltmede
-# bir artırılır (2: R16 düzeltme turu; özet içe aktarma anında, kapsamı genişledi).
-OLCUM_SURUMU = 2
+# bir artırılır (2: R16 düzeltme turu; özet içe aktarma anında, kapsamı genişledi; 3: R19 ilk 4 hafta
+# beden ölçütleri).
+OLCUM_SURUMU = 3
 OLCUM_FONKSIYONLARI = ("olcum_kaydi", "YolGirdisi._giden", "YolGirdisi.giden_adet", "YolGirdisi.bes_optionlar",
                        "YolGirdisi.oyun_ids")
 OLCUM_ALANLARI = ("olcutler", "korunum", "donusum", "ayni_mal", "ilk_sevkiyat", "olcum_sn")
@@ -118,10 +125,15 @@ YOLLAR = tuple(range(1, sabitler.YOL_SAYISI))
 @dataclass(frozen=True)
 class Kol:
     ad: str
-    K: int | str | None                 # None: doğrulama (Lumoda'nın standart paketi)
+    K: int | str | None                 # None: doğrulama (Lumoda'nın standart paketi); "sabit": `desen`
     adet: int = sabitler.PAKET_ADET
     egri: str = "duzeltilmis"           # "duzeltilmis" | "ham"
     aciklama: str = ""
+    desen: tuple | None = None          # sabit desen (tasarım aranmaz; her mağazaya)
+    notu: str = ""                      # kayıtta kolun rolü
+
+
+L0_12_DESEN = (2, 3, 3, 2, 2)           # Ruling R20: Lumoda'nın 1-2-2-1-1'inin 12'li karşılığı
 
 
 KOLLAR = {k.ad: k for k in (
@@ -131,9 +143,14 @@ KOLLAR = {k.ad: k for k in (
     Kol("p1_12", 1, 12, aciklama="tek 12'li desen"),
     Kol("p3_12", 3, 12, aciklama="üç 12'li desen"),
     Kol("pm_12", "magaza", 12, aciklama="mağazaya özel 12'li desen"),
+    Kol("p2_12", 2, 12, aciklama="iki 12'li desen (Ruling R21)"),
+    Kol("l0_12", "sabit", 12, aciklama="Lumoda paketinin 12'li karşılığı 2-3-3-2-2, her mağazaya",
+        desen=L0_12_DESEN,
+        notu="ayrıştırma kontrolü (Ruling R20): l0_12 − dogrulama = 12'li ns dönüşümünün (+ hafif içerik) etkisi; "
+             "p1_12 / p3_12 − l0_12 = 12'lide içerik etkisi; tasarım aranmaz"),
     Kol("p2_ham", 2, egri="ham", aciklama="ablasyon: iki 7'li desen, sansür düzeltmesiz eğri"),
 )}
-YOL0_KOLLARI = (DOGRULAMA, "p1", "p2", "p1_12", "p3_12", "pm_12", "p2_ham")
+YOL0_KOLLARI = (DOGRULAMA, "p1", "p2", "p1_12", "p3_12", "pm_12", "p2_12", "l0_12", "p2_ham")
 YOL_KOLLARI = (DOGRULAMA, "p1", "p2", "p3_12")
 BLOKLAR = {
     "ana": tuple((0, k) for k in YOL0_KOLLARI if k != "p2_ham"),
@@ -413,10 +430,14 @@ class YolGirdisi:
         k = KOLLAR[kol]
         if k.K is None:
             raise ValueError("doğrulama kolunun tasarımı yok (Lumoda'nın standart paketi)")
-        anahtar = (k.K, k.adet, k.egri, depo)
+        anahtar = (k.K, k.adet, k.egri, depo, k.desen)
         if anahtar not in self._tasarimlar:
-            self._tasarimlar[anahtar] = paket_tasarim.tasarla(
-                self.egri_tablosu(k.egri), self.agirlik(k.adet), k.K, self.depo_payi(k.adet, depo), adet=k.adet)
+            if k.desen is not None:
+                self._tasarimlar[anahtar] = sabit_tasarim(k.desen, self.egri_tablosu(k.egri), self.agirlik(k.adet),
+                                                          self.depo_payi(k.adet, depo))
+            else:
+                self._tasarimlar[anahtar] = paket_tasarim.tasarla(
+                    self.egri_tablosu(k.egri), self.agirlik(k.adet), k.K, self.depo_payi(k.adet, depo), adet=k.adet)
         return self._tasarimlar[anahtar]
 
     @property
@@ -491,6 +512,20 @@ class YolGirdisi:
 # ---------------------------------------------------------------------------
 # Koşusuz denetimler: K eğrisi ve kahin
 # ---------------------------------------------------------------------------
+
+
+def sabit_tasarim(desen, egri: pd.DataFrame, agirlik: pd.Series, depo_payi) -> paket_tasarim.Tasarim:
+    """Aranmayan tasarım (l0_12): `desen` her mağazaya; uyumsuzluk ve toplam depo aşımı `tasarla`'nın
+    tanımlarıyla (`en_iyi_mi` False, `yontem` "sabit")."""
+    D = np.asarray([desen], dtype=np.int64)
+    w = agirlik.reindex(egri.index).fillna(0.0)
+    u = sum(paket_tasarim.uyumsuzluk(D[0], egri.loc[m, SUTUNLAR].to_numpy(), float(w[m])) for m in egri.index)
+    asim = np.maximum(0.0, float(w.sum()) * D[0] - np.asarray(depo_payi) * int(D[0].sum()) * float(w.sum()))
+    asim = np.where(asim > 1e-6, asim, 0.0)
+    atama = pd.Series(0, index=egri.index.copy(), name="desen")
+    atama.index.name = "magaza_id"
+    return paket_tasarim.Tasarim(desenler=D, atama=atama, toplam_uyumsuzluk=float(u), en_iyi_mi=False,
+                                 yontem="sabit", depo_uygun=not asim.any(), depo_asimi=asim)
 
 
 def ayni_tasarim(a: paket_tasarim.Tasarim, b: paket_tasarim.Tasarim) -> bool:
@@ -605,7 +640,7 @@ def tasarim_kaydi(G: YolGirdisi, kol: str) -> dict:
                 "atama": None, "egri_kaynagi": None, "ns_kaynagi": "lumoda"}
     t = G.tasarim(kol)
     adlar = [paket_tasarim.desen_adi(d) for d in t.desenler]
-    return {"paket_adet": k.adet, "K": k.K, "egri": k.egri, "desenler": adlar,
+    return {"paket_adet": k.adet, "K": k.K, "egri": k.egri, "desenler": adlar, **({"notu": k.notu} if k.notu else {}),
             "atama": {str(m): adlar[int(i)] for m, i in t.atama.items()},
             "egri_kaynagi": G.kaynak_adi, "ns_kaynagi": f"vaka:{G.lumoda.dizin.name}",
             "tasarim": {"toplam_uyumsuzluk": t.toplam_uyumsuzluk, "en_iyi_mi": t.en_iyi_mi, "yontem": t.yontem,
