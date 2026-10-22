@@ -305,6 +305,44 @@ def test_cozucu_hatasinda_kanitsiz(monkeypatch):
     assert True in cagri and False in cagri                          # ön işlemesiz yeniden denendi
 
 
+def _deger(t: pt.Tasarim, w, depo, adet=7):
+    asim = np.maximum(0.0, _yuk(t, w) - np.asarray(depo) * adet * w.sum())
+    asim[asim <= 1e-6] = 0.0
+    return round(asim.sum(), 6), t.toplam_uyumsuzluk
+
+
+def test_butce_bitince_guvenli_yedek(monkeypatch):
+    """Model bütçesi seçim yapılamadan biterse (eskiden ValueError; aşağıdaki K = 2 durumlarının
+    beşi) güvenli yedek döner: düşmez, bütçesiz sonuçtan iyi olamaz, K − 1'den kötü değildir."""
+    girdiler = []
+    for tohum in range(3):
+        rng = np.random.default_rng(tohum)
+        E = _egri({f"M{i}": tuple(rng.dirichlet(np.full(5, 4.0))) for i in range(6)})
+        girdiler.append((E, _agirlik(E, rng.integers(1, 6, size=6).astype(float))))
+    depolar = (np.array([.1, .2, .2, .2, .1]), np.array([.13, .17, .3, .17, .1]))
+    Kler = ((1, 2, 3), (1, 2))                                        # depo başına (süre için)
+    tam = {(i, j, K): pt.tasarla(E, w, K, depo_payi=d)
+           for i, (E, w) in enumerate(girdiler) for j, d in enumerate(depolar) for K in Kler[j]}
+    monkeypatch.setattr(pt, "_MIP_EN_COK", 1)
+    kanitsiz = 0
+    for i, (E, w) in enumerate(girdiler):
+        for j, d in enumerate(depolar):
+            onceki = None
+            for K in Kler[j]:
+                t = pt.tasarla(E, w, K, depo_payi=d)
+                assert list(t.atama.index) == list(E.index) and len(t.desenler) <= K
+                deger, eniyi = _deger(t, w, d), _deger(tam[i, j, K], w, d)
+                assert deger >= (eniyi[0], eniyi[1] - 1e-9)             # en iyiden iyi olamaz
+                if onceki is not None:
+                    assert deger <= (onceki[0], onceki[1] + 1e-9)       # K'da tekdüze
+                if not t.en_iyi_mi:
+                    kanitsiz += 1
+                else:
+                    assert deger[0] == eniyi[0] and deger[1] == pytest.approx(eniyi[1])
+                onceki = deger
+    assert kanitsiz > 0                                                 # bütçe yolu gerçekten koştu
+
+
 def test_kisitli_belirlenimci():
     E = _egri({m: PAY[PROFIL[m]] for m in ("S01", "S04", "S06", "S07", "S05")})
     w = _agirlik(E, [3.0, 1.0, 2.0, 2.0, 1.0])
@@ -342,6 +380,14 @@ def test_buyuk_paket_kisitli_desen_aranir():
     assert all((_yuk(t[K], w) <= depo * 12 * w.sum() + 1e-6).all() for K in t)
     assert t[1].toplam_uyumsuzluk >= t[2].toplam_uyumsuzluk - 1e-9 >= t[3].toplam_uyumsuzluk - 2e-9
     assert t[3].toplam_uyumsuzluk > serbest.toplam_uyumsuzluk
+    # inceleyicinin zayıf durumu (12 mağaza, rng(3), depo [.165, 1, 1, .199, 1]): çoklu başlangıçsız
+    # K = 3, K = 2'ye eşit kalıyordu (71,1); çoklu başlangıçla kesin iyileşir
+    rng = np.random.default_rng(3)
+    E12 = _egri({f"M{i:02d}": tuple(r) for i, r in enumerate(rng.dirichlet(np.full(5, 4.0), size=12))})
+    w12 = _agirlik(E12, rng.integers(1, 6, size=12).astype(float))
+    d12 = np.array([.165, 1, 1, .199, 1])
+    u2, u3 = (pt.tasarla(E12, w12, K, depo_payi=d12, adet=12).toplam_uyumsuzluk for K in (2, 3))
+    assert u2 == pytest.approx(71.0999, abs=1e-3) and u3 < u2 - 1
 
 
 # ---------------------------------------------------------------------------
