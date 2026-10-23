@@ -1,0 +1,287 @@
+---
+baslik: L Bedeni Yine Bitti
+tip: hikaye
+sira: 1
+ozet: >-
+  Veli'nin Konya 3 mağazasında bir pantolonun 36 numarası ilk hafta bitiyor,
+  30 numarası rafta kalıyor. Ali'nin İstanbul 18'inde tersi. İkisine de aynı
+  paket gitmiş: 1-2-2-1-1.
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import Kadro from '../../../../components/Kadro.astro'
+import T from '../../../../components/T.astro'
+
+<Kadro />
+
+[İlk Sevkiyat](/allocation/ilk-sevkiyat/) dizisinde malı mağazalara hep
+paket paket gönderdik ve paketin içine hiç bakmadık. Lumoda'da beş bedenli
+her ürünün paketi aynı: yedi adet, beden sırasıyla 1-2-2-1-1. O dizinin
+sonunda bir yan bulgu çıkmıştı: ilk sevkiyattan sonra depoda en küçük
+bedenden hiç mal kalmıyor, kalan mal çoğunlukla üçüncü ve dördüncü beden.
+Bu dizi o bulgunun peşinden gidiyor. Paket mağazanın beden ihtiyacına
+uyuyor mu? Uymuyorsa kaç paket gerekir?
+
+Sahada bu işin adı beden analizi. <T k="paket">Paketin</T> İngilizcesi
+prepack; tedarikçi malı bedenleri sabit oranda karışık kolilerle gönderir,
+depo da bu kolileri açmadan mağazalara dağıtır. Bir üründen kaç adet alınacağı, hangi
+mağazaya kaç paket gideceği başka kararlar. Buradaki soru daha küçük
+görünüyor: o yedi adetin kaçı hangi bedenden olacak? Küçük görünüyor; ama
+müşterinin rafta kendi bedenini bulup bulamayacağı bu cevaba bağlı.
+
+## Her sezon aynı telefon
+
+Yeni sezonun ilk dağıtımı yaklaşıyor. Sabah toplantısında Veli telefonu
+kapatıp masaya dönüyor.
+
+— Konya 3'ün müdürüydü, diyor. Her sezon aynı cümle: L bedeni yine bitti.
+
+— Yeni sezonun malı daha yola çıkmadı, diyor Pelin.
+
+— Biliyorum. Çıkınca bitecek, onu söylüyor.
+
+Pelin güldüğünü saklamaya çalışıyor.
+
+— Hangi üründe bitiyor?
+
+— Hepsinde, diyor Veli. Kadın tişörtte L, erkek pantolonda 36 numara.
+Adları başka, yeri aynı: setin dördüncü bedeni.
+
+Lumoda'da her ürünün bir beden seti var ve bedenler setteki sırasıyla
+anılıyor; beden setlerini [Ürün Hiyerarşisi](/temeller/urun-hiyerarsisi/)
+yazısı anlatıyor. Kadın harf setinde dördüncü beden L, erkek numara
+setinde 36.
+
+— Bende tersi, diyor Ali. İstanbul'da küçük bedenler biter, büyükler
+rafta kalır. Sezon sonunda indirime giren hep aynı bedenler.
+
+— Biriniz büyük bedenden şikâyet ediyor, öteki küçükten, diyor Pelin. İkisi
+birden doğru olamaz.
+
+— Olabilir, diyor Pars. Bakalım.
+
+## Aynı model, iki renk
+
+Pars geçmiş bir sezondan bir ürün açıyor: erkek kot pantolon, numaralı.
+Model aynı, renk farklı. Bejini Konya 3 almış, bordosunu Ali'nin İstanbul
+18'i. İki mağazaya da aynı hafta varmış.
+
+Konya 3 Veli'nin mağazası, 407 metrekarelik bir cadde mağazası. İlk
+sevkiyatta 5 paket almış, 35 adet. İstanbul 18 Ali'nin; 1.023 metrekarelik
+bir AVM mağazası, 13 paket almış, 91 adet. Paket ikisinde de aynı:
+1-2-2-1-1.
+
+Pars Konya 3'ün ilk sekiz haftasını ekrana getiriyor.
+
+| Konya 3 | İlk sevkiyatta gelen | İlk sekiz haftada satış | Bittiği hafta | Rafta olmadığı gün | Sekiz haftanın sonunda kalan |
+|---|---:|---:|---:|---:|---:|
+| 30 | 5 | 4 | bitmedi | 0 | 1 |
+| 32 | 10 | 9 | 5. hafta | 23 | 0 |
+| 34 | 10 | 23 | 4. hafta | 32 | 0 |
+| 36 | 5 | 28 | 1. hafta | 37 | 0 |
+| 38 | 5 | 8 | 3. hafta | 36 | 0 |
+
+— İşte, diyor Veli. 36 numara ilk haftada bitmiş. Sekiz haftanın 37
+gününde rafta yokmuş. 30 numara ise hiç bitmemiş, sonunda bir tane bile
+kalmış.
+
+— Ama 36'dan 28 tane satmışız, diyor Pelin. Beş tane göndermişiz.
+
+— Arkasından replenishment gitmiş, diyor Pars. Depo bitenin yerine mal
+gönderebilir; gönderir de. Ama gelene kadar raf boş. Satışa bakarsan 36
+iyi gitmiş görünüyor. Rafa bakarsan sekiz haftanın üçte ikisinde yok.
+
+Sonra İstanbul 18'i açıyor.
+
+| İstanbul 18 | İlk sevkiyatta gelen | İlk sekiz haftada satış | Bittiği hafta | Rafta olmadığı gün | Sekiz haftanın sonunda kalan |
+|---|---:|---:|---:|---:|---:|
+| 30 | 13 | 11 | 3. hafta | 37 | 0 |
+| 32 | 26 | 33 | 4. hafta | 27 | 0 |
+| 34 | 26 | 53 | 6. hafta | 19 | 0 |
+| 36 | 13 | 43 | 6. hafta | 16 | 0 |
+| 38 | 13 | 12 | bitmedi | 0 | 2 |
+
+— Gördün mü, diyor Ali. Bende önce 30 bitiyor. 38 sekiz hafta boyunca hiç
+bitmemiş.
+
+İki mağaza, aynı model, aynı paket. Birinde en büyük bedenler önce bitiyor,
+en küçüğü rafta kalıyor. Ötekinde tam tersi.
+
+## Paket yıllardır aynı
+
+Yeni sezonun ilk dağıtımında 210 option mağazalara çıkacak; 193'ü beş
+bedenli. Mal 69 mağazaya gidiyor: 12'si İstanbul'da ve Ali'de, 57'si
+Anadolu'da ve Veli'de. Sezonun alımı yapılmış, depoya hangi bedenden kaç
+adet geleceği belli. Değişebilecek tek şey, o adetlerin mağazalara hangi
+karışımla gideceği.
+
+Pelin Lumoda'nın paket tablosunu açıyor. Altı beden seti var: kadın ve
+erkek, unisex; harf ve numara. Altısında da tek bir paket tipi, altısında
+da aynı içerik: 1-2-2-1-1. Tek bedenli aksesuarın kendi paketi var, altı
+adet.
+
+— Bu tabloyu ben kurmadım, diyor Pelin. Ben geldiğimde de böyleydi. Her
+beden setine tek paket. Kimse yeniden bakmadı, çünkü kimse şikâyet etmedi.
+
+— Ben her sezon şikâyet ediyorum, diyor Veli.
+
+— Sen paketten değil, Ali'nin mağazalarına giden maldan şikâyet
+ediyorsun, diyor Pelin.
+
+Herkes gülüyor. Sonra Pars sorunun asıl yerini gösteriyor.
+
+## İki mağaza, iki eğri
+
+— Bir mağazanın satışının bedenlere nasıl dağıldığına
+<T k="beden-egrisi">beden eğrisi</T> diyoruz, diyor Pars. Satılan her yüz
+adetten kaçı birinci bedenden, kaçı beşinciden? Ama ham satışa bakamam.
+Konya 3'te 36 numara günlerce rafta yoktu; o günlerde satamadı. Satışı
+rafta olduğu günlere bölüp öyle okuyorum.
+
+Ekrana dört satır geliyor. İlk ikisi iki mağazanın karar öncesi satışından
+okunan eğri, üçüncüsü bütün zincirinki, sonuncusu paketin kendisi.
+
+| Beden payı (beden 1 → 5) | 1 | 2 | 3 | 4 | 5 |
+|---|---:|---:|---:|---:|---:|
+| Konya 3 | %7,1 | %16,0 | %28,1 | %30,8 | %18,0 |
+| İstanbul 18 | %15,7 | %27,9 | %30,3 | %18,1 | %8,0 |
+| Zincir | %10,2 | %21,8 | %31,1 | %24,5 | %12,3 |
+| Paket 1-2-2-1-1 | %14,3 | %28,6 | %28,6 | %14,3 | %14,3 |
+
+— Konya 3'te dördüncü bedenin satıştaki payı paketteki payının iki
+katından fazla, diyor Pars. Paket yedi adetin biriyle dördüncü bedeni
+karşılamaya çalışıyor. Birinci bedende tersi; paket mağazanın istediğinin
+iki katını gönderiyor.
+
+— Bende de beşinci beden öyle, diyor Ali. Paket 38'i benim sattığımın
+neredeyse iki katı oranında gönderiyor.
+
+— Peki zincir? diyor Pelin. Paketi zincire göre kursak ikisinin ortası
+olur.
+
+— Zincirin kendisi bile başka paket istiyor, diyor Pars. Zincirde birinci
+beden %10,2, paket %14,3 gönderiyor. Dördüncü beden %24,5, paket %14,3.
+
+## Yedi adet, beş beden
+
+— O zaman doğru paket hangisi? diyor Pelin.
+
+— Önce kaç paket olabileceğine bakalım, diyor Pars. Yedi adeti beş bedene
+kaç türlü bölersin?
+
+Cevap 330. Bir bedene yedisini birden koymaktan her bedene bir ya da iki
+adet koymaya kadar, yedi adetlik paketin 330 farklı içeriği var. Ortadaki
+üç beden her pakette en az bir adetle bulunsun derseniz 70 paket kalıyor.
+
+Yetmiş aday az; hepsini tek tek denemek zor değil. Dert sayıda değil,
+yedide. Yedi adetlik bir pakette bir bedenin payı ya sıfırdır ya en az
+yedide birdir, yani %14,3. Zincir birinci bedende %10,2 istiyor. Yedi
+adetle %10,2 kurulamaz: ya hiç koyarsınız, ya fazla koyarsınız. On iki
+adetlik bir pakette içerik sayısı 1.820'ye, ortadaki üç beden şartıyla
+715'e çıkıyor; paket büyüdükçe pay incelir. Bunu beşinci yazıda
+sınayacağız.
+
+— Paketin mağazadan ne kadar uzak olduğunu nasıl ölçüyorsun? diyor Ali.
+
+— En basit yolu şu, diyor Pars. Her bedende paketin payıyla mağazanın
+payı arasındaki farkı alıp topluyorum. İki dağılım aynıysa 0 çıkar,
+hiçbir bedende örtüşmüyorlarsa 2. Adı L1 uzaklığı.
+
+Lumoda'nın paketi zincirin eğrisine 0,255 uzak. Mağazaların eğrilerine
+uzaklığı daha fazla: eğrisi okunabilen 68 mağazada ortalama 0,293. En
+yakın mağazada 0,138, en uzakta 0,407.
+
+Pars aynı şeyi adetle de anlatıyor. Lumoda'nın gönderdiği her yedi
+adetlik pakette, mağazanın beden eğrisine göre ortalama 0,949 adet eğrinin
+istediğinden fazla gelen bir bedende duruyor; aynı kadar adet de eğrinin
+istediği bedende eksik kalıyor. Neredeyse her pakette bir adet.
+
+Sonra yetmiş adayı tek tek deniyor. Bütün mağazalara tek bir paket
+gidecekse en iyisi Lumoda'nınki değil, 1-1-2-2-1. İkinci bedenden bir adeti
+dördüncü bedene taşıyor. Onunla yanlış bedendeki adet paket başına 0,853'e
+iniyor.
+
+— Tamam, diyor Pelin. Paketi 1-1-2-2-1 yapalım, olsun bitsin.
+
+— İstanbul 18'i unuttun, diyor Ali. Bende ikinci beden zaten bitiyor.
+
+Haklı. 1-1-2-2-1 Konya 3'ün eğrisine yaklaşıyor, İstanbul 18'inkinden
+uzaklaşıyor. İki mağazanın arasında bir yere tek paket koyduğunuzda ikisine
+de yanlış paket gitmiş oluyor; yalnız biraz daha az yanlış.
+
+## Cevap anahtarı
+
+Burada bir şeyi açıkça söylemem gerekiyor. Lumoda sentetik bir zincir ve
+verisini ben ürettim. Her mağazaya, yayımlanan veride görünmeyen bir beden
+kayması verdim: kimi mağazanın müşterisi zincirin ortalamasına göre büyük
+bedenlere kayık, kimininki küçük bedenlere, kimininki ortada. Gerçek
+hayatta böyle bir cevap anahtarı yoktur; burada var ve onu yalnız ölçmek
+için kullanıyorum. Ali, Veli, Pelin ve Pars onu bilmiyor.
+
+Gerçekte Konya 3'ün müşterisi büyük bedenlere, İstanbul 18'inki küçük
+bedenlere kayık. Veli'nin telefonda duyduğu, Ali'nin rafta gördüğü şey
+cevap anahtarında da yazıyor.
+
+Sahneyi de yayımlanan veriden seçtim, ama dürüst olayım: istediğim
+şartların hepsini birden sağlayan tek bir ürün bulamadım. Aynı modelin iki
+rengini aldım ve seçim şartlarını birkaç yerde gevşettim. Hepsini son
+yazıda açıyorum.
+
+## Kimin paketi?
+
+— O zaman Konya 3'e ayrı paket, İstanbul 18'e ayrı paket, diyor Pelin.
+Altmış dokuz mağazaya altmış dokuz paket mi kuracağız?
+
+— Hayır, diyor Pars. Tedarikçi o kadar paket tipine razı olmaz, depo da
+onları ayrı ayrı tutamaz. Ama her mağazaya ayrı paket gerekmiyor.
+Eğrileri birbirine benzeyen mağazalar aynı paketi alabilir.
+
+Pars mağazaların satıştan okunan eğrilerini yan yana koyuyor. Mağazalar
+üç gruba ayrılıyor: büyük bedenlere kayık 28 mağaza, ortada 22, küçük
+bedenlere kayık 19. Konya 3 birinci grupta, İstanbul 18 üçüncüde. Bir
+mağazanın hiç satışı yok; yeni açılıyor. Onu satış görmeden bir gruba
+koymak gerekiyor ve bu, üçüncü yazının konusu.
+
+Eğrisi okunabilen 68 mağazada bu üç grup cevap anahtarıyla birebir
+örtüşüyor. Yeni mağaza ise yanlış gruba düşüyor. Örtüşmenin ne kadarının
+yöntemden, ne kadarının verinin basitliğinden geldiğini üçüncü ve son
+yazıda konuşacağız.
+
+— Yani Veli'nin şikâyeti benden değil, paketten, diyor Ali.
+
+— Seninki de, diyor Veli.
+
+— İkinizin de derdi aynı paket, diyor Pars. Siz kardeşsiniz; bunun
+kavgası olmaz.
+
+Sonra Pelin'e dönüyor.
+
+— Bedeni zincirden değil mağazadan oku; paketi de bir değil birkaç tane
+kur.
+
+## Bu dizide ne yapacağız
+
+Bu dizide önce bir mağazanın beden eğrisini satıştan okuyacağız. Rafın boş
+kaldığı günler satışı nasıl yanıltıyor, az satışlı bir mağazanın eğrisi
+neye yaslanmalı, hiç satışı olmayan yeni bir mağaza hangi eğriyi almalı?
+Sonra paketi tasarlayacağız: kaç paket tipi, hangi içerik, hangi mağazaya
+hangisi. En sonunda da asıl soruya geleceğiz: aynı mal, aynı mağazalara,
+yalnız başka paketlerle gitseydi ilk haftalarda raflar ne kadar dolu
+kalırdı?
+
+## Tanım
+
+**Beden eğrisi, bir mağazanın satışının bedenlere dağılımıdır. Paket
+(prepack), tedarikçinin hazırladığı, beden adetleri sabit karma kolidir.**
+
+Bu konuyu neden sevdiğimi de söyleyeyim. Beden, perakendenin en sessiz
+kararı. Bir mağaza müdürü "L bitti" dediğinde kimse paketi suçlamaz;
+suçlu ya alımdır ya allocator. Oysa malın bedenlere bölünüşü, mağazaya
+daha hiçbir şey gitmeden, bir tablonun tek satırında kararlaştırılmıştır.
+Ve o satır çoğu zaman yıllardır aynıdır.
+
+Bir sonraki yazıda kararı parçalarına ayırıyoruz: paket neden var, kaç
+paket tipi kurulur, paketsiz göndermek ne zaman akla yatar? Konya 3'ün 36
+numarasını da aklınızda tutun: ilk haftada biten, sekiz haftanın 37
+gününde rafta olmayan beden. 🙂

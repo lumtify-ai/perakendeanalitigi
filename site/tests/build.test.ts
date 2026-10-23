@@ -267,6 +267,45 @@ describe('Mağaza Gruplama dizisi', () => {
   })
 })
 
+describe('Beden ve Paket dizisi', () => {
+  const KOK = 'assortment/beden-paket/'
+
+  it('hikâye yazısı kadro kutusuyla açılır', () => {
+    const html = oku(KOK + 'l-bedeni-yine-bitti/index.html')
+    expect(html).toContain('kadro-kutusu')
+    expect(html.indexOf('kadro-kutusu')).toBeLessThan(html.indexOf('<h2'))
+  })
+
+  it('kapak altı yazıyı sırayla listeler ve demoya bağlanır', () => {
+    const html = oku(KOK + 'index.html')
+    const sira = [
+      'l-bedeni-yine-bitti',
+      'karar-nasil-verilir',
+      'beden-egrisini-okumak',
+      'paketi-tasarlamak',
+      'ilk-sevkiyatta-sinamak',
+      'basari-nasil-olculur',
+    ]
+    const yerler = sira.map((slug) => html.indexOf(`href="/${KOK}${slug}/"`))
+    expect(yerler.every((y) => y > -1)).toBe(true)
+    expect([...yerler].sort((a, b) => a - b)).toEqual(yerler)
+    expect(html).toContain(`href="/${KOK}demo/"`)
+  })
+
+  it('ilk iki yazı sözlüğün üç yeni maddesine bağlanır', () => {
+    const iki = oku(KOK + 'l-bedeni-yine-bitti/index.html') + oku(KOK + 'karar-nasil-verilir/index.html')
+    for (const madde of ['beden-egrisi', 'paket', 'acik-beden']) {
+      expect(iki, madde).toContain(`href="/sozluk/#${madde}"`)
+    }
+  })
+
+  it('assortment aşaması Sezon Öncesi haritasında diziye bağlanır', () => {
+    const html = oku('sezon-oncesi/index.html')
+    expect(html).toContain('href="/assortment/"')
+    expect(html).toContain(`href="/${KOK}"`)
+  })
+})
+
 describe('dizi sayfası', () => {
   it('altı yazıyı sırayla listeler', () => {
     const html = oku('transfer/blok-transfer/index.html')
@@ -597,6 +636,46 @@ describe('demo', () => {
     expect(Object.keys(veri.sonuclar).length).toBe(beklenen)
   })
 
+  it('beden ve paket demosunun ölçüt etiketleri var, değerler raporun basamağıyla', async () => {
+    // Kartlar (ilk 4 hafta bulunabilirlik, beden kaybı payı, kırık set, brüt
+    // kâr) Demo.astro'nun ETIKETLER sözlüğünden, basamak demoBicim.ts'ten
+    // gelir; rapor bunları %96,5 ve 535.940.376 diye basar.
+    const { default: veri } = await import('../src/data/senaryolar/beden-paket.json')
+    const ilk = Object.keys(veri.sonuclar)[0]
+    const olcutler = Object.keys(veri.sonuclar[ilk as keyof typeof veri.sonuclar].ozet)
+    expect([...olcutler].sort()).toEqual([
+      'beden_kayip_payi_ilk4',
+      'brut_kar_tl',
+      'bulunabilirlik_ilk4',
+      'kirik_cift_pay_yuzde_ilk4',
+    ])
+    const html = oku('assortment/beden-paket/demo/index.html')
+    for (const etiket of [
+      'İlk 4 hafta bulunabilirlik (%)',
+      'İlk 4 hafta beden kaybı payı (%)',
+      'İlk 4 hafta kırık set (%)',
+      'Brüt kâr (TL)',
+    ]) {
+      expect(html, etiket).toContain(`<dt>${etiket}</dt>`)
+    }
+    for (const olcut of olcutler) {
+      expect(html, olcut).not.toContain(`<dt>${olcut}</dt>`)
+    }
+    const kart = kesit(html, 'data-anahtar="1|7"', '</dl>')
+    for (const deger of ['96,5', '58,4', '2,2', '535.940.376']) {
+      expect(kart, deger).toContain(`<dd>${deger}</dd>`)
+    }
+  })
+
+  it('beden ve paket senaryosu sözleşmeye uyar', async () => {
+    const { default: veri } = await import('../src/data/senaryolar/beden-paket.json')
+    const beklenen = veri.parametreler.reduce(
+      (carpim: number, p: { degerler: unknown[] }) => carpim * p.degerler.length,
+      1,
+    )
+    expect(Object.keys(veri.sonuclar).length).toBe(beklenen)
+  })
+
   it('getiri senaryosu sözleşmeye uyar', async () => {
     const { default: veri } = await import('../src/data/senaryolar/transfer-getirisi.json')
     const beklenen = veri.parametreler.reduce(
@@ -746,6 +825,15 @@ describe('site geneli vaatler', () => {
     expect(kopru).not.toContain('kargo tarifesi')
     expect(kopru).not.toContain('başabaş eşiğini')
   })
+
+  // Beden ve Paket dizisinin köprüsü 6. yazıda (basari-nasil-olculur) durur;
+  // yazı henüz yer tutucu. Dizinin son yazı görevi bu satırı yukarıdaki
+  // kalıpla etkinleştirir: oku('assortment/beden-paket/basari-nasil-olculur/index.html'),
+  // köprü dilimi; dizinin kendi giriş ve kapanış cümleleri, kanonik cümleler
+  // ('iş zekâsı ve optimizasyonla', 'Let Us Make Trade Intelligent For You'),
+  // varsayılan paragraflar yok ('kargo tarifesi', 'başabaş eşiğini'). Aynı
+  // görev sayfayı yukarıdaki BEKLENEN_KOPRU_SAYFALARI listesine ekler.
+  it.todo('Beden ve Paket köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır')
 
   it('köprüde kalın cümle ile sonraki cümle arasında boşluk var', () => {
     for (const { yol, html } of tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))) {

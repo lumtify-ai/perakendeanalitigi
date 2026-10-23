@@ -1,0 +1,194 @@
+---
+baslik: Bu Karar Nasıl Verilir
+tip: anlatici
+sira: 2
+ozet: >-
+  Paket neden var, kaç paket tipi kurulur, paketsiz göndermek ne zaman akla
+  yatar? Paketin büyüklüğü bedenin payını nasıl sınırlar, replenishment neyi
+  geç düzeltir? Bir de sektörün en sık beş hatası.
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import T from '../../../../components/T.astro'
+
+Geçen yazıyı iki tanımla bitirmiştik: beden eğrisi, bir mağazanın
+satışının bedenlere dağılımıdır; paket, tedarikçinin hazırladığı, beden
+adetleri sabit karma kolidir. Bu yazıda kararı parçalarına ayırıyoruz.
+Formül yok; eğriyi üçüncü yazıda okuyacak, paketi dördüncü yazıda
+tasarlayacak, beşincide İlk Sevkiyat'ta sınayacağız. Bu yazının işi, o
+yöntemlerin hangi sorulara cevap vereceğini netleştirmek.
+
+## Paket neden var
+
+Malı bedenleri tek tek sayarak göndermek mümkün. Çoğu zincir yine de
+<T k="paket">paket</T> gönderir. Üç sebebi var.
+
+**Depo.** Bir dalgada bütün mağazalara aynı anda mal hazırlayan bir depo
+için paket tek bir parçadır: rafından alınır, mağazanın sevkiyatına
+konur. Bedenleri tek tek toplamak her bedeni ayrı bir iş yapar. Koli ile
+açık adet arasındaki farkın sezon içinde neye mal olduğunu
+[Depodan Mağazaya](/replenishment/depodan-magazaya/koli-mi-acik-mi/)
+dizisinde ölçmüştük.
+
+**Tedarikçi.** Malı paketleyen tedarikçidir. Her paket tipi onun için ayrı
+bir dolum talimatı, ayrı bir etiket, ayrı bir koli demek. Bir model için
+tek paket istemek kolay; beş farklı paket istemek, hem pazarlık hem hata
+konusu.
+
+**Mağaza.** Mağaza paketi teslim alır, açar, bedenleri rafa dizer. Her
+paket aynıysa teslim kontrolü de aynıdır: yedi adet, beden sırasıyla
+1-2-2-1-1.
+
+Paketin bedeli de buradan çıkıyor. Paketin içeriği bir kez seçilir ve o
+paketi alan her mağazaya aynı oranda beden gider. Konya 3'e de, İstanbul
+18'e de.
+
+## Kaç paket tipi
+
+Bir uçta Lumoda duruyor: altı beden setinin her birinde tek paket. Öbür
+uçta her mağazaya kendi paketi var. İkisinin arası, mağazaları beden
+eğrilerine göre gruplayıp her gruba bir paket vermek.
+
+— Kaç grup? diyor Pelin. Üç mü, beş mi, altmış dokuz mu?
+
+— Her paket tipi bir maliyet, diyor Pars. Tedarikçiye, depoya, sisteme.
+Bir tip daha eklemenin neye değdiğini ölçmeden sayıyı seçemezsin. Bu
+dizide bir, iki, üç, dört paket tipini ve mağazaya özel paketi aynı malla
+deneyeceğiz.
+
+Bir şeyi şimdiden söyleyeyim, çünkü sezgiye ters. Yedi adetlik pakette
+her mağazaya kendi en iyi paketini verseniz bile Lumoda'da iki farklı
+içerikten fazlası çıkmıyor. Yedi adet o kadar kaba ki, beş bedendeki ince
+farklar paketin içine sığmıyor. Nedenini dördüncü yazıda göstereceğim.
+
+Mağazaları gruplamak deyince akla
+[Mağaza Kümeleme](/magaza-kumeleme/magaza-gruplama/) dizisindeki kümeler
+geliyor. O kümeler satış karışımına göre kurulmuştu, yani mağazanın ne
+sattığına. Beden başka bir soru: müşterinin ne giydiği. İki gruplamanın
+ne kadar örtüştüğünü de dördüncü yazıda ölçüyoruz.
+
+## Paketsiz göndermek
+
+Paketin yerine bedenleri tek tek göndermeye
+<T k="acik-beden">açık beden</T> diyoruz. Mağazaya tam istediği gider;
+paketin dayattığı oran yoktur.
+
+Açık beden en çok üç durumda akla yatar. Mağaza bir üründen çok az mal
+alıyorsa: tek paketlik bir mağazada paketin yedi adeti mağazanın bütün
+payıdır ve bir beden fazlası ya da eksiği büyük bir oran eder. Mal
+pahalıysa: yanlış bedende bekleyen her adetin bedeli yüksektir. Bir de
+sezonun sonunda, kalan malı toparlarken.
+
+Bedeli depoda ve tedarikçide. Bu dizide açık bedeni ölçmüyoruz. Lumoda'da
+ilk sevkiyat paketle gider ve paket açılmaz; burada soru yalnız paketin
+içeriği ve kaç tane olacağı.
+
+## Paketin büyüklüğü
+
+Ali'nin en sık sorduğu soru şu:
+
+— Paketi neden yedi adet yaptık? Büyütsek daha mı iyi olur?
+
+Paketin büyüklüğü, bir bedene verilebilecek en küçük payı belirler. Yedi
+adetlik pakette bir beden ya hiç yoktur ya en az yedide birdir: %14,3.
+Lumoda'nın zincirinde birinci beden %10,2 satıyor. On iki adetlik pakette
+en küçük pay on ikide bire iner; içerik incelir.
+
+— Ama küçük mağazaya on iki adet fazla gelmez mi? diyor Ali.
+
+— Toplamı değiştirmeden paketi büyütebilir miyiz, ona bakacağız, diyor
+Pars. Büyük paket iki şeyi birden değiştiriyor: içeriğin inceliğini ve
+mağazaya giden adetin kabalığını. Hangisinin sonucu değiştirdiğini ayırmak
+gerekiyor.
+
+Bu ayrımı beşinci yazıda yapıyoruz.
+
+## Replenishment düzeltmez mi?
+
+Pelin'in itirazı yerinde:
+
+— Diyelim paket yanlış. Sezon içinde replenishment var. Biten beden depodan
+tamamlanır.
+
+Tamamlanır, ama iki şartla. Birincisi, depoda o bedenden mal kalmış
+olmalı. Yeni sezonun beş bedenli option'larında birinci bedenden depoda
+116.147 adet var; ilk dağıtım 116.147 adet götürüyor. Paket birinci bedeni
+depoda ne varsa o kadar istiyor ve depoda birinci bedenden hiç mal
+kalmıyor. Öbür uçta dördüncü bedenin %58,3'ü ilk dağıtımdan sonra depoda
+bekliyor.
+
+İkincisi, replenishment gelene kadar raf boş. Lumoda'nın replenishment'ında
+beden payları beden sırasıyla %3,3 / %10,8 / %36,2 / %41,6 / %8,1. Sezon
+içinde depodan çıkan malın %41,6'sı dördüncü beden; ilk sevkiyatın yedide
+bir, %14,3 gönderdiği beden. Replenishment paketin hatasını sonradan
+düzeltiyor. Konya 3'ün 36 numarası gibi, o arada raf haftalarca boş
+kalabiliyor.
+
+— Yani sezonun sonunda her şey düzelmiş görünebilir, diyor Pars. İlk
+haftalar gitmiştir.
+
+Bu yüzden bu dizide başarıyı önce ilk dört haftada ölçeceğiz. Üç ölçüt var:
+müşterinin aradığı bedeni rafta bulup bulamadığı (bulunabilirlik);
+karşılanamayan talebin ne kadarının, ürünün başka bedenleri rafta dururken
+kaybolduğu (beden kaybı payı); ürün raftayken ortadaki üç bedeninden
+birinin eksik olduğu günlerin payı (kırık set). Sezonun tamamını da
+basacağız, ama başlıkta ilk haftalar var.
+
+## Sektörün beş hatası
+
+**Satışı talep sanmak.** Konya 3'te 36 numara sekiz haftanın 37 gününde
+rafta yoktu. O günlerde satamadı; satış payı 36'nın talebini olduğundan
+küçük gösterir. Bir bedenin rafta olmadığı günleri hesaba katmadan okunan
+eğri, rafta en sık boş kalan bedenleri hep az gösterir. Verinin kurgusunda
+gerçek talebi bildiğim için bunu ölçebiliyorum: ham satış payı gerçek
+talep payından ortalama 0,0530 uzak, rafsız günler düzeltilince 0,0337.
+Ama dürüst olayım: Lumoda'da düzeltme bir bedenin payını ortalama yalnız
+0,53 puan oynatıyor ve yedi adetlik paketlerin tasarımını değiştirmiyor.
+Ham eğriyle kurulan iki paketli tasarım, düzeltilmiş eğriyle kurulanın
+aynısı. Eğri daha doğru, paket aynı. Sizin verinizde raflar daha sık boş
+kalıyorsa sonuç başka olabilir.
+
+**Tek zincir eğrisi.** Bütün mağazaların satışını toplayıp tek bir eğri
+çıkarmak kolay ve kulağa makul geliyor. Ama Konya 3 ile İstanbul 18'in
+ortalaması ikisine de uymaz. Gerçekte zincir eğrisi bir mağazanın gerçek
+talebinden ortalama 0,1634 uzak; mağazanın kendi satışından okunan son
+eğri 0,0333.
+
+**Her mağazaya ayrı paket.** Öbür uç. Tip sayısı mağaza sayısı kadar
+olur, tedarikçi ve depo için her mağaza ayrı bir iş olur. Az satışlı bir
+mağazanın eğrisi de gürültülüdür; ona göre kurulan paket gürültüyü paketin
+içine taşır. Yukarıda söyledim: yedi adette mağazaya özel paket iki paket
+tipinin ötesine bir şey katmıyor.
+
+**Paketi bir kez kurup unutmak.** Lumoda'nın paketi yıllardır aynı ve
+zincirin kendi eğrisine bile en yakın paket değil. Tek paket kalacaksa
+1-1-2-2-1 daha iyi: Lumoda'nın her paketinde mağazanın eğrisine göre
+ortalama 0,949 adet yanlış bedende duruyor, 1-1-2-2-1'de 0,853. Lumoda'da
+bir yıl arayla kurulan iki eğri neredeyse aynı çıkıyor (ortalama L1
+0,0061). İkisi geçmişin bir yılını paylaşıyor, yani bu sayı eğrinin ne
+kadar dayandığını biraz iyimser gösteriyor; yine de doğru kurulmuş bir
+paket burada uzun dayanır. Lumoda'nın sorunu paketin eskimesi değil, hiç
+mağazaya bakılarak kurulmamış olması. Sizin zincirinizde yeni mağazalar,
+yeni kategoriler, değişen müşteri eğriyi kaydırabilir; o zaman paketi
+unutmanın bedeli büyür.
+
+**Kendi replenishment'ını talep sanmak.** Bu en sinsi olanı. Depodan
+mağazalara giden malın beden dağılımına bakan biri dördüncü bedenin çok
+istendiğini düşünür: replenishment'ın %41,6'sı dördüncü beden. Zincirin
+satışında dördüncü bedenin payı %24,5. Aradaki fark talepten değil, paketin
+eksik gönderdiği bedenin sonradan tamamlanmasından ve depoda hangi bedenin
+kaldığından geliyor. Sevkiyatı eğriye katarsanız paketin kendi hatasını
+talep diye geri okursunuz. Bu yüzden eğriyi yalnız satıştan ve raftaki
+stoktan okuyacağız; sevkiyat tablosu eğriye girmiyor.
+
+## Üç soru
+
+Beden kararı sonunda üç soruya iniyor: bir mağazanın beden eğrisi nasıl
+okunur, kaç paket tipi kurulur ve hangi mağazaya hangi paket gider?
+Cevapların hiçbiri paket tablosunda yazmıyor. Mağazanın kasasından geçen
+bedende ve rafın boş kaldığı günlerde yazıyor.
+
+Sonraki yazıda eğriyi okuyoruz: ham satış payı, rafsız günlerin
+düzeltmesi, az satışlı mağazanın eğrisi ve hiç satışı olmayan yeni
+mağaza.
