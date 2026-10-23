@@ -62,6 +62,20 @@ def test_rapor_farklari_basilan_degerlerden(tmp_path):
         assert rapor.s(rapor.tek_ondalik(x2), 1) == bir.lstrip("+")
 
 
+def test_rapor_ayni_mal_12_14_yaklasik(tmp_path):
+    """KOLLAR'ın mal tablosu 'evet'i yalnız 7'li kola basar; 12'li ve 14'lü kollar 'yaklaşık (±N adet)' (dönüşüm
+    farkı); ABLASYON hücre düzeyindeki yer değiştirmeyi basar; R16 'inceleme açık' değil."""
+    m = _metin(tmp_path)
+    mal = _bolum(m, "KOLLAR").split("mal ve kırpma")[1]
+    satir = {ad: s_ for s_ in mal.splitlines() for ad in rapor.KOL_ADLARI.values() if s_.startswith(f"  {ad}  ")}
+    assert "evet" in satir["P1 tek 7'li"] and "yaklaşık (+12 adet)" in satir["P3 üç 12'li"]
+    assert "yaklaşık (−7 adet)" in satir["P1 14'lü 2-2-4-4-2"] and "evet" not in satir["P1 14'lü 2-2-4-4-2"]
+    ab = _bolum(m, "ABLASYON")
+    assert "12'li kollar (aynı dönüşüm): 4/8 hücrede adet farklı, Σ|fark| 20 adet, net +12 adet" in ab
+    assert "P1 14'lü: 4/8 hücrede adet farklı, Σ|fark| 20 adet, net −7 adet" in ab
+    assert "inceleme açık" not in m
+
+
 # --------------------------------------------------------------------------- tampon, korunum, eksik
 
 
@@ -86,9 +100,11 @@ def test_rapor_tam_ve_bolum_sirasi(tmp_path):
     lambda g: g["analiz"]["ilk_sevkiyat"]["3"].__setitem__("anahtar_ayni", False),
     lambda g: g["analiz"]["tasarim"]["p2"]["atama"].__setitem__("M4", "1-1-2-2-1"),
     lambda g: g["hikaye"]["kucuk"].__setitem__("desen", "1-1-2-2-1"),
-    lambda g: g["oyun"]["kosular"]["y4_p3_12"].__setitem__("ayni_mal", False),
+    lambda g: g["oyun"]["kosular"]["y4_p3_12"]["korunum"].__setitem__("net_fark_adet", 11),
+    lambda g: g["oyun"]["kosular"]["p1_14"]["donusum"].__setitem__("option_en_buyuk_fark", 14),
+    lambda g: g["oyun"]["kosular"]["y4_p3_12"]["olcutler"].__setitem__("kirpilan_adet", 12.0),
 ], ids=["kirpma", "dogrulama", "ayni_mal_cift", "ilk_dagitim", "ilk_sevkiyat_anahtar", "tasarim_kaydi", "hikaye_paket",
-        "ayni_mal_12"])
+        "donusum_korunum_12", "option_siniri_14", "kirpma_12"])
 def test_rapor_korunum_bozulunca_bos(tmp_path, capsys, boz):
     g = sahte_rapor.girdiler()
     boz(g)

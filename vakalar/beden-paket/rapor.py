@@ -33,7 +33,8 @@ Bölümler (`BOLUMLER`, bu sırayla; spec §5). Başlık sorularının her biri 
     HİKÂYE                sahne, gevşeyen, hakem, alternatif
     DEMO                  bileşimler, eksik bileşimler, site dosyası
     ANLATI VARSAYIMLARI
-    KORUNUM               doğrulama = İlk Sevkiyat Lumoda; aynı mal; kırpma 0; İlk Sevkiyat anahtarları; girdiler
+    KORUNUM               doğrulama = İlk Sevkiyat Lumoda; kırpma 0; aynı mal (7'li); 12'li ve 14'lüde giden adet
+                          farkı = dönüşüm farkı, option sınırı; İlk Sevkiyat anahtarları; girdiler
 
 Rapor önce tampona yazılır; korunum tutmazsa ya da bir girdi eksik ya da eskiyse (ızgaranın bir koşusu
 yok ya da bugünkü ölçüm koduyla ölçülmemiş, koşunun önbellek dizini yok; `analiz.json`, `hikaye.json`
@@ -72,7 +73,7 @@ ANLATI_VARSAYIMLARI = {
              "Pars veriyi açan analist (dizinin kadrosu)",
     "depo": "tasarımın beden başına depo kısıtı karar anında bilinen ilk sipariş adedinden kurulur; kalite "
             "kontrolde hatalı çıkan adet (teslimde, çoğu karar gününden sonra) yalnız ön denetimde ve korunumda "
-            "düşülür (Ruling R16, inceleme açık); iki tanımla tasarımların aynı olup olmadığı TASARIM'da",
+            "düşülür (Ruling R16); iki tanımla tasarımların aynı olup olmadığı TASARIM'da",
     "ilk_haftalar": "başlık ölçütlerinin \"ilk haftaları\" İlk Sevkiyat'ın ilk 4 haftasıdır (ilk dağıtımın "
                     "varışından 28 gün)",
     "hikaye_penceresi": "hikâyede \"ilk haftalarda biter\": varıştan sonraki ilk tam haftalarda rafsız gün (sıkı 2 "
@@ -522,12 +523,12 @@ def paket_bolumu(v, ek) -> None:
           f"ortalama {s(p['gercek_l1']['ortalama'], 3)}")
     if lu and k1:
         print(f"  beklenen eksik adet (paket başına, mağaza eğrisine göre, Lumoda'nın giden paketiyle ağırlıklı): Lumoda "
-              f"{s(lu['paket_basina'], 3)} · en iyi tek {s(a)}'li paket {desenler_metni(k1['desenler'])} "
-              f"{s(k1['paket_basina'], 3)}" + ("; en iyi tek paket Lumoda'nınki değil" if farkli else ""))
+              f"{s(lu['paket_basina'], 4)} · en iyi tek {s(a)}'li paket {desenler_metni(k1['desenler'])} "
+              f"{s(k1['paket_basina'], 4)}" + ("; en iyi tek paket Lumoda'nınki değil" if farkli else ""))
     soru(1, f"Lumoda'nın paketi zincirin ve mağazaların beden eğrisinden ne kadar uzak? Paketin beden payı "
             f"{pay_metni([x / a for x in L])}, zincir {pay_metni(p['zincir'])}: L1 zincire {s(p['zincir_l1'], 3)}, mağaza "
             f"eğrilerine ortalama {s(mz['ortalama'], 3)} (en çok {s(mz['en_cok'], 3)}); paket başına beklenen eksik adet "
-            + (f"{s(lu['paket_basina'], 3)} (en iyi tek paket {s(k1['paket_basina'], 3)})" if lu and k1 else "—"))
+            + (f"{s(lu['paket_basina'], 4)} (en iyi tek paket {s(k1['paket_basina'], 4)})" if lu and k1 else "—"))
     ek += [("PAKET: aday sayısı = temel bedenli bölme yolu", p["aday_7"] == yol_cekirdek
             and p["aday_12"] == math.comb(13, 4)),
            ("PAKET: ilk dağıtım ≤ depo (beden beden)", all(x <= d for x, d in zip(ilk, p["depo"]))),
@@ -708,11 +709,22 @@ def kollar_bolumu(v, ek) -> None:
     print(f"  P2 − Lumoda bulunabilirlik: ilk 4 hafta {isaretli(d4, 2)} puan, sezon boyu {isaretli(ds, 2)} puan"
           + ("; kazanç ilk haftalarda büyük, sezon boyunca daralıyor"
              if d4 > 0 and ds < d4 else ""))
-    alt("mal ve kırpma")
+    alt("mal ve kırpma (aynı mal: 7'lide mağaza × option başına giden adet Lumoda'nınki; 12'li ve 14'lüde yaklaşık, "
+        "parantezde toplam adet farkı)")
     _tablo(["kol", "ilk dağıtım adet", "replenishment adet", "kırpılan adet", "kırpılan option", "aynı mal"],
            [[kol_adi(k), s(O(v, k)["ilk_dagitim_adet"]), s(O(v, k)["replenishment_adet"]), s(O(v, k)["kirpilan_adet"]),
-             s(O(v, k).get("kirpilan_option", 0)), {True: "evet", False: "hayır", None: "—"}[K(v, k)["ayni_mal"]]]
+             s(O(v, k).get("kirpilan_option", 0)), ayni_mal_metni(K(v, k))]
             for k in kollar])
+
+
+def ayni_mal_metni(e: dict) -> str:
+    """7'li kolda `ayni_mal` (evet / hayır); 12'li ve 14'lüde "yaklaşık (±N adet)": adet mağaza × option
+    başına paket adedine dönüştürülür, birebir aynı mal değildir (fark `donusum`'da)."""
+    if e["ayni_mal"] is None:
+        return "—"
+    if e["paket_adet"] == sabitler.PAKET_ADET:
+        return "evet" if e["ayni_mal"] else "hayır"
+    return f"yaklaşık ({isaretli(e['donusum']['fark_adet'])} adet)"
 
 
 def _yol_degerleri(v, kol: str, olc: str) -> list[float]:
@@ -851,16 +863,26 @@ def ablasyon_bolumu(v, ek) -> None:
     alt("paket büyüklüğü: 12'li (aynı mal yaklaşık: mağaza × option'a giden adedin 12'liye dönüşümü)")
     kollar = ["dogrulama", "p1", "p2", "p1_14", "p1_12", "p2_12", "p3_12"]
     _kiyas_tablosu(v, kollar)
-    d14 = A(v)["depo"]["pay"]["7"]["hatali_dusulmus"][0]
-    if 2 / 12 > d14:
-        print(f"  Lumoda paketinin (1-2-2-1-1) 12'li karşılığı kurulamaz: 1. bedende depo payı {s(d14, 4)}, 12'li "
+    d12 = A(v)["depo"]["pay"]["12"]["hatali_dusulmus"][0]
+    if 2 / 12 > d12:
+        print(f"  Lumoda paketinin (1-2-2-1-1) 12'li karşılığı kurulamaz: 1. bedende 12'li depo payı {s(d12, 4)}, 12'li "
               f"oranlı desen 1. bedene 2/12 = {s(2 / 12, 4)} ister ve depoyu aşar (Ruling R22); yerine P1'in iki katı "
               "14'lü 2-2-4-4-2 aynı beden paylarını büyük pakette sınar")
     p14 = K(v, "p1_14")
     d = p14.get("donusum")
-    if d:
-        print(f"  P1 14'lü dönüşüm (aşağı yuvarlama): Lumoda {s(d['lumoda_adet'])} adet → {s(d['kol_adet'])} adet (fark "
-              f"{isaretli(d['fark_adet'])}); 0 pakete düşen hücre {s(d['sifir_hucre'])}/{s(d['hucre'])}")
+    if not d:
+        raise Eksik("p1_14 dönüşüm kaydı")
+    print(f"  P1 14'lü dönüşüm (aşağı yuvarlama): Lumoda {s(d['lumoda_adet'])} adet → {s(d['kol_adet'])} adet (fark "
+          f"{isaretli(d['fark_adet'])}); 0 pakete düşen hücre {s(d['sifir_hucre'])}/{s(d['hucre'])}; option başına en "
+          f"büyük fark {s(d['option_en_buyuk_fark'])} adet (sınır {s(d['option_fark_siniri'])}: aşağı yuvarlama)")
+    alt("aynı mal yaklaşık: mağaza × option hücresinde giden adet, Lumoda'ya göre (yol 0; kolun korunum kaydı)")
+    k12 = [k for k in ("p1_12", "p2_12", "p3_12", "pm_12") if K(v, k)["paket_adet"] == 12]
+    if any(K(v, k)["korunum"] != K(v, k12[0])["korunum"] for k in k12):
+        raise AssertionError("12'li kolların korunum kaydı farklı (aynı ns beklenir)")
+    for et, kr in (("12'li kollar (aynı dönüşüm)", K(v, k12[0])["korunum"]), ("P1 14'lü", p14["korunum"])):
+        print(f"  {et}: {s(kr['fark_hucre'])}/{s(kr['hucre'])} hücrede adet farklı, Σ|fark| {s(kr['fark_adet'])} adet, "
+              f"net {isaretli(kr['net_fark_adet'])} adet (net fark = dönüşüm farkı; adet mağazalar arasında yer "
+              "değiştiriyor)")
     alt("ayrıştırma (Ruling R22): paket büyüklüğü ↔ içerik inceliği")
     for a, c, et in (("p1", "p1_14", "yalnız paket büyüklüğü (aynı içerik): P1 14'lü − P1"),
                      ("p1", "p1_12", "içerik inceliği + büyüklük: P1 12'li − P1"),
@@ -894,8 +916,7 @@ def ablasyon_bolumu(v, ek) -> None:
     ek += [("ABLASYON: 12'li kolların dönüşümü aynı (aynı ns)",
             all(K(v, k)["donusum"] == dn for k in ("p1_12", "p2_12"))),
            ("ABLASYON: P1 14'lü P1'in iki katı (aynı beden payları)",
-            K(v, "p1_14")["desenler"] == ["-".join(str(2 * int(x)) for x in K(v, "p1")["desenler"][0].split("-"))]),
-           ("ABLASYON: 12'li dönüşümde option başına fark sınırda", dn["option_en_buyuk_fark"] <= dn["option_fark_siniri"])]
+            K(v, "p1_14")["desenler"] == ["-".join(str(2 * int(x)) for x in K(v, "p1")["desenler"][0].split("-"))])]
 
 
 def kumeleme_bolumu(v, ek) -> None:
@@ -1029,17 +1050,23 @@ def korunum_bolumu(v, ek) -> None:
             ad = ad_(p, kol)
             e = K(v, ad)
             o = e["olcutler"]
-            ek += [(f"{ad}: kırpma 0 (adet ve option)", o["kirpilan_adet"] == 0 and o.get("kirpilan_option", 0) == 0),
-                   (f"{ad}: aynı mal", e["ayni_mal"] is True)]
-            if e["paket_adet"] == sabitler.PAKET_ADET:
+            ek.append((f"{ad}: kırpma 0 (adet ve option)", o["kirpilan_adet"] == 0 and o.get("kirpilan_option", 0) == 0))
+            if e["paket_adet"] != sabitler.PAKET_ADET:
+                d = e.get("donusum") or {}
+                ek += [(f"{ad}: giden adet farkı = dönüşüm farkı (ns × paket adedi)",
+                        bool(d) and e["korunum"]["net_fark_adet"] == d["fark_adet"]),
+                       (f"{ad}: dönüşümde option başına fark sınırda",
+                        bool(d) and d["option_en_buyuk_fark"] <= d["option_fark_siniri"])]
+            else:
+                ek.append((f"{ad}: aynı mal", e["ayni_mal"] is True))
                 lp = O(v, ad_(p, "dogrulama"))
                 ek += [(f"{ad}: çift başına giden adet = Lumoda'nın", e["korunum"]["fark_adet"] == 0
                         and e["korunum"]["fark_hucre"] == 0),
                        (f"{ad}: ilk dağıtım adedi = Lumoda'nın", o["ilk_dagitim_adet"] == lp["ilk_dagitim_adet"])]
     ek.append(("analiz.json bu oyun.json'un Lumoda koşusundan", A(v)["lumoda_anahtar"] == dg["anahtar"]))
     n = korunum(ek)
-    print(f"  {s(n)} denetim tuttu: doğrulama kolu (İlk Sevkiyat Lumoda), aynı mal ve kırpma (her kol, her yol), İlk "
-          "Sevkiyat anahtarları,")
+    print(f"  {s(n)} denetim tuttu: doğrulama kolu (İlk Sevkiyat Lumoda), kırpma (her kol, her yol), aynı mal (7'li "
+          "kollar), giden adet farkı = dönüşüm farkı ve option sınırı (12'li ve 14'lü kollar), İlk Sevkiyat anahtarları,")
     print("  tasarım kayıtları, K eğrisi, hikâye, demo bileşimleri ve site dosyası, veri sayımları.")
     print(f"  oyun.json kayıtları bugünkü ölçüm koduyla ({oyun.olcum_kodu()[:12]}); analiz.json "
           f"{A(v)['kod'][:12]}; hikaye.json {(v.hikaye or {}).get('kod', '—')[:12]}.")

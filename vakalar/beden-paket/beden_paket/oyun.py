@@ -68,8 +68,9 @@ daraltma yok: bu veride w ≈ 1, Ruling R6). Tasarım koşmadan **option başın
 (`on_denetim`): beş bedenli her oyun option'ında Σ_m ns × desen_b ≤ depo_b mi; aşan option kolun
 motorda kırpılacağı yerdir (R11: toplam kısıt option başına kırpmayı garanti etmez). Koşudan sonra
 kırpma ölçülür (`kirpilan_adet`, `kirpilan_option`) ve kayıtta `ayni_mal`: kırpma 0 ve 7'lide
-(option, mağaza) başına giden adet Lumoda'nınkine eşit (`kosucu.korunum`); 12'lide adet farkı
-`donusum`'da (aynı mal yaklaşık, R10).
+(option, mağaza) başına giden adet Lumoda'nınkine eşit (`kosucu.korunum`); 12'li ve 14'lüde
+`ayni_mal` yalnız kırpma 0'dır, adet farkı `donusum`'da (aynı mal yaklaşık, R10): rapor bu kolları
+"yaklaşık (±N adet)" basar ve giden adet farkını dönüşüm farkıyla denetler.
 
 **Koşu ve ölçüm** (`kos_bir`; Ruling R14). Simülasyon önbelleği `cikti/kosular/`
 (`simulasyon.kos`, anahtar yalnız simülasyonu değiştirenler). Ölçütler `cikti/oyun.json`'da kayıt

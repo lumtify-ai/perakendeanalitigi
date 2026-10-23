@@ -12,7 +12,9 @@ vaka aynı mağaza kümesini kıyaslar. Burada yalnız sütunlar vaka diline çe
     istanbul       İstanbul mağazası mı (Ali'nin mağazaları; Anadolu Veli'nin)
     gecmis_hafta   karar gününe dek tamamlanmış, brüt satışlı hafta sayısı
     yeni           gecmis_hafta Kümeleme eşiğinin (`kumeleme.sabitler.GECMIS_HAFTA_ESIGI`)
-                   altında: kendi eğrisi güvenilmez, profil ya da zincir eğrisi kullanılır
+                   altında; yalnız bilgi amaçlı. Eğrinin okunabilirliğine `egri` karar verir
+                   (Ruling R7: penceredeki beş bedenli satış n ≥ `sabitler.EGRI_EN_AZ_ADET`);
+                   `yeni` olup da yeterince satmış mağaza (M041) kendi eğrisini alır
 
 `bes_bedenli`: beden eğrisinin tanımlı olduğu SKU'lar. Aksesuar ve tek bedenli setler (Standart)
 dışarıda kalır; geriye `BEDEN_SAYISI` bedenli (beden_sira 1..5) setlerin SKU'ları kalır.

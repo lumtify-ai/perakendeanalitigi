@@ -5,7 +5,7 @@ mağaza beden eğrisi okumak, 7'li paketi tek tip (Lumoda'nın 1-2-2-1-1'i) ve K
 (K = 1..4) tasarlamak, 12'li pakete taşımak, aynı malı İlk Sevkiyat simülatöründe kollarla kıyaslamak.
 Tasarım: `docs/superpowers/specs/2026-10-22-beden-paket-design.md` (`docs/` ayrı depodur).
 
-Sitedeki dizinin (`site/src/content/yazi/assortment/beden-paket/`, 6 yazı; sitede terim "koli", dizi
+Sitedeki dizinin (`site/src/content/yazi/assortment/beden-koli/`, 6 yazı; sitede terim "koli", dizi
 adı Beden ve Koli, Ruling R25) ve demo kadranının (10 bileşim, `site/src/data/senaryolar/beden-koli.json`)
 bütün sayıları buradan, `cikti/rapor.txt`'ten çıkar (`cikti/` git dışıdır; dosyayı `rapor.py` yeniden
 üretir). Kodda ve raporda `paket`, sitede `koli` der; kavram aynıdır. Okuma sırası: Kurulum → Koşum →
@@ -138,7 +138,7 @@ içindir (`--gizlisiz`: hakem doğrulaması olmadan).
 
 Sayı denetimi (yazılar yazıldıktan sonra):
 
-    .venv/Scripts/python -m perakende_analitik.sayi_denetimi --yazi ../../site/src/content/yazi/assortment/beden-paket --rapor cikti/rapor.txt
+    .venv/Scripts/python -m perakende_analitik.sayi_denetimi --yazi ../../site/src/content/yazi/assortment/beden-koli --rapor cikti/rapor.txt
 
 **Simülasyon ve ölçüm önbelleği (R14, R18).** Koşu önbelleği ikiye ayrılır. *Simülasyon anahtarı* yalnız
 tabloları değiştiren kod ve girdileri taşır (politika, simülasyon çekirdeği, paket satırları, atama,
@@ -161,7 +161,7 @@ Ayrıntı modül notlarında (`beden_paket/*.py`); burada okuyucunun raporda kar
   karışımı içindi, beden eğrisi için değil).
 - **Beden eğrisi.** Mağazanın beş bedene dağılan talep payı (toplam 1). *Ham* pay satıştan; *sansür
   düzeltmeli* pay stoklu gün başına hızla (biten bedenin satışı stoksuz günde görünmez); *daraltılmış*
-  (son eğri) mağaza payının zincir eğrisine w = n / (n + κ) ağırlıkla çekilmesi. Pencere option
+  (son eğri) mağaza payının kendi profilinin eğrisine w = n / (n + κ) ağırlıkla çekilmesi. Pencere option
   lansmanından sonraki ilk 8 hafta, karar gününden önceki son 104 hafta, Collection ve Basic/NOS
   havuzlu (R5). κ, SS24 karar anında kurulan eğrinin SS24'ün gerçekleşen paylarına L1'iyle (hakemsiz)
   seçilir. Eğri yalnız satış ve stoktan okunur; yayımlanan replenishment sevkiyatı girdi değildir, çünkü
@@ -252,7 +252,7 @@ kaybı, kırık set ve sezon sonu kalan için düşüş iyidir.
 
 **SORU 1 · Lumoda'nın paketi zincirin ve mağazaların eğrisinden ne kadar uzak?** L1 zincire 0,255,
 mağaza eğrilerine ortalama 0,293 (en az 0,138, en çok 0,407, M048); gerçek talep payına (hakemli)
-ortalama 0,274. Paket başına beklenen eksik adet 0,949; en iyi tek 7'li paket 1-1-2-2-1 için 0,853 (en
+ortalama 0,274. Paket başına beklenen eksik adet 0,9487; en iyi tek 7'li paket 1-1-2-2-1 için 0,8533 (en
 iyi tek paket Lumoda'nınki değil).
 
 **SORU 2 · Satıştan okunan eğri gerçeğe ne kadar yakın?** Gerçek talep payına ortalama L1 (hakemli, 68
@@ -323,8 +323,8 @@ seçilecek sahne büyük M062 (MDL0397-EKR), küçük M018 (MDL0376-KRM), kademe
 `p2`'nin, 12'li K = 4, magaza `p3_12`'nin ikizidir. Kartlar ilk 4 hafta bulunabilirlik, beden kaybı,
 kırık set, brüt kâr. Sürüm `7779baef4be0`.
 
-**Korunum.** Rapor KORUNUM bölümünde 120 denetim tuttu: doğrulama kolu, aynı mal ve kırpma (her kol,
-her yol), İlk Sevkiyat anahtarları, tasarım kayıtları, K eğrisi, hikâye, demo bileşimleri ve site
+**Korunum.** Rapor KORUNUM bölümünde 128 denetim tuttu: doğrulama kolu, kırpma (her kol, her yol), aynı
+mal (7'li kollar; 12'li ve 14'lüde giden adet farkı = dönüşüm farkı ve option başına sınır), İlk Sevkiyat anahtarları, tasarım kayıtları, K eğrisi, hikâye, demo bileşimleri ve site
 dosyası, veri sayımları.
 
 ## Sınırlar

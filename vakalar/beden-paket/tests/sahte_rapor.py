@@ -66,6 +66,11 @@ def oyun_kaydi() -> dict:
         if k.adet == 12:
             e["donusum"] = {"lumoda_adet": 7_000, "kol_adet": 7_012, "fark_adet": 12, "hucre": 8, "sifir_hucre": 0, "option": 2,
                           "option_en_buyuk_fark": 6, "option_fark_siniri": 6}
+        elif k.adet == 14:
+            e["donusum"] = {"lumoda_adet": 7_000, "kol_adet": 6_993, "fark_adet": -7, "hucre": 8, "sifir_hucre": 0, "option": 2,
+                          "option_en_buyuk_fark": 7, "option_fark_siniri": 13}
+        if "donusum" in e:
+            e["korunum"] = {"hucre": 8, "fark_hucre": 4, "fark_adet": 20, "net_fark_adet": e["donusum"]["fark_adet"]}
         if kol == "dogrulama":
             e["ilk_sevkiyat"] = {"birebir": 51, "olcut": 51, "farkli": []}
         if taban != kol:
