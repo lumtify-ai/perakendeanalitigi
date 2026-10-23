@@ -131,9 +131,9 @@ rafı boş gösterdiği hâlde satışı olan 5 hücre var: ya kayıt kirli ya d
 iki fotoğraf arasında gelip gitmiş. Bu hücrelerin satışı düzeltilmiş
 talepten düşüyor ve yerine zincir doldurması geliyor; 11.682.214 adetin
 34'ü. 22 hücrenin yalnız bir ya da iki stoklu günü var. Bir de seyrek
-hücreler: iki yıllık Basic ve NOS penceresinde yalnız birkaç gün stoklu
-kalmış bir bedenin hızı bütün pencereye yayılınca, küçük bir satış büyük
-bir talebe dönüşüyor. Böyle 143 hücre var ve düzeltilmiş talebin
+hücreler: uzun bir pencerede yalnız birkaç gün stoklu kalmış bir bedenin
+hızı bütün pencereye yayılınca, küçük bir satış büyük bir talebe
+dönüşüyor. Böyle 143 hücre var ve düzeltilmiş talebin
 %0,09'unu taşıyorlar. Üç günlük eşiği bu yüzden değiştirmedik; İlk
 Sevkiyat dizisindeki kuralla aynı kaldı.
 
@@ -168,7 +168,7 @@ Tablonun bir şey daha söylediği var. Sansür Collection'da çok daha büyük:
 bir bedenin payını ortalama 1,30 puan, en çok 4,89 puan oynatıyor. Rafın
 boş kaldığı günler Collection'ın ilk haftalarında eğriyi çok daha fazla
 kaydırıyor; Basic ve NOS'un iki yıllık penceresi bu etkiyi seyreltiyor.
-"Sansür bu veride küçük" cümlesinin bir kısmı havuzdan geliyor.
+Düzeltmenin bu veride küçük çıkmasının bir kısmı havuzdan geliyor.
 
 ## Az satışlı mağaza
 
@@ -181,7 +181,7 @@ Bu daraltma. Mağazanın kendi düzeltilmiş eğrisi ile profilinin eğrisi
 karıştırılıyor; profili birazdan anlatacağım. Ağırlık örneklemden geliyor:
 
 ```python
-# beden_paket/egri.py (daralt; denetim satırları çıkarıldı)
+# beden_paket/egri.py (daralt; denetim ve hazırlık satırları çıkarıldı)
 bos = E.isna().any(axis=1).to_numpy() | (nn.to_numpy() <= 0)
 payda = nn.to_numpy() + kappa
 w = np.divide(nn.to_numpy(), payda, out=np.zeros(len(nn)), where=payda > 0)
@@ -201,7 +201,7 @@ eğrilerin, o sezonun ilk sekiz haftasında gerçekleşen paya ortalama
 uzaklığı ölçülüyor:
 
 ```python
-# beden_paket/egri.py (kappa_sec)
+# beden_paket/egri.py (kappa_sec; denetim ve hazırlık satırları çıkarıldı)
 kapsam_kal = kaynak.kapsam(tablolar, kal)
 hedef = gerceklesen_pay(tablolar, kal, karar_gunu, kapsam_kal).dropna()
 kur = _kur(tablolar, kapsam_kal, kal, hatlar, k, tohum, en_az_adet, yedek=False)
@@ -216,7 +216,8 @@ en = tablo["l1"].round(12).min()
 secilen = tablo.loc[tablo["l1"].round(12) == en, "kappa"].min()
 ```
 
-Izgara 0'dan başlıyor ve her adımda ikiye katlanarak 12.800'e çıkıyor.
+Izgara 0 ve 25'ten başlıyor, sonra her adımda ikiye katlanarak 12.800'e
+çıkıyor.
 Sonuçların bir kısmı:
 
 | κ | Gerçekleşen paya ortalama L1 |
@@ -282,8 +283,9 @@ profilin eğrisi, üye mağazaların düzeltilmiş eğrilerinin ortalaması.
 | Orta | 22 | %9,6 | %21,4 | %33,9 | %23,5 | %11,5 |
 | Büyük | 27 | %7,1 | %16,2 | %28,2 | %30,6 | %18,0 |
 
-Bunlar eğrisi okunabilen 68 mağaza. Yeni mağaza da büyük profile düşüyor
-ve ilk yazıdaki 28 oradan geliyor; aşağıda.
+Bunlar eğrisi okunabilen 68 mağaza. İlk yazıda büyük gruba konan yeni
+mağaza bu tabloda yok; onu aşağıda anlatıyorum. Koli tasarımında büyük
+profil onunla birlikte 28 mağaza.
 
 Profil sayısını bir kuralla seçmedik. Keşif sırasında mağazaların
 ortalama beden sırasının üç tepe yaptığını gördük ve üç dedik. Siluet gibi
@@ -339,8 +341,9 @@ Eğrisi okunuyor, ağırlığı 0,784 ve son eğrisi gerçek talepten 0,0334 uza
 Kalan tek mağaza İzmir 2. Sezonun ilk gününde açılıyor, hiç satışı yok.
 Onun eğrisi için iki aday var: zincir eğrisi ya da İzmir 2'ye statik
 özellikleriyle en çok benzeyen beş mağazanın profili. Statik özellik,
-mağaza açılmadan bilinen şey: bölge, iklim, mağaza tipi, metrekare gibi. Bu atamayı Mağaza Kümeleme dizisinde kurmuştuk.
-Hangisinin seçileceğini yine anahtarsız bir kural söylüyor:
+mağaza açılmadan bilinen şey: bölge, iklim, mağaza tipi, metrekare gibi.
+Bu atamayı Mağaza Kümeleme dizisinde kurmuştuk. Hangisinin seçileceğini
+yine anahtarsız bir kural söylüyor:
 
 ```python
 # beden_paket/egri.py (yeni_secim)
@@ -386,14 +389,12 @@ mağazada pahalıya patlayabiliyor.
 — Bir yol daha var, diyor Pelin. Depodan mağazalara giden mala bakalım.
 Replenishment her mağazaya hangi bedenden ne kadar gönderiyor, belli.
 
-— Belli, diyor Pars. Lumoda'nın replenishment'ında dördüncü beden %41,6.
-Zincirin satışında %24,5. Aradaki fark talepten gelmiyor; kolinin eksik
-bıraktığı bedenin sonradan tamamlanmasından ve depoda hangi bedenin
-kaldığından geliyor. Sevkiyatı eğriye katarsam kolinin kendi hatasını
-talep diye geri okurum.
+— Belli, diyor Pars. Ama o oranlar talebi değil, kolinin eksik
+bıraktığını gösteriyor.
 
-İkinci yazıda bu hatayı sektörün hataları arasında saymıştık. Verinin
-kurgusunda bir sebep daha var ve daha ağır. Lumoda'nın replenishment planı
+Bu hatayı ikinci yazıda sektörün hataları arasında saymıştık:
+replenishment'ın %41,6'sı dördüncü beden, zincirin satışında ise %24,5.
+Verinin kurgusunda bir sebep daha var ve daha ağır. Lumoda'nın replenishment planı
 mağazanın gizli beden kaymasını biliyor. Sevkiyatın beden karışımını
 okuyan bir eğri, cevap anahtarını arka kapıdan okumuş olurdu; ölçtüğümüz
 isabet yöntemin değil, sızıntının isabeti olurdu. Bu yüzden eğri modülü
@@ -422,9 +423,10 @@ veride etkisiz.
 
 Seçimlerin hiçbiri cevap anahtarıyla yapılmadı. Pencereler, 500 adetlik
 eşik ve üç günlük eşik sonucu görmeden konmuş sabitler. κ, havuz ve yeni
-mağazanın yedek eğrisi anahtarsız ölçütlerle seçildi. Anahtar iki yerde
-başka bir şey seçerdi: havuz yerine yalnız Collection'ı, İzmir 2 için
-profil yerine zinciri. İkisini de yukarıda yazdım.
+mağazanın yedek eğrisi anahtarsız ölçütlerle seçildi. Rapor iki yerde
+anahtarın başka bir şey seçeceğini gösteriyor: havuz yerine yalnız
+Collection'ı, İzmir 2 için profil yerine zinciri. İkisini de yukarıda
+yazdım. κ'yı anahtarla seçseydik ne çıkacağını ölçmedik.
 
 Anahtarsız bir ölçü daha var: eğri ne kadar dayanıyor? Bir yıl arayla
 kurulan iki düzeltilmiş eğri, ikisinde de okunabilen 66 mağazada birbirine

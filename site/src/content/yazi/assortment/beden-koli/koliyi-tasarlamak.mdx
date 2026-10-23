@@ -286,17 +286,21 @@ anahtarıyla, ikincisi geçen yazının tahmin ettiği eğriyle.
 | İki tip, 12 adet | 0,1217 | 0,1138 |
 | Üç tip, 12 adet | 0,1085 | 0,0914 |
 
-İki şey göze çarpıyor. Birincisi, koli tipi sayısı koli büyüklüğünden
-daha çok iş görüyor: yedi adetlik iki tip, on iki adetlik tek tipten çok
-daha yakın. İkincisi, en iyi tasarım bile gerçek talepten 0,1085 uzak.
-Koli bir ortalama taşıyor; mağazanın kendi eğrisine hiçbir zaman tam
-oturmuyor.
+İki şey göze çarpıyor. Birincisi, bu tasarım ölçüsünde koli tipi sayısı
+koli büyüklüğünden daha çok iş görüyor: yedi adetlik iki tip, on iki
+adetlik tek tipten çok daha yakın. İkincisi, en iyi tasarım bile gerçek
+talepten 0,1085 uzak. Koli bir ortalama taşıyor; mağazanın kendi eğrisine
+hiçbir zaman tam oturmuyor.
 
 Bir uyarıyı da şimdiden yapayım. Buradaki sayılar bir tasarım ölçüsü, rafın
-kendisi değil. Simülasyonda iş daha karışık: on iki adetlik kolide üçüncü
-tip bu ölçüde açıkça kazandırıyor, ama ilk dört haftanın beden kaybını tek
-tipe göre azaltmıyor, biraz artırıyor. Beşinci yazıda her kazancı kendi
-ölçütüyle söyleyeceğiz.
+kendisi değil ve simülasyon birinci gözlemi tersine çeviriyor. On iki
+adetlik tek tip, yedi adetlik iki tipten başlık ölçütlerinin hepsinde
+iyi çıkıyor. İlk dört haftada beden kaybı payı %48,46'ya karşı %56,48,
+bulunabilirlik %97,09'a karşı %96,64; brüt kâr 541.634.844 TL'ye karşı
+540.277.650 TL. On iki adetlik kolide üçüncü tip de tasarım ölçüsünde
+açıkça kazandırıyor, ama ilk dört haftanın beden kaybını tek tipe göre
+azaltmıyor, biraz artırıyor. Beşinci yazıda her kazancı kendi ölçütüyle
+söyleyeceğiz.
 
 Bir koli tipinin maliyetini de tasarıma koymadık. Tedarikçinin her tip
 için ayrı dolum talimatı, deponun her tip için ayrı rafı var; bunlar
@@ -330,8 +334,8 @@ koliyi de kümeye göre kurarız.
 | Beden profili \ satış kümesi | 0 | 1 | 2 | 3 | 4 | Toplam |
 |---|---:|---:|---:|---:|---:|---:|
 | Büyük | 11 | 5 | 3 | 7 | 2 | 28 |
-| Küçük | 11 | 1 | 0 | 5 | 2 | 19 |
 | Orta | 11 | 2 | 4 | 2 | 3 | 22 |
+| Küçük | 11 | 1 | 0 | 5 | 2 | 19 |
 
 Benzemiyor. Satış kümelerinin en büyüğünde, küme 0'da, üç profilden
 11'er mağaza var. İki gruplamanın ARI'si −0,014. Mutlak değeri 0,05'in
@@ -343,7 +347,9 @@ ayrı soru.
 dizisinin dördüncü yazısında satış karışımına beden eğrisini ve
 mevsimselliği eklediğimizde kümeler cevap anahtarından uzaklaşmıştı. O
 yazıda bu iki bloğun müşteri profilinden başka bir şeye göre ayrıştığını
-söylemiştik. Beden için o başka şey artık belli: bedenin kendi ekseni.
+söylemiştik. Bu tablo, beden eğrisinin satış karışımından bağımsız
+olduğunu gösteriyor; büyük ihtimalle kümeleri çeken şeylerden biri de
+bedenin kendi ekseniydi.
 
 — Yani iki ayrı etiket, diyor Pars. Bir mağazanın planı satış kümesinden,
 kolisi beden profilinden gelir. Birini ötekinin yerine koyarsan ikisini de
