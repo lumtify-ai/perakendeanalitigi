@@ -5,8 +5,9 @@ tepkisinden option başına haftalık indirim yolunu seçmek, serbest ana kolu v
 v4 motorunda aynı malla Lumoda'nın kuralıyla kıyaslamak. Tasarım:
 `docs/superpowers/specs/2026-10-23-indirim-takvimi-design.md` (`docs/` ayrı depodur).
 
-Vaka adım adım kuruluyor; bu sürümde iskelet, sabitler, kaynak ve sızıntı kilidi var
-(`markdown.sabitler`, `markdown.kaynak`).
+Vaka adım adım kuruluyor; bu sürümde iskelet, sabitler, kaynak, sızıntı kilidi, haftalık dinamik
+program, öğrenme ve tahmin var (`markdown.sabitler`, `markdown.kaynak`, `markdown.model`,
+`markdown.ogrenme`, `markdown.tahmin`).
 
 ## Kurulum
 
@@ -50,6 +51,20 @@ kesilir; kampanya, sezon, takvim gibi açık plan tablolarına dokunulmaz.
 `kaynak.test_optionlari(optionlar, sezonlar)`: sezonların Collection option'ları (satır konumu).
 `kaynak.karar_penceresi(optionlar, idx, kol_tipi)`: ilk indirim yapılabilecek en erken gün; serbest kolda
 `max(indirim_gun - 56, lansman_gun + 42)`'nin ilk pazartesisi, takvim kolunda `indirim_gun`.
+
+## Öğrenme ve tahmin
+
+`ogrenme.ogren(con, test_sezonu, bitis, onbellek=None, kaynak_kimligi=None)` test sezonunun en erken
+karar pazartesisinden (`sabitler.OGRENME_BITIS`) önceki yayımlanan satırlardan bir kez öğrenir: ortak
+paketin kampanya ve markdown esnekliği, hafta günü, özel gün ve beden payı; saf regresyon ε'si (yalnız
+rapor); aynı tip kapanmış sezonlardan (SS25 ← SS23 + SS24, AW24 ← AW23) alt kategori × dalga yaşam eğrisi
+(fiyat ve kampanya çarpanı çıkarılmış, eşleşmiş hücre zinciri; seyrekse üst kategori, sonra line),
+kalıntı değeri (outlet penceresi cirosu ÷ çıkıştan bir hafta önceki stoğun liste değeri), kanal başına iade
+ve işlem indirimi payı. Günlük tablo ve çarpanlar `cikti/ogrenme/`'de kaynak kimliği, sezon, bitiş ve kod
+özetiyle önbelleklenir (ilk kurulum yol 0'da birkaç dakika). `tahmin.Tahminci(ogrenilen, optionlar)` her
+pazartesi bir option için hücre × hafta tam fiyat taban talebi (`taban`), satılabilir stoğu (`satilabilir`)
+ve fiyat çarpanlarını (`carpan`) yalnız `Gorunum`'den ve dünyanın açık alanlarından kurar; tanımlar modül
+belgelerinde.
 
 ## Kilit
 
