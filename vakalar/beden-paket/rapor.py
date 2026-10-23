@@ -1,4 +1,4 @@
-"""Beden ve Paket dizisinin (6 yazı, `/assortment/beden-paket/`) yayımlanacak BÜTÜN sayıları buradan basılır (v4).
+"""Beden ve Paket dizisinin (6 yazı, `/assortment/beden-koli/`) yayımlanacak BÜTÜN sayıları buradan basılır (v4).
 
     cd vakalar/beden-paket
     PYTHONIOENCODING=utf-8 .venv/Scripts/python -m beden_paket.oyun izgara       # cikti/oyun.json (koşular, ölçüm)
@@ -11,7 +11,7 @@
 
 Kalıcı kural: yazıya yeni bir sayı girmeden önce buraya eklenir; ortak sayı denetimi (`cd
 vakalar/beden-paket && .venv/Scripts/python -m perakende_analitik.sayi_denetimi --yazi
-../../site/src/content/yazi/assortment/beden-paket --rapor cikti/rapor.txt`) yazılardaki her sayının bu
+../../site/src/content/yazi/assortment/beden-koli --rapor cikti/rapor.txt`) yazılardaki her sayının bu
 çıktıda geçtiğini denetler. Sayılar Türkçe basılır (binlik nokta, ondalık virgül, `%12,3`, `−0,32`).
 Uydurma sayı yasaktır; elle konmuş anlatı değerleri yalnız ANLATI VARSAYIMLARI'ndadır. Raporda takvim
 tarihi geçer (izlenebilirlik); yazılar tarih ve yıl basmaz.
@@ -495,6 +495,9 @@ def paket_bolumu(v, ek) -> None:
     print(f"  {s(a)} adetlik paketi beş bedene bölmenin yolu {s(yol_hepsi)}; temel bedenler (2–4) en az birer adetle "
           f"{s(yol_cekirdek)} (tasarımın aday sayısı {s(p['aday_7'])}); 12'li pakette {s(math.comb(16, 4))} ve "
           f"{s(math.comb(13, 4))} (aday {s(p['aday_12'])})")
+    a7, a12 = sabitler.PAKET_ADET, oyun.KOLLAR["p3_12"].adet
+    print(f"  bir bedenin bir pakette alabileceği en küçük pay (1 adet): {s(a7)}'li pakette 1/{s(a7)} = {y(1 / a7)}, "
+          f"{s(a12)}'li pakette 1/{s(a12)} = {y(1 / a12)}")
     alt("beş bedenli oyun option'larının beden adetleri ve payları (beden 1 → 5)")
     satir = []
     for et, k in (("ilk sipariş (alım)", "ilk_siparis"), ("depo (hatalı düşülmüş)", "depo"),

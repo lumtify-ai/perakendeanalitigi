@@ -216,7 +216,7 @@ def yaz(tmp_path: Path, g: dict | None = None, *, demo: bool = True) -> dict:
         d = onbellek / f"{e.get('ayni') or e['ad']}_{e['anahtar'][:20]}"
         d.mkdir(parents=True, exist_ok=True)
         (d / "meta.json").write_text(json.dumps({"anahtar": e["anahtar"]}), encoding="utf-8")
-    demo_yol = Path(tmp_path) / "beden-paket.json"
+    demo_yol = Path(tmp_path) / "beden-koli.json"
     if demo:
         senaryolar.yaz(senaryolar.uret(g["oyun"], g["analiz"]), demo_yol)
     return {"cikti": cikti, "demo_yol": demo_yol, "olcum_kodu": OLCUM, "analiz_kodu": ANALIZ, "hikaye_kodu": HIKAYE,

@@ -158,6 +158,8 @@ def test_rapor_kosullu_iddialar(tmp_path, monkeypatch):
     assert "kahin atamayı yalnız şu mağazada değiştirir: M3" in ke
     assert "depo tanımı bu veride tasarımı değiştirmiyor" in _bolum(m, "TASARIM")
     assert "en iyi tek paket Lumoda'nınki değil" in _bolum(m, "PAKET")
+    assert "7'li pakette 1/7 = %14,3, 12'li pakette 1/12 = %8,3" in _bolum(m, "PAKET")
+    assert senaryolar.HEDEF.name == "beden-koli.json"
 
     g2 = copy.deepcopy(g)
     g2["analiz"]["egri"]["kappa"] = 1600.0

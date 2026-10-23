@@ -32,7 +32,7 @@ def test_demo_sema_ve_boyut(tmp_path):
         assert isinstance(r["ozet"]["brut_kar_tl"], int)
         assert r["satirlar"] and all(set(x) == {"desen", "magaza", "kosu", "ayni"} for x in r["satirlar"])
         assert sum(x["magaza"] for x in r["satirlar"]) == len(sahte_rapor.MAGAZALAR)
-    yol = senaryolar.yaz(d, tmp_path / "beden-paket.json")
+    yol = senaryolar.yaz(d, tmp_path / "beden-koli.json")
     assert yol.stat().st_size < senaryolar.BUTCE
     assert json.loads(yol.read_text(encoding="utf-8")) == d
     with pytest.raises(ValueError, match="bütçe"):

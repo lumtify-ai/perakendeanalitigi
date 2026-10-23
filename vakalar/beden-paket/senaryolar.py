@@ -1,7 +1,7 @@
 """Demo kadranının senaryoları (elle koşulur; build'in parçası değil).
 
     cd vakalar/beden-paket
-    PYTHONIOENCODING=utf-8 .venv/Scripts/python senaryolar.py   # site/src/data/senaryolar/beden-paket.json
+    PYTHONIOENCODING=utf-8 .venv/Scripts/python senaryolar.py   # site/src/data/senaryolar/beden-koli.json
 
 Kadran iki eksenli (spec §8): paket tipi sayısı K {1, 2, 3, 4, mağazaya özel} × paket büyüklüğü {7, 12} = 10 bileşim.
 Bir bileşim yol 0'ın ölçülmüş koşusudur (`cikti/oyun.json`); koşulmamış bir bileşim, koşusuz K
@@ -32,7 +32,7 @@ KOK = Path(__file__).resolve().parent
 CIKTI = KOK / "cikti"
 OYUN = CIKTI / "oyun.json"
 ANALIZ = CIKTI / "analiz.json"
-DIZI = "beden-paket"
+DIZI = "beden-koli"            # site dizisinin slug'ı (Ruling R25)
 HEDEF = KOK.parents[1] / "site" / "src" / "data" / "senaryolar" / f"{DIZI}.json"
 BUTCE = 500 * 1024
 
