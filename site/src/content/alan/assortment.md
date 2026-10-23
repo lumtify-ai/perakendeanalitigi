@@ -12,7 +12,7 @@ Mağazaların müşterisi aynı bedeni giymez. Bir mağazada büyük bedenler
 erken biterken başka bir mağazada aynı bedenler rafta bekleyebilir.
 
 Bu aşamanın kararları fiyat, orta dönem talep ve beden üzerinedir. Beden
-kararı da çoğu zincirde paketle verilir: tedarikçi malı bedenleri sabit
+kararı da çoğu zincirde koliyle verilir: tedarikçi malı bedenleri sabit
 oranda karışık kolilerle gönderir, mağaza da malı o kolilerle alır.
-Kaç paket tipi kurulacağı ve hangi mağazaya hangisinin gideceği, mağazanın
+Kaç koli tipi kurulacağı ve hangi mağazaya hangisinin gideceği, mağazanın
 beden ihtiyacının ne kadar doğru okunduğuna bağlıdır.

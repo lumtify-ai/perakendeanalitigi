@@ -20,7 +20,7 @@ describe('demoDegeri', () => {
     expect(demoDegeri('kararlilik', 0.97)).toBe('0,970')
   })
 
-  it('beden ve paket ölçütlerini raporun basamağıyla basar', () => {
+  it('beden ve koli ölçütlerini raporun basamağıyla basar', () => {
     // Rapor ilk 4 hafta yüzdelerini bir ondalıkla (%97,0 gibi sıfırlı da),
     // brüt kârı tam TL olarak basar; sıfır ondalık "97" olarak düşmemeli.
     expect(demoDegeri('bulunabilirlik_ilk4', 96.5)).toBe('96,5')

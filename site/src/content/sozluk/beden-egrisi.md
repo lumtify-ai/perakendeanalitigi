@@ -1,6 +1,6 @@
 ---
 terim: Beden eğrisi
-kisa: Bir mağazanın satışının bedenlere dağılımı; her bedenin satıştaki payı. Paketin beden karışımı bu eğriye göre kurulur.
+kisa: Bir mağazanın satışının bedenlere dağılımı; her bedenin satıştaki payı. Kolinin beden karışımı bu eğriye göre kurulur.
 ingilizce: size curve
 esanlam:
   - beden dağılımı

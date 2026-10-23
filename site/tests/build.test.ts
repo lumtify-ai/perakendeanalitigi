@@ -267,8 +267,8 @@ describe('Mağaza Gruplama dizisi', () => {
   })
 })
 
-describe('Beden ve Paket dizisi', () => {
-  const KOK = 'assortment/beden-paket/'
+describe('Beden ve Koli dizisi', () => {
+  const KOK = 'assortment/beden-koli/'
 
   it('hikâye yazısı kadro kutusuyla açılır', () => {
     const html = oku(KOK + 'l-bedeni-yine-bitti/index.html')
@@ -282,7 +282,7 @@ describe('Beden ve Paket dizisi', () => {
       'l-bedeni-yine-bitti',
       'karar-nasil-verilir',
       'beden-egrisini-okumak',
-      'paketi-tasarlamak',
+      'koliyi-tasarlamak',
       'ilk-sevkiyatta-sinamak',
       'basari-nasil-olculur',
     ]
@@ -292,9 +292,9 @@ describe('Beden ve Paket dizisi', () => {
     expect(html).toContain(`href="/${KOK}demo/"`)
   })
 
-  it('ilk iki yazı sözlüğün üç yeni maddesine bağlanır', () => {
+  it('ilk iki yazı beden eğrisi, koli ve açık adet maddelerine bağlanır', () => {
     const iki = oku(KOK + 'l-bedeni-yine-bitti/index.html') + oku(KOK + 'karar-nasil-verilir/index.html')
-    for (const madde of ['beden-egrisi', 'paket', 'acik-beden']) {
+    for (const madde of ['beden-egrisi', 'koli', 'acik-adet']) {
       expect(iki, madde).toContain(`href="/sozluk/#${madde}"`)
     }
   })
@@ -636,11 +636,11 @@ describe('demo', () => {
     expect(Object.keys(veri.sonuclar).length).toBe(beklenen)
   })
 
-  it('beden ve paket demosunun ölçüt etiketleri var, değerler raporun basamağıyla', async () => {
+  it('beden ve koli demosunun ölçüt etiketleri var, değerler raporun basamağıyla', async () => {
     // Kartlar (ilk 4 hafta bulunabilirlik, beden kaybı payı, kırık set, brüt
     // kâr) Demo.astro'nun ETIKETLER sözlüğünden, basamak demoBicim.ts'ten
     // gelir; rapor bunları %96,5 ve 535.940.376 diye basar.
-    const { default: veri } = await import('../src/data/senaryolar/beden-paket.json')
+    const { default: veri } = await import('../src/data/senaryolar/beden-koli.json')
     const ilk = Object.keys(veri.sonuclar)[0]
     const olcutler = Object.keys(veri.sonuclar[ilk as keyof typeof veri.sonuclar].ozet)
     expect([...olcutler].sort()).toEqual([
@@ -649,7 +649,7 @@ describe('demo', () => {
       'bulunabilirlik_ilk4',
       'kirik_cift_pay_yuzde_ilk4',
     ])
-    const html = oku('assortment/beden-paket/demo/index.html')
+    const html = oku('assortment/beden-koli/demo/index.html')
     for (const etiket of [
       'İlk 4 hafta bulunabilirlik (%)',
       'İlk 4 hafta beden kaybı payı (%)',
@@ -667,8 +667,8 @@ describe('demo', () => {
     }
   })
 
-  it('beden ve paket senaryosu sözleşmeye uyar', async () => {
-    const { default: veri } = await import('../src/data/senaryolar/beden-paket.json')
+  it('beden ve koli senaryosu sözleşmeye uyar', async () => {
+    const { default: veri } = await import('../src/data/senaryolar/beden-koli.json')
     const beklenen = veri.parametreler.reduce(
       (carpim: number, p: { degerler: unknown[] }) => carpim * p.degerler.length,
       1,
@@ -826,14 +826,14 @@ describe('site geneli vaatler', () => {
     expect(kopru).not.toContain('başabaş eşiğini')
   })
 
-  // Beden ve Paket dizisinin köprüsü 6. yazıda (basari-nasil-olculur) durur;
+  // Beden ve Koli dizisinin köprüsü 6. yazıda (basari-nasil-olculur) durur;
   // yazı henüz yer tutucu. Dizinin son yazı görevi bu satırı yukarıdaki
-  // kalıpla etkinleştirir: oku('assortment/beden-paket/basari-nasil-olculur/index.html'),
+  // kalıpla etkinleştirir: oku('assortment/beden-koli/basari-nasil-olculur/index.html'),
   // köprü dilimi; dizinin kendi giriş ve kapanış cümleleri, kanonik cümleler
   // ('iş zekâsı ve optimizasyonla', 'Let Us Make Trade Intelligent For You'),
   // varsayılan paragraflar yok ('kargo tarifesi', 'başabaş eşiğini'). Aynı
   // görev sayfayı yukarıdaki BEKLENEN_KOPRU_SAYFALARI listesine ekler.
-  it.todo('Beden ve Paket köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır')
+  it.todo('Beden ve Koli köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır')
 
   it('köprüde kalın cümle ile sonraki cümle arasında boşluk var', () => {
     for (const { yol, html } of tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))) {

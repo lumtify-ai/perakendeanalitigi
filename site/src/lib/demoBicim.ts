@@ -10,7 +10,7 @@ const ONDALIK: Record<string, number> = {
   hakem_ari: 3,
   kararlilik: 3,
   siluet: 3,
-  // Beden ve Paket: rapor ilk 4 hafta yüzdelerini bir ondalıkla, brüt kârı
+  // Beden ve Koli: rapor ilk 4 hafta yüzdelerini bir ondalıkla, brüt kârı
   // tam TL olarak basar.
   bulunabilirlik_ilk4: 1,
   beden_kayip_payi_ilk4: 1,
