@@ -65,10 +65,10 @@ setinin satışı aynı beş sütunda toplanıyor. Bir mağazanın her bedendeki
 satışını toplam satışına bölünce ham pay çıkıyor.
 
 Ham payın gerçek talepten ne kadar uzak olduğunu ölçebiliyoruz, çünkü
-verinin kurgusunda her mağazanın gerçek beden talebini biliyoruz. Ölçü
-ilk yazıdaki L1 uzaklığı: beş bedende iki payın farkları toplanıyor; 0
-aynı dağılım, 2 hiç örtüşmeyen iki dağılım demek. Eğrisi okunabilen 68
-mağazada ham pay gerçek talepten ortalama 0,0530 uzak.
+verinin kurgusunda her mağazanın gerçek beden talebini biliyoruz. Ölçü ilk
+yazıdaki L1 uzaklığı: beş bedende iki payın farkları, işaretine bakmadan,
+toplanıyor; 0 aynı dağılım, 2 hiç örtüşmeyen iki dağılım demek. Eğrisi
+okunabilen 68 mağazada ham pay gerçek talepten ortalama 0,0530 uzak.
 
 ## Rafın boş kaldığı günler
 
@@ -126,16 +126,15 @@ eğri ile düzeltilmiş eğrinin birbirine uzaklığı ortalama 0,0265, en çok
 tasarımını değiştirmiyor. Ham eğriyle kurulan iki koli tipli tasarım,
 düzeltilmiş eğriyle kurulanın aynısı.
 
-Düzeltmenin bedelleri de var ve rapor onları sayıyor. Stok fotoğrafı
-rafı boş gösterdiği hâlde satışı olan 5 hücre var: ya kayıt kirli ya da mal
-iki fotoğraf arasında gelip gitmiş. Bu hücrelerin satışı düzeltilmiş
-talepten düşüyor ve yerine zincir doldurması geliyor; 11.682.214 adetin
+Düzeltmenin bedelleri de var ve rapor onları sayıyor. Stok fotoğrafı rafı
+boş gösterdiği hâlde satışı olan 5 hücre var: ya kayıt kirli ya da mal iki
+fotoğraf arasında gelip gitmiş. Bu hücrelerin satışı düzeltilmiş talepten
+düşüyor ve yerine zincir doldurması geliyor; toplam 11.682.214 adetin yalnız
 34'ü. 22 hücrenin yalnız bir ya da iki stoklu günü var. Bir de seyrek
 hücreler: uzun bir pencerede yalnız birkaç gün stoklu kalmış bir bedenin
-hızı bütün pencereye yayılınca, küçük bir satış büyük bir talebe
-dönüşüyor. Böyle 143 hücre var ve düzeltilmiş talebin
-%0,09'unu taşıyorlar. Üç günlük eşiği bu yüzden değiştirmedik; İlk
-Sevkiyat dizisindeki kuralla aynı kaldı.
+hızı bütün pencereye yayılınca, küçük bir satış büyük bir talebe dönüşüyor.
+Böyle 143 hücre var ve düzeltilmiş talebin %0,09'unu taşıyorlar. Üç günlük
+eşiği bu yüzden değiştirmedik; İlk Sevkiyat dizisindeki kuralla aynı kaldı.
 
 ## Havuz mu, yalnız Collection mı
 
@@ -394,12 +393,12 @@ bıraktığını gösteriyor.
 
 Bu hatayı ikinci yazıda sektörün hataları arasında saymıştık:
 replenishment'ın %41,6'sı dördüncü beden, zincirin satışında ise %24,5.
-Verinin kurgusunda bir sebep daha var ve daha ağır. Lumoda'nın replenishment planı
-mağazanın gizli beden kaymasını biliyor. Sevkiyatın beden karışımını
+Verinin kurgusunda bir sebep daha var ve daha ağır. Lumoda'nın replenishment
+planı mağazanın gizli beden kaymasını biliyor. Sevkiyatın beden karışımını
 okuyan bir eğri, cevap anahtarını arka kapıdan okumuş olurdu; ölçtüğümüz
 isabet yöntemin değil, sızıntının isabeti olurdu. Bu yüzden eğri modülü
-sevkiyat tablosunu hiç okumuyor ve bunu bir test denetliyor: modülün
-kodunda sevkiyat tablosunu isteyen tek bir satır bile olamaz.
+sevkiyat tablosunu hiç okumuyor ve bunu bir test denetliyor: modülün kodunda
+sevkiyat tablosunu isteyen tek bir satır bile olamaz.
 
 Gerçek bir zincirde replenishment planı böyle bir anahtar bilmez. Ama
 sizin planınızı bilir. Kendi replenishment'ınızın oranları sizin
@@ -442,11 +441,10 @@ sonundaki stok adedini tutar; sıfır görünen bir bedenin pazartesi mi,
 cumartesi mi bittiğini söylemez. Düzeltmenin ilk işi bu kaydı kurmak.
 
 İkincisi beden setleri. Lumoda'da bir mağazanın kayması bütün kategorilerde
-aynı, bu yüzden altı beden setini tek eğride topladık. Gerçek bir
-mağazanın müşterisi jean'de büyük, tişörtte küçük bedene kayık olabilir.
-O zaman set başına, belki kategori başına eğri gerekir. Her eğrinin örneği
-küçülür; bu veride hiçbir şey kazandırmayan daraltma işte orada işe
-yarar.
+aynı, bu yüzden altı beden setini tek eğride topladık. Gerçek bir mağazanın
+müşterisi kot pantolonda büyük, tişörtte küçük bedene kayık olabilir. O
+zaman set başına, belki kategori başına eğri gerekir. Her eğrinin örneği
+küçülür; bu veride hiçbir şey kazandırmayan daraltma işte orada işe yarar.
 
 Üçüncüsü yeni mağaza. Statik özellikler beden profilini yarıdan biraz
 fazla tutturuyor. Yeni mağaza ilk sevkiyatını, eğrisi en az bilinen hâliyle

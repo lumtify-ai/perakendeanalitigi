@@ -96,10 +96,10 @@ uzaklığı da aynı şeyi söylüyor:
 | Üç tip, 12 adet | 0,0914 | 0,1085 |
 
 İki sütun kolileri aynı sıraya diziyor. Büyüklükleri ayrışıyor: on iki
-adetlik kolilerde hakemsiz ölçü iyimser, çünkü o koliler tahmin edilen
-eğriye göre ince ince kuruldu. Üç tipli koli tahmin edilen eğriye 0,0914,
-gerçek talebe 0,1085 uzak. Yedi adetlik kolilerde hakemsiz ölçü tersine
-biraz kötümser. Ama sıra değişmiyor.
+adetlik kolilerde hakemsiz ölçü iyimser, büyük ihtimalle o koliler tahmin
+edilen eğriye göre ince ince kurulduğu için. Üç tipli koli tahmin edilen
+eğriye 0,0914, gerçek talebe 0,1085 uzak. Yedi adetlik kolilerde hakemsiz
+ölçü tersine biraz kötümser. Ama sıra değişmiyor.
 
 İyi haber bu. Kötü haber, iki sütunun da rafın sıralamasını vermemesi.
 Tabloya göre yedi adetlik iki tip, on iki adetlik tek tipten çok daha iyi
@@ -115,12 +115,15 @@ görmüyor. Onu ancak sezonu oynatınca görürsün.
 
 Üçüncü yöntem en zahmetlisi: koliyi değiştirince raf değişiyor mu? Bunu
 geçen yazıda [İlk Sevkiyat](/allocation/ilk-sevkiyat/) dizisinin oyun
-sezonunda ölçtük. Bütün kollar aynı mağazalara aynı sayıda koli gönderiyor;
-yedi adetlik kollarda mal birebir aynı, on iki adetlik kollarda toplamda
-103 adet fazla. Başlığa ilk dört haftayı koyduk. Verinin kurgusunda
-Lumoda'nın replenishment'ı mağazanın beden eğrisini biliyor; beklentimiz,
-kolinin hatasını sezon içinde düzeltmesi ve kollar arasındaki farkın ilk
-haftalarda kalmasıydı.
+sezonunda ölçtük. Yedi adetlik kollar her mağazaya Lumoda'yla aynı sayıda
+koli, yani birebir aynı malı gönderiyor. On iki ve on dört adetlik kollarda
+aynı mal yaklaşık; adet option düzeyinde korunuyor. On iki adetlik kollar
+toplamda 103 adet fazla gönderiyor, ama 5.351 mağaza–option çiftinin
+4.577'sinde giden adet Lumoda'nınkinden farklı. On dört adetlik kontrol
+toplamda 721 adet az gönderiyor. Başlığa ilk dört haftayı koyduk. Verinin
+kurgusunda Lumoda'nın replenishment'ı mağazanın beden eğrisini biliyor;
+beklentimiz, kolinin hatasını sezon içinde düzeltmesi ve kollar arasındaki
+farkın ilk haftalarda kalmasıydı.
 
 | Koli | Bulunabilirlik | Beden kaybı payı | Kırık set | Brüt kâr (sezon) |
 |---|---:|---:|---:|---:|
@@ -151,15 +154,17 @@ dört ölçütte önde.
 **Tek koliyi düzeltmek yeter mi?** Hayır. Yetmiş adayın en iyisi olan
 1-1-2-2-1 kırık seti 0,2 puan düşürüyor, brüt kârı 1.507.271 TL artırıyor.
 Ama ilk dört haftanın beden kaybını 0,3 puan artırıyor ve beş akışın
-yalnız birinde Lumoda'dan düşük tutuyor. Kırık sette iyi, beden kaybında kötü.
+yalnız birinde Lumoda'dan düşük tutuyor. İlk dört haftada kırık sette iyi,
+beden kaybında kötü; sezonun tamamında ise beden kaybı da 0,7 puan düşük.
 
-**Koliyi büyütmek ne değiştiriyor?** Dizinin en büyük farkı. On iki
+**On iki adetlik koli ne değiştiriyor?** Dizinin en büyük farkı. On iki
 adetlik üç tipli koli Lumoda'ya göre bulunabilirlikte 0,6 puan önde,
 beden kaybında 8,7 puan, kırık sette 0,7 puan düşük; brüt kâr 11.077.966
-TL fazla. Ama fark büyüklükten gelmiyor. Yedi adetlik tek koliyi iki katına
-çıkaran on dört adetlik kontrol neredeyse hiçbir şey değiştirmiyor: beden kaybında
-−0,1 puan. Tek koli tipini on iki adetle, yani daha ince bir içerikle
-kurmak ise beden kaybını 9,9 puan düşürüyor. Yedi adetlik kolide bir beden
+TL fazla. Ama fark büyüklükten gelmiyor. Yedi adetlik tek koliyi iki
+katına çıkaran on dört adetlik kontrol neredeyse hiçbir şey
+değiştirmiyor: beden kaybında −0,1 puan. Tek koli tipini on iki adetle,
+yani daha ince bir içerikle kurmak ise yedi adetlik tek tipe göre ilk dört
+haftanın beden kaybını 9,9 puan düşürüyor. Yedi adetlik kolide bir beden
 en az %14,3 alır, on iki adetlik kolide %8,3 alabilir. On iki adetlik
 kolide birinci bedenden depoda mal da kalıyor; bunun sezon içinde biten
 bedeni tamamladığı bizim okumamız, ayrı bir kolla ölçmedik.
@@ -226,8 +231,8 @@ talebi bir adım çekilenlerinkiyle aynı. Profillerin anahtarla birebir
 **Sansür küçük.** Rafın boş kaldığı günlerin düzeltmesi bir bedenin payını
 ortalama 0,53 puan oynatıyor ve yedi adetlik kolilerin tasarımını
 değiştirmiyor. Eğri yalnız Collection'ın satışından okunsaydı düzeltme
-daha büyük olurdu, ortalama 1,30 puan.
-Rafları daha sık boş kalan bir zincirde sonuç başka olabilir.
+daha büyük olurdu, ortalama 1,30 puan. Rafları daha sık boş kalan bir
+zincirde sonuç başka olabilir.
 
 **Satın alma sabit.** Alımın adedi ve beden dağılımı yayımlanan dünyadaki
 gibi kaldı; yalnız kolinin içi değişti. Koliye göre alımı yeniden bölmeyi
@@ -236,8 +241,8 @@ kolinin birlikte sonucu; biz yalnız koliyi değiştirdik.
 
 **Paylar Lumoda'nın.** Her mağazaya kaç koli gideceği Lumoda'nın fiilen
 gönderdiği sayı. On iki adetlik kollarda aynı mal yaklaşık: toplamda 103
-adet fazla, mağaza düzeyinde fark daha büyük olabilir. On dört adetlik kontrol 721
-adet az gönderiyor.
+adet fazla, mağaza düzeyinde fark daha büyük. On dört adetlik kontrol
+721 adet az gönderiyor.
 
 **Replenishment eğriyi biliyor ve başlığın gerekçesi tutmadı.** Verinin
 kurgusunda Lumoda'nın replenishment planı mağazanın gizli beden kaymasını
@@ -259,15 +264,16 @@ koşmadık.
 
 **Sahne gevşetildi.** İlk yazıdaki Konya 3 ile İstanbul 18'i yayımlanan
 veriden seçtim, ama istediğim şartları birden sağlayan bir sahne çıkmadı.
-Dört yerde gevşettim. İki mağaza aynı ürünü değil, aynı modelin iki rengini
-almış. Hedef bedenlerin bitmesi için pencereyi ilk iki haftadan üç, sonra
-dört haftaya genişlettim. Sahneyi yalnız bir yıl önceki sezondan değil, karar
-öncesindeki her Collection sezonundan aradım. "Hedef bedenler öteki
-bedenlerden önce biter" şartını da ilk tasarımda yokken, zayıf bir sahne
-gördükten sonra ekledim; o şart olmasaydı İstanbul 18 başka bir ürünle
+Dört yerde gevşettim. Şart iki mağazanın aynı ürünü almasıydı; onu aynı
+sezonun aynı beden setli iki ürününe gevşettim. Çıkan sahnede ikisi aynı
+modelin iki rengi. Hedef bedenlerin bitmesi için pencereyi ilk iki haftadan
+üç, sonra dört haftaya genişlettim. Sahneyi yalnız bir yıl önceki sezondan
+değil, karar öncesindeki her Collection sezonundan aradım. "Hedef bedenler
+öteki bedenlerden önce biter" şartını da ilk tasarımda yokken, zayıf bir
+sahne gördükten sonra ekledim; o şart olmasaydı İstanbul 18 başka bir ürünle
 sahnede kalırdı, Konya 3'ün yerine başka bir mağaza gelirdi. Cevap
-anahtarını sahne seçiminde yalnız doğrulamada kullandım; anahtarsız seçim
-de aynı sahneyi veriyor.
+anahtarını sahne seçiminde yalnız doğrulamada kullandım; anahtarsız seçim de
+aynı sahneyi veriyor.
 
 **Seçimlerin bir kısmı keşifte yapıldı.** Profil sayısını, mağazaların
 ortalama beden sırasının üç tepe yaptığını görüp üç dedim. κ ızgaranın
@@ -314,13 +320,13 @@ Konya 3'ün 36 numarası ilk haftada bitmişti ve sekiz haftanın 37 gününde
 rafta yoktu. Koli dördüncü bedene yedide bir yer ayırıyordu; Konya 3'ün
 eğrisi %30,8 istiyordu. Veli her sezon aynı telefonu alıyordu.
 
-Altı yazı sonra elimizde şunlar var. Bedeni zincirden değil mağazadan
-okumak işe yarıyor: mağazanın kendi eğrisi gerçek talebe zincirinkinden çok
-daha yakın. Mağazaları beden profillerine ayırmak da işe yarıyor ve bu
-profiller [Mağaza Kümeleme](/magaza-kumeleme/magaza-gruplama/) dizisinin
-satış kümelerinden bağımsız; beden ayrı bir eksen. Koliyi birkaç tane
-kurmak işe yarıyor, ama yedi adette az: iki tip ilk dört haftanın
-bulunabilirliğini 0,2 puan artırıyor. Asıl farkı kolinin içeriğinin
+Altı yazı sonra elimizde şunlar var. Bedeni zincirden değil mağazadan okumak
+işe yarıyor: mağazanın kendi eğrisi gerçek talebe zincirinkinden çok daha
+yakın. Mağazaları beden profillerine ayırmak da işe yarıyor ve bu profiller
+[Mağaza Kümeleme](/magaza-kumeleme/magaza-gruplama/) dizisinin satış
+kümelerinden bağımsız; beden ayrı bir eksen. Koliyi birkaç tane kurmak işe
+yarıyor, ama yedi adette az: iki tip ilk dört haftanın bulunabilirliğini
+Lumoda'nın kolisine göre 0,2 puan artırıyor. Asıl farkı kolinin içeriğinin
 inceliği yapıyor; on iki adetlik kolide bir beden %8,3 alabiliyor. Depoda
 biten bedeni tamamlayacak mal kalması da bunun bir parçası olabilir; bunu
 ayrıca ölçmedik.
@@ -328,11 +334,12 @@ ayrıca ölçmedik.
 Pars ilk yazıda "Bedeni zincirden değil mağazadan oku; koliyi de bir değil
 birkaç tane kur" demişti. Cümlenin ilk yarısı tuttu. İkinci yarısı tuttu
 ama beklediğim kadar değil: yedi adette "birkaç tane" ikiye iniyor ve iki
-tip ilk dört haftanın beden kaybını yalnız 1,6 puan düşürüyor.
+tip ilk dört haftanın beden kaybını Lumoda'nın kolisine göre yalnız 1,6
+puan düşürüyor.
 
-Dizinin baştaki sorusu kaç koli tipi gerektiğiydi. Sezonu oynatınca cevap
-başka bir yerden geldi: kolinin büyüklüğünden değil, içeriğin
-inceliğinden. Tasarım ölçüsü bunu göstermedi;
+Dizinin baştaki sorusu kaç koli tipi gerektiğiydi. Sezonu oynatınca asıl
+farkın tip sayısından değil, içeriğin inceliğinden geldiği görüldü: koli
+büyüdüğü için değil, payı inceldiği için. Tasarım ölçüsü bunu göstermedi;
 ancak rafa bakınca göründü. Bir kolinin iyi olduğunu da ona göre dolan rafı
 ölçmeden bilemezsiniz. 🙂
 
@@ -342,9 +349,9 @@ Bu dizinin hesabı yayımlanabilir olması için sadeleştirildi. Lumoda'da bir
 mağazanın beden kayması bütün kategorilerde aynı, her mağazanın gerçek beden
 talebini gösteren bir cevap anahtarı var ve kolileri ilk sevkiyatta aynı
 malla sınayabildik. Gerçek bir zincirde stoksuz günün kaydı eksiktir, bir
-mağazanın jean'deki bedeni tişörttekinden başka olabilir, tedarikçinin kaç koli
-tipine razı olacağı pazarlıkla belirlenir ve kolinin doğru olup olmadığını
-söyleyecek bir hakem yoktur.
+mağazanın kot pantolondaki bedeni tişörttekinden başka olabilir,
+tedarikçinin kaç koli tipine razı olacağı pazarlıkla belirlenir ve kolinin
+doğru olup olmadığını söyleyecek bir hakem yoktur.
 
 <Fragment slot="son">
 
