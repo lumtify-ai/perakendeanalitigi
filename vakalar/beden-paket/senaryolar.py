@@ -4,6 +4,7 @@
     PYTHONIOENCODING=utf-8 .venv/Scripts/python senaryolar.py   # site/src/data/senaryolar/beden-koli.json
 
 Kadran iki eksenli (spec §8): paket tipi sayısı K {1, 2, 3, 4, mağazaya özel} × paket büyüklüğü {7, 12} = 10 bileşim.
+Arayüz etiketleri sitenin terimiyle "koli"dir (Ruling R25, R29); anahtarlar ve kol adları kodda "paket" kalır.
 Bir bileşim yol 0'ın ölçülmüş koşusudur (`cikti/oyun.json`); koşulmamış bir bileşim, koşusuz K
 eğrisinde (`cikti/analiz.json`, `k_egrisi`) aynı desen ve atamayı veren daha küçük K'nın koşusunu
 alır (`esdeger_K`; ör. 7'li K = 3, 4 ve mağazaya özel = P2, 12'li K = 4 ve mağazaya özel = P3; Ruling R10);
@@ -42,11 +43,11 @@ ADETLER = (7, 12)
 KOLLAR = {(1, 7): "p1", (2, 7): "p2", (1, 12): "p1_12", (2, 12): "p2_12", (3, 12): "p3_12", ("magaza", 12): "pm_12"}
 
 PARAMETRELER = [
-    {"ad": "paket_tipi", "etiket": "Paket tipi sayısı", "degerler": list(PAKET_TIPLERI),
-     "deger_etiketleri": {"1": "1 paket tipi", "2": "2 paket tipi", "3": "3 paket tipi", "4": "4 paket tipi",
-                          "magaza": "mağazaya özel paket"}},
-    {"ad": "adet", "etiket": "Paket büyüklüğü", "degerler": list(ADETLER),
-     "deger_etiketleri": {str(a): f"{a} adet" for a in ADETLER}},
+    {"ad": "paket_tipi", "etiket": "Koli tipi sayısı", "degerler": list(PAKET_TIPLERI),
+     "deger_etiketleri": {"1": "1 koli tipi", "2": "2 koli tipi", "3": "3 koli tipi", "4": "4 koli tipi",
+                          "magaza": "mağazaya özel koli"}},
+    {"ad": "adet", "etiket": "Koli büyüklüğü", "degerler": list(ADETLER),
+     "deger_etiketleri": {str(a): f"{a}'li koli" for a in ADETLER}},
 ]
 
 # kart → (oyun.json ölçütü, basamak)

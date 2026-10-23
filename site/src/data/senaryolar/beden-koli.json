@@ -1,9 +1,9 @@
 {
- "surum": "8bc3fd5fb578",
+ "surum": "7779baef4be0",
  "parametreler": [
   {
    "ad": "paket_tipi",
-   "etiket": "Paket tipi sayısı",
+   "etiket": "Koli tipi sayısı",
    "degerler": [
     1,
     2,
@@ -12,23 +12,23 @@
     "magaza"
    ],
    "deger_etiketleri": {
-    "1": "1 paket tipi",
-    "2": "2 paket tipi",
-    "3": "3 paket tipi",
-    "4": "4 paket tipi",
-    "magaza": "mağazaya özel paket"
+    "1": "1 koli tipi",
+    "2": "2 koli tipi",
+    "3": "3 koli tipi",
+    "4": "4 koli tipi",
+    "magaza": "mağazaya özel koli"
    }
   },
   {
    "ad": "adet",
-   "etiket": "Paket büyüklüğü",
+   "etiket": "Koli büyüklüğü",
    "degerler": [
     7,
     12
    ],
    "deger_etiketleri": {
-    "7": "7 adet",
-    "12": "12 adet"
+    "7": "7'li koli",
+    "12": "12'li koli"
    }
   }
  ],
