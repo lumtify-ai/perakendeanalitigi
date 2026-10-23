@@ -29,7 +29,8 @@ def test_gizli_tablo_reddedilir(con, ad):
         kaynak.yayimlanan_tablolar(con, ("magaza", ad))
 
 
-@pytest.mark.parametrize("ad", ["magaza; drop table satis", "Magaza", "satis where 1=1", ""])
+@pytest.mark.parametrize("ad", ["magaza; drop table satis", "Magaza", "satis where 1=1", "",
+                                "satis\n"])
 def test_gecersiz_tablo_adi_reddedilir(con, ad):
     with pytest.raises(ValueError, match="geçersiz"):
         kaynak.yayimlanan_tablolar(con, (ad,))
@@ -79,6 +80,32 @@ def test_bitis_takvim_gibi_ileriye_donuk_tablolara_dokunmaz(con, tablolar):
                                    bitis=pd.Timestamp("2024-09-01"))
     for ad in t:
         assert len(t[ad]) == len(tablolar[ad]), ad
+
+
+def test_bitis_magaza_olayi_karar_tarihine_gore_keser(con):
+    """Karar bitişten önce alındıysa olay tarihi bitişten sonra olsa da satır bilinir."""
+    t = kaynak.yayimlanan_tablolar(con, ("magaza_olay",), bitis="2025-01-01")["magaza_olay"]
+    assert list(t["magaza_id"]) == ["S6"]                 # olay_tarihi 2025-02-03 > bitis, karar 2024-12-02
+    t = kaynak.yayimlanan_tablolar(con, ("magaza_olay",), bitis="2024-12-02")["magaza_olay"]
+    assert len(t) == 0                                    # bitis günü dahil değil
+    assert len(kaynak.yayimlanan_tablolar(con, ("magaza_olay",))["magaza_olay"]) == 2
+
+
+def test_bitis_ile_siniflandirilmamis_tablo_hata_verir(con):
+    con.execute("create table yeni_tablo as select 1 as x")
+    with pytest.raises(ValueError, match="kesimi tanımsız"):
+        kaynak.yayimlanan_tablolar(con, ("magaza", "yeni_tablo"), bitis="2025-01-01")
+    # bitis yoksa sorun yok
+    assert len(kaynak.yayimlanan_tablolar(con, ("yeni_tablo",))["yeni_tablo"]) == 1
+
+
+def test_her_gercek_tablo_siniflandirilmis():
+    """Yayımlanan v4'ün her tablosu kesilen ya da açık listede olmalı (veri gerektirmez: sabit liste)."""
+    gercek = {"depo_stok", "fiyat", "kalite_kontrol", "kampanya", "magaza", "magaza_olay",
+              "magaza_plan", "mfp_plan", "paket", "range_plan", "satis", "sevkiyat", "sezon",
+              "siparis", "stok", "takvim", "tedarikci", "urun"}
+    assert gercek == set(kaynak.DONEM_SUTUNLARI) | kaynak.ACIK_TABLOLAR
+    assert not set(kaynak.DONEM_SUTUNLARI) & kaynak.ACIK_TABLOLAR
 
 
 def test_bitis_tarih_dizgesi_kabul(con):
@@ -252,3 +279,14 @@ def test_yayimlanan_tablolar_veri_bitis():
             kaynak.yayimlanan_tablolar(con, ("gizli_magaza",))
     finally:
         con.close()
+
+
+@pytest.mark.veri
+def test_gercek_veri_tablolari_siniflandirilmis():
+    """Gerçek v4'ün her tablosu `DONEM_SUTUNLARI` ya da `ACIK_TABLOLAR`'dadır."""
+    con = kaynak.baglan()
+    try:
+        adlar = {t for (t,) in con.execute("show tables").fetchall()}
+    finally:
+        con.close()
+    assert adlar == set(kaynak.DONEM_SUTUNLARI) | kaynak.ACIK_TABLOLAR

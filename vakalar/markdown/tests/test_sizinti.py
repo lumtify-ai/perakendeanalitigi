@@ -6,8 +6,10 @@ Henüz yazılmamış olanlar atlanır; dosya paketlere eklendiği anda kendiliğ
 sonradan eklenen modül de ayrıca taranır).
 
 **Yasak içe aktarım** (`YASAK_ICE_AKTARIM`): `perakende_veri` (v4 üreteci ve motoru: gizli gerçek),
-`markdown.hakem`, `markdown.simulasyon`, `markdown.olcutler` (ölçüm tarafı), `allocation.motor`
-(İlk Sevkiyat motoru: `gercek_tablosu`), ayrıca `perakende_analitik.hakem`. Tarama geçişlidir:
+ölçüm tarafının her modülü (`OLCUM_MODULLERI`: simulasyon, hakem, olcutler, oyun, hikaye; ayrıca
+henüz planlanan `kosucu`, `rapor`, `senaryolar`, `analiz` adları), `allocation.motor` (İlk Sevkiyat
+motoru: `gercek_tablosu`), ayrıca `perakende_analitik.hakem`. Paketteki her modül karar ya da ölçüm
+listesinde sınıflandırılmış olmalıdır (`test_her_modul_siniflandirilmis`). Tarama geçişlidir:
 `politika` -> `kosucu` -> `perakende_veri` ihlaldir; paket `__init__.py`'si her içe aktarmada
 çalıştığı için her karar modülünün erişim kümesine girer.
 
@@ -33,8 +35,15 @@ PAKET = Path(markdown.__file__).resolve().parent
 PAKET_ADI = "markdown"
 
 KARAR_MODULLERI = ("sabitler", "kaynak", "ogrenme", "tahmin", "model", "politika")
-YASAK_ICE_AKTARIM = ("perakende_veri", "perakende_analitik.hakem", "markdown.hakem",
-                     "markdown.simulasyon", "markdown.olcutler", "allocation.motor")
+# Ölçüm tarafı: planlanan modüller (her biri bir karar modülünün erişimine girmemeli). Pakette
+# bulunan her `.py` KARAR_MODULLERI ya da OLCUM_MODULLERI'nde olmalıdır (`__init__` karar tarafı
+# sayılır ve kilitlidir); yeni bir modül önce bir listeye konur.
+OLCUM_MODULLERI = ("simulasyon", "hakem", "olcutler", "oyun", "hikaye")
+# Planlanan öteki ölçüm adları: ileride vaka kökünde betik de olabilir; paket içinde dosya olarak
+# belirirse sınıflandırma testi onu OLCUM_MODULLERI'ne taşımayı zorlar. Adlar şimdiden yasaktır.
+OLCUM_EK_ADLAR = ("kosucu", "rapor", "senaryolar", "analiz")
+YASAK_ICE_AKTARIM = (("perakende_veri", "perakende_analitik.hakem", "allocation.motor")
+                     + tuple(f"markdown.{m}" for m in OLCUM_MODULLERI + OLCUM_EK_ADLAR))
 YASAK_AD = frozenset({"lam", "esneklik", "esneklik_hucre", "gercek", "ilk_siparisler"})
 YASAK_ONEK = ("gizli_", "sapma_")
 GIZLI_DIZGE = re.compile(r"gizli_[a-z]")
@@ -177,6 +186,30 @@ def test_karar_modulleri_gizli_alan_okumaz():
     assert not bulunan, f"karar modülü (ya da erişilen modül) gizli gerçeği okuyor: {bulunan}"
 
 
+def siniflandirilmamis(paket: Path) -> list[str]:
+    return sorted(y.stem for y in paket.glob("*.py")
+                  if y.stem not in KARAR_MODULLERI + OLCUM_MODULLERI + ("__init__",))
+
+
+def test_her_modul_siniflandirilmis():
+    """Pakette sınıflandırılmamış modül yoksa kilit eksiksizdir; yeni dosya önce bir listeye girer."""
+    assert siniflandirilmamis(PAKET) == []
+    assert not set(KARAR_MODULLERI) & set(OLCUM_MODULLERI)
+    assert not set(OLCUM_EK_ADLAR) & set(KARAR_MODULLERI + OLCUM_MODULLERI)
+
+
+def test_olcum_modulleri_yasakta():
+    for m in OLCUM_MODULLERI + OLCUM_EK_ADLAR:
+        assert f"markdown.{m}" in YASAK_ICE_AKTARIM, m
+    assert "markdown.hikaye" in YASAK_ICE_AKTARIM and "markdown.oyun" in YASAK_ICE_AKTARIM
+
+
+def test_siniflandirma_testi_yeni_modulu_yakalar(tmp_path):
+    paket = _yaz(tmp_path / "markdown", {"__init__": "", "kaynak": "", "hakem": "", "yeni": "",
+                                          "rapor": ""})
+    assert siniflandirilmamis(paket) == ["rapor", "yeni"]
+
+
 def test_sonradan_eklenen_karar_modulleri_listede():
     """Listedeki her ad tarayıcıya girer: dosya bugün yoksa atlanır, yarın gelince kilitlenir."""
     assert set(KARAR_MODULLERI) == {"sabitler", "kaynak", "ogrenme", "tahmin", "model", "politika"}
@@ -224,6 +257,12 @@ def test_tarayici_ihlali_yakalar(tmp_path):
     "from markdown import hakem\n",
     "from markdown import kaynak, simulasyon\n",
     "from markdown import olcutler as o\n",
+    "from markdown import oyun\n",
+    "from markdown.hikaye import sahne\n",
+    "from markdown import kosucu\n",
+    "import markdown.rapor\n",
+    "from . import senaryolar\n",
+    "from .analiz import x\n",
     "from . import hakem\n",
     "from .olcutler import hesapla\n",
     "import markdown.simulasyon as s\n",
@@ -256,11 +295,11 @@ def test_tarayici_izinli_satir(tmp_path, metin):
     assert ihlaller(paket) == {}
 
 
-@pytest.mark.parametrize("olcum", ["hakem", "simulasyon", "olcutler"])
+@pytest.mark.parametrize("olcum", OLCUM_MODULLERI + OLCUM_EK_ADLAR)
 def test_tarayici_olcum_modulune_gecisli_erisim_ihlal(tmp_path, olcum):
     paket = _yaz(tmp_path / "markdown", {
         "__init__": "", "model": "from . import ara\n", "ara": f"from .{olcum} import x\n",
-        "hakem": "", "simulasyon": "", "olcutler": ""})
+        **{m: "" for m in OLCUM_MODULLERI + OLCUM_EK_ADLAR}})
     assert ("model > ara", f"markdown.{olcum}") in ihlaller(paket)["model"]
 
 

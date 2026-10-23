@@ -57,6 +57,10 @@ SATIS_BITIS = pd.Timestamp("2025-07-07")   # son satış pazartesisi
 KAMPANYA_HAFTASI = pd.Timestamp("2025-01-13")
 KAMPANYA_BOLGE = "Marmara"
 SIPARIS_TARIHLERI = ("2025-01-06", "2025-03-03")
+MAGAZA_OLAYLARI = [   # magaza_id, olay, karar_tarihi, olay_tarihi, bitis_tarihi
+    ("S6", "kapanis", "2024-12-02", "2025-02-03", None),     # karar erken, olay geç
+    ("S5", "tadilat", "2025-03-03", "2025-04-14", "2025-05-12"),
+]
 
 
 def _optionlar() -> list[tuple]:
@@ -96,6 +100,8 @@ def oyuncak_optionlar() -> pd.DataFrame:
 
 SEMA = {   # gerçek v4 şemasının oyuncak tablolarda kullanılan sütunları
     "magaza": {"magaza_id": _S, "ad": _S, "sehir": _S, "bolge": _S, "tip": _S},
+    "magaza_olay": {"magaza_id": _S, "olay": _S, "karar_tarihi": _T, "olay_tarihi": _T,
+                    "bitis_tarihi": _T},
     "urun": {"urun_id": _S, "option_id": _S, "line": _S, "sezon_kodu": _S, "dalga": "int64",
              "ust_kategori": _S, "alt_kategori": _S, "beden": _S, "beden_sira": "int64",
              "liste_fiyati": "float64", "lansman_tarihi": _T, "cikis_tarihi": _T},
@@ -213,6 +219,7 @@ def _siparis() -> list[tuple]:
 def oyuncak_tablolar() -> dict[str, pd.DataFrame]:
     return {
         "magaza": doldur("magaza", _MAGAZALAR),
+        "magaza_olay": doldur("magaza_olay", MAGAZA_OLAYLARI),
         "urun": doldur("urun", _urunler()),
         "satis": doldur("satis", _satis()),
         "stok": doldur("stok", _stok()),

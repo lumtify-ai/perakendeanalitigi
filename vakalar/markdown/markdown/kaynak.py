@@ -13,7 +13,11 @@ Yayımlanan tablolar yalnız 2023-01-01'den başlar ama `optionlar`'ın `lansman
 **`bitis` kesimi.** Karar modülü ve öğrenme, test sezonunun en erken karar gününden önceki satırları
 görür (spec §3.1). `yayimlanan_tablolar(..., bitis)` gözlenen olay tablolarını (`DONEM_SUTUNLARI`)
 `bitis` gününden önce keser; kampanya, sezon, takvim, magaza, urun, paket gibi ileriye dönük açık
-bilgi tablolarına dokunmaz. Bitişten önce verilmiş ama sonra teslim edilen siparişin
+bilgi tablolarına (`ACIK_TABLOLAR`) dokunmaz. İki listede de olmayan tablo `bitis` ile istenirse
+`ValueError` verilir (sessizce kesilmeden geçmez; yeni tablo bilinçle bir listeye konur).
+`magaza_olay` **karar tarihine** (`karar_tarihi`, olayın duyurulduğu gün) göre kesilir: olay tarihi
+(`olay_tarihi`) bitişten sonra olsa da karar bitişten önce alındıysa satır bilinir; karar sonradan
+alınmışsa görünmez. Bitişten önce verilmiş ama sonra teslim edilen siparişin
 `gerceklesen_teslim`i karar anında bilinemez: boşaltılır (`planlanan_teslim` açık plandır, kalır).
 """
 
@@ -43,7 +47,11 @@ DONEM_SUTUNLARI = {
     "fiyat": "hafta_baslangic",
     "siparis": "siparis_tarihi",
     "kalite_kontrol": "teslim_tarihi",
+    "magaza_olay": "karar_tarihi",
 }
+# İleriye dönük ya da durağan açık bilgi tabloları: `bitis` ile kesilmez
+ACIK_TABLOLAR = frozenset({"magaza", "urun", "paket", "tedarikci", "sezon", "takvim", "kampanya",
+                           "magaza_plan", "mfp_plan", "range_plan"})
 
 KOL_TIPLERI = ("serbest", "takvim")
 
@@ -59,13 +67,19 @@ def yayimlanan_tablolar(con, adlar: Sequence[str],
 
     `gizli_` önekli tablo adı reddedilir (savunma katmanı; yayımlanan veride zaten yoktur). `bitis`
     verilirse `DONEM_SUTUNLARI`'ndaki tablolar o günden önceki satırlara kesilir (bitiş günü
-    dahil değil); `siparis`'te bitişte henüz gerçekleşmemiş teslim tarihi boşaltılır. Büyük
+    dahil değil); `ACIK_TABLOLAR` kesilmez, ikisinde de olmayan tablo `bitis` ile `ValueError`
+    verir; `magaza_olay` `karar_tarihi`ne göre kesilir; `siparis`'te bitişte henüz gerçekleşmemiş teslim tarihi boşaltılır. Büyük
     tablolarda kimlikler `category` gelir (DuckDB ENUM)."""
     for ad in adlar:
-        if not _AD.match(ad):
+        if not _AD.fullmatch(ad):
             raise ValueError(f"geçersiz tablo adı: {ad!r}")
         if ad.startswith(GIZLI_TABLO_ONEKI):
             raise ValueError(f"gizli tablo okunamaz: {ad!r}")
+    if bitis is not None:
+        bilinmeyen = [ad for ad in adlar if ad not in DONEM_SUTUNLARI and ad not in ACIK_TABLOLAR]
+        if bilinmeyen:
+            raise ValueError(f"bitis ile kesimi tanımsız tablo (DONEM_SUTUNLARI / ACIK_TABLOLAR'a "
+                             f"ekleyin): {bilinmeyen}")
     sonuc = {}
     for ad in adlar:
         if bitis is None or ad not in DONEM_SUTUNLARI:
