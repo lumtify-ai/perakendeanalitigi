@@ -1,0 +1,270 @@
+{
+ "surum": "8bc3fd5fb578",
+ "parametreler": [
+  {
+   "ad": "paket_tipi",
+   "etiket": "Paket tipi sayısı",
+   "degerler": [
+    1,
+    2,
+    3,
+    4,
+    "magaza"
+   ],
+   "deger_etiketleri": {
+    "1": "1 paket tipi",
+    "2": "2 paket tipi",
+    "3": "3 paket tipi",
+    "4": "4 paket tipi",
+    "magaza": "mağazaya özel paket"
+   }
+  },
+  {
+   "ad": "adet",
+   "etiket": "Paket büyüklüğü",
+   "degerler": [
+    7,
+    12
+   ],
+   "deger_etiketleri": {
+    "7": "7 adet",
+    "12": "12 adet"
+   }
+  }
+ ],
+ "ikizler": {
+  "3|7": "2|7",
+  "4|7": "2|7",
+  "4|12": "3|12",
+  "magaza|7": "2|7",
+  "magaza|12": "3|12"
+ },
+ "sonuclar": {
+  "1|7": {
+   "ozet": {
+    "bulunabilirlik_ilk4": 96.5,
+    "beden_kayip_payi_ilk4": 58.4,
+    "kirik_cift_pay_yuzde_ilk4": 2.2,
+    "brut_kar_tl": 535940376
+   },
+   "satirlar": [
+    {
+     "desen": "1-1-2-2-1",
+     "magaza": 69,
+     "kosu": "p1",
+     "ayni": null
+    }
+   ]
+  },
+  "1|12": {
+   "ozet": {
+    "bulunabilirlik_ilk4": 97.1,
+    "beden_kayip_payi_ilk4": 48.5,
+    "kirik_cift_pay_yuzde_ilk4": 1.8,
+    "brut_kar_tl": 541634844
+   },
+   "satirlar": [
+    {
+     "desen": "1-3-4-3-1",
+     "magaza": 69,
+     "kosu": "p1_12",
+     "ayni": null
+    }
+   ]
+  },
+  "2|7": {
+   "ozet": {
+    "bulunabilirlik_ilk4": 96.6,
+    "beden_kayip_payi_ilk4": 56.5,
+    "kirik_cift_pay_yuzde_ilk4": 1.9,
+    "brut_kar_tl": 540277650
+   },
+   "satirlar": [
+    {
+     "desen": "1-1-2-2-1",
+     "magaza": 50,
+     "kosu": "p2",
+     "ayni": null
+    },
+    {
+     "desen": "1-2-2-1-1",
+     "magaza": 19,
+     "kosu": "p2",
+     "ayni": null
+    }
+   ]
+  },
+  "2|12": {
+   "ozet": {
+    "bulunabilirlik_ilk4": 97.1,
+    "beden_kayip_payi_ilk4": 48.8,
+    "kirik_cift_pay_yuzde_ilk4": 1.7,
+    "brut_kar_tl": 545457931
+   },
+   "satirlar": [
+    {
+     "desen": "1-2-4-3-2",
+     "magaza": 50,
+     "kosu": "p2_12",
+     "ayni": null
+    },
+    {
+     "desen": "2-3-4-2-1",
+     "magaza": 19,
+     "kosu": "p2_12",
+     "ayni": null
+    }
+   ]
+  },
+  "3|7": {
+   "ozet": {
+    "bulunabilirlik_ilk4": 96.6,
+    "beden_kayip_payi_ilk4": 56.5,
+    "kirik_cift_pay_yuzde_ilk4": 1.9,
+    "brut_kar_tl": 540277650
+   },
+   "satirlar": [
+    {
+     "desen": "1-1-2-2-1",
+     "magaza": 50,
+     "kosu": "p2",
+     "ayni": "K = 2"
+    },
+    {
+     "desen": "1-2-2-1-1",
+     "magaza": 19,
+     "kosu": "p2",
+     "ayni": "K = 2"
+    }
+   ]
+  },
+  "3|12": {
+   "ozet": {
+    "bulunabilirlik_ilk4": 97.1,
+    "beden_kayip_payi_ilk4": 49.4,
+    "kirik_cift_pay_yuzde_ilk4": 1.7,
+    "brut_kar_tl": 545511071
+   },
+   "satirlar": [
+    {
+     "desen": "1-2-3-4-2",
+     "magaza": 28,
+     "kosu": "p3_12",
+     "ayni": null
+    },
+    {
+     "desen": "1-3-4-3-1",
+     "magaza": 22,
+     "kosu": "p3_12",
+     "ayni": null
+    },
+    {
+     "desen": "2-3-4-2-1",
+     "magaza": 19,
+     "kosu": "p3_12",
+     "ayni": null
+    }
+   ]
+  },
+  "4|7": {
+   "ozet": {
+    "bulunabilirlik_ilk4": 96.6,
+    "beden_kayip_payi_ilk4": 56.5,
+    "kirik_cift_pay_yuzde_ilk4": 1.9,
+    "brut_kar_tl": 540277650
+   },
+   "satirlar": [
+    {
+     "desen": "1-1-2-2-1",
+     "magaza": 50,
+     "kosu": "p2",
+     "ayni": "K = 2"
+    },
+    {
+     "desen": "1-2-2-1-1",
+     "magaza": 19,
+     "kosu": "p2",
+     "ayni": "K = 2"
+    }
+   ]
+  },
+  "4|12": {
+   "ozet": {
+    "bulunabilirlik_ilk4": 97.1,
+    "beden_kayip_payi_ilk4": 49.4,
+    "kirik_cift_pay_yuzde_ilk4": 1.7,
+    "brut_kar_tl": 545511071
+   },
+   "satirlar": [
+    {
+     "desen": "1-2-3-4-2",
+     "magaza": 28,
+     "kosu": "p3_12",
+     "ayni": "K = 3"
+    },
+    {
+     "desen": "1-3-4-3-1",
+     "magaza": 22,
+     "kosu": "p3_12",
+     "ayni": "K = 3"
+    },
+    {
+     "desen": "2-3-4-2-1",
+     "magaza": 19,
+     "kosu": "p3_12",
+     "ayni": "K = 3"
+    }
+   ]
+  },
+  "magaza|7": {
+   "ozet": {
+    "bulunabilirlik_ilk4": 96.6,
+    "beden_kayip_payi_ilk4": 56.5,
+    "kirik_cift_pay_yuzde_ilk4": 1.9,
+    "brut_kar_tl": 540277650
+   },
+   "satirlar": [
+    {
+     "desen": "1-1-2-2-1",
+     "magaza": 50,
+     "kosu": "p2",
+     "ayni": "K = 2"
+    },
+    {
+     "desen": "1-2-2-1-1",
+     "magaza": 19,
+     "kosu": "p2",
+     "ayni": "K = 2"
+    }
+   ]
+  },
+  "magaza|12": {
+   "ozet": {
+    "bulunabilirlik_ilk4": 97.1,
+    "beden_kayip_payi_ilk4": 49.4,
+    "kirik_cift_pay_yuzde_ilk4": 1.7,
+    "brut_kar_tl": 545511071
+   },
+   "satirlar": [
+    {
+     "desen": "1-2-3-4-2",
+     "magaza": 28,
+     "kosu": "p3_12",
+     "ayni": "K = 3"
+    },
+    {
+     "desen": "1-3-4-3-1",
+     "magaza": 22,
+     "kosu": "p3_12",
+     "ayni": "K = 3"
+    },
+    {
+     "desen": "2-3-4-2-1",
+     "magaza": 19,
+     "kosu": "p3_12",
+     "ayni": "K = 3"
+    }
+   ]
+  }
+ }
+}
