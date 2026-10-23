@@ -3,9 +3,373 @@ baslik: Koliyi Tasarlamak
 tip: teknik
 sira: 4
 ozet: >-
-  Kaç koli tipi, hangi beden karışımı, hangi mağazaya hangisi? Koli tasarımı problemi, tam arama, koli tipi sayısının eğrisi ve beden profillerinin satış karışımı kümeleriyle ilişkisi.
+  Kaç koli tipi, hangi beden karışımı, hangi mağazaya hangisi? Yanlış
+  bedende duran adet, yetmiş adayın tam taraması, depo kısıtı, koli tipi
+  sayısının eğrisi ve beden profillerinin satış karışımı kümeleriyle
+  ilişkisi.
 yazar: Sabri Suyunu
-durum: hazirlaniyor
+durum: yayinda
 ---
 
-Bu yazı hazırlanıyor.
+import T from '../../../../components/T.astro'
+
+Geçen yazı her mağazaya bir beden eğrisi verdi. Bu yazıda o eğrilerle
+<T k="koli">koliyi</T> (asorti koli, İngilizcede prepack) tasarlıyoruz. Üç
+karar var: kaç koli tipi kurulacak, her tipin içinde hangi bedenden kaç
+adet olacak ve hangi mağazaya hangi tip gidecek. Bir de sınır var: depoda
+her bedenden ne kadar mal olduğu.
+
+Kod yine `vakalar/beden-paket/` altındaki çalışan koddan geliyor, sayılar
+vakanın raporundan. Kodda koli "paket" diye geçiyor; bir koli tipinin
+beden içeriğine "desen" deniyor, koli tipi sayısı da `K`. Bir koli
+deseni 1-2-2-1-1 gibi beş sayıdır: beden sırasıyla adetler.
+
+## Üç karar ve bir sınır
+
+Malın miktarı bu dizide değişmiyor. Her mağaza her option'dan, Lumoda'nın
+ilk dağıtımında aldığı kadar koli alıyor; yalnız kolinin içi değişiyor.
+Bunu beşinci yazıda "aynı mal" diye açacağız. Tasarım açısından anlamı şu:
+her mağazanın kaç koli alacağı baştan belli ve bu sayı mağazanın
+tasarımdaki ağırlığı. Çok koli alan mağazanın kolisi yanlışsa yanlış da
+çok olur.
+
+Koli yedi adet. İlk yazıda saydık: yedi adeti beş bedene bölmenin 330
+yolu var. Ortadaki üç bedenin her kolide en az bir adetle bulunmasını şart
+koşuyoruz. Bir koli o üç bedenden birini hiç taşımazsa mağazaya kırık bir
+setle varır; müşteri ortadaki bir bedeni rafta bulamaz. Bu şartla 70 aday
+kalıyor:
+
+```python
+# beden_paket/paket_tasarim.py
+def adaylar(adet: int = sabitler.PAKET_ADET) -> np.ndarray:
+    B = sabitler.BEDEN_SAYISI
+    cekirdek = np.zeros(B, dtype=np.int64)
+    cekirdek[[b - 1 for b in sabitler.CEKIRDEK_BEDENLER]] = 1
+    kalan = adet - int(cekirdek.sum())
+    if kalan < 0:
+        raise ValueError(f"{adet} adetlik pakete çekirdek bedenler sığmaz")
+    satirlar = []
+    for cubuk in combinations(range(kalan + B - 1), B - 1):     # yıldız ve çubuk
+        sinir = (-1,) + cubuk + (kalan + B - 1,)
+        satirlar.append(tuple(sinir[i + 1] - sinir[i] - 1 for i in range(B)))
+    return np.array(sorted(satirlar), dtype=np.int64) + cekirdek
+```
+
+Ortadaki üç bedene birer adet önceden konuyor; kalan dört adet beş bedene
+her yolla dağıtılıyor. On iki adetlik kolide aynı fonksiyon 715 aday
+üretiyor.
+
+## Yanlış bedende duran adet
+
+Bir koli bir mağazaya ne kadar uyuyor? İlk yazıda Pars bunu adetle
+anlatmıştı: kolideki adetlerin kaçı mağazanın eğrisine göre yanlış bedende
+duruyor?
+
+```python
+# beden_paket/paket_tasarim.py
+def uyumsuzluk(paket, egri_satiri, agirlik: float = 1.0) -> float:
+    """Beklenen eksik adet: ağırlık × Σ_b max(0, a × eğri_b − paket_b), a = paket adedi (modül
+    notu)."""
+    p = np.asarray(paket, dtype="float64")
+    e = np.asarray(egri_satiri, dtype="float64")
+    return float(agirlik * np.round(np.maximum(0.0, p.sum() * e - p).sum(), 12))
+```
+
+Mağazanın eğrisi yedi adetin her bedene ne kadarını istediğini söylüyor.
+Büyük profilli bir mağaza dördüncü bedende yedi adetin ikisinden fazlasını
+istiyor, Lumoda'nın kolisi bir tane taşıyor; aradaki fark o bedende eksik
+kalan adet. Bütün bedenlerin eksiği toplanınca kolinin beklenen eksik adedi
+çıkıyor. Eksik ile fazla birbirini tutuyor: bir bedende eksik kalan her
+adet başka bir bedende fazla duruyor. O yüzden aynı sayı yanlış bedende
+duran adet.
+
+— Bu ilk yazıdaki L1 uzaklığından farklı mı? diyor Ali.
+
+— Aynı sıralamayı veriyor, diyor Pars. Eksik adet, kolinin adedi çarpı L1
+uzaklığının yarısı. İki koliden hangisinin daha iyi olduğunu ikisi de aynı
+söyler. Ama adet toplanabilir: mağazanın koli sayısıyla çarpıp bütün
+mağazalarda toplayınca zincirin ilk dağıtımında yanlış bedende duran malı
+buluyorum.
+
+Ölçüyü sonuçları görmeden seçtik ve değiştirmedik. Kodun notunda bir
+gerekçe daha var: logaritmalı ölçüler, birinci ya da beşinci bedene hiç
+adet koymayan bir kolide tanımsız kalır.
+
+## Yetmiş adayın hepsi
+
+K tipli bir tasarım, 70 adaydan K tanesini seçmek demek. Seçilen tipler
+belli olunca atama kolay: her mağaza o tiplerden kendi eğrisine en az
+eksik bırakanı alır. Zor olan tipleri seçmek. Yedi adetlik kolide bütün
+seçenekleri tek tek denemek mümkün:
+
+```python
+# beden_paket/paket_tasarim.py
+def _kumeler(C: np.ndarray, K: int):
+    """K'lı bütün aday kümeleri sözlük sırasında, parça parça: (küme [c, K], kısıtsız toplam [c])."""
+    CT = C.T
+    it = combinations(range(C.shape[1]), K)
+    while True:
+        blok = np.fromiter(chain.from_iterable(islice(it, _PARCA)), dtype=np.int64)
+        if blok.size == 0:
+            return
+        blok = blok.reshape(-1, K)
+        yield blok, CT[blok].min(axis=1).sum(axis=1)
+
+
+def _tam(C: np.ndarray, K: int) -> np.ndarray:
+    """K'lı bütün aday kümelerinin tam taraması (sözlük sırası); en iyi küme [K]."""
+    en_iyi, secilen = np.inf, None
+    for blok, toplam in _kumeler(C, K):
+        enk = toplam.min()
+        if secilen is None or not _esit_ya_da_kucuk(en_iyi, enk):
+            i = int(np.flatnonzero(toplam <= enk + _ESITLIK * max(1.0, abs(enk)))[0])
+            en_iyi, secilen = float(toplam[i]), blok[i]
+    return secilen
+```
+
+`C` bir tablo: her mağaza için her adayın eksik adedi, mağazanın koli
+sayısıyla çarpılmış. Bir aday kümesinin değeri, her mağazanın o kümedeki
+en iyi adayının değerlerinin toplamı. `_kumeler` bütün K'lı kümeleri
+sırayla üretiyor, `_tam` en küçük toplamlıyı tutuyor. Eşitlikte sözlük
+sırasında ilk küme kalıyor; aynı girdi hep aynı tasarımı veriyor.
+
+Kaç küme taranıyor? Kodun notu söylüyor:
+
+```text
+beden_paket/paket_tasarim.py (modül notu)
+
+  … 7'li pakette K = 4'te C(70, 4) = 916.895 küme: tam arama, `en_iyi_mi = True`. Küme sayısı
+  `TAM_ARAMA_SINIRI`'nı aşarsa (ör. 12'li pakette K = 3) dönüşümlü arama …, `en_iyi_mi = False`.
+```
+
+```python
+# beden_paket/paket_tasarim.py
+TAM_ARAMA_SINIRI = 2_000_000    # tam aramada taranacak en çok aday kümesi
+```
+
+On iki adetlik kolide 715 aday var ve üç tipli kümelerin sayısı bu sınırı
+çok aşıyor. Orada kod dönüşümlü bir aramaya geçiyor: tipleri seç, her
+mağazayı en iyi tipe ata, her tipi kendi mağazalarına en iyi uyan adayla
+değiştir ve hiçbir şey değişmeyene kadar sürdür. Mağaza Kümeleme'deki
+k-means'e benziyor. Bu arama en iyiyi bulduğunu kendi başına
+kanıtlayamaz. Ama bir alt sınır var: her mağazanın 715 aday içinden kendi
+en iyi kolisini aldığı mağazaya özel tasarım. Hiçbir K'lı tasarım ondan
+iyi olamaz. Dönüşümlü arama o sınıra ulaşırsa en iyiyi bulmuş demektir. On
+iki adetlik kolide üç tipte ulaşıyor.
+
+Kod bir şeyi daha sayıyor: kullanılan tipler. Dört tip isteyip üçünün
+yettiğini görürseniz tasarım üç tiple döner. Sonuçlarda bunun önemi
+birazdan görünecek.
+
+## Depo
+
+Koliler ne kadar iyi olursa olsun, depoda olmayan malı gönderemezler.
+Tasarımın son şartı bu:
+
+```text
+beden_paket/paket_tasarim.py (modül notu)
+
+    Σ_m w_m × p_{a(m), b} ≤ depo_payi_b × a × Σ_m w_m
+
+yani `depo_payi_b` = depodaki b adedi / ilk dağıtımda giden toplam adet (a × Σ w); toplamı 1'den
+büyük olabilir (depoda kalan mal).
+```
+
+```python
+# beden_paket/paket_tasarim.py (tasarla)
+depo_uygun = depo_asimi = None
+if depo_payi is not None:
+    cap = depo_payi * adet * w.sum()
+    if _asim(w, A, secim, cap).any():
+        yontem = "mip"
+        secim, en_iyi = _kisitli(C, w, A, cap, kume_k, tohum)
+    depo_asimi = _asim(w, A, secim, cap)
+    depo_uygun = not depo_asimi.any()
+```
+
+Her bedende mağazalara giden adet, depodaki adedi aşamaz. Arama önce
+kısıtsız en iyi tasarımı buluyor. O tasarım depoya sığıyorsa iş bitiyor,
+çünkü kısıt bir tasarımı ancak kötüleştirebilir. Sığmıyorsa karışık
+tamsayılı bir modele geçiyor: önce depoyu aşan adedi en aza indiriyor,
+sonra o aşımla yanlış bedendeki adedi.
+
+Depodaki malı nereden biliyoruz? Karar anında elde ilk siparişin beden
+adetleri var. Malın bir kısmı teslimde kalite kontrolünden geçemiyor ve
+düşülüyor; ama teslimlerin çoğu karar gününden sonra geliyor. Tasarım bu yüzden
+karar anında bilinen sipariş adedinden kuruluyor; hatalı malın düşüldüğü
+depo yalnız sonradan denetim için kullanılıyor. Bu veride iki tanım aynı
+tasarımları veriyor.
+
+Birinci bedende depo tam sınırda. Yedi adetlik kolinin giden adedine
+göre birinci bedenin depo payı siparişle 0,1454, hatalı mal düşülünce
+0,1429; yani yedide bir. Lumoda'nın her kolisi birinci bedenden bir adet
+taşıyor ve depoda o bedenden tam bu kadar mal var. Yedi adetlik
+tasarımların hepsi de birinci bedene her kolide bir adet koyuyor; depoyu
+tam dolduruyorlar, aşmıyorlar.
+
+Bu veride depo kısıtı hiçbir tasarımda bağlamıyor; kısıtsız en iyi tasarım
+zaten depoya sığıyor. Yine de kısıtın neye benzediğini gösteren bir örnek
+var. Lumoda'nın kolisini on iki adete büyütmek isteseydik birinci bedene
+iki adet koymamız gerekirdi: on ikide iki, 0,1667. Depo 0,1429 veriyor. O
+koli kurulamıyor. Beşinci yazıda bunun ne demek olduğuna döneceğiz.
+
+Kısıtı bütün option'ların toplamında uyguluyoruz, option option değil.
+Bedeli: tek bir option'da depo yetmeyebilir. Simülasyondan önce option
+option bir denetim yapılıyor; hiçbir tasarımda 193 option'dan biri bile
+aşmıyor.
+
+## Kaç koli tipi
+
+Şimdi asıl soru. Rapor her K için en iyi tasarımı ve koli başına eksik
+adedi basıyor:
+
+| Koli | Tip | Desenler | Koli başına eksik adet |
+|---|---|---|---:|
+| 7 adet | Lumoda | 1-2-2-1-1 | 0,9487 |
+| 7 adet | 1 | 1-1-2-2-1 | 0,8533 |
+| 7 adet | 2 | 1-1-2-2-1 + 1-2-2-1-1 | 0,5835 |
+| 7 adet | 3 | 1-1-2-2-1 + 1-2-2-1-1 | 0,5835 |
+| 7 adet | 4 | 1-1-2-2-1 + 1-2-2-1-1 | 0,5835 |
+| 7 adet | mağazaya özel | 1-1-2-2-1 + 1-2-2-1-1 | 0,5835 |
+| 12 adet | 1 | 1-3-4-3-1 | 1,3146 |
+| 12 adet | 2 | 1-2-4-3-2 + 2-3-4-2-1 | 0,6826 |
+| 12 adet | 3 | 1-2-3-4-2 + 1-3-4-3-1 + 2-3-4-2-1 | 0,5484 |
+| 12 adet | 4 | 1-2-3-4-2 + 1-3-4-3-1 + 2-3-4-2-1 | 0,5484 |
+| 12 adet | mağazaya özel | 1-2-3-4-2 + 1-3-4-3-1 + 2-3-4-2-1 | 0,5484 |
+
+Lumoda'nın satırı dışında bütün tasarımlar kanıtlı en iyi.
+
+Yedi adetlik kolide kazanç ikinci tipte bitiyor. Üç tip, dört tip, hatta
+her mağazaya kendi en iyi kolisi; hepsi aynı iki deseni veriyor.
+
+— Dört tip istesem? diyor Pelin.
+
+— Yine iki tane alırsın, diyor Pars. 69 mağazanın her birine kendi en iyi
+kolisini seçtim. Yalnız iki farklı koli çıktı.
+
+Sebebi yedi adetin kabalığı. Orta profilin eğrisi ile büyük profilinki
+birbirinden belirgin biçimde ayrı, ama yedi adete indirince ikisinin en
+iyi kolisi aynı: 1-1-2-2-1. Aradaki fark bir adetin altında kalıyor ve
+koliye sığmıyor. İki tipli tasarım mağazaları şöyle bölüyor:
+
+| Profil \ koli | 1-1-2-2-1 | 1-2-2-1-1 |
+|---|---:|---:|
+| Büyük | 28 | 0 |
+| Orta | 22 | 0 |
+| Küçük | 0 | 19 |
+
+Kolilerin %60,2'si 1-1-2-2-1, %39,8'i 1-2-2-1-1.
+
+— Küçük bedene kayık mağazalara bizim koli gidiyor, diyor Pelin. Yıllardır
+kullandığımız koli.
+
+— Kötü bir koli değil, diyor Pars. Yalnız bütün mağazalara gidiyor.
+
+On iki adetlik kolide pay inceliyor ve her profil kendi kolisini alıyor:
+büyük profile 1-2-3-4-2, ortaya 1-3-4-3-1, küçüğe 2-3-4-2-1. Mağazaya özel
+tasarım da yine bu üç desende kalıyor; dördüncü tip bir şey katmıyor. Tek
+tip istenirse orta profilin kolisi bütün zincire gidiyor.
+
+Tablonun son sütunu iki koli büyüklüğü arasında doğrudan
+karşılaştırılamaz: on iki adetlik kolide yanlış bedende duracak adet de
+fazladır. Kıyas için kolinin taşıdığı beden payına bakmak gerekiyor.
+Aşağıdaki tablo, mağazalara giden malın beden payının iki eğriye uzaklığı;
+mağazanın aldığı koli sayısıyla ağırlıklı ortalama L1. İlk sütun cevap
+anahtarıyla, ikincisi geçen yazının tahmin ettiği eğriyle.
+
+| Koli | Gerçek talebe | Tahmin edilen eğriye |
+|---|---:|---:|
+| Lumoda 1-2-2-1-1 | 0,2544 | 0,2711 |
+| Tek tip, 7 adet | 0,2372 | 0,2438 |
+| İki tip, 7 adet | 0,1634 | 0,1667 |
+| Tek tip, 12 adet | 0,2210 | 0,2191 |
+| İki tip, 12 adet | 0,1217 | 0,1138 |
+| Üç tip, 12 adet | 0,1085 | 0,0914 |
+
+İki şey göze çarpıyor. Birincisi, koli tipi sayısı koli büyüklüğünden
+daha çok iş görüyor: yedi adetlik iki tip, on iki adetlik tek tipten çok
+daha yakın. İkincisi, en iyi tasarım bile gerçek talepten 0,1085 uzak.
+Koli bir ortalama taşıyor; mağazanın kendi eğrisine hiçbir zaman tam
+oturmuyor.
+
+Bir uyarıyı da şimdiden yapayım. Buradaki sayılar bir tasarım ölçüsü, rafın
+kendisi değil. Simülasyonda iş daha karışık: on iki adetlik kolide üçüncü
+tip bu ölçüde açıkça kazandırıyor, ama ilk dört haftanın beden kaybını tek
+tipe göre azaltmıyor, biraz artırıyor. Beşinci yazıda her kazancı kendi
+ölçütüyle söyleyeceğiz.
+
+Bir koli tipinin maliyetini de tasarıma koymadık. Tedarikçinin her tip
+için ayrı dolum talimatı, deponun her tip için ayrı rafı var; bunlar
+zincirden zincire değişiyor ve uydurulmuş bir sayıyla gösterilirse yanıltır.
+Tablo eğriyi okura bırakıyor: ikinci tipin getirdiği sizin maliyetinizden
+fazla mı?
+
+## Atama ne kadar doğru
+
+Tasarım mağazaları tahmin edilen eğriye göre atıyor. Cevap anahtarı
+bilinseydi atama ne kadar değişirdi? İki tipli tasarımın desenlerini
+koruyup her mağazayı gerçek talebine göre yeniden atadık.
+
+Yalnız bir mağaza yer değiştiriyor: İzmir 2. Geçen yazıda gördük; eğrisi
+olmadığı için büyük profili aldı ve 1-1-2-2-1'e atandı. Gerçek talebine
+göre 1-2-2-1-1 almalıydı. Gerçek talebe göre yanlış bedendeki adet
+66.440,6'dan 64.833,8'e iniyor, −%2,4. İzmir 2 kolilerin %2,1'ini alıyor.
+Eğrisi okunabilen 68 mağazanın hepsi zaten doğru kolide. Bu yüzden
+cevap anahtarıyla atanan bir kolu simülasyonda ayrıca koşmadık; fark tek
+mağazalık.
+
+## Beden ve satış karışımı
+
+Mağazaları beden profiline göre üç gruba ayırdık. Mağaza Kümeleme
+dizisinde aynı mağazaları satış karışımına göre beş kümeye ayırmıştık. İki
+gruplama birbirine benziyor mu?
+
+— Benziyorsa işimiz kolay, diyor Veli. Pelin planı kümeye göre kuruyor,
+koliyi de kümeye göre kurarız.
+
+| Beden profili \ satış kümesi | 0 | 1 | 2 | 3 | 4 | Toplam |
+|---|---:|---:|---:|---:|---:|---:|
+| Büyük | 11 | 5 | 3 | 7 | 2 | 28 |
+| Küçük | 11 | 1 | 0 | 5 | 2 | 19 |
+| Orta | 11 | 2 | 4 | 2 | 3 | 22 |
+
+Benzemiyor. Satış kümelerinin en büyüğünde, küme 0'da, üç profilden
+11'er mağaza var. İki gruplamanın ARI'si −0,014. Mutlak değeri 0,05'in
+altındaki bir ARI'yi bağımsız sayıyoruz; bu sınırı anlatı için biz koyduk.
+Mağazanın ne sattığı ile müşterisinin hangi bedeni giydiği, Lumoda'da iki
+ayrı soru.
+
+[Mağaza Kümeleme](/magaza-kumeleme/magaza-gruplama/makine-ogrenmesiyle-gruplama/)
+dizisinin dördüncü yazısında satış karışımına beden eğrisini ve
+mevsimselliği eklediğimizde kümeler cevap anahtarından uzaklaşmıştı. O
+yazıda bu iki bloğun müşteri profilinden başka bir şeye göre ayrıştığını
+söylemiştik. Beden için o başka şey artık belli: bedenin kendi ekseni.
+
+— Yani iki ayrı etiket, diyor Pars. Bir mağazanın planı satış kümesinden,
+kolisi beden profilinden gelir. Birini ötekinin yerine koyarsan ikisini de
+bozarsın.
+
+## Sizin verinizde zor olan
+
+Birincisi koli tipinin bedeli. Tedarikçi kaç tipe razı olur, deponun her
+tip için elleçleme bedeli ne kadar? Bu yazıda hiçbirini fiyatlamadık. Sizin
+zincirinizde eğrinin hangi noktasında durulacağını bu iki sayı belirler.
+
+İkincisi beden setleri. Lumoda'da bir mağaza bütün beden setlerinde aynı
+deseni alıyor, çünkü verinin kurgusunda bir mağazanın kayması kategoriden
+bağımsız. Koli tipi sayısı da bu yüzden bütün setlerde ortak desen
+sayısı. Gerçekte bir mağazanın jean eğrisi ile tişört eğrisi ayrı
+olabilir. O zaman tip sayısı set sayısıyla çarpılır ve her setin
+tasarımı daha az mağazayla kurulur.
+
+Üçüncüsü depo. Bu veride kısıt bağlamadı ve onu toplamda uyguladık. Alımı
+option option değişen bir zincirde depo, bazı option'larda kolinin
+istediği bedeni taşımayabilir; tasarım o zaman option başına kurulmalı.
+
+Dördüncüsü ölçecek bir cevap anahtarının olmaması. Burada atamanın
+doğruluğunu anahtarla sınayabildik ve yalnız yeni mağazanın yanlış
+olduğunu gördük. Sizin elinizde tahmin edilen eğriye uzaklık olacak; o da
+eğri kadar iyi.
+
+Sonraki yazıda bu kolileri İlk Sevkiyat'ın dünyasına gönderiyoruz: aynı
+mal, aynı mağazalar, yalnız başka koliler. Rafta ne değişiyor?
