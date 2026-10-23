@@ -1,0 +1,444 @@
+"""Paket tasarımı (`paket_tasarim`): adaylar, uyumsuzluk, K desen, atama, depo kısıtı.
+
+Oyuncak testleri `conftest`'in profil paylarını (`PAY`, `PROFIL`) doğrudan eğri olarak kullanır;
+`veri` işaretli test SS25 karar anının gerçek eğrileriyle K = 1..4 ve mağaza desenlerini basar.
+"""
+
+from itertools import combinations, product
+
+import numpy as np
+import pandas as pd
+import pytest
+from conftest import PAY, PROFIL
+
+from beden_paket import paket_tasarim as pt
+from beden_paket import sabitler
+
+S = list(pt.SUTUNLAR)
+ZINCIR = np.array([0.1023, 0.2184, 0.3111, 0.2449, 0.1233])
+
+
+def _egri(paylar: dict[str, tuple]) -> pd.DataFrame:
+    df = pd.DataFrame([np.asarray(p, float) / np.sum(p) for p in paylar.values()],
+                      index=pd.Index(list(paylar), name="magaza_id"), columns=S)
+    return df
+
+
+def _oyuncak() -> pd.DataFrame:
+    return _egri({m: PAY[p] for m, p in PROFIL.items()})
+
+
+def _agirlik(egri: pd.DataFrame, degerler=None) -> pd.Series:
+    if degerler is None:
+        degerler = np.arange(1, len(egri) + 1, dtype=float)
+    return pd.Series(degerler, index=egri.index, dtype="float64")
+
+
+def _maliyet(tasarim: pt.Tasarim, egri, agirlik) -> float:
+    return sum(pt.uyumsuzluk(tasarim.desenler[i], egri.loc[m].to_numpy(), agirlik[m])
+               for m, i in tasarim.atama.items())
+
+
+def _yuk(tasarim: pt.Tasarim, agirlik) -> np.ndarray:
+    """Beden başına giden adet (Σ ağırlık × desen)."""
+    return sum(agirlik[m] * tasarim.desenler[i] for m, i in tasarim.atama.items())
+
+
+# ---------------------------------------------------------------------------
+# Adaylar ve uyumsuzluk
+# ---------------------------------------------------------------------------
+
+
+def test_adaylar_kisit():
+    A = pt.adaylar()
+    beklenen = sorted(p for p in product(range(8), repeat=5)
+                      if sum(p) == 7 and all(p[b - 1] >= 1 for b in sabitler.CEKIRDEK_BEDENLER))
+    assert A.shape == (70, 5) and A.dtype.kind == "i"
+    assert [tuple(r) for r in A] == beklenen                     # tam küme, sözlük sırası
+    assert tuple(sabitler.LUMODA_PAKET) in beklenen
+    A12 = pt.adaylar(12)
+    assert A12.shape == (715, 5) and (A12.sum(axis=1) == 12).all()
+    assert (A12[:, 1:4] >= 1).all() and (A12 >= 0).all()
+
+
+def test_uyumsuzluk_eksik_adet():
+    e = np.array([1, 2, 2, 1.5, 0.5]) / 7
+    # eksik adet: 4. bedende 0,5 eksik; 3 paket → 1,5 adet
+    assert pt.uyumsuzluk((1, 2, 2, 1, 1), e, 3.0) == pytest.approx(1.5)
+    assert pt.uyumsuzluk((1, 2, 2, 2, 0), e, 3.0) == pytest.approx(1.5)
+    assert pt.uyumsuzluk((1, 2, 2, 1, 1), np.array([1, 2, 2, 1, 1]) / 7, 5.0) == 0.0
+    # beklenen eksik adet = ağırlık × paket adedi × L1(paket payı, eğri) / 2
+    p = np.array([1, 1, 2, 2, 1])
+    assert pt.uyumsuzluk(p, ZINCIR, 2.0) == pytest.approx(2.0 * 7 * np.abs(p / 7 - ZINCIR).sum() / 2)
+
+
+def test_en_yakin_desen_esitlikte_sozluk_sirasi():
+    e = np.array([1, 2, 2, 1.5, 0.5]) / 7          # (1,2,2,1,1) ile (1,2,2,2,0) eşit
+    assert tuple(pt.en_yakin_desen(e)) == (1, 2, 2, 1, 1)
+
+
+# ---------------------------------------------------------------------------
+# Tasarım
+# ---------------------------------------------------------------------------
+
+
+def test_k1_zincire_en_yakin():
+    # bütün mağazalar zincir eğrisindeyse tek desen zincire en yakın 7'li pakettir
+    E = _egri({f"M{i}": ZINCIR for i in range(5)})
+    t = pt.tasarla(E, _agirlik(E), 1)
+    assert t.desenler.shape == (1, 5)
+    assert tuple(t.desenler[0]) == tuple(pt.en_yakin_desen(ZINCIR))
+    bf = min(pt.adaylar(), key=lambda p: (pt.uyumsuzluk(p, ZINCIR, 1.0), tuple(p)))
+    assert tuple(t.desenler[0]) == tuple(bf)
+    # karışık mağazalarda K = 1 en iyi tek paket: ağırlıklı toplam uyumsuzluğun kaba kuvvet en küçüğü
+    E, w = _oyuncak(), _agirlik(_oyuncak())
+    t = pt.tasarla(E, w, 1)
+    kaba = min(pt.adaylar(), key=lambda p: (round(sum(pt.uyumsuzluk(p, E.loc[m].to_numpy(), w[m])
+                                                       for m in E.index), 9), tuple(p)))
+    assert tuple(t.desenler[0]) == tuple(kaba) and t.en_iyi_mi
+    assert t.toplam_uyumsuzluk == pytest.approx(_maliyet(t, E, w))
+
+
+def test_tasarim_belirlenimci():
+    E, w = _oyuncak(), _agirlik(_oyuncak())
+    for K in (1, 2, 3, "magaza"):
+        a, b = pt.tasarla(E, w, K), pt.tasarla(E, w, K)
+        np.testing.assert_array_equal(a.desenler, b.desenler)
+        pd.testing.assert_series_equal(a.atama, b.atama)
+        # satır sırası sonucu değiştirmez
+        ters = pt.tasarla(E.iloc[::-1], w.iloc[::-1], K)
+        np.testing.assert_array_equal(a.desenler, ters.desenler)
+        pd.testing.assert_series_equal(a.atama, ters.atama.loc[a.atama.index])
+    # eşitlikte sözlük sırasında ilk desen
+    E1 = _egri({"M1": (1, 2, 2, 1.5, 0.5)})
+    assert tuple(pt.tasarla(E1, _agirlik(E1), 1).desenler[0]) == (1, 2, 2, 1, 1)
+
+
+def test_k_arttikca_uyumsuzluk_azalir():
+    E, w = _oyuncak(), _agirlik(_oyuncak())
+    t = {K: pt.tasarla(E, w, K) for K in (1, 2, 3, 4, "magaza")}
+    u = [t[K].toplam_uyumsuzluk for K in (1, 2, 3, 4, "magaza")]
+    assert all(x >= y - 1e-12 for x, y in zip(u, u[1:]))
+    assert u[0] > u[1] > u[2]
+    # üç profil, üç desen: her mağaza kendi en iyi desenini alır
+    assert u[2] == pytest.approx(u[-1])
+    assert all(t[K].en_iyi_mi for K in t)
+    # K = 2 tam arama: kaba kuvvetle aynı
+    D = {m: [pt.uyumsuzluk(p, E.loc[m].to_numpy(), w[m]) for p in pt.adaylar()] for m in E.index}
+    kaba = min(sum(min(D[m][i], D[m][j]) for m in E.index) for i, j in combinations(range(70), 2))
+    assert u[1] == pytest.approx(kaba)
+
+
+def test_her_aday_desen_alir():
+    E, w = _oyuncak(), _agirlik(_oyuncak())
+    for K in (1, 2, 3, 4, "magaza"):
+        t = pt.tasarla(E, w, K)
+        assert list(t.atama.index) == list(E.index) and t.atama.index.name == "magaza_id"
+        assert t.atama.between(0, len(t.desenler) - 1).all()
+        assert set(t.atama) == set(range(len(t.desenler)))        # her desen en az bir mağazada
+        assert [tuple(r) for r in t.desenler] == sorted(tuple(r) for r in t.desenler)
+        assert (t.desenler.sum(axis=1) == 7).all() and (t.desenler[:, 1:4] >= 1).all()
+        if K != "magaza":
+            assert len(t.desenler) <= K
+    # üç ayrı eğri: K = 4'te en çok üç desen kullanılır
+    assert len(pt.tasarla(E, w, 4).desenler) == 3
+    # sıfır ağırlıklı mağaza da (maliyete girmeden) kendi eğrisine en yakın desenini alır
+    w0 = w.copy()
+    w0["S06"] = 0.0
+    t = pt.tasarla(E, w0, 3)
+    i = t.atama["S06"]
+    assert all(pt.uyumsuzluk(t.desenler[i], E.loc["S06"].to_numpy(), 1.0)
+               <= pt.uyumsuzluk(d, E.loc["S06"].to_numpy(), 1.0) for d in t.desenler)
+
+
+def test_magaza_deseni_tam():
+    E, w = _oyuncak(), _agirlik(_oyuncak())
+    t = pt.tasarla(E, w, "magaza")
+    for m in E.index:
+        assert tuple(t.desenler[t.atama[m]]) == tuple(pt.en_yakin_desen(E.loc[m].to_numpy()))
+    assert t.toplam_uyumsuzluk == pytest.approx(
+        sum(min(pt.uyumsuzluk(p, E.loc[m].to_numpy(), w[m]) for p in pt.adaylar()) for m in E.index))
+    assert t.en_iyi_mi and t.depo_uygun is None
+
+
+def _kaba_kisitli(E, w, K, depo_payi):
+    """Küçük örnekte kısıtlı tasarımın kaba kuvveti: her K desen kümesi × her atama."""
+    A = pt.adaylar()
+    ms = list(E.index)
+    D = np.array([[pt.uyumsuzluk(p, E.loc[m].to_numpy(), w[m]) for p in A] for m in ms])
+    cap = np.asarray(depo_payi) * 7 * w.sum()
+    W = w.loc[ms].to_numpy()
+    en_iyi = np.inf
+    atamalar = np.array(list(product(range(K), repeat=len(ms))))       # [T, M]
+    for kume in combinations(range(len(A)), K):
+        kume = np.array(kume)
+        secim = kume[atamalar]                                          # [T, M]
+        yuk = np.einsum("m,tmb->tb", W, A[secim])
+        uygun = (yuk <= cap + 1e-9).all(axis=1)
+        if uygun.any():
+            mal = D[np.arange(len(ms)), secim][uygun].sum(axis=1).min()
+            en_iyi = min(en_iyi, mal)
+    return en_iyi
+
+
+def test_depo_kisiti():
+    E = _egri({m: PAY[PROFIL[m]] for m in ("S01", "S04", "S06", "S07", "S05")})
+    w = _agirlik(E, [3.0, 1.0, 2.0, 2.0, 1.0])
+    serbest = pt.tasarla(E, w, 2)
+    yuk = _yuk(serbest, w) / (7 * w.sum())
+    # gevşek kısıt: sonuç değişmez
+    gevsek = pt.tasarla(E, w, 2, depo_payi=np.full(5, 1.0))
+    np.testing.assert_array_equal(gevsek.desenler, serbest.desenler)
+    assert gevsek.depo_uygun and not gevsek.depo_asimi.any() and gevsek.yontem == "tam"
+    # bağlayan kısıt: 5. bedende serbest tasarımın payının altında
+    depo = np.array([1.0, 1.0, 1.0, 1.0, yuk[4] - 0.05])
+    t = pt.tasarla(E, w, 2, depo_payi=depo)
+    assert t.depo_uygun and t.en_iyi_mi and not t.depo_asimi.any() and t.yontem == "mip"
+    assert (_yuk(t, w) <= depo * 7 * w.sum() + 1e-9).all()
+    assert t.toplam_uyumsuzluk > serbest.toplam_uyumsuzluk
+    assert t.toplam_uyumsuzluk == pytest.approx(_maliyet(t, E, w))
+    assert t.toplam_uyumsuzluk == pytest.approx(_kaba_kisitli(E, w, 2, depo))
+    # mağazaya özel desen de kısıta uyar
+    tm = pt.tasarla(E, w, "magaza", depo_payi=depo)
+    assert tm.depo_uygun and (_yuk(tm, w) <= depo * 7 * w.sum() + 1e-9).all()
+    assert tm.toplam_uyumsuzluk <= t.toplam_uyumsuzluk + 1e-9
+    # mağazaya özel kısıtlı tasarım üç desen kullanıyor: K = 3'te alt sınırın kendisi sonuçtur
+    assert len(tm.desenler) == 3
+    t3 = pt.tasarla(E, w, 3, depo_payi=depo)
+    assert t3.toplam_uyumsuzluk == pytest.approx(tm.toplam_uyumsuzluk) and t3.en_iyi_mi
+    assert t3.toplam_uyumsuzluk == pytest.approx(_kaba_kisitli(E, w, 3, depo))
+    # sağlanamayan kısıt (her pakette 3. bedenden en az 1 adet var): en küçük aşımlı tasarım, işaretli
+    imkansiz = np.array([1.0, 1.0, 0.05, 1.0, 1.0])
+    t = pt.tasarla(E, w, 2, depo_payi=imkansiz)
+    assert t.depo_uygun is False
+    np.testing.assert_allclose(t.depo_asimi, [0, 0, w.sum() * (1 - 7 * 0.05), 0, 0], atol=1e-6)
+    assert (t.desenler[:, 2] == 1).all()
+
+
+def test_buyuk_paket_donusumlu():
+    """12'li paket (715 aday): K = 3'te kombinasyon sayısı tam arama sınırını aşar, dönüşümlü arama."""
+    E, w = _oyuncak(), _agirlik(_oyuncak())
+    t1 = pt.tasarla(E, w, 1, adet=12)
+    t3 = pt.tasarla(E, w, 3, adet=12)
+    assert t1.yontem == "tam" and t1.en_iyi_mi and t3.yontem == "donusumlu"
+    assert (t3.desenler.sum(axis=1) == 12).all()
+    assert t3.toplam_uyumsuzluk < t1.toplam_uyumsuzluk
+    np.testing.assert_array_equal(t3.desenler, pt.tasarla(E, w, 3, adet=12).desenler)
+    # üç profil: dönüşümlü arama mağazaya özel alt sınıra erişir, en iyiliği kanıtlanır
+    assert t3.en_iyi_mi
+    assert t3.toplam_uyumsuzluk == pytest.approx(pt.tasarla(E, w, "magaza", adet=12).toplam_uyumsuzluk)
+    # on ayrı eğri: alt sınıra erişilmezse en iyilik iddia edilmez
+    rng = np.random.default_rng(7)
+    E10 = _egri({f"M{i:02d}": tuple(rng.dirichlet(np.full(5, 3.0))) for i in range(10)})
+    t = pt.tasarla(E10, _agirlik(E10), 3, adet=12)
+    alt = pt.tasarla(E10, _agirlik(E10), "magaza", adet=12).toplam_uyumsuzluk
+    assert t.yontem == "donusumlu" and t.toplam_uyumsuzluk > alt and not t.en_iyi_mi
+
+
+def test_desen_profil_capraz():
+    E, w = _oyuncak(), _agirlik(_oyuncak())
+    t = pt.tasarla(E, w, 3)
+    profil = pd.Series(PROFIL).rename_axis("magaza_id")
+    c = pt.desen_profil_capraz(t, profil)
+    assert list(c.columns) == [pt.desen_adi(d) for d in t.desenler]
+    assert c.to_numpy().sum() == len(E)
+    assert sorted(c.index) == ["buyuk", "kucuk", "orta"]
+    assert ((c > 0).sum(axis=1) == 1).all()                       # her profil tek desende
+
+
+def test_girdi_denetimi():
+    E, w = _oyuncak(), _agirlik(_oyuncak())
+    with pytest.raises(ValueError):
+        pt.tasarla(E, w.drop("S01"), 2)
+    with pytest.raises(ValueError):
+        pt.tasarla(E, w * -1, 2)
+    with pytest.raises(ValueError):
+        pt.tasarla(E, w, 0)
+    with pytest.raises(ValueError):
+        pt.tasarla(E, w, 2, depo_payi=np.ones(4))
+    with pytest.raises(ValueError):                                  # yinelenen magaza_id
+        pt.tasarla(pd.concat([E, E.iloc[:1]]), w, 2)
+
+
+def _inceleme_girdisi():
+    """İnceleyicinin yeniden üretimi: rng(11)'in ikinci çekilişi, 6 mağaza."""
+    rng = np.random.default_rng(11)
+    for _ in range(2):
+        E = rng.dirichlet(np.full(5, 4.0), size=6)
+        w = rng.integers(1, 6, size=6).astype(float)
+    egri = pd.DataFrame(E, index=pd.Index([f"M{i}" for i in range(6)], name="magaza_id"), columns=S)
+    return egri, pd.Series(w, index=egri.index)
+
+
+def test_uygunsuz_depo_cozucu_hatasi_cokmez(capfd):
+    """Sağlanamayan depo (çekirdek bedenlerde Σw'nin altında): eskiden HiGHS 'Solve error' ile
+    düşüyordu. En küçük aşım (2. ve 3. bedende 16 − 11,2 = 4,8 adet) ve o aşımla en küçük uyumsuzluk
+    (bağımsız kaba kuvvet 35,92847), kanıtlı; HiGHS stdout'a bir şey basmaz."""
+    E, w = _inceleme_girdisi()
+    assert w.tolist() == [2.0, 4.0, 1.0, 2.0, 3.0, 4.0]
+    t = pt.tasarla(E, w, 3, depo_payi=np.array([0.05, 0.1, 0.1, 1, 1]))
+    assert t.depo_uygun is False and t.en_iyi_mi
+    np.testing.assert_allclose(t.depo_asimi, [0, 4.8, 4.8, 0, 0], atol=1e-6)
+    assert t.toplam_uyumsuzluk == pytest.approx(35.92847175917345, abs=1e-7)
+    assert (t.desenler[:, 1:3] == 1).all() and len(t.desenler) <= 3
+    assert capfd.readouterr().out == ""
+
+
+def test_cozucu_hatasinda_kanitsiz(monkeypatch):
+    """Çözücü hiç çözemezse tasarım düşmez; en iyilik iddia edilmez."""
+    from types import SimpleNamespace
+
+    E = _egri({m: PAY[PROFIL[m]] for m in ("S01", "S04", "S06", "S07", "S05")})
+    w = _agirlik(E, [3.0, 1.0, 2.0, 2.0, 1.0])
+    serbest = pt.tasarla(E, w, 2)
+    depo = np.array([1.0, 1.0, 1.0, 1.0, _yuk(serbest, w)[4] / (7 * w.sum()) - 0.05])
+    cagri = []
+
+    def bozuk(*a, **k):
+        cagri.append(k["options"]["presolve"])
+        return SimpleNamespace(status=4, x=None, fun=None, message="Solve error")
+
+    monkeypatch.setattr(pt, "milp", bozuk)
+    for K in (2, "magaza"):
+        t = pt.tasarla(E, w, K, depo_payi=depo)
+        assert not t.en_iyi_mi and t.yontem == "mip" and len(t.atama) == len(E)
+    assert True in cagri and False in cagri                          # ön işlemesiz yeniden denendi
+
+
+def _deger(t: pt.Tasarim, w, depo, adet=7):
+    asim = np.maximum(0.0, _yuk(t, w) - np.asarray(depo) * adet * w.sum())
+    asim[asim <= 1e-6] = 0.0
+    return round(asim.sum(), 6), t.toplam_uyumsuzluk
+
+
+def test_butce_bitince_guvenli_yedek(monkeypatch):
+    """Model bütçesi seçim yapılamadan biterse (eskiden ValueError; aşağıdaki K = 2 durumlarının
+    beşi) güvenli yedek döner: düşmez, bütçesiz sonuçtan iyi olamaz, K − 1'den kötü değildir."""
+    girdiler = []
+    for tohum in range(3):
+        rng = np.random.default_rng(tohum)
+        E = _egri({f"M{i}": tuple(rng.dirichlet(np.full(5, 4.0))) for i in range(6)})
+        girdiler.append((E, _agirlik(E, rng.integers(1, 6, size=6).astype(float))))
+    depolar = (np.array([.1, .2, .2, .2, .1]), np.array([.13, .17, .3, .17, .1]))
+    Kler = ((1, 2, 3), (1, 2))                                        # depo başına (süre için)
+    tam = {(i, j, K): pt.tasarla(E, w, K, depo_payi=d)
+           for i, (E, w) in enumerate(girdiler) for j, d in enumerate(depolar) for K in Kler[j]}
+    monkeypatch.setattr(pt, "_MIP_EN_COK", 1)
+    kanitsiz = 0
+    for i, (E, w) in enumerate(girdiler):
+        for j, d in enumerate(depolar):
+            onceki = None
+            for K in Kler[j]:
+                t = pt.tasarla(E, w, K, depo_payi=d)
+                assert list(t.atama.index) == list(E.index) and len(t.desenler) <= K
+                deger, eniyi = _deger(t, w, d), _deger(tam[i, j, K], w, d)
+                assert deger >= (eniyi[0], eniyi[1] - 1e-9)             # en iyiden iyi olamaz
+                if onceki is not None:
+                    assert deger <= (onceki[0], onceki[1] + 1e-9)       # K'da tekdüze
+                if not t.en_iyi_mi:
+                    kanitsiz += 1
+                else:
+                    assert deger[0] == eniyi[0] and deger[1] == pytest.approx(eniyi[1])
+                onceki = deger
+    assert kanitsiz > 0                                                 # bütçe yolu gerçekten koştu
+
+
+def test_kisitli_belirlenimci():
+    E = _egri({m: PAY[PROFIL[m]] for m in ("S01", "S04", "S06", "S07", "S05")})
+    w = _agirlik(E, [3.0, 1.0, 2.0, 2.0, 1.0])
+    depo = np.array([1.0, 1.0, 1.0, 1.0, _yuk(pt.tasarla(E, w, 2), w)[4] / (7 * w.sum()) - 0.05])
+    for K in (2, 3, "magaza"):
+        a = pt.tasarla(E, w, K, depo_payi=depo)
+        b = pt.tasarla(E.iloc[::-1], w.iloc[::-1], K, depo_payi=depo)
+        assert a.yontem == "mip"
+        np.testing.assert_array_equal(a.desenler, b.desenler)
+        pd.testing.assert_series_equal(a.atama, b.atama.loc[a.atama.index])
+        np.testing.assert_array_equal(a.desenler, pt.tasarla(E, w, K, depo_payi=depo).desenler)
+
+
+def test_sifir_agirlik_desen_sayilmaz():
+    """Desen sayımı ağırlıklı mağazalardan: büyük profil sıfır ağırlıklıysa K = 3'te iki desen kalır
+    (eskiden optimal kümenin kullanılmayan deseni sıfır ağırlıklı mağazaya gidiyordu)."""
+    E = _oyuncak()
+    w = _agirlik(E)
+    w[["S06", "S07"]] = 0.0
+    for depo in (None, np.full(5, 1.0)):
+        t = pt.tasarla(E, w, 3, depo_payi=depo)
+        assert len(t.desenler) == 2
+        assert set(t.atama[w > 0]) == {0, 1}
+
+
+def test_buyuk_paket_kisitli_desen_aranir():
+    """12'li pakette K = 3 dönüşümlü yol: depo bağlarsa desenler kısıt altında aranır; sonuç kısıtı
+    sağlar ve K = 2'nin kısıtlı en iyisinden kötü değildir (tekdüze)."""
+    E, w = _oyuncak(), _agirlik(_oyuncak())
+    serbest = pt.tasarla(E, w, 3, adet=12)
+    yuk = _yuk(serbest, w) / (12 * w.sum())
+    depo = np.array([1.0, 1.0, 1.0, yuk[3] - 0.02, yuk[4] - 0.03])
+    t = {K: pt.tasarla(E, w, K, depo_payi=depo, adet=12) for K in (1, 2, 3)}
+    assert all(t[K].depo_uygun and t[K].yontem == "mip" for K in t)
+    assert all((_yuk(t[K], w) <= depo * 12 * w.sum() + 1e-6).all() for K in t)
+    assert t[1].toplam_uyumsuzluk >= t[2].toplam_uyumsuzluk - 1e-9 >= t[3].toplam_uyumsuzluk - 2e-9
+    assert t[3].toplam_uyumsuzluk > serbest.toplam_uyumsuzluk
+    # inceleyicinin zayıf durumu (12 mağaza, rng(3), depo [.165, 1, 1, .199, 1]): çoklu başlangıçsız
+    # K = 3, K = 2'ye eşit kalıyordu (71,1); çoklu başlangıçla kesin iyileşir
+    rng = np.random.default_rng(3)
+    E12 = _egri({f"M{i:02d}": tuple(r) for i, r in enumerate(rng.dirichlet(np.full(5, 4.0), size=12))})
+    w12 = _agirlik(E12, rng.integers(1, 6, size=12).astype(float))
+    d12 = np.array([.165, 1, 1, .199, 1])
+    u2, u3 = (pt.tasarla(E12, w12, K, depo_payi=d12, adet=12).toplam_uyumsuzluk for K in (2, 3))
+    assert u2 == pytest.approx(71.0999, abs=1e-3) and u3 < u2 - 1
+
+
+# ---------------------------------------------------------------------------
+# Gerçek veri
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.veri
+def test_tasarim_ss25():
+    """SS25 karar anının eğrileri, eşit ağırlık: K = 1..4 ve mağaza desenleri, profil çapraz tablosu."""
+    from beden_paket import egri, kaynak
+
+    con = kaynak.baglan()
+    k = kaynak.kapsam(kaynak.kapsam_tablolari(con, sabitler.KARAR_GUNU), sabitler.KARAR_GUNU)
+    e = egri.magaza_egrisi(egri.egri_tablolari(con, sabitler.KARAR_GUNU), k, sabitler.KARAR_GUNU)
+    w = pd.Series(1.0, index=e.magaza.index)
+    lumoda = sum(pt.uyumsuzluk(sabitler.LUMODA_PAKET, r.to_numpy(), 1.0) for _, r in e.magaza.iterrows())
+    print(f"\nzincir: {np.round(e.zincir, 4).tolist()}; zincire en yakın: "
+          f"{pt.desen_adi(pt.en_yakin_desen(e.zincir))}; Lumoda {pt.desen_adi(sabitler.LUMODA_PAKET)} "
+          f"uyumsuzluk {lumoda:.3f} (paket başına {lumoda / len(w):.4f})")
+    onceki = lumoda
+    for K in (1, 2, 3, 4, "magaza"):
+        t = pt.tasarla(e.magaza, w, K)
+        c = pt.desen_profil_capraz(t, e.profil)
+        print(f"K={K}: {[pt.desen_adi(d) for d in t.desenler]} uyumsuzluk {t.toplam_uyumsuzluk:.3f} "
+              f"(paket başına {t.toplam_uyumsuzluk / len(w):.4f}) en_iyi_mi={t.en_iyi_mi} yontem={t.yontem}")
+        print(c.to_string() if K != "magaza" else c.loc[:, c.sum() > 0].to_string())
+        assert t.toplam_uyumsuzluk <= onceki + 1e-9 and t.en_iyi_mi
+        assert t.atama.index.equals(e.magaza.index)
+        assert K == "magaza" or len(t.desenler) <= K
+        onceki = t.toplam_uyumsuzluk
+    # gerçekçi depo (R11): SS25 Collection ilk siparişinin beden payı / ilk dağıtım oranı ~0,70
+    alim = con.execute("""
+        select u.beden_sira, sum(s.adet) from siparis s join urun u using (urun_id)
+        where u.sezon_kodu = 'SS25' and u.line = 'Collection' and s.tip = 'ilk'
+          and s.siparis_tarihi < ? and u.beden_sira between 1 and 5 and u.beden_seti <> 'Standart'
+        group by 1 order by 1""", [sabitler.KARAR_GUNU]).fetchnumpy()
+    pay = alim["sum(s.adet)"].astype(float) / alim["sum(s.adet)"].sum()
+    depo = pay / 0.70
+    print(f"alım payı {np.round(pay, 4).tolist()}; depo_payi (/0,70) {np.round(depo, 4).tolist()}")
+    for adet, Kler in ((7, (1, 2)), (12, (1, 2, 3, "magaza"))):
+        for K in Kler:
+            t = pt.tasarla(e.magaza, w, K, depo_payi=depo, adet=adet)
+            print(f"{adet}'li K={K} depo: {[pt.desen_adi(d) for d in t.desenler]} uyumsuzluk "
+                  f"{t.toplam_uyumsuzluk:.3f} yontem={t.yontem} uygun={t.depo_uygun} en_iyi_mi={t.en_iyi_mi}")
+            assert t.depo_uygun and t.en_iyi_mi
+    # tanı (yalnız ölçüm): gerçek beden payıyla tasarlansaydı
+    from beden_paket import hakem
+
+    g = hakem.gercek_pay().reindex(e.magaza.index)
+    for K in (1, 2, 3, "magaza"):
+        t = pt.tasarla(g, w, K)
+        print(f"gerçek pay K={K}: {[pt.desen_adi(d) for d in t.desenler]} "
+              f"uyumsuzluk {t.toplam_uyumsuzluk:.3f}")

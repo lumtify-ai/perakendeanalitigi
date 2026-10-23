@@ -267,6 +267,45 @@ describe('Mağaza Gruplama dizisi', () => {
   })
 })
 
+describe('Beden ve Koli dizisi', () => {
+  const KOK = 'assortment/beden-koli/'
+
+  it('hikâye yazısı kadro kutusuyla açılır', () => {
+    const html = oku(KOK + 'l-bedeni-yine-bitti/index.html')
+    expect(html).toContain('kadro-kutusu')
+    expect(html.indexOf('kadro-kutusu')).toBeLessThan(html.indexOf('<h2'))
+  })
+
+  it('kapak altı yazıyı sırayla listeler ve demoya bağlanır', () => {
+    const html = oku(KOK + 'index.html')
+    const sira = [
+      'l-bedeni-yine-bitti',
+      'karar-nasil-verilir',
+      'beden-egrisini-okumak',
+      'koliyi-tasarlamak',
+      'ilk-sevkiyatta-sinamak',
+      'basari-nasil-olculur',
+    ]
+    const yerler = sira.map((slug) => html.indexOf(`href="/${KOK}${slug}/"`))
+    expect(yerler.every((y) => y > -1)).toBe(true)
+    expect([...yerler].sort((a, b) => a - b)).toEqual(yerler)
+    expect(html).toContain(`href="/${KOK}demo/"`)
+  })
+
+  it('ilk iki yazı beden eğrisi, koli ve açık adet maddelerine bağlanır', () => {
+    const iki = oku(KOK + 'l-bedeni-yine-bitti/index.html') + oku(KOK + 'karar-nasil-verilir/index.html')
+    for (const madde of ['beden-egrisi', 'koli', 'acik-adet']) {
+      expect(iki, madde).toContain(`href="/sozluk/#${madde}"`)
+    }
+  })
+
+  it('assortment aşaması Sezon Öncesi haritasında diziye bağlanır', () => {
+    const html = oku('sezon-oncesi/index.html')
+    expect(html).toContain('href="/assortment/"')
+    expect(html).toContain(`href="/${KOK}"`)
+  })
+})
+
 describe('dizi sayfası', () => {
   it('altı yazıyı sırayla listeler', () => {
     const html = oku('transfer/blok-transfer/index.html')
@@ -597,6 +636,46 @@ describe('demo', () => {
     expect(Object.keys(veri.sonuclar).length).toBe(beklenen)
   })
 
+  it('beden ve koli demosunun ölçüt etiketleri var, değerler raporun basamağıyla', async () => {
+    // Kartlar (ilk 4 hafta bulunabilirlik, beden kaybı payı, kırık set, brüt
+    // kâr) Demo.astro'nun ETIKETLER sözlüğünden, basamak demoBicim.ts'ten
+    // gelir; rapor bunları %96,5 ve 535.940.376 diye basar.
+    const { default: veri } = await import('../src/data/senaryolar/beden-koli.json')
+    const ilk = Object.keys(veri.sonuclar)[0]
+    const olcutler = Object.keys(veri.sonuclar[ilk as keyof typeof veri.sonuclar].ozet)
+    expect([...olcutler].sort()).toEqual([
+      'beden_kayip_payi_ilk4',
+      'brut_kar_tl',
+      'bulunabilirlik_ilk4',
+      'kirik_cift_pay_yuzde_ilk4',
+    ])
+    const html = oku('assortment/beden-koli/demo/index.html')
+    for (const etiket of [
+      'İlk 4 hafta bulunabilirlik (%)',
+      'İlk 4 hafta beden kaybı payı (%)',
+      'İlk 4 hafta kırık set (%)',
+      'Brüt kâr (TL)',
+    ]) {
+      expect(html, etiket).toContain(`<dt>${etiket}</dt>`)
+    }
+    for (const olcut of olcutler) {
+      expect(html, olcut).not.toContain(`<dt>${olcut}</dt>`)
+    }
+    const kart = kesit(html, 'data-anahtar="1|7"', '</dl>')
+    for (const deger of ['96,5', '58,4', '2,2', '535.940.376']) {
+      expect(kart, deger).toContain(`<dd>${deger}</dd>`)
+    }
+  })
+
+  it('beden ve koli senaryosu sözleşmeye uyar', async () => {
+    const { default: veri } = await import('../src/data/senaryolar/beden-koli.json')
+    const beklenen = veri.parametreler.reduce(
+      (carpim: number, p: { degerler: unknown[] }) => carpim * p.degerler.length,
+      1,
+    )
+    expect(Object.keys(veri.sonuclar).length).toBe(beklenen)
+  })
+
   it('getiri senaryosu sözleşmeye uyar', async () => {
     const { default: veri } = await import('../src/data/senaryolar/transfer-getirisi.json')
     const beklenen = veri.parametreler.reduce(
@@ -666,6 +745,7 @@ describe('site geneli vaatler', () => {
       'is-zekasi/satis-kaybi/kaybin-sahibi/index.html',
       'allocation/ilk-sevkiyat/basari-nasil-olculur/index.html',
       'magaza-kumeleme/magaza-gruplama/basari-nasil-olculur/index.html',
+      'assortment/beden-koli/basari-nasil-olculur/index.html',
     ]
 
     const gecenler = tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))
@@ -743,6 +823,20 @@ describe('site geneli vaatler', () => {
     expect(kopru).toContain('Let Us Make Trade Intelligent For You')
     expect(kopru).toContain('komşularının kümesine koyar')
     expect(kopru).toContain('planlanacağını sezgiyle değil, ölçümle söyler')
+    expect(kopru).not.toContain('kargo tarifesi')
+    expect(kopru).not.toContain('başabaş eşiğini')
+  })
+
+  it('Beden ve Koli köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır', () => {
+    const html = oku('assortment/beden-koli/basari-nasil-olculur/index.html')
+    const kopru = html.slice(html.indexOf('lumtify-koprusu'), html.indexOf('</aside>', html.indexOf('lumtify-koprusu')))
+    expect(kopru).toContain('stoksuz günün kaydı eksiktir')
+    expect(kopru).toContain('pazarlıkla belirlenir')
+    expect(kopru).toContain('söyleyecek bir hakem yoktur')
+    expect(kopru).toContain('iş zekâsı ve optimizasyonla')
+    expect(kopru).toContain('Let Us Make Trade Intelligent For You')
+    expect(kopru).toContain('bugünkü kolinizle aynı malla')
+    expect(kopru).toContain('bedelini ödemeye değdiğini sezgiyle değil, ölçümle söyler')
     expect(kopru).not.toContain('kargo tarifesi')
     expect(kopru).not.toContain('başabaş eşiğini')
   })

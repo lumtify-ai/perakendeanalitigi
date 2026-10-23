@@ -1,0 +1,378 @@
+---
+baslik: İlk Sevkiyatta Sınamak
+tip: teknik
+sira: 5
+ozet: >-
+  Aynı mal, aynı mağazalar, yalnız başka koliler: ilk dört haftanın
+  bulunabilirliği, beden kaybı ve kırık set ne kadar değişiyor? İki koli tipi
+  Lumoda'yı az farkla geçiyor. Asıl farkı on iki adetlik koli yapıyor; ama
+  büyüklüğüyle değil, içeriğinin inceliğiyle.
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import T from '../../../../components/T.astro'
+
+Geçen yazıda <T k="koli">kolileri</T> tasarladık. Yedi adetlik kolide iki
+tip, on iki adetlik kolide üç tip çıktı; mağazaya özel koli bile bunların
+ötesine geçmedi. Ama o tasarımların hepsi tek bir ölçüye göre iyiydi:
+kolide yanlış bedende duran adet. Rafın kendisine hiç bakmadık.
+
+Bu yazıda kolileri [İlk Sevkiyat](/allocation/ilk-sevkiyat/) dizisinin
+dünyasına gönderiyoruz. Aynı mal aynı mağazalara gidiyor; yalnız kolinin
+içi değişiyor. Sonra sezonu baştan sona oynatıp rafa bakıyoruz.
+
+Kod `vakalar/beden-paket/` altındaki çalışan koddan, sayılar vakanın
+raporundan. Simülasyon İlk Sevkiyat'ın motoru: aynı depo, aynı
+replenishment, aynı müşteri. Vaka yalnız dünyanın koli tablosunun bir
+kopyasına yeni koli tipleri ekliyor ve hangi mağazaya hangi kolinin
+gideceğini söyleyen kuralı değiştiriyor. Kodda koli yine "paket".
+
+## Aynı mal
+
+İki koliyi kıyaslamanın tek dürüst yolu, ikisiyle de aynı malı göndermek.
+Bir kol daha çok mal gönderirse rafı daha dolu olur; ama bunun koliyle
+ilgisi yoktur.
+
+İlk Sevkiyat'ta Lumoda'nın kuralı her mağazaya her option'dan kaç koli
+gideceğini söylüyordu. Motor bu sayıyı her zaman gönderemiyor. İkinci
+yazıda gördük: Lumoda'nın kolisi birinci bedeni depoda ne varsa o kadar
+istiyor. Bazı option'larda depo yetmiyor ve motor koli sayısını kırpıyor;
+177 option'da, toplam 14.357 adet.
+
+Bu yüzden kollara Lumoda'nın istediği koli sayısını değil, fiilen giden
+koli sayısını veriyoruz: 5.351 mağaza–option çiftinde 118.003 koli. Motor
+her option için mağazalara kaç koli gideceğini sorduğunda cevap bu
+tablodan geliyor:
+
+```python
+# beden_paket/politika.py (GidenIlkDagitim)
+    def __call__(self, g, o: int) -> np.ndarray:
+        w = g.dunya
+        oid = str(w.optionlar.at[o, "option_id"])
+        if oid not in self.optionlar:
+            return self.temel(g, o)
+        d = self._ns.get(oid, {})
+        return w.magazalar["magaza_id"].astype(str).map(d).fillna(0).to_numpy(dtype=np.int64)
+```
+
+Yeni sezonun ilk dağıtımındaki option'larda mağaza, Lumoda'nın ona
+gönderdiği koli sayısını alıyor. Öteki option'larda Lumoda'nın kendi kuralı
+aynen çalışıyor.
+
+Koli sayısı aynı ve koli yine yedi adetse, her mağazaya her option'dan aynı
+adet gider. Geriye bir şart kalıyor: motor yeni kolileri kırpmamalı. Onu
+dördüncü yazıdaki depo kısıtı sağlıyor; hiçbir tasarım hiçbir bedende
+depoyu aşmıyor. Koşudan sonra bir denetim bunu mağaza ve option başına
+sayıyor:
+
+```python
+# beden_paket/kosucu.py (belge metni çıkarıldı)
+def korunum(kosu, referans_adet: dict) -> dict[str, int]:
+    ref = {(str(o), str(m)): int(v) for (o, m), v in referans_adet.items()}
+    secili = {o for o, _ in ref}
+    kol = {a: v for a, v in giden_adet(kosu).items() if a[0] in secili}
+    anahtar = set(ref) | set(kol)
+    fark = [kol.get(a, 0) - ref.get(a, 0) for a in anahtar]
+    return {"hucre": len(anahtar), "fark_hucre": int(sum(f != 0 for f in fark)),
+            "fark_adet": int(sum(abs(f) for f in fark)), "net_fark_adet": int(sum(fark))}
+```
+
+Yedi adetlik bütün kollarda kırpılan adet 0 ve ilk dağıtımda giden adet
+Lumoda'nınkiyle aynı: 824.165.
+
+### Doğrulama
+
+Motoru da sınamak gerekiyor. Hiçbir koli eklenmeden, Lumoda'nın kolisiyle
+koşulan kol İlk Sevkiyat'ın Lumoda koşusunu yeniden üretmeli. Üretiyor:
+İlk Sevkiyat'ın 51 ölçütünün 51'i birebir aynı. Tablolardaki Lumoda satırı
+bu kol.
+
+### On iki adetlik koli
+
+On iki adetlik kolide aynı mal tam kurulamıyor. Bir mağazaya bir
+option'dan yedi adetlik tek koli gidiyorsa, on iki adetlik koliyle yedi
+adet gönderemezsiniz: ya hiç ya on iki. Kod bu yüzden adedi option
+düzeyinde koruyor:
+
+```python
+# beden_paket/kosucu.py (ns_donustur; denetim satırları çıkarıldı)
+    ns = {}
+    for o, d in sorted(option.items()):
+        mag = sorted(d)
+        adet = np.array([d[m] for m in mag], dtype=np.int64)
+        toplam = (int((2 * int(adet.sum()) + a) // (2 * a)) if yuvarlama == "yakin"   # ⌊Σ/a + ½⌋, tamsayıyla
+                  else int(adet.sum()) // a)
+        for m, n in zip(mag, en_buyuk_kalan(toplam, adet)):
+            if n > 0:
+                ns[(o, m)] = int(n)
+    return ns
+```
+
+Bir option'da Lumoda'nın gönderdiği toplam adet on ikiye bölünüp en yakın
+tam koliye yuvarlanıyor. Bu koliler mağazalara, Lumoda'da aldıkları adetin
+payıyla dağıtılıyor; küsuratları en büyük olan mağaza bir koli fazla
+alıyor. Option toplamı en çok altı adet oynuyor. Beş bedenli 193 option'ın
+toplamında Lumoda 813.029 adet gönderiyor, on iki adetlik kollar 813.132:
+103 adet fazla. Beş bedenli option'lardaki 4.952 mağaza–option çiftinden
+3'ü hiç koli almıyor.
+
+Mağaza düzeyinde fark daha büyük olabilir. Yedi adet alan bir mağaza on
+iki alabilir ya da hiç almayabilir. On iki adetlik kollar için aynı mal bu
+yüzden yaklaşık: toplamda neredeyse aynı, mağazada değil. Bu kollarda da
+kırpma 0.
+
+## Kollar
+
+Kollara kısa adlar verelim. P1 bütün mağazalara tek koli tipi, P2 iki tip,
+P3 üç tip. Yanındaki sayı kolinin adedi.
+
+| Kol | Koli | Desenler (mağaza sayısı) |
+|---|---|---|
+| Lumoda | 7 adet | 1-2-2-1-1 (69) |
+| P1 | 7 adet | 1-1-2-2-1 (69) |
+| P2 | 7 adet | 1-1-2-2-1 (50) · 1-2-2-1-1 (19) |
+| P1 12'li | 12 adet | 1-3-4-3-1 (69) |
+| P2 12'li | 12 adet | 1-2-4-3-2 (50) · 2-3-4-2-1 (19) |
+| P3 12'li | 12 adet | 1-2-3-4-2 (28) · 1-3-4-3-1 (22) · 2-3-4-2-1 (19) |
+| P1 14'lü | 14 adet | 2-2-4-4-2 (69) |
+
+Sondaki kol bir kontrol; aşağıda ona döneceğiz.
+
+Tablodaki kollar ayrı ayrı koşulan simülasyonlar. Bazı kollar koşulmadı,
+çünkü bir başka kolla aynı desenleri ve aynı atamayı veriyor. Yedi adetlik
+kolide üç tip, dört tip ve mağazaya özel koli P2'nin aynısı. On iki
+adetlik kolide dört tip ve mağazaya özel koli P3'ün aynısı. Rafların boş
+kaldığı günleri düzeltmeden okunan ham eğriyle kurulan P2 de düzeltilmiş
+eğriyle kurulanın aynısı. Cevap anahtarıyla atanan bir kol da koşmadık:
+geçen yazıda gördük, atama yalnız İzmir 2'de değişiyor.
+
+## İlk dört hafta
+
+Ölçütler ikinci yazıda tanımladığımız üçlü. Bulunabilirlik: müşterinin
+aradığı bedeni rafta bulduğu günlerin payı. Beden kaybı payı: karşılanamayan
+talebin, ürünün başka bedenleri rafta dururken kaybolan kısmı. Kırık set:
+ürün raftayken ortadaki üç bedeninden birinin eksik olduğu günlerin payı;
+sözlükte <T k="kiriklik">kırıklık</T>. Üçü de ilk dağıtımın varışından
+sonraki 28 günde ölçülüyor.
+
+Neden ilk dört hafta? Verinin kurgusunda Lumoda'nın replenishment'ı
+mağazanın beden eğrisini biliyor; üçüncü yazıda bunu söylemiştik.
+Beklentimiz şuydu: replenishment kolinin yanlış bıraktığı bedeni sezon
+içinde tamamlar, kollar arasındaki fark da ilk haftalarda kalır. Başlığı bu
+beklentiyle ilk dört haftaya koyduk. Aşağıda göreceğiz, beklenti tutmadı.
+
+| Kol | Bulunabilirlik | Beden kaybı payı | Kırık set | Brüt kâr (sezon) |
+|---|---:|---:|---:|---:|
+| Lumoda 1-2-2-1-1 | %96,47 | %58,06 | %2,37 | 534.433.105 TL |
+| P1 | %96,51 | %58,38 | %2,20 | 535.940.376 TL |
+| P2 | %96,64 | %56,48 | %1,89 | 540.277.650 TL |
+| P1 14'lü | %96,53 | %58,33 | %2,19 | 536.348.012 TL |
+| P1 12'li | %97,09 | %48,46 | %1,79 | 541.634.844 TL |
+| P2 12'li | %97,08 | %48,83 | %1,66 | 545.457.931 TL |
+| P3 12'li | %97,06 | %49,37 | %1,70 | 545.511.071 TL |
+
+İlk üç sütun ilk dört hafta, brüt kâr sezonun tamamı. Farkları Lumoda'ya
+göre okumak daha kolay:
+
+| Kol − Lumoda | Bulunabilirlik | Beden kaybı payı | Kırık set | Brüt kâr |
+|---|---:|---:|---:|---:|
+| P1 | 0,0 puan | +0,3 puan | −0,2 puan | +1.507.271 TL |
+| P2 | +0,2 puan | −1,6 puan | −0,5 puan | +5.844.545 TL |
+| P1 14'lü | +0,1 puan | +0,3 puan | −0,2 puan | +1.914.907 TL |
+| P1 12'li | +0,6 puan | −9,6 puan | −0,6 puan | +7.201.739 TL |
+| P2 12'li | +0,6 puan | −9,2 puan | −0,7 puan | +11.024.826 TL |
+| P3 12'li | +0,6 puan | −8,7 puan | −0,7 puan | +11.077.966 TL |
+
+Beden kaybında ve kırık sette düşük olan iyi.
+
+İki tipli yedi adetlik koli dört ölçütte de Lumoda'nın önünde, ama az
+farkla. Bulunabilirlik 0,2 puan yüksek, beden kaybı 1,6 puan düşük; sezon
+boyunca brüt kâr 5.844.545 TL fazla. İstanbul 18 gibi küçük bedene kayık
+mağazalara bu tasarımda yine Lumoda'nın kolisi gidiyor; değişen, öteki iki
+profilin kolisi.
+
+Tek tipli P1'i tek kelimeyle özetlemek mümkün değil.
+
+— Tek koli için en iyisini bulduk ya, diyor Pelin. Daha iyi değil mi?
+
+— Hangi ölçütte? diyor Pars. Kırık set 0,2 puan düşük, brüt kâr
+1.507.271 TL yüksek. Ama ilk dört haftada beden kaybı 0,3 puan arttı.
+Bulunabilirlik yerinden oynamadı. Sezonun tamamında beden kaybı 0,7 puan
+düşüyor; ama başlık ilk dört hafta.
+
+Bizim okumamız şu: P1 ikinci bedenden bir adeti dördüncüye taşıyor. İlk
+yazıda gördük: bu koli büyük bedene kayık mağazaların eğrisine
+yaklaşıyor, küçük bedene kayık olanlarınkinden uzaklaşıyor. Ali'nin "bende
+ikinci beden zaten bitiyor" itirazı buydu. P1'de mağazada en sık ilk biten
+beden de ikinci beden: bedeni biten çiftlerin %27,3'ünde.
+
+On iki adetlik kollar başka bir düzeyde. Üçü de bulunabilirlikte 0,6 puan
+önde, ilk dört haftanın beden kaybını 8,7 ile 9,6 puan arasında düşürüyor.
+Dördüncü yazıdaki tasarım ölçüsü burada yanıltıyordu: o ölçüye göre yedi
+adetlik iki tip, on iki adetlik tek tipten çok daha iyi uyuyordu. Rafta
+sıralama tersine dönüyor; P1 12'li dört ölçütte de yedi adetlik P2'nin
+önünde. Tasarım ölçüsü yalnız mağazaya giden kolinin içine bakıyor, depoda
+ne kaldığına ve replenishment'ın ne yapacağına bakmıyor. Birazdan buna
+döneceğiz.
+
+On iki adetlik kolide tip sayısının etkisi de tek yönlü değil. Dördüncü
+yazıda söylemiştim: üç koli tipi, tek tipe göre ilk dört haftanın beden
+kaybını azaltmıyor, biraz artırıyor. P3 12'li ile P1 12'li arasındaki fark
+beden kaybında +0,9 puan, bulunabilirlikte 0,0 puan, kırık sette −0,1
+puan. Brüt kârda ise üç tip 3.876.227 TL önde. İki tip ile üç tip brüt
+kârda neredeyse aynı yerde: 545.457.931 TL ve 545.511.071 TL.
+
+## Sezonun tamamı
+
+Beklentimize göre replenishment eğriyi bildiği için sezonun sonunda fark
+kapanmalıydı. Kapanmıyor.
+
+| Kol | Bulunabilirlik | Beden kaybı payı | Kırık set | Sezon sonu kalan | Tam fiyat STR |
+|---|---:|---:|---:|---:|---:|
+| Lumoda 1-2-2-1-1 | %68,98 | %42,31 | %25,27 | %19,77 | %52,69 |
+| P1 | %69,05 | %41,58 | %23,53 | %19,45 | %53,06 |
+| P2 | %69,24 | %39,98 | %21,76 | %19,21 | %53,28 |
+| P1 14'lü | %69,09 | %41,47 | %23,40 | %19,42 | %53,09 |
+| P1 12'li | %69,49 | %30,41 | %19,17 | %18,98 | %53,74 |
+| P2 12'li | %69,75 | %28,76 | %18,04 | %18,46 | %54,09 |
+| P3 12'li | %69,68 | %27,76 | %17,31 | %18,46 | %54,11 |
+
+Sezon boyunca beden kaybındaki fark ilk dört haftadakinden de büyük. P3
+12'li Lumoda'ya göre ilk dört haftada −8,7 puan, sezonun tamamında −14,6
+puan. Kırık sette −0,7 ve −8,0 puan. İki tipli yedi adetlik kolide de
+sezonun farkları ilk haftalarınkinden büyük: beden kaybında −2,3, kırık
+sette −3,5 puan. Sezon sonunda elde kalan mal da her kolda Lumoda'dan az,
+tam fiyatla satılan pay da her kolda fazla.
+
+İlk Sevkiyat dizisinde Lumoda'nın kaybının büyük bir kısmının beden kaybı
+olduğunu görmüştük. Malı mağazalara başka paylarla bölen kolların hiçbiri
+bu payı azaltmamıştı; azaltan, malın bir kısmını depoda tutmaktı. Kolinin
+içeriğini değiştirmek de azaltıyor: bu dizinin ölçümünde Lumoda'nın sezon
+boyu payı %42,31, on iki adetlik üç tipli koliyle %27,76.
+
+Replenishment bedeni biliyor; o hâlde fark neden kapanmıyor? Bunu ayrı bir
+kolla ölçmedik; ama bir okuma önerebiliriz: replenishment ancak depoda
+olan malı gönderebilir.
+
+## Depoda kalan
+
+İlk dağıtımdan sonra depoda kalan malın beden beden payı, her bedenin depo
+stoğuna göre:
+
+| Kol | 1 | 2 | 3 | 4 | 5 |
+|---|---:|---:|---:|---:|---:|
+| Lumoda 1-2-2-1-1 | %0,0 | %9,1 | %37,5 | %58,3 | %16,6 |
+| P1 | %0,0 | %54,5 | %37,5 | %16,7 | %16,6 |
+| P2 | %0,0 | %36,5 | %37,5 | %33,2 | %16,6 |
+| P1 12'li | %41,6 | %20,4 | %27,1 | %27,1 | %51,4 |
+| P3 12'li | %18,4 | %30,6 | %34,1 | %27,4 | %32,7 |
+
+Yedi adetlik bütün kollarda birinci bedenden depoda hiç mal kalmıyor.
+Dördüncü yazıda gördük: her kolide birinci bedenden bir adet var ve depoda o
+bedenden tam bu kadar mal var. Bir mağazada birinci beden bittiğinde depoda
+replenishment'ın gönderebileceği birinci beden kalmamış oluyor.
+Lumoda'nın kolisinde öbür uçta dördüncü bedenin %58,3'ü depoda bekliyor.
+P1 o bekleyen malı ikinci bedene taşıyor: %54,5.
+
+On iki adetlik kolilerin çoğunda birinci bedene on ikide bir düşüyor ve
+depoda o bedenden mal kalıyor. Bu kollarda mağazada en sık ilk biten beden
+birinci beden: P1 12'lide bedeni biten çiftlerin %36,5'inde, P3 12'lide
+%36,6'sında. Lumoda'da en sık ilk biten dördüncü bedendi (%31,1). On iki
+adetlik kolide birinci beden bitince depoda onu tamamlayacak mal var.
+
+Okumamızın sınırı da bu tabloda. Lumoda'da dördüncü bedenin %58,3'ü depoda
+bekliyor, ama mağazada en sık ilk biten beden yine dördüncü beden. Depoda
+mal olması, bedenin rafta bitmesini önlemiyor. Depoda kalan mal farkın bir
+kısmını açıklıyor olabilir; tamamını açıklamıyor. Kolinin içeriği ile depoda
+kalan malın etkisini birbirinden ayıran bir kol koşmadık.
+
+## Büyüklük mü, içerik mi
+
+İkinci yazıda Ali sormuştu: koliyi büyütsek daha mı iyi olur? Pars büyük
+kolinin iki şeyi birden değiştirdiğini söylemişti: içeriğin inceliğini ve
+mağazaya giden adetin kabalığını. On iki adetlik kollar ikisini birden
+değiştiriyor. Hangisinin iş gördüğünü ayırmak için bir kontrol gerekiyor:
+içeriği aynı tutup yalnız koliyi büyütmek.
+
+En temiz kontrol Lumoda'nın kolisinin on iki adetlik karşılığı olurdu.
+Dördüncü yazıda gördük: o koli birinci bedene on ikide iki ister, 0,1667;
+depo 0,1428 veriyor. Kurulamıyor. Onun yerine P1'i ikiyle çarptık:
+2-2-4-4-2. On dört adet, beden payları P1'inkiyle birebir aynı ve depoya P1
+kadar sığıyor.
+
+Bu kolda adet on dörde bölünüp aşağı yuvarlanıyor; en yakına yuvarlanınca
+bazı option'larda birinci beden depoyu aşıyordu. Bedeli: Lumoda'nın 813.029
+adedi yerine 812.308 adet, 721 adet az. Yani kontrol kolu neredeyse aynı
+malı gönderiyor.
+
+| Fark | Bulunabilirlik | Beden kaybı payı | Kırık set | Brüt kâr |
+|---|---:|---:|---:|---:|
+| Yalnız büyüklük: P1 14'lü − P1 | 0,0 puan | −0,1 puan | 0,0 puan | +407.636 TL |
+| İçerik ve büyüklük: P1 12'li − P1 | +0,6 puan | −9,9 puan | −0,4 puan | +5.694.468 TL |
+
+İlk üç sütun yine ilk dört hafta. Koliyi büyütmek tek başına neredeyse
+hiçbir şey değiştirmiyor. Sezonun tamamında da öyle: beden kaybında −0,1
+puan. Değiştiren, büyük kolide payın incelmesi. Yedi adetlik kolide bir
+beden en az %14,3 alır; on iki adetlik kolide %8,3 alabilir. Zincir
+birinci bedende %10,2 istiyor. Yedi adet o bedene fazlasını göndermek
+zorunda; on iki adet daha az gönderip depoda mal bırakabiliyor.
+
+— Yani on iki adetlik koli, büyük olduğu için değil, ince olduğu için iyi,
+diyor Ali.
+
+— Bu veride öyle, diyor Pars. On dört adetlik kontrol 721 adet eksik
+gönderiyor, yine de P1'in gerisinde değil. Fark büyüklükten değil, ince
+içerikten geliyor.
+
+## Başka müşteri akışlarında
+
+Bütün bunlar tek bir müşteri akışından. İlk Sevkiyat'taki gibi aynı
+dünyada dört akış daha var. Lumoda'yı, P1'i, P2'yi ve P3 12'liyi her yolda
+yeniden koşturduk. Eğri, profiller, κ ve tasarımlar da her yolda o yolun
+yayımlanan tablolarından yeniden öğrenildi. Beş yolda da sonuç aynı çıktı:
+profiller büyük 28, küçük 19, orta 22; κ 12.800; P2'nin ve P3 12'linin
+desenleri aynı; mağazalara giden koli sayısı 118.003.
+
+İlk dört haftanın üç ölçütü ve brüt kâr, beş yol:
+
+| Karşılaştırma | Bulunabilirlik | Beden kaybı payı | Kırık set | Brüt kâr |
+|---|---:|---:|---:|---:|
+| P1 − Lumoda | 5/5 · +0,1 | 1/5 · +0,3 | 5/5 · −0,2 | 5/5 · +1.062.047 TL |
+| P2 − Lumoda | 5/5 · +0,2 | 5/5 · −1,1 | 5/5 · −0,5 | 5/5 · +5.607.497 TL |
+| P2 − P1 | 5/5 · +0,2 | 5/5 · −1,2 | 5/5 · −0,4 | 5/5 · +4.207.519 TL |
+| P3 12'li − Lumoda | 5/5 · +0,6 | 5/5 · −8,7 | 5/5 · −0,7 | 5/5 · +10.842.933 TL |
+| P3 12'li − P2 | 5/5 · +0,4 | 5/5 · −7,4 | 5/5 · −0,1 | 5/5 · +5.396.035 TL |
+
+Her hücrede önce kaç yolda önde olduğu, sonra farkın yol medyanı; yüzde
+ölçütlerinde puan.
+
+P1'in beden kaybındaki geriliği tek bir akışın tesadüfü değil: beş yolun
+yalnız birinde Lumoda'dan düşük. P2'nin kazancı küçük ama yön
+değiştirmiyor. Beden kaybındaki farkı yoldan yola oynuyor, −0,4 ile −2,0
+puan arasında; yayımlanan akıştaki −1,6 bu aralığın iyi tarafında. On iki
+adetlik üç tipli koli beş yolun beşinde, bütün ölçütlerde önde.
+
+## Sizin verinizde zor olan
+
+Birincisi aynı malı göndermek. Burada her kolu aynı dünyada, aynı malla ve
+aynı müşteriyle koşturabildik. Gerçek bir zincirde sezon bir kez ve tek
+koliyle oynanır. Bir koliyi bazı mağazalarda denemek mümkün, ama o
+mağazaların müşterisi, ürünü ve sezonu öteki mağazalarınkiyle aynı değildir.
+
+İkincisi koli büyüklüğü. On iki adetlik koli bu veride en büyük farkı
+yapıyor. Ama tedarikçinin on iki adete razı olup olmayacağını, küçük bir
+mağazanın tek koliyle on iki adet almasının neye mal olacağını ölçmedik.
+Mağaza düzeyinde aynı mal zaten bozuluyor.
+
+Üçüncüsü depo. Kolinin içeriği, depoda hangi bedenin kalacağını da
+belirliyor. Sizin depo stoğunuz alımdan, alım da geçmiş kolilerden
+etkileniyorsa iki karar birlikte düşünülmeli. Burada alım sabit kaldı.
+
+Dördüncüsü replenishment. Lumoda'nın replenishment'ı mağazanın bedenini
+biliyor ve yine de kolinin açığını kapatmadı. Sizinki bilmiyorsa ne
+olacağını ölçmedik; replenishment'ı zincir eğrisiyle çalıştıran bir kol
+koşmadık.
+
+Son yazıda hesabı topluyoruz: bir beden eğrisinin ve bir koli tasarımının
+iyi olduğunu neyle anlarız ve kaç koli tipi neye değer?

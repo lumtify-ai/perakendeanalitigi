@@ -2,6 +2,8 @@
 terim: Açık adet
 kisa: Depodan beden beden, tek tek toplanan mal. İsabetlidir ama toplaması pahalı ve depo kapasitesi sınırlıdır.
 ingilizce: eaches
+esanlam:
+  - açık beden
 ---
 
 Açık adet, depodan beden beden, tek tek toplanan maldır.

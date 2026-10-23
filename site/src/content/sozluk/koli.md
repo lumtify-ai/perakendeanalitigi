@@ -5,6 +5,7 @@ ingilizce: pack / prepack
 esanlam:
   - lot
   - asorti koli
+  - paket
 ---
 
 Koli, bedenleri sabit oranda karışık, kapalı bir pakettir. Lumoda'da beş

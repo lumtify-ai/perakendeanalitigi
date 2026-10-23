@@ -20,6 +20,16 @@ describe('demoDegeri', () => {
     expect(demoDegeri('kararlilik', 0.97)).toBe('0,970')
   })
 
+  it('beden ve koli ölçütlerini raporun basamağıyla basar', () => {
+    // Rapor ilk 4 hafta yüzdelerini bir ondalıkla (%97,0 gibi sıfırlı da),
+    // brüt kârı tam TL olarak basar; sıfır ondalık "97" olarak düşmemeli.
+    expect(demoDegeri('bulunabilirlik_ilk4', 96.5)).toBe('96,5')
+    expect(demoDegeri('bulunabilirlik_ilk4', 97)).toBe('97,0')
+    expect(demoDegeri('beden_kayip_payi_ilk4', 58.4)).toBe('58,4')
+    expect(demoDegeri('kirik_cift_pay_yuzde_ilk4', 2)).toBe('2,0')
+    expect(demoDegeri('brut_kar_tl', 535940376)).toBe('535.940.376')
+  })
+
   it('sözlükte olmayan ölçütü eskisi gibi basar', () => {
     for (const [olcut, deger] of [
       ['en_kucuk_kume', 7],
