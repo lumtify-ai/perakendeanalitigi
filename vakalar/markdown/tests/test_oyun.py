@@ -265,7 +265,7 @@ def test_olcum_kodu_kapsami():
     işlevlerini kapsar; kaynak ya da `OLCUM_SURUMU` değişince değişir."""
     assert oyun.olcum_kodu() == oyun.OLCUM_OZETI
     m = oyun.olcum_metinleri()
-    assert {"olcutler.py", "hakem.py", "olcum_kaydi"} <= set(m)
+    assert {"olcutler.py", "hakem.py", "olcum_kaydi", "lumoda_sezonlari"} <= set(m)
     taban = oyun.olcum_ozeti(m, oyun.OLCUM_SURUMU)
     assert taban == oyun.OLCUM_OZETI
     assert oyun.olcum_ozeti(m | {"olcum_kaydi": "değişti"}, oyun.OLCUM_SURUMU) != taban

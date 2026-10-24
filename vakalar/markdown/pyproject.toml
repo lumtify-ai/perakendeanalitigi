@@ -12,7 +12,7 @@ requires-python = ">=3.11"
 dependencies = ["perakende-analitik", "duckdb>=1.0", "pandas>=2.0", "numpy>=1.26",
                 "scikit-learn>=1.3,<1.8", "lightgbm>=4.3,<4.6",
                 "threadpoolctl>=3.1",   # kumeleme (profil kumeleri) sklearn bagimliligi
-                "scipy>=1.10"]          # olcutler: DP / dagilim hesaplari (sklearn bagimliligi)
+                "scipy>=1.10"]          # sklearn bagimliligi; vaka kodu scipy ice aktarmaz
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]

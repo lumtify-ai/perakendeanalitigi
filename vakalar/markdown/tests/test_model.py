@@ -183,6 +183,24 @@ def test_dp_esneklik_sifira_yakin():
     np.testing.assert_array_equal(c.kademe, np.zeros(3, int))
 
 
+def test_dp_esneklik_sonsuza_giderken():
+    """ε → ∞ (spec §3.3): her pozitif basamak talebi sınırsız büyütür, en sığ indirim bile stoğu o hafta eritir.
+    Kalıntı en sığ basamağın net fiyatının altındaysa DP tam fiyatta satar, son hafta en sığ basamağa iner, kalan 0;
+    derin basamak hiç seçilmez (aynı stok daha ucuza satılırdı). Kaba kuvvetle aynı; ε büyüdükçe kalan azalır."""
+    d = [[8.0, 5.0]] * 3                                            # tam fiyatta haftada 13 adet, stok 100
+    kalan = []
+    for eps in (0.5, 2.0, 8.0, 60.0):
+        p = _oyuncak(d=d, carpan=np.tile((1.0 - ORAN3) ** -eps, (3, 1)), kalinti=0.2)
+        c = coz(**p, kova=2001)
+        en_iyi, _, _ = _kaba_kuvvet(p)
+        assert c.beklenen_ciro == pytest.approx(en_iyi, rel=1e-6), eps
+        kalan.append(c.beklenen_kalan)
+    np.testing.assert_array_equal(c.kademe, [0, 0, 1])
+    assert c.beklenen_kalan == pytest.approx(0.0, abs=1e-6)
+    assert c.beklenen_ciro == pytest.approx(26 * 90.0 + 74 * 63.0, rel=1e-9)     # 2 hafta tam fiyat, kalan %30'da
+    assert all(a >= b - 1e-9 for a, b in zip(kalan, kalan[1:])) and kalan[0] > 0
+
+
 def test_dp_kalinti_yuksek():
     """Kalıntı değeri ≥ 1: kalan stok satıştan değerli, indirim yok."""
     for kalinti in (1.0, 1.5):

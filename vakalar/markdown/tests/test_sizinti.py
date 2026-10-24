@@ -231,6 +231,18 @@ def test_gizli_alanlara_yalniz_hakem_ve_simulasyon():
     assert not bulunan, f"ölçüm modülü dünyanın gizli alanını okuyor: {bulunan}"
 
 
+def test_vaka_koku_betikleri_gizliye_dokunmaz():
+    """Vaka kökünün ölçüm betikleri (`analiz.py`, `rapor.py`, `senaryolar.py`; paket dışında) dünyanın gizli
+    alanlarını ve koşunun `gercek` tablosunu da okumaz (yayımlanan veri, oyun.json ve koşu ölçümleri)."""
+    kok = PAKET.parent
+    bulunan = {}
+    for ad in ("analiz.py", "rapor.py", "senaryolar.py"):
+        assert (kok / ad).is_file(), ad
+        if b := gizli_erisimler(kok / ad):
+            bulunan[ad] = b
+    assert not bulunan, f"vaka kökü betiği gizli alan okuyor: {bulunan}"
+
+
 def test_siniflandirma_testi_yeni_modulu_yakalar(tmp_path):
     paket = _yaz(tmp_path / "markdown", {"__init__": "", "kaynak": "", "hakem": "", "yeni": "",
                                           "rapor": ""})

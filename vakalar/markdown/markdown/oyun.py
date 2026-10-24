@@ -64,7 +64,9 @@ kodu değiştiyse koşu önbellekten okunur, yalnız ölçüm yenilenir (`olc` b
 yapar, koşmaz; `olc --zorla` ölçüm kodu aynı olsa da yeniden ölçer). Ölçümü değiştiren ama bu kapsamın
 dışında kalan bir düzeltmede `OLCUM_SURUMU` artırılır.
 Her koşudan sonra `ilerleme.jsonl`'a bir satır (İlk Sevkiyat `oyun._ilerleme`) ve `oyun.json` yazılır;
-koşular sıralı, her koşunun tabloları ölçümden sonra bırakılır (TAM tepe ≈ bir koşu).
+koşular sıralı, her koşunun tabloları ölçümden sonra bırakılır. TAM bellek: bir koşu ~8 GB; süreç tepesi
+yol p > 0'ın öğrenme adımında ~13 GB (yayımlanan biçimin kurulması ve öğrenme; `ilerleme.jsonl`'da
+`y1_ogrenme_AW24` satırından sonra `surec_tepe_gb` 13,24; son kod incelemesi M2).
 """
 
 import argparse
@@ -92,7 +94,7 @@ CIKTI = simulasyon.PAKET_KOKU.parent / "cikti"
 # düzeltmede bir artırılır.
 OLCUM_SURUMU = 1
 OLCUM_FONKSIYONLARI = ("olcum_kaydi", "toplam_kaydi", "kalibrasyon_sec", "_kayitlar", "Yol.lumoda_tablo",
-                       "Yol.lumoda_str")
+                       "Yol.lumoda_str", "lumoda_sezonlari")
 OLCUM_ALANLARI = ("olcutler", "ceyrek", "isabet", "korunum", "yan_etki", "option_tablosu", "gecerli",
                   "olcum_sn")
 LUMODA = "lumoda"
@@ -323,7 +325,8 @@ class Yol:
         """(bağlantı, öğrenme önbelleğinin kaynak kimliği). Yol p'de yolun Lumoda koşusunun yayımlanan
         biçimi `dizin`'de geçici bir DuckDB dosyasına tablo tablo yazılır ve her DataFrame yazılınca
         bırakılır: öğrenme kendi kesik kopyalarını kurarken yayımlanan biçimin pandas kopyası bellekte
-        kalmaz (TAM tepe ≈ bir koşu). İçerik `:memory:`'ye kayıtla aynıdır (Ruling R10)."""
+        kalmaz (yine de TAM süreç tepesi öğrenmede ~13 GB; modül notu). İçerik `:memory:`'ye kayıtla aynıdır
+        (Ruling R10)."""
         if self.ortam.yayimlanan_mi(self.yol):
             return kaynak.baglan(), None
         t = simulasyon.yayimlanan(self.lumoda)
