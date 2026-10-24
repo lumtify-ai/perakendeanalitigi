@@ -51,7 +51,12 @@ def test_uygun_kirik_cift_depo_ve_siparis_yok():
 
 def test_kirik_olmayan_cift_aday_degil():
     g = _girdi(_cift("M1", "O1", (1, 2, 2, 1, 1)) + _cift("M2", "O1", (0, 0, 0, 0, 0)))
-    assert uygunluk.adaylar(g).empty
+    a = uygunluk.adaylar(g)
+    assert a.empty
+    # boş çıktı da aynı şemayı taşır (sütun adları ve bool `uygun`)
+    assert list(a.columns) == ["magaza_id", "option_id", "kirik_beden", "eksik_adet", "net", "brut", "uygun",
+                               "neden"]
+    assert a.uygun.dtype == bool
 
 
 def test_depoda_olan_beden_uygun_degil():
@@ -92,6 +97,16 @@ def test_neden_onceligi_magaza_depo_siparis():
     assert n["B"] == "acik_siparis"
     assert n["C"] == "depoda_var"        # biri depolu, biri siparişli: depo önce
     assert n["D"] == "magaza"            # mağaza elenmişse depo ne olursa olsun
+
+
+def test_neden_etiketleri_sabit_kumeden():
+    satir = (_cift("A", "O1", (1, 0, 2, 1, 1), depo=(0, 6, 0, 0, 0))
+             + _cift("B", "O2", (1, 0, 2, 0, 1), acik=(0, 5, 0, 5, 0))
+             + _cift("C", "O3", (1, 0, 2, 1, 1))
+             + _cift("D", "O4", (1, 0, 2, 1, 1)))
+    g = _girdi(satir, magazalar={"A": True, "B": True, "C": True, "D": False})
+    a = uygunluk.adaylar(g)
+    assert set(a.neden) == set(uygunluk.NEDENLER)
 
 
 def test_kapanis_kararli_magaza_disarida():
@@ -155,6 +170,33 @@ def test_depo_sku_duzeyinde_baska_magazadan_okunur():
     g = _girdi(m1 + m2)
     assert uygunluk.adaylar(g).set_index("magaza_id").loc["M1", "neden"] == "depoda_var"
     assert uygunluk.ihtiyac(g, "M1", "O1") == {}
+
+
+def test_ihtiyac_tablosu_ihtiyac_ile_ayni():
+    # her (mağaza, option) çifti için tablo ile tek tek `ihtiyac` aynı sonucu verir; tabloda yalnız ihtiyaç > 0 var
+    satir = (_cift("M1", "O1", (1, 0, 2, 1, 1)) + _cift("M2", "O1", (1, 2, 2, 1, 1))
+             + _cift("M3", "O1", (0, 1, 2, 1, 1), depo=(0, 8, 0, 0, 0))
+             + _cift("M4", "O1", (0, 0, 0, 0, 0))
+             + _cift("M1", "O2", (0, 0, 2, 0, 1), depo=(5, 0, 0, 0, 0), acik=(0, 0, 0, 3, 0))
+             + _cift("M2", "O2", (1, 1, 1, 1, 1)))
+    # M3'ün beşinci beden satırı eksik: o beden stok 0 sayılır
+    satir = [r for r in satir if not (r[0] == "M3" and r[2] == 5)]
+    g = _girdi(satir)
+    t = uygunluk.ihtiyac_tablosu(g)
+    assert list(t.columns) == ["magaza_id", "option_id", "beden_sira", "ihtiyac"]
+    assert (t.ihtiyac > 0).all()
+    ciftler = g.hucre[["magaza_id", "option_id"]].drop_duplicates()
+    for m, o in ciftler.itertuples(index=False):
+        beklenen = uygunluk.ihtiyac(g, m, o)
+        alt = t[(t.magaza_id == m) & (t.option_id == o)].sort_values("beden_sira")
+        assert dict(zip(alt.beden_sira, alt.ihtiyac)) == beklenen, (m, o)
+    assert len(t) == sum(len(uygunluk.ihtiyac(g, m, o)) for m, o in ciftler.itertuples(index=False))
+
+
+def test_ihtiyac_tablosu_bos_girdi():
+    g = _girdi(_cift("M1", "O1", (1, 2, 2, 1, 1)))
+    t = uygunluk.ihtiyac_tablosu(g)
+    assert t.empty and list(t.columns) == ["magaza_id", "option_id", "beden_sira", "ihtiyac"]
 
 
 def test_karar_modulu_ice_aktarma_kilidi():
