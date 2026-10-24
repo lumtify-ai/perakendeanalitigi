@@ -547,3 +547,45 @@ def test_carpan_hucre_esnekligi():
     np.testing.assert_array_equal(e2, e1)
     with pytest.raises(ValueError, match="eps"):
         t.carpan(g, 0, UFUK, eps[:3])
+
+
+def _siparis(o, skular, adetler, planlanan):
+    """Motorun açık sipariş kopyası (gerçekleşen gün, kalite yok)."""
+    return {"tip": "rpt", "option": o, "siparis_gun": GUN - 20, "planlanan_gun": planlanan,
+            "skular": np.array(skular), "adetler": np.array(adetler), "tedarikci": 0}
+
+
+def test_satilabilir_acik_siparis():
+    """R28: planlanan teslimi çıkıştan önce olan açık sipariş X0'a tam adediyle girer ve depo gibi ufuk
+    talebi payıyla hücrelere bölünür; w'nin toplamı 1."""
+    w = _dunya()
+    depo = np.array([50, 70, 10, 10, 30, 30, 5])
+    t = tahmin.Tahminci(_ogrenilen(), optionlar=[0, 1, 2])
+    g0 = _g(w, depo=depo)
+    hucre, d = t.taban(g0, 0, UFUK)
+    X_once, _p = t.satilabilir(g0, 0, hucre, d)
+    g = _g(w, depo=depo, acik_siparisler=(_siparis(0, [0, 1], [30, 50], GUN + 10),
+                                         _siparis(2, [4], [999], GUN + 10)))      # başka option
+    X0, pay = t.satilabilir(g, 0, hucre, d)
+    assert X0 == pytest.approx(X_once + 80)
+    assert pay.sum() == pytest.approx(1.0)
+    D = d.sum(axis=0)
+    onl = w.hucre_online[hucre]
+    raf = np.where(onl, 0, 5)
+    sku = w.hucre_sku[hucre]
+    for s, ek in ((0, 30), (1, 50)):
+        j = sku == s
+        np.testing.assert_allclose(pay[j] * X0, raf[j] + (depo[s] + ek) * D[j] / D[j].sum(), rtol=1e-12)
+
+
+def test_satilabilir_cikistan_sonraki_siparis_yok():
+    """Planlanan teslimi çıkış günü ya da sonrası olan sipariş satılabilir stoğa girmez."""
+    w = _dunya()
+    t = tahmin.Tahminci(_ogrenilen(), optionlar=[0, 1, 2])
+    g0 = _g(w)
+    hucre, d = t.taban(g0, 0, UFUK)
+    X_once, p_once = t.satilabilir(g0, 0, hucre, d)
+    g = _g(w, acik_siparisler=(_siparis(0, [0, 1], [30, 50], CIKIS), _siparis(0, [0], [7], CIKIS + 30)))
+    X0, pay = t.satilabilir(g, 0, hucre, d)
+    assert X0 == X_once
+    np.testing.assert_array_equal(pay, p_once)

@@ -36,7 +36,9 @@ gün geriye giderse `ValueError`.
 - `Optimizasyon(temel, test_idx, ogrenilen, kip, eps)`: her pazartesi penceredeki her option için
   ufuk = karar gününden `cikis_gun`'e (hariç), 7 günlük haftalar (son hafta eksik olabilir; talebi o
   haftanın günlerinin toplamıdır). `Tahminci` (ε̂ tablosu `eps`'e göre `eps_kampanya` ya da
-  `eps_markdown`; kolun oran geçmişiyle) taban talebi, satılabilir stoğu, çarpanı ve etkin oranı (k = 0'da
+  `eps_markdown`; kolun oran geçmişiyle) taban talebi, satılabilir stoğu (raf + yolda + depo + planlanan
+  teslimi çıkıştan önce olan açık siparişler, R28; kuralın stoğuyla aynı bilgi, ama kural çıkıştan sonra
+  planlananı da sayar ve davranışı değişmedi), çarpanı ve etkin oranı (k = 0'da
   beklenen işlem indirimi, R11) ve iade payını verir; kalıntı `Ogrenilen.kalinti`; `model.coz`un ilk
   haftasının basamağı uygulanır. Kip (spec §3.4): `serbest` serbest pencere, tabansız; `takvim` pencere
   indirim günü, taban %30; `erken_yok` pencere indirim günü, tabansız; `taban` serbest pencere, indirim

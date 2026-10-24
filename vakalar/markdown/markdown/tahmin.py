@@ -41,7 +41,10 @@ veri yoksa talep 0. İleriye `d[t, hücre] = Σ_{t haftasının günleri} V_m ×
 hafta t `ufuk[7t:7t+7]` (son hafta eksik olabilir).
 
 **Satılabilir stok** (`satilabilir`). `X0 = Σ fiziksel hücre rafı + yolda + option'ın SKU'larının depo
-stoğu`. Hücre payı `w = (kendi rafı + yolda + depo_s × D_hücre ÷ Σ_{s'nin hücreleri} D) ÷ X0`, D ufuk
+stoğu + açık siparişleri` (Ruling R28: `g.acik_siparisler`'in açık kopyalarından option'ın SKU adetleri,
+planlanan teslimi `planlanan_gun` < `cikis_gun` olanlar; gerçekleşen teslim ve kalite gizlidir,
+okunmaz; açık sipariş depoya girecek mal gibi depo_s'ye eklenir). Hücre payı
+`w = (kendi rafı + yolda + depo_s × D_hücre ÷ Σ_{s'nin hücreleri} D) ÷ X0`, D ufuk
 talebi (`d`nin toplamı); ONL'nin rafı yok, payı yalnız depodan. SKU'nun hücrelerinde talep 0'sa depo
 raf payıyla, raf da 0'sa eşit dağıtılır; X0 = 0'sa w eşit (NaN yok). Replenishment'ın yaklaşımı:
 depo talebe göre hücrelere gider (iyimser, bilinerek; spec §3.2).
@@ -140,6 +143,7 @@ class _Option:
     pay: np.ndarray          # [N] beden payı (mağaza içinde 1)
     lansman: int
     indirim: int
+    cikis: int
     egri: np.ndarray         # yaşam çarpanı (hafta)
     kurallar: list           # kampanya kuralları (mağaza maskesi dünya mağazaları üstünde)
     eps: float               # çevirme ε̂'sı
@@ -208,6 +212,7 @@ class Tahminci:
             self._opt[int(o)] = _Option(
                 hucre=c, sku=hs[c], sku_yerel=sku_yerel, skular=skular, yerel=yerel, magazalar=magazalar,
                 online=on[c], pay=pay, lansman=int(satir["lansman_gun"]), indirim=int(satir["indirim_gun"]),
+                cikis=int(satir["cikis_gun"]),
                 egri=self.ogrenilen.yasam_egrisi(satir["alt_kategori"], satir["ust_kategori"],
                                                  int(satir["dalga"])),
                 kurallar=_kampanya_kurallari(w.kampanya, w.magazalar, satir),
@@ -365,7 +370,7 @@ class Tahminci:
         D = np.asarray(d, dtype=float).sum(axis=0)
         raf = np.where(b.online, 0.0, np.maximum(np.asarray(g.magaza_stok[b.hucre], float), 0.0)
                        + np.maximum(np.asarray(g.yolda[b.hucre], float), 0.0))
-        depo = np.maximum(np.asarray(g.depo[b.skular], dtype=float), 0.0)
+        depo = np.maximum(np.asarray(g.depo[b.skular], dtype=float), 0.0) + self._acik_siparis(g, int(o), b)
         ns = len(b.skular)
         tD = np.bincount(b.sku_yerel, D, minlength=ns)
         tR = np.bincount(b.sku_yerel, raf, minlength=ns)
@@ -378,6 +383,18 @@ class Tahminci:
         toplam = dagit.sum()
         w = dagit / toplam if toplam > 0 else np.full(len(b.hucre), 1.0 / len(b.hucre))
         return X0, w
+
+    def _acik_siparis(self, g, o: int, b: _Option) -> np.ndarray:
+        """[S_o] option'ın açık siparişlerinin SKU adetleri (planlanan teslimi çıkıştan önce; R28)."""
+        sonuc = np.zeros(len(b.skular))
+        for sip in g.acik_siparisler:
+            if int(sip["option"]) != o or int(sip["planlanan_gun"]) >= b.cikis:
+                continue
+            sk = np.asarray(sip["skular"], dtype=np.int64)
+            j = np.searchsorted(b.skular, sk)
+            icinde = (j < len(b.skular)) & (b.skular[np.minimum(j, len(b.skular) - 1)] == sk)
+            np.add.at(sonuc, j[icinde], np.maximum(np.asarray(sip["adetler"], dtype=float)[icinde], 0.0))
+        return sonuc
 
     def carpan(self, g, o: int, ufuk, eps,
                agirlik: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:

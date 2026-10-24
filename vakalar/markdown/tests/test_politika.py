@@ -523,3 +523,17 @@ def test_kahin_karari_girdiden(tt):
     bol = politika.Kahin(_temel, [0, 1, 2], og, _girdi(tt, w, taban=5.0))(g)
     np.testing.assert_array_equal(az[:3, 0], 0.7)
     np.testing.assert_array_equal(bol[:3, 0], 0.0)
+
+
+def test_kural_acik_siparis_degismedi(monkeypatch):
+    """R28 yalnız optimizasyon ve kahin içindir: kural kendi tanımıyla bütün açık siparişleri sayar
+    (planlanan teslimi çıkıştan sonra olanı da) ve tahmincinin satılabilir stoğunu kullanmaz."""
+    monkeypatch.setattr(tahmin.Tahminci, "satilabilir", lambda *a, **k: (_ for _ in ()).throw(
+        AssertionError("kural tahminciyi kullanmamalı")))
+    w = _dunya()
+    d = PEN[0]
+    g = _kural_g(w, d)
+    sip = dict(g.acik_siparisler[0], planlanan_gun=CIK_SS + 10)
+    k = politika.Kural(_temel, TEST, alfa=0.9)
+    assert k(dataclasses.replace(g, acik_siparisler=(sip,)))[0, 0] == 0.2
+    assert k.kayit_tablosu().iloc[0]["satilabilir"] == 10 + 5 + 10 + 300 + 100
