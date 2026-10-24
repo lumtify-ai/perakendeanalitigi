@@ -232,3 +232,9 @@ def test_karar_sonrasi_satir_yok_veri(veri_con, sezon):
     assert g.magaza.uygun.any() and g.hucre.acik_siparis.ge(0).all()
     assert set(g.magaza.tip) == set(sabitler.FIZIKSEL_TIPLER)
     assert g.indirim > g.karar and g.cikis > g.indirim
+
+
+@pytest.mark.veri
+def test_depo_ve_acik_siparis_dolu_aw24(veri_con):
+    sku = kaynak.karar_girdisi(veri_con, "AW24").hucre.drop_duplicates("urun_id")   # SKU düzeyi: mağazaya tekrarlanır
+    assert int(sku.acik_siparis.sum()) > 0 and int(sku.depo.sum()) > 0
