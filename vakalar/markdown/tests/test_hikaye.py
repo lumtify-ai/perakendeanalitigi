@@ -93,7 +93,7 @@ def test_analiz_oyuncak(con):
     assert (a["satis_tam"], a["satis_erken"], a["satis_ind"]) == (16 * 42, 4 * 42, 2 * 42)
     assert (a["arz_ilk"], a["arz"], a["outlet_akisi"], a["en_derin"]) == (1200, 1200, 4, pytest.approx(0.3))
     b = analiz.sezon_blogu(con, "SS25")
-    assert b["kademe"]["dagilim"] == {"0.30": 6} and b["kademe"]["lumoda_oncesi_indirilen"] == 0
+    assert b["kademe"] == {"dagilim": {"0.30": 6}}           # "indirimden önce" sayıları yol 0 koşusundan (kur)
     assert sum(c["option"] for c in b["str"]["ceyrekler"]) == 6
     hf = {r["hafta"]: r["adet"] for r in b["haftalik"]}
     assert min(hf) == -8 and hf[0] > 0
@@ -140,6 +140,9 @@ def test_analiz_kucuk_olcutler_yol0_lumoda(kucuk_ortam):
         b = a["sezonlar"][z]["olcutler"]
         assert all(b["olcutler"][k] == pytest.approx(lu[k], abs=1e-6) for k in analiz.OLCUTLER_ALANLARI), z
         assert [c["markdown_tl"] for c in b["ceyrekler"]] == pytest.approx([c["markdown_tl"] for c in o["ceyrek"][z]])
+        km = a["sezonlar"][z]["kademe"]                      # günlük oranla (olcutler ilk_md_gun)
+        assert set(km) == {"dagilim", "erken_indirilen", "lumoda_oncesi_indirilen"} and "kademe" not in b
+        assert 0 <= km["lumoda_oncesi_indirilen"] <= km["erken_indirilen"] <= sum(km["dagilim"].values())
         h = a["sezonlar"][z]["huni"]
         assert h["arz"] == lu["arz_adet"] and h["kalan_depo"] == lu["cikis_kalan_depo_adet"]
         assert h["olu_stok"] == lu["olu_stok_adet"] and abs(h["kalan_magaza"] - lu["cikis_kalan_magaza_adet"]) <= 450

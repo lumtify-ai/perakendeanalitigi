@@ -19,8 +19,20 @@ dağılım ölçüsü (hiç indirilen option yoksa medyan) NaN.
 **Kapsam.** `sezon`un `LINE` (Collection) option'ları (`kaynak.test_optionlari`; tam ölçekte 210).
 Option `o` için gün indisleri (`GUN_SIFIRI` ekseni): lansman `L`, indirim `I`, çıkış `C`. Satış
 satırının hattı v4'teki gibi: ONL `online`, outlet akışı hücresi (`w.hucre_outlet_akisi`) `outlet`,
-öteki `normal`. Satırın markdown oranı option × hat × haftanın (`fiyat`; hafta pazartesi başlar,
-oran haftanın son günündeki) oranıdır.
+öteki `normal`. Satırın markdown oranı option × hat × günün oranıdır (aşağıda "Günlük oran").
+
+**Günlük oran.** `fiyat` haftalıktır: hafta pazartesi başlar, oran haftanın son günündekidir. Motor
+markdown'ı pazartesi ve her sezonun pazartesi olmayan indirim gününde (J) çağırır. J çağrısında Lumoda da
+kollar da yalnız tabanı uygular: normal ve online oranı, `I ≤ J < C` olan option'da; I < J olan option'a
+taban I gününde uygulanmıştır, yani J'de oranı değişebilen option'ın I'sı J'dir. Outlet hattı yalnız
+pazartesi değişir. Bu yüzden haftalık değer, I'sı pazartesi olmayan option'ın (v4: AW23 salı, AW24
+perşembe) I haftası W'nin [W, I) günleri dışında günlük orandır. O günlerin normal ve online oranı
+koşunun markdown kaydındaki W pazartesisi çağrısıdır: Lumoda koşusunda kaydedicinin satırı (yoksa 0),
+kol koşusunda kolun W satırının `oran`'ı (satırı yoksa option penceresinin dışındadır ve oranı W'de
+değişmedi: önceki haftanın sonundaki oran). Kol kaydı yalnız pazartesi satırı tutar; I günündeki taban
+çağrısı kayıtta yoktur ve gerekmez (W'nin haftalık değeri onun sonucudur). Haftalık oranla AW24'te
+(I perşembe) indirim gününde tabanı olan kolların ve Lumoda'nın pazartesi–çarşamba tam fiyat satışı tam
+fiyat STR'nin dışına, işlem indirimi markdown TL'ye düşüyordu; serbest kollarda düşmüyordu (kolun türüne bağlı bir yapıntı; son kod incelemesi I1).
 
 **Para** (`satis`; `tutar` net: iade satırları negatif):
 
@@ -32,7 +44,7 @@ oran haftanın son günündeki) oranıdır.
     katki              ciro_toplam − arz_alis (sezon katkısı; arz kollar arasında aynı, R4: kollar
                        arası katkı farkı = ciro farkı)
     markdown_tl        allocation `_para` tanımı: pozitif satış, kampanyasız (`kampanya_id` boş),
-                       hat normal ya da online, satırın markdown oranı > 0, L ≤ gün < C;
+                       hat normal ya da online, satırın günlük markdown oranı > 0, L ≤ gün < C;
                        Σ indirim_tutari. `markdown_tl_online` online hattı
     kampanya_tl        pozitif, kampanyalı, hat normal/online, L ≤ gün < C; Σ indirim_tutari
     islem_tl           pozitif, kampanyasız, hat normal/online, oran 0, L ≤ gün < C (işlem indirimi)
@@ -43,7 +55,8 @@ oran haftanın son günündeki) oranıdır.
     arz_adet, arz_alis teslim edilmiş (`gerceklesen_teslim` dolu) `ilk` + `rpt` sipariş adedi
                        (kalite reddi düşülmez; v4 kalibrasyon STR'sinin paydası) ve alış değeri
     tam_fiyat_str      v4 kalibrasyon tanımı (allocation `_para`): 100 × kampanyasız pozitif satış,
-                       satırın hattının ilk markdown haftasından önce, gün < C ÷ arz_adet
+                       satırın hattının ilk markdown gününden önce (günlük oran > 0 olan ilk gün; allocation
+                       haftayla keser, burada AW24'ün perşembe indirimi yüzünden gün), gün < C ÷ arz_adet
     son_str            100 × pozitif satış (gün < C) ÷ arz_adet
     cikis_kalan_*      C − 7'nin pazartesi fotoğrafı: mağaza (`stok`, fiziksel hücreler) ve depo
                        (`depo_stok`) adedi; `_adet` toplam, `_magaza_adet`, `_depo_adet`, `_liste`
@@ -56,6 +69,9 @@ oran haftanın son günündeki) oranıdır.
     ilk_indirim_hafta_medyan  indirilen option'larda (ilk indirim haftası − I'nın haftası) ÷ 7,
                               medyan (negatif: sezon indiriminden önce; indirilen yoksa NaN)
     ort_en_derin              indirilen option'ların en derin oranının ortalaması (%; yoksa NaN)
+
+Option tablosu ayrıca `indirim_gun` (I) ve `ilk_md_gun`'ü (normal ya da online hattın günlük oranının > 0
+olduğu ilk gün, < C; yoksa NaN; `analiz.py` VERİ'nin "indirim gününden önce oranı olan" sayısı) taşır.
     muaf_str_ind              hiç indirilmeyen option'ların indirim başı STR'si (Σ ÷ Σ, %; yoksa NaN)
 
 İndirim başı STR (`indirim_basi_str`): 100 × pozitif satış (gün < I) ÷ arz_adet, option başına.
@@ -105,6 +121,7 @@ OUTLET_GUN = 84
 OLU_STOK_GUN = 120
 CIKIS_FOTO_GUN = 7
 _PAY = 1e-9
+_BUYUK = 10_000_000
 _K = np.asarray(sabitler.KADEMELER, dtype=float)
 _GUN0 = np.datetime64(sabitler.GUN_SIFIRI, "D")
 
@@ -198,9 +215,14 @@ class Kapsam(_Yapi):
 
 
 class _Fiyat:
-    """Kapsamın `fiyat` paneli: oran[konum, hat, hafta] (hafta = gün // 7; kayıtsız 0)."""
+    """Kapsamın `fiyat` paneli: oran[konum, hat, hafta] (hafta = gün // 7; kayıtsız 0; haftanın son
+    günündeki oran) ve onun günlük düzeltmesi (`satir_orani`, `ilk_md`; modül notu "Günlük oran").
 
-    def __init__(self, fiyat: pd.DataFrame, k: Kapsam):
+    `kosu` verilirse pazartesi olmayan indirim günü I olan option'larda I'nın haftası W için [W, I)
+    aralığının normal ve online oranı koşunun markdown kaydındaki W pazartesisi çağrısından kurulur
+    (`ara_gun`, `ara_oran`); kayıt yalnız böyle bir option varsa okunur."""
+
+    def __init__(self, fiyat: pd.DataFrame, k: Kapsam, kosu=None):
         i = _kodla(fiyat["option_id"], k.option_idler)
         o = np.where(i >= 0, k.konum[np.maximum(i, 0)], -1)
         f = fiyat[o >= 0]
@@ -212,14 +234,66 @@ class _Fiyat:
         self.bas = int(hafta.min()) if len(hafta) else 0
         H = int(hafta.max()) - self.bas + 1 if len(hafta) else 1
         h = pd.Index(HATLAR).get_indexer(f["hat"].astype(str))
+        if (h < 0).any():
+            raise ValueError(f"fiyat'ta bilinmeyen hat: {sorted(set(f['hat'].astype(str)) - set(HATLAR))}")
         self.oran = np.zeros((k.n, 3, H))
         self.oran[o, h, hafta - self.bas] = f["indirim_orani"].to_numpy(dtype=float)
         self.k = k
+        self._ara_kur(kosu)
+
+    def _hafta(self, gun: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """(panel hafta indisi kırpılmış, panelin içinde mi)."""
+        i = np.asarray(gun, dtype=np.int64) // 7 - self.bas
+        return np.clip(i, 0, self.oran.shape[2] - 1), (i >= 0) & (i < self.oran.shape[2])
+
+    def _ara_kur(self, kosu) -> None:
+        """Pazartesi olmayan indirim günlü option'ların [W, I) oranı (modül notu "Günlük oran")."""
+        k = self.k
+        I = k.indirim
+        W = I - I % 7
+        j, icinde = self._hafta(W)
+        bol = (I % 7 != 0) & icinde
+        self.ara_gun = np.where(bol, I, -1)
+        self.ara_hafta = j
+        self.ara_oran = self.oran[np.arange(k.n), :, j].copy()              # [n, 3]; outlet hattı haftalık
+        if not bol.any():
+            return
+        if kosu is None:
+            raise ValueError("pazartesi olmayan indirim günü: günlük oran koşunun markdown kaydını ister")
+        oo = np.flatnonzero(bol)
+        anahtar = pd.Index(W[oo] * _BUYUK + k.opt[oo])                  # (W pazartesisi, dünya option'ı)
+        kayit = kosu.kayitlar.get("markdown")
+        if kayit is not None and list(kayit.columns) == list(KAYIT_SUTUNLARI):
+            # Kolun kaydı: penceredeki option'ın W satırı (taban ve sığlaşmazlık uygulanmış). Satırı yoksa
+            # option W'de penceresinin dışındadır, oranı W'de değişmedi: önceki haftanın sonundaki oran.
+            onceki = self.oran[oo, :, np.maximum(j[oo] - 1, 0)][:, [NORMAL, ONLINE]]
+            pzt = np.where((j[oo] >= 1)[:, None], onceki, 0.0)
+            yer = anahtar.get_indexer(kayit["gun"].to_numpy(dtype=np.int64) * _BUYUK
+                                      + kayit["option"].to_numpy(dtype=np.int64))
+            m = yer >= 0
+            pzt[yer[m]] = kayit["oran"].to_numpy(dtype=float)[m][:, None]
+        elif kayit is not None and {"gun", "indis", "sutun", "deger"} <= set(kayit.columns):
+            # Lumoda koşusu: kaydedicinin her çağrıdaki [O, 3] çıktısı; satırı olmayan (option, hat) 0
+            pzt = np.zeros((len(oo), 2))
+            yer = anahtar.get_indexer(kayit["gun"].to_numpy(dtype=np.int64) * _BUYUK
+                                      + kayit["indis"].to_numpy(dtype=np.int64))
+            st = kayit["sutun"].to_numpy(dtype=np.int64)
+            for c, hat in enumerate((NORMAL, ONLINE)):
+                m = (yer >= 0) & (st == hat)
+                pzt[yer[m], c] = kayit["deger"].to_numpy(dtype=float)[m]
+        else:
+            raise ValueError("koşunun markdown kaydı ne bir kolun ne Lumoda kaydedicisinin: "
+                             f"{None if kayit is None else list(kayit.columns)}")
+        self.ara_oran[oo, NORMAL], self.ara_oran[oo, ONLINE] = pzt[:, 0], pzt[:, 1]
 
     def satir_orani(self, yer: np.ndarray, hat: np.ndarray, gun: np.ndarray) -> np.ndarray:
-        i = gun // 7 - self.bas
-        icinde = (yer >= 0) & (i >= 0) & (i < self.oran.shape[2])
-        return np.where(icinde, self.oran[np.maximum(yer, 0), hat, np.clip(i, 0, self.oran.shape[2] - 1)], 0.0)
+        """Satırın günlük oranı: haftalık panel, [W, I) aralığında `ara_oran` (modül notu)."""
+        i, icinde = self._hafta(gun)
+        icinde &= yer >= 0
+        yy = np.maximum(yer, 0)
+        haftalik = np.where(icinde, self.oran[yy, hat, i], 0.0)
+        ara = icinde & (self.ara_gun[yy] >= 0) & (gun < self.ara_gun[yy]) & (i == self.ara_hafta[yy])
+        return np.where(ara, self.ara_oran[yy, hat], haftalik)
 
     def haftalar(self) -> np.ndarray:
         """[H] haftaların ilk günü (gün indisi)."""
@@ -230,10 +304,16 @@ class _Fiyat:
         return self.haftalar()[None, :] < self.k.cikis[:, None]
 
     def ilk_md(self, hat: int) -> np.ndarray:
-        """[n] hattın oranı > 0 olan ilk haftanın ilk günü (yoksa en büyük int64)."""
+        """[n] hattın günlük oranının > 0 olduğu ilk gün (yoksa en büyük int64): oranlı ilk haftanın ilk günü;
+        I'nın haftası bölünmüşse (`ara_gun`) [W, I) oranı 0 iken I."""
+        yok = np.iinfo(np.int64).max
+        H = self.haftalar()
         md = self.oran[:, hat, :] > 0
-        ilk = np.where(md.any(1), self.haftalar()[np.argmax(md, axis=1)], np.iinfo(np.int64).max)
-        return ilk
+        gun = np.where(md, H[None, :], yok)
+        o = np.flatnonzero(self.ara_gun >= 0)
+        j = self.ara_hafta[o]
+        gun[o, j] = np.where(self.ara_oran[o, hat] > 0, H[j], np.where(md[o, j], self.ara_gun[o], yok))
+        return gun.min(axis=1) if gun.shape[1] else np.full(len(gun), yok)
 
 
 # ---------------------------------------------------------------------------
@@ -271,7 +351,7 @@ def option_tablosu(kosu, w, sezon: str) -> pd.DataFrame:
     t["arz_adet"], t["arz_alis"] = _arz(siparis, k)
     del siparis
 
-    fiyat = _Fiyat(kosu.tablo("fiyat", FIYAT), k)
+    fiyat = _Fiyat(kosu.tablo("fiyat", FIYAT), k, kosu)
     satis = kosu.tablo("satis", SATIS, urunler=k.skular)
     s = k.sku(satis["urun_id"])
     yer = k.yer(s)
@@ -319,6 +399,9 @@ def option_tablosu(kosu, w, sezon: str) -> pd.DataFrame:
     t["ilk_indirim_gun"] = np.where(indirildi, fiyat.haftalar()[np.argmax(no > 0, axis=1)], np.nan)
     t["indirim_haftasi_gun"] = (k.indirim - k.indirim % 7).astype(float)
     t["en_derin"] = no.max(axis=1) if no.shape[1] else np.zeros(n)
+    t["indirim_gun"] = k.indirim.astype(float)
+    ilk = np.minimum(ilk_md[:, NORMAL], ilk_md[:, ONLINE])
+    t["ilk_md_gun"] = np.where(ilk < k.cikis, ilk, np.nan).astype(float)
 
     # Çıkış fotoğrafı (C − 7) ve ölü stok
     foto = k.cikis - CIKIS_FOTO_GUN

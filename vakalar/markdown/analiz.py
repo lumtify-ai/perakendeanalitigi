@@ -37,11 +37,15 @@ indirimi I ve çıkışı C `sezon` tablosundan):
     outlet_satis, outlet_ciro outlet mağazalarında C ≤ gün < C + 84: pozitif adet, net ciro, Σ indirim
                               (keşif tanımı; `outlet_indirim` pozitif satırlar, `outlet_indirim_net` iade dahil)
     olu_stok                  `depo_stok`, min(C + 120, son gün) (adet, × alış)
-    en_derin, ilk_md          `fiyat` normal hattı, haftası C'den önce: en derin oran, ilk oranlı hafta
+    en_derin, ilk_md          `fiyat` normal hattı, haftası C'den önce: en derin oran, ilk oranlı hafta (haftalık:
+                              haftanın son günündeki oran; "indirimden önce" sayıları bundan değil, aşağıda)
     rpt_gec_adet              RPT, teslimi ≥ I − 28 (adet; ≥ 1 ise option sayılır)
 
 **Bloklar** (`analiz.json` `sezonlar[sezon]`): `huni` (toplamlar), `kademe` (en derin oranın dağılımı:
-oran → option sayısı; `erken_indirilen` I'dan önce oranı olan option), `str` (indirim başı STR = 100 ×
+oran → option sayısı; `erken_indirilen` I'dan, `lumoda_oncesi_indirilen` I − 28'den önce günlük oranı > 0 olan
+option: yol 0 Lumoda koşusunun `olcutler` option tablosunun `ilk_md_gun`'ünden, çünkü yayımlanan `fiyat`
+haftalıktır ve AW24'ün perşembe indiriminde I haftasının pazartesi–çarşambasına da %30 yazardı; `con` verilen
+testlerde bu iki sayı yoktur), `str` (indirim başı STR = 100 ×
 satis_once ÷ arz: p10 / p50 / p90; çeyrekler `olcutler.ceyrek`'in kuralıyla: STR, eşitlikte option_id,
 `ceil(4 · sıra ÷ n)`; çeyrek başına option, STR aralığı, kalan, kalanın payı, indirim dönemi markdown TL,
 ölü stok), `haftalik` (I − 56'nın haftasından çıkış haftasına pazartesi haftaları: pozitif satış;
@@ -270,10 +274,16 @@ def huni(t: pd.DataFrame) -> dict:
 
 def kademe(t: pd.DataFrame) -> dict:
     derin = t["en_derin"].round(4)
-    return {"dagilim": {f"{x:.2f}": int(n) for x, n in derin.value_counts().sort_index().items()},
-            "erken_indirilen": int((t["ilk_md"].notna() & (t["ilk_md"] < t["I"])).sum()),
-            "lumoda_oncesi_indirilen": int((t["ilk_md"].notna()
-                                            & (t["ilk_md"] < t["I"] - np.timedelta64(LUMODA_ONCE_GUN, "D"))).sum())}
+    return {"dagilim": {f"{x:.2f}": int(n) for x, n in derin.value_counts().sort_index().items()}}
+
+
+def erken_kademe(t: pd.DataFrame) -> dict:
+    """`olcutler.option_tablosu`'nun günlük ilk markdown gününden (`ilk_md_gun`, `indirim_gun`): I'dan ve
+    I − 28'den önce oranı > 0 olan option sayısı (modül notu `kademe`)."""
+    ilk, I = t["ilk_md_gun"].to_numpy(dtype=float), t["indirim_gun"].to_numpy(dtype=float)
+    var = np.isfinite(ilk)
+    return {"erken_indirilen": int((var & (ilk < I)).sum()),
+            "lumoda_oncesi_indirilen": int((var & (ilk < I - LUMODA_ONCE_GUN)).sum())}
 
 
 def ceyrek_etiketi(str_: np.ndarray, option_id: np.ndarray) -> np.ndarray:
@@ -333,7 +343,8 @@ OLCUTLER_ALANLARI = ("arz_adet", "markdown_tl", "markdown_tl_online", "outlet_in
 def olcutler_blogu(kosu, w, sezon: str) -> dict:
     """Yol 0 Lumoda koşusunun `sezon` ölçütleri `olcutler`'in kendi işlevleriyle (YOL 0'ın tanımı; Ruling R21):
     ölçütler (`OLCUTLER_ALANLARI`), indirim başı STR'si (p10 / p50 / p90) ve çeyrekleri (`olcutler.ceyrek`: kalan,
-    kalanın payı, markdown TL, ölü stok), alt yarının kalan payı."""
+    kalanın payı, markdown TL, ölü stok), alt yarının kalan payı; `kademe` (`erken_kademe`; `kur` onu sezonun
+    `kademe` bloğuna taşır)."""
     t = olcutler.option_tablosu(kosu, w, sezon)
     o = olcutler.ozetle(t)
     st = olcutler.indirim_basi_str(kosu, w, sezon, tablo=t)
@@ -347,7 +358,8 @@ def olcutler_blogu(kosu, w, sezon: str) -> dict:
     return {"olcutler": {a: float(o[a]) for a in OLCUTLER_ALANLARI}, "ceyrekler": ceyrekler,
             "str": {"p10": float(np.percentile(v, 10)), "p50": float(np.percentile(v, 50)),
                     "p90": float(np.percentile(v, 90))},
-            "alt_yari_kalan_payi": float(sum(r["kalan"] for r in ceyrekler[:2]) / kalan) if kalan else None}
+            "alt_yari_kalan_payi": float(sum(r["kalan"] for r in ceyrekler[:2]) / kalan) if kalan else None,
+            "kademe": erken_kademe(t)}
 
 
 def kur(ortam: oyun.Ortam, con=None) -> dict:
@@ -375,7 +387,9 @@ def kur(ortam: oyun.Ortam, con=None) -> dict:
                 con.close()
         if Y is not None:
             for s in sezonlar:
-                bloklar[s]["olcutler"] = olcutler_blogu(Y.lumoda, Y.w, s)
+                ob = olcutler_blogu(Y.lumoda, Y.w, s)
+                bloklar[s]["kademe"].update(ob.pop("kademe"))
+                bloklar[s]["olcutler"] = ob
     print(f"analiz: {time.perf_counter() - t0:.0f} sn", file=sys.stderr, flush=True)
     return {"surum": SURUM, "olcek": ortam.olcek, "kod": kod_ozeti(), "kaynak": kaynak_adi,
             "lumoda_anahtar": lumoda_anahtar, "veri": {"ilk_gun": bas.date().isoformat(), "son_gun": son.date().isoformat()},

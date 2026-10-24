@@ -280,3 +280,98 @@ def test_yan_etki_oyuncak(w):
     assert r["ikame_alinan"] == r["ikame_alinan_lumoda"] == 11.0 and r["ikame_alinan_farki"] == 0.0
     assert r["ikame_giden"] == 2.0 and r["ikame_giden_farki"] == 0.0
     assert r["elle_transfer_farki"] == 3.0 and r["elle_transfer_farki_test"] == 3.0
+
+
+# --------------------------------------------------------------------------- günlük oran (perşembe indirimi)
+
+IP = 1095          # perşembe (1095 % 7 == 3); haftası W = 1092
+SATIS_PERSEMBE = [  # gün, mağaza, ürün, adet, tutar, indirim, kampanya
+    (1000, "S1", "A-M", 3, 300.0, 0.0, None),          # tam fiyat
+    (1093, "S1", "A-M", 2, 196.0, 4.0, None),          # W salı: işlem indirimi
+    (1094, "ONL", "A-M", 1, 100.0, 0.0, None),         # W çarşamba, online
+    (1095, "S1", "A-M", 1, 70.0, 30.0, None),          # indirim günü (perşembe)
+    (1100, "S1", "B-M", 1, 140.0, 60.0, None),
+]
+
+
+def _persembe_dunya():
+    w = oyuncak_dunya()
+    w.optionlar = w.optionlar.assign(indirim_gun=[IP, IP, 10**6])
+    return w
+
+
+def _persembe_fiyat():
+    """Haftalık panel (haftanın son günündeki oran): iki option'da W haftası %30 (perşembe tabanı)."""
+    satir = [(tarih(h), o, hat, 0.3 if h >= 1092 else 0.0)
+             for o in ("A", "B") for h in range(1071, 1148, 7) for hat in ("normal", "online")]
+    satir.append((tarih(1148), "A", "outlet", 0.5))
+    df = pd.DataFrame(satir, columns=["hafta_baslangic", "option_id", "hat", "indirim_orani"])
+    df["hat"] = pd.Categorical(df["hat"], categories=["normal", "outlet", "online"])
+    return df
+
+
+def _lumoda_kaydi(a_pazartesi: float):
+    """Lumoda kaydedicisinin uzun biçimi (gun, indis, sutun, deger; sıfır satır yok): W pazartesisi A
+    `a_pazartesi`, indirim gününden iki option da %30 (normal, outlet akışı yok, online)."""
+    s = [(1092, 0, h, a_pazartesi) for h in (0, 2)] if a_pazartesi > 0 else []
+    s += [(d, o, h, 0.3) for d in (IP, 1099, 1106) for o in (0, 1) for h in (0, 2)]
+    return pd.DataFrame(s, columns=["gun", "indis", "sutun", "deger"]).astype({"deger": float})
+
+
+def test_gunluk_oran_takvim_kolu_persembe():
+    """Takvim penceresi I'da (perşembe): W pazartesisinde kayıt satırı yok, [W, I) oranı önceki haftanınki (0);
+    haftalık panel %30 dese de pazartesi–çarşamba satışları tam fiyat, işlem indirimi işlem TL'dir."""
+    w = _persembe_dunya()
+    kayit = _kayit([(d, o, 0.3, np.nan) for d in (1099, 1106) for o in (0, 1)])
+    k = oyuncak_kosu(satis=SATIS_PERSEMBE, fiyat=_persembe_fiyat(), kayit=kayit, pencere="takvim", taban=0.3)
+    t = olcutler.option_tablosu(k, w, "SS25").set_index("option_id")
+    assert t.loc["A", "tam_fiyat_adet"] == 3 + 2 + 1 and t.loc["B", "tam_fiyat_adet"] == 0
+    assert t["markdown_tl"].sum() == pytest.approx(30 + 60) and t["islem_tl"].sum() == pytest.approx(4)
+    assert t["markdown_tl_online"].sum() == 0
+    assert t["ilk_md_gun"].tolist() == [IP, IP] and t["indirim_gun"].tolist() == [IP, IP]
+    r = olcutler.ozetle(t.reset_index())
+    assert r["tam_fiyat_str"] == pytest.approx(100 * 6 / 35)
+    assert r["ilk_indirim_hafta_medyan"] == 0.0                     # davranış ölçüleri haftalık kalır
+
+
+@pytest.mark.parametrize("bicim", ["lumoda", "kol"])
+def test_gunluk_oran_pazartesi_indirimi_persembe(bicim):
+    """W pazartesisi A %20'ye inmiş (Lumoda kaydedicisi ya da serbest kolun W satırı): [W, I) A'nın satışları
+    markdown, ilk markdown günü W; B'nin W oranı 0 (Lumoda'da satırsız, kolda %0 satırı), ilk günü I."""
+    w = _persembe_dunya()
+    kayit = (_lumoda_kaydi(0.2) if bicim == "lumoda" else
+             _kayit([(1085, 0, 0.0, np.nan), (1085, 1, 0.0, np.nan), (1092, 0, 0.2, np.nan), (1092, 1, 0.0, np.nan),
+                     (1099, 0, 0.3, np.nan), (1099, 1, 0.3, np.nan)]))
+    k = oyuncak_kosu(satis=SATIS_PERSEMBE, fiyat=_persembe_fiyat(), kayit=kayit)
+    t = olcutler.option_tablosu(k, w, "SS25").set_index("option_id")
+    assert t.loc["A", "tam_fiyat_adet"] == 3
+    assert t["markdown_tl"].sum() == pytest.approx(4 + 0 + 30 + 60) and t["islem_tl"].sum() == 0
+    assert t["ilk_md_gun"].tolist() == [1092, IP]
+    f = olcutler._Fiyat(_persembe_fiyat(), olcutler.Kapsam(w, "SS25"), k)
+    g = np.array([1092, 1094, 1095, 1098, 1099])
+    assert f.satir_orani(np.zeros(5, np.int64), np.zeros(5, np.int64), g).tolist() == [0.2, 0.2, 0.3, 0.3, 0.3]
+    assert f.satir_orani(np.ones(5, np.int64), np.full(5, 2), g).tolist() == [0.0, 0.0, 0.3, 0.3, 0.3]
+
+
+def test_gunluk_oran_kayit_ister_ve_hat_denetler():
+    """Pazartesi olmayan indirim günü varsa günlük oran kaydı ister; bilinmeyen hat sessizce online'a yazılmaz."""
+    w = _persembe_dunya()
+    k = oyuncak_kosu(satis=SATIS_PERSEMBE, fiyat=_persembe_fiyat())
+    k.kayitlar.pop("markdown")
+    with pytest.raises(ValueError, match="ne bir kolun ne Lumoda"):
+        olcutler.option_tablosu(k, w, "SS25")
+    f = _fiyat()
+    f["hat"] = f["hat"].astype(str).replace({"online": "web"})
+    with pytest.raises(ValueError, match="bilinmeyen hat"):
+        olcutler.option_tablosu(oyuncak_kosu(fiyat=f), oyuncak_dunya(), "SS25")
+
+
+def test_analiz_erken_indirilen_gunluk():
+    """VERİ'nin "indirim gününden önce oranı olan" sayısı günlük orandan: W'de %30 haftalık panel A'yı da B'yi de
+    sayardı; günlük oranla yalnız W pazartesisi inen A."""
+    import analiz
+    w = _persembe_dunya()
+    k = oyuncak_kosu(satis=SATIS_PERSEMBE, fiyat=_persembe_fiyat(), kayit=_lumoda_kaydi(0.2))
+    assert analiz.olcutler_blogu(k, w, "SS25")["kademe"] == {"erken_indirilen": 1, "lumoda_oncesi_indirilen": 0}
+    k = oyuncak_kosu(satis=SATIS_PERSEMBE, fiyat=_persembe_fiyat(), kayit=_lumoda_kaydi(0.0))
+    assert analiz.olcutler_blogu(k, w, "SS25")["kademe"] == {"erken_indirilen": 0, "lumoda_oncesi_indirilen": 0}
