@@ -30,6 +30,18 @@ describe('demoDegeri', () => {
     expect(demoDegeri('brut_kar_tl', 535940376)).toBe('535.940.376')
   })
 
+  it('indirim takvimi ölçütlerini bir ondalıkla basar, eksi sıfırı düşürür', () => {
+    // Rapor milyon TL, bin adet ve yüzdeleri bir ondalıkla basar; 82.0 "82"
+    // olarak düşmemeli, yuvarlanınca sıfır olan fark "-0,0" görünmemeli.
+    expect(demoDegeri('olu_stok_bin', 4.3)).toBe('4,3')
+    expect(demoDegeri('markdown_mtl', 14)).toBe('14,0')
+    expect(demoDegeri('son_str', 82)).toBe('82,0')
+    expect(demoDegeri('katki_farki_mtl', 0.5)).toBe('0,5')
+    expect(demoDegeri('katki_farki_mtl', -0.2)).toBe('-0,2')
+    expect(demoDegeri('katki_farki_mtl', 0)).toBe('0,0')
+    expect(demoDegeri('katki_farki_mtl', -0)).toBe('0,0')
+  })
+
   it('sözlükte olmayan ölçütü eskisi gibi basar', () => {
     for (const [olcut, deger] of [
       ['en_kucuk_kume', 7],

@@ -306,6 +306,62 @@ describe('Beden ve Koli dizisi', () => {
   })
 })
 
+describe('İndirim Takvimi dizisi', () => {
+  const KOK = 'indirim/indirim-takvimi/'
+
+  it('hikâye yazısı kadro kutusuyla açılır', () => {
+    const html = oku(KOK + 'iki-lacivert-tulum/index.html')
+    expect(html).toContain('kadro-kutusu')
+    // Yer tutucu gövdede başlık yok; başlık gelince kutu ondan önce kalmalı.
+    const baslik = html.indexOf('<h2')
+    if (baslik > -1) expect(html.indexOf('kadro-kutusu')).toBeLessThan(baslik)
+  })
+
+  it('kapak altı yazıyı sırayla listeler ve demoya bağlanır', () => {
+    const html = oku(KOK + 'index.html')
+    const sira = [
+      'iki-lacivert-tulum',
+      'karar-nasil-verilir',
+      'kural-tabanli-yontem',
+      'indirim-ne-kadar-sattirir',
+      'takvimi-kurmak',
+      'basari-nasil-olculur',
+    ]
+    const yerler = sira.map((slug) => html.indexOf(`href="/${KOK}${slug}/"`))
+    expect(yerler.every((y) => y > -1)).toBe(true)
+    expect([...yerler].sort((a, b) => a - b)).toEqual(yerler)
+    expect(html).toContain(`href="/${KOK}demo/"`)
+  })
+
+  it('sözlüğün üç yeni maddesi var ve dizideki sözlük bağları sözlükte çözülür', () => {
+    const sozluk = oku('sozluk/index.html')
+    for (const madde of ['markdown', 'fiyat-esnekligi', 'olu-stok']) {
+      expect(sozluk, madde).toContain(`id="${madde}"`)
+    }
+    // Yazılar dolunca ilk iki yazı bu maddelere bağlanacak; o güne kadar
+    // dizideki her sözlük bağı sözlükte bir çapaya çıkmalı.
+    for (const slug of ['iki-lacivert-tulum', 'karar-nasil-verilir']) {
+      const html = oku(KOK + slug + '/index.html')
+      for (const [, madde] of html.matchAll(/href="\/sozluk\/#([^"]+)"/g)) {
+        expect(sozluk, madde).toContain(`id="${madde}"`)
+      }
+    }
+  })
+
+  it('indirim aşaması Sezon İçi haritasında yer alır, aşama sayfası diziye bağlanır', () => {
+    // Dizinin altı yazısı da yer tutucu (hazirlaniyor); aşama haritada soluk
+    // durur ve /indirim/ bağını ilk yazı yayına çıkınca alır. O güne kadar
+    // aşama adı haritada, dizi de aşama sayfasında görünmeli.
+    const harita = oku('sezon-ici/index.html')
+    expect(harita).toContain('İndirim, promosyon ve kampanya')
+    const asama = oku('indirim/index.html')
+    expect(asama).toContain(`href="/${KOK}"`)
+    expect(asama).toContain(NOINDEX)
+  })
+
+  it.todo('indirim aşaması Sezon İçi haritasında /indirim/ bağını taşır (ilk yazı yayına çıkınca)')
+})
+
 describe('dizi sayfası', () => {
   it('altı yazıyı sırayla listeler', () => {
     const html = oku('transfer/blok-transfer/index.html')
@@ -676,6 +732,59 @@ describe('demo', () => {
     expect(Object.keys(veri.sonuclar).length).toBe(beklenen)
   })
 
+  it('indirim takvimi demosunun ölçüt etiketleri var ve ham anahtar sızmıyor', async () => {
+    // Kartlar (katkı farkı, ölü stok, markdown TL, tam fiyat STR, sezon sonu
+    // STR) Demo.astro'nun ETIKETLER sözlüğünden gelir; etiket eksikse
+    // okuyucu 'olu_stok_bin' görür.
+    const { default: veri } = await import('../src/data/senaryolar/indirim-takvimi.json')
+    const ilk = Object.keys(veri.sonuclar)[0]
+    const olcutler = Object.keys(veri.sonuclar[ilk as keyof typeof veri.sonuclar].ozet)
+    expect([...olcutler].sort()).toEqual([
+      'katki_farki_mtl',
+      'markdown_mtl',
+      'olu_stok_bin',
+      'son_str',
+      'tam_fiyat_str',
+    ])
+    const html = oku('indirim/indirim-takvimi/demo/index.html')
+    for (const etiket of [
+      "Katkı farkı, Lumoda'ya göre (milyon TL)",
+      'Ölü stok (bin adet)',
+      'Markdown TL (milyon TL)',
+      'Tam fiyat STR (%)',
+      'Sezon sonu STR (%)',
+    ]) {
+      expect(html, etiket).toContain(`<dt>${etiket.replace("'", '&#39;')}</dt>`)
+    }
+    for (const olcut of olcutler) {
+      expect(html, olcut).not.toContain(`<dt>${olcut}</dt>`)
+    }
+  })
+
+  it('indirim takvimi demosunda para ve adet kartları bir ondalıkla basılır, eksi sıfır görünmez', () => {
+    // Değerlerin kendisi TAM koşuyla değişir; sınanan biçim: virgülden sonra
+    // tek basamak ve "-0,0" yok (katkı farkı Lumoda'nın kendi kartında sıfır).
+    const html = oku('indirim/indirim-takvimi/demo/index.html')
+    for (const etiket of ['Ölü stok (bin adet)', 'Markdown TL (milyon TL)', 'Sezon sonu STR (%)']) {
+      const degerler = html
+        .split(`<dt>${etiket}</dt><dd>`)
+        .slice(1)
+        .map((parca) => parca.slice(0, parca.indexOf('</dd>')))
+      expect(degerler.length, etiket).toBeGreaterThan(0)
+      for (const deger of degerler) expect(deger, etiket).toMatch(/^-?\d{1,3}(\.\d{3})*,\d$/)
+    }
+    expect(html).not.toContain('<dd>-0,0</dd>')
+  })
+
+  it('indirim takvimi senaryosu sözleşmeye uyar', async () => {
+    const { default: veri } = await import('../src/data/senaryolar/indirim-takvimi.json')
+    const beklenen = veri.parametreler.reduce(
+      (carpim: number, p: { degerler: unknown[] }) => carpim * p.degerler.length,
+      1,
+    )
+    expect(Object.keys(veri.sonuclar).length).toBe(beklenen)
+  })
+
   it('getiri senaryosu sözleşmeye uyar', async () => {
     const { default: veri } = await import('../src/data/senaryolar/transfer-getirisi.json')
     const beklenen = veri.parametreler.reduce(
@@ -840,6 +949,15 @@ describe('site geneli vaatler', () => {
     expect(kopru).not.toContain('kargo tarifesi')
     expect(kopru).not.toContain('başabaş eşiğini')
   })
+
+  // İndirim Takvimi dizisinin köprüsü 6. yazıda (basari-nasil-olculur) durur;
+  // yazı henüz yer tutucu. Dizinin son yazı görevi bu satırı yukarıdaki
+  // kalıpla etkinleştirir: oku('indirim/indirim-takvimi/basari-nasil-olculur/index.html'),
+  // köprü dilimi; dizinin kendi giriş ve kapanış cümleleri, kanonik cümleler
+  // ('iş zekâsı ve optimizasyonla', 'Let Us Make Trade Intelligent For You'),
+  // varsayılan paragraflar yok ('kargo tarifesi', 'başabaş eşiğini'). Aynı
+  // görev sayfayı yukarıdaki BEKLENEN_KOPRU_SAYFALARI listesine ekler.
+  it.todo('İndirim Takvimi köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır')
 
   it('köprüde kalın cümle ile sonraki cümle arasında boşluk var', () => {
     for (const { yol, html } of tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))) {
