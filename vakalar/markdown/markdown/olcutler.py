@@ -391,9 +391,10 @@ def hesapla(kosu, w, sezon: str) -> dict[str, float]:
     return ozetle(option_tablosu(kosu, w, sezon))
 
 
-def indirim_basi_str(kosu, w, sezon: str) -> pd.Series:
-    """option_id → 100 × pozitif satış (gün < indirim_gun) ÷ arz (teslim edilmiş ilk + RPT)."""
-    t = option_tablosu(kosu, w, sezon)
+def indirim_basi_str(kosu, w, sezon: str, tablo: pd.DataFrame | None = None) -> pd.Series:
+    """option_id → 100 × pozitif satış (gün < indirim_gun) ÷ arz (teslim edilmiş ilk + RPT). `tablo`:
+    koşunun bu sezon için önceden kurulmuş `option_tablosu`'su (yeniden kurulmaz)."""
+    t = option_tablosu(kosu, w, sezon) if tablo is None else tablo
     return _str_serisi(t)
 
 
@@ -403,11 +404,12 @@ def _str_serisi(t: pd.DataFrame) -> pd.Series:
     return pd.Series(v, index=pd.Index(t["option_id"], name="option_id"), name="indirim_basi_str")
 
 
-def ceyrek(kosu, w, sezon: str, lumoda_str: pd.Series) -> pd.DataFrame:
+def ceyrek(kosu, w, sezon: str, lumoda_str: pd.Series, tablo: pd.DataFrame | None = None) -> pd.DataFrame:
     """Lumoda koşusunun indirim başı STR'sine göre çeyrekler (1 en düşük, 4 en yüksek; sıralama STR,
     eşitlikte option_id; `ceil(4 · sıra ÷ n)`): çeyrek başına `ozetle` ölçütleri ve `str_alt`,
-    `str_ust` (çeyreğin Lumoda STR aralığı). `lumoda_str` bütün kapsam option'larını kapsamalı."""
-    t = option_tablosu(kosu, w, sezon)
+    `str_ust` (çeyreğin Lumoda STR aralığı). `lumoda_str` bütün kapsam option'larını kapsamalı.
+    `tablo`: koşunun bu sezon için önceden kurulmuş `option_tablosu`'su (yeniden kurulmaz)."""
+    t = option_tablosu(kosu, w, sezon) if tablo is None else tablo
     eksik = sorted(set(t["option_id"]) - set(map(str, lumoda_str.index)))
     if eksik:
         raise ValueError(f"lumoda_str'de olmayan option'lar: {eksik[:5]}")
