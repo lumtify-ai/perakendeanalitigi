@@ -860,6 +860,7 @@ describe('site geneli vaatler', () => {
       'allocation/ilk-sevkiyat/basari-nasil-olculur/index.html',
       'magaza-kumeleme/magaza-gruplama/basari-nasil-olculur/index.html',
       'assortment/beden-koli/basari-nasil-olculur/index.html',
+      'indirim/indirim-takvimi/basari-nasil-olculur/index.html',
     ]
 
     const gecenler = tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))
@@ -955,14 +956,20 @@ describe('site geneli vaatler', () => {
     expect(kopru).not.toContain('başabaş eşiğini')
   })
 
-  // İndirim Takvimi dizisinin köprüsü 6. yazıda (basari-nasil-olculur) durur;
-  // yazı henüz yer tutucu. Dizinin son yazı görevi bu satırı yukarıdaki
-  // kalıpla etkinleştirir: oku('indirim/indirim-takvimi/basari-nasil-olculur/index.html'),
-  // köprü dilimi; dizinin kendi giriş ve kapanış cümleleri, kanonik cümleler
-  // ('iş zekâsı ve optimizasyonla', 'Let Us Make Trade Intelligent For You'),
-  // varsayılan paragraflar yok ('kargo tarifesi', 'başabaş eşiğini'). Aynı
-  // görev sayfayı yukarıdaki BEKLENEN_KOPRU_SAYFALARI listesine ekler.
-  it.todo('İndirim Takvimi köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır')
+  it('İndirim Takvimi köprüsü kendi giriş ve kapanış paragrafını basar, kanonik cümle aynı kalır', () => {
+    const html = oku('indirim/indirim-takvimi/basari-nasil-olculur/index.html')
+    const kopru = html.slice(html.indexOf('lumtify-koprusu'), html.indexOf('</aside>', html.indexOf('lumtify-koprusu')))
+    expect(kopru).toContain('müşterisi indirimi beklemiyor')
+    expect(kopru).toContain('kampanya ile markdown aynı')
+    expect(kopru).toContain('söyleyecek bir hakem yoktur')
+    expect(kopru).toContain('her pazartesi yüzlerce option')
+    expect(kopru).toContain('iş zekâsı ve optimizasyonla')
+    expect(kopru).toContain('Let Us Make Trade Intelligent For You')
+    expect(kopru).toContain('bugünkü indirim')
+    expect(kopru).toContain('katkısına ne getireceğini sezgiyle değil, ölçümle söyler')
+    expect(kopru).not.toContain('kargo tarifesi')
+    expect(kopru).not.toContain('başabaş eşiğini')
+  })
 
   it('köprüde kalın cümle ile sonraki cümle arasında boşluk var', () => {
     for (const { yol, html } of tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))) {
