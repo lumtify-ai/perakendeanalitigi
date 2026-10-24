@@ -3,9 +3,319 @@ baslik: Kural Tabanlı Yöntem
 tip: teknik
 sira: 3
 ozet: >-
-  Stok ve satış hızına bakan basit bir kural indirimin ne zaman ve ne kadar olacağını nasıl belirler, nerede yanılır?
+  Lumoda'nın kuralı bir gömleğin deposunu neden görmüyor? Stoğa ve satış
+  hızına bakan bir kapsama kuralı kuruyor, ayarını geçmiş iki sezonda
+  seçiyor ve Lumoda'yla aynı malla yarıştırıyoruz. Kazancın çoğu erken
+  başlamaktan geliyor.
 yazar: Sabri Suyunu
-durum: hazirlaniyor
+durum: yayinda
 ---
 
-Bu yazı hazırlanıyor.
+import T from '../../../../components/T.astro'
+
+Geçen yazı bir soruyla bitmişti: bu mal, bu hızla, kaç haftada biter? Bu
+yazıda o soruyu bir kurala çeviriyoruz. Önce Lumoda'nın kuralının neye
+baktığını ve neyi görmediğini bir gömlek üzerinden açacağız. Sonra stoğa ve
+satış hızına bakan basit bir kural kuracağız, ayarını geçmiş sezonlarda
+seçeceğiz ve Lumoda'yla aynı malla yarıştıracağız. En sonda kazancın
+nereden geldiğini parçalarına ayıracağız.
+
+Aşağıdaki Python parçası `vakalar/markdown/` altındaki çalışan koddan
+sadeleştirildi. Yazıdaki her sayı vakanın rapor çıktısından geliyor.
+
+## Lumoda'nın kuralı neye bakıyor
+
+Pelin'in tablosu her pazartesi her ürünün <T k="str">STR</T>'sini
+hesaplıyor: fiziksel mağazalarda satılan adet, mağazalara giden adede
+bölünüyor. Bu sayı, sezon ilerledikçe yükselen bir beklentiyle
+karşılaştırılıyor. Ürün beklentinin epey gerisindeyse bir kademe iniyor;
+haftada en fazla bir kademe. Kural sezon indiriminden dört hafta önce
+uyanıyor ve indirim günü herkese en az %30 veriyor.
+
+Bu hesabın payı da paydası da mağazaya bakıyor. Depoda bekleyen mal
+paydaya girmiyor. Tedarikçiye verilmiş ama henüz gelmemiş sipariş ise hiç
+görünmüyor.
+
+## Oduncu Gömlek
+
+Sezonun 210 option'ından biri yeşil bir oduncu gömlek, MDL0563-YSL. Pars
+onu toplantıya getiriyor.
+
+Gömlekten 13.050 adet alınmış: sezon başında 8.700, sezon içinde
+<T k="rpt">RPT</T>'yle 4.350. İndirim gününe kadar mağazalara 7.283 adet
+gitmiş, fiziksel mağazalarda 4.713 adet satılmış.
+
+— STR 0,65, diyor Pelin. Tablomda bu iyi bir sayı. Kural bu gömleğe
+dokunmaz.
+
+— Dokunmuyor da, diyor Pars. Bir de bütün resme bak. İndirim gününe kadar
+online dahil bütün satış 5.490 adet, bütün arz 13.050 adet. Oran 0,42.
+
+— Aynı gömlek, iki ayrı STR, diyor Veli.
+
+— Paydaları ayrı, diyor Pars. Pelin'in tablosu yalnız mağazaya gideni
+sayıyor. Gömleğin ilk alımının bir kısmı hiç mağazaya çıkmadı, depoda
+bekliyor. Üstüne bir de tekrar sipariş geliyor.
+
+Tekrar siparişin zamanlaması ayrı bir talihsizlik. Sipariş indirime 28
+gün kala verilmiş; Pelin'in kuralının gömleğe ilk baktığı gün. Mal depoya
+indirim gününden 2 gün sonra, indirimin 3. günü giriyor. Kural bu malı
+depodayken görmüyor. Gömleği bir kez bile derinleştirmiyor: indirim günü
+herkesle birlikte %30'a iniyor ve orada kalıyor. Outlet penceresi
+kapandığında alınan 13.050 gömleğin 5.447'si depoda duruyor.
+
+— Benim kuralım satıyor mu diye soruyor, diyor Pelin. Bu gömlek de
+satıyor.
+
+— Satıyor, diyor Pars. Ama elindeki malı kalan haftalarda bitirecek kadar
+değil. Asıl soru o.
+
+## Kapsama kuralı
+
+Pars'ın önerdiği kural tek bir soru soruyor: elimdeki mal, bugünkü hızla
+kaç günde biter? Bu süreye kapsama diyoruz; sahada
+<T k="cover">cover</T> olarak da geçiyor.
+
+$$
+\text{kapsama} = \frac{\text{raf} + \text{yolda} + \text{depo} + \text{açık sipariş}}{\text{günlük satış hızı}}
+$$
+
+Pay, ürünün satılabilir bütün stoğu: mağaza rafındaki, mağazaya yoldaki,
+depodaki ve tedarikçiden gelecek olan mal. Payda, son iki haftanın günlük
+satış hızı. Hız yalnız rafta mal olan günlerden ölçülüyor; rafın boş
+kaldığı gün hızı düşürmüyor.
+
+Kapsamayı çıkışa kalan günle karşılaştırıyoruz. Çıkış, malın sezon
+mağazalarından toplanıp outlet'e gönderildiği gün. Kapsama kalan günü
+aşıyorsa mal bu hızla sezonda bitmeyecek demek; kural bir kademe iniyor.
+Aşmıyorsa fiyat yerinde kalıyor.
+
+$$
+\text{kapsama} > \alpha \times \text{kalan gün} \;\Rightarrow\; \text{bir kademe in}
+$$
+
+α kuralın tek ayarı. α = 1, "kalan günlerde bitmiyorsa in" demek. α
+büyüdükçe kural sabırlı, küçüldükçe aceleci oluyor.
+
+Kodun özü birkaç satır. Aşağıdaki parça `politika.Kural`'ın karar
+adımının sadeleştirilmiş hâli; gerçek kod bütün option'ları dizi
+işlemleriyle birlikte hesaplıyor, hızı da mağaza ve beden başına ölçüp
+option'da topluyor:
+
+```python
+# markdown/politika.py (Kural._karar; sadeleştirildi, tek option için yazıldı)
+def karar(o, bugun, oran, alfa):
+    stok = o.raf + o.yolda + o.depo + o.acik_siparis       # satılabilir stok
+    hiz = o.stoklu_gun_satisi / o.stoklu_gun                # son 14 gün, rafta mal olan günler
+    kalan = o.cikis_gunu - bugun                            # çıkışa kalan gün
+    if hiz > 0:
+        kapsama = stok / hiz                                # bu hızla kaç günde biter
+    else:
+        kapsama = float("inf") if stok > 0 else 0.0         # satmıyor ama mal var: bitmez
+    if kapsama > alfa * kalan:
+        return bir_sonraki_kademe(oran)                     # %20, %30, %40, %50, %70
+    return oran
+```
+
+Birkaç ayrıntı koddan geliyor. Kural yalnız pazartesi karar veriyor ve bir
+seferde tek kademe iniyor; fiyat geri çıkmıyor. İndirimden en erken sekiz
+hafta önce başlayabiliyor, ama ürün lansmandan altı hafta geçmeden değil.
+Lumoda'nınkinin aksine indirim günü herkese bir taban vermiyor: kapsaması
+kalan güne yeten ürün sezon indiriminde de tam fiyatta kalabiliyor.
+
+— Esneklik nerede peki? diyor Pelin. İndirimin ne kadar sattırdığını
+bilmiyor bu kural.
+
+— Bilmiyor, diyor Pars. Bir kademe iniyor, bir hafta sonra sonuca
+bakıyor. İndirim satışı artırdıysa hız yükselir, kapsama kısalır, kural
+durur. Artırmadıysa bir kademe daha iner.
+
+## Ayarı seçmek
+
+α'yı yarışın oynanacağı sezonlara bakmadan, onlardan önceki iki sezonda
+seçtik: bir kış, bir yaz. Her α için iki sezonu simülasyonda yeniden
+oynattık ve sezon katkısına baktık. Hatırlatayım: sezon katkısı, aynı
+maldan sezon ve outlet boyunca alınan net ciro eksi o malın bütününün alış
+maliyeti. Mal her kolda aynı olduğu için iki kol arasındaki katkı farkı,
+ciro farkının ta kendisi. Lumoda'nın kuralı bu iki sezonda toplam 683,79 M
+TL katkı bırakmış.
+
+| α | Kış | Yaz | Toplam | Lumoda'ya göre |
+|---:|---:|---:|---:|---:|
+| 0,60 | 380,00 | 320,30 | 700,30 | +16,51 |
+| 0,80 | 384,84 | 322,63 | 707,47 | +23,68 |
+| 1,00 | 386,55 | 323,15 | 709,70 | +25,91 |
+| 1,25 | 387,44 | 321,98 | 709,42 | +25,63 |
+| 1,50 | 387,44 | 319,58 | 707,02 | +23,23 |
+| 2,00 | 386,45 | 316,35 | 702,80 | +19,01 |
+
+Sezon katkısı, M TL.
+
+Tepe düz. α = 1,00 ile 1,25 arasındaki fark küçük; kışın 1,25 ve 1,50
+biraz önde, yazın 1,00. Toplamda 1,00 seçildi: "kalan günlerde
+bitmiyorsa in". Dikkat çeken bir şey daha var: tablonun en kötü ayarı bile
+Lumoda'yı geçiyor.
+
+Aynı iki sezonda bir taban çizgisi de kurduk: herkese, indirim gününden
+çıkışa kadar aynı oran. %30 toplamda 682,42 M TL (Lumoda'ya göre −1,37),
+%40 683,64 M TL (−0,15), %50 681,99 M TL (−1,80). Seçilen oran %40. En
+iyi düz oran bile Lumoda'nın biraz gerisinde kaldı.
+
+## Aynı mal, iki sezon
+
+Yarışı iki sezonda yapıyoruz: ilk iki yazının yaz sezonu ve ondan önceki
+kış. Kolları aynı müşteri akışında, aynı malla koşan bir simülasyonla
+karşılaştırıyoruz; tekrar siparişler bütün kollarda Lumoda'nın takvimiyle
+geliyor. Gerçek talep ve gerçek esneklik verinin kurgusunda. Gerçek
+hayatta böyle bir hakem yok; altıncı yazı bunu ayrıca konuşacak.
+
+| Lumoda'ya göre katkı farkı | Yaz | Kış | İki sezon |
+|---|---:|---:|---:|
+| Herkese %40 | −0,82 | +0,03 | −0,79 |
+| Kapsama kuralı | +12,19 | +12,71 | +24,91 |
+
+M TL.
+
+Önce taban çizgisi. Lumoda'nın kuralı herkese %40'tan iki sezonda yalnız
+0,79 M TL iyi. Kışın düz %40 ondan 0,03 M TL önde.
+
+— Benim tablom herkese aynı indirimden ancak bu kadar mı iyi? diyor
+Pelin.
+
+— Geçen yazı söylemiştik, diyor Pars. Tablonun pratikteki sonucu indirim
+günü herkese %30. Düz bir oranla arasında pek fark olmaması bu yüzden.
+
+Kapsama kuralı ise Lumoda'yı iki sezonda 24,91 M TL geçiyor; iki sezonda
+da aşağı yukarı aynı farkla. Ötekileri de iki sezonun toplamıyla koyalım:
+
+| İki sezon | Lumoda | Kapsama kuralı |
+|---|---:|---:|
+| Ölü stok | 341.672 adet | 165.726 adet |
+| Ölü stok alış değeri | 136,19 M TL | 75,53 M TL |
+| Markdown TL | 87,08 M TL | 278,92 M TL |
+| İlk indirim haftası (medyan) | indirim haftası | indirimden iki hafta önce |
+
+Kural çıkışta depoda 127.187, mağazalarda 99.182 adet daha az mal
+bırakıyor. Farkın çoğu depoda. Markdown TL ise
+katlanıyor; Pelin'in sezon sonu raporundaki o iki satırın neden birlikte
+okunması gerektiğine altıncı yazıda döneceğiz.
+
+## Kazanç nereden geliyor
+
+Kapsama kuralı Lumoda'nınkinden üç yerde ayrılıyor: daha erken
+başlayabiliyor, depoyu ve açık siparişi görüyor, bir de takvimin içinde
+STR yerine kapsamaya bakıyor. Hangisi ne kadar getiriyor? Bunu ölçmek için
+kuralın iki eksik kopyasını da koşturduk. Kodda ikisi de `Kural`'ın alt
+sınıfı ve her biri tek bir şeyi değiştiriyor:
+
+- **İndirim gününde başlayan kural** (`KuralTakvim`): aynı kapsama sorusu,
+  ama ilk karar ancak indirim günü. Erken başlamanın değeri bu kopya ile
+  kural arasındaki fark.
+- **Depoyu görmeyen kural** (`KuralDeposuz`): aynı kural, ama stok yalnız
+  raf ve yolda; depo ve açık sipariş yok. Bu, Lumoda'nın STR'yi mağazaya
+  gidenle ölçmesinin yaklaşığı. Depoyu görmenin değeri bu kopya ile kural
+  arasındaki fark.
+
+| Katkı farkı | Yaz | Kış | İki sezon |
+|---|---:|---:|---:|
+| Takvimde kapsama ölçüsü (Lumoda → indirim gününde başlayan kural) | +3,70 | +2,43 | +6,14 |
+| Erken başlamak (indirim gününde başlayan kural → kural) | +8,49 | +10,28 | +18,77 |
+| Toplam (Lumoda → kural) | +12,19 | +12,71 | +24,91 |
+| Depoyu görmek (depoyu görmeyen kural → kural) | +7,49 | +4,04 | +11,53 |
+
+M TL. İlk iki satır toplanıyor; dördüncü satır ayrı bir deney, öbürlerine
+eklenmez.
+
+En büyük parça erken başlamak: iki sezonda 18,77 M TL. İndirim gününde
+başlayan kural ölü stokta Lumoda'dan pek uzaklaşamıyor: 285.560 adet,
+Lumoda'da 341.672. Erken başlayan kuralda 165.726.
+
+Takvimin içinde kalan kural bile Lumoda'yı 6,14 M TL geçiyor; üstelik
+Lumoda'nın kuralı indirimden dört hafta önce uyanırken bu kopya ancak
+indirim günü başlıyor. İkisinin davranışı şurada ayrılıyor: Lumoda indirim
+günü herkesi %30'a indirip çoğunu orada bırakıyor; bu kopya yavaş satanı
+her hafta bir kademe daha indiriyor, kapsaması yeten ürüne dokunmuyor.
+
+Depoyu görmek ayrı bir deney ve 11,53 M TL değerinde. Depoyu görmeyen kural
+da sekiz hafta önceden başlayabiliyor, ama başlamıyor: raftaki mal kalan
+günlere yetiyor göründüğü için ilk indirim haftasının medyanı indirim
+haftasına kayıyor. Ölü stoğu 259.027 adet.
+
+— Yani benim kuralımın asıl derdi takvimin içinde verdiği oranlar değil,
+diyor Pelin. Ne zaman başladığı ve neye baktığı.
+
+— Takvimin içindeki parça üçünün en küçüğü, diyor Pars. Asıl kazanç
+zamanlamada.
+
+## Gömlek ve tulumlar kuralla
+
+Oduncu Gömlek'e dönelim. Kapsama kuralı onu indirimden üç hafta önce
+%20'ye alıyor, her pazartesi bir kademe indiriyor ve indirimden bir hafta
+sonra %70'e varıyor. Gömleği indirdiği her pazartesi tekrar siparişin
+4.350 adedi hesabın içinde: önce açık sipariş, sonra depo stoğu olarak.
+
+| MDL0563-YSL | Lumoda | Kapsama kuralı |
+|---|---:|---:|
+| Çıkışta kalan | 6.004 adet | 498 adet |
+| Ölü stok | 5.447 adet | 189 adet |
+| Markdown TL | 0,30 M TL | 2,69 M TL |
+| Sezon katkısı | 0,36 M TL | 0,82 M TL |
+
+Veli'nin tulumu MDL0606'yı kural indirimden sekiz hafta önce %20'ye
+alıyor ve dört pazartesi üst üste birer kademe indirerek %50'ye getiriyor;
+hepsi Lumoda'nın kuralı daha uyanmadan. İndirimden iki hafta sonra %70.
+Ölü stok Lumoda'da 2.944 adetti, kuralda 1.514. Katkı 0,04 M TL'den 0,59 M
+TL'ye çıkıyor.
+
+Ali'nin tulumu MDL0605'e kural indirim günü dokunmuyor; Lumoda'nın kuralı
+ona %30 vermişti. Kural onu indirimden dört hafta sonra, son adetler
+yavaşlayınca indirmeye başlıyor. Çıkışta 4 adet kalıyor (Lumoda'da hiç
+kalmamıştı), katkı 1,75 M TL'den 1,76 M TL'ye çıkıyor. İyi satan üründe kazanılacak para küçük;
+ikinci yazının çeyrek tablosu da bunu söylemişti.
+
+## Kural neden yeterince iyi
+
+Kapsama kuralı esneklik bilmiyor, talebin sezonun geri kalanında nasıl
+eriyeceğini de bilmiyor. Yalnız bugünkü hıza ve elindeki stoğa bakıyor. Yine
+de Lumoda'yı rahat geçiyor.
+
+Sebebi bu dünyada malın çokluğu. Yaz sezonunda çıkıştan bir hafta önce
+303.342 adet elde kalıyordu. Bu kadar malın olduğu yerde ilk soru
+indirimin ne kadar derin olacağı değil, ne zaman başlayacağı. O soruyu
+kaba bir kural da doğru cevaplayabiliyor.
+
+Beşinci yazıda kuracağımız optimizasyon bu kuralın bilmediği iki şeyi
+biliyor: indirimin ne kadar sattırdığını ve talebin sezon boyunca nasıl
+eriyeceğini. Bakalım bunlar kuralı geçmeye yetecek mi.
+
+## Sizin verinizde zor olan
+
+**Depoyu ve açık siparişi ürün düzeyinde görmek.** Kuralın en değerli
+bilgisi satılabilir bütün stok. Çoğu zincirde mağaza stoğu, depo stoğu ve
+tedarikçi siparişleri ayrı sistemlerde durur. Açık siparişin teslim tarihi
+de çoğu zaman kâğıt üstündeki tarihtir; Oduncu Gömlek'in tekrar siparişi
+gibi geç gelen mal, ancak geldiğinde görünür.
+
+**Hızı doğru ölçmek.** Hız rafta mal olan günlerden ölçülüyor. Bunun için
+her mağaza, her beden, her gün için "raf boş muydu" sorusunun cevabı
+lazım. Stok kaydı hatalıysa biten ürün yavaş satıyor görünür ve kural onu
+gereksiz yere indirir.
+
+**Kampanya ile markdown'ın iç içe geçmesi.** Kuralın hızı kampanya
+günlerini ayırmıyor. Son iki haftada bir kampanya geçtiyse hız şişer,
+kapsama kısa görünür ve kural indirimi erteler. Kendi verinizde hızı
+kampanya günlerinden arındırmak gerekebilir.
+
+**Mağaza stok dengesizliği.** Kural zincirin toplam stoğuna ve toplam
+hızına bakıyor. MDL0606'nın stoğu Anadolu'da birikmişti. Zincir düzeyinde
+doğru olan bir indirim, malın durduğu mağazada geç kalabilir; onu transfer
+düzeltir.
+
+**Ölçecek hakemin olmaması.** α'yı geçmiş iki sezonu simülasyonda yeniden
+oynatarak seçtik. Gerçek bir zincirde geçmiş sezon yeniden oynatılamaz.
+Ayarı ancak sezonlar arasında yavaş yavaş, bir kısım üründe deneyerek
+bulabilirsiniz; o da her seferinde bir sezon alır.
+
+Kapsama kuralı esneklik bilmeden iş görüyor. Bir sonraki yazıda bilmeye
+çalışıyoruz: indirim gerçekten ne kadar sattırır, bunu satıştan nasıl
+ölçeriz ve yanlış ölçünce ne olur?

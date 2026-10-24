@@ -3,9 +3,326 @@ baslik: İndirim Ne Kadar Sattırır
 tip: teknik
 sira: 4
 ozet: >-
-  Fiyat esnekliği satıştan nasıl ölçülür, ölçüm neden kolayca yanılır ve bu yanılgı bir takvime ne yaptırır?
+  Fiyat esnekliğini satıştan üç yoldan ölçüyoruz: geçmiş indirimlerden,
+  markdown'ın önünden ve arkasından, kampanyalardan. Üçü üç ayrı sayı
+  veriyor. Yanlışına inanan bir takvim gereğinden derin değil, gereğinden
+  az indiriyor.
 yazar: Sabri Suyunu
-durum: hazirlaniyor
+durum: yayinda
 ---
 
-Bu yazı hazırlanıyor.
+import T from '../../../../components/T.astro'
+
+İkinci yazıda takvimin üç sorusunun arkasında bir dördüncüsü olduğunu
+söylemiştik: indirim ne kadar sattırır? Kapsama kuralı bu soruyu hiç
+sormadan iş görüyordu; bir kademe iniyor, bir hafta sonra sonuca
+bakıyordu. Beşinci yazıda kuracağımız takvim ise soruyu önceden
+cevaplamak zorunda. Her pazartesi, her ürün için "bu kademeye inersem
+çıkışa kadar kaç adet satarım?" diye soracak. Cevabın ortasında tek bir
+sayı duruyor: <T k="fiyat-esnekligi">fiyat esnekliği</T>.
+
+Bu yazıda o sayıyı Lumoda'nın yayımlanan satışından üç yoldan ölçüyoruz,
+üçünün neden farklı çıktığını açıyoruz ve yanlış sayıya inanan bir
+takvimin ne yaptığına bakıyoruz. Kod parçaları `vakalar/` altındaki
+çalışan koddan; yazıdaki her sayı vakanın rapor çıktısından.
+
+## Esneklik
+
+— %30 indirim satışı ne kadar artırır? diyor Pelin. Bana tek bir sayı
+lazım.
+
+— Tek sayı şu, diyor Pars. Esneklik. İndirim fiyatı ne kadar düşürürse
+talep bu sayının gösterdiği kadar büyüyor.
+
+Pars tahtaya formülü yazıyor. Liste fiyatında talep $D$ ise, $r$ oranında
+indirimde talep:
+
+$$
+D(r) = D \times (1 - r)^{-\varepsilon}
+$$
+
+$\varepsilon$ esneklik. Sıfırsa indirim satışı hiç değiştirmiyor. Büyüdükçe
+aynı indirim daha çok sattırıyor.
+
+— Satış artıyor ama her adet daha ucuza gidiyor, diyor Ali. Ciro ne
+oluyor?
+
+— Onu da yazalım, diyor Pars. Adet başına fiyat $(1 - r)$ katına iniyor.
+İkisini çarpınca:
+
+$$
+\text{ciro}(r) \propto (1 - r) \times (1 - r)^{-\varepsilon} = (1 - r)^{1 - \varepsilon}
+$$
+
+Bu satırda bütün yazının özeti var. Esneklik 1'den büyükse indirim
+ciroyu artırıyor; 1'den küçükse, satış artsa bile ciroyu düşürüyor. Yani
+esnekliği 1'in altında ölçen biri, mal depoda kalsa bile indirim
+yapmamayı seçer. Stok sınırı ve çıkışta outlet'e giden malın kalıntı
+değeri bu hesabı biraz değiştiriyor, ama yönünü değiştirmiyor.
+
+Bu dünyada talep fiyata tam bu formülle tepki veriyor; verinin kurgusunda
+her mağaza ve beden için bir gerçek esneklik var. Kampanya da markdown da
+aynı esneklikle işliyor. Ama gerçek esnekliği hiçbir tablo söylemiyor;
+satıştan kestirmek gerekiyor.
+
+## Pelin'in yolu: geçmiş indirimler
+
+İkinci yazıda Pelin'in ilk önerisi geçmiş indirimlere bakmaktı: her sezon
+yüzlerce ürün indiriliyor, indirimli haftaların satışı ortada. En basit
+hesap, indirimli bütün haftaları alıp satışı indirim oranına karşı bir
+doğruya oturtmak:
+
+```python
+# markdown/ogrenme.py (eps_saf): indirimli haftalarda, haftalık adet ile oran
+return float(-np.polyfit(np.log(1.0 - h["oran"].to_numpy(float)),
+                         np.log(h["adet"].to_numpy(float)), 1)[0])
+```
+
+Her satır bir option'ın bir mağazadaki ya da online'daki bir haftası; yalnız fiyatın indirimli
+olduğu haftalar. Logaritmalar alınınca yukarıdaki formül bir doğru oluyor,
+doğrunun eğimi de esneklik. Bunu saf regresyon diye anacağım.
+
+Yaz sezonunun ilk karar gününden önceki bütün satıştan çıkan sayı 0,159.
+Kış sezonu için aynı hesap 0,219 veriyor. İkisi de 1'in çok altında.
+
+— Bu sayıya inanırsam, diyor Pelin, indirim hiçbir işe yaramıyor.
+
+— Bu sayıya inanırsan indirim zarar ediyor, diyor Pars. Ama sayının
+söylediği başka. %70'e inen ürünle %30'da kalan ürünü karşılaştırıyorsun.
+%70'e inen zaten satmayan üründü; geç ve derin indirildi, çünkü satmıyordu.
+Doğru, indirimin etkisini ürünün zayıflığından ayıramıyor.
+
+## Markdown'ın önü ve arkası
+
+Daha dikkatli bir hesap ürünleri birbiriyle değil, her ürünü kendisiyle
+karşılaştırır. Bir mağazada bir ürünün fiyatı bir pazartesi bir kademe
+indiyse, önceki iki haftanın satış hızına ve sonraki iki haftanınkine
+bakarız. Oran iki fiyatın oranına göre esnekliğe çevrilir:
+
+```python
+# perakende_analitik/carpanlar.py (_esneklik_markdown): fiyat adımının iki yanı
+oran = (r["son_s"] / r["son_n"]) / (r["on_s"] / r["on_n"])
+x = -np.log((1 - q1) / (1 - q0))
+kayit.append((str(ustler[int(u)]), float(np.log(oran) / x), float(r["son_n"])))
+```
+
+`son_s / son_n` adımdan sonraki iki haftanın günlük hızı, `on_s / on_n`
+önceki iki haftanınki; `q0` ile `q1` adımın iki yanındaki oran. Satış önce
+haftanın günü ve özel günlerin etkisinden arındırılıyor, kampanya günleri
+dışarıda kalıyor. Sonuç üst kategori başına, gün sayısıyla ağırlıklı
+ortalanıyor.
+
+Yaz sezonu için markdown esnekliği 1,207; kış için 1,279. Saf
+regresyondan çok daha yüksek, 1'in de üstünde.
+
+— Bu daha iyi, diyor Pelin. Artık ürünün kendisine bakıyoruz.
+
+— Daha iyi, diyor Pars, ama hâlâ eksik. İndirim satışı yavaşlayan ürüne
+geliyor; senin kuralın tam bunu yapıyor. Yavaşlama indirimden sonra da
+sürüyor. Öncesiyle sonrasını karşılaştıran hesap bu yavaşlamanın bir
+kısmını fiyata yazıyor ve indirimin gücünü küçük görüyor.
+
+Ortak kodun belge metni de bunu açıkça söylüyor: markdown satmayana
+geldiği için bu kestirim yanlı. Satış tahminini kuran ortak kod onu
+kullanmıyor; bu dizide de yalnız tuzak olarak, bir kolda kullanıyoruz. Sahada buna
+içsellik deniyor: indirimin zamanı ve yeri satışın kendisine bağlı.
+
+## Kampanya: doğal bir deney
+
+Çıkış yolu ürünün performansından bağımsız konmuş bir indirim. Lumoda'da
+bunlar kampanyalar: birkaç günlüğüne, bir grup mağazada, ürünün o hafta
+nasıl sattığına bakılmadan konuyor. Kampanyanın dokunmadığı mağazalar da
+kendiliğinden bir karşılaştırma grubu oluyor.
+
+Hesap iki oranın oranı. Kampanyalı hücrelerin kampanya günlerindeki satış
+hızı önceki iki haftanın hızına bölünüyor. Aynı oran, kampanyanın hiç
+dokunmadığı mağazalarda, aynı kanal, kategori ve line'daki hücreler için de
+hesaplanıyor. Birincisi ikincisine bölününce mevsimin ve sezonun gidişi
+düşüyor, geriye kampanyanın etkisi kalıyor. İstatistikte bunun adı
+fark-içinde-fark.
+
+```python
+# perakende_analitik/carpanlar.py (_esneklik_kampanya): kampanyalı ÷ kampanyasız
+r = ((tr["s_sonra"] / tr["n_sonra"]) / (tr["s_once"] / tr["n_once"])
+     / ((ct["s_sonra"] / ct["n_sonra"]) / (ct["s_once"] / ct["n_once"])))
+x = -np.log(1.0 - oran)
+```
+
+`tr` kampanyanın kapsadığı hücreler, `ct` karşılaştırma grubu. Markdown'lı
+satırlar bu hesaba girmiyor. Esneklik yine $\ln r \div x$.
+
+Yaz sezonu için kampanya esnekliği 1,768; kış için 1,754.
+
+— Kampanya da sonuçta indirim, diyor Veli. Neden onunki doğru?
+
+— Kampanya ürün satmadığı için gelmiyor, diyor Pars. Takvimde
+yazdığı için geliyor. O yüzden önüyle arkası arasındaki fark fiyattan
+geliyor, ürünün kaderinden değil.
+
+## Dört sayı
+
+Verinin kurgusunda gerçek esnekliği de biliyoruz. Onu yalnız sonradan,
+ölçümlerin ne kadar tuttuğunu görmek için kullanıyoruz; kararı veren
+kodların hiçbiri ona ulaşamıyor.
+
+| Kaynak | Yaz | Kış |
+|---|---:|---:|
+| Saf regresyon (geçmiş indirimler) | 0,159 | 0,219 |
+| Markdown'ın önü ve arkası | 1,207 | 1,279 |
+| Kampanya (fark-içinde-fark) | 1,768 | 1,754 |
+| Gerçek (verinin kurgusunda) | 1,891 | 1,844 |
+
+Bütün kategoriler birlikte. Kategori kategori bakınca da yaz sezonunda
+her üst kategoride markdown esnekliği kampanyanınkinin altında. Dış giyimde markdown'dan ölçülen sayı 1'in altına bile iniyor:
+0,958.
+
+Bütün kategoriler birlikte bakınca kampanya gerçeğe en yakın, ama o da
+biraz altında kalıyor. Takvimi
+kampanyadan öğrenilen esneklikle kuracağız. Markdown'dan öğrenileni ise
+bir tuzak olarak saklıyoruz: aynı takvimi bir de onunla koşturup farkı
+ölçeceğiz.
+
+## Bir tulum, dört esneklik
+
+Sayıların bir takvime ne yaptırdığını görmek için Veli'nin tulumuna
+dönelim. Karar günü, indirimden sekiz hafta önce, MDL0606'nın satılabilir
+stoğu 6.588 adet. Tam fiyatta kalsa çıkışa kadar tahmini talebi 799 adet.
+Talebin stoğa oranı 0,121: stok, tam fiyattaki talebin sekiz katından
+fazla.
+
+Bütün stoğu çıkışa kadar eritecek indirimi formülden doğrudan
+bulabiliriz. Talep $(1-r)^{-\varepsilon}$ katına çıkıp stoğa eşitlenmeli:
+
+$$
+1 - r = \left(\frac{\text{talep}}{\text{stok}}\right)^{1/\varepsilon}
+$$
+
+Buna temizleme indirimi diyelim. Bir de beşinci yazıda kuracağımız
+haftalık modelin, aynı gün, aynı tulum için ne önerdiğine bakalım. Model
+her pazartesi merdivenin herhangi bir basamağını seçebiliyor, yeter ki
+fiyat geri çıkmasın; çıkışta kalan malı outlet'in kalıntı değeriyle sayıyor.
+Tulumun kategorisi elbise ve tulum; o kategoride markdown esnekliği 1,458,
+kampanya esnekliği 2,048. Tulumun kendi gerçek esnekliği 2,133.
+
+| Esneklik | ε | Temizleme indirimi | Modelin ilk haftası | Modelin en derini | Beklenen kalan | Beklenen ciro |
+|---|---:|---:|---:|---:|---:|---:|
+| Saf regresyon | 0,159 | %100,0 | %0 | %0 | 5.802 | 1,19 M TL |
+| Markdown | 1,458 | %76,5 | %50 | %50 | 4.463 | 1,31 M TL |
+| Kampanya | 2,048 | %64,3 | %50 | %70 | 547 | 1,61 M TL |
+| Gerçek | 2,133 | %62,8 | %50 | %70 | 218 | 1,70 M TL |
+
+"Beklenen" sütunları, o esnekliğe inanan modelin kendi beklentisi; ne
+olacağı değil, ne olacağını sandığı.
+
+Merdivenin en derin basamağı %70. Dört temizleme indiriminin hepsi
+merdivende %70'e denk geliyor. Saf regresyonla stoğu eritmenin yolu yok:
+gereken indirim %100,0, yani malı bedavaya vermek.
+
+Şimdi iki sütunu yan yana okuyun. Temizleme indirimi esneklik düştükçe
+derinleşiyor: %62,8'den %76,5'e, oradan %100,0'a. Modelin seçtiği en derin
+basamak ise ters yönde gidiyor: %70, %50, %0.
+
+— Az sattırdığını sandığı indirimde daha derine inmesi gerekmez mi? diyor
+Pelin.
+
+— Eritmek için gerekir, diyor Pars. Ama model malı eritmeye değil, ciroya
+bakıyor. İndirimin az sattırdığına inanırsa derin indirim ona kötü bir
+alışveriş gibi görünüyor: fiyattan çok veriyor, karşılığında az adet
+alıyor. Malın bir kısmını outlet'e bırakmayı daha kârlı buluyor.
+
+Saf regresyonda bu uca varıyor. 0,159 1'in altında: modelin gözünde her
+indirim ciroyu düşürüyor. Model hiç indirmiyor ve 5.802 adedin çıkışta
+kalmasına razı oluyor. Markdown esnekliğiyle model %50'de duruyor ve 4.463
+adet kalmasını bekliyor. Kampanya esnekliğiyle dört hafta %50, sonra %70;
+beklenen kalan 547.
+
+Bir şeye daha dikkat. Karar günü, kampanya esnekliğiyle kurulan takvim de
+markdown esnekliğiyle kurulan takvim de bu tuluma aynı kararı veriyor:
+%50. Kapsama kuralı aynı gün %20 diyor. Yanlış esneklik ilk hafta
+görünmüyor; sonra görünüyor. Sezon boyunca yanlış esneklikli takvim tulumu
+%50'de bırakıyor; kampanya esneklikli takvim indirimden iki hafta sonra
+%70'e iniyor. Ölü
+stok birincisinde 1.904, ikincisinde 1.484 adet.
+
+## Bütün sezonda yanlış esneklik
+
+Aynı takvimi iki kez koşturduk: bir kampanyadan, bir markdown'dan
+öğrenilen esneklikle. Başka hiçbir şey değişmedi; aynı mal, aynı müşteri
+akışı. Lumoda'ya göre ikisi de iyi, ama aralarındaki fark büyük:
+
+| | Yaz | Kış | İki sezon |
+|---|---:|---:|---:|
+| Markdown esnekliği − kampanya esnekliği, sezon katkısı | −9,32 M TL | −5,94 M TL | −15,26 M TL |
+| Markdown esnekliğiyle, Lumoda'ya göre | +1,31 M TL | +7,05 M TL | +8,37 M TL |
+
+Yanlış esneklik iki sezonda 15,26 M TL kaybettiriyor. Neyle
+kaybettirdiğine bakalım:
+
+| | Yaz | | Kış | |
+|---|---:|---:|---:|---:|
+| Esneklik kaynağı | Kampanya | Markdown | Kampanya | Markdown |
+| İndirilen option (210'dan) | 208 | 127 | 205 | 204 |
+| Ortalama en derin oran | %59,33 | %38,43 | %61,95 | %36,67 |
+
+Yaz sezonunda yanlış esneklikli takvim 210 option'ın yalnız 127'sini
+indiriyor; 83'üne hiç dokunmuyor. Kışın neredeyse bütün ürünleri
+indiriyor, ama sığ. İki sezonda markdown TL 173,22 M TL daha az. Ölü stok
+iki sezonda 145.028 yerine 284.001 adet.
+
+İkisi de aynı erken haftalarda başlıyor: iki sezon birlikte, ilk indirim
+haftasının medyanı iki takvimde de indirimden dört hafta önce. Yanlış esneklik zamanlamayı pek
+bozmuyor. Derinliği ve kapsamı bozuyor: daha az ürünü, daha sığ indiriyor.
+
+## Beklediğimiz bu değildi
+
+Sezgimiz başka bir şey söylüyordu ve biz de öyle bekliyorduk: indirimin
+az sattırdığını sanan model, malı eritmek için gereğinden derin indirir.
+Temizleme indirimi sütunu bu sezgiyi destekliyor da. Ama ölçülen tersi.
+Yanlış esneklik takvimi gereğinden derine değil, indirimden uzağa itiyor.
+
+— Yani markdown TL'si düşük bir takvim, diyor Pelin, esnekliği yanlış
+ölçmüş bir takvim de olabilir.
+
+— Olabilir, diyor Pars. Finansa iyi görünür. Depoya kötü.
+
+Bu tuzağın bir benzerini [Satış Kaybı](/is-zekasi/satis-kaybi/uc-yontem-bir-hakem/)
+dizisinde görmüştük. Orada da esneklik markdown'dan ve kampanyadan iki
+ayrı sayı veriyordu; markdown'dan öğrenen model indirimin gücünü küçük
+görüyor ve indirimli stoksuz günlerin kaybını eksik yazıyordu. Burada aynı küçük görme,
+bir indirim takvimini indirimden kaçındırıyor.
+
+## Sizin verinizde zor olan
+
+**Temiz kampanya azlığı.** Lumoda'nın kampanyaları ürünün performansına
+bakmadan, bir grup mağazada konuyor ve dokunmadığı mağazalar karşılaştırma
+grubu oluyor. Çoğu zincirde kampanya satmayan ürüne, satmadığı haftada,
+çoğu zaman bütün zincirde birden konur. O zaman ne karşılaştırma grubu
+kalır ne de dışarıdan gelen bir indirim; kampanya da markdown kadar kirli
+bir ölçüm verir.
+
+**Kampanya ile markdown'ın iç içe geçmesi.** Hesap kampanyalı günleri
+markdown'sız satırlardan, markdown adımlarını kampanyasız günlerden
+ölçüyor. Sizin verinizde aynı ürün aynı hafta ikisinde birden olabilir ve
+satış satırı hangisinin fiyatı belirlediğini her zaman söylemez.
+
+**Kısa indirim ile kalıcı indirim aynı şey değil.** Bu dünyada kampanyanın
+ve markdown'ın gerçek esnekliği aynı. Gerçek müşteri birkaç günlük
+kampanyayı kaçırmamak için acele eder; kalıcı indirimde acelesi yoktur.
+Müşteri indirim takvimini de bilir ve bekler; bir kez %50'de gördüğü
+ürünü tam fiyatta pahalı bulur. Bu dünyada bunların hiçbiri yok. Sizin
+verinizde kampanyadan ölçülen esneklik, markdown'ın gerçek etkisini
+büyük gösterebilir.
+
+**Kategori başına yeterli gözlem.** Esneklik üst kategori başına
+ölçülüyor. Az kampanya görmüş bir kategoride sayı gürültülü kalır; yanlış
+bir kategori sayısı da o kategorinin bütün ürünlerini aynı yöne iter.
+
+**Ölçecek hakemin olmaması.** Bu yazıda dört sayıdan hangisinin doğru
+olduğunu söyleyebildik, çünkü verinin kurgusunda gerçek esnekliği
+biliyorduk. Gerçek hayatta bu sütun yok. Hangi ölçümün yanıldığını ancak
+yöntemi bilerek, yani ölçümün neyi karıştırdığını düşünerek
+anlayabilirsiniz.
+
+Esneklik elimizde; talebin sezon boyunca nasıl eriyeceği ve stoğun ne
+kadar olduğu da. Sonraki yazıda bunları birleştirip her ürün için hafta
+hafta bir indirim takvimi kuruyoruz.
