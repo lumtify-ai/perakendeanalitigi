@@ -3,11 +3,10 @@ baslik: Başarı Nasıl Ölçülür
 tip: sonuc
 sira: 6
 ozet: >-
-  Bir indirim takviminin iyi olduğunu neyle anlarız? Hakem, altı ölçüt ve
-  beş müşteri akışı. Doğru takvim markdown TL'yi artırıp brüt kârı
-  düşürüyor; ölçüt sezon katkısı. Kural ve optimizasyon beş akışta da
-  Lumoda'nın önünde, birbirleriyle başa baş. Bir de katkının saymadığı yan
-  etki.
+  Bir indirim takviminin iyi olduğunu neyle anlarız? Aynı müşteri, aynı mal
+  ve tek bir ölçüt: sezon katkısı. Doğru takvim markdown TL'yi artırıp brüt
+  kârı düşürüyor. Kural ve optimizasyon her müşteri akışında Lumoda'nın
+  önünde, birbirleriyle başa baş.
 yazar: Sabri Suyunu
 durum: yayinda
 ---
@@ -15,69 +14,43 @@ durum: yayinda
 import Lumtify from '../../../../components/Lumtify.astro'
 import T from '../../../../components/T.astro'
 
-Beş yazı boyunca iki lacivert tulumun peşinden gittik. Lumoda'nın kuralının
-pratikte herkese %30 verdiğini gördük, stoğa bakan bir kapsama kuralı
-kurduk, indirimin ne kadar sattırdığını ölçtük ve her ürün için hafta hafta
-bir takvim kurduk. Şimdi hesabı topluyoruz.
+Beş yazı boyunca iki lacivert tulumun peşinden gittik. Lumoda'nın kuralına
+baktık, stoğa bakan bir kural kurduk, indirimin ne kadar sattırdığını ölçtük
+ve her ürün için bir takvim kurduk. Şimdi hesabı topluyoruz.
 
-Bir indirim takviminin iyi olup olmadığını söylemek için üç şey gerekiyor:
-takvimleri yan yana koşturacak bir hakem, neyin iyi olduğunu söyleyecek bir
-ölçüt ve sonucun tek bir müşteri akışının şansı olmadığını gösterecek bir
-tekrar. Bu yazıda üçüne de bakıyoruz. Sonra ölçütün görmediğine ve bu
-dünyada hiç olmayana geçiyoruz.
+Bu yazıda iki takvimden hangisinin daha iyi olduğunu nasıl bildiğimizi
+soruyoruz, çünkü en çok bakılan sayılar bu soruya yanlış cevap veriyor. İlk
+yazıda Pelin'in önüne gelen markdown TL de bunlardan biri.
 
 ## Hakem
 
-Lumoda sentetik bir zincir ve verisini ben ürettim. Bu dizinin bütün
-sonuçları bunun üstünde duruyor: aynı sezonu her takvimle yeniden
-oynatabiliyoruz. Müşteri akışı her kolda aynı; değişen yalnız fiyat ve
-fiyatın müşteriye yaptırdığı. Mal da aynı. İlk dağıtım ve tedarikçiye
-verilen tekrar siparişler, yani <T k="rpt">RPT</T>, bütün kollarda
-Lumoda'nın takvimiyle yeniden oynatılıyor. Bunu 86 koşunun her birinde
-denetledik: RPT de ilk dağıtım da Lumoda'nınkiyle birebir aynı. Arz her
-kolda aynı olduğu için iki takvim arasındaki katkı farkı, ciro farkının
-kendisi.
+İki takvimi karşılaştırmak için aynı sezonu iki kez yaşamak gerekir. Gerçek
+hayatta sezon bir kez yaşanır. Lumoda'da ise istediğimiz kadar yaşanıyor,
+çünkü Lumoda sentetik bir zincir ve verisini ben ürettim.
+
+Yarış şöyle kurulu. Her takvim aynı sezonu baştan oynuyor. Mağazaya gelen
+müşteriler aynı. Mal da aynı: ilk dağıtım da, tedarikçiye verilen tekrar
+siparişler (<T k="rpt">RPT</T>) de bütün takvimlerde Lumoda'nınki.
+Değişen yalnız fiyat ve fiyatın müşteriye yaptırdığı. Mal aynı olduğu için
+iki takvim arasındaki fark, aynı maldan alınan paranın farkı.
 
 Gerçek talep ve gerçek esneklik verinin kurgusunda. Takvimleri kuran
-yöntemler, birazdan anlatacağım kahin dışında, onları görmüyor; yayımlanan
-satıştan öğreniyor. Hakem görüyor. Gerçek hayatta böyle bir hakem yok.
+yöntemler onları görmüyor; yayımlanan satıştan öğreniyor. Hakem görüyor.
 
 Yarışta bir kol daha var: kahin. Optimizasyonun, gerçek talebi ve gerçek
-esnekliği bilen kopyası. Kahin bir eniyi değil. "Gerçek talebi ve
-esnekliği bilseydik ne kazanırdık?" sorusunun yaklaşık cevabı, bir üst
-sınırın yaklaşığı. Geçen yazıda gördük: bu dünyada talebi bilmek az
-kazandırıyor.
+esnekliği bilen kopyası. Kahin en iyi takvim değil. "Talebi ve esnekliği
+bilseydik ne kazanırdık?" sorusunun kaba bir cevabı; bir üst sınırın
+yaklaşığı.
 
-Bir de tekrar. Bütün bunları tek bir müşteri akışında ölçmek, sonucu o
-akışın şansına bırakmak olurdu. Aynı dünyada dört müşteri akışı daha
-koşturduk; yayımlanan dünyayla birlikte beş yol. Her yolda takvimler
-esnekliği ve talebi o yolun Lumoda koşusundan yeniden öğreniyor, kahin o
-yolun gerçeğini alıyor. Kampanyadan ölçülen yaz esnekliği yollar arasında
-1,731 ile 1,768 arasında oynuyor.
+Son olarak tekrar. Tek bir sezonun sonucu o müşteri akışının şansı olabilir.
+Aynı dünyada dört müşteri akışı daha koşturduk; yayımlanan dünyayla
+birlikte beş yol. Her yolda yöntemler esnekliği ve talebi o yolun
+satışından yeniden öğreniyor.
 
-## Altı ölçüt
+## Tek ölçüt
 
 Pelin'in sezon kapanış raporu iki satırla başlıyordu: markdown TL ve ölü
-stok. Bu dizide altı ölçüt kullandık. İki sezonun toplamıyla, dört kolda:
-
-| İki sezon | Lumoda | Kapsama kuralı | Optimizasyon, serbest | Optimizasyon, yanlış esneklik |
-|---|---:|---:|---:|---:|
-| Sezon katkısı | 867,53 | 892,44 | 891,16 | 875,90 |
-| Brüt kâr | 1.021,27 | 985,61 | 977,25 | 1.014,20 |
-| Markdown TL | 86,97 | 278,92 | 313,03 | 139,81 |
-| Ölü stok alış değeri | 136,19 | 75,53 | 68,45 | 120,72 |
-| Tam fiyat STR | %58,64 | %56,60 | %54,37 | %56,46 |
-| Sezon sonu STR | %86,56 | %96,47 | %97,68 | %89,96 |
-
-M TL; STR'ler arzın yüzdesi.
-
-Altısından yalnız biri ölçüt. Öbür beşi birer belirti: neyin değiştiğini
-söylüyorlar, ama tek başına okunurlarsa yanıltıyorlar. Beşinci yazıdaki
-[kadranda](/indirim/indirim-takvimi/takvimi-kurmak/) katkı farkını, ölü
-stoğu, markdown TL'yi ve iki STR'yi kollar ve sezonlar arasında
-çevirebilirsiniz.
-
-### Sezon katkısı
+stok. Finans bir de brüt kâra bakıyor. Bu dizi ise tek bir sayıya bakıyor.
 
 — Sezon katkısı neydi? diyor Ali.
 
@@ -85,313 +58,172 @@ stoğu, markdown TL'yi ve iki STR'yi kollar ve sezonlar arasında
 bütününün alış maliyeti, diyor Pars. Satılan da satılmayan da maliyetin
 içinde.
 
-Kapsama kuralı Lumoda'yı iki sezonda 24,91 M TL, serbest optimizasyon
-23,63 M TL geçiyor. Yanlış esneklikli optimizasyon 8,37 M TL. Katkı iki
-tarafı birden sayan tek ölçüt: maldan çıkan parayı ve mala ödenen parayı.
-Zayıf yanı da bu. Tek bir sayı, neden iyi olduğunu söylemiyor.
+Üç takvim, iki sezonun toplamı. Optimizasyon dediğimiz, geçen yazının
+serbest optimizasyonu:
 
-### Brüt kâr
+| İki sezon | Lumoda | Kapsama kuralı | Optimizasyon |
+|---|---:|---:|---:|
+| Sezon katkısı | 867,53 | 892,44 | 891,16 |
+| Markdown TL | 86,97 | 278,92 | 313,03 |
+| Brüt kâr | 1.021,27 | 985,61 | 977,25 |
+| Ölü stok alış değeri | 136,19 | 75,53 | 68,45 |
+| Tam fiyat STR | %58,64 | %56,60 | %54,37 |
 
-— Finansın raporunda optimizasyon kaybettirmiş, diyor Pelin. Brüt kâr
-Lumoda'ya göre 44,02 M TL düşük.
+M TL; tam fiyat STR arzın yüzdesi.
 
-— Brüt kâr satılan malın maliyetini düşer, diyor Pars. Optimizasyon daha
-çok mal sattığı için daha çok maliyet düşülüyor. Satılmayan malın maliyeti
-ise brüt kârda hiç görünmüyor; o maliyet depoda, ölü stok olarak duruyor.
+İlk satırda kural ile optimizasyon Lumoda'nın önünde ve birbirine çok
+yakın. Öbür dört satır ise ayrı ayrı okununca yanıltıyor.
 
-Optimizasyonun cirosu iki sezonda 23,63 M TL artarken brüt kârı 44,02 M
-TL düşüyor. Lumoda'yla birlikte dokuz kolu (kuralın üçüncü yazıdaki iki
-eksik kopyası dışında) brüt kâra göre sıralayınca sıra katkının neredeyse
-tersi çıkıyor. Brüt kârda ilk üç Lumoda, yanlış esneklikli optimizasyon ve
-herkese %40; katkıda bu üçü son üç. Brüt kârı
-hedef yapan bir zincir, bu dizinin en kötü üç takviminden birini seçer.
+**Markdown TL.** <T k="markdown">Markdown</T> TL, sezon içinde indirimle
+satılan malın liste fiyatından eksik kalan tutar. Optimizasyon onu üç buçuk
+katından fazlasına çıkarıyor.
 
-### Markdown TL
-
-<T k="markdown">Markdown</T> TL, sezon içinde indirimle satılan malın liste
-fiyatından eksik kalan tutar; iadeler düşülmeden. Lumoda'da iki sezonda
-86,97 M TL, serbest optimizasyonda 313,03 M TL: üç buçuk katından fazla.
-Kapsama kuralında 278,92 M TL.
-
-— Benden istenen markdown'ı kısmaktı, diyor Pelin. Doğru takvim onu üç
-buçuk katından fazlasına çıkarıyor.
+— Benden istenen markdown'ı kısmaktı, diyor Pelin. Doğru takvim onu
+büyütüyor.
 
 — Markdown TL bir bütçe değil, diyor Pars. İndirimle satılan malın bedeli.
 Kısarsan indirimle satılacak mal depoda kalır.
 
-Yanlış esneklikli takvim bunun örneği. Markdown TL'si optimizasyonunkinin
-yarısından az; ölü stoğu ise 145.028 yerine 284.001 adet. Finansa iyi,
-depoya kötü görünen takvim bu.
+Dördüncü yazıdaki yanlış esneklikli takvim tam bunu yapıyor: daha az
+indiriyor, markdown TL'si düşük kalıyor, depoda çok daha fazla mal
+bırakıyor. Finansa iyi, depoya kötü görünen takvim o.
 
-Markdown TL'nin outlet'te bir karşılığı var: outlet indirimi. Çıkışta kalan mal outlet'te
-de indirimle satılıyor. Optimizasyon sezonda daha çok indirdiği için
-outlet'e daha az mal bırakıyor; outlet indirimi iki sezonda 35,94 M TL
-düşüyor. Markdown TL'ye tek başına bakan bunu görmez.
+**Brüt kâr.** Finansın raporunda iki iyi takvim de kaybettirmiş görünüyor.
+Brüt kâr satılan malın maliyetini düşer. İyi takvim daha çok sattığı için
+daha çok maliyet düşülüyor. Satılmayan malın maliyeti ise brüt kârda hiç
+görünmüyor; o depoda, ölü stok olarak duruyor. Takvimleri brüt kâra göre
+sıralayınca sıra katkının neredeyse tersi çıkıyor. Brüt kârı hedef yapan
+bir zincir, bu dizinin en kötü üç takviminden birini seçer.
 
-### Ölü stok alış değeri
+**Ölü stok.** <T k="olu-stok">Ölü stok</T> katkıya en yakın belirti, çünkü
+satılmayan malı görüyor. Ama malın hangi fiyata eridiğini görmüyor. Kapsama
+kuralı optimizasyondan daha çok ölü stok bırakıyor, katkıda yine biraz
+önde. Malı eritmek tek başına amaç değil; ucuza eritilen mal katkıdan yer.
 
-<T k="olu-stok">Ölü stok</T> Pelin'in raporunun ikinci satırıydı: outlet
-penceresinden sonra depoda kalan, bir daha satılmayacak mal. Alış değeri
-Lumoda'da iki sezonda 136,19 M TL, optimizasyonda 68,45 M TL; yarıya
-iniyor.
-
-Bu ölçüt katkıya en yakın olanı, çünkü satılmayan malın maliyetini görüyor.
-Ama malın hangi fiyata eridiğini görmüyor. Kapsama kuralı optimizasyondan
-daha çok ölü stok bırakıyor, 75,53 M TL; katkıda yine önde. Ölü stoğu alış
-değeriyle en az bırakan kol, sekiz hafta erken başlayan tabanlı
-optimizasyon, 67,06 M TL; katkıda kuralın da serbest optimizasyonun da
-gerisinde. Malı eritmek tek başına amaç değil; ucuza eritilen mal katkıdan
-yer.
-
-### Tam fiyat STR
+**Tam fiyat STR.**
 
 — Tam fiyat STR neyi sayıyordu? diyor Veli.
 
-— Arzın, ilk indirimden önce kampanyasız tam fiyatla satılan payını, diyor
-Pars. Erken indiren onu düşürür.
+— Arzın, ilk indirimden önce tam fiyatla satılan payını, diyor Pars. Erken
+indiren onu düşürür.
 
-<T k="str">Tam fiyat STR</T> Lumoda'da %58,64, optimizasyonda %54,37: 4,27
-puan düşük. Kapsama kuralında %56,60. İyi takvimlerin ikisi de onu
-düşürüyor, çünkü satmayan ürünü erken indiriyor. Bu dizide tam fiyat STR'si
-en yüksek kol, indirim gününde başlayan tabansız optimizasyon: %60,50.
-Ondan serbest optimizasyona geçmek katkıya 8,21 M TL ekliyor. Tam fiyat
-STR'yi hedef yapan, indirimi geciktirir.
+İyi takvimlerin ikisi de <T k="str">tam fiyat STR</T>'yi düşürüyor, çünkü
+satmayan ürünü erken indiriyorlar. Onu hedef yapan indirimi geciktirir; oysa
+kazancın büyüğü erken başlamaktan geliyor.
 
-### Sezon sonu STR
+— Yani beş satırın hepsine birden bakacağız, diyor Pelin.
 
-Sezon sonu STR, arzın çıkışa kadar satılan payı. Lumoda'da %86,56,
-optimizasyonda %97,68. Bu ölçüt tersinden yanıltır: malı hangi fiyata
-olursa olsun satmayı ödüllendirir. Kahin %98,03 ile en yüksekte, ama
-katkıda kuralın gerisinde. Kapsama kuralı %96,47 ile optimizasyonun
-altında, katkıda önünde.
-
-— Yani altı satırın hepsine birden bakacağız, diyor Pelin.
-
-— Birine bakacaksın, diyor Pars. Öbür beşi o sayının nereden geldiğini
+— Birine bakacaksın, diyor Pars. Öbürleri o sayının nereden geldiğini
 söyler.
 
-## Beş müşteri akışı
+Beşinci yazıdaki [kadranda](/indirim/indirim-takvimi/takvimi-kurmak/) bu
+belirtileri takvimler ve sezonlar arasında kendiniz çevirebilirsiniz.
 
-Buraya kadarki sayıların hepsi yayımlanan dünyanın, yani tek bir müşteri
-akışının. Geçen yazıyı bir uyarıyla bitirmiştik: başka akışlarda ne
-oluyor? Beş yolun sonucu, Lumoda'ya göre katkı farkı, iki sezon:
+## Beş yol
 
-| Kol | En düşük | Medyan | En yüksek | Lumoda'nın önünde |
-|---|---:|---:|---:|---:|
-| Kapsama kuralı | +24,28 | +24,74 | +24,91 | 5/5 |
-| Optimizasyon, serbest | +21,43 | +24,00 | +27,10 | 5/5 |
-| Kahin | +23,33 | +25,35 | +26,29 | 5/5 |
-| Optimizasyon, takvime bağlı | +8,44 | +10,21 | +10,36 | 5/5 |
-| Optimizasyon, yanlış esneklik | +8,37 | +9,34 | +11,92 | 5/5 |
-| Herkese %40 | −0,94 | −0,57 | −0,39 | 0/5 |
+Tablo tek bir müşteri akışının. Beş yolda da sonuç aynı yöne bakıyor.
 
-M TL.
+Kapsama kuralı da optimizasyon da beş yolun beşinde Lumoda'nın önünde.
+Aralarındaki fark ise yoldan yola işaret değiştiriyor: iki yolda
+optimizasyon önde, üçünde kural. Optimizasyonun kurala göre medyan farkı
+−0,28 M TL. Yayımlanan dünyada gördüğümüz başa baş, beş yolda da başa baş.
 
-Kapsama kuralı ve serbest optimizasyon beş yolun beşinde Lumoda'nın önünde.
-Herkese aynı indirim hiçbirinde önde değil; Lumoda'nın kuralı düz bir
-orandan her yolda az farkla iyi. Kapsama kuralı herkese %40'ı beş yolun
-beşinde geçiyor, medyan 25,31 M TL farkla.
+Kaybedenler de her yolda aynı. Esnekliği markdown'dan ölçen optimizasyon
+beş yolun beşinde, esnekliği kampanyadan ölçenin gerisinde; medyan fark
+15,18 M TL. Lumoda'nın takvimine bağlı kalan optimizasyon da beşinde
+serbest olanın gerisinde; medyan 14,61 M TL. Herkese aynı %40'ı veren düz
+kural ise hiçbir yolda Lumoda'nın önüne geçemiyor.
 
-Kural ile optimizasyon arasındaki fark ise yoldan yola işaret değiştiriyor.
-Optimizasyon eksi kapsama kuralı beş yolda −1,28, −0,28, +1,45, −3,30 ve
-+2,32 M TL: ikisinde optimizasyon önde, üçünde kural. Medyan −0,28.
-Yayımlanan dünyada gördüğümüz başa baş, beş yolda da başa baş.
+Kahin beş yolun yalnız üçünde optimizasyonun önünde. Gerçek talebi bilmek
+bu dünyada az kazandırıyor; geçen yazıda gördüğümüz gibi tahminin hatası
+talepte değil, talep ile satış arasındaki stok modelinde.
 
-Bir fark daha var. Kuralın sonucu yoldan yola az oynuyor: 24,28 ile 24,91
-arasında. Optimizasyonunki çok daha geniş bir aralıkta: 21,43 ile 27,10
-arasında. Bunun nedenini ayrıca ölçmedik. Optimizasyon her yolda talebi ve
-esnekliği yeniden tahmin ediyor, kural yalnız hıza ve stoğa bakıyor;
-tahmine dayanan bir yöntemin sonucunun tahminle birlikte oynaması bir aday
-açıklama, ama sınamadık.
-
-Öbür bulgular beş yolda da tutuyor. Yanlış esneklik beş yolun beşinde
-serbest optimizasyonun gerisinde; medyan fark 15,18 M TL. Takvime bağlı
-kalmanın bedeli de beşinde var; medyan 14,61 M TL.
-
-Kahin ise beş yolun yalnız üçünde optimizasyonun önünde; medyan fark 0,81
-M TL. İki yolda gerçek talebi bilen kopya, talebi tahmin edenin gerisinde
-kalıyor. Beşinci yazıda gördüğümüz gibi talebi bilmek yetmiyor; tahminin
-hatası talepte değil, talep ile satış arasındaki stok modelinde.
-
-— Yani beş dünyada da optimizasyon kuralı geçmiyor, diyor Pelin.
+— Yani optimizasyon kuralı geçmiyor, diyor Pelin.
 
 — Geçmiyor, geride de kalmıyor, diyor Pars. İkisi de aynı şeyi doğru
 yapıyor: satmayanı erken indirmek. Kazancın büyüğü orada.
 
-## Sezon katkısının görmediği
+## Katkının saymadığı
 
-Sezon katkısı yalnız test ürünlerini sayıyor: her sezonun 210 Collection
-option'ını. İndirim ise onlarla kalmıyor.
-
-— İndirimli tulum erken biterse, diyor Ali, onu arayan müşteri ne yapıyor?
-
-— Bir kısmı yanındakini alıyor, diyor Pars. Aynı alt kategoride, aynı fiyat
-bandında bir ürünü.
-
-Bu kaymanın adı <T k="ikame">ikame</T>. Lumoda'da indirimli ürün komşusunun
-satışını doğrudan çalmıyor, ama dolaylı bir yol var: indirimli ürün erken
-bitiyor, onu arayan talebin bir kısmı komşulara geçiyor. Test ürünlerinden
-komşulara geçen talep optimizasyonda Lumoda'dakinden 153.053 adet fazla.
-Ters yönde de çalışıyor: test ürünleri komşularının talebinden 37.303 adet
-fazla satış alıyor.
-
-Test dışı ürünler, aynı koşu penceresinde satılan öbür bütün option'lar:
-öteki sezonların ürünleri, Outlet line, Basic ve NOS. Cirolarının
-Lumoda'ya göre farkı, iki sezon:
-
-| Kol | Test dışı ciro | Basic | NOS |
-|---|---:|---:|---:|
-| Kapsama kuralı | +26,69 | +16,93 | +7,91 |
-| Optimizasyon, serbest | +41,54 | +28,42 | +11,31 |
-| Kahin | +33,20 | +20,64 | +10,46 |
-| Optimizasyon, yanlış esneklik | +3,79 | +2,50 | +0,71 |
-
-M TL.
-
-Optimizasyonda test dışı ciro iki sezonda 41,54 M TL artıyor; çoğu
-Basic'ten, 28,42 M TL. Bu, ana kazançtan, 23,63 M TL'den büyük. Kapsama
-kuralında da 26,69 M TL artıyor. Az indiren yanlış esneklikli takvimde
-artış yalnız 3,79 M TL. Ölçek için: yaz koşusunun penceresinde Lumoda'nın
-test dışı cirosu 4.625,86 M TL, optimizasyonun yaz farkı 16,12 M TL. O
-cironun yanında küçük, ama aynı yazın ana kazancından, 10,63 M TL'den
-büyük.
-
-Bu farkı sezon katkısına eklemedik. Basic ve NOS sezonla bitmeyen ürünler;
-koşu penceresinde fazladan satılan bir adet, belki pencereden sonra zaten
-satılacaktı. Bunu ayrıca ölçmedik. Hiçbir yöntem de karar verirken bu
-etkiye bakmıyor. Bu açıdan bulunan kazanç temkinli: sezon katkısı indirimin
-zincire getirdiğinin bir kısmını saymıyor.
-
-Öbür açıdan raf boşalıyor. Bulunabilirlik, test ürünlerinde bir mağazada
-bir bedene talep olan günlerin yüzde kaçında o bedenden satış olduğu.
-Lumoda'da iki sezonda %49,57, optimizasyonda %44,51: 5,06 puan düşük.
-Kapsama kuralında 2,55 puan düşük. Daha çok indirim bedenleri daha erken
-bitiriyor.
-Katkı bunu saymıyor; gerçek bir zincirde boş raf müşterinin bir sonraki
-gelişini de etkileyebilir, bu dünyada öyle bir etki yok.
-
-— Yani daha çok satıyoruz, diyor Veli, ama raf daha boş.
-
-— İkisi aynı şeyin iki yüzü, diyor Pars. Mal erken bitiyor. Erken biten mal
-katkıyı artırıyor, rafı boşaltıyor; boş rafın talebinin bir kısmı da komşu
-ürüne gidiyor.
+Sezon katkısı yalnız test ürünlerini, her sezonun 210 option'ını sayıyor.
+İndirim ise onlarla kalmıyor. İndirimli ürün erken bitince onu arayan
+müşterinin bir kısmı yanındaki ürünü alıyor; buna <T k="ikame">ikame</T>
+diyoruz. Lumoda'da indirimli ürün komşusunun satışını doğrudan çalmıyor;
+etki bu dolaylı yoldan geliyor ve küçük değil. Test dışı ürünlerin cirosu
+optimizasyonda iki sezonda 41,54 M TL artıyor, ana kazançtan büyük. Bu
+farkı katkıya eklemedik: o ürünlerin bir kısmı sezonla bitmiyor, fazladan
+satılan adet belki sonra zaten satılacaktı. Öbür yüzü de var. Bir mağazada
+bir bedene talep olan günlerin Lumoda'da %49,57'sinde o beden rafta,
+optimizasyonda %44,51'inde. Mal erken bitiyor; katkı artıyor, raf
+boşalıyor.
 
 ## Bu ölçümler nerede yetersiz?
 
-Dürüstlük listesi, hepsi bir arada.
-
-**Hakem gerçek değil.** Gerçek talebi ve gerçek esnekliği ben verdim.
-Bütün karşılaştırmalar aynı sezonu her takvimle yeniden oynatabildiğimiz
-için var. Gerçek hayatta böyle bir hakem yok; sizin zincirinizde elinizde
-yalnız yaşanmış sezon olacak.
-
-**Müşteri indirimi beklemiyor.** Bu dünyanın müşterisi indirim takvimini
-bilmiyor, ürünün eski fiyatını da hatırlamıyor; referans fiyat yok. Erken
-ve derin indirim gerçek bir zincirde müşteriye beklemeyi öğretebilir; bir
-kez %50'de görülen ürün tam fiyatta pahalı görünür. Bulunan kazancın ne
-kadarının böyle bir zincirde kalacağını bu dizi söylemiyor.
-
-**Doğrudan çapraz fiyat etkisi yok, dolaylı etki büyük.** İndirimli ürün
-yanındaki tam fiyatlı ürünün satışını doğrudan almıyor. Dolaylı etki ise
-var ve küçük değil: test dışı ciro optimizasyonda 41,54 M TL artıyor, ana
-kazançtan büyük; yolu ikame. Sezon katkısı onu saymıyor.
-
-**RPT sabit.** Tekrar siparişler bütün kollarda Lumoda'nın takvimi. Aynı
-malla yarışmak için bunu bilerek yaptık. Bedeli, indirimin RPT'ye etkisini
-ölçmemek. Gerçek bir zincirde erken indirim satışı hızlandırır, hızlanan
-satış tekrar siparişi tetikleyebilir ve indirimdeki ürüne yeni mal gelir.
-
-**Fiyat zincir genelinde.** İndirim oranı zincirin oranı; İzmir 4'e ayrı
-fiyat yok. Malın mağazalar arasındaki dengesizliğini veri olarak kabul
-ettik. Mağaza başına fiyat da, indirimle birlikte transfer de bu dizinin
-dışında.
-
-**Stok modeli iyimser.** Optimizasyonun akış modeli, depodaki malı
-<T k="replenishment">replenishment</T>'ın talebin olduğu yere götüreceğini
-varsayıyor. Tahmin yazan bütün kollar satacağından fazlasını bekliyor:
-optimizasyonun tahmini yazın %14,60, kışın %22,67 fazla. Modelin bu yanını
-düzeltmeyi denemedik.
-
-**Kahin bir eniyi değil.** Kahin aynı iyimser stok modeline inanıyor. Beş
-yolun ikisinde optimizasyonun gerisinde; yayımlanan dünyada, iki sezonun
-toplamında kapsama kuralının da biraz gerisinde. Lumoda ile kahin
-arasındaki farkı "bu dünyada kazanılabilecek her şey" diye okumayın;
-gerçek eniyi daha yukarıda olabilir.
-
-**Yollar yalnız müşteri akışını değiştiriyor.** Beş yol aynı dünya: aynı
-ürünler, aynı alım, aynı gerçek esneklik, aynı mağazalar. Başka bir
-zincirde sonucun tutup tutmadığını bu dizi söylemiyor. Bu dünyada mal çok;
-Lumoda'nın takvimiyle yaz sezonunda çıkıştan bir hafta önce 303.342 adet
-elde kalıyordu. Malın az olduğu bir zincirde asıl soru zamanlamadan
-derinliğe kayabilir.
-
-**Parçalara ayırma tek akışta.** Kazancın erken başlamaktan, depoyu
-görmekten, iyi satanı muaf tutmaktan ne kadar geldiğini yalnız yayımlanan
-dünyada ölçtük. Beş yolda yalnız yukarıdaki tablonun kollarını ve
-Lumoda'yı koşturduk.
-
-**Ayar geçmişte, sınav iki sezonda.** Kapsama kuralının ayarını geçmiş iki
-sezonda seçtik, sonuçları iki test sezonunda ölçtük. Ayar test sezonlarına
-bakılarak seçilmedi; ama iki sezon az.
+- **Hakem gerçek değil.** Gerçek talebi ve gerçek esnekliği ben verdim.
+  Sizin zincirinizde elinizde yalnız yaşanmış sezon olacak.
+- **Müşteri indirimi beklemiyor.** Bu dünyanın müşterisi takvimi bilmiyor,
+  eski fiyatı da hatırlamıyor. Gerçek bir zincirde erken ve derin indirim
+  müşteriye beklemeyi öğretebilir.
+- **RPT sabit.** Tekrar siparişler bütün takvimlerde Lumoda'nınki. Aynı
+  malla yarışmak için bunu bilerek yaptık; bedeli, indirimin RPT'ye etkisini
+  ölçmemek.
+- **Fiyat zincir genelinde.** İzmir 4'e ayrı fiyat yok. Mağaza başına fiyat
+  da, indirimle birlikte transfer de bu dizinin dışında.
+- **Stok modeli iyimser.** Optimizasyon depodaki malın
+  <T k="replenishment">replenishment</T> ile talebin olduğu yere gideceğini
+  varsayıyor. Kahin de aynı modele inanıyor; Lumoda ile kahin arasındaki
+  farkı "kazanılabilecek her şey" diye okumayın.
+- **Tek dünya, iki sezon.** Beş yol yalnız müşteri akışını değiştiriyor;
+  ürünler, alım ve mağazalar aynı. Bu dünyada mal çok; malın az olduğu bir
+  zincirde asıl soru zamanlamadan derinliğe kayabilir. Sınav da yalnız
+  iki sezonda.
 
 ## Sizin verinizde zor olan
 
-**Esnekliği ölçecek temiz kampanya azlığı.** Optimizasyonun bütün derinlik
-kararı esnekliğe dayanıyor ve dördüncü yazıda gördük: markdown'dan ölçülen
-esneklik takvimi indirimden kaçırıyor. Beş yolun beşinde bu yanlış 15,18 M
-TL'lik bir medyan farka mal oluyor. Esnekliği ölçecek, ürünün
-performansından bağımsız konmuş indirim çoğu zincirde azdır.
+En zoru hakemin olmaması. Gerçek bir zincirde bir takvimi denemenin yolu,
+onu ürünlerin ya da mağazaların bir kısmında denemektir. Ama fiyat zincir
+genelinde ve ürünler ikameyle birbirine bağlı; deneme grubunun indirimi
+karşılaştırma grubunun satışını da oynatır. Ölçütü de doğru seçmek gerekir:
+markdown TL'ye ya da brüt kâra bakan bir deneme, yanlış takvimi kazanan ilan
+eder.
 
-**Kampanya ile markdown'ın iç içe geçmesi.** Aynı ürün aynı hafta hem
-kampanyada hem markdown'da olabilir. Satış satırı fiyatı hangisinin
-belirlediğini her zaman söylemez; markdown TL ile kampanya indirimini
-ayırmak bile emek ister.
+Esnekliği ölçecek temiz kampanya da azdır. Optimizasyonun bütün derinlik
+kararı esnekliğe dayanıyor ve markdown'dan ölçülen esneklik takvimi
+indirimden kaçırıyor. Kampanya ile markdown çoğu zaman aynı satırda iç
+içedir; hangisinin fiyatı belirlediğini ayırmak bile emek ister.
 
-**Müşterinin indirimi beklemesi ve referans fiyat.** Sizin müşteriniz
-takviminizi öğrenir. Bu etkiyi ölçmek için aynı ürünü aynı müşteriye iki
-farklı takvimle satmak gerekir; sezon bir kez yaşanır.
-
-**Mağaza stok dengesizliği.** Fiyat zincirde tek, mal mağazalara dengesiz
-dağılmış. Bu dizinin bulgularından biri de buradan geliyor: gerçek talebi
-bilmek az kazandırıyor, çünkü darboğaz malın nerede durduğu. Kendi
+Sizin müşteriniz takviminizi öğrenir; bu etkiyi ölçmek için aynı ürünü aynı
+müşteriye iki takvimle satmak gerekir. Malınız da mağazalara dengesiz
+dağılmıştır. Bu dünyada bile darboğaz malın nerede durduğuydu; kendi
 verinizde fiyat kararını transfer ve replenishment kararlarından ayrı
 düşünmek zor.
 
-**Ölçecek hakemin olmaması.** Gerçek bir zincirde bir takvimi denemenin
-yolu, ürünlerin ya da mağazaların bir kısmında denemek. Ama fiyat zincir
-genelinde ve ürünler ikameyle birbirine bağlı. Test dışı ürünlerin
-cirosunu 41,54 M TL oynatan bir etki, deneme grubunu karşılaştırma
-grubundan ayırmayı zorlaştırır. Ölçütü de doğru seçmek gerekir: markdown TL'ye ya da brüt kâra
-bakan bir deneme, yanlış takvimi kazanan ilan eder.
-
 ## Baştaki soru
 
-Veli'nin tulumu MDL0606 indirimden sekiz hafta önce 6.588 adetle duruyordu
-ve sezon 2.944 adet ölü stokla kapandı. Ali'nin tulumu MDL0605 neredeyse
-bittikten sonra indirime girdi. Pelin'in önünde iki satır vardı, markdown
-TL ve ölü stok, ve finans markdown'ın kısılmasını istiyordu.
+Veli'nin tulumu indirimden sekiz hafta önce Anadolu raflarında 6.588 adetle
+duruyordu ve sezon 2.944 adet ölü stokla kapandı. Pelin'in önünde iki satır
+vardı, markdown TL ve ölü stok; finans birincinin kısılmasını istiyordu.
 
-Altı yazı sonra elimizde şunlar var. Lumoda'nın kuralı pratikte herkese
-%30 ve düz bir orandan ancak biraz iyi. Stoğa bakan basit bir kural onu beş
-yolun beşinde geçiyor; kazancın büyüğü erken başlamaktan ve depoyu
-görmekten geliyor. Esnekliği kampanyadan ölçen, talebin erimesini hesaba
-katan bir optimizasyon o kuralla başa baş. Yanlış esneklik ona pahalıya
-patlıyor, takvime bağlı kalmak da. Doğru takvim markdown TL'yi üç buçuk
-katından fazla artırıyor, brüt kârı düşürüyor, ölü stoğun alış değerini
-yarıya indiriyor ve rafı boşaltıyor. Test dışı ürünlere taşan etkisi de ana
-kazancından büyük.
+Optimizasyon o tulumu indirimden sekiz hafta önce %50'ye alıyor; ölü stok
+1.484 adede iniyor. Kapsama kuralı da aynı pazartesi başlıyor ve 1.514 adet
+bırakıyor. İkisi de aynı şeyi görüyor: bu tulum bu hızla sezonda bitmez.
 
-Veli'nin tulumunu optimizasyon indirimden sekiz hafta önce %50'ye alıyor;
-ölü stok 2.944'ten 1.484 adede iniyor. Kapsama kuralı da aynı pazartesi
-başlıyor ve 1.514 adet bırakıyor.
+Altı yazı sonra elimizde şunlar var. Stoğa bakan, iyi kurulmuş bir kural
+Lumoda'nın kuralını her yolda geçiyor; kazancın büyüğü erken başlamaktan ve
+depoyu görmekten geliyor. Esnekliği kampanyadan ölçen bir optimizasyon o
+kuralla başa baş. Yanlış esneklik ve Lumoda'nın takvimine bağlı kalmak ona
+pahalıya patlıyor. Doğru takvim markdown TL'yi artırıyor, brüt kârı
+düşürüyor, ölü stoğu azaltıyor ve rafı boşaltıyor.
 
 Pars ilk yazıda "İndirim bir oran değil, bir takvim: hangi ürüne, ne zaman,
 ne kadar" demişti. Cümle tuttu, ama üç sorunun ağırlığı eşit çıkmadı. "Hangi
 ürüne" sorusunun en çok konuşulan yanı, iyi satanı indirimden korumak, küçük
-bir para. Büyük olan takvimin kendisi: ne zaman başladığınız ve her ürünü
-ne kadar indirdiğiniz. Bu dünyada iyi kurulmuş bir kural da o soruları bir
-optimizasyon kadar iyi cevaplayabiliyor.
+bir para. Büyük olan ne zaman başladığınız ve satmayanı ne kadar
+indirdiğiniz.
 
+Bu konuyu neden sevdiğimi ilk yazıda söylemiştim: herkes oranı tartışır,
+asıl karar kimsenin tartışmadığı takvimde verilir. Dizinin sonunda bir
+şey ekleyeyim: takvimi tartışmak için önce doğru sayıya bakmak gerekiyor.
 Bir indirim takviminin iyi olduğunu markdown TL'ye ya da brüt kâra bakarak
 bilemezsiniz. Satılan malla birlikte satılmayanı da sayan bir ölçüte
 bakarak bilirsiniz. 🙂

@@ -3,70 +3,73 @@ baslik: Bu Karar Nasıl Verilir
 tip: anlatici
 sira: 2
 ozet: >-
-  İndirim kararının üç sorusu, Lumoda'nın kuralının pratikte ne yaptığı ve
-  paranın asıl nerede durduğu. Amaç ne olmalı; markdown TL neden amaç
-  değil, brüt kâr neden yanıltır? Bir de sektörün beş hatası.
+  İndirim kararı üç sorudan oluşur: hangi ürüne, ne zaman, ne kadar. Lumoda'nın
+  kuralı pratikte ne yapıyor, para nerede duruyor ve bir indirim takvimini
+  neyle ölçmeli? Markdown TL neden hedef değil, brüt kâr neden yanıltır?
 yazar: Sabri Suyunu
 durum: yayinda
 ---
 
 import T from '../../../../components/T.astro'
 
-Geçen yazıda Pars sözü tek cümleye bağlamıştı: indirim bir oran değil, bir
-takvim; hangi ürüne, ne zaman, ne kadar. Bu yazıda kararı parçalarına
-ayırıyoruz. Formül yok. Stoğa bakan kuralı üçüncü yazıda kuruyoruz, indirimin
-ne kadar sattırdığını dördüncüde ölçüyoruz, takvimi beşincide kuruyoruz,
-hepsini altıncıda yarıştırıyoruz. Bu yazının işi, o yöntemlerin hangi sorulara
-cevap vereceğini netleştirmek.
+Bu yazıda indirim kararının nelerden oluştuğunu ve iyi bir kararı kötüsünden
+neyle ayıracağımızı soruyoruz. Çünkü ölçüt yanlışsa kararı ne kadar özenle
+verirseniz verin yanlış yere varırsınız. Pelin'in sezon sonu raporu bunun
+örneğiydi: finans markdown TL'yi küçültmek istiyordu, depoda ise satılmamış
+mal duruyordu.
 
-## Üç soru, bir birim
+## Üç soru
 
-**Hangi ürüne.** Her ürün indirime muhtaç değil. MDL0605 indirim günü
-zaten bitmek üzereydi; belki tam fiyatla da bitecekti. MDL0606 ise sezonun
-sonunda depoda kaldı.
+Geçen yazının sonunda Pars kararı tek cümleye bağlamıştı: hangi ürüne, ne
+zaman, ne kadar. Ertesi pazartesi Pelin o cümleye dönüyor.
+
+— Üçünü ayrı ayrı açalım, diyor Pars.
+
+**Hangi ürüne.** Her ürünün indirime ihtiyacı yok. Ali'nin tulumu indirim
+gününe kadar neredeyse bitmişti; belki tam fiyatla da bitecekti.
+Veli'ninki sezon kapandığında depodaydı.
 
 **Ne zaman.** Aynı indirim sezonun başında başka, sonunda başka sattırır.
-Talep sezonun başında yüksek, sonra eriyor; geç gelen indirim azalmış bir
-talebe gelir.
+Talep zamanla eriyor. Sezonun bütün ürünleri indirimden sekiz hafta önce bir
+haftada 131.295 adet satıyordu, indirimden önceki hafta 30.237. Geç gelen
+indirim azalmış bir talebe gelir.
 
-**Ne kadar.** Beş kademe var: %20, %30, %40, %50, %70. Derin indirim daha
-çok sattırır ama her satılan adetten daha az getirir.
+**Ne kadar.** Lumoda'da beş kademe var: %20, %30, %40, %50, %70. Derin
+indirim daha çok sattırır, ama satılan her adetten daha az getirir.
 
-Kararın birimi bu yüzden üçlü: option, hafta, kademe. Her pazartesi her
-<T k="option">option</T> için bir kademe seçilir ve seçim geri alınmaz;
-inen fiyat bir daha çıkmaz. Bedenlere ve mağazalara ayrı oran verilmez.
+— Yani her pazartesi her ürün için bir kademe seçiyoruz, diyor Pelin.
+
+— Bir şartla, diyor Pars. Seçtiğin kademeden geri dönemezsin.
+
+Kararın birimi böylece belli: bir ürün, bir pazartesi, bir kademe. Bedene ya
+da mağazaya ayrı oran verilmez.
 
 — İzmir 4'e ayrı indirim versek? diyor Veli. Tulum orada birikiyor.
 
-— Veremeyiz, diyor Pelin. Lumoda'da indirim oranı zincirin oranı. İzmir 4'teki
-tulum da, İstanbul'daki de, online'daki de aynı gün aynı kademeye iner.
+— Veremeyiz, diyor Pelin. Lumoda'da oran zincirin oranı. İzmir 4'teki tulum
+da, İstanbul'daki de, online'daki de aynı gün aynı kademeye iner.
 
 — Malın yanlış yerde durması fiyatla düzelmez, diyor Pars. Onu transfer
 düzeltir.
 
 Yanlış yerdeki malın nasıl taşındığını [Blok
-Transfer](/transfer/blok-transfer/) dizisi anlatıyor. Bu dizide mağazalar
-arası dengesizliği veri olarak kabul ediyor, fiyatı yalnız zincir için
-seçiyoruz.
+Transfer](/transfer/blok-transfer/) dizisi anlatıyor. Bu dizide fiyatı yalnız
+zincir için seçiyoruz.
 
-## Pelin'in tablosu
+## Kural pratikte ne yapıyor
 
-Lumoda'nın <T k="markdown">markdown</T> kuralını geçen yazıda gördük. Sezon
-indiriminden dört hafta önce başlar. Her pazartesi ürünün
-<T k="str">STR</T>'sine bakar; satış, o gün olması gereken yerin epey
-gerisindeyse bir kademe iner. Haftada en fazla bir kademe. İndirim günü
-herkes en az %30'a iner ve fiyat hiç geri çıkmaz.
+Pelin'in <T k="markdown">markdown</T> kuralını geçen yazıda gördük: indirimden
+dört hafta önce başlar, satması gerekenin gerisinde kalan ürünü her pazartesi
+bir kademe indirir, indirim günü herkesi en az %30'a indirir.
+Kâğıt üstünde her ürüne ayrı bakan bir kural. Pars sezonun sonunda ne
+yaptığına bakıyor.
 
-Kâğıt üstünde ürüne göre karar veren bir kural bu. Pars ne yaptığına
-bakıyor.
+Sezonun 210 ürününden 198'i çıkışa, yani outlet'e gidene kadar %30'da
+kalmış. İndirim gününden önce indirime giren yalnız 12 ürün var. Veli'nin
+tulumu en derin kademeye inen dokuz üründen biri.
 
-Yaz sezonunun 210 option'ından 198'i çıkışa kadar %30'da kalıyor. İkisi
-%40'a, biri %50'ye, dokuzu %70'e iniyor. MDL0606 o dokuzdan biri. İndirim
-gününden önce oranı olan yalnız 12 option var. Beş sezona bakınca tablo
-değişmiyor: %30'da kalan option sayısı 193 ile 204 arasında, %70'e inen 3
-ile 12 arasında.
-
-— Yani kuralın pratikte söylediği şu, diyor Pars: indirim günü herkese %30.
+— Yani kuralın pratikte söylediği şu, diyor Pars: indirim günü herkese aynı
+oran.
 
 — Benim tablom bu kadar basit değil, diyor Pelin.
 
@@ -74,167 +77,106 @@ ile 12 arasında.
 
 ## Para nerede duruyor
 
-Pelin'in ilk korkusu iyi satan ürüne gereksiz indirim vermek. Pars bunu
-ölçmek için option'ları indirim başındaki STR'lerine göre dört çeyreğe
-ayırıyor. Buradaki STR Lumoda'nınkinden farklı: indirim başına kadar satılan
-adedin, depodaki dahil bütün arza oranı. Birinci çeyrekte indirime en az
-satarak girenler, dördüncüde en çok satarak girenler var.
+Pelin'in ilk korkusu iyi satan ürüne gereksiz indirim vermek, Ali'nin
+tulumundaki gibi. Pars bunu ölçmek için ürünleri dört çeyreğe ayırıyor:
+indirim başladığında, depodakiler dahil bütün mallarının ne kadarını
+satmış olduklarına göre.
 
-| Çeyrek | Çıkışta kalan | Kalanın payı | Markdown TL | Ölü stok |
-|---|---:|---:|---:|---:|
-| 1 (en az satan) | 132.349 | %43,6 | 16,88 M TL | 93.580 |
-| 2 | 114.728 | %37,8 | 11,92 M TL | 54.610 |
-| 3 | 46.281 | %15,3 | 18,05 M TL | 24.391 |
-| 4 (en çok satan) | 9.984 | %3,3 | 2,28 M TL | 2.752 |
+| Çeyrek | Çıkışta elde kalan malın ne kadarı bu çeyrekte |
+|---|---:|
+| 1 (en az satan) | %43,6 |
+| 2 | %37,8 |
+| 3 | %15,3 |
+| 4 (en çok satan) | %3,3 |
 
-Çıkışta elde kalan malın %81,5'i alt yarıda, ilk iki çeyrekte. En iyi satan
-çeyreğe giden markdown yalnız 2,28 M TL. Beş sezona bakınca da aynı resim:
-en iyi çeyreğin markdown TL'si 2,28 ile 4,18 M TL arasında, kalanın alt
-yarıdaki payı %71,1 ile %81,5 arasında.
+Çıkışta elde kalan malın %81,5'i alt yarıda. En çok satan çeyreğin
+markdown TL'si ise yalnız 2,28 M TL.
 
-— En iyi satan çeyreğe verilen indirim küçük bir para, diyor Pars. Para
-satmayanın erimeyen stoğunda.
+— İyi satanı indirimden korumak makul bir istek, diyor Pars. Ama para orada
+değil, satmayanın erimeyen stoğunda. Asıl soru, onun ne zaman ve ne kadar
+indirileceği.
 
-Üçüncü çeyreğin markdown TL'si büyük; bu ürünler indirim döneminde de iyi
-sattığı için olabilir. Kalanı ve ölü stoğu ise ilk iki çeyreğe göre çok
-küçük. Bu, asıl soruyu başka yere taşıyor.
-"İyi satanı indirimden koruyalım" makul bir istek, ama kazanılacak para orada
-değil. Asıl soru satmayan ürünün ne zaman, ne kadar indirileceği.
+## Neyi ölçüyoruz
 
-## Amaç: sezon katkısı
+— Peki iyi bir takvimi neyle ölçeceğiz? diyor Pelin. Finans markdown TL
+diyor.
 
-Bir indirim takviminin iyi olup olmadığını söylemek için önce neyi
-ölçtüğümüzü söylemek gerekiyor. Bu dizinin ölçütü sezon katkısı.
+— Sezon katkısıyla, diyor Pars. Aynı maldan sezon boyunca ve outlet'te
+alınan net ciro, eksi o malın bütününün alış maliyeti.
 
-— Sezon katkısı, diyor Pars, aynı maldan sezon ve outlet boyunca alınan net
-ciro, eksi o malın bütününün alış maliyeti.
+Alış maliyeti burada değişmez. Mal alınmış, parası ödenmiş. İndirim kararı o
+parayı geri getiremez; yalnız maldan ne kadar ciro çıkacağını belirler. Bu
+dizide bütün yöntemleri aynı malla yarıştırıyoruz. Bu yüzden iki takvim
+arasındaki katkı farkı, ciro farkının ta kendisi.
 
-Alış maliyeti burada değişmiyor. Mal alınmış, parası ödenmiş; indirim kararı
-o parayı geri getiremez, yalnız maldan ne kadar ciro çıkacağını belirler.
-Bütün yöntemleri aynı malla yarıştırdığımız için iki yöntem arasındaki katkı
-farkı, ciro farkının ta kendisi.
+Ciroya outlet de girer, çünkü sezon sonunda kalan mal sıfır etmez; ama az
+eder. En derin kademeyle satılan bir adet bile, çıkışta elde kalan bir
+adedin ortalamada getirdiğinden fazlasını getirir. Tam fiyata satılacak adet
+ise indirimle satılınca kaybettirir. Takvimin işi bu iki adedi birbirinden
+ayırmak.
 
-Ciroya outlet de giriyor, çünkü çıkışta elde kalan malın değeri sıfır
-değil. Yaz sezonunda sezon indirimi döneminde satılan bir adet liste
-fiyatının ortalama %68,3'ünü getirdi; outlet'te satılan bir adet %35,5'ini.
-Ama outlet'e giden her adet satılmıyor. Yaz sezonunda outlet'e 298.954 adet
-gitti; outlet mağazaları 84 günde 133.036 adet sattı. Geçmiş sezonlarda
-outlet'in getirdiği ciro, çıkıştan bir hafta önce elde kalan malın liste
-değerinin 0,133 katı. Buna kalıntı değeri diyoruz.
+— Markdown TL neden ölçüt değil? diyor Ali.
 
-Kalıntı değeri her adedi iki seçenek arasında tartar: bugün indirimle satmak
-ya da çıkışa kadar tutup outlet'e bırakmak. %70 indirimle satılan bir adet
-bile, çıkışta elde kalan bir adedin ortalamada getirdiğinden
-fazlasını getirir. Tam fiyata satılacak adet ise indirimle satıldığında
-kaybettirir. Takvimin işi bu iki adedi birbirinden ayırmak.
+— Çünkü satılmayan mal markdown TL'ye yazılmaz, diyor Pars. Depoya yazılır,
+<T k="olu-stok">ölü stok</T> olur. İndirimi kısarsan markdown TL düşer, ölü
+stok büyür. Düşük markdown TL iyi bir sezonun işareti de olabilir, satmayan
+malın hiç indirilmediğinin işareti de. Markdown TL bir sonuç; hedef değil.
 
-Bu tanımın iki sonucu var.
+— O zaman brüt kâra bakalım, diyor Veli.
 
-**Markdown TL amaç değil.** Markdown TL indirimle satılan malın liste
-fiyatından ne kadar eksik satıldığını sayar. İndirimi kısarsanız markdown TL
-düşer; satılmayan mal ise markdown TL'ye yazılmaz, depoya yazılır ve
-<T k="olu-stok">ölü stok</T> olur. Düşük markdown TL iyi bir sezonun
-işareti olabilir, satmayan malın indirime hiç sokulmadığının işareti de.
+— Brüt kâr da aynı yerden yanıltır, diyor Pars. Satılan malın cirosundan
+yalnız satılan malın maliyetini düşer. Derin indirimle satılan bir adet
+maliyetinin altına inebilir ve brüt kârı aşağı çeker. Depoda bırakılan adet
+ise brüt kârda hiç görünmez. İndirimden kaçan bir takvim brüt kârda iyi
+görünür, depoda kötü.
 
-**Brüt kâr yanıltır.** Brüt kâr satılan malın cirosundan satılan malın alış
-maliyetini düşer. Satılmayan malın maliyeti brüt kâra hiç girmez. Bir
-ürünü indirmeyip depoda bırakırsanız brüt kâr düşmeyebilir, hatta
-yükselebilir.
-Çünkü indirim tam fiyata satılacak bazı adetleri de ucuza sattırır; derin
-indirimle satılan bir adet de alış maliyetinin altında satılabilir. Depoda
-kalan malın parası ise sezon katkısında, alış maliyetinin içinde durur.
+## Sık yapılan üç hata
 
-## İndirim ne kadar sattırır
+**Geç başlamak.** Kural indirimden dört hafta önce başlıyor. O gün satışın
+çoğu geride kalmış oluyor.
 
-Takvimin üç sorusunun arkasında bir dördüncüsü var: indirim ne kadar
-sattırır? Fiyat bir miktar inince satışın ne kadar arttığını söyleyen orana
-<T k="fiyat-esnekligi">fiyat esnekliği</T> diyoruz.
+**Depoyu görmemek.** Kural ürünün ne kadar sattığını, yani
+<T k="str">STR</T>'sini, mağazalara giden mala göre ölçüyor. Depoda bekleyen
+mal hesaba girmiyor. Bu sezon, çıkıştan bir hafta önce elde kalanın 152.925
+adedi depodaydı. Geç gelen <T k="rpt">RPT</T> bu kör noktayı
+büyütüyor; o hikâyeyi [RPT](/rpt/tekrar-siparis/) dizisi anlatıyor. Kör
+noktayı üçüncü yazıda bir gömlek üzerinden açacağız.
 
-— Bunu geçmiş indirimlerden okuruz, diyor Pelin. Her sezon yüzlerce ürünü
-indiriyoruz.
-
-— Okursun, diyor Pars, ama yanlış okursun. Lumoda'nın indirimi ya satmayan
-ürüne ya talebin zaten eridiği haftalara geliyor. Erken ve derin inenler
-satmayanlar; geri kalanlar indirim gününü bekliyor. İndirimli haftaların
-satışı düşük, çünkü o ürünler o haftalarda zaten az satıyordu. Geçmiş
-indirimlerden bakan biri indirimin az sattırdığını düşünür.
-
-Bu tuzağın benzerini [Satış Kaybı](/is-zekasi/satis-kaybi/) dizisinde
-görmüştük. Çıkış yolu, ürünün performansından bağımsız konmuş indirimler:
-Lumoda'da bunlar kampanyalar. Ölçümü dördüncü yazıda yapıyoruz; yanlış
-esnekliğin bir takvime ne yaptırdığını da orada göreceğiz.
-
-## Sektörün beş hatası
-
-**Herkese %30.** Lumoda'nın kuralının pratikte yaptığı bu. Bitmek üzere olan
-MDL0605 de indirim günü %30 alıyor; 210 option'ın 198'i de çıkışa kadar
-%30'da kalıyor. Oran ürüne göre değil, takvime göre konuyor.
-
-**İndirimi takvime bırakmak.** Sezon indirimi bir gün; ürünün talebi o güne
-göre ayarlanmıyor. Yaz sezonunda 210 option indirimden sekiz hafta önce bir
-haftada 131.295 adet satıyordu, indirimden önceki hafta 30.237. Kural dört
-hafta önce başlıyor; satışın çoğu geride kalmış oluyor.
-
-**STR'yi mağazaya gidenle ölçmek.** Lumoda'nın kuralı STR'yi mağazalara giden
-mala göre hesaplıyor. Depoda bekleyen mal paydaya girmiyor; kural onu
-görmüyor. Yaz sezonunda çıkıştan bir hafta önce elde kalanın 152.925 adedi
-depodaydı. Geç gelen <T k="rpt">RPT</T> bu kör noktayı büyütüyor: 53
-option'ın tekrar siparişi, kural STR'ye bakmaya başladıktan sonra depoya
-girdi; toplam 162.900 adet. Bu kör noktayı bir gömlek üzerinden üçüncü
-yazıda açacağız. Geç gelen RPT'nin hikâyesini
-[RPT](/rpt/tekrar-siparis/) dizisi anlatıyor.
-
-**Markdown TL'yi bütçe gibi kesmek.** Markdown TL bir sonuç, bir bütçe
-kalemi değil. Onu kısmak indirimi kısar, indirimi kısmak satmayan malı
-depoda bırakır. Pelin'in sezon sonu raporundaki iki satır birbirine bağlı.
-
-**Başarıyı brüt kârla ölçmek.** Brüt kâr satılmayan malı görmez. İndirimden
-kaçan bir takvim brüt kârda iyi görünür, depoda kötü.
+**Geçmiş indirimden ders çıkarmak.** Fiyat inince satışın ne kadar arttığını
+söyleyen orana <T k="fiyat-esnekligi">fiyat esnekliği</T> diyoruz. Lumoda'nın
+indirimi ya satmayan ürüne ya talebin zaten eridiği haftalara geliyor.
+İndirimli haftalar az satıyor, çünkü o ürünler o haftalarda zaten az
+satıyordu. Geçmişe bakan, indirimin az sattırdığını düşünür. Bu tuzağın
+benzerini [Satış Kaybı](/is-zekasi/satis-kaybi/) dizisinde görmüştük;
+ölçümü dördüncü yazıda yapıyoruz.
 
 ## Sizin verinizde zor olan
 
-Buraya kadar anlattıklarım Lumoda'da ölçülebiliyor. Kendi zincirinizde
-zorlaşacak yerler şunlar.
+Esnekliği ölçmek için ürünün performansından bağımsız konmuş indirim
+gerekir. Lumoda'da bunlar kampanyalar. Çoğu zincirde kampanya da satmayan
+ürüne, satmadığı haftada konur ve markdown kadar kirli bir ölçüm verir.
+Üstelik bir ürün aynı hafta hem markdown'da hem kampanyada olabilir; satış
+satırı fiyatı hangisinin belirlediğini her zaman yazmaz.
 
-**Temiz kampanya azlığı.** Esnekliği ölçmek için ürünün performansından
-bağımsız konmuş indirim gerekir. Çoğu zincirde kampanyalar da satmayan
-ürüne, satmadığı haftada konur. O zaman kampanya da markdown kadar kirli bir
-ölçüm verir.
+Lumoda'nın müşterisi indirim takvimini bilmiyor, ürünün eski fiyatını da
+hatırlamıyor. Gerçek müşteri ikisini de yapar. Erken indirim müşteriye
+beklemeyi öğretebilir; bir kez yarı fiyata görülen ürün tam fiyatta pahalı
+görünebilir.
 
-**Kampanya ile markdown'ın iç içe geçmesi.** Aynı haftada bir ürün hem
-markdown'da hem kampanyada olabilir. Satış satırında fiyatı hangisinin
-belirlediği her zaman yazmaz; indirimin etkisini ikisi arasında bölmek
-gerekir.
+İndirimli ürün erken bitince talebinin bir kısmı <T k="ikame">ikame</T>
+yoluyla komşusuna geçiyor. Bu kayma küçük değil; altıncı yazıda ölçüyoruz.
+Gerçek bir zincirde indirimli ürün, yanındaki tam fiyatlı ürünün satışını
+doğrudan da alabilir.
 
-**Müşterinin indirimi beklemesi.** Lumoda'nın müşterisi indirim takvimini
-bilmiyor, ürünün eski fiyatını da hatırlamıyor. Gerçek müşteri ikisini de
-yapar. Erken indirim, müşteriye beklemeyi öğretebilir; bir kez %50'de görülen
-ürün tam fiyatta pahalı görünebilir. Bu dünyada bu etkiler yok; sizin
-verinizde var.
+Oran zincirde tek, mal ise mağazalara dengesiz dağılmış. Fiyatı zincir için
+seçen bir takvimi transferle birlikte düşünmek gerekir.
 
-**Ürünler arasındaki etki.** Lumoda'da bir ürünün indirimi komşusunun satışını
-doğrudan çalmıyor. Etki dolaylı: indirimli ürün erken bitince talebinin bir
-kısmı <T k="ikame">ikame</T> yoluyla komşusuna geçiyor. Bu kaymanın
-büyüklüğünü altıncı yazıda ölçüyoruz. Gerçek bir zincirde indirimli ürün,
-yanındaki tam fiyatlı ürünün satışını doğrudan alabilir.
+Son olarak, bu dizide yöntemleri verinin kurgusundaki gerçek talebi ve
+gerçek esnekliği bilen bir simülasyonla sınayacağız: aynı müşteri, aynı mal,
+yalnız takvim değişiyor. Gerçek hayatta böyle bir hakem yoktur. Bir sezon
+bir kez yaşanır ve "öbür takvimle ne olurdu" sorusunun cevabı hiçbir tabloda
+yazmaz.
 
-**Mağaza stok dengesizliği.** İndirim oranı zincirde tek, mal ise mağazalara
-dengesiz dağılmış. MDL0606'nın stoğu Anadolu'da birikti. Aynı indirim İzmir
-4'te başka, İstanbul'da başka sonuç verir. Fiyatı zincir için seçen bir
-takvim, malın yerini değiştiremez; onu transferle birlikte düşünmek gerekir.
-
-**Ölçecek hakemin olmaması.** Bu dizide yöntemleri, verinin kurgusundaki
-gerçek talebi ve gerçek esnekliği bilen bir simülasyonla sınayacağız. Aynı
-müşteri akışı, aynı mal, aynı tekrar siparişler; yalnız indirim takvimi
-değişiyor. Gerçek hayatta böyle bir hakem yoktur. Bir sezon bir kez yaşanır
-ve "öbür takvimle ne olurdu" sorusunun cevabı hiçbir tabloda yazmaz.
-
-## Üç soru
-
-İndirim kararı sonunda üç soruya iniyor: hangi ürüne, ne zaman, ne kadar?
-Cevapların hiçbiri Pelin'in tablosunda yazmıyor. Ürünün elindeki stokta,
-kalan haftalarda ve indirimin ne kadar sattırdığında yazıyor.
-
-Sonraki yazıda Lumoda'nın kuralının neye baktığını, neyi görmediğini
-açıyoruz ve stoğa bakan basit bir kural kuruyoruz: bu mal, bu hızla, kaç
-haftada biter?
+Sonraki yazıda Lumoda'nın kuralının neye baktığını, neyi görmediğini açıyor
+ve stoğa bakan basit bir kural kuruyoruz: bu mal, bu hızla, kaç haftada
+biter?
