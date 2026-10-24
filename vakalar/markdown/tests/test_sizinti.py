@@ -11,7 +11,9 @@ henüz planlanan `kosucu`, `rapor`, `senaryolar`, `analiz` adları), `allocation
 motoru: `gercek_tablosu`), ayrıca `perakende_analitik.hakem`. Paketteki her modül karar ya da ölçüm
 listesinde sınıflandırılmış olmalıdır (`test_her_modul_siniflandirilmis`). Tarama geçişlidir:
 `politika` -> `kosucu` -> `perakende_veri` ihlaldir; paket `__init__.py`'si her içe aktarmada
-çalıştığı için her karar modülünün erişim kümesine girer.
+çalıştığı için her karar modülünün erişim kümesine girer. Ölçüm modüllerinden de dünyanın gizli
+alanlarına yalnız `hakem` ve `simulasyon` dokunur (`GIZLIYE_DOKUNAN`; spec §4.1); öteki ölçüm
+modülleri koşunun `gercek` tablosunu okuyabilir.
 
 **Yasak öznitelik adı** (`x.ad`, sabit dizgeli `getattr/hasattr/setattr(x, "ad")`): `lam`,
 `esneklik`, `esneklik_hucre`, `gercek`, `ilk_siparisler` (tam ad) ve `gizli_*`, `sapma_*` (önek).
@@ -202,6 +204,26 @@ def test_olcum_modulleri_yasakta():
     for m in OLCUM_MODULLERI + OLCUM_EK_ADLAR:
         assert f"markdown.{m}" in YASAK_ICE_AKTARIM, m
     assert "markdown.hikaye" in YASAK_ICE_AKTARIM and "markdown.oyun" in YASAK_ICE_AKTARIM
+
+
+# Dünyanın gizli alanlarına (`lam`, `esneklik_hucre`, `gizli_*`, ...) dokunabilen ölçüm modülleri
+# (spec §4.1). Öteki ölçüm modülleri koşunun `gercek` tablosunu okuyabilir (ölçüm verisi), dünyanın
+# gizli alanlarını okumaz.
+GIZLIYE_DOKUNAN = ("hakem", "simulasyon")
+
+
+def test_gizli_alanlara_yalniz_hakem_ve_simulasyon():
+    assert set(GIZLIYE_DOKUNAN) <= set(OLCUM_MODULLERI)
+    assert any(ad == "lam" for _, ad in gizli_erisimler(PAKET / "hakem.py"))     # tarayıcı hakemi görüyor
+    bulunan = {}
+    for m in OLCUM_MODULLERI:
+        y = PAKET / f"{m}.py"
+        if m in GIZLIYE_DOKUNAN or not y.is_file():
+            continue
+        if b := [(satir, ad) for satir, ad in gizli_erisimler(y) if ad != "gercek"]:
+            bulunan[m] = b
+    assert (PAKET / "olcutler.py").is_file()
+    assert not bulunan, f"ölçüm modülü dünyanın gizli alanını okuyor: {bulunan}"
 
 
 def test_siniflandirma_testi_yeni_modulu_yakalar(tmp_path):
