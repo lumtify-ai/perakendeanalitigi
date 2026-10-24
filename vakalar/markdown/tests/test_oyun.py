@@ -1,9 +1,9 @@
-"""`markdown.oyun`: koşu adları, ızgara listesi (83 koşu), kalibrasyon seçimi, kolların kurulumu, yolun kendi
+"""`markdown.oyun`: koşu adları, ızgara listesi (87 koşu), kalibrasyon seçimi, kolların kurulumu, yolun kendi
 öğrenmesi (yol p'nin önbellek kimliği o yolun Lumoda koşusu), ölçümün koşu önbelleğinden yenilenmesi.
 
 KÜÇÜK dünyada (SS25'in 32 Collection option'ı) tam pencere koşuları (~7 sn): yol 0 ve yol 1'in Lumoda'sı,
 yol 0'da bir tekdüze kolu. Önbellek, öğrenme önbelleği ve çıktı modülün geçici dizininde. Kalibrasyonun
-seçimi oyuncak kayıtlarla sınanır (14 koşu burada koşulmaz; KÜÇÜK uçtan uca koşu rapordadır).
+seçimi oyuncak kayıtlarla sınanır (18 koşu burada koşulmaz; KÜÇÜK uçtan uca koşu rapordadır).
 """
 
 import datetime
@@ -58,6 +58,8 @@ def test_kol_adlari():
     assert oyun.kosu_adi(2, "kahin", "AW24") == "y2_kahin_AW24"
     assert oyun.kosu_adi(0, "kural", "SS24", 1.25) == "kal_kural_a125_SS24"
     assert oyun.kosu_adi(0, "kural", "AW23", 1.0) == "kal_kural_a100_AW23"
+    assert oyun.kosu_adi(0, "kural", "AW23", 0.6) == "kal_kural_a060_AW23"
+    assert oyun.kosu_adi(0, "kural", "SS24", 0.8) == "kal_kural_a080_SS24"
     assert oyun.kosu_adi(0, "tekduze", "AW23", 0.30) == "kal_tekduze_30_AW23"
     assert oyun.kosu_adi(0, "tekduze", "SS24", 0.5) == "kal_tekduze_50_SS24"
     with pytest.raises(KeyError):
@@ -83,16 +85,16 @@ def test_kol_adlari():
 
 def test_izgara_listesi():
     kal, y0, yp = (oyun.izgara_listesi(b) for b in ("kalibrasyon", "yol0", "yollar"))
-    assert len(kal) == 14 and len(y0) == 1 + 16 and len(yp) == 4 * 13
+    assert len(kal) == 18 and len(y0) == 1 + 16 and len(yp) == 4 * 13
     hepsi = kal + y0 + yp
     adlar = [k.ad for k in hepsi]
-    assert len(adlar) == 83 and len(set(adlar)) == 83
+    assert len(adlar) == 87 and len(set(adlar)) == 87
     assert all(motor._AD_DESENI.match(a) for a in adlar)
     assert y0[0].ad == "lumoda" and y0[0].sezon is None and y0[0].kol == "lumoda"
     assert {(k.kol, k.sezon) for k in y0[1:]} == {(kol, s) for kol in oyun.KOLLAR for s in sabitler.TEST_SEZONLARI}
     assert all(k.yol == 0 and k.deger is not None and k.sezon in sabitler.KAL_SEZONLARI for k in kal)
     assert sorted({(k.kol, k.deger) for k in kal}) == sorted(
-        [("kural", a) for a in (1.0, 1.25, 1.5, 2.0)] + [("tekduze", r) for r in (0.30, 0.40, 0.50)])
+        [("kural", a) for a in (0.6, 0.8, 1.0, 1.25, 1.5, 2.0)] + [("tekduze", r) for r in (0.30, 0.40, 0.50)])
     for p in range(1, 5):
         yol = [k for k in yp if k.yol == p]
         assert len(yol) == 13 and yol[0].ad == f"y{p}_lumoda"           # yolun Lumoda'sı önce
@@ -132,7 +134,7 @@ def test_kalibrasyon_secimi():
     """İki sezonun katkı toplamı en büyük değer seçilir (iki sezona tek değer): α 1,5 AW23'te en iyi
     değil ama toplamda en iyi; geçersiz (korunumu bozuk) aday atlanır; eşitlikte ızgaranın ilk değeri;
     eksik koşu hata."""
-    alfa = {1.0: (100.0, 50.0), 1.25: (90.0, 70.0), 1.5: (95.0, 80.0), 2.0: (120.0, 20.0)}
+    alfa = {0.6: (80.0, 40.0), 0.8: (85.0, 45.0), 1.0: (100.0, 50.0), 1.25: (90.0, 70.0), 1.5: (95.0, 80.0), 2.0: (120.0, 20.0)}
     oran = {0.30: (10.0, 10.0), 0.40: (12.0, 9.0), 0.50: (30.0, 1.0)}
     sec = oyun.kalibrasyon_sec(_kayitlar(_oyuncak(alfa, oran)))
     assert sec["kural"]["alfa"] == 1.5 and sec["tekduze"]["oran"] == 0.50
@@ -148,7 +150,7 @@ def test_kalibrasyon_secimi():
 
     # Eşitlik: ızgaranın ilk değeri
     esit = {a: (50.0, 50.0) for a in alfa}
-    assert oyun.kalibrasyon_sec(_kayitlar(_oyuncak(esit, oran)))["kural"]["alfa"] == 1.0
+    assert oyun.kalibrasyon_sec(_kayitlar(_oyuncak(esit, oran)))["kural"]["alfa"] == 0.6
 
     # Eksik koşu, bütün adaylar geçersiz
     eksik = _kayitlar(_oyuncak(alfa, oran))

@@ -1,6 +1,6 @@
 """Oyun: kalibrasyon ve ızgara; kolları yollarda kurar, koşar ve ölçer (spec §4.3–4.5, Ruling R4, R5, R18).
 
-    .venv/Scripts/python -m markdown.oyun kalibrasyon                  # 14 koşu, cikti/kalibrasyon.json
+    .venv/Scripts/python -m markdown.oyun kalibrasyon                  # 18 koşu, cikti/kalibrasyon.json
     .venv/Scripts/python -m markdown.oyun izgara --blok yol0           # yol 0: lumoda + 8 kol × 2 sezon
     .venv/Scripts/python -m markdown.oyun izgara --blok yollar [--yol P]   # yollar 1–4: lumoda + 6 kol × 2
     .venv/Scripts/python -m markdown.oyun olc                          # önbellekteki koşuları yeniden ölç
@@ -17,8 +17,9 @@ kampanya; ana öneri), `opt_takvim` (takvim), `opt_erken_yok` (erken_yok), `opt_
 
 **Koşular** (`izgara_listesi`; bir koşu tek sezon, Ruling R5). Adlar: Lumoda sezonsuz `lumoda` / `y<p>_lumoda`;
 karar kolu `<kol>_<sezon>` (yol 0) / `y<p>_<kol>_<sezon>`; kalibrasyon `kal_<kol>_<değer>_<sezon>` (yol 0;
-`kural` α 1,0 → `a100`, 1,25 → `a125`; `tekduze` %30 → `30`). Bloklar: `kalibrasyon` 14 (`kural` α ∈
-{1,0; 1,25; 1,5; 2,0} ve `tekduze` {%30, 40, 50}, AW23 ve SS24), `yol0` 1 + 16, `yollar` 4 × 13; toplam 83.
+`kural` α 0,6 → `a060`, 1,25 → `a125`; `tekduze` %30 → `30`). Bloklar: `kalibrasyon` 18 (`kural` α ∈
+{0,6; 0,8; 1,0; 1,25; 1,5; 2,0} ve `tekduze` {%30, 40, 50}, AW23 ve SS24; α ızgarası Ruling R20'yle bir kez
+aşağı genişletildi: TAM'da 1,0 uçta seçilmişti), `yol0` 1 + 16, `yollar` 4 × 13; toplam 87.
 
 **Yol** (`Yol`, yol başına, tembel). Sıra: (1) yolun Lumoda koşusu `simulasyon.kos(lumoda_adi(p), None,
 yol=p, rpt_takvimi=None)`; (2) RPT takvimi `simulasyon.rpt_takvimi(lumoda)` (R4: her kolda bu takvim
@@ -33,7 +34,7 @@ test_idx)`, sezon başına bir kez, yollar arasında paylaşılır (dünya ve λ
 müşteri akışını değiştirir, spec §4.4).
 (5) Kollar. Kalibrasyon kolları (`kural`, `tekduze`) öğrenme istemez; kalibrasyonda `ogren` çağrılmaz.
 
-**Kalibrasyon** (`kalibrasyon`, spec §4.3). 14 koşu yol 0'da, yol 0 Lumoda'sının RPT takvimiyle; seçim
+**Kalibrasyon** (`kalibrasyon`, spec §4.3, R20). 18 koşu yol 0'da, yol 0 Lumoda'sının RPT takvimiyle; seçim
 (`kalibrasyon_sec`) iki sezonun sezon katkısı (`olcutler` `katki`) toplamı en büyük değer, iki sezona
 tek değer; korunumu bozuk koşusu olan aday seçilmez; eşitlikte ızgaranın ilk değeri. Sonuç
 `kalibrasyon.json` (değer, tablo, ızgara ucunda mı, kalibrasyon sezonlarının en erken serbest karar
@@ -114,7 +115,8 @@ KOLLAR = {k.ad: k for k in (
 )}
 YOL0_KOLLARI = tuple(KOLLAR)
 YOL_KOLLARI = ("tekduze", "kural", "opt_tuzak", "opt", "opt_takvim", "kahin")
-KAL_DEGERLERI = {"kural": (1.0, 1.25, 1.5, 2.0), "tekduze": (0.30, 0.40, 0.50)}
+# Ruling R20: α ızgarası bir kez aşağı genişletildi (TAM 1,0 uçta seçmişti); eski koşuların adı ve anahtarı aynı
+KAL_DEGERLERI = {"kural": (0.6, 0.8, 1.0, 1.25, 1.5, 2.0), "tekduze": (0.30, 0.40, 0.50)}
 BLOKLAR = ("kalibrasyon", "yol0", "yollar")
 
 
@@ -612,7 +614,7 @@ def en_erken_karar(w, sezon: str) -> str:
 
 
 def kalibrasyon(ortam: Ortam | None = None, sadece_onbellek: bool = False, zorla: bool = False) -> dict:
-    """14 kalibrasyon koşusu, seçim ve `kalibrasyon.json` (modül notu)."""
+    """18 kalibrasyon koşusu, seçim ve `kalibrasyon.json` (modül notu)."""
     ortam = Ortam() if ortam is None else ortam
     kayit = kos_hepsi("kalibrasyon", ortam, sadece_onbellek=sadece_onbellek, zorla=zorla)
     sec = kalibrasyon_sec(kayit["kosular"])
@@ -667,7 +669,7 @@ def main(argv=None) -> None:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(prog="python -m markdown.oyun")
     alt = ap.add_subparsers(dest="komut", required=True)
-    ka = alt.add_parser("kalibrasyon", help="14 kalibrasyon koşusu ve cikti/kalibrasyon.json")
+    ka = alt.add_parser("kalibrasyon", help="18 kalibrasyon koşusu ve cikti/kalibrasyon.json")
     iz = alt.add_parser("izgara", help="test ızgarası (cikti/oyun.json, cikti/ilerleme.jsonl)")
     iz.add_argument("--blok", default="hepsi", choices=["yol0", "yollar", "hepsi"])
     iz.add_argument("--yol", type=int, default=None, help="yalnız bu yol")
