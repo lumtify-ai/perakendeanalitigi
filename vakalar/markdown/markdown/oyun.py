@@ -3,6 +3,7 @@
     .venv/Scripts/python -m markdown.oyun kalibrasyon                  # 18 koşu, cikti/kalibrasyon.json
     .venv/Scripts/python -m markdown.oyun izgara --blok yol0           # yol 0: lumoda + 8 kol × 2 sezon
     .venv/Scripts/python -m markdown.oyun izgara --blok yollar [--yol P]   # yollar 1–4: lumoda + 6 kol × 2
+    .venv/Scripts/python -m markdown.oyun izgara --blok ablasyon       # yol 0: kural_takvim, kural_deposuz × 2 (R24)
     .venv/Scripts/python -m markdown.oyun olc                          # önbellekteki koşuları yeniden ölç
     ... --olcek KUCUK                                                  # cikti/kucuk/
 
@@ -13,13 +14,16 @@ alanlarına kendisi dokunmaz (AST kilidi).
 **Kollar** (`KOLLAR`, spec §3.4; `kip` korunumun kipi, `politika.KIPLER`): `tekduze` (takvim; oran
 kalibrasyondan), `kural` (serbest; α kalibrasyondan), `opt_tuzak` (serbest, ε̂ markdown), `opt` (serbest, ε̂
 kampanya; ana öneri), `opt_takvim` (takvim), `opt_erken_yok` (erken_yok), `opt_taban` (taban), `kahin`
-(serbest, gerçek girdi). Yol 0'da sekizi, yollar 1–4'te `YOL_KOLLARI` (altısı).
+(serbest, gerçek girdi). Yol 0'da sekizi (`YOL0_KOLLARI`), yollar 1–4'te `YOL_KOLLARI` (altısı). Ayrıştırma
+kolları (Ruling R24; `politika_ablasyon`, yalnız yol 0, `ablasyon` bloğu, α kalibrasyondan): `kural_takvim`
+(erken_yok: pencere indirim günü) ve `kural_deposuz` (serbest: stok raf + yolda).
 
 **Koşular** (`izgara_listesi`; bir koşu tek sezon, Ruling R5). Adlar: Lumoda sezonsuz `lumoda` / `y<p>_lumoda`;
 karar kolu `<kol>_<sezon>` (yol 0) / `y<p>_<kol>_<sezon>`; kalibrasyon `kal_<kol>_<değer>_<sezon>` (yol 0;
 `kural` α 0,6 → `a060`, 1,25 → `a125`; `tekduze` %30 → `30`). Bloklar: `kalibrasyon` 18 (`kural` α ∈
 {0,6; 0,8; 1,0; 1,25; 1,5; 2,0} ve `tekduze` {%30, 40, 50}, AW23 ve SS24; α ızgarası Ruling R20'yle bir kez
-aşağı genişletildi: TAM'da 1,0 uçta seçilmişti), `yol0` 1 + 16, `yollar` 4 × 13; toplam 87.
+aşağı genişletildi: TAM'da 1,0 uçta seçilmişti), `yol0` 1 + 16, `yollar` 4 × 13, `ablasyon` 2 × 2 (Ruling R24;
+`hepsi`'ye girmez); toplam 91.
 
 **Yol** (`Yol`, yol başına, tembel). Sıra: (1) yolun Lumoda koşusu `simulasyon.kos(lumoda_adi(p), None,
 yol=p, rpt_takvimi=None)`; (2) RPT takvimi `simulasyon.rpt_takvimi(lumoda)` (R4: her kolda bu takvim
@@ -81,7 +85,7 @@ import pandas as pd
 from allocation import motor
 from allocation import oyun as al_oyun
 
-from markdown import hakem, kaynak, ogrenme, olcutler, politika, sabitler, simulasyon
+from markdown import hakem, kaynak, ogrenme, olcutler, politika, politika_ablasyon, sabitler, simulasyon
 
 CIKTI = simulasyon.PAKET_KOKU.parent / "cikti"
 # OLCUM_SURUMU: ölçümü değiştiren ama OLCUM_FONKSIYONLARI, olcutler.py ve hakem.py dışında kalan her
@@ -112,12 +116,16 @@ KOLLAR = {k.ad: k for k in (
     Kol("opt_erken_yok", "erken_yok", "kampanya", "optimizasyon, indirim gününden önce indirim yok (ayrışım)"),
     Kol("opt_taban", "taban", "kampanya", "optimizasyon, erken başlar, indirim gününden %30 taban (ayrışım)"),
     Kol("kahin", "serbest", "kampanya", "opt'un gerçek talep ve esneklik girdili hâli"),
+    Kol("kural_takvim", "erken_yok", None, "kapsama kuralı, karar penceresi indirim günü (ayrışım, Ruling R24)"),
+    Kol("kural_deposuz", "serbest", None, "kapsama kuralı, stok yalnız raf + yolda (ayrışım, Ruling R24)"),
 )}
-YOL0_KOLLARI = tuple(KOLLAR)
+YOL0_KOLLARI = ("tekduze", "kural", "opt_tuzak", "opt", "opt_takvim", "opt_erken_yok", "opt_taban", "kahin")
+# Ruling R24: kuralın ayrıştırma kolları (yalnız yol 0, `ablasyon` bloğu; α kalibrasyonun seçtiği)
+ABLASYON_KOLLARI = ("kural_takvim", "kural_deposuz")
 YOL_KOLLARI = ("tekduze", "kural", "opt_tuzak", "opt", "opt_takvim", "kahin")
 # Ruling R20: α ızgarası bir kez aşağı genişletildi (TAM 1,0 uçta seçmişti); eski koşuların adı ve anahtarı aynı
 KAL_DEGERLERI = {"kural": (0.6, 0.8, 1.0, 1.25, 1.5, 2.0), "tekduze": (0.30, 0.40, 0.50)}
-BLOKLAR = ("kalibrasyon", "yol0", "yollar")
+BLOKLAR = ("kalibrasyon", "yol0", "yollar", "ablasyon")
 
 
 # ---------------------------------------------------------------------------
@@ -161,6 +169,8 @@ def kosu_adi(yol: int, kol: str, sezon: str | None = None, deger: float | None =
         return f"kal_{kol}_{deger_etiketi(kol, deger)}_{sezon}"
     if sezon not in sabitler.TEST_SEZONLARI:
         raise ValueError(f"test kolu {sabitler.TEST_SEZONLARI}'den birinde koşar: {sezon!r}")
+    if kol in ABLASYON_KOLLARI and yol != 0:
+        raise ValueError(f"ayrıştırma kolu yalnız yol 0'da koşar (Ruling R24): {kol!r}, yol {yol}")
     return f"{kol}_{sezon}" if yol == 0 else f"y{yol}_{kol}_{sezon}"
 
 
@@ -169,8 +179,8 @@ def _kosum(yol: int, kol: str, sezon=None, deger=None) -> Kosum:
 
 
 def izgara_listesi(blok: str = "hepsi", yol: int | None = None) -> list[Kosum]:
-    """Koşuların sırası: `kalibrasyon`, `yol0`, `yollar` ya da `hepsi` (yol0 + yollar; kalibrasyon ayrı
-    komuttur). `yol` verilirse yalnız o yolun koşuları (blokta yoksa `ValueError`)."""
+    """Koşuların sırası: `kalibrasyon`, `yol0`, `yollar`, `ablasyon` ya da `hepsi` (yol0 + yollar; kalibrasyon
+    ve ablasyon ayrı bloktur). `yol` verilirse yalnız o yolun koşuları (blokta yoksa `ValueError`)."""
     if blok not in (*BLOKLAR, "hepsi"):
         raise ValueError(f"blok {BLOKLAR} ya da 'hepsi' olmalı: {blok!r}")
     liste: list[Kosum] = []
@@ -179,6 +189,8 @@ def izgara_listesi(blok: str = "hepsi", yol: int | None = None) -> list[Kosum]:
                  for s in sabitler.KAL_SEZONLARI]
     if blok in ("yol0", "hepsi"):
         liste += [_kosum(0, LUMODA)] + [_kosum(0, kol, s) for s in sabitler.TEST_SEZONLARI for kol in YOL0_KOLLARI]
+    if blok == "ablasyon":
+        liste = [_kosum(0, kol, s) for s in sabitler.TEST_SEZONLARI for kol in ABLASYON_KOLLARI]
     if blok in ("yollar", "hepsi"):
         for p in YOLLAR:
             liste += [_kosum(p, LUMODA)] + [_kosum(p, kol, s) for s in sabitler.TEST_SEZONLARI
@@ -366,6 +378,11 @@ class Yol:
         `kal`'ınkini (`kalibrasyon_oku`) kullanır."""
         idx = self.test_idx(k.sezon)
         kol = KOLLAR[k.kol]
+        if kol.ad in ABLASYON_KOLLARI:
+            if kal is None:
+                raise ValueError(f"{k.ad}: ayrıştırma kolu kalibrasyonun seçtiği α'yı ister (kalibrasyon.json)")
+            a, sinif = float(kal["kural"]), politika_ablasyon.KOLLAR[kol.ad]
+            return lambda temel: sinif(temel, idx, a)
         if kol.ad in KAL_DEGERLERI:
             if k.deger is None and kal is None:
                 raise ValueError(f"{k.ad}: test kolu kalibrasyonun seçtiği değeri ister (kalibrasyon.json)")
@@ -552,7 +569,7 @@ def toplam_kaydi(kosular: dict, ortam: Ortam) -> dict:
     farklı olan (yol, kol) girmez."""
     sonuc: dict = {}
     for yol in (0, *YOLLAR):
-        for kol in (LUMODA, *(YOL0_KOLLARI if yol == 0 else YOL_KOLLARI)):
+        for kol in (LUMODA, *(YOL0_KOLLARI + ABLASYON_KOLLARI if yol == 0 else YOL_KOLLARI)):
             if kol == LUMODA:
                 r = kosular.get(kosu_adi(yol, LUMODA))
                 if not r or not _tablolar_var(ortam, r):
@@ -589,7 +606,8 @@ def kos_hepsi(blok: str = "hepsi", ortam: Ortam | None = None, *, adlar=None, yo
         raise ValueError(f"{ortam.oyun_yolu} {kayit['olcek']} ölçeğinde; bu ızgara {ortam.olcek}")
     kayit["olcek"] = ortam.olcek
     kosular, yollar = kayit.setdefault("kosular", {}), kayit.setdefault("yollar", {})
-    kal = kalibrasyon_oku(ortam) if any(k.kol in KAL_DEGERLERI and k.deger is None for k in liste) else None
+    kal = kalibrasyon_oku(ortam) if any((k.kol in KAL_DEGERLERI or k.kol in ABLASYON_KOLLARI) and k.deger is None
+                                        for k in liste) else None
     Y, kahin = None, {}
     for ks in liste:
         if Y is None or Y.yol != ks.yol:
@@ -671,7 +689,7 @@ def main(argv=None) -> None:
     alt = ap.add_subparsers(dest="komut", required=True)
     ka = alt.add_parser("kalibrasyon", help="18 kalibrasyon koşusu ve cikti/kalibrasyon.json")
     iz = alt.add_parser("izgara", help="test ızgarası (cikti/oyun.json, cikti/ilerleme.jsonl)")
-    iz.add_argument("--blok", default="hepsi", choices=["yol0", "yollar", "hepsi"])
+    iz.add_argument("--blok", default="hepsi", choices=["yol0", "yollar", "ablasyon", "hepsi"])
     iz.add_argument("--yol", type=int, default=None, help="yalnız bu yol")
     iz.add_argument("--ad", action="append", help="yalnız bu koşu(lar) ya da kol(lar) (tekrarlanabilir)")
     ol = alt.add_parser("olc", help="önbellekteki bütün koşuları yeniden ölç (koşmaz)")
@@ -690,6 +708,7 @@ def main(argv=None) -> None:
     else:
         kalibrasyon(ortam, sadece_onbellek=True, zorla=a.zorla)
         kos_hepsi("hepsi", ortam, sadece_onbellek=True, zorla=a.zorla)
+        kos_hepsi("ablasyon", ortam, sadece_onbellek=True, zorla=a.zorla)
     print(f"{a.komut} bitti: {time.perf_counter() - t0:.0f} sn", flush=True)
 
 

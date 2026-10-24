@@ -98,10 +98,14 @@ def test_kod_ozeti_listeleri(tmp_path, monkeypatch):
     kolların (`politika`: kolları çağıran kurar, simülasyon içe aktarmaz) paket içi içe aktarma
     kapanışı anahtarda; ortak paket kapanışı (öğrenme) da; ölçüm kodu (hakem, ölçütler) değişince vaka özeti aynı,
     simülasyon modülü değişince farklı."""
+    from tests.test_sizinti import ABLASYON_MODULLERI
     var = {y.stem for y in PAKET.glob("*.py")}
-    ic, dis = set(simulasyon.SIMULASYON_MODULLERI), set(simulasyon.KOSU_DISI)
-    assert not ic & dis
-    assert var <= ic | dis, sorted(var - ic - dis)
+    ic, dis, abl = set(simulasyon.SIMULASYON_MODULLERI), set(simulasyon.KOSU_DISI), set(ABLASYON_MODULLERI)
+    assert not ic & dis and not abl & (ic | dis)
+    assert var <= ic | dis | abl, sorted(var - ic - dis - abl)
+    # Ruling R24: ayrıştırma kolları vaka özetinde değil (koşan ızgaranın anahtarı değişmez); kendi özetleri
+    # kolun parametrelerinde (tests/test_politika_ablasyon.py)
+    assert not any(f"markdown/{m}.py" in simulasyon.vaka_kod_dosyalari() for m in abl)
     assert {"hakem", "olcutler"} <= dis and ic <= var
     kapanis, sira = set(), ["simulasyon", "politika"]
     while sira:

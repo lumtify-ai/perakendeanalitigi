@@ -3,6 +3,7 @@
     cd vakalar/markdown
     PYTHONIOENCODING=utf-8 .venv/Scripts/python -m markdown.oyun kalibrasyon      # cikti/kalibrasyon.json
     PYTHONIOENCODING=utf-8 .venv/Scripts/python -m markdown.oyun izgara           # cikti/oyun.json (koşular, ölçüm)
+    PYTHONIOENCODING=utf-8 .venv/Scripts/python -m markdown.oyun izgara --blok ablasyon   # kuralın ayrışımı (R24)
     PYTHONIOENCODING=utf-8 .venv/Scripts/python analiz.py                         # cikti/analiz.json (koşusuz)
     PYTHONIOENCODING=utf-8 .venv/Scripts/python -m markdown.hikaye                # cikti/hikaye.json
     PYTHONIOENCODING=utf-8 .venv/Scripts/python senaryolar.py                     # demo JSON
@@ -24,8 +25,9 @@ Bölümler (`BOLUMLER`, bu sırayla; spec §5). Başlık sorularının (spec §4
                          haftalık satış, geç RPT; beş sezonun aralıkları
     ESNEKLİK             öğrenilen ε̂ (saf, markdown, kampanya) ve gerçek ε; tek-option hesabı (SORU 4)
     KALİBRASYON          kural α ve tekdüze oran ızgarası (iki kalibrasyon sezonu), Lumoda'ya göre
-    YOL 0                bütün kollar, bütün ölçütler, iki sezon ve toplam; Lumoda'ya farklar (SORU 1, 2, 3, 6)
-    AYRIŞIM              kime / ne zaman / etkileşim / ne kadar (SORU 5)
+    YOL 0                bütün kollar, bütün ölçütler, iki sezon ve toplam; Lumoda'ya farklar (SORU 1, 3, 6)
+    AYRIŞIM              kime / ne zaman / etkileşim / ne kadar (SORU 5); kapsama kuralının kaynağı: Lumoda →
+                         kural_takvim → kural, kural_deposuz → kural (Ruling R24; SORU 2)
     ÇEYREK               Lumoda'nın indirim başı STR çeyreklerine göre kazanç (SORU 7)
     YOLLAR               5 talep yolu: Lumoda'ya katkı farkı, min / medyan / max, k/n önde
     TAHMİN İSABETİ       kolların pazartesi kaydının tahmini satışı ↔ gerçekleşen (WAPE)
@@ -84,9 +86,9 @@ ANLATI_VARSAYIMLARI = {
                   "(Ruling R9); \"indirim günü\" = indirim haftasının pazartesisi",
     "hafta": "haftalar pazartesi başlar; \"hafta k\" indirim haftasına göre (0 indirim haftası, −8 indirimden 8 hafta "
              "önce); \"lansman haftası k\" lansmandan k hafta sonra",
-    "markdown_tl": "YOL 0 ve sonrası markdown TL = olcutler tanımı (pozitif satış, kampanyasız, normal ve online hat, oran "
-                   "> 0, lansman → çıkış; iadeden önce); VERİ hunisinde indirim dönemi [indirim, çıkış) ve iade düşülmüş "
-                   "değer ayrıca basılır",
+    "markdown_tl": "markdown TL ve outlet indirimi her bölümde olcutler tanımıdır (pozitif satış, kampanyasız, normal ve "
+                   "online hat, oran > 0, lansman → çıkış; iadeden önce; outlet hattı çıkış → + 84); VERİ'nin \"keşif "
+                   "tanımları\" satırı spec §0'ın iade düşülmüş indirim dönemi değeridir ve yazıda kullanılmaz (Ruling R21)",
     "kucuk": "KÜÇÜK ölçekte sahnenin option'ları yoktur; hikâye kuralla seçilmiş yedek option'ları basar (yalnız "
              "geliştirme)",
 }
@@ -325,8 +327,8 @@ def _json(yol: Path) -> dict | None:
 
 
 def izgara() -> list:
-    """Raporun beklediği bütün koşular: kalibrasyon (14) + yol 0 + yollar (83)."""
-    return oyun.izgara_listesi("kalibrasyon") + oyun.izgara_listesi("hepsi")
+    """Raporun beklediği bütün koşular: kalibrasyon (18) + yol 0 (17) + yollar (52) + ablasyon (4; Ruling R24)."""
+    return oyun.izgara_listesi("kalibrasyon") + oyun.izgara_listesi("hepsi") + oyun.izgara_listesi("ablasyon")
 
 
 def gecerli_kosular(oyun_kaydi: dict, olcum_kodu: str, onbellek: Path) -> tuple[set, list]:
@@ -466,66 +468,97 @@ def kfark_metni(x2: float) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _huni_satirlari(h: dict) -> None:
+KIRLI_STOK_PAYI = 450      # yayımlamanın hayalet stok kaydı: 150 satır × en çok 3 adet (v4 kirlet; VERİ ↔ YOL 0)
+
+
+def _huni_satirlari(h: dict, ob: dict) -> None:
+    o = ob["olcutler"]
     print(f"  arz {s(h['arz'])} adet = ilk {s(h['arz_ilk'])} + RPT {s(h['arz_rpt'])} ({s(h['rpt_option'])} option'a RPT); "
           f"alış değeri {s(mtl(h['arz_alis']), 2)} M TL")
     print(f"  Lumoda'nın indirim penceresinden önce (indirim − 28'e kadar) pozitif satış {s(h['satis_tam'])} adet; "
           f"erken indirim penceresinde (indirim − 28 → indirim) {s(h['satis_erken'])} adet; indirim başına kadar "
           f"{s(h['satis_once'])} adet")
     print(f"  indirim döneminde (indirim → çıkış) {s(h['satis_ind'])} adet, net ciro {s(mtl(h['ciro_ind']), 2)} M TL, "
-          f"markdown TL {s(mtl(h['md_ind']), 2)} M TL (iadeden önce; iade düşülmüş {s(mtl(h['md_ind_net']), 2)} M TL), "
-          f"kampanya indirimi {s(mtl(h['kampanya_ind']), 2)} M TL; adet başı fiyat ÷ liste fiyatı {y(h['ind_fiyat_payi'])}")
-    print(f"  çıkıştan 7 gün önce kalan {s(h['kalan'])} adet (mağazada {s(h['kalan_magaza'])}, depoda {s(h['kalan_depo'])}); "
-          f"liste değeri {s(mtl(h['kalan_liste']), 2)} M TL, alış değeri {s(mtl(h['kalan_alis']), 2)} M TL")
+          f"adet başı fiyat ÷ liste fiyatı {y(h['ind_fiyat_payi'])}")
     print(f"  outlet'e giden {s(h['outlet_akisi'])} adet; outlet mağazalarında 84 günde {s(h['outlet_satis'])} adet satış, "
-          f"net ciro {s(mtl(h['outlet_ciro']), 2)} M TL, adet başı fiyat ÷ liste fiyatı {y(h['outlet_fiyat_payi'])}, outlet "
-          f"indirimi {s(mtl(h['outlet_indirim']), 2)} M TL (iade düşülmüş {s(mtl(h['outlet_indirim_net']), 2)} M TL)")
-    print(f"  çıkış + 120 günde depoda ölü stok {s(h['olu_stok'])} adet, alış değeri {s(mtl(h['olu_stok_alis']), 2)} M TL")
+          f"net ciro {s(mtl(h['outlet_ciro']), 2)} M TL, adet başı fiyat ÷ liste fiyatı {y(h['outlet_fiyat_payi'])}")
     print(f"  RPT'si indirim − 28'den sonra teslim edilen {s(h['rpt_gec_option'])} option, {s(h['rpt_gec_adet'])} adet")
+    print("  olcutler tanımıyla (YOL 0'ın Lumoda'sı, aynı işlev; Ruling R21; yazıların tek tanımı):")
+    print(f"    markdown TL {s(mtl(o['markdown_tl']), 2)} M TL (lansman → çıkış, oranı > 0 olan normal ve online hat "
+          f"satırları, iadeden önce; online {s(mtl(o['markdown_tl_online']), 2)} M TL); outlet indirimi "
+          f"{s(mtl(o['outlet_indirim_tl']), 2)} M TL (outlet hattı, çıkış → çıkış + 84)")
+    print(f"    çıkıştan 7 gün önce kalan {s(o['cikis_kalan_adet'])} adet (mağazada {s(o['cikis_kalan_magaza_adet'])}, depoda "
+          f"{s(o['cikis_kalan_depo_adet'])}); liste değeri {s(mtl(o['cikis_kalan_liste']), 2)} M TL, alış değeri "
+          f"{s(mtl(o['cikis_kalan_alis']), 2)} M TL; çıkış + 120 günde depoda ölü stok {s(o['olu_stok_adet'])} adet, alış "
+          f"değeri {s(mtl(o['olu_stok_alis']), 2)} M TL")
+    print(f"  keşif tanımları (spec §0; yazıda kullanılmaz): indirim döneminde mağazalarda verilen indirim, iade düşülmüş "
+          f"{s(mtl(h['md_ind_net']), 2)} M TL; outlet mağazalarında outlet indirimi, iade düşülmüş "
+          f"{s(mtl(h['outlet_indirim_net']), 2)} M TL")
+
+
+def _ob(a: dict, z: str) -> dict:
+    ob = a["sezonlar"][z].get("olcutler")
+    if ob is None:
+        raise Eksik(f"analiz.json {z} olcutler bloğu (python analiz.py)")
+    return ob
 
 
 def veri_bolumu(v, ek) -> None:
     a = A(v)
     print(f"  kaynak: {'yayımlanan v4 DuckDB (analistin gördüğü veri)' if a['kaynak'] == 'yayimlanan' else a['kaynak']}; "
-          "sezonun Collection option'ları; gizli gerçek yok")
+          "sezonun Collection option'ları; gizli gerçek yok. Markdown TL, outlet indirimi, kalan, ölü stok ve STR "
+          "çeyrekleri olcutler tanımıyla yol 0 Lumoda koşusundan (yayımlanan v4'ün temiz hâli)")
     for z in SEZONLAR:
         d = a["sezonlar"].get(z)
         if d is None:
             raise Eksik(f"analiz.json {z}")
-        h = d["huni"]
+        h, ob = d["huni"], _ob(a, z)
         alt(f"{SEZON_ADLARI[z]}: sezon sonu hunisi ({s(h['option'])} option)")
-        _huni_satirlari(h)
+        _huni_satirlari(h, ob)
         km = d["kademe"]
         print("  Lumoda'nın en derin oranı (option sayısı): " + " · ".join(
             f"{y(float(x), 0)} {s(n)}" for x, n in km["dagilim"].items())
               + f"; indirim gününden önce oranı olan {s(km['erken_indirilen'])} option, indirim − 28'den önce "
               f"{s(km['lumoda_oncesi_indirilen'])}")
-        st = d["str"]
+        st = ob["str"]
         print(f"  indirim başı STR (100 × indirim başına kadar satış ÷ arz): p10 {yd(st['p10'])}, medyan {yd(st['p50'])}, "
               f"p90 {yd(st['p90'])}")
-        _tablo(["çeyrek", "option", "STR aralığı", "STR (Σ ÷ Σ)", "çıkışta kalan", "kalanın payı", "indirim dön. markdown",
-                "iade düşülmüş", "ölü stok"],
-               [[str(c["ceyrek"]), s(c["option"]), f"{yd(c['str_alt'])}–{yd(c['str_ust'])}", yd(c["str_ort"]), s(c["kalan"]),
-                 y(c["kalan_payi"]), f"{s(mtl(c['md_ind']), 2)} M TL", f"{s(mtl(c['md_ind_net']), 2)} M TL", s(c["olu_stok"])]
-                for c in st["ceyrekler"]])
-        print(f"  çıkışta kalanın indirim başı STR'sinin alt yarısındaki (1. ve 2. çeyrek) payı {y(st['alt_yari_kalan_payi'])}")
+        _tablo(["çeyrek", "option", "STR aralığı", "çıkışta kalan", "kalanın payı", "markdown TL", "ölü stok"],
+               [[str(c["ceyrek"]), s(c["option"]), f"{yd(c['str_alt'])}–{yd(c['str_ust'])}", s(c["kalan"]),
+                 y(c["kalan_payi"]), f"{s(mtl(c['markdown_tl']), 2)} M TL", s(c["olu_stok"])] for c in ob["ceyrekler"]])
+        print(f"  çıkışta kalanın indirim başı STR'sinin alt yarısındaki (1. ve 2. çeyrek) payı {y(ob['alt_yari_kalan_payi'])}")
         hf = d["haftalik"]
         print("  haftalık pozitif satış (indirimden 8 hafta önceden çıkışa): " + " · ".join(
             f"{hk(r['hafta'])}: {s(r['adet'])}" for r in hf))
-        ek += [(f"VERİ {z}: çeyrek option sayıları = option", sum(c["option"] for c in st["ceyrekler"]) == h["option"]),
+        o = ob["olcutler"]
+        ek += [(f"VERİ {z}: çeyrek option sayıları = option", sum(c["option"] for c in ob["ceyrekler"]) == h["option"]
+                and o["option_sayisi"] == h["option"]),
                (f"VERİ {z}: kademe dağılımı = option", sum(km["dagilim"].values()) == h["option"]),
                (f"VERİ {z}: arz = ilk + RPT", abs(h["arz"] - h["arz_ilk"] - h["arz_rpt"]) < 1e-6),
-               (f"VERİ {z}: kalan = mağaza + depo", abs(h["kalan"] - h["kalan_magaza"] - h["kalan_depo"]) < 1e-6)]
+               (f"VERİ {z}: yayımlanan arz = yol 0 Lumoda arzı", abs(h["arz"] - o["arz_adet"]) < 1e-6),
+               (f"VERİ {z}: yayımlanan kalan ve ölü stok = yol 0 Lumoda'nınki (mağaza stoğunda kirli kayıt payı)",
+                abs(h["kalan_magaza"] - o["cikis_kalan_magaza_adet"]) <= KIRLI_STOK_PAYI
+                and abs(h["kalan_depo"] - o["cikis_kalan_depo_adet"]) < 1e-6
+                and abs(h["olu_stok"] - o["olu_stok_adet"]) < 1e-6)]
+    for z in a["analiz_sezonlari"]:
+        lu = K(v, LUMODA)["olcutler"].get(z)
+        if lu is None:
+            continue
+        ob = _ob(a, z)
+        ek.append((f"VERİ {z} = YOL 0 Lumoda (olcutler: {', '.join(analiz.OLCUTLER_ALANLARI)})",
+                   all(abs(ob["olcutler"][k] - lu[k]) < 1e-6 for k in analiz.OLCUTLER_ALANLARI)))
+        lc = K(v, LUMODA)["ceyrek"][z]
+        ek.append((f"VERİ {z} çeyrekleri = YOL 0 Lumoda çeyrekleri", len(lc) == len(ob["ceyrekler"]) and all(
+            abs(c["katki"] - l["katki"]) < 1e-6 and abs(c["markdown_tl"] - l["markdown_tl"]) < 1e-6
+            and abs(c["kalan"] - l["cikis_kalan_adet"]) < 1e-6 for c, l in zip(ob["ceyrekler"], lc))))
     alt(f"{s(len(a['analiz_sezonlari']))} sezonda aralık (" + ", ".join(a["analiz_sezonlari"]) + ")")
     otuz = [a["sezonlar"][z]["kademe"]["dagilim"].get("0.30", 0) for z in a["analiz_sezonlari"]]
     yetmis = [a["sezonlar"][z]["kademe"]["dagilim"].get("0.70", 0) for z in a["analiz_sezonlari"]]
-    en_iyi = [yuv(mtl(a["sezonlar"][z]["str"]["ceyrekler"][3]["md_ind"]), 2) for z in a["analiz_sezonlari"]]
-    en_iyi_net = [yuv(mtl(a["sezonlar"][z]["str"]["ceyrekler"][3]["md_ind_net"]), 2) for z in a["analiz_sezonlari"]]
-    alt_yari = [yuv(100 * a["sezonlar"][z]["str"]["alt_yari_kalan_payi"], 1) for z in a["analiz_sezonlari"]]
+    en_iyi = [yuv(mtl(_ob(a, z)["ceyrekler"][3]["markdown_tl"]), 2) for z in a["analiz_sezonlari"]]
+    alt_yari = [yuv(100 * _ob(a, z)["alt_yari_kalan_payi"], 1) for z in a["analiz_sezonlari"]]
     print(f"  çıkışa kadar %30'da kalan option {s(min(otuz))}–{s(max(otuz))}; %70'e inen {s(min(yetmis))}–{s(max(yetmis))}")
-    print(f"  en iyi çeyreğe indirim döneminde giden markdown {s(min(en_iyi), 2)}–{s(max(en_iyi), 2)} M TL (iade düşülmüş "
-          f"{s(min(en_iyi_net), 2)}–{s(max(en_iyi_net), 2)} M TL); kalanın alt yarıdaki payı %{s(min(alt_yari), 1)}–"
-          f"%{s(max(alt_yari), 1)}")
+    print(f"  en iyi çeyreğin markdown TL'si (olcutler) {s(min(en_iyi), 2)}–{s(max(en_iyi), 2)} M TL; kalanın alt yarıdaki "
+          f"payı %{s(min(alt_yari), 1)}–%{s(max(alt_yari), 1)}")
 
 
 # ---------------------------------------------------------------------------
@@ -582,7 +615,8 @@ def esneklik_bolumu(v, ek) -> None:
     em, ec = _ogrenme(v, 0, "SS25")["eps_markdown"]["*"], _ogrenme(v, 0, "SS25")["eps_kampanya"]["*"]
     soru(4, f"Yanlış esneklik (markdown'dan) kararı ne kadar bozar, hangi yöne? İki sezonda opt_tuzak − opt katkı "
             f"{kfark_metni(dk)}; markdown TL {isaretli(dm, 2)} M TL ({isaretli(tek_ondalik(dm), 1)}), indirilen option "
-            f"{isaretli(di)}: {yon(-dm, 'daha az indirim', 'daha çok indirim', 'aynı indirim')} "
+            f"{isaretli(di)}: {yon(-dm, 'daha az indirim', 'daha çok indirim', 'aynı indirim')}"
+            + (" (iki işaret ters: markdown TL ve indirilen option ayrı yönde)" if dm * di < 0 else "") + " "
             f"(SS25 ε̂ markdown {s(em, 3)} {'<' if yuv(em, 3) < yuv(ec, 3) else '>' if yuv(em, 3) > yuv(ec, 3) else '='} "
             f"kampanya {s(ec, 3)}); tek option'da markdown ε'si DP'ye ilk hafta "
             f"{y(r['markdown']['dp_oran'], 0)}, kampanya ε'si {y(r['kampanya']['dp_oran'], 0)} önerdirir")
@@ -618,8 +652,9 @@ def kalibrasyon_bolumu(v, ek) -> None:
         secilen = r[ad]
         print(f"  seçilen {et} {s(secilen, 2) if kol == 'kural' else y(secilen, 0)}"
               + ("; ızgaranın ucunda" if r["izgara_ucunda"] else ""))
-        kul = [K(v, ad_(0, kol, z))["parametreler"].get(ad) for z in SEZONLAR]
-        ek.append((f"KALİBRASYON: test kolu {kol} seçilen {et} ile koştu", all(
+        kul = [K(v, ad_(0, k, z))["parametreler"].get(ad) for z in SEZONLAR
+               for k in ((kol, *oyun.ABLASYON_KOLLARI) if kol == "kural" else (kol,))]
+        ek.append((f"KALİBRASYON: test kolu {kol} (kuralda ayrıştırma kolları da) seçilen {et} ile koştu", all(
             x is not None and abs(float(x) - float(secilen)) < 1e-9 for x in kul)))
 
 
@@ -673,14 +708,6 @@ def yol0_bolumu(v, ek) -> None:
             f"{y(K(v, ad_(0, 'tekduze', 'SS25'))['parametreler']['oran'], 0)}) iyi mi? Lumoda − tekdüze katkı: "
             + " · ".join(f"{SEZON_ADLARI[z]} {kfark_metni(d1[z])}" for z in (*SEZONLAR, TOPLAM))
             + f": iki sezonda {yon(d1[TOPLAM], 'iyi', 'kötü')}")
-    lu, ku = O(v, LUMODA, TOPLAM), O(v, "kural", TOPLAM)
-    d2 = kfark(v, LUMODA, "kural", TOPLAM)
-    dd = fark(lu["cikis_kalan_depo_adet"], ku["cikis_kalan_depo_adet"])
-    dmg = fark(lu["cikis_kalan_magaza_adet"], ku["cikis_kalan_magaza_adet"])
-    soru(2, f"Kapsama kuralı Lumoda'yı ne kadar geçer, kazancı nereden? Kural − Lumoda katkı {kfark_metni(d2)} (iki sezon; "
-            f"{yon(d2, 'geçer', 'geçemez')}); ilk indirim haftası medyanı kural {s(ku['ilk_indirim_hafta_medyan'], 1)}, "
-            f"Lumoda {s(lu['ilk_indirim_hafta_medyan'], 1)} (indirim haftasına göre); çıkışta depoda kalan "
-            f"{isaretli(dd)} adet, mağazada {isaretli(dmg)} adet; depo ve erken başlama ayrı kollarla ayrıştırılmadı")
     d3 = kfark(v, "kural", "opt", TOPLAM)
     ko = kfark(v, LUMODA, "opt", TOPLAM)
     kk = kfark(v, LUMODA, "kahin", TOPLAM)
@@ -734,11 +761,52 @@ def ayrisim_bolumu(v, ek) -> None:
                   f"{farki(tur, t_[ad], O(v, 'opt_taban', z)[ad])} · ikisi {farki(tur, t_[ad], O(v, 'opt', z)[ad])}")
         ek.append((f"AYRIŞIM {z}: yol A toplamı = ikisi", abs(yuv(kime + yol_a, 2) - ikisi) <= 0.011))
         ek.append((f"AYRIŞIM {z}: yol B toplamı = ikisi", abs(yuv(ne_zaman + yol_b, 2) - ikisi) <= 0.011))
+    kural_ayrisimi(v, ek)
     kime, ne_zaman, ikisi, etk, ne_kadar = sonuc[TOPLAM]
     soru(5, f"Takvime bağlı kalmanın bedeli ne; kime / ne zaman / ne kadar ne diyor? İki sezonda opt − opt_takvim "
             f"{kfark_metni(ikisi)} (takvimin bedeli); kime {kfark_metni(kime)}, ne zaman {kfark_metni(ne_zaman)}, etkileşim "
             f"{kfark_metni(etk)}; ne kadar (opt_takvim − tekdüze) {kfark_metni(ne_kadar)}; serbestliklerden büyüğü "
             + ("kime" if kime > ne_zaman else "ne zaman" if ne_zaman > kime else "ikisi eşit"))
+
+
+def kural_ayrisimi(v, ek) -> None:
+    """Kapsama kuralının kazancının kaynağı (Ruling R24; yol 0, iki ayrıştırma kolu): Lumoda → kural_takvim (kuralın
+    takvimdeki değeri: aynı pencere, kapsama ölçüsü) → kural (ne zaman: erken başlamak); kural_deposuz → kural (depo:
+    depoyu ve açık siparişi görmek)."""
+    alt("kapsama kuralı (Ruling R24): Lumoda → kural_takvim → kural ve kural_deposuz → kural; sezon katkısı, M TL")
+    print("  kural_takvim = kural, karar penceresi indirim günü (erken başlamaz); kural_deposuz = kural, stok yalnız raf + "
+          "yolda (depo ve açık sipariş yok: Lumoda'nın STR'yi mağazaya gidenle ölçmesinin yaklaşığı)")
+    sonuc = {}
+    for z in (*SEZONLAR, TOPLAM):
+        takvim_degeri = kfark(v, LUMODA, "kural_takvim", z)
+        ne_zaman = kfark(v, "kural_takvim", "kural", z)
+        depo = kfark(v, "kural_deposuz", "kural", z)
+        toplam_ = kfark(v, LUMODA, "kural", z)
+        sonuc[z] = (takvim_degeri, ne_zaman, depo, toplam_)
+        print(f"  {SEZON_ADLARI[z]}: kural − Lumoda {kfark_metni(toplam_)} = Lumoda → kural_takvim {kfark_metni(takvim_degeri)}"
+              f" + kural_takvim → kural (ne zaman) {kfark_metni(ne_zaman)}; depo (kural − kural_deposuz) {kfark_metni(depo)}")
+        ku, kt, kd = (O(v, k, z) for k in ("kural", "kural_takvim", "kural_deposuz"))
+        print(f"    markdown TL: kural {s(mtl(ku['markdown_tl']), 2)}, kural_takvim {s(mtl(kt['markdown_tl']), 2)}, kural_deposuz "
+              f"{s(mtl(kd['markdown_tl']), 2)} M TL · ölü stok {s(ku['olu_stok_adet'])} / {s(kt['olu_stok_adet'])} / "
+              f"{s(kd['olu_stok_adet'])} · indirilen option {s(ku['indirilen_option'])} / {s(kt['indirilen_option'])} / "
+              f"{s(kd['indirilen_option'])} · ilk indirim haftası medyanı {s(ku['ilk_indirim_hafta_medyan'], 1)} / "
+              f"{s(kt['ilk_indirim_hafta_medyan'], 1)} / {s(kd['ilk_indirim_hafta_medyan'], 1)}")
+        ek.append((f"AYRIŞIM {z}: Lumoda → kural_takvim → kural toplamı = kural − Lumoda",
+                   abs(yuv(takvim_degeri + ne_zaman, 2) - toplam_) <= 0.011))
+        arz = O(v, LUMODA, z)["arz_adet"]
+        ek.append((f"AYRIŞIM {z}: kural ayrıştırma kollarında arz Lumoda'nınki",
+                   O(v, "kural_takvim", z)["arz_adet"] == arz and O(v, "kural_deposuz", z)["arz_adet"] == arz))
+    takvim_degeri, ne_zaman, depo, toplam_ = sonuc[TOPLAM]
+    lu, ku = O(v, LUMODA, TOPLAM), O(v, "kural", TOPLAM)
+    dd = fark(lu["cikis_kalan_depo_adet"], ku["cikis_kalan_depo_adet"])
+    dmg = fark(lu["cikis_kalan_magaza_adet"], ku["cikis_kalan_magaza_adet"])
+    buyuk = ("erken başlamak" if ne_zaman > depo else "depoyu görmek" if depo > ne_zaman else "ikisi eşit")
+    soru(2, f"Kapsama kuralı Lumoda'yı ne kadar geçer, kazancı nereden? Kural − Lumoda katkı {kfark_metni(toplam_)} (iki sezon; "
+            f"{yon(toplam_, 'geçer', 'geçemez')}); erken başlamanın değeri (kural − kural_takvim) {kfark_metni(ne_zaman)}, "
+            f"depoyu görmenin değeri (kural − kural_deposuz) {kfark_metni(depo)}, takvimde kapsama ölçüsünün değeri "
+            f"(kural_takvim − Lumoda) {kfark_metni(takvim_degeri)}; ikisinden büyüğü {buyuk}; ilk indirim haftası medyanı "
+            f"kural {s(ku['ilk_indirim_hafta_medyan'], 1)}, Lumoda {s(lu['ilk_indirim_hafta_medyan'], 1)}; çıkışta depoda "
+            f"kalan {isaretli(dd)} adet, mağazada {isaretli(dmg)} adet")
 
 
 # ---------------------------------------------------------------------------
@@ -1008,7 +1076,12 @@ def hikaye_bolumu(v, ek) -> None:
     for kol, r in h["kollar"].items():
         ad = ad_(0, kol, h["sezon"])
         ek.append((f"HİKÂYE: {kol} koşusu oyun.json'unki", r["anahtar"] == K(v, ad)["anahtar"]))
-    ek.append(("HİKÂYE: tahmin kayıtlı arz = analizin arzı", t["arz"] == t["arz_ilk"] + t["arz_rpt"]))
+    for rol in ("cok", "az"):
+        tt, lk = h["tulumlar"][rol], h["kollar"][LUMODA]["optionlar"][rol]["sonuc"]
+        ek.append((f"HİKÂYE {rol}: yayımlanan arz, kalan ve ölü stok = yol 0 Lumoda option tablosu (mağaza stoğunda kirli "
+                   "kayıt payı)", tt["arz"] == lk["arz_adet"] and tt["olu_stok"] == lk["olu_stok_adet"]
+                   and tt["cikis_kalan"]["depo"] == lk["cikis_kalan_depo_adet"]
+                   and abs(tt["cikis_kalan"]["magaza"] - lk["cikis_kalan_magaza_adet"]) <= KIRLI_STOK_PAYI))
 
 
 # ---------------------------------------------------------------------------
@@ -1076,9 +1149,6 @@ def korunum_bolumu(v, ek) -> None:
         ek.append(("VERİ yayımlanan DuckDB'den", a.get("kaynak") == "yayimlanan"))
     else:
         ek.append(("analiz.json bu oyun.json'un yol 0 Lumoda'sından", a.get("lumoda_anahtar") == K(v, LUMODA)["anahtar"]))
-    for z in SEZONLAR:
-        ek.append((f"yol 0 Lumoda = yayımlanan: {z} arzı VERİ'ninkiyle aynı",
-                   abs(a["sezonlar"][z]["huni"]["arz"] - O(v, LUMODA, z)["arz_adet"]) < 1e-6))
     n = korunum(ek)
     print(f"  {s(n)} denetim tuttu: {s(sayi)} koşunun sözleşmeleri (RPT ve ilk dağıtım Lumoda'nınkiyle birebir, arz birebir, "
           "merdiven, sığlaşmaz, pencere, takvim tabanı), arz bütün kollarda aynı, yol toplamları, yol 0 Lumoda = yayımlanan,")

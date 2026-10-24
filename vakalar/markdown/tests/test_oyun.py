@@ -1,4 +1,4 @@
-"""`markdown.oyun`: koşu adları, ızgara listesi (87 koşu), kalibrasyon seçimi, kolların kurulumu, yolun kendi
+"""`markdown.oyun`: koşu adları, ızgara listesi (91 koşu), kalibrasyon seçimi, kolların kurulumu, yolun kendi
 öğrenmesi (yol p'nin önbellek kimliği o yolun Lumoda koşusu), ölçümün koşu önbelleğinden yenilenmesi.
 
 KÜÇÜK dünyada (SS25'in 32 Collection option'ı) tam pencere koşuları (~7 sn): yol 0 ve yol 1'in Lumoda'sı,
@@ -14,7 +14,7 @@ import pandas as pd
 import pytest
 from allocation import motor
 
-from markdown import hakem, kaynak, ogrenme, olcutler, oyun, politika, sabitler, simulasyon
+from markdown import hakem, kaynak, ogrenme, olcutler, oyun, politika, politika_ablasyon, sabitler, simulasyon
 from markdown.ogrenme import Ogrenilen
 
 SEZON = "SS25"
@@ -78,20 +78,26 @@ def test_kol_adlari():
         oyun.kosu_adi(0, "kural", "SS25", 1.25)         # kalibrasyon kalibrasyon sezonunda
     # Kollar spec §3.4; korunum kipi politika.KIPLER'den
     assert tuple(oyun.KOLLAR) == ("tekduze", "kural", "opt_tuzak", "opt", "opt_takvim", "opt_erken_yok",
-                                  "opt_taban", "kahin")
+                                  "opt_taban", "kahin", "kural_takvim", "kural_deposuz")
+    assert oyun.YOL0_KOLLARI == tuple(oyun.KOLLAR)[:8] and oyun.ABLASYON_KOLLARI == ("kural_takvim", "kural_deposuz")
+    assert oyun.kosu_adi(0, "kural_takvim", "SS25") == "kural_takvim_SS25"
+    with pytest.raises(ValueError):
+        oyun.kosu_adi(1, "kural_deposuz", "SS25")      # ayrıştırma yalnız yol 0'da
     assert {k.kip for k in oyun.KOLLAR.values()} <= set(politika.KIPLER)
     assert oyun.YOL_KOLLARI == ("tekduze", "kural", "opt_tuzak", "opt", "opt_takvim", "kahin")
 
 
 def test_izgara_listesi():
-    kal, y0, yp = (oyun.izgara_listesi(b) for b in ("kalibrasyon", "yol0", "yollar"))
-    assert len(kal) == 18 and len(y0) == 1 + 16 and len(yp) == 4 * 13
-    hepsi = kal + y0 + yp
+    kal, y0, yp, ab = (oyun.izgara_listesi(b) for b in ("kalibrasyon", "yol0", "yollar", "ablasyon"))
+    assert len(kal) == 18 and len(y0) == 1 + 16 and len(yp) == 4 * 13 and len(ab) == 4
+    hepsi = kal + y0 + yp + ab
     adlar = [k.ad for k in hepsi]
-    assert len(adlar) == 87 and len(set(adlar)) == 87
+    assert len(adlar) == 91 and len(set(adlar)) == 91
+    assert {(k.kol, k.sezon, k.yol) for k in ab} == {(kol, s, 0) for kol in oyun.ABLASYON_KOLLARI
+                                                    for s in sabitler.TEST_SEZONLARI}
     assert all(motor._AD_DESENI.match(a) for a in adlar)
     assert y0[0].ad == "lumoda" and y0[0].sezon is None and y0[0].kol == "lumoda"
-    assert {(k.kol, k.sezon) for k in y0[1:]} == {(kol, s) for kol in oyun.KOLLAR for s in sabitler.TEST_SEZONLARI}
+    assert {(k.kol, k.sezon) for k in y0[1:]} == {(kol, s) for kol in oyun.YOL0_KOLLARI for s in sabitler.TEST_SEZONLARI}
     assert all(k.yol == 0 and k.deger is not None and k.sezon in sabitler.KAL_SEZONLARI for k in kal)
     assert sorted({(k.kol, k.deger) for k in kal}) == sorted(
         [("kural", a) for a in (0.6, 0.8, 1.0, 1.25, 1.5, 2.0)] + [("tekduze", r) for r in (0.30, 0.40, 0.50)])
@@ -205,6 +211,11 @@ def test_kol_kurulumu(ortam, monkeypatch):
         if kip is not None:
             assert (prm["kip"], prm["eps"]) == (kip, eps) and oyun.KOLLAR[kol].kip == kip
     assert Y.kol_kur(oyun.Kosum("x", 0, "kural", SEZON), kal)(temel).parametreler()["alfa"] == 1.25
+    for kol, sinif in politika_ablasyon.KOLLAR.items():
+        p = Y.kol_kur(oyun.Kosum(oyun.kosu_adi(0, kol, SEZON), 0, kol, SEZON), kal)(temel)
+        assert type(p) is sinif and p.parametreler()["alfa"] == 1.25 and p.parametreler()["kol"] == kol
+        with pytest.raises(ValueError):
+            Y.kol_kur(oyun.Kosum("x", 0, kol, SEZON), None)                   # α kalibrasyondan
     assert Y.kol_kur(oyun.Kosum("x", 0, "tekduze", SEZON), kal)(temel).parametreler()["oran"] == 0.40
     kk = oyun.Kosum(oyun.kosu_adi(0, "kural", "SS24", 2.0), 0, "kural", "SS24", 2.0)
     assert Y.kol_kur(kk, None)(temel).parametreler()["alfa"] == 2.0          # kalibrasyon: kendi değeri

@@ -76,7 +76,7 @@ def test_rapor_tam_ve_bolum_sirasi(tmp_path):
     assert sira == sorted(sira) and [ad for ad, _ in rapor.BOLUMLER] == [
         "VERİ", "ESNEKLİK", "KALİBRASYON", "YOL 0", "AYRIŞIM", "ÇEYREK", "YOLLAR", "TAHMİN İSABETİ", "YAN ETKİ", "HİKÂYE",
         "DEMO", "ANLATI VARSAYIMLARI", "KORUNUM"]
-    yer = {1: "YOL 0", 2: "YOL 0", 3: "YOL 0", 4: "ESNEKLİK", 5: "AYRIŞIM", 6: "YOL 0", 7: "ÇEYREK", 8: "HİKÂYE"}
+    yer = {1: "YOL 0", 2: "AYRIŞIM", 3: "YOL 0", 4: "ESNEKLİK", 5: "AYRIŞIM", 6: "YOL 0", 7: "ÇEYREK", 8: "HİKÂYE"}
     for n, bolum in yer.items():
         assert m.count(f"SORU {n} · ") == 1 and f"SORU {n} · " in _bolum(m, bolum)
         satir = next(s for s in m.splitlines() if s.startswith(f"SORU {n} · "))
@@ -107,8 +107,16 @@ def test_rapor_tarih_yok(tmp_path):
     lambda g: g["hikaye"].__setitem__("lumoda_anahtar", "baska"),
     lambda g: g["hikaye"].__setitem__("eksik_kollar", ["kahin_SS25"]),
     lambda g: g["kalibrasyon"]["kural"].__setitem__("alfa", 1.5),
+    lambda g: g["analiz"]["sezonlar"]["SS25"]["olcutler"]["olcutler"].__setitem__("markdown_tl", 1.0),
+    lambda g: g["analiz"]["sezonlar"]["AW23"]["olcutler"]["ceyrekler"][3].__setitem__("markdown_tl", 1.0),
+    lambda g: g["analiz"]["sezonlar"]["AW24"]["huni"].__setitem__("olu_stok", 1.0),
+    lambda g: g["oyun"]["kosular"]["kural_deposuz_SS25"]["korunum"].__setitem__("pencere", False),
+    lambda g: g["oyun"]["kosular"]["kural_takvim_AW24"]["parametreler"].__setitem__("alfa", 2.0),
+    lambda g: g["hikaye"]["tulumlar"]["az"].__setitem__("olu_stok", 1.0),
 ], ids=["rpt_birebir", "gecersiz_yol2", "kalibrasyon_tabani", "ayni_mal_arz", "toplam_gecersiz", "yol0_yayimlanan",
-        "veri_arz", "veri_kademe", "karar_ani", "hikaye_lumoda", "hikaye_eksik_kol", "kalibrasyon_secimi"])
+        "veri_arz", "veri_kademe", "karar_ani", "hikaye_lumoda", "hikaye_eksik_kol", "kalibrasyon_secimi",
+        "veri_markdown_olcutler", "veri_ceyrek_olcutler", "veri_olu_stok", "ablasyon_korunum", "ablasyon_alfa",
+        "hikaye_olu_stok"])
 def test_rapor_korunum_bozulunca_bos(tmp_path, capsys, boz):
     g = sahte_rapor.girdiler()
     boz(g)
@@ -221,3 +229,18 @@ def test_rapor_bayt_bayt_ayni(tmp_path):
 def test_rapor_yollar_ozeti(tmp_path):
     y = _bolum(_metin(tmp_path), "YOLLAR")
     assert "5/5 önde" in y and "yol 4: talep tohumu 20261023" in y
+
+
+def test_rapor_veri_olcutler_tanimi_ve_kural_ayrisimi(tmp_path):
+    """VERİ'nin markdown TL'si YOL 0 Lumoda'nınkiyle aynı basılır (R21); keşif tanımı ayrı etiketli. Kuralın ayrışımı
+    (R24) AYRIŞIM'da ve SORU 2 onunla cevaplanır."""
+    m = _metin(tmp_path)
+    ve, yo, ay = (_bolum(m, b) for b in ("VERİ", "YOL 0", "AYRIŞIM"))
+    g = sahte_rapor.girdiler()["oyun"]["kosular"]["lumoda"]["olcutler"]["SS25"]
+    md = rapor.s(g["markdown_tl"] / 1e6, 2)
+    assert f"markdown TL {md} M TL (lansman → çıkış" in ve and "keşif tanımları (spec §0; yazıda kullanılmaz)" in ve
+    assert any(sat.startswith("  markdown TL ") and f"  {md}  " in sat for sat in yo.splitlines())
+    assert "Lumoda → kural_takvim" in ay and "depo (kural − kural_deposuz)" in ay
+    s2 = next(x for x in m.splitlines() if x.startswith("SORU 2 · "))
+    assert "erken başlamanın değeri (kural − kural_takvim) +0,42 M TL (+0,4)" in s2      # 2 × (330 − 120) bin TL
+    assert "depoyu görmenin değeri (kural − kural_deposuz) +0,58 M TL (+0,6)" in s2 and "büyüğü depoyu görmek" in s2

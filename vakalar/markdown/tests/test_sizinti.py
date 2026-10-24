@@ -37,6 +37,10 @@ PAKET = Path(markdown.__file__).resolve().parent
 PAKET_ADI = "markdown"
 
 KARAR_MODULLERI = ("sabitler", "kaynak", "ogrenme", "tahmin", "model", "politika")
+# Ruling R24: karar tarafının ayrıştırma kolları; karar modülleriyle aynı kilit (yasak içe aktarım ve gizli
+# alan), ama `simulasyon.SIMULASYON_MODULLERI`'nde değil (kod özeti kolun `parametreler()`'inde).
+ABLASYON_MODULLERI = ("politika_ablasyon",)
+KILITLI = KARAR_MODULLERI + ABLASYON_MODULLERI
 # Ölçüm tarafı: planlanan modüller (her biri bir karar modülünün erişimine girmemeli). Pakette
 # bulunan her `.py` KARAR_MODULLERI ya da OLCUM_MODULLERI'nde olmalıdır (`__init__` karar tarafı
 # sayılır ve kilitlidir); yeni bir modül önce bir listeye konur.
@@ -177,27 +181,28 @@ def gizli_erisim_bul(paket: Path, karar: tuple[str, ...] = KARAR_MODULLERI) -> d
 
 def test_paket_karar_modulleri_gizli_gerceği_gormez():
     assert (PAKET / "kaynak.py").is_file() and (PAKET / "sabitler.py").is_file()   # tarama boş değil
-    bulunan = ihlaller(PAKET)
+    bulunan = ihlaller(PAKET, karar=KILITLI)
     assert not bulunan, f"karar modülü yasak modülü içe aktarıyor: {bulunan}"
 
 
 def test_karar_modulleri_gizli_alan_okumaz():
     var = taranacaklar(PAKET)
     assert {"sabitler", "kaynak", "__init__"} <= var
-    bulunan = gizli_erisim_bul(PAKET)
+    bulunan = gizli_erisim_bul(PAKET, KILITLI)
     assert not bulunan, f"karar modülü (ya da erişilen modül) gizli gerçeği okuyor: {bulunan}"
 
 
 def siniflandirilmamis(paket: Path) -> list[str]:
     return sorted(y.stem for y in paket.glob("*.py")
-                  if y.stem not in KARAR_MODULLERI + OLCUM_MODULLERI + ("__init__",))
+                  if y.stem not in KARAR_MODULLERI + ABLASYON_MODULLERI + OLCUM_MODULLERI + ("__init__",))
 
 
 def test_her_modul_siniflandirilmis():
     """Pakette sınıflandırılmamış modül yoksa kilit eksiksizdir; yeni dosya önce bir listeye girer."""
     assert siniflandirilmamis(PAKET) == []
-    assert not set(KARAR_MODULLERI) & set(OLCUM_MODULLERI)
-    assert not set(OLCUM_EK_ADLAR) & set(KARAR_MODULLERI + OLCUM_MODULLERI)
+    kumeler = (set(KARAR_MODULLERI), set(ABLASYON_MODULLERI), set(OLCUM_MODULLERI))
+    assert all(not a & b for i, a in enumerate(kumeler) for b in kumeler[i + 1:])
+    assert not set(OLCUM_EK_ADLAR) & set(KARAR_MODULLERI + ABLASYON_MODULLERI + OLCUM_MODULLERI)
 
 
 def test_olcum_modulleri_yasakta():
@@ -230,6 +235,15 @@ def test_siniflandirma_testi_yeni_modulu_yakalar(tmp_path):
     paket = _yaz(tmp_path / "markdown", {"__init__": "", "kaynak": "", "hakem": "", "yeni": "",
                                           "rapor": ""})
     assert siniflandirilmamis(paket) == ["rapor", "yeni"]
+
+
+def test_ablasyon_modulu_kilitli(tmp_path):
+    """Ayrıştırma kolları karar modülü kilidindedir: dosya pakette, taranıyor; aynı içe aktarma ihlali yakalanır."""
+    var = {y.stem for y in PAKET.glob("*.py")}
+    assert set(ABLASYON_MODULLERI) <= var and set(ABLASYON_MODULLERI) <= taranacaklar(PAKET, KILITLI)
+    assert "politika" in taranacaklar(PAKET, ABLASYON_MODULLERI)
+    paket = _yaz(tmp_path / "markdown", {"__init__": "", "politika": "", "politika_ablasyon": "import markdown.oyun\n"})
+    assert ihlaller(paket, karar=KILITLI) and not ihlaller(paket)
 
 
 def test_sonradan_eklenen_karar_modulleri_listede():

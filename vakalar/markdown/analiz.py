@@ -10,6 +10,12 @@ SQL'le ölçülür (spec §0 keşif olguları; rapor yeniden basar). Kaynak TAM'
 koşusunun yayımlanan biçimi (geçici DuckDB dosyası, `oyun.Yol._baglanti`; koşu önbellekte olmalı, analiz
 simülasyon başlatmaz). Gizli gerçek okunmaz.
 
+**Tanım (Ruling R21).** Yazıların markdown TL'si, outlet indirimi, çıkışta kalanı, ölü stoğu ve STR çeyrekleri
+`olcutler`'in tanımıdır: her sezonun `olcutler` bloğu yol 0 Lumoda koşusunda `olcutler.option_tablosu` / `ozetle` /
+`ceyrek` ile ölçülür (YOL 0'ın Lumoda'sıyla aynı işlev, aynı koşu; rapor eşitliği korunumla sınar). Yol 0 Lumoda'sı
+yayımlanan v4'ün temiz hâlidir (eşdeğerlik testi). Option tablosunun `md_ind` / `outlet_indirim` sütunları başka bir
+tanımdır (keşif tanımı: indirim dönemi penceresi ve mağaza tipi; yazıda kullanılmaz).
+
 **Sezonlar** (`analiz_sezonlari`): `sezon` tablosunda lansmanı verinin ilk gününden sonra, çıkış + 120'si
 verinin son gününden önce olan sezonlar (TAM: SS23, AW23, SS24, AW24, SS25); test sezonları rapora tam,
 öbürleri "beş sezonda" aralıklarına girer.
@@ -22,13 +28,14 @@ indirimi I ve çıkışı C `sezon` tablosundan):
     satis_erken               pozitif satış, I − 28 ≤ gün < I (Lumoda'nın erken indirim penceresi)
     satis_once                pozitif satış, gün < I (indirim başı STR'nin payı)
     satis_ind, ciro_ind       indirim dönemi I ≤ gün < C: pozitif adet; net ciro (Σ tutar, iade dahil)
-    md_ind, kampanya_ind      indirim dönemi, pozitif, outlet mağazası dışı: kampanyasız / kampanyalı Σ indirim
-                              (olcutler `markdown_tl` tanımı, iadeden önce); `md_ind_net` iade satırları dahil
+    md_ind, kampanya_ind      keşif tanımı: indirim dönemi, pozitif, outlet mağazası dışı, kampanyasız /
+                              kampanyalı Σ indirim (olcutler `markdown_tl` DEĞİL: o lansman → çıkış, oran > 0,
+                              normal + online hat); `md_ind_net` iade satırları dahil (spec §0'ın 43,0 M'ı)
     brut_ind, liste_ind       indirim dönemi pozitif satırların Σ tutarı ve Σ adet × liste (fiyat payı)
     kalan_magaza, kalan_depo  C − 7 pazartesisinin `stok` ve `depo_stok` fotoğrafı (adet; × liste, × alış)
     outlet_akisi              `sevkiyat` tip `outlet_akisi` adedi
     outlet_satis, outlet_ciro outlet mağazalarında C ≤ gün < C + 84: pozitif adet, net ciro, Σ indirim
-                              (`outlet_indirim` pozitif satırlar, `outlet_indirim_net` iade dahil)
+                              (keşif tanımı; `outlet_indirim` pozitif satırlar, `outlet_indirim_net` iade dahil)
     olu_stok                  `depo_stok`, min(C + 120, son gün) (adet, × alış)
     en_derin, ilk_md          `fiyat` normal hattı, haftası C'den önce: en derin oran, ilk oranlı hafta
     rpt_gec_adet              RPT, teslimi ≥ I − 28 (adet; ≥ 1 ise option sayılır)
@@ -38,9 +45,10 @@ oran → option sayısı; `erken_indirilen` I'dan önce oranı olan option), `st
 satis_once ÷ arz: p10 / p50 / p90; çeyrekler `olcutler.ceyrek`'in kuralıyla: STR, eşitlikte option_id,
 `ceil(4 · sıra ÷ n)`; çeyrek başına option, STR aralığı, kalan, kalanın payı, indirim dönemi markdown TL,
 ölü stok), `haftalik` (I − 56'nın haftasından çıkış haftasına pazartesi haftaları: pozitif satış;
-`hafta` indirim haftasına göre), `rpt_gec`.
+`hafta` indirim haftasına göre), `olcutler` (yukarıda: ölçütler, STR p10/p50/p90, çeyrekler, alt yarının
+kalan payı).
 
-`kod`: analizi belirleyen kodun özeti (bu dosya, `markdown/kaynak.py`, `markdown/sabitler.py`); rapor
+`kod`: analizi belirleyen kodun özeti (bu dosya, `markdown/kaynak.py`, `sabitler.py`, `olcutler.py`); rapor
 eski analizi reddeder.
 """
 
@@ -56,7 +64,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from markdown import kaynak, oyun, sabitler, simulasyon
+from markdown import kaynak, olcutler, oyun, sabitler, simulasyon
 
 KOK = Path(__file__).resolve().parent
 SURUM = 1
@@ -78,7 +86,7 @@ def hedef(olcek: str = "tam") -> Path:
 def kod_ozeti() -> str:
     """Analizi belirleyen kodun özeti (LF)."""
     h = hashlib.sha256()
-    for y in (Path(__file__).resolve(), simulasyon.PAKET_KOKU / "kaynak.py", simulasyon.PAKET_KOKU / "sabitler.py"):
+    for y in (Path(__file__).resolve(), *(simulasyon.PAKET_KOKU / f"{m}.py" for m in ("kaynak", "sabitler", "olcutler"))):
         h.update(y.name.encode() + b"\0" + y.read_bytes().replace(b"\r\n", b"\n") + b"\0")
     return h.hexdigest()
 
@@ -317,38 +325,61 @@ def _lumoda_hazirlik(ortam: oyun.Ortam):
                               gun_sayisi=ortam.gun_sayisi)
 
 
+OLCUTLER_ALANLARI = ("arz_adet", "markdown_tl", "markdown_tl_online", "outlet_indirim_tl", "katki", "ciro_toplam",
+                     "cikis_kalan_adet", "cikis_kalan_magaza_adet", "cikis_kalan_depo_adet", "cikis_kalan_liste",
+                     "cikis_kalan_alis", "olu_stok_adet", "olu_stok_alis", "option_sayisi")
+
+
+def olcutler_blogu(kosu, w, sezon: str) -> dict:
+    """Yol 0 Lumoda koşusunun `sezon` ölçütleri `olcutler`'in kendi işlevleriyle (YOL 0'ın tanımı; Ruling R21):
+    ölçütler (`OLCUTLER_ALANLARI`), indirim başı STR'si (p10 / p50 / p90) ve çeyrekleri (`olcutler.ceyrek`: kalan,
+    kalanın payı, markdown TL, ölü stok), alt yarının kalan payı."""
+    t = olcutler.option_tablosu(kosu, w, sezon)
+    o = olcutler.ozetle(t)
+    st = olcutler.indirim_basi_str(kosu, w, sezon, tablo=t)
+    c = olcutler.ceyrek(kosu, w, sezon, st, tablo=t)
+    kalan = float(c["cikis_kalan_adet"].sum())
+    ceyrekler = [{"ceyrek": int(r.ceyrek), "option": int(r.option_sayisi), "str_alt": float(r.str_alt),
+                  "str_ust": float(r.str_ust), "kalan": float(r.cikis_kalan_adet), "kalan_payi": float(r.cikis_kalan_adet) / kalan if kalan else None,
+                  "markdown_tl": float(r.markdown_tl), "olu_stok": float(r.olu_stok_adet), "katki": float(r.katki),
+                  "arz": float(r.arz_adet)} for r in c.itertuples()]
+    v = st.to_numpy(dtype=float)
+    return {"olcutler": {a: float(o[a]) for a in OLCUTLER_ALANLARI}, "ceyrekler": ceyrekler,
+            "str": {"p10": float(np.percentile(v, 10)), "p50": float(np.percentile(v, 50)),
+                    "p90": float(np.percentile(v, 90))},
+            "alt_yari_kalan_payi": float(sum(r["kalan"] for r in ceyrekler[:2]) / kalan) if kalan else None}
+
+
 def kur(ortam: oyun.Ortam, con=None) -> dict:
-    """analiz.json'un içeriği. `con` verilirse onu okur (testler); verilmezse TAM'da yayımlanan DuckDB,
-    KÜÇÜK'te yol 0 Lumoda koşusunun yayımlanan biçimi (önbellekte değilse `Eksik`)."""
+    """analiz.json'un içeriği. Yayımlanan veri TAM'da yayımlanan DuckDB, KÜÇÜK'te yol 0 Lumoda koşusunun yayımlanan
+    biçimi; `olcutler` blokları yol 0 Lumoda koşusundan (önbellekte değilse `Eksik`, analiz simülasyon başlatmaz).
+    `con` verilirse (testler) yalnız onu okur, `olcutler` bloğu kurulmaz."""
     t0 = time.perf_counter()
-    yayimlanan = con is None and ortam.yayimlanan_mi(0)
-    h = None if yayimlanan or con is not None else _lumoda_hazirlik(ortam)
-    lumoda_anahtar = None if h is None else h.anahtar
     with tempfile.TemporaryDirectory(prefix="markdown_analiz_") as dizin:
-        kapat = con is None
-        kaynak_adi = "verilen"
+        kapat, Y, lumoda_anahtar, kaynak_adi = con is None, None, None, "verilen"
         if con is None:
-            if yayimlanan:
-                con, kaynak_adi = kaynak.baglan(), "yayimlanan"
-            else:
-                if not simulasyon.onbellekte_mi(h, ortam.onbellek):
-                    raise Eksik(f"yol 0 Lumoda koşusu ({h.ad}_{h.anahtar[:20]}) {ortam.onbellek} önbelleğinde yok: "
-                                "analiz simülasyon başlatmaz; önce python -m markdown.oyun izgara --blok yol0")
-                Y = oyun.Yol(0, ortam)
-                con, _ = Y._baglanti(Path(dizin))
-                kaynak_adi = f"vaka:{Y.lumoda.dizin.name}"
+            h = _lumoda_hazirlik(ortam)
+            if not simulasyon.onbellekte_mi(h, ortam.onbellek):
+                raise Eksik(f"yol 0 Lumoda koşusu ({h.ad}_{h.anahtar[:20]}) {ortam.onbellek} önbelleğinde yok: "
+                            "analiz simülasyon başlatmaz; önce python -m markdown.oyun izgara --blok yol0")
+            Y = oyun.Yol(0, ortam)
+            con, _ = Y._baglanti(Path(dizin))
+            lumoda_anahtar = Y.lumoda.meta["anahtar"]
+            kaynak_adi = "yayimlanan" if ortam.yayimlanan_mi(0) else f"vaka:{Y.lumoda.dizin.name}"
         try:
             sezonlar = analiz_sezonlari(con)
             bas, son = veri_sinirlari(con)
-            sonuc = {"surum": SURUM, "olcek": ortam.olcek, "kod": kod_ozeti(), "kaynak": kaynak_adi,
-                     "lumoda_anahtar": lumoda_anahtar, "veri": {"ilk_gun": bas.date().isoformat(),
-                                                                 "son_gun": son.date().isoformat()},
-                     "analiz_sezonlari": sezonlar, "sezonlar": {s: sezon_blogu(con, s) for s in sezonlar}}
+            bloklar = {s: sezon_blogu(con, s) for s in sezonlar}
         finally:
             if kapat:
                 con.close()
+        if Y is not None:
+            for s in sezonlar:
+                bloklar[s]["olcutler"] = olcutler_blogu(Y.lumoda, Y.w, s)
     print(f"analiz: {time.perf_counter() - t0:.0f} sn", file=sys.stderr, flush=True)
-    return sonuc
+    return {"surum": SURUM, "olcek": ortam.olcek, "kod": kod_ozeti(), "kaynak": kaynak_adi,
+            "lumoda_anahtar": lumoda_anahtar, "veri": {"ilk_gun": bas.date().isoformat(), "son_gun": son.date().isoformat()},
+            "analiz_sezonlari": sezonlar, "sezonlar": bloklar}
 
 
 def _jsonla(x):

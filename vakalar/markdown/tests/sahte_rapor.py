@@ -10,6 +10,7 @@ import copy
 import json
 from pathlib import Path
 
+import analiz
 import rapor
 import senaryolar
 from markdown import oyun, sabitler
@@ -23,7 +24,8 @@ SEZON_TABANI = {"SS25": 1.0, "AW24": 0.8, "AW23": 0.7, "SS24": 0.9}
 ETKI = {"lumoda": (0, 0, 0, 0), "tekduze": (-110_000, 900_000, 40, 0), "kural": (330_000, 6_100_000, -2_600, -1),
         "opt_tuzak": (380_000, 150_000, 30, -3), "opt": (530_000, 4_600_000, -2_000, -1),
         "opt_takvim": (90_000, 1_300_000, -200, 0), "opt_erken_yok": (290_000, 560_000, -190, -1),
-        "opt_taban": (370_000, 4_700_000, -2_040, 0), "kahin": (710_000, 3_500_000, -1_950, -1)}
+        "opt_taban": (370_000, 4_700_000, -2_040, 0), "kahin": (710_000, 3_500_000, -1_950, -1),
+        "kural_takvim": (120_000, 3_000_000, -1_300, -2), "kural_deposuz": (40_000, 1_000_000, -500, -4)}
 PAYLAR = (0.125, 0.5, 0.25, 0.125)
 TOPLANAN = ("ciro_sezon", "ciro_outlet", "ciro_toplam", "brut_kar", "katki", "markdown_tl", "markdown_tl_online", "kampanya_tl",
             "islem_tl", "outlet_indirim_tl", "arz_adet", "arz_alis", "cikis_kalan_adet", "cikis_kalan_magaza_adet",
@@ -98,12 +100,14 @@ def oyun_kaydi() -> dict:
             e["option_tablosu"] = f"olcum/{k.ad}.parquet"
             e["gecerli"] = True
             d = k.deger if k.deger is not None else KAL.get(k.kol)
-            e["parametreler"] = ({"kol": "kural", "alfa": d} if k.kol == "kural" else
+            if k.kol in oyun.ABLASYON_KOLLARI:
+                d = KAL["kural"]
+            e["parametreler"] = ({"kol": k.kol, "alfa": d} if k.kol in ("kural", *oyun.ABLASYON_KOLLARI) else
                                  {"kol": "tekduze", "oran": d, "taban": d} if k.kol == "tekduze" else {"kol": k.kol})
         kosular[k.ad] = e
     toplamlar = {}
     for p in (0, *oyun.YOLLAR):
-        for kol in (oyun.LUMODA, *(oyun.YOL0_KOLLARI if p == 0 else oyun.YOL_KOLLARI)):
+        for kol in (oyun.LUMODA, *(oyun.YOL0_KOLLARI + oyun.ABLASYON_KOLLARI if p == 0 else oyun.YOL_KOLLARI)):
             if kol == oyun.LUMODA:
                 lu = kosular[oyun.kosu_adi(p, kol)]
                 oo, ad = [lu["olcutler"][z] for z in sabitler.TEST_SEZONLARI], [lu["ad"]]
@@ -141,19 +145,32 @@ def _huni(o: dict) -> dict:
     h = {"arz": o["arz_adet"], "arz_ilk": o["arz_adet"] * 0.75, "arz_rpt": o["arz_adet"] * 0.25, "arz_alis": o["arz_alis"],
          "satis_tam": 41_255.0, "satis_erken": 3_936.0, "satis_once": 45_191.0, "satis_ind": 5_851.0, "ciro_ind": 4_994_511.0,
          "md_ind": 3_207_377.0, "md_ind_net": 2_730_000.0, "kampanya_ind": 0.0, "brut_ind": 6_120_693.0,
-         "liste_ind": 9_331_331.0, "kalan_magaza": 6_746.0, "kalan_depo": 8_727.0, "kalan": 15_473.0,
+         "liste_ind": 9_331_331.0, "kalan_magaza": o["cikis_kalan_magaza_adet"] + 2, "kalan_depo": o["cikis_kalan_depo_adet"],
+         "kalan": o["cikis_kalan_adet"] + 2,
          "kalan_liste": 15_698_025.0, "kalan_alis": 5_703_327.0, "outlet_akisi": 15_232.0, "outlet_satis": 11_779.0,
          "outlet_ciro": 4_358_495.0, "outlet_brut": 4_644_244.0, "outlet_liste": 12_890_092.0, "outlet_indirim": 8_243_661.0,
-         "outlet_indirim_net": 7_750_000.0, "olu_stok": 4_252.0, "olu_stok_alis": 1_338_293.0, "rpt_gec_adet": 6_020.0,
+         "outlet_indirim_net": 7_750_000.0, "olu_stok": o["olu_stok_adet"], "olu_stok_alis": 1_338_293.0,
+         "rpt_gec_adet": 6_020.0,
          "ind_fiyat_payi": 0.6559, "outlet_fiyat_payi": 0.3603, "option": OPTION, "rpt_gec_option": 5, "rpt_option": 3}
     return h
+
+
+def olcutler_blogu(lu: dict, cey: list[dict]) -> dict:
+    kalan = sum(c["cikis_kalan_adet"] for c in cey)
+    cc = [{"ceyrek": c["ceyrek"], "option": int(c["option_sayisi"]), "str_alt": c["str_alt"], "str_ust": c["str_ust"],
+           "kalan": c["cikis_kalan_adet"], "kalan_payi": c["cikis_kalan_adet"] / kalan, "markdown_tl": c["markdown_tl"],
+           "olu_stok": c["olu_stok_adet"], "katki": c["katki"], "arz": c["arz_adet"]} for c in cey]
+    return {"olcutler": {k: lu[k] for k in analiz.OLCUTLER_ALANLARI}, "ceyrekler": cc,
+            "str": {"p10": 41.55, "p50": 66.67, "p90": 97.38},
+            "alt_yari_kalan_payi": (cc[0]["kalan"] + cc[1]["kalan"]) / kalan}
 
 
 def analiz_kaydi(o: dict) -> dict:
     sezonlar = {}
     for z in ("SS23", "AW23", "SS24", "AW24", "SS25"):
         lu = o["kosular"]["lumoda"]["olcutler"].get(z) or olcutler("lumoda", "SS24")
-        sezonlar[z] = {
+        cey = o["kosular"]["lumoda"]["ceyrek"].get(z) or ceyrek(lu)
+        sezonlar[z] = {"olcutler": olcutler_blogu(lu, cey),
             "gunler": {"lansman_ilk": "2025-02-10", "indirim": "2025-06-30", "cikis": "2025-08-25"}, "huni": _huni(lu),
             "kademe": {"dagilim": {"0.30": 6, "0.70": 2}, "erken_indirilen": 2, "lumoda_oncesi_indirilen": 0},
             "str": {"p10": 41.55, "p50": 66.67, "p90": 97.38, "alt_yari_kalan_payi": 0.815,
@@ -224,9 +241,15 @@ def hikaye_kaydi(o: dict) -> dict:
     liste = {"gun": "2025-05-05", "option": 70, "indirimli": 12, "oranlar": {"0.00": 58, "0.30": 12},
              "satirlar": [{"option_id": "MDL0606-LCV", "oran": 0.3, "tahmini_satis": 6_000.0, "satilabilir": 6_588.0,
                            "beklenen_kalan": 588.0}]}
+    tulumlar = {"cok": _tulum("MDL0606-LCV", 1, 8_390), "az": _tulum("MDL0605-LCV", 3, 4_470)}
+    for rol, t in tulumlar.items():                     # yayımlanan veri = yol 0 Lumoda option tablosu (korunum)
+        kollar["lumoda"]["optionlar"][rol]["sonuc"].update(
+            arz_adet=float(t["arz"]), olu_stok_adet=t["olu_stok"], cikis_kalan_depo_adet=t["cikis_kalan"]["depo"],
+            cikis_kalan_magaza_adet=t["cikis_kalan"]["magaza"] - 3,
+            cikis_kalan_adet=t["cikis_kalan"]["depo"] + t["cikis_kalan"]["magaza"] - 3)
     return {"surum": 1, "kod": HIKAYE, "olcek": "tam", "sezon": "SS25", "sahne": sahne, "sahne_yedek": False,
             "lumoda_anahtar": o["kosular"]["lumoda"]["anahtar"], "olcum_kodu": OLCUM,
-            "tulumlar": {"cok": _tulum("MDL0606-LCV", 1, 8_390), "az": _tulum("MDL0605-LCV", 3, 4_470)}, "gomlek": gom,
+            "tulumlar": tulumlar, "gomlek": gom,
             "kollar": kollar, "eksik_kollar": [],
             "esneklik": {"option_id": "MDL0606-LCV", "gun": "2025-05-05", "indirime_hafta": -8, "satilabilir": 6_588.0,
                          "talep": 3_100.0, "liste": 869.99, "kalinti": 0.13, "ust_kategori": "Elbise & Tulum", "epsler": eps,

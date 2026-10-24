@@ -16,8 +16,9 @@ sayfada sezon kodu geçmez (spec §0); etiketler mevsime göreli. Bir bileşim y
 
 Kartlar (`KARTLAR`, spec §8): `katki_farki_mtl` Lumoda'ya göre sezon katkısı farkı (milyon TL; iki ondalıklı
 düzeylerin farkının bir kez yuvarlanmışı: `rapor.fark1`), `olu_stok_bin` ölü stok (bin adet), `markdown_mtl`
-markdown TL (milyon TL), `tam_fiyat_str` ve `son_str` (yüzde). Bütün kartlar bir ondalık: iki ondalıklı
-değerin bir kez yarım yukarı yuvarlanmışı (rapor iki ondalık basar; tek yuvarlama kuralı).
+markdown TL (milyon TL), `tam_fiyat_str` ve `son_str` (yüzde). Bütün kartlar bir ondalık: para ve
+yüzde iki ondalıklı değerin bir kez yarım yukarı yuvarlanmışı (rapor iki ondalık basar; tek yuvarlama kuralı); ölü
+stok tam adetten bir kez (rapor adet basar).
 
 `surum` içeriğin özetidir (tarih ve commit yok): aynı girdiden iki üretim bayt bayt aynıdır.
 """
@@ -106,6 +107,8 @@ def ozet(o: dict, lumoda: dict) -> dict:
     for kart, (alan, bolen) in KARTLAR.items():
         if kart == "katki_farki_mtl":
             out[kart] = fark1(lumoda[alan] / bolen, o[alan] / bolen)
+        elif kart == "olu_stok_bin":
+            out[kart] = float(_yuv(o[alan] / bolen, 1))          # rapor ölü stoğu tam adet basar: tek yuvarlama
         else:
             out[kart] = yuvarla(o[alan] / bolen)
     return out

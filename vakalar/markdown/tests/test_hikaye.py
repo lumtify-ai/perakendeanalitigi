@@ -127,3 +127,19 @@ def test_hikaye_kucuk_karar_ani(kucuk_ortam):
     with pytest.raises(hikaye.Eksik, match="önbellekte yok"):
         hikaye.kur(oyun.Ortam(olcek="kucuk", onbellek=kucuk_ortam.onbellek.parent / "bos", cikti=kucuk_ortam.cikti,
                               ogrenme=kucuk_ortam.ogrenme, ilerleme=False))
+
+
+def test_analiz_kucuk_olcutler_yol0_lumoda(kucuk_ortam):
+    """VERİ'nin olcutler blokları yol 0 Lumoda'sının oyun.json ölçütleri ve çeyrekleriyle birebir (Ruling R21);
+    yayımlanan arz ve depo kalanı / ölü stok da aynı."""
+    import json
+    a = analiz.kur(kucuk_ortam)
+    o = json.loads(kucuk_ortam.oyun_yolu.read_text(encoding="utf-8"))["kosular"]["lumoda"]
+    assert a["lumoda_anahtar"] == o["anahtar"]
+    for z, lu in o["olcutler"].items():
+        b = a["sezonlar"][z]["olcutler"]
+        assert all(b["olcutler"][k] == pytest.approx(lu[k], abs=1e-6) for k in analiz.OLCUTLER_ALANLARI), z
+        assert [c["markdown_tl"] for c in b["ceyrekler"]] == pytest.approx([c["markdown_tl"] for c in o["ceyrek"][z]])
+        h = a["sezonlar"][z]["huni"]
+        assert h["arz"] == lu["arz_adet"] and h["kalan_depo"] == lu["cikis_kalan_depo_adet"]
+        assert h["olu_stok"] == lu["olu_stok_adet"] and abs(h["kalan_magaza"] - lu["cikis_kalan_magaza_adet"]) <= 450

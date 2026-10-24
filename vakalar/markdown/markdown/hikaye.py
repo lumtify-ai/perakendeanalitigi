@@ -515,8 +515,9 @@ def esneklik_hesabi(Y: oyun.Yol, lumoda, kosular: dict, oid: str) -> dict:
     ust = str(opt["ust_kategori"].iloc[o])
     t = Tahminci(og, idx, eps=og.eps_kampanya, oran_gecmisi=_bos_gecmis)
     ana = _karar(t, g, o, liste, indirim, cikis, t.option_eps(g, o), og.kalinti)
-    eps_gercek = hakem.kahin_girdisi(w, [o], ufuk=np.array([gun])).eps
-    if len(eps_gercek) != len(ana["hucre"]):
+    gercek_girdi = hakem.kahin_girdisi(w, [o], ufuk=np.array([gun]))
+    eps_gercek = gercek_girdi.eps
+    if not np.array_equal(gercek_girdi.hucre, ana["hucre"]):
         raise ValueError("gerçek ε hücreleri tahmincinin hücreleriyle eşleşmiyor")
     Dc = np.asarray(ana["d"]).sum(0)
     eps_ort = float((Dc * eps_gercek).sum() / Dc.sum()) if Dc.sum() > 0 else float(eps_gercek.mean())

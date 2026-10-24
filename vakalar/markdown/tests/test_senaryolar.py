@@ -31,7 +31,8 @@ def test_demo_sema_ve_boyut(tmp_path):
     lu, op = o["kosular"]["lumoda"]["olcutler"]["SS25"], o["kosular"]["opt_SS25"]["olcutler"]
     oz = d["sonuclar"]["opt|yaz"]["ozet"]
     assert oz["katki_farki_mtl"] == rapor.fark1(lu["katki"] / 1e6, op["katki"] / 1e6)
-    assert oz["olu_stok_bin"] == rapor.tek_ondalik(rapor.yuv(op["olu_stok_adet"] / 1e3, 2))
+    assert oz["olu_stok_bin"] == rapor.yuv(op["olu_stok_adet"] / 1e3, 1)
+    assert senaryolar.ozet({**op, "olu_stok_adet": 175_349.0}, lu)["olu_stok_bin"] == 175.3     # çift yuvarlama 175,4
     assert oz["markdown_mtl"] == rapor.tek_ondalik(rapor.yuv(op["markdown_tl"] / 1e6, 2))
     t = o["toplamlar"]["0"]["kural"]["olcutler"]
     assert d["sonuclar"]["kural|toplam"]["ozet"]["son_str"] == rapor.tek_ondalik(rapor.yuv(t["son_str"], 2))
