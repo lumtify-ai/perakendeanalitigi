@@ -338,8 +338,7 @@ describe('İndirim Takvimi dizisi', () => {
     for (const madde of ['markdown', 'fiyat-esnekligi', 'olu-stok']) {
       expect(sozluk, madde).toContain(`id="${madde}"`)
     }
-    // Yazılar dolunca ilk iki yazı bu maddelere bağlanacak; o güne kadar
-    // dizideki her sözlük bağı sözlükte bir çapaya çıkmalı.
+    // Dizideki her sözlük bağı sözlükte bir çapaya çıkmalı.
     for (const slug of ['iki-lacivert-tulum', 'karar-nasil-verilir']) {
       const html = oku(KOK + slug + '/index.html')
       for (const [, madde] of html.matchAll(/href="\/sozluk\/#([^"]+)"/g)) {
@@ -348,18 +347,24 @@ describe('İndirim Takvimi dizisi', () => {
     }
   })
 
-  it('indirim aşaması Sezon İçi haritasında yer alır, aşama sayfası diziye bağlanır', () => {
-    // Dizinin altı yazısı da yer tutucu (hazirlaniyor); aşama haritada soluk
-    // durur ve /indirim/ bağını ilk yazı yayına çıkınca alır. O güne kadar
-    // aşama adı haritada, dizi de aşama sayfasında görünmeli.
-    const harita = oku('sezon-ici/index.html')
-    expect(harita).toContain('İndirim, promosyon ve kampanya')
-    const asama = oku('indirim/index.html')
-    expect(asama).toContain(`href="/${KOK}"`)
-    expect(asama).toContain(NOINDEX)
+  it('ilk iki yazı sözlüğün üç yeni maddesine bağlanır', () => {
+    const iki = oku(KOK + 'iki-lacivert-tulum/index.html') + oku(KOK + 'karar-nasil-verilir/index.html')
+    for (const madde of ['markdown', 'fiyat-esnekligi', 'olu-stok']) {
+      expect(iki, madde).toContain(`href="/sozluk/#${madde}"`)
+    }
   })
 
-  it.todo('indirim aşaması Sezon İçi haritasında /indirim/ bağını taşır (ilk yazı yayına çıkınca)')
+  it('indirim aşaması Sezon İçi haritasında diziye bağlanır, aşama sayfası dizinlenir', () => {
+    // İlk iki yazı yayında: aşama aktif, haritada /indirim/ bağını taşır ve
+    // aşama sayfası artık noindex basmaz.
+    const harita = oku('sezon-ici/index.html')
+    expect(harita).toContain('İndirim, promosyon ve kampanya')
+    expect(harita).toContain('href="/indirim/"')
+    expect(harita).toContain(`href="/${KOK}"`)
+    const asama = oku('indirim/index.html')
+    expect(asama).toContain(`href="/${KOK}"`)
+    expect(asama).not.toContain(NOINDEX)
+  })
 })
 
 describe('dizi sayfası', () => {
