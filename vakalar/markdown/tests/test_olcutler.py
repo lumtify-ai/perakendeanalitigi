@@ -375,3 +375,20 @@ def test_analiz_erken_indirilen_gunluk():
     assert analiz.olcutler_blogu(k, w, "SS25")["kademe"] == {"erken_indirilen": 1, "lumoda_oncesi_indirilen": 0}
     k = oyuncak_kosu(satis=SATIS_PERSEMBE, fiyat=_persembe_fiyat(), kayit=_lumoda_kaydi(0.0))
     assert analiz.olcutler_blogu(k, w, "SS25")["kademe"] == {"erken_indirilen": 0, "lumoda_oncesi_indirilen": 0}
+
+
+def test_gunluk_oran_kol_kaydi_yalniz_kendi_test_optionlarinda():
+    """Kol kaydında satırı olmayan option'ın [W, I) oranı "önceki hafta" sayılır; bu yalnız kolun kendi test
+    option'larında doğrudur. Ölçülen option kolun beyan ettiği test option'larından değilse hata (sessiz
+    yanlış oran yok)."""
+    w = _persembe_dunya()
+    kayit = _kayit([(d, 0, 0.3, np.nan) for d in (1099, 1106)])
+    k = oyuncak_kosu(satis=SATIS_PERSEMBE, fiyat=_persembe_fiyat(), kayit=kayit, pencere="takvim", taban=0.3)
+    k.meta["politikalar"]["markdown"]["parametreler"]["test_optionlari"] = [0]      # B kolun değil
+    with pytest.raises(ValueError, match="kolun test option'ı değil"):
+        olcutler.option_tablosu(k, w, "SS25")
+    k.meta["politikalar"]["markdown"]["parametreler"].pop("test_optionlari")        # beyan yoksa kaydın option'ları
+    with pytest.raises(ValueError, match="kolun test option'ı değil"):
+        olcutler.option_tablosu(k, w, "SS25")
+    k.meta["politikalar"]["markdown"]["parametreler"]["test_optionlari"] = [0, 1]
+    assert olcutler.option_tablosu(k, w, "SS25")["tam_fiyat_adet"].sum() == 6

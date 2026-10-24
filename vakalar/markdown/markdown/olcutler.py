@@ -69,10 +69,10 @@ fiyat STR'nin dışına, işlem indirimi markdown TL'ye düşüyordu; serbest ko
     ilk_indirim_hafta_medyan  indirilen option'larda (ilk indirim haftası − I'nın haftası) ÷ 7,
                               medyan (negatif: sezon indiriminden önce; indirilen yoksa NaN)
     ort_en_derin              indirilen option'ların en derin oranının ortalaması (%; yoksa NaN)
+    muaf_str_ind              hiç indirilmeyen option'ların indirim başı STR'si (Σ ÷ Σ, %; yoksa NaN)
 
 Option tablosu ayrıca `indirim_gun` (I) ve `ilk_md_gun`'ü (normal ya da online hattın günlük oranının > 0
 olduğu ilk gün, < C; yoksa NaN; `analiz.py` VERİ'nin "indirim gününden önce oranı olan" sayısı) taşır.
-    muaf_str_ind              hiç indirilmeyen option'ların indirim başı STR'si (Σ ÷ Σ, %; yoksa NaN)
 
 İndirim başı STR (`indirim_basi_str`): 100 × pozitif satış (gün < I) ÷ arz_adet, option başına.
 
@@ -266,6 +266,13 @@ class _Fiyat:
         if kayit is not None and list(kayit.columns) == list(KAYIT_SUTUNLARI):
             # Kolun kaydı: penceredeki option'ın W satırı (taban ve sığlaşmazlık uygulanmış). Satırı yoksa
             # option W'de penceresinin dışındadır, oranı W'de değişmedi: önceki haftanın sonundaki oran.
+            # Bu çıkarım yalnız kolun kendi test option'larında geçerlidir (ötekilerin oranı Lumoda'nın,
+            # kayıtta yoktur): ölçülen option kolun beyan ettiği test option'larından değilse hata.
+            beyan = _kol_beyani(kosu).get("test_optionlari")
+            kolun = np.unique(np.asarray(beyan if beyan is not None else kayit["option"], dtype=np.int64))
+            if not np.isin(k.opt[oo], kolun).all():
+                raise ValueError("günlük oran: ölçülen option'ların bir kısmı kolun test option'ı değil (kolun "
+                                 "kaydı onların oranını taşımaz; koşu başka bir sezon için mi ölçülüyor?)")
             onceki = self.oran[oo, :, np.maximum(j[oo] - 1, 0)][:, [NORMAL, ONLINE]]
             pzt = np.where((j[oo] >= 1)[:, None], onceki, 0.0)
             yer = anahtar.get_indexer(kayit["gun"].to_numpy(dtype=np.int64) * _BUYUK

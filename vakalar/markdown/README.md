@@ -136,10 +136,12 @@ konur, ölçüm ve ızgara sabitleri kendi modüllerindedir (ör. `oyun.KAL_DEGE
 `markdown/politika_ablasyon.py`'dedir ve bu modül bilerek `SIMULASYON_MODULLERI`'nin dışındadır: TAM ızgarası
 koşarken eklendi ve vaka kod özetine girseydi koşan ızgaranın bütün önbelleği geçersizleşirdi. Onun yerine her
 ablasyon kolunun `parametreler()`'i `kod` alanında kendi kod özetini taşır (`politika_ablasyon.KOD`:
-`politika_ablasyon.py`, `politika.py`, `model.py`, `tahmin.py`); bu dosyalardan biri değişince yalnız bu iki
-kolun anahtarı değişir (testli). Bu asimetri bir hata değildir: modülü `SIMULASYON_MODULLERI`'ne eklemek
-"düzeltme" gibi görünür ama 91 koşunun hepsini geçersiz kılar. Sınıflandırma testi modülü üçüncü kümede tutar
-(`tests/test_sizinti.py` `ABLASYON_MODULLERI`); kilit karar modüllerininkiyle aynıdır.
+`politika_ablasyon.py`, `politika.py`, `model.py`, `tahmin.py`). `politika_ablasyon.py` değişince yalnız bu iki
+kolun anahtarı değişir (testli); `politika.py`, `model.py`, `tahmin.py` ise `SIMULASYON_MODULLERI`'ndedir, onlardan
+biri değişince 91 koşunun hepsi (ablasyon kolları dahil) yeniden anahtarlanır. Bu asimetri bir hata değildir:
+modülü `SIMULASYON_MODULLERI`'ne eklemek "düzeltme" gibi görünür ama 91 koşunun hepsini geçersiz kılar.
+Sınıflandırma testi modülü üçüncü kümede tutar (`tests/test_sizinti.py` `ABLASYON_MODULLERI`); kilit karar
+modüllerininkiyle aynıdır.
 
 **Ölçüm önbelleği** (Beden ve Koli R14/R18 kalıbı). Ölçüm koşu önbelleğinden yeniden hesaplanır; `oyun.json`
 kaydı koşu anahtarı, Lumoda anahtarı ve ölçüm kodu (`oyun.OLCUM_OZETI`: `olcutler.py`, `hakem.py`, `oyun`'un
