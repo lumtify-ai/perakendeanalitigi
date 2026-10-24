@@ -485,3 +485,62 @@ def test_ogren_ss25():
     assert o.sezonlar == ("SS23", "SS24")
     assert o.eps_saf < 1.0
     assert 0.03 < o.iade["magaza"] < 0.12 and 0.15 < o.iade["online"] < 0.40
+
+
+def _ortak_kapanis(kok: str) -> set[str]:
+    """`perakende_analitik.<kok>`'ün paket içi geçişli içe aktarımları (AST), kendisi dahil."""
+    import ast
+    from pathlib import Path
+
+    import perakende_analitik
+    paket = Path(perakende_analitik.__file__).resolve().parent
+    gorulen, sira = {kok}, [kok]
+    while sira:
+        agac = ast.parse((paket / f"{sira.pop()}.py").read_text(encoding="utf-8"))
+        for d in ast.walk(agac):
+            adlar = []
+            if isinstance(d, ast.ImportFrom) and d.module and d.module.split(".")[0] == "perakende_analitik":
+                adlar = [d.module.split(".")[1]] if "." in d.module else [a.name for a in d.names]
+            elif isinstance(d, ast.Import):
+                adlar = [a.name.split(".")[1] for a in d.names if a.name.startswith("perakende_analitik.")]
+            for ad in adlar:
+                if (paket / f"{ad}.py").exists() and ad not in gorulen:
+                    gorulen.add(ad)
+                    sira.append(ad)
+    return gorulen
+
+
+def test_kod_ozeti_kapsami():
+    """Ruling R14: önbellek anahtarının kod özeti bu modülü, `hazirlik`'in geçişli içe aktarımlarını,
+    vakanın `kaynak` ve `sabitler`'ini kapsar."""
+    from pathlib import Path
+
+    import perakende_analitik
+
+    import markdown
+    dosyalar = {p.resolve() for p in ogrenme._kod_dosyalari()}
+    ortak = Path(perakende_analitik.__file__).resolve().parent
+    vaka = Path(markdown.__file__).resolve().parent
+    beklenen = {ortak / f"{m}.py" for m in _ortak_kapanis("hazirlik")}
+    assert {"agac", "kayip", "talep", "carpanlar", "ozellikler", "stok", "kaynak"} <= _ortak_kapanis("hazirlik")
+    beklenen |= {vaka / "ogrenme.py", vaka / "kaynak.py", vaka / "sabitler.py"}
+    assert beklenen <= dosyalar, beklenen - dosyalar
+
+
+def test_kod_ozeti_icerikle_degisir(tmp_path):
+    """Girdilerden herhangi birinin içeriği değişince özet (dolayısıyla önbellek anahtarı) değişir;
+    satır sonu (CRLF / LF) değişmez."""
+    kopyalar = []
+    for i, yol in enumerate(ogrenme._kod_dosyalari()):
+        k = tmp_path / f"{i}_{yol.name}"
+        k.write_bytes(yol.read_bytes())
+        kopyalar.append(k)
+    ilk = ogrenme._kod_ozeti(kopyalar)
+    assert ilk == ogrenme._kod_ozeti()
+    for k in kopyalar:
+        eski = k.read_bytes()
+        k.write_bytes(eski.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+        assert ogrenme._kod_ozeti(kopyalar) == ilk, k.name
+        k.write_bytes(eski + b"# degisti\n")
+        assert ogrenme._kod_ozeti(kopyalar) != ilk, k.name
+        k.write_bytes(eski)

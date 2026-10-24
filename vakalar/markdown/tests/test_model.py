@@ -294,3 +294,29 @@ def _sure(f):
     t0 = time.perf_counter()
     f()
     return time.perf_counter() - t0
+
+
+def test_hizlandirma_yardimcilari_birebir():
+    """Toplu satış eğrileri, satır satır enterpolasyon ve tek satır seçim; özgün hesaplarla bit düzeyinde
+    aynı (hızlandırma davranışı değiştirmez)."""
+    from markdown.model import _interp_satirlar, _satis_egrileri_hepsi, _sec, _sec_tek
+    rng = np.random.default_rng(7)
+    T, N, K, B = 5, 9, 6, 11
+    X = np.linspace(0.0, 37.0, B)
+    d = rng.gamma(1.0, 2.0, (T, N))
+    d[:, 2] = 0.0
+    w = rng.dirichlet(np.ones(N))
+    w[4] = 0.0
+    m = rng.uniform(1.0, 4.0, (T, K))
+    hepsi = _satis_egrileri_hepsi(X, d, w, m)
+    for t in range(T):
+        np.testing.assert_array_equal(hepsi[t], _satis_egrileri(X, d[t], w, m[t]))
+    F = rng.normal(size=(K, B))
+    for x in (0.0, X[3], 0.5 * (X[3] + X[4]), 36.99, X[-1], 40.0, 1e-300):
+        np.testing.assert_array_equal(_interp_satirlar(x, X, F), [np.interp(x, X, F[k]) for k in range(K)])
+    for _ in range(50):
+        q = rng.normal(size=K)
+        q[rng.integers(K)] = q.max()                       # eşitlik
+        aday = rng.random(K) < 0.6
+        aday[rng.integers(K)] = True
+        assert _sec_tek(q, aday) == int(_sec(q[:, None], aday[None, :])[1][0, 0])

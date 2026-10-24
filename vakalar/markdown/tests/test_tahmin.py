@@ -468,3 +468,56 @@ def test_hiz_olcumu_hizli():
             t.satilabilir(g, o, h, d)
             t.carpan(g, o, UFUK, EPS)
     assert (time.perf_counter() - t0) / 10 < 0.05
+
+
+# ------------------------------------------------------------ oran geçmişi (R12)
+
+
+def test_oran_gecmisi_kolun_kaydindan():
+    """Ruling R12: kolun kendi oran kaydı (`oran_gecmisi`) verilince geçmiş günler o kayıtla tam
+    fiyata çevrilir. Yedi gün önce 0 → %30 basamağı: bugünkü oranla (her yerde %30, `fiyat_gecmisi`
+    kapalı) çevirme hızı yanlış ölçer, kolun kaydıyla gerçek tam fiyat hızı çıkar."""
+    w = _dunya()
+    C = len(w.hucre_magaza)
+    sg = np.zeros((GUN + 30, C), np.int64)
+    st = np.zeros((GUN + 30, C), bool)
+    gunler = np.arange(GUN - 40, GUN)
+    md = np.where(gunler >= GUN - 7, 0.3, 0.0)
+    for o in (0, 2):
+        h = np.flatnonzero(w.hucre_option == o)
+        sg[np.ix_(gunler, h)] = np.round(gercek_gunluk(w, o, gunler, md) * OLCEK)
+        st[np.ix_(gunler, h)] = True
+    g = _g(w, sg, st, fiyat_gecmisi=None)
+    beklenen = _haftalik(gercek_gunluk(w, 0, UFUK, fiyatsiz=True)) * OLCEK
+
+    def kayit(o):
+        # gelecekteki bir değişim (bugün ve sonrası) okunmamalı
+        return np.array([GUN - 7, GUN, GUN + 3]), np.array([0.3, 0.7, 0.5])
+
+    _h, d = tahmin.Tahminci(_ogrenilen(), optionlar=[0, 1, 2], oran_gecmisi=kayit).taban(g, 0, UFUK)
+    np.testing.assert_allclose(d, beklenen, rtol=0.01)
+    _h, d_yanlis = tahmin.Tahminci(_ogrenilen(), optionlar=[0, 1, 2]).taban(g, 0, UFUK)
+    assert np.abs(d_yanlis / beklenen - 1).max() > 0.1      # bugünkü oranla çevirme sapar
+    # kayıt `fiyat_gecmisi`nden önce gelir
+    g2 = dataclasses.replace(g, fiyat_gecmisi=((GUN - 30, np.array([0]), np.array([0]),
+                                                np.array([0.5])),))
+    _h, d2 = tahmin.Tahminci(_ogrenilen(), optionlar=[0, 1, 2], oran_gecmisi=kayit).taban(g2, 0, UFUK)
+    np.testing.assert_array_equal(d2, d)
+
+
+def test_carpan_dis_agirlik():
+    """`carpan(..., agirlik=)`: dış ağırlık (kahin) tahmincinin talebinin yerine geçer."""
+    w = _dunya()
+    g = _g(w)
+    t = tahmin.Tahminci(_ogrenilen(), optionlar=[0, 1, 2])
+    hucre, _d = t.taban(g, 0, UFUK)
+    gunluk = np.vstack([t.taban(g, 0, [dd])[1] for dd in UFUK])
+    c1, e1 = t.carpan(g, 0, UFUK, EPS)
+    c2, e2 = t.carpan(g, 0, UFUK, EPS, agirlik=gunluk)
+    np.testing.assert_allclose(c2, c1, rtol=1e-12)
+    np.testing.assert_allclose(e2, e1, rtol=1e-12)
+    yalniz_onl = np.where(w.hucre_online[hucre][None, :], 1.0, 0.0) * np.ones((len(UFUK), 1))
+    c3, _e3 = t.carpan(g, 0, UFUK, EPS, agirlik=yalniz_onl)
+    np.testing.assert_allclose(c3[1], (1 - np.array(tahmin.KADEMELER)) ** (-EPS), rtol=1e-12)  # ONL kampanyasız
+    with pytest.raises(ValueError, match="agirlik"):
+        t.carpan(g, 0, UFUK, EPS, agirlik=gunluk[:, :2])

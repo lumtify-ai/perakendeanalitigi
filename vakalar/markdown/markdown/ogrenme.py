@@ -58,7 +58,10 @@ penceresinin sonu) bitişten önce olan sezonlar (SS25 ← SS23, SS24; AW24 ← 
 **Önbellek.** `onbellek` verilirse günlük tablo (`gunluk.parquet`) ve ortak çarpanlar (`carpanlar.pkl`)
 `onbellek/<anahtar>_<test sezonu>/`'nde tutulur; anahtar kaynağın kimliği (yol 0: DuckDB dosyasının adı,
 boyutu, değişiklik zamanı; ya da çağıranın `kaynak_kimligi`), test sezonu, bitiş ve ortak paketin
-(günlük tablo, özellikler, çarpanlar) ve `markdown.kaynak`'ın kod özetidir (`kimlik.json`). Bellek içi
+`hazirlik`'in geçişli olarak içe aktardığı bütün modüllerin (günlük tablo, ağaç, kayıp, talep, çarpanlar,
+özellikler, stok, kaynak), `markdown.kaynak`'ın, `markdown.sabitler`'in ve bu modülün kendisinin kod
+özetidir (`_kod_dosyalari`, `kimlik.json`; Ruling R14: önbellek koşular arasında yeniden kullanılır, eski
+kodla kurulmuş girdi sessizce okunmasın). Bellek içi
 bağlantıda `kaynak_kimligi` zorunludur. `ONBELLEK_SURUMU` bu modüldeki kesim/pencere kuralı değişince
 artırılır. `Ogrenilen.kimlik()` öğrenilen değerlerin içerik özetidir (pickle baytı değil).
 """
@@ -77,7 +80,7 @@ import duckdb
 import numpy as np
 import pandas as pd
 from perakende_analitik import carpanlar as ortak_carpanlar
-from perakende_analitik import hazirlik, ozellikler, stok
+from perakende_analitik import agac, hazirlik, kayip, ozellikler, stok, talep
 from perakende_analitik import kaynak as ortak_kaynak
 
 from markdown import kaynak, sabitler
@@ -95,8 +98,10 @@ _GUNLUK_TABLOLARI = ("satis", "stok", "sevkiyat", "depo_stok", "siparis", "magaz
 # yaşam düzeltmesi için `karakter`in okuduğu özellikler
 _YASAM_OZELLIKLERI = ["hafta_gunu", "tatil", "black_friday", "indirim_baslangici", "oran", "yas_gun",
                       "line", "ust_kategori", "alt_kategori", "kanal"]
-# önbellek anahtarına kod özeti giren modüller
-_KOD_MODULLERI = (hazirlik, stok, ozellikler, ortak_carpanlar, ortak_kaynak, kaynak)
+# önbellek anahtarına kod özeti giren modüller (bu modülün kendisi `_kod_dosyalari`'nda): `hazirlik` ve
+# geçişli içe aktarımları (testle sınanır), vakanın `kaynak`'ı ve `sabitler`'i
+_KOD_MODULLERI = (hazirlik, agac, ortak_carpanlar, kayip, ozellikler, stok, talep, ortak_kaynak,
+                  kaynak, sabitler)
 
 
 # ---------------------------------------------------------------------------
@@ -211,10 +216,16 @@ def _liste(degerler) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _kod_ozeti() -> str:
+def _kod_dosyalari() -> tuple[Path, ...]:
+    """Önbellek anahtarının kod özetine giren dosyalar: bu modül ve `_KOD_MODULLERI`."""
+    return (Path(__file__),) + tuple(Path(m.__file__) for m in _KOD_MODULLERI)
+
+
+def _kod_ozeti(dosyalar=None) -> str:
+    """`ONBELLEK_SURUMU` ve dosya içeriklerinin (satır sonu LF'ye) özeti; varsayılan `_kod_dosyalari()`."""
     h = hashlib.sha256(str(ONBELLEK_SURUMU).encode())
-    for m in _KOD_MODULLERI:
-        h.update(Path(m.__file__).read_bytes().replace(b"\r\n", b"\n") + b"\0")
+    for yol in (_kod_dosyalari() if dosyalar is None else dosyalar):
+        h.update(Path(yol).read_bytes().replace(b"\r\n", b"\n") + b"\0")
     return h.hexdigest()[:16]
 
 

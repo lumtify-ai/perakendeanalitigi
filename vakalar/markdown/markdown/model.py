@@ -72,6 +72,26 @@ def _satis_egrileri(X: np.ndarray, d: np.ndarray, w: np.ndarray, m: np.ndarray) 
     return np.minimum(sigma, X[None, :])
 
 
+def _satis_egrileri_hepsi(X: np.ndarray, d: np.ndarray, w: np.ndarray, m: np.ndarray) -> np.ndarray:
+    """Her hafta için `_satis_egrileri(X, d[t], w, m[t])`, toplu: [T, K, B] (aynı aritmetik).
+
+    Satış eğrileri değer fonksiyonuna bağlı değildir; geri adımdan önce bir kez hesaplanır."""
+    T = d.shape[0]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        r = np.where(w[None, :] > 0, d / w[None, :], np.inf)
+    sira = np.argsort(r, axis=1, kind="stable")
+    r = np.take_along_axis(r, sira, axis=1)
+    sifir = np.zeros((T, 1))
+    toplam_d = np.concatenate((sifir, np.cumsum(np.take_along_axis(d, sira, axis=1), axis=1)), axis=1)
+    toplam_w = np.concatenate((sifir, np.cumsum(w[sira], axis=1)), axis=1)
+    y = X[None, None, :] / m[:, :, None]                                        # [T, K, B]
+    n = np.stack([np.searchsorted(r[t], y[t], side="right") for t in range(T)])  # talep sınırlı hücre
+    satir = np.arange(T)[:, None, None]
+    sigma = (m[:, :, None] * toplam_d[satir, n]
+             + X[None, None, :] * (toplam_w[:, -1][:, None, None] - toplam_w[satir, n]))
+    return np.minimum(sigma, X[None, None, :])
+
+
 def _sec(Q: np.ndarray, aday: np.ndarray):
     """Her satır için adaylar arasından en büyük Q; eşitlikte sığ basamak.
 
@@ -82,7 +102,28 @@ def _sec(Q: np.ndarray, aday: np.ndarray):
     en_buyuk = maske.max(axis=1, keepdims=True)
     yakin = maske >= en_buyuk - _ESIT * np.abs(en_buyuk)
     indis = yakin.argmax(axis=1)                                  # ilk True = en sığ
-    return np.take_along_axis(maske, indis[:, None, :], axis=1)[:, 0, :], indis
+    R, _K, B = maske.shape
+    return maske[np.arange(R)[:, None], indis, np.arange(B)[None, :]], indis
+
+
+def _sec_tek(q: np.ndarray, aday: np.ndarray) -> int:
+    """`_sec`in tek satır, tek stok noktası hâli (aynı kural): q [K], aday [K] -> basamak."""
+    v = np.where(aday, q, -np.inf)
+    en_buyuk = v.max()
+    return int(np.argmax(v >= en_buyuk - _ESIT * abs(en_buyuk)))
+
+
+def _interp_satirlar(x: float, xp: np.ndarray, F: np.ndarray) -> np.ndarray:
+    """F'nin her satırı için `np.interp(x, xp, F[k])` (aynı formül ve uç kuralları), tek aramayla."""
+    if x >= xp[-1]:
+        return F[:, -1].copy()
+    if x < xp[0]:
+        return F[:, 0].copy()
+    j = int(np.searchsorted(xp, x, side="right")) - 1
+    if xp[j] == x:
+        return F[:, j].copy()
+    egim = (F[:, j + 1] - F[:, j]) / (xp[j + 1] - xp[j])
+    return egim * (x - xp[j]) + F[:, j]
 
 
 def _adaylar(izinli: np.ndarray) -> np.ndarray:
@@ -127,9 +168,10 @@ def coz(d: np.ndarray, w: np.ndarray, X0: float, liste: float, carpan: np.ndarra
     adim = izgara[-1] / (kova - 1)
     sat = np.arange(K)[:, None]
     Q = np.empty((T, K, kova))
+    sigmalar = _satis_egrileri_hepsi(izgara, d, w, carpan) if T else np.zeros((0, K, kova))
     for t in range(T - 1, -1, -1):
-        sigma = _satis_egrileri(izgara, d[t], w, carpan[t])        # [K, B]
-        kalan = np.clip(izgara[None, :] - sigma, 0.0, izgara[-1]) / adim
+        sigma = sigmalar[t]                                        # [K, B]
+        kalan = np.minimum(np.maximum(izgara[None, :] - sigma, 0.0), izgara[-1]) / adim
         i = np.minimum(kalan.astype(int), kova - 2)                # doğrusal enterpolasyon, kova içi
         f = kalan - i
         Q[t] = sigma * odul_orani[t][:, None] + V[sat, i] * (1.0 - f) + V[sat, i + 1] * f
@@ -140,8 +182,7 @@ def coz(d: np.ndarray, w: np.ndarray, X0: float, liste: float, carpan: np.ndarra
     satis = np.zeros(T)
     X, k, ciro = X0, k0, 0.0
     for t in range(T):
-        q = np.array([[np.interp(X, izgara, Q[t, kp])] for kp in range(K)])      # [K, 1]
-        k = int(_sec(q, aday[t, k][None, :])[1][0, 0])
+        k = _sec_tek(_interp_satirlar(X, izgara, Q[t]), aday[t, k])
         sigma = min(X, float(haftalik_satis(np.array([X]), d[t], w, carpan[t, k])[0]))
         kademe[t], satis[t] = k, sigma
         ciro += sigma * odul_orani[t, k]

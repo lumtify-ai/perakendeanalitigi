@@ -22,9 +22,12 @@ bugünün ve sonrasının satırlarına bakılmaz). Stoklu gün: `satis_oncesi_g
     f(gün, hücre) = hafta_gunu(kanal, haftanın günü) × ozel_gun(tür) × I(lansmandan hafta)
                     × (1 − max(md, kampanya))^(−ε̂)
 
-md hücrenin hattının (fiziksel: normal, ONL: online) o günkü markdown oranıdır: `g.fiyat_gecmisi`
-kayıtlıysa değişim kaydından (o güne kadar son değer), **kayıt yoksa (`fiyat_gecmisi` None) bütün geçmiş
-günler için bugünkü `g.fiyat_orani`** (oran son 28 günde değiştiyse çevirme o günlerde yaklaşıktır).
+md hücrenin hattının (fiziksel: normal, ONL: online) o günkü markdown oranıdır. Öncelik sırası:
+(1) yapıcının `oran_gecmisi` verildiyse kolun kendi oran kaydı (Ruling R12: sarmalayıcı test
+option'larının normal ve online sütununu baştan kendisi yazar, oran geçmişini bilir; iki hat aynı oran);
+(2) `g.fiyat_gecmisi` kayıtlıysa değişim kaydından (o güne kadar son değer); (3) ikisi de yoksa bütün
+geçmiş günler için bugünkü `g.fiyat_orani` (oran son 28 günde değiştiyse çevirme o günlerde yaklaşıktır).
+Hangi kaynak olursa olsun yalnız `g.gun`den önceki günlerin oranı okunur.
 ε̂ çevirme tablosundan (yapıcının `eps`i; varsayılan `eps_kampanya`), üst kategori, yoksa `"*"`.
 Mağaza (ya da ONL) başına hız
 
@@ -53,6 +56,7 @@ gün başına mağaza payı ve markdown geçmişi o günün ilk çağrısında; 
 için `taban`ın günlük talebini yeniden kullanır.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -144,12 +148,17 @@ class _Option:
 class Tahminci:
     """Servis edilen option'lar (`optionlar`: dünya option indisleri) için taban talep, satılabilir
     stok ve fiyat çarpanı (modül docstring'i). `eps`: tam fiyata çevirmede kullanılan ε̂ tablosu
-    (üst kategori -> ε̂, `"*"` havuz); verilmezse `ogrenilen.eps_kampanya`."""
+    (üst kategori -> ε̂, `"*"` havuz); verilmezse `ogrenilen.eps_kampanya`. `oran_gecmisi`: verilirse
+    `oran_gecmisi(o) -> (gunler [n], oranlar [n])` option'ın normal ve online hattının oran değişim
+    kaydı (gün sırasıyla; oran o günden itibaren geçerli, ilk değişimden önce 0); geçmiş günlerin
+    markdown'ı `g.fiyat_gecmisi` yerine buradan okunur (Ruling R12)."""
 
-    def __init__(self, ogrenilen: Ogrenilen, optionlar, eps: dict | None = None):
+    def __init__(self, ogrenilen: Ogrenilen, optionlar, eps: dict | None = None,
+                 oran_gecmisi: Callable[[int], tuple[np.ndarray, np.ndarray]] | None = None):
         self.ogrenilen = ogrenilen
         self.optionlar = np.unique(np.asarray(optionlar, dtype=np.int64))
         self.eps_tablosu = dict(ogrenilen.eps_kampanya if eps is None else eps)
+        self.oran_gecmisi = oran_gecmisi
         self._hg = np.array([[float(ogrenilen.hafta_gunu.get((k, g), 1.0)) for g in range(7)]
                              for k in _KANALLAR])
         self._oz = np.array([float(ogrenilen.ozel_gun.get(t, 1.0)) for t in _OZEL])
@@ -274,6 +283,13 @@ class Tahminci:
 
     def _md(self, g, o: int, b: _Option, gunler: np.ndarray) -> np.ndarray:
         """[U, N] geçmiş günlerin hücre hattı markdown oranı."""
+        if self.oran_gecmisi is not None:
+            gun, oran = (np.asarray(x) for x in self.oran_gecmisi(int(o)))
+            gecmis = gun < int(g.gun)
+            gun, oran = gun[gecmis].astype(np.int64), oran[gecmis].astype(float)
+            i = np.searchsorted(gun, gunler, side="right") - 1
+            md = np.where(i >= 0, oran[np.maximum(i, 0)] if len(oran) else 0.0, 0.0)
+            return np.repeat(md[:, None], len(b.hucre), axis=1)
         sonuc = np.empty((len(gunler), 2))
         for j, h in enumerate((_NORMAL, _ONLINE)):
             if self._md_olay is None:
@@ -293,6 +309,10 @@ class Tahminci:
     def option_eps(self, g, o: int) -> float:
         """Option'ın çevirme tablosundaki ε̂'sı (üst kategori, yoksa havuz)."""
         return self._hazir(g, o).eps
+
+    def hucreler(self, g, o: int) -> np.ndarray:
+        """Option'ın hücreleri (`taban`ın döndürdüğü sırayla; outlet akışı hariç)."""
+        return self._hazir(g, o).hucre.copy()
 
     def _gunluk_talep(self, g, o: int, ufuk: np.ndarray) -> np.ndarray:
         anahtar = (id(g), int(g.gun), int(o), ufuk.tobytes())
@@ -359,26 +379,40 @@ class Tahminci:
         w = dagit / toplam if toplam > 0 else np.full(len(b.hucre), 1.0 / len(b.hucre))
         return X0, w
 
-    def carpan(self, g, o: int, ufuk, eps: float) -> tuple[np.ndarray, np.ndarray]:
-        """(carpan [T, K], etkin [T, K]): hafta × basamak fiyat çarpanı ve etkin indirim oranı."""
+    def carpan(self, g, o: int, ufuk, eps: float,
+               agirlik: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
+        """(carpan [T, K], etkin [T, K]): hafta × basamak fiyat çarpanı ve etkin indirim oranı.
+
+        `agirlik` [U, N] verilirse hücre-gün ağırlığı odur (ör. kahinin gerçek taban talebi, `taban`
+        hücre sırasıyla); verilmezse bu tahmincinin `taban` günlük talebi."""
         b = self._hazir(g, o)
         ufuk = np.asarray(ufuk, dtype=np.int64)
         if len(ufuk) == 0:
             return np.zeros((0, len(KADEMELER))), np.zeros((0, len(KADEMELER)))
-        agirlik = self._gunluk_talep(g, o, ufuk)
+        if agirlik is None:
+            agirlik = self._gunluk_talep(g, o, ufuk)
+        else:
+            agirlik = np.asarray(agirlik, dtype=float)
+            if agirlik.shape != (len(ufuk), len(b.hucre)):
+                raise ValueError(f"agirlik [U, N] = {(len(ufuk), len(b.hucre))} olmalı: {agirlik.shape}")
         bas = np.arange(0, len(ufuk), 7)
         hafta = np.repeat(np.arange(len(bas)), np.diff(np.append(bas, len(ufuk))))
         bos = np.add.reduceat(agirlik.sum(1), bas) <= 0
         agirlik = np.where(bos[hafta][:, None], 1.0, agirlik)
-        kamp = self._kampanya(b, ufuk)
+        # Kampanya oranı az sayıda farklı değer alır: ağırlık (hafta, kampanya değeri) başına toplanır,
+        # çarpan değer × basamak tablosundan ([V, K]); [U, N, K] küpü kurulmaz.
+        kamp_gm = _kampanya_uygula(b.kurallar, ufuk, self._M)               # [U, M]
+        degerler, ters = np.unique(kamp_gm, return_inverse=True)
+        V, T = len(degerler), len(bas)
+        ters = ters.reshape(kamp_gm.shape)[:, self._hm[b.hucre]]          # [U, N]
+        A = np.bincount((hafta[:, None] * V + ters).ravel(), weights=agirlik.ravel(),
+                        minlength=T * V).reshape(T, V)
         K = np.asarray(KADEMELER, dtype=float)
-        r = np.maximum(K[None, None, :], kamp[:, :, None])                 # [U, N, K]
+        r = np.maximum(K[None, :], degerler[:, None])                       # [V, K]
         m = fiyat_carpani(r, eps)
         etkin = np.where(r > 0, r, self.ogrenilen.islem)
-        wm = agirlik[:, :, None] * m
-        pay = np.add.reduceat(wm.sum(1), bas)                              # [T, K]
-        payda = np.add.reduceat(agirlik.sum(1), bas)[:, None]
-        return pay / payda, np.add.reduceat((wm * etkin).sum(1), bas) / pay
+        pay = A @ m                                                        # [T, K]
+        return pay / A.sum(1)[:, None], (A @ (m * etkin)) / pay
 
     def iade_payi(self, g, o: int, hucreler: np.ndarray, d: np.ndarray) -> float:
         """Ufuk talebi ağırlıklı iade payı (fiziksel / online); talep yoksa hücre sayısıyla."""
