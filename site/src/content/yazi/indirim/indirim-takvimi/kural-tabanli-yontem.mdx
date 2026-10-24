@@ -196,21 +196,22 @@ da aşağı yukarı aynı farkla. Ötekileri de iki sezonun toplamıyla koyalım
 | İlk indirim haftası (medyan) | indirim haftası | indirimden iki hafta önce |
 
 Kural çıkışta depoda 127.187, mağazalarda 99.182 adet daha az mal
-bırakıyor. Farkın çoğu depoda. Markdown TL ise
-katlanıyor; Pelin'in sezon sonu raporundaki o iki satırın neden birlikte
-okunması gerektiğine altıncı yazıda döneceğiz.
+bırakıyor. Farkın çoğu depoda. Markdown TL ise çok büyüyor: 87,08'den
+278,92 M TL'ye. Pelin'in sezon sonu raporundaki o iki satırın neden
+birlikte okunması gerektiğine altıncı yazıda döneceğiz.
 
 ## Kazanç nereden geliyor
 
-Kapsama kuralı Lumoda'nınkinden üç yerde ayrılıyor: daha erken
-başlayabiliyor, depoyu ve açık siparişi görüyor, bir de takvimin içinde
-STR yerine kapsamaya bakıyor. Hangisi ne kadar getiriyor? Bunu ölçmek için
-kuralın iki eksik kopyasını da koşturduk. Kodda ikisi de `Kural`'ın alt
-sınıfı ve her biri tek bir şeyi değiştiriyor:
+Kapsama kuralı Lumoda'nınkinden dört yerde ayrılıyor: daha erken
+başlayabiliyor, STR yerine kapsamaya bakıyor, kapsamayı depo ve açık
+siparişle hesaplıyor, bir de indirim günü herkese taban vermiyor. Hangisi
+ne kadar getiriyor? Bunu ölçmek için kuralın iki eksik kopyasını da
+koşturduk. Kodda ikisi de `Kural`'ın alt sınıfı ve her biri tek bir şeyi
+değiştiriyor:
 
 - **İndirim gününde başlayan kural** (`KuralTakvim`): aynı kapsama sorusu,
-  ama ilk karar ancak indirim günü. Erken başlamanın değeri bu kopya ile
-  kural arasındaki fark.
+  ama indirim haftasından önce karar vermiyor. Erken başlamanın değeri bu
+  kopya ile kural arasındaki fark.
 - **Depoyu görmeyen kural** (`KuralDeposuz`): aynı kural, ama stok yalnız
   raf ve yolda; depo ve açık sipariş yok. Bu, Lumoda'nın STR'yi mağazaya
   gidenle ölçmesinin yaklaşığı. Depoyu görmenin değeri bu kopya ile kural
@@ -218,31 +219,37 @@ sınıfı ve her biri tek bir şeyi değiştiriyor:
 
 | Katkı farkı | Yaz | Kış | İki sezon |
 |---|---:|---:|---:|
-| Takvimde kapsama ölçüsü (Lumoda → indirim gününde başlayan kural) | +3,70 | +2,43 | +6,14 |
+| Takvimin içinde kapsama kuralı (Lumoda → indirim gününde başlayan kural) | +3,70 | +2,43 | +6,14 |
 | Erken başlamak (indirim gününde başlayan kural → kural) | +8,49 | +10,28 | +18,77 |
 | Toplam (Lumoda → kural) | +12,19 | +12,71 | +24,91 |
 | Depoyu görmek (depoyu görmeyen kural → kural) | +7,49 | +4,04 | +11,53 |
 
-M TL. İlk iki satır toplanıyor; dördüncü satır ayrı bir deney, öbürlerine
-eklenmez.
+M TL. İlk iki satır bu sırayla toplanıyor; başka bir sırayla ölçülse
+parçalar değişirdi. Dördüncü satır ayrı bir deney, öbürlerine eklenmez.
+
+İlk satır tek bir farkı ölçmüyor. Lumoda'dan indirim gününde başlayan
+kurala geçerken üç şey birden değişiyor: karar dört hafta geç başlıyor,
+indirim günü herkese verilen %30 kalkıyor ve kural STR yerine depo ile
+açık siparişi de sayan kapsamaya bakıyor. Bu üçünü tek tek ayırmadık.
 
 En büyük parça erken başlamak: iki sezonda 18,77 M TL. İndirim gününde
-başlayan kural ölü stokta Lumoda'dan pek uzaklaşamıyor: 285.560 adet,
+başlayan kural ölü stokta Lumoda'dan uzaklaşıyor, ama az: 285.560 adet,
 Lumoda'da 341.672. Erken başlayan kuralda 165.726.
 
 Takvimin içinde kalan kural bile Lumoda'yı 6,14 M TL geçiyor; üstelik
-Lumoda'nın kuralı indirimden dört hafta önce uyanırken bu kopya ancak
-indirim günü başlıyor. İkisinin davranışı şurada ayrılıyor: Lumoda indirim
+Lumoda'nın kuralı indirimden dört hafta önce uyanırken bu kopya indirim
+haftasından önce karar vermiyor. İkisinin davranışı şurada ayrılıyor: Lumoda indirim
 günü herkesi %30'a indirip çoğunu orada bırakıyor; bu kopya yavaş satanı
 her hafta bir kademe daha indiriyor, kapsaması yeten ürüne dokunmuyor.
 
-Depoyu görmek ayrı bir deney ve 11,53 M TL değerinde. Depoyu görmeyen kural
-da sekiz hafta önceden başlayabiliyor, ama başlamıyor: raftaki mal kalan
-günlere yetiyor göründüğü için ilk indirim haftasının medyanı indirim
-haftasına kayıyor. Ölü stoğu 259.027 adet.
+Depoyu görmek ayrı bir deney ve 11,53 M TL değerinde; erken başlayan
+kuralda ölçüldü. Depoyu görmeyen kural da sekiz hafta önceden
+başlayabiliyor, ama çoğu ürüne indirim haftasından önce dokunmuyor: raftaki
+mal kalan günlere yetiyor göründüğü için ilk indirim haftasının medyanı
+indirim haftasına kayıyor. Ölü stoğu 259.027 adet.
 
-— Yani benim kuralımın asıl derdi takvimin içinde verdiği oranlar değil,
-diyor Pelin. Ne zaman başladığı ve neye baktığı.
+— Yani benim kuralımın asıl derdi ne zaman başladığı, diyor Pelin. Bir
+de depoyu görmemesi.
 
 — Takvimin içindeki parça üçünün en küçüğü, diyor Pars. Asıl kazanç
 zamanlamada.
@@ -268,10 +275,11 @@ hepsi Lumoda'nın kuralı daha uyanmadan. İndirimden iki hafta sonra %70.
 TL'ye çıkıyor.
 
 Ali'nin tulumu MDL0605'e kural indirim günü dokunmuyor; Lumoda'nın kuralı
-ona %30 vermişti. Kural onu indirimden dört hafta sonra, son adetler
-yavaşlayınca indirmeye başlıyor. Çıkışta 4 adet kalıyor (Lumoda'da hiç
-kalmamıştı), katkı 1,75 M TL'den 1,76 M TL'ye çıkıyor. İyi satan üründe kazanılacak para küçük;
-ikinci yazının çeyrek tablosu da bunu söylemişti.
+ona %30 vermişti. Kural ona ancak indirimden dört hafta sonra, elindeki
+birkaç adet kalan günlere sığmaz görününce dokunuyor ve çıkışa kadar her
+hafta bir kademe indiriyor. Çıkışta 4 adet kalıyor (Lumoda'da hiç
+kalmamıştı), katkı 1,75 M TL'den 1,76 M TL'ye çıkıyor. İyi satan üründe
+kazanılacak para küçük; ikinci yazının çeyrek tablosu da bunu söylemişti.
 
 ## Kural neden yeterince iyi
 
