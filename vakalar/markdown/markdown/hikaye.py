@@ -459,10 +459,24 @@ def karar_ani(kosu, w, gun: int, test_idx) -> SimpleNamespace:
     dcik = (t0 == gun) & (kay == DEPO) & np.isin(tip, _ONCE_CIKAN_DEPO)
     np.subtract.at(depo, sku_ix.get_indexer(sv["urun_id"][dcik].astype(str)), adet[dcik])
 
+    # Açık siparişler (Gorunum'ün açık kopyası; Tahminci satılabilir stoğa sayar, R28): bugünden önce
+    # verilmiş (bugünün RPT'si 7. adımda, Gorunum'den sonra), bugün ya da önce teslim edilmemiş
+    ac = kosu.tablo("siparis", ["siparis_id", "option_id", "urun_id", "siparis_tarihi", "planlanan_teslim",
+                                "gerceklesen_teslim", "adet"], urunler=skular)
+    t_sip, t_ger = _gunler(ac["siparis_tarihi"]), _gunler(ac["gerceklesen_teslim"])
+    ac = ac[(t_sip < gun) & ((t_ger > gun) | (t_ger == np.iinfo(np.int64).min))]
+    opt_ix = pd.Index(w.optionlar["option_id"].astype(str))
+    acik_siparisler = tuple(
+        {"option": int(opt_ix.get_loc(str(grup["option_id"].iloc[0]))),
+         "planlanan_gun": int(_gunler(grup["planlanan_teslim"].iloc[:1])[0]),
+         "skular": sku_ix.get_indexer(grup["urun_id"].astype(str)),
+         "adetler": grup["adet"].to_numpy(dtype=np.int64)}
+        for _sid, grup in ac.groupby(ac["siparis_id"].astype(str), sort=True))
+
     return SimpleNamespace(dunya=w, gun=gun, tarih=_GUN0 + pd.Timedelta(np.timedelta64(gun, "D")),
                            magaza_stok=magaza, depo=depo, yolda=yolda, satis_gecmisi=_Pencere(bas, satis),
                            stoklu_gecmisi=_Pencere(bas, stoklu), satis_oncesi_gecmisi=None, fiyat_gecmisi=None,
-                           fiyat_orani=np.zeros((O, 3)), acik_siparisler=())
+                           fiyat_orani=np.zeros((O, 3)), acik_siparisler=acik_siparisler)
 
 
 def temizleme_indirimi(talep: float, stok: float, eps: float) -> float:
