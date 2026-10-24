@@ -1,5 +1,5 @@
 {
- "surum": "6a3af3f6bb3a",
+ "surum": "338e1db167ef",
  "parametreler": [
   {
    "ad": "kol",
@@ -56,8 +56,8 @@
    "ozet": {
     "katki_farki_mtl": 0.0,
     "olu_stok_bin": 166.3,
-    "markdown_mtl": 38.0,
-    "tf_str": 66.1,
+    "markdown_mtl": 37.8,
+    "tf_str": 66.7,
     "son_str": 84.6
    },
    "satirlar": [
@@ -70,8 +70,8 @@
    "ozet": {
     "katki_farki_mtl": 0.0,
     "olu_stok_bin": 341.7,
-    "markdown_mtl": 87.1,
-    "tf_str": 58.4,
+    "markdown_mtl": 87.0,
+    "tf_str": 58.6,
     "son_str": 86.6
    },
    "satirlar": [
@@ -98,8 +98,8 @@
    "ozet": {
     "katki_farki_mtl": 0.0,
     "olu_stok_bin": 156.1,
-    "markdown_mtl": 49.6,
-    "tf_str": 66.3,
+    "markdown_mtl": 49.5,
+    "tf_str": 66.9,
     "son_str": 86.0
    },
    "satirlar": [
@@ -112,8 +112,8 @@
    "ozet": {
     "katki_farki_mtl": -0.8,
     "olu_stok_bin": 317.9,
-    "markdown_mtl": 120.1,
-    "tf_str": 58.6,
+    "markdown_mtl": 120.0,
+    "tf_str": 58.8,
     "son_str": 88.0
    },
    "satirlar": [
@@ -233,8 +233,8 @@
    "ozet": {
     "katki_farki_mtl": 5.1,
     "olu_stok_bin": 117.3,
-    "markdown_mtl": 92.1,
-    "tf_str": 66.3,
+    "markdown_mtl": 92.0,
+    "tf_str": 66.9,
     "son_str": 90.7
    },
    "satirlar": [
@@ -247,8 +247,8 @@
    "ozet": {
     "katki_farki_mtl": 10.4,
     "olu_stok_bin": 225.2,
-    "markdown_mtl": 204.2,
-    "tf_str": 58.6,
+    "markdown_mtl": 204.1,
+    "tf_str": 58.8,
     "son_str": 92.9
    },
    "satirlar": [
