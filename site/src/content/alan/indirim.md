@@ -8,10 +8,9 @@ tanim: >-
 Bir ürünün sezon boyunca satılacağı fiyat tek bir sayı değildir. Tam
 fiyatla başlar, belli bir noktada iner, sezon sonunda da kalan malı
 eritecek kadar daha iner. Sahada bu inişlere markdown denir. Her markdown
-satışı hızlandırır; ama mağazanın o üründen kazandığı parayı da azaltır.
+satışı hızlandırır, ama satılan her adedin getirisini düşürür.
 
-Bu aşamanın kararı bu denge üzerinedir. Ürünü erken indirirsen satış
-hızlanır ama tam fiyattan satılabilecek adetleri de feda edersin. Geç
-indirirsen fiyatı korursun ama sezon bitince rafta mal kalabilir. Doğru
-cevap ürüne ve haftaya göre değişir; bu yüzden tek bir oran değil, bir
-takvim gerekir.
+Karar bu dengeye dayanır. Ürünü erken indiren, tam fiyattan satılabilecek
+adetleri de ucuza satar. Geç indiren fiyatı korur, ama sezon bitince elde
+mal kalabilir. Doğru cevap ürüne ve haftaya göre değişir; bu yüzden tek bir
+oran değil, bir takvim gerekir.

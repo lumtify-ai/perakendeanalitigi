@@ -210,8 +210,8 @@ kalmanın bedeli de beşinde var; medyan 14,61 M TL.
 
 Kahin ise beş yolun yalnız üçünde optimizasyonun önünde; medyan fark 0,81
 M TL. İki yolda gerçek talebi bilen kopya, talebi tahmin edenin gerisinde
-kalıyor. Beşinci yazıda gördüğümüz gibi talebi bilmek yetmiyor; malın
-hangi mağazada durduğu ve bedenlerin nasıl kırıldığı belirleyici.
+kalıyor. Beşinci yazıda gördüğümüz gibi talebi bilmek yetmiyor; tahminin
+hatası talepte değil, talep ile satış arasındaki stok modelinde.
 
 — Yani beş dünyada da optimizasyon kuralı geçmiyor, diyor Pelin.
 
@@ -265,7 +265,8 @@ zincire getirdiğinin bir kısmını saymıyor.
 Öbür açıdan raf boşalıyor. Bulunabilirlik, test ürünlerinde bir mağazada
 bir bedene talep olan günlerin yüzde kaçında o bedenden satış olduğu.
 Lumoda'da iki sezonda %49,57, optimizasyonda %44,51: 5,06 puan düşük.
-Kapsama kuralında 2,55 puan düşük. Erken indirim bedenleri erken bitiriyor.
+Kapsama kuralında 2,55 puan düşük. Daha çok indirim bedenleri daha erken
+bitiriyor.
 Katkı bunu saymıyor; gerçek bir zincirde boş raf müşterinin bir sonraki
 gelişini de etkileyebilir, bu dünyada öyle bir etki yok.
 
@@ -305,11 +306,11 @@ fiyat yok. Malın mağazalar arasındaki dengesizliğini veri olarak kabul
 ettik. Mağaza başına fiyat da, indirimle birlikte transfer de bu dizinin
 dışında.
 
-**Stok modeli derinde iyimser.** Optimizasyonun akış modeli, depodaki malı
+**Stok modeli iyimser.** Optimizasyonun akış modeli, depodaki malı
 <T k="replenishment">replenishment</T>'ın talebin olduğu yere götüreceğini
-varsayıyor ve derin indirimde satışı gerçekleşenden fazla bekliyor.
-Bütün kollar satacağından fazlasını bekliyor: optimizasyonun tahmini yazın
-%14,60, kışın %22,67 fazla. Modelin bu yanını düzeltmeyi denemedik.
+varsayıyor. Tahmin yazan bütün kollar satacağından fazlasını bekliyor:
+optimizasyonun tahmini yazın %14,60, kışın %22,67 fazla. Modelin bu yanını
+düzeltmeyi denemedik.
 
 **Kahin bir eniyi değil.** Kahin aynı iyimser stok modeline inanıyor. Beş
 yolun ikisinde optimizasyonun gerisinde; yayımlanan dünyada, iki sezonun
@@ -320,8 +321,9 @@ gerçek eniyi daha yukarıda olabilir.
 **Yollar yalnız müşteri akışını değiştiriyor.** Beş yol aynı dünya: aynı
 ürünler, aynı alım, aynı gerçek esneklik, aynı mağazalar. Başka bir
 zincirde sonucun tutup tutmadığını bu dizi söylemiyor. Bu dünyada mal çok;
-yaz sezonunda çıkıştan bir hafta önce 303.342 adet elde kalıyordu. Malın
-az olduğu bir zincirde asıl soru zamanlamadan derinliğe kayabilir.
+Lumoda'nın takvimiyle yaz sezonunda çıkıştan bir hafta önce 303.342 adet
+elde kalıyordu. Malın az olduğu bir zincirde asıl soru zamanlamadan
+derinliğe kayabilir.
 
 **Parçalara ayırma tek akışta.** Kazancın erken başlamaktan, depoyu
 görmekten, iyi satanı muaf tutmaktan ne kadar geldiğini yalnız yayımlanan
@@ -372,11 +374,11 @@ TL ve ölü stok, ve finans markdown'ın kısılmasını istiyordu.
 Altı yazı sonra elimizde şunlar var. Lumoda'nın kuralı pratikte herkese
 %30 ve düz bir orandan ancak biraz iyi. Stoğa bakan basit bir kural onu beş
 yolun beşinde geçiyor; kazancın büyüğü erken başlamaktan ve depoyu
-görmekten geliyor. Esnekliği bilen, talebin erimesini hesaba katan bir
-optimizasyon o kuralla başa baş. Yanlış esneklik ona pahalıya patlıyor,
-takvime bağlı kalmak da. Doğru takvim markdown TL'yi üç buçuk katından
-fazla artırıyor, brüt kârı düşürüyor, ölü stoğun alış değerini yarıya
-indiriyor ve rafı boşaltıyor. Test dışı ürünlere taşan etkisi de ana
+görmekten geliyor. Esnekliği kampanyadan ölçen, talebin erimesini hesaba
+katan bir optimizasyon o kuralla başa baş. Yanlış esneklik ona pahalıya
+patlıyor, takvime bağlı kalmak da. Doğru takvim markdown TL'yi üç buçuk
+katından fazla artırıyor, brüt kârı düşürüyor, ölü stoğun alış değerini
+yarıya indiriyor ve rafı boşaltıyor. Test dışı ürünlere taşan etkisi de ana
 kazancından büyük.
 
 Veli'nin tulumunu optimizasyon indirimden sekiz hafta önce %50'ye alıyor;
