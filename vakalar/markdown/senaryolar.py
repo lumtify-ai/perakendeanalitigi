@@ -16,7 +16,7 @@ sayfada sezon kodu geçmez (spec §0); etiketler mevsime göreli. Bir bileşim y
 
 Kartlar (`KARTLAR`, spec §8): `katki_farki_mtl` Lumoda'ya göre sezon katkısı farkı (milyon TL; iki ondalıklı
 düzeylerin farkının bir kez yuvarlanmışı: `rapor.fark1`), `olu_stok_bin` ölü stok (bin adet), `markdown_mtl`
-markdown TL (milyon TL), `tam_fiyat_str` ve `son_str` (yüzde). Bütün kartlar bir ondalık: para ve
+markdown TL (milyon TL), `tf_str` (tam fiyat STR; demo anahtarı İlk Sevkiyat'ın tam sayı basan `tam_fiyat_str` kartından ayrıdır) ve `son_str` (yüzde). Bütün kartlar bir ondalık: para ve
 yüzde iki ondalıklı değerin bir kez yarım yukarı yuvarlanmışı (rapor iki ondalık basar; tek yuvarlama kuralı); ölü
 stok tam adetten bir kez (rapor adet basar).
 
@@ -51,7 +51,7 @@ PARAMETRELER = [
 
 # kart → (oyun.json ölçütü, bölen)
 KARTLAR = {"katki_farki_mtl": ("katki", 1e6), "olu_stok_bin": ("olu_stok_adet", 1e3),
-           "markdown_mtl": ("markdown_tl", 1e6), "tam_fiyat_str": ("tam_fiyat_str", 1.0), "son_str": ("son_str", 1.0)}
+           "markdown_mtl": ("markdown_tl", 1e6), "tf_str": ("tam_fiyat_str", 1.0), "son_str": ("son_str", 1.0)}
 
 
 def anahtar(kol: str, sezon: str) -> str:

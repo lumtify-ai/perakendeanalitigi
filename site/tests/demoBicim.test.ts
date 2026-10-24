@@ -36,6 +36,10 @@ describe('demoDegeri', () => {
     expect(demoDegeri('olu_stok_bin', 4.3)).toBe('4,3')
     expect(demoDegeri('markdown_mtl', 14)).toBe('14,0')
     expect(demoDegeri('son_str', 82)).toBe('82,0')
+    expect(demoDegeri('tf_str', 50)).toBe('50,0')
+    expect(demoDegeri('tf_str', 46.6)).toBe('46,6')
+    // İlk Sevkiyat'ın kartı ayrı anahtar: tam sayı değeri eskisi gibi düşer.
+    expect(demoDegeri('tam_fiyat_str', 54)).toBe('54')
     expect(demoDegeri('katki_farki_mtl', 0.5)).toBe('0,5')
     expect(demoDegeri('katki_farki_mtl', -0.2)).toBe('-0,2')
     expect(demoDegeri('katki_farki_mtl', 0)).toBe('0,0')

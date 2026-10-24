@@ -744,7 +744,7 @@ describe('demo', () => {
       'markdown_mtl',
       'olu_stok_bin',
       'son_str',
-      'tam_fiyat_str',
+      'tf_str',
     ])
     const html = oku('indirim/indirim-takvimi/demo/index.html')
     for (const etiket of [
@@ -765,7 +765,7 @@ describe('demo', () => {
     // Değerlerin kendisi TAM koşuyla değişir; sınanan biçim: virgülden sonra
     // tek basamak ve "-0,0" yok (katkı farkı Lumoda'nın kendi kartında sıfır).
     const html = oku('indirim/indirim-takvimi/demo/index.html')
-    for (const etiket of ['Ölü stok (bin adet)', 'Markdown TL (milyon TL)', 'Sezon sonu STR (%)']) {
+    for (const etiket of ['Ölü stok (bin adet)', 'Markdown TL (milyon TL)', 'Tam fiyat STR (%)', 'Sezon sonu STR (%)']) {
       const degerler = html
         .split(`<dt>${etiket}</dt><dd>`)
         .slice(1)

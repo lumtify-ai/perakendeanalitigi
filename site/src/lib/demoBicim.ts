@@ -17,13 +17,14 @@ const ONDALIK: Record<string, number> = {
   kirik_cift_pay_yuzde_ilk4: 1,
   brut_kar_tl: 0,
   // İndirim Takvimi: rapor para ve adet kartlarını bir ondalıkla basar
-  // (milyon TL, bin adet, yüzde). `tam_fiyat_str` de bir ondalıkla basılır;
-  // ama İlk Sevkiyat demosu da aynı anahtarı kullanır ve onun çıktısı
-  // değişmesin diye sözlüğe girmez.
+  // (milyon TL, bin adet, yüzde). Tam fiyat STR kartı `tf_str` adıyla gelir:
+  // İlk Sevkiyat demosunun `tam_fiyat_str` kartı tam sayı basmaya devam eder,
+  // sözlüğe girmez; yoksa o demonun çıktısı değişirdi.
   katki_farki_mtl: 1,
   olu_stok_bin: 1,
   markdown_mtl: 1,
   son_str: 1,
+  tf_str: 1,
 }
 
 /** Bir demo ölçütünün değerini Türkçe sayı biçimiyle basar. */

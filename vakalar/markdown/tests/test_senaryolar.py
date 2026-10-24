@@ -34,6 +34,8 @@ def test_demo_sema_ve_boyut(tmp_path):
     assert oz["olu_stok_bin"] == rapor.yuv(op["olu_stok_adet"] / 1e3, 1)
     assert senaryolar.ozet({**op, "olu_stok_adet": 175_349.0}, lu)["olu_stok_bin"] == 175.3     # çift yuvarlama 175,4
     assert oz["markdown_mtl"] == rapor.tek_ondalik(rapor.yuv(op["markdown_tl"] / 1e6, 2))
+    assert list(d["sonuclar"]["lumoda|yaz"]["ozet"]) == ["katki_farki_mtl", "olu_stok_bin", "markdown_mtl", "tf_str", "son_str"]
+    assert oz["tf_str"] == rapor.tek_ondalik(rapor.yuv(op["tam_fiyat_str"], 2))       # İlk Sevkiyat'ın tam_fiyat_str anahtarı değil
     t = o["toplamlar"]["0"]["kural"]["olcutler"]
     assert d["sonuclar"]["kural|toplam"]["ozet"]["son_str"] == rapor.tek_ondalik(rapor.yuv(t["son_str"], 2))
     yol = senaryolar.yaz(d, tmp_path / "demo.json")

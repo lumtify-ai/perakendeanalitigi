@@ -1100,7 +1100,7 @@ def demo_bolumu(v, ek) -> None:
     et = {p["ad"]: p["deger_etiketleri"] for p in senaryolar.PARAMETRELER}
     _tablo(["bileşim", "katkı farkı (M TL)", "ölü stok (bin)", "markdown (M TL)", "tam fiyat STR", "son STR", "koşu"],
            [[f"{et['kol'][a.split('|')[0]]} · {et['sezon'][a.split('|')[1]]}", isaretli(r["ozet"]["katki_farki_mtl"], 1),
-             s(r["ozet"]["olu_stok_bin"], 1), s(r["ozet"]["markdown_mtl"], 1), yd(r["ozet"]["tam_fiyat_str"], 1),
+             s(r["ozet"]["olu_stok_bin"], 1), s(r["ozet"]["markdown_mtl"], 1), yd(r["ozet"]["tf_str"], 1),
              yd(r["ozet"]["son_str"], 1), ", ".join(x["kosu"] for x in r["satirlar"])] for a, r in son.items()])
     ek.append(("DEMO: 18 bileşim", len(son) == len(senaryolar.KOLLAR) * len(senaryolar.SEZONLAR)))
     for a, r in son.items():
