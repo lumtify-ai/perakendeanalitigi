@@ -18,6 +18,9 @@ from markdown import oyun, sabitler
 OLCUM = "o" * 64
 ANALIZ = "a" * 64
 HIKAYE = "h" * 64
+# koşuların meta.json kimliği (`rapor.kosu_kimligi()`'nin sahtesi)
+KIMLIK = {"vaka": "v" * 64, "kod": "m" * 64, "veri": ["perakende.duckdb", 219164672, 17927882035426312],
+          "surumler": {"numpy": "2.5.4", "pandas": "2.3.3"}, "ablasyon_kod": "b" * 16}
 OPTION = 8
 SEZON_TABANI = {"SS25": 1.0, "AW24": 0.8, "AW23": 0.7, "SS24": 0.9}
 # kol → (katkı, markdown TL, ölü stok, indirilen option) farkı Lumoda'ya (birim: TL, TL, adet, option)
@@ -77,11 +80,15 @@ YAN = {"ciro_farki_test_disi": 547_000.0, "ciro_test_disi_lumoda": 237_000_000.0
 KAL = {"kural": 1.25, "tekduze": 0.40}
 
 
+def anahtar(ad: str) -> str:
+    return f"{ad:_<20}"[:20] + "k" * 44
+
+
 def oyun_kaydi() -> dict:
     kosular = {}
     for k in rapor.izgara():
         e = {"ad": k.ad, "yol": k.yol, "kol": k.kol, "sezon": k.sezon, "deger": k.deger, "kalibrasyon": k.deger is not None,
-             "anahtar": f"{k.ad:_<20}"[:20] + "k" * 44, "lumoda_anahtar": "lumoda______________" + "k" * 44,
+             "anahtar": anahtar(k.ad), "lumoda_anahtar": anahtar(oyun.kosu_adi(k.yol, oyun.LUMODA)),
              "olcum_kodu": OLCUM, "talep_tohumu": None if k.yol == 0 else sabitler.TALEP_TOHUM_TABANI + k.yol}
         if k.kol == oyun.LUMODA:
             sz = oyun.lumoda_sezonlari(k.yol)
@@ -179,7 +186,8 @@ def analiz_kaydi(o: dict) -> dict:
                                    "md_ind_net": 550_000.0 * c, "olu_stok": 900.0, "arz": 15_000.0} for c in range(1, 5)],
                     "option_str": {}},
             "haftalik": [{"hafta": h, "adet": 5_000.0 - 300 * (h + 8)} for h in range(-8, 8)]}
-    return {"surum": 1, "olcek": "tam", "kod": ANALIZ, "kaynak": "yayimlanan", "lumoda_anahtar": None,
+    return {"surum": 1, "olcek": "tam", "kod": ANALIZ, "kaynak": "yayimlanan",
+            "lumoda_anahtar": o["kosular"]["lumoda"]["anahtar"],
             "veri": {"ilk_gun": "2023-01-01", "son_gun": "2025-12-31"},
             "analiz_sezonlari": ["SS23", "AW23", "SS24", "AW24", "SS25"], "sezonlar": sezonlar}
 
@@ -270,8 +278,17 @@ def girdiler() -> dict:
     return copy.deepcopy({"oyun": o, "kalibrasyon": kalibrasyon_kaydi(o), "analiz": analiz_kaydi(o), "hikaye": hikaye_kaydi(o)})
 
 
-def yaz(tmp_path: Path, g: dict | None = None, *, demo: bool = True) -> dict:
-    """Girdileri `tmp_path`'e yazar; `rapor.hazirla`'nın anahtar sözcükleri."""
+def meta(e: dict) -> dict:
+    """Koşunun önbellek `meta.json`'u: anahtar ve bugünkü kimlik (R24 kollarında `parametreler()["kod"]` de)."""
+    m = {"anahtar": e["anahtar"], **{a: KIMLIK[a] for a in ("vaka", "kod", "veri", "surumler")}}
+    if e["kol"] in oyun.ABLASYON_KOLLARI:
+        m["politikalar"] = {"markdown": {"parametreler": {"kol": e["kol"], "kod": KIMLIK["ablasyon_kod"]}}}
+    return m
+
+
+def yaz(tmp_path: Path, g: dict | None = None, *, demo: bool = True, metalar: dict | None = None) -> dict:
+    """Girdileri `tmp_path`'e yazar; `rapor.hazirla`'nın anahtar sözcükleri. `metalar`: koşu adı → `meta.json`
+    (verilmeyenler `meta(e)`)."""
     g = girdiler() if g is None else copy.deepcopy(g)
     cikti = Path(tmp_path) / "cikti"
     onbellek = cikti / "kosular"
@@ -282,9 +299,10 @@ def yaz(tmp_path: Path, g: dict | None = None, *, demo: bool = True) -> dict:
     for e in g["oyun"]["kosular"].values():
         d = onbellek / f"{e['ad']}_{e['anahtar'][:20]}"
         d.mkdir(parents=True, exist_ok=True)
-        (d / "meta.json").write_text(json.dumps({"anahtar": e["anahtar"]}), encoding="utf-8")
+        m = (metalar or {}).get(e["ad"]) or meta(e)
+        (d / "meta.json").write_text(json.dumps(m), encoding="utf-8")
     demo_yol = Path(tmp_path) / f"{senaryolar.DIZI}.json"
     if demo:
         senaryolar.yaz(senaryolar.uret(g["oyun"]), demo_yol)
     return {"cikti": cikti, "demo_yol": demo_yol, "olcum_kodu": OLCUM, "analiz_kodu": ANALIZ, "hikaye_kodu": HIKAYE,
-            "onbellek": onbellek}
+            "onbellek": onbellek, "kimlik": KIMLIK}

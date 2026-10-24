@@ -35,16 +35,19 @@ Bölümler (`BOLUMLER`, bu sırayla; spec §5). Başlık sorularının (spec §4
     HİKÂYE               iki tulum (haftalık seri, stok, kollar), Oduncu Gömlek, pazartesi listesi (SORU 8)
     DEMO                 18 bileşim, site dosyası
     ANLATI VARSAYIMLARI
-    KORUNUM              koşuların sözleşmeleri, aynı mal, yol 0 = yayımlanan, karar anı doğrulaması, tazelik
+    KORUNUM              koşuların sözleşmeleri, aynı mal, yol 0 öğrenmesi yayımlanandan, karar anı doğrulaması,
+                         tazelik
 
 Rapor önce tampona yazılır; korunum tutmazsa ya da bir girdi eksik ya da eskiyse (ızgaranın bir koşusu yok ya da
-bugünkü ölçüm koduyla ölçülmemiş, koşunun önbellek dizini yok; `analiz.json`, `hikaye.json` bugünkü kodla
-yazılmamış; `kalibrasyon.json` bugünkü ölçüm koduyla değil; demo dosyası `senaryolar.uret()` ile aynı değil) stdout'a
-tek satır gitmez, mesaj stderr'e, çıkış kodu 1 (`Eksik`). `--taslak` eksik girdiye dayanan bölümleri "[eksik: …]"
-diye geçer ve sonda listeler (çıkış kodu 2; bu çıktı yazılara kaynak olamaz); `--kucuk` KÜÇÜK ölçeğin çıktılarını
-okur (her zaman taslak). Basılan her fark ve oran basılan işlenenlerden hesaplanır (`yuv`, `fark`, `bolum`); tek
+bugünkü ölçüm koduyla ya da yolunun bugünkü Lumoda koşusuyla ölçülmemiş, koşunun önbellek dizini yok ya da `meta.json`'u
+bugünkü vaka ve İlk Sevkiyat kod özetiyle, v4 veri parmak iziyle, kütüphane sürümleriyle, R24 kollarında
+`politika_ablasyon.KOD`'la koşulmamış; `analiz.json` bu oyun.json'un yol 0 Lumoda'sından değil; `analiz.json`,
+`hikaye.json` bugünkü kodla yazılmamış; `kalibrasyon.json` bugünkü ölçüm koduyla değil; demo dosyası
+`senaryolar.uret()` ile aynı değil) stdout'a tek satır gitmez, mesaj stderr'e, çıkış kodu 1 (`Eksik`). `--taslak`
+eksik girdiye dayanan bölümleri "[eksik: …]" diye geçer ve sonda listeler (çıkış kodu 2; bu çıktı yazılara kaynak
+olamaz); `--kucuk` KÜÇÜK ölçeğin çıktılarını okur (her zaman taslak). Basılan her fark ve oran basılan işlenenlerden hesaplanır (`yuv`, `fark`, `bolum`); tek
 ondalıklı her fark iki ondalıklı farkın bir kez yuvarlanmışıdır (`fark1`): aynı büyüklüğe tek değer. Ölçülen
-süre basılmaz. Bu dosya veriyi okumaz, simülasyon koşmaz.
+süre basılmaz. Bu dosya veriyi okumaz (v4 dosyasının parmak izi dışında), simülasyon koşmaz.
 
 Para milyon TL'dir (iki ondalık; farkın yanında parantezde bir kez yuvarlanmış bir ondalık), yüzdeler iki
 ondalık, adetler tam sayı. Tanımlar `markdown/olcutler.py`'nin (YOL 0 ve sonrası) ve `analiz.py`'nin (VERİ)
@@ -65,7 +68,8 @@ from pathlib import Path
 
 import analiz
 import senaryolar
-from markdown import hikaye, oyun, sabitler, simulasyon
+from allocation import motor
+from markdown import hikaye, oyun, politika_ablasyon, sabitler, simulasyon
 
 KOK = Path(__file__).resolve().parent
 SEZONLAR = ("SS25", "AW24")             # yazının ana sahnesi önce
@@ -332,20 +336,54 @@ def izgara() -> list:
     return oyun.izgara_listesi("kalibrasyon") + oyun.izgara_listesi("hepsi") + oyun.izgara_listesi("ablasyon")
 
 
-def gecerli_kosular(oyun_kaydi: dict, olcum_kodu: str, onbellek: Path) -> tuple[set, list]:
-    """Izgaranın ölçülmüş ve önbellekte duran kayıtları; ve eksikler."""
+KIMLIK_ALANLARI = {"vaka": "vaka kod özeti", "kod": "İlk Sevkiyat kod özeti", "veri": "v4 veri parmak izi",
+                   "surumler": "kütüphane sürümleri"}
+
+
+def kosu_kimligi() -> dict:
+    """Bugünkü kodun ve verinin, koşu `meta.json`'unda kayıtlı kimliği (`simulasyon.hazirla`: `vaka`, `kod`, `veri`,
+    `surumler`) ve Ruling R24 kollarının kendi kod özeti (`politika_ablasyon.KOD`; `parametreler()["kod"]`)."""
+    return json.loads(json.dumps({
+        "vaka": simulasyon.vaka_kod_ozeti(), "kod": motor.kod_ozeti(), "veri": motor.veri_parmak_izi(),
+        "surumler": {p: motor._surum(p) for p in motor.SURUM_PAKETLERI}, "ablasyon_kod": politika_ablasyon.KOD}))
+
+
+def _kimlik_farki(meta: dict, kol: str, kimlik: dict) -> list[str]:
+    """Koşunun meta'sının bugünkü kimlikten farklı alanları (etiketleriyle)."""
+    fark = [et for a, et in KIMLIK_ALANLARI.items() if meta.get(a) != kimlik[a]]
+    if kol in oyun.ABLASYON_KOLLARI:
+        p = ((meta.get("politikalar") or {}).get("markdown") or {}).get("parametreler") or {}
+        if p.get("kod") != kimlik["ablasyon_kod"]:
+            fark.append("politika_ablasyon kod özeti")
+    return fark
+
+
+def gecerli_kosular(oyun_kaydi: dict, olcum_kodu: str, onbellek: Path, kimlik: dict) -> tuple[set, list]:
+    """Izgaranın ölçülmüş ve önbellekte duran kayıtları; ve eksikler. Bir koşu geçerlidir: oyun.json'da bugünkü
+    ölçüm koduyla ölçülmüş, yolunun bugünkü Lumoda koşusuyla ölçülmüş (`lumoda_anahtar` = o koşunun anahtarı),
+    önbellek dizini aynı anahtarla duruyor ve `meta.json`'u bugünkü kodla, veriyle ve sürümlerle koşulmuş (`kimlik`:
+    `kosu_kimligi()`; R24 kollarında kendi kod özetleri de). Kısmi bir yeniden koşu eski kodla koşulmuş kayıtları
+    böylece rapora sokamaz."""
     kosular = oyun_kaydi.get("kosular", {})
     ok, eksik = set(), []
     for k in izgara():
         e = kosular.get(k.ad)
+        lum = kosular.get(oyun.kosu_adi(k.yol, LUMODA)) or {}
         if e is None or "olcutler" not in e:
             eksik.append(f"oyun.json: {k.ad} yok (python -m markdown.oyun izgara / kalibrasyon)")
         elif e.get("olcum_kodu") != olcum_kodu:
             eksik.append(f"oyun.json: {k.ad} bugünkü ölçüm koduyla ölçülmemiş (python -m markdown.oyun olc)")
+        elif e.get("lumoda_anahtar") is None or e.get("lumoda_anahtar") != lum.get("anahtar"):
+            eksik.append(f"oyun.json: {k.ad} yolunun bugünkü Lumoda koşusuyla ölçülmemiş (lumoda_anahtar ≠ "
+                         f"{oyun.kosu_adi(k.yol, LUMODA)} anahtarı; python -m markdown.oyun olc)")
         else:
             m = Path(onbellek) / f"{k.ad}_{e['anahtar'][:20]}" / "meta.json"
-            if not m.is_file() or json.loads(m.read_text(encoding="utf-8")).get("anahtar") != e["anahtar"]:
+            meta = json.loads(m.read_text(encoding="utf-8")) if m.is_file() else {}
+            if meta.get("anahtar") != e["anahtar"]:
                 eksik.append(f"önbellek: {k.ad} koşusu {m.parent.name} yok ya da anahtarı farklı")
+            elif fark := _kimlik_farki(meta, k.kol, kimlik):
+                eksik.append(f"önbellek: {k.ad} koşusu bugünkü koda ya da veriye göre eski ({', '.join(fark)} farklı; "
+                             "python -m markdown.oyun izgara)")
             else:
                 ok.add(k.ad)
     return ok, eksik
@@ -353,9 +391,10 @@ def gecerli_kosular(oyun_kaydi: dict, olcum_kodu: str, onbellek: Path) -> tuple[
 
 def hazirla(*, kucuk: bool = False, taslak: bool = False, cikti: Path | None = None, demo_yol: Path | None = None,
             olcum_kodu: str | None = None, analiz_kodu: str | None = None, hikaye_kodu: str | None = None,
-            onbellek: Path | None = None) -> Veri:
+            onbellek: Path | None = None, kimlik: dict | None = None) -> Veri:
     """Girdileri okur ve tazeliklerini denetler. Kesin kipte eksik ya da eski girdi `Eksik`; taslakta
-    `Veri.eksik`'e yazılır. `oyun.json` her iki kipte de gerekir."""
+    `Veri.eksik`'e yazılır. `oyun.json` her iki kipte de gerekir. `kimlik` koşuların beklenen kimliği
+    (varsayılan `kosu_kimligi()`; testler verir)."""
     olcek = "kucuk" if kucuk else "tam"
     cikti = Path(cikti) if cikti is not None else (oyun.CIKTI / "kucuk" if kucuk else oyun.CIKTI)
     demo_yol = (senaryolar.KUCUK_HEDEF if kucuk else senaryolar.HEDEF) if demo_yol is None else Path(demo_yol)
@@ -367,7 +406,7 @@ def hazirla(*, kucuk: bool = False, taslak: bool = False, cikti: Path | None = N
     sorun = []
     if o.get("olcek") != olcek:
         sorun.append(f"oyun.json {o.get('olcek')} ölçeğinde (beklenen {olcek})")
-    gec, ek = gecerli_kosular(o, kod, onbellek)
+    gec, ek = gecerli_kosular(o, kod, onbellek, kosu_kimligi() if kimlik is None else kimlik)
     sorun += ek
     a = _json(cikti / "analiz.json")
     if a is None:
@@ -377,6 +416,9 @@ def hazirla(*, kucuk: bool = False, taslak: bool = False, cikti: Path | None = N
             sorun.append("analiz.json bugünkü kodla yazılmamış (python analiz.py)")
         if a.get("olcek") != olcek:
             sorun.append(f"analiz.json {a.get('olcek')} ölçeğinde")
+        lum0 = (o.get("kosular", {}).get(LUMODA) or {}).get("anahtar")
+        if a.get("lumoda_anahtar") is None or a.get("lumoda_anahtar") != lum0:
+            sorun.append("analiz.json bu oyun.json'un yol 0 Lumoda koşusundan değil (python analiz.py)")
     h = _json(cikti / "hikaye.json")
     if h is None:
         sorun.append("hikaye.json yok (python -m markdown.hikaye)")
@@ -548,10 +590,12 @@ def veri_bolumu(v, ek) -> None:
         if lu is None:
             continue
         ob = _ob(a, z)
-        ek.append((f"VERİ {z} = YOL 0 Lumoda (olcutler: {', '.join(analiz.OLCUTLER_ALANLARI)})",
+        ek.append((f"VERİ {z}: analiz.json'un olcutler bloğu oyun.json'un YOL 0 Lumoda kaydıyla aynı (aynı işlev, aynı "
+                   f"koşu; bağımsız denetim değil: {', '.join(analiz.OLCUTLER_ALANLARI)})",
                    all(abs(ob["olcutler"][k] - lu[k]) < 1e-6 for k in analiz.OLCUTLER_ALANLARI)))
         lc = K(v, LUMODA)["ceyrek"][z]
-        ek.append((f"VERİ {z} çeyrekleri = YOL 0 Lumoda çeyrekleri", len(lc) == len(ob["ceyrekler"]) and all(
+        ek.append((f"VERİ {z}: analiz.json çeyrekleri oyun.json'un YOL 0 Lumoda çeyrekleriyle aynı",
+                   len(lc) == len(ob["ceyrekler"]) and all(
             abs(c["katki"] - l["katki"]) < 1e-6 and abs(c["markdown_tl"] - l["markdown_tl"]) < 1e-6
             and abs(c["kalan"] - l["cikis_kalan_adet"]) < 1e-6 for c, l in zip(ob["ceyrekler"], lc))))
     alt(f"{s(len(a['analiz_sezonlari']))} sezonda aralık (" + ", ".join(a["analiz_sezonlari"]) + ")")
@@ -1147,16 +1191,23 @@ def korunum_bolumu(v, ek) -> None:
             ek.append((f"toplam yol {p} {kol}: var ve geçerli", t is not None and t.get("gecerli") is True))
     a = A(v)
     if v.olcek == "tam":
-        ek.append(("yol 0 Lumoda = yayımlanan: öğrenme yayımlanan DuckDB'den",
+        ek.append(("yol 0 öğrenmesi yayımlanan DuckDB'den",
                    v.oyun.get("yollar", {}).get("0", {}).get("kaynak") == "yayimlanan"))
         ek.append(("VERİ yayımlanan DuckDB'den", a.get("kaynak") == "yayimlanan"))
-    else:
-        ek.append(("analiz.json bu oyun.json'un yol 0 Lumoda'sından", a.get("lumoda_anahtar") == K(v, LUMODA)["anahtar"]))
+    ek.append(("analiz.json bu oyun.json'un yol 0 Lumoda'sından", a.get("lumoda_anahtar") == K(v, LUMODA)["anahtar"]))
+    for k in izgara():
+        if k.ad in v.gecerli:
+            ek.append((f"{k.ad}: yolunun Lumoda koşusuyla ölçülmüş",
+                       K(v, k.ad).get("lumoda_anahtar")
+                       == (v.oyun["kosular"].get(oyun.kosu_adi(k.yol, LUMODA)) or {}).get("anahtar")))
     n = korunum(ek)
     print(f"  {s(n)} denetim tuttu: {s(sayi)} koşunun sözleşmeleri (RPT ve ilk dağıtım Lumoda'nınkiyle birebir, arz birebir, "
-          "merdiven, sığlaşmaz, pencere, takvim tabanı), arz bütün kollarda aynı, yol toplamları, yol 0 Lumoda = yayımlanan,")
+          "merdiven, sığlaşmaz, pencere, takvim tabanı), arz bütün kollarda aynı, yol toplamları, yol 0 öğrenmesi "
+          "ve VERİ yayımlanan DuckDB'den,")
     print("  karar anı doğrulaması (opt ve opt_tuzak kaydı), kalibrasyonun seçtiği değerle koşan test kolları, hikâye ve demo "
           "kayıtları, veri sayımları.")
+    print("  her koşu yolunun Lumoda koşusuyla ölçülmüş; önbellekteki her koşu bugünkü kodla, veriyle ve kütüphane "
+          "sürümleriyle koşulmuş (meta.json).")
     print(f"  oyun.json kayıtları bugünkü ölçüm koduyla ({v.olcum_kodu[:12]}); analiz.json {a['kod'][:12]}; hikaye.json "
           f"{(v.hikaye or {}).get('kod', '—')[:12]}; kalibrasyon.json {(v.kalibrasyon or {}).get('olcum_kodu', '—')[:12]}.")
 

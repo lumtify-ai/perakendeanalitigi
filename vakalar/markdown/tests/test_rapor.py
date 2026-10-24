@@ -179,6 +179,51 @@ def test_rapor_eski_girdiyi_reddeder(tmp_path):
         rapor.hazirla(**k)
 
 
+@pytest.mark.parametrize("ad,bozuk,mesaj", [
+    ("y2_opt_SS25", {"vaka": "eski" * 16}, "vaka kod özeti farklı"),
+    ("kal_kural_a100_AW23", {"kod": "eski" * 16}, "İlk Sevkiyat kod özeti farklı"),
+    ("y4_lumoda", {"veri": ["perakende.duckdb", 1, 2]}, "v4 veri parmak izi farklı"),
+    ("kahin_AW24", {"surumler": {"numpy": "2.0.0", "pandas": "2.3.3"}}, "kütüphane sürümleri farklı"),
+    ("kural_deposuz_SS25", {"politikalar": {"markdown": {"parametreler": {"kod": "eski"}}}}, "politika_ablasyon kod"),
+], ids=["vaka", "ilk_sevkiyat", "veri", "surumler", "ablasyon_kodu"])
+def test_rapor_eski_kodla_kosulmus_kosuyu_reddeder(tmp_path, capsys, monkeypatch, ad, bozuk, mesaj):
+    """Ölçüm kodu ve anahtar tutsa da `meta.json`'u bugünkü kod, veri ya da sürümlerle koşulmamış koşu `Eksik`
+    (kısmi yeniden koşu eski koşuları rapora sokamaz): stdout boş, çıkış 1."""
+    g = sahte_rapor.girdiler()
+    e = g["oyun"]["kosular"][ad]
+    k = sahte_rapor.yaz(tmp_path, g, metalar={ad: {**sahte_rapor.meta(e), **bozuk}})
+    with pytest.raises(rapor.Eksik, match=f"önbellek: {ad} koşusu bugünkü koda ya da veriye göre eski .*{mesaj}"):
+        rapor.hazirla(**k)
+    asil = rapor.hazirla
+    monkeypatch.setattr(rapor, "hazirla", lambda kucuk=False, taslak=False: asil(**k, taslak=taslak))
+    assert rapor.main([]) == 1
+    yakalanan = capsys.readouterr()
+    assert yakalanan.out == "" and ad in yakalanan.err
+
+
+def test_rapor_lumoda_anahtari_tutmazsa_reddeder(tmp_path):
+    """Kolun `lumoda_anahtar`'ı yolunun Lumoda koşusununki değilse ya da analiz.json başka bir yol 0 Lumoda'sından
+    ölçülmüşse (TAM'da da) `Eksik`."""
+    g = sahte_rapor.girdiler()
+    g["oyun"]["kosular"]["y3_kural_AW24"]["lumoda_anahtar"] = g["oyun"]["kosular"]["lumoda"]["anahtar"]
+    with pytest.raises(rapor.Eksik, match="y3_kural_AW24 yolunun bugünkü Lumoda koşusuyla ölçülmemiş"):
+        rapor.hazirla(**sahte_rapor.yaz(tmp_path / "a", g))
+    g = sahte_rapor.girdiler()
+    g["analiz"]["lumoda_anahtar"] = "baska" * 8
+    with pytest.raises(rapor.Eksik, match="analiz.json bu oyun.json'un yol 0 Lumoda"):
+        rapor.hazirla(**sahte_rapor.yaz(tmp_path / "b", g))
+    assert rapor.hazirla(**sahte_rapor.yaz(tmp_path / "c")).gecerli == {k.ad for k in rapor.izgara()}
+
+
+def test_kosu_kimligi_meta_alanlariyla_ayni():
+    """`kosu_kimligi()` koşu meta'sının kimlik alanlarını `simulasyon.hazirla`'nın kurduğu biçimde verir."""
+    from markdown import politika_ablasyon, simulasyon
+    k = rapor.kosu_kimligi()
+    h = simulasyon.hazirla("lumoda", None, 0, "kucuk", parametreler={}, rpt_takvimi=None)
+    assert {a: h.icerik[a] for a in rapor.KIMLIK_ALANLARI} == {a: k[a] for a in rapor.KIMLIK_ALANLARI}
+    assert k["ablasyon_kod"] == politika_ablasyon.KOD
+
+
 def test_rapor_demo_dosyasi_guncel_degilse_korunum(tmp_path, capsys):
     k = sahte_rapor.yaz(tmp_path)
     d = senaryolar.uret(sahte_rapor.girdiler()["oyun"])
