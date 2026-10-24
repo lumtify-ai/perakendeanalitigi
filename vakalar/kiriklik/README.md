@@ -14,12 +14,13 @@ Bu dosya yalnız kurulumu anlatır; kollar, tanımlar ve sonuçların okunduğu 
     .venv/Scripts/pip install --no-deps -e ../../veri  # perakende_veri (yalnız hakem ve simülasyon)
     .venv/Scripts/pip install --no-deps -e ../allocation   # İlk Sevkiyat motoru ve yardımcıları
     .venv/Scripts/pip install --no-deps -e ../kumeleme
+    .venv/Scripts/pip install --no-deps -e ../markdown     # tahmin: İndirim Takvimi'nin öğrenme modülü
     .venv/Scripts/pip install -e ".[dev]"
 
 Kütüphane sürümleri Markdown (İndirim Takvimi) vakasının `.venv`'iyle (dolayısıyla İlk Sevkiyat'ınkiyle) aynıdır ve koşu
 önbelleğinin anahtarındadır (numpy, pandas, pyarrow, duckdb, lightgbm, scikit-learn); biri değişirse bütün
 koşular yeniden simüle edilir. `pulp` yalnız optimizasyon kolları içindir (Blok Transfer'in `.venv`'iyle aynı
-sürüm). `allocation` ve `kumeleme` `--no-deps` kurulur; hiçbir sürüm değişmemelidir.
+sürüm). `allocation`, `kumeleme` ve `markdown` `--no-deps` kurulur; hiçbir sürüm değişmemelidir.
 
 **Veri.** `veri/cikti/v4/perakende.duckdb` (ya da `PERAKENDE_V4_DB`). Yoksa yayımlanan `veri-v4` dosyalarını
 indirin ya da `cd veri && python -m perakende_veri.v4.uret`. Bir `git worktree`'de `veri/cikti` bulunmaz:
