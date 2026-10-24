@@ -6,7 +6,8 @@ ozet: >-
   Talep tahmini, satılabilir stok, kalıntı değeri ve esneklikle her
   pazartesi her ürün için çıkışa kadar bir plan kuruyor, yalnız ilk
   haftasını uyguluyoruz. Sonuç iyi kurulmuş bir kuralla başa baş. Gerçek
-  talebi bilmek de pek bir şey değiştirmiyor; darboğaz malın nerede durduğu.
+  talebi bilmek de az kazandırıyor; darboğaz stoğun modeli: malın nerede
+  durduğu.
 yazar: Sabri Suyunu
 durum: yayinda
 ---
@@ -23,7 +24,8 @@ Lumoda'yla ve gerçek talebi bilen bir kopyasıyla aynı malla yarıştırıyoru
 
 Sonucu baştan söyleyeyim, çünkü yazının asıl konusu o. Optimizasyon kuralı
 geçmiyor: iki sezonda aradaki fark 1,28 M TL, kuralın lehine. Gerçek talebi
-bilen kopya da kuralın önüne geçemiyor. Bunun neden böyle olduğu, takvimin
+bilen kopya da bu müşteri akışında, iki sezonun toplamında kuralın biraz
+gerisinde kalıyor; yazın önde, kışın geride. Bunun neden böyle olduğu, takvimin
 nasıl kurulduğundan daha çok şey öğretiyor.
 
 Kod parçası `vakalar/markdown/` altındaki çalışan koddan sadeleştirildi;
@@ -46,8 +48,8 @@ Benim tablom bunu hiç sormuyor.
 taşırız.
 
 Hız kapsama kuralındaki gibi son iki haftadan ve yalnız rafta mal olan
-günlerden ölçülüyor; ama bu kez her mağaza için ayrı ve bedenlere
-bölünerek. Bir fark daha var. Kuralın hızı bugünkü fiyattaki hızdı.
+günlerden ölçülüyor; ama bu kez option'da toplanmıyor: her mağazanın hızı
+ayrı tutuluyor ve bedenlere bölünüyor. Bir fark daha var. Kuralın hızı bugünkü fiyattaki hızdı.
 Optimizasyon ise her günün satışını o günün koşullarından arındırıyor:
 haftanın günü, Black Friday ve tatil gibi özel günler, sezon indiriminin
 ilk haftası, ürünün yaşı, bir de o gün geçerli olan indirim ya da kampanya.
@@ -180,8 +182,8 @@ planın ilk kademesini (`z.kademe[0]`) fiyata yazıyor, gerisini atıyor. Bir
 sonraki pazartesi yeni satışla, yeni stokla, yoldaki ve gelen malla bütün
 tahmin ve bütün plan baştan kuruluyor. Buna kayan ufuk deniyor.
 
-Veli'nin tulumu MDL0606 bunun iyi bir örneği. Geçen yazıda gördük: karar
-günü optimizasyonun planı dört hafta %50, sonra %70; yani indirimden dört
+Veli'nin tulumu MDL0606 bunun iyi bir örneği. [Geçen yazıda](/indirim/indirim-takvimi/indirim-ne-kadar-sattirir/)
+gördük: karar günü optimizasyonun planı dört hafta %50, sonra %70; yani indirimden dört
 hafta önce %70. Tulum %70'e ancak indirimden iki hafta sonra indi. Arada
 her pazartesi yeni sayılarla kurulan plan, o haftanın kademesi olarak yine
 %50'yi seçti.
@@ -232,7 +234,7 @@ seçiyor, ama ürün ürün ve hafta hafta.
 
 İkisinin arasında iki ara kopya daha var. Biri indirim gününde başlıyor ama
 taban vermiyor: iyi satanı indirimden muaf tutabiliyor. Öbürü sekiz hafta
-erken başlıyor ama indirim günü herkese %30 veriyor. Böylece takvimin
+erken başlıyor ama indirim günü herkese en az %30 veriyor. Böylece takvimin
 üç sorusunu ayrı ayrı ölçebiliyoruz.
 
 | Lumoda'ya göre katkı farkı, iki sezon | M TL |
@@ -295,8 +297,9 @@ farkın %96,7'sini kapatıyor. Kapsama kuralı ise iki sezonda kahinin de biraz
 
 Bunu "optimizasyon kazandı" diye okuyamayız. Okunabilecek olan şu: iyi
 kurulmuş bir kural, bu dünyada optimizasyonun vardığı yere varıyor.
-Optimizasyonun ek değeri yok denecek kadar az. Bu tek bir müşteri akışının
-sonucu; başka akışlarda ne olduğuna altıncı yazıda bakacağız.
+Optimizasyonun ek değeri yok denecek kadar az. Bunlar, kahin dahil, tek bir
+müşteri akışının sonucu; başka akışlarda ne olduğuna altıncı yazıda
+bakacağız.
 
 İkisi aynı yere başka yollardan varıyor:
 
@@ -307,13 +310,18 @@ sonucu; başka akışlarda ne olduğuna altıncı yazıda bakacağız.
 | Tam fiyat STR | %56,60 | %54,37 |
 | İlk indirim haftası (medyan) | indirimden iki hafta önce | indirimden dört hafta önce |
 
-Optimizasyon daha erken ve daha derin indiriyor, daha çok satıyor, daha az
+— Tam fiyat STR neyi sayıyor? diyor Pelin.
+
+— Arzın, ilk indirimden önce kampanyasız tam fiyatla satılan payını, diyor
+Pars. Erken indiren onu düşürür.
+
+Optimizasyon daha erken indiriyor, indirimle daha çok satıyor, daha az
 <T k="olu-stok">ölü stok</T> bırakıyor. Ama fazladan sattığı mal ucuza
 gidiyor; katkıda kuralla aynı yerde duruyor.
 
 — Bunca hesap, diyor Pelin, kuralın vardığı yere varmak için mi?
 
-— Bu dünyada öyle, diyor Pars. İkisi de aynı şeyi doğru yapıyor: satmayanı
+— Bu hesapta öyle, diyor Pars. İkisi de aynı şeyi doğru yapıyor: satmayanı
 erken indirmek. Kazancın büyüğü orada. Gerisi ince ayar.
 
 ## Optimizasyon nerede ayrılıyor
@@ -325,13 +333,20 @@ koşuldaki kopyası, indirim gününde başlayan ve taban vermeyen, Lumoda'yı
 15,42 M TL geçiyor. Ölü stokta da fark büyük: kuralın kopyasında 285.560,
 optimizasyonunkinde 231.020 adet.
 
-Bizim okumamız şu. Kural haftada bir kademe iniyor; indirim gününden
-çıkışa kalan sürede satmayan ürünü doğru derinliğe indirmeye haftaları
-yetmiyor. Optimizasyon ilk pazartesi doğru gördüğü derinliğe atlıyor. Sekiz
-hafta erken başlayınca kuralın adımları yetişiyor ve fark kapanıyor. Bu
-okumayı ayrı bir kolla sınamadık.
+Erken başlamanın değeri de iki yöntemde farklı. Kurala iki sezonda 18,77 M
+TL kazandırıyordu. Optimizasyonda aynı adım, indirim gününde başlayan
+tabansız kopyadan serbest optimizasyona geçmek, 8,21 M TL getiriyor. Yani
+geç başladığında geride kalan kural, erken başlamaktan çok daha fazla
+kazanıyor; ikisi de erken başlayınca aynı yere geliyor.
 
-Atlamanın kendisi tek tek ürünlerde de görünüyor. Oduncu Gömlek'i
+Bunun nedenini ayrı bir kolla ölçmedik. İki yöntem birden fazla şeyde
+ayrılıyor: kural haftada bir kademe iniyor, optimizasyon kademe
+atlayabiliyor; optimizasyon esnekliği ve talebin erimesini hesaba katıyor,
+kural yalnız bugünkü hıza ve stoğa bakıyor. Farkın ne kadarının hangisinden
+geldiğini bilmiyoruz.
+
+Kademe atlamak tek tek ürünlerde şöyle görünüyor; her zaman
+kazandırmıyor. Oduncu Gömlek'i
 optimizasyon indirimden dört hafta önce %20'ye alıyor, bir hafta sonra
 %30'u atlayıp %40'a iniyor. Gömlekte optimizasyon önde: katkı 0,94 M TL,
 kuralda 0,82. Veli'nin tulumunda ise kural önde. Kural onu dört pazartesi
@@ -343,15 +358,17 @@ TL, optimizasyonda 0,47.
 katıyor; esneklik yanlışsa kararı da yanlış oluyor. Geçen yazıda gördük:
 markdown'dan öğrenilen esneklikle aynı optimizasyon iki sezonda 15,26 M TL
 kaybediyor. Kural esnekliği yanlış ölçemez, çünkü hiç ölçmez. Bir kademe
-inip bir hafta sonra sonuca bakıyor; yanılırsa bir sonraki pazartesi
-düzeltiyor.
+inip bir hafta sonra sonuca bakıyor; az indirdiyse bir sonraki pazartesi
+bir kademe daha iniyor. Esnekliğe hiç dayanmadığı için esneklik yanlışı onu
+saptıramıyor.
 
 ## Kahin neden daha iyisini yapmıyor
 
 Kahin, serbest optimizasyonun kendisi; tek farkla. Taban talebi ve
 esnekliği tahminden değil, verinin kurgusundan alıyor: her hücrenin her
 günkü gerçek beklenen talebi, her hücrenin gerçek esnekliği. Stok, kalıntı
-değeri, iade ve kampanya aynı. Gerçek hayatta böyle bir kol yok; "gerçek
+değeri, iade ve kampanya aynı; yalnız depodaki malı hücrelere gerçek
+talebe göre bölüyor. Gerçek hayatta böyle bir kol yok; "gerçek
 talebi bilseydik ne kazanırdık?" sorusunun yaklaşık cevabı.
 
 Cevap: az. Kahin optimizasyonu iki sezonda yalnız 0,81 M TL geçiyor. Yazın
@@ -390,12 +407,12 @@ hafta sonra %70'e indiriyor. Daha çok satıyor, 8.058 adet; ölü stok yalnız
 700 adet. Ama katkısı 0,20 M TL, optimizasyonda 0,47. Malı eritiyor, ama
 ucuza.
 
-Geçen yazıda gördük: optimizasyonun bu tulum için karar günü tahmini
-talebi eksik okuyordu. Yine de gerçek talebi bilen kahin aynı pazartesi
-optimizasyonla aynı kararı veriyor: %50. Karar tahminin hatasına değil,
-malın çokluğuna dayanıyor.
+[Geçen yazıda](/indirim/indirim-takvimi/indirim-ne-kadar-sattirir/)
+gördüğümüz gibi kahin bu tulumu aynı pazartesi optimizasyonla aynı
+kademeye, %50'ye alıyor: karar tahminin hatasına değil, malın çokluğuna
+dayanıyor.
 
-— Yani asıl sorun talebi bilmek değil, diyor Veli. Malın nerede durduğu.
+— Yani talebi tam bilsek bile, diyor Veli, mal yine yanlış yerde durur.
 
 — İzmir 4'teki tulumu fiyat başka mağazaya götürmüyor, diyor Pars. Bu
 takvimin darboğazı talep tahmini değil, stoğun modeli.
@@ -450,8 +467,10 @@ gerçek bir zincirde müşteriye beklemeyi öğretebilir; bir kez %50'de görül
 
 **Stoğun yeri.** Optimizasyon depodaki malın talebin olduğu yere gideceğini
 varsayıyor. Sizin replenishment'ınızın kuralları, kolileri ve gecikmeleri
-var; mağazalar arası transfer de pahalı. Bu yazının asıl bulgusu burada:
-talebi bilmek, malın yanlış yerde durmasını düzeltmiyor.
+var; mağazalar arası transfer de pahalı. Depodan mağazaya giden malın
+kurallarını [Depodan Mağazaya](/replenishment/depodan-magazaya/) dizisi
+anlatıyor. Bu yazının bulgularından biri: gerçek talebi bilmek az
+kazandırıyor; darboğaz stoğun modelinde, malın nerede durduğunda.
 
 **Ürünler arası etki.** Optimizasyonun hesabı yalnız indirdiği ürüne
 bakıyor. İndirimli ürün erken bitince talebinin bir kısmı
