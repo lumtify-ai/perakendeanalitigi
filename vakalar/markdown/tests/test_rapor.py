@@ -113,10 +113,16 @@ def test_rapor_tarih_yok(tmp_path):
     lambda g: g["oyun"]["kosular"]["kural_deposuz_SS25"]["korunum"].__setitem__("pencere", False),
     lambda g: g["oyun"]["kosular"]["kural_takvim_AW24"]["parametreler"].__setitem__("alfa", 2.0),
     lambda g: g["hikaye"]["tulumlar"]["az"].__setitem__("olu_stok", 1.0),
+    lambda g: g["analiz"]["sezonlar"]["SS25"]["huni"].__setitem__(
+        "kalan_magaza", g["oyun"]["kosular"]["lumoda"]["olcutler"]["SS25"]["cikis_kalan_magaza_adet"] + 451),
+    lambda g: g["analiz"]["sezonlar"]["SS25"]["huni"].__setitem__(
+        "kalan_magaza", g["oyun"]["kosular"]["lumoda"]["olcutler"]["SS25"]["cikis_kalan_magaza_adet"] - 1),
+    lambda g: g["hikaye"]["tulumlar"]["cok"]["cikis_kalan"].__setitem__("magaza", 0.0),
+    lambda g: g["oyun"]["toplamlar"]["0"]["kural_deposuz"].__setitem__("gecerli", False),
 ], ids=["rpt_birebir", "gecersiz_yol2", "kalibrasyon_tabani", "ayni_mal_arz", "toplam_gecersiz", "yol0_yayimlanan",
         "veri_arz", "veri_kademe", "karar_ani", "hikaye_lumoda", "hikaye_eksik_kol", "kalibrasyon_secimi",
         "veri_markdown_olcutler", "veri_ceyrek_olcutler", "veri_olu_stok", "ablasyon_korunum", "ablasyon_alfa",
-        "hikaye_olu_stok"])
+        "hikaye_olu_stok", "hayalet_ust", "hayalet_alt", "hikaye_hayalet_alt", "ablasyon_toplam"])
 def test_rapor_korunum_bozulunca_bos(tmp_path, capsys, boz):
     g = sahte_rapor.girdiler()
     boz(g)
@@ -238,9 +244,14 @@ def test_rapor_veri_olcutler_tanimi_ve_kural_ayrisimi(tmp_path):
     ve, yo, ay = (_bolum(m, b) for b in ("VERİ", "YOL 0", "AYRIŞIM"))
     g = sahte_rapor.girdiler()["oyun"]["kosular"]["lumoda"]["olcutler"]["SS25"]
     md = rapor.s(g["markdown_tl"] / 1e6, 2)
-    assert f"markdown TL {md} M TL (lansman → çıkış" in ve and "keşif tanımları (spec §0; yazıda kullanılmaz)" in ve
+    assert f"markdown TL {md} M TL (lansman → çıkış" in ve and "keşif" not in ve and "iade düşülmüş" not in ve
     assert any(sat.startswith("  markdown TL ") and f"  {md}  " in sat for sat in yo.splitlines())
     assert "Lumoda → kural_takvim" in ay and "depo (kural − kural_deposuz)" in ay
     s2 = next(x for x in m.splitlines() if x.startswith("SORU 2 · "))
     assert "erken başlamanın değeri (kural − kural_takvim) +0,42 M TL (+0,4)" in s2      # 2 × (330 − 120) bin TL
     assert "depoyu görmenin değeri (kural − kural_deposuz) +0,58 M TL (+0,6)" in s2 and "büyüğü depoyu görmek" in s2
+
+
+def test_kirli_pay_tek_yonlu():
+    assert rapor.kirli_pay_icinde(100, 100) and rapor.kirli_pay_icinde(550, 100)
+    assert not rapor.kirli_pay_icinde(551, 100) and not rapor.kirli_pay_icinde(99, 100)

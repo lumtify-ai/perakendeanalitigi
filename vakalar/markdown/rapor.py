@@ -88,7 +88,8 @@ ANLATI_VARSAYIMLARI = {
              "önce); \"lansman haftası k\" lansmandan k hafta sonra",
     "markdown_tl": "markdown TL ve outlet indirimi her bölümde olcutler tanımıdır (pozitif satış, kampanyasız, normal ve "
                    "online hat, oran > 0, lansman → çıkış; iadeden önce; outlet hattı çıkış → + 84); VERİ'nin \"keşif "
-                   "tanımları\" satırı spec §0'ın iade düşülmüş indirim dönemi değeridir ve yazıda kullanılmaz (Ruling R21)",
+                   "tanımları\" (spec §0'ın iade düşülmüş indirim dönemi değerleri) yalnız analiz.json'dadır, raporda basılmaz "
+                   "(Ruling R21)",
     "kucuk": "KÜÇÜK ölçekte sahnenin option'ları yoktur; hikâye kuralla seçilmiş yedek option'ları basar (yalnız "
              "geliştirme)",
 }
@@ -471,6 +472,11 @@ def kfark_metni(x2: float) -> str:
 KIRLI_STOK_PAYI = 450      # yayımlamanın hayalet stok kaydı: 150 satır × en çok 3 adet (v4 kirlet; VERİ ↔ YOL 0)
 
 
+def kirli_pay_icinde(yayimlanan: float, lumoda: float) -> bool:
+    """Yayımlanan mağaza stoğu = yol 0 Lumoda'nınki + hayalet stok: kirli kayıt yalnız ekler, `0 ≤ fark ≤ 450`."""
+    return 0 <= float(yayimlanan) - float(lumoda) <= KIRLI_STOK_PAYI
+
+
 def _huni_satirlari(h: dict, ob: dict) -> None:
     o = ob["olcutler"]
     print(f"  arz {s(h['arz'])} adet = ilk {s(h['arz_ilk'])} + RPT {s(h['arz_rpt'])} ({s(h['rpt_option'])} option'a RPT); "
@@ -491,9 +497,6 @@ def _huni_satirlari(h: dict, ob: dict) -> None:
           f"{s(o['cikis_kalan_depo_adet'])}); liste değeri {s(mtl(o['cikis_kalan_liste']), 2)} M TL, alış değeri "
           f"{s(mtl(o['cikis_kalan_alis']), 2)} M TL; çıkış + 120 günde depoda ölü stok {s(o['olu_stok_adet'])} adet, alış "
           f"değeri {s(mtl(o['olu_stok_alis']), 2)} M TL")
-    print(f"  keşif tanımları (spec §0; yazıda kullanılmaz): indirim döneminde mağazalarda verilen indirim, iade düşülmüş "
-          f"{s(mtl(h['md_ind_net']), 2)} M TL; outlet mağazalarında outlet indirimi, iade düşülmüş "
-          f"{s(mtl(h['outlet_indirim_net']), 2)} M TL")
 
 
 def _ob(a: dict, z: str) -> dict:
@@ -537,7 +540,7 @@ def veri_bolumu(v, ek) -> None:
                (f"VERİ {z}: arz = ilk + RPT", abs(h["arz"] - h["arz_ilk"] - h["arz_rpt"]) < 1e-6),
                (f"VERİ {z}: yayımlanan arz = yol 0 Lumoda arzı", abs(h["arz"] - o["arz_adet"]) < 1e-6),
                (f"VERİ {z}: yayımlanan kalan ve ölü stok = yol 0 Lumoda'nınki (mağaza stoğunda kirli kayıt payı)",
-                abs(h["kalan_magaza"] - o["cikis_kalan_magaza_adet"]) <= KIRLI_STOK_PAYI
+                kirli_pay_icinde(h["kalan_magaza"], o["cikis_kalan_magaza_adet"])
                 and abs(h["kalan_depo"] - o["cikis_kalan_depo_adet"]) < 1e-6
                 and abs(h["olu_stok"] - o["olu_stok_adet"]) < 1e-6)]
     for z in a["analiz_sezonlari"]:
@@ -1081,7 +1084,7 @@ def hikaye_bolumu(v, ek) -> None:
         ek.append((f"HİKÂYE {rol}: yayımlanan arz, kalan ve ölü stok = yol 0 Lumoda option tablosu (mağaza stoğunda kirli "
                    "kayıt payı)", tt["arz"] == lk["arz_adet"] and tt["olu_stok"] == lk["olu_stok_adet"]
                    and tt["cikis_kalan"]["depo"] == lk["cikis_kalan_depo_adet"]
-                   and abs(tt["cikis_kalan"]["magaza"] - lk["cikis_kalan_magaza_adet"]) <= KIRLI_STOK_PAYI))
+                   and kirli_pay_icinde(tt["cikis_kalan"]["magaza"], lk["cikis_kalan_magaza_adet"])))
 
 
 # ---------------------------------------------------------------------------
@@ -1139,7 +1142,7 @@ def korunum_bolumu(v, ek) -> None:
         sayi += 1
     ek.append(("ızgaranın bütün koşuları geçerli ve ölçülmüş", v.taslak or len(v.gecerli) == len(izgara())))
     for p in mevcut_yollar(v):
-        for kol in (LUMODA, *(oyun.YOL0_KOLLARI if p == 0 else oyun.YOL_KOLLARI)):
+        for kol in (LUMODA, *(oyun.YOL0_KOLLARI + oyun.ABLASYON_KOLLARI if p == 0 else oyun.YOL_KOLLARI)):
             t = ((v.oyun.get("toplamlar") or {}).get(str(p)) or {}).get(kol)
             ek.append((f"toplam yol {p} {kol}: var ve geçerli", t is not None and t.get("gecerli") is True))
     a = A(v)
