@@ -6,10 +6,10 @@ esanlam:
   - indirim
 ---
 
-Markdown, bir ürünün fiyatının tam fiyatından, geri çıkmamak üzere
-indirilmesidir; bir iki haftalığına konup kalkan kampanyadan farkı bu.
-Sahada indirimle dönüşümlü kullanılır; sezon indirimi ise zincirin takvime
-bağladığı, birçok ürünü birden kapsayan indirim olayıdır.
+Markdown, bir ürünün tam fiyatından geri çıkmamak üzere indirilmesidir;
+bir iki haftalığına konup kalkan kampanyadan farkı bu. Sahada indirimle
+dönüşümlü kullanılır; sezon indirimi ise zincirin takvime bağladığı, birçok
+ürünü birden kapsayan indirim olayıdır.
 
 İndirim genellikle kademe kademe iner: örneğin yüzde yirmi, otuz, kırk, elli,
 yetmiş. Her kademe satış hızını artırır, ama ürünün adet başına getirisini

@@ -4,7 +4,7 @@ Lumoda v4 sentetik verisinde indirim (markdown) vakası (İndirim, promosyon ve 
 talebin indirime tepkisinden option başına haftalık indirim yolunu seçmek; serbest ana kolu, takvime bağlı
 kontrolü, kapsama kuralını ve gerçek girdili kahini v4 motorunda aynı malla Lumoda'nın kuralıyla kıyaslamak.
 Tasarım: `docs/superpowers/specs/2026-10-23-indirim-takvimi-design.md` (`docs/` ayrı depodur; uygulamadaki
-sapmalar spec §12'de ve SDD kayıt defterinin Ruling'lerinde, R1–R32).
+sapmalar spec §12'de ve SDD kayıt defterinin Ruling'lerinde, R1–R33).
 
 Sitedeki dizinin (`site/src/content/yazi/indirim/indirim-takvimi/`, 6 yazı: İki Lacivert Tulum, Bu Karar Nasıl
 Verilir, Kural Tabanlı Yöntem, İndirim Ne Kadar Sattırır, Takvimi Kurmak, Başarı Nasıl Ölçülür) ve demo
@@ -289,12 +289,14 @@ tablosunu okuyabilir; vaka kökünün betikleri hiçbirini okumaz. AST kilidi ve
   kararını da değiştirmesi ölçülmez.
 - **Stok modeli iyimser.** DP'nin akış modeli stoğu karar anındaki hücre paylarıyla (`w`; depo ve açık sipariş
   talep payıyla bölünmüş) ufuk boyunca sabit tutar ve hücre başına `min(X · w, d · m)` satar; replenishment'ın,
-  transferin ve hücreler arası tükenmenin zamanlamasını görmez. Kahin tanısına göre derin indirimde satışı
-  gerçekleşenden fazla tahmin eder; raporun TAHMİN İSABETİ bölümü kolların genel isabetini basar.
+  transferin ve hücreler arası tükenmenin zamanlamasını görmez. Raporun TAHMİN İSABETİ bölümü kolların genel
+  isabetini basar: tahmin yazan kolların hepsi satışı gerçekleşenden fazla bekler ve kahin yaklaşık optimizasyon kadar
+  yanılır; darboğaz stok modelidir. Hangi nedenin ne kadar katkı yaptığı ölçülmedi.
 - **Kahin tanısı (R29).** Kahin talebi ve esnekliği bilir ama aynı stok modelini kullanır; bu yüzden opt'u her
   sezonda geçmesi gerekmez. Salt okunur tanıda (`kahin-tani.md`, SDD klasörü) kod hatası çıkmadı: girdi gerçek
-  talebi verir, tahmin hatasının çoğu akış modelinden gelir. Yazı bunu "talebi bilmek yetmiyor, malın nerede
-  durduğu" diye söyler; rapor ayrışımı basmaz, isabet ölçüsüyle yetinir.
+  talebi verir, tahmin hatasının çoğu akış modelinden gelir. Yazı bunu "talebi bilmek yetmiyor; tahminin
+  hatası talepte değil, talep ile satış arasındaki stok modelinde" diye söyler; rapor ayrışımı basmaz, isabet
+  ölçüsüyle yetinir.
 - **opt_tuzak iki yerden yanlış (son kod incelemesi M12).** `opt_tuzak` velocity'yi ε̂_markdown'la fiyattan
   arındırır ve DP'de ε̂_markdown kullanır, ama yaşam eğrisi öğrenmede ε̂_kampanya ile arındırılmıştır: "yanlış
   esneklik" ε'nin girdiği üç yerin ikisini değiştirir.
