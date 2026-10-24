@@ -281,9 +281,10 @@ tablosunu okuyabilir; vaka kökünün betikleri hiçbirini okumaz. AST kilidi ve
   bir zincirdeki bedelinin bir kısmı bu yüzden ölçülmez.
 - **Zincir fiyatı.** Fiyat option × hat düzeyinde, zincir genelindedir; mağazaya göre indirim yoktur. Mağaza stok
   dengesizliği yalnız replenishment ve elle transferle çözülür; indirim onu hedefleyemez.
-- **İkame yan etkisi (R31).** İndirim, test option'larına ikameyle talep çekerek test dışı option'ların cirosunu
-  değiştirir; bu etki sezon katkısının dışında, YAN ETKİ bölümünde ayrı basılır ve küçük değildir. Kollar
-  arasındaki sıralama yalnız sezon katkısıyla okunmamalıdır.
+- **İkame yan etkisi (R31).** İndirimli test option'ı erken bitince talebinin bir kısmı ikameyle komşu option'lara
+  geçer (ters yönde daha küçük bir akış da var: serbest optimizasyonda ikameye giden +153.053 adet, ikame alınan
+  +37.303 adet); test dışı option'ların cirosu artar. Bu etki sezon katkısının dışında, YAN ETKİ bölümünde ayrı
+  basılır ve küçük değildir. Kollar arasındaki sıralama yalnız sezon katkısıyla okunmamalıdır.
 - **RPT sabit (R4).** Bütün kollar Lumoda'nın RPT'sini yeniden oynatır; daha iyi bir indirim takviminin RPT
   kararını da değiştirmesi ölçülmez.
 - **Stok modeli iyimser.** DP'nin akış modeli stoğu karar anındaki hücre paylarıyla (`w`; depo ve açık sipariş
