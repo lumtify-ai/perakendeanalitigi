@@ -44,9 +44,11 @@ gün geriye giderse `ValueError`.
   izinlidir (`izinli`); indirim gününü içine alan haftayı taban, indirim günü çağrısında kendisi uygular.
 - `Kahin(temel, test_idx, ogrenilen, girdi)`: `Optimizasyon(kip="serbest", eps="kampanya")`'nın gerçek
   girdili hâli (spec §0/12). Taban talep girdinin `taban[gün, hücre]`'sinden (fiyat çarpanından önceki
-  beklenen günlük talep), ε girdinin hücre ε'sinin option içinde ufuk talebiyle ağırlıklı ortalaması
-  (**basitleştirme**: DP option başına tek fiyat çarpanı aldığı için option başına tek ε); fiyat
-  çarpanının hücre-gün ağırlığı da gerçek taban talep. Satılabilir stok, kampanya, iade, kalıntı ve işlem
+  beklenen günlük talep), esneklik girdinin hücre ε'si: DP'nin hafta × basamak fiyat çarpanı hücre-gün
+  çarpanlarının `(1 − max(r, kampanya))^(−ε_hücre)` gerçek taban talep ağırlıklı ortalamasıdır
+  (`Tahminci.carpan`'a [N] ε; kampanya oranları gibi). ε'ler önce ortalanmaz: çarpan ε'de dışbükey
+  olduğu için ortalama ε'nin çarpanı derin basamakta talep artışını eksik okurdu. Satılabilir stok,
+  kampanya, iade, kalıntı ve işlem
   indirimi `Optimizasyon`'daki gibi (açık bilgi ve öğrenilenler; gerçek talep yalnız depo payını belirler).
 
 `parametreler()` koşu önbelleği anahtarına giren JSON-kanonik sözlüktür: davranışı değiştiren her şey
@@ -312,7 +314,7 @@ class Optimizasyon(Sarmalayici):
         self.tahminci = Tahminci(ogrenilen, self.test_idx, eps=tablo, oran_gecmisi=self.oran_gecmisi)
 
     def _talep(self, g, o: int, ufuk: np.ndarray):
-        """(hücreler [N], d [T, N], ε, hücre-gün ağırlığı [U, N] ya da None)."""
+        """(hücreler [N], d [T, N], ε (tek sayı ya da [N]), hücre-gün ağırlığı [U, N] ya da None)."""
         hucre, d = self.tahminci.taban(g, o, ufuk)
         return hucre, d, self.tahminci.option_eps(g, o), None
 
@@ -415,9 +417,7 @@ class Kahin(Optimizasyon):
     def _talep(self, g, o: int, ufuk: np.ndarray):
         hucre = self.tahminci.hucreler(g, o)
         gunluk = self.girdi.taban[np.ix_(self.girdi.satirlar(ufuk), self.girdi.sutunlar(hucre))]
-        D = gunluk.sum(axis=0)
-        e = self.girdi.eps[self.girdi.sutunlar(hucre)]
-        eps = float((D * e).sum() / D.sum()) if D.sum() > 0 else float(e.mean()) if len(e) else 0.0
+        eps = self.girdi.eps[self.girdi.sutunlar(hucre)]          # [N] hücre ε'si (ortalanmaz)
         d = np.add.reduceat(gunluk, np.arange(0, len(ufuk), 7), axis=0) if len(ufuk) else gunluk[:0]
         return hucre, d, eps, gunluk
 

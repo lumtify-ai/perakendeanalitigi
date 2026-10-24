@@ -521,3 +521,29 @@ def test_carpan_dis_agirlik():
     np.testing.assert_allclose(c3[1], (1 - np.array(tahmin.KADEMELER)) ** (-EPS), rtol=1e-12)  # ONL kampanyasız
     with pytest.raises(ValueError, match="agirlik"):
         t.carpan(g, 0, UFUK, EPS, agirlik=gunluk[:, :2])
+
+
+def test_carpan_hucre_esnekligi():
+    """[N] hücre ε'si: hafta çarpanı hücre çarpanlarının talep ağırlıklı ortalaması, ortalama ε'nin
+    çarpanı değil (dışbükeylik); hepsi aynı ε'de tek sayıyla birebir aynı; boy yanlışsa hata."""
+    w = _dunya()
+    g = _g(w)
+    t = tahmin.Tahminci(_ogrenilen(), optionlar=[0, 1, 2])
+    hucre, _d = t.taban(g, 0, UFUK)
+    on = w.hucre_online[hucre]
+    eps = np.where(on, 3.0, 1.0)
+    agirlik = np.where(on, 2.0, 1.0)[None, :] * np.ones((len(UFUK), 1))
+    c, e = t.carpan(g, 0, UFUK, eps, agirlik=agirlik)
+    K = np.array(tahmin.KADEMELER)
+    a_on, a_fiz = 2.0 * on.sum(), 1.0 * (~on).sum()
+    beklenen = (a_on * (1 - K) ** -3.0 + a_fiz * (1 - K) ** -1.0) / (a_on + a_fiz)
+    np.testing.assert_allclose(c[0], beklenen, rtol=1e-12)                       # kampanyasız hafta
+    ort = (a_on * 3.0 + a_fiz * 1.0) / (a_on + a_fiz)
+    assert c[0, -1] > 1.05 * (1 - K[-1]) ** -ort                                  # %70'te belirgin fark
+    np.testing.assert_allclose(e[0], np.where(K > 0, K, 0.024), rtol=1e-12)
+    c1, e1 = t.carpan(g, 0, UFUK, EPS)
+    c2, e2 = t.carpan(g, 0, UFUK, np.full(len(hucre), EPS))
+    np.testing.assert_array_equal(c2, c1)
+    np.testing.assert_array_equal(e2, e1)
+    with pytest.raises(ValueError, match="eps"):
+        t.carpan(g, 0, UFUK, eps[:3])

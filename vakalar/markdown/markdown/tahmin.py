@@ -379,12 +379,15 @@ class Tahminci:
         w = dagit / toplam if toplam > 0 else np.full(len(b.hucre), 1.0 / len(b.hucre))
         return X0, w
 
-    def carpan(self, g, o: int, ufuk, eps: float,
+    def carpan(self, g, o: int, ufuk, eps,
                agirlik: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
         """(carpan [T, K], etkin [T, K]): hafta × basamak fiyat çarpanı ve etkin indirim oranı.
 
-        `agirlik` [U, N] verilirse hücre-gün ağırlığı odur (ör. kahinin gerçek taban talebi, `taban`
-        hücre sırasıyla); verilmezse bu tahmincinin `taban` günlük talebi."""
+        `eps` tek sayı (option'ın ε̂'sı) ya da [N] hücre başına ε (ör. kahinin gerçek hücre esnekliği,
+        `taban` hücre sırasıyla); hücre-gün çarpanı `(1 − max(r, kampanya))^(−ε_hücre)`, hafta başına
+        ağırlıklı ortalaması alınır (ε'ler önce ortalanmaz: çarpan ε'de dışbükey). `agirlik` [U, N]
+        verilirse hücre-gün ağırlığı odur (ör. kahinin gerçek taban talebi); verilmezse bu tahmincinin
+        `taban` günlük talebi."""
         b = self._hazir(g, o)
         ufuk = np.asarray(ufuk, dtype=np.int64)
         if len(ufuk) == 0:
@@ -395,22 +398,29 @@ class Tahminci:
             agirlik = np.asarray(agirlik, dtype=float)
             if agirlik.shape != (len(ufuk), len(b.hucre)):
                 raise ValueError(f"agirlik [U, N] = {(len(ufuk), len(b.hucre))} olmalı: {agirlik.shape}")
+        eps = np.asarray(eps, dtype=float)
+        if eps.ndim == 0:
+            eps_degerleri, eps_ters = eps[None], np.zeros(len(b.hucre), dtype=np.int64)
+        elif eps.shape == (len(b.hucre),):
+            eps_degerleri, eps_ters = np.unique(eps, return_inverse=True)
+        else:
+            raise ValueError(f"eps tek sayı ya da [N] = {len(b.hucre)} olmalı: {eps.shape}")
         bas = np.arange(0, len(ufuk), 7)
         hafta = np.repeat(np.arange(len(bas)), np.diff(np.append(bas, len(ufuk))))
         bos = np.add.reduceat(agirlik.sum(1), bas) <= 0
         agirlik = np.where(bos[hafta][:, None], 1.0, agirlik)
-        # Kampanya oranı az sayıda farklı değer alır: ağırlık (hafta, kampanya değeri) başına toplanır,
-        # çarpan değer × basamak tablosundan ([V, K]); [U, N, K] küpü kurulmaz.
+        # Kampanya oranı ve ε az sayıda farklı değer alır: ağırlık (hafta, kampanya değeri, ε değeri)
+        # başına toplanır, çarpan (değer, ε) × basamak tablosundan ([V·E, K]); [U, N, K] küpü kurulmaz.
         kamp_gm = _kampanya_uygula(b.kurallar, ufuk, self._M)               # [U, M]
         degerler, ters = np.unique(kamp_gm, return_inverse=True)
-        V, T = len(degerler), len(bas)
-        ters = ters.reshape(kamp_gm.shape)[:, self._hm[b.hucre]]          # [U, N]
-        A = np.bincount((hafta[:, None] * V + ters).ravel(), weights=agirlik.ravel(),
-                        minlength=T * V).reshape(T, V)
+        V, E, T = len(degerler), len(eps_degerleri), len(bas)
+        grup = ters.reshape(kamp_gm.shape)[:, self._hm[b.hucre]] * E + eps_ters[None, :]   # [U, N]
+        A = np.bincount((hafta[:, None] * (V * E) + grup).ravel(), weights=agirlik.ravel(),
+                        minlength=T * V * E).reshape(T, V * E)
         K = np.asarray(KADEMELER, dtype=float)
         r = np.maximum(K[None, :], degerler[:, None])                       # [V, K]
-        m = fiyat_carpani(r, eps)
-        etkin = np.where(r > 0, r, self.ogrenilen.islem)
+        m = np.stack([fiyat_carpani(r, e) for e in eps_degerleri], axis=1).reshape(V * E, K.size)
+        etkin = np.repeat(np.where(r > 0, r, self.ogrenilen.islem), E, axis=0)   # [V·E, K]
         pay = A @ m                                                        # [T, K]
         return pay / A.sum(1)[:, None], (A @ (m * etkin)) / pay
 

@@ -418,7 +418,8 @@ def _girdi(tt, w, taban=1.0, eps=1.8, gunler=None, hucre=None):
 
 def test_kahin_gizli_okumaz(tt, monkeypatch):
     """Kahin talebi ve esnekliği yalnız argümanından (`KahinGirdisi`) alır: tahmincinin taban
-    tahmini çağrılmaz; DP'nin haftalık talebi girdinin toplamı, ε option'ın talep ağırlıklı ε'si;
+    tahmini çağrılmaz; DP'nin haftalık talebi girdinin toplamı; fiyat çarpanı hücre çarpanlarının
+    talep ağırlıklı ortalaması (ortalama ε'nin çarpanı değil);
     dünya yalnız açık alanlı (`AcikDunya`)."""
     w = _opt_dunya(tt)
     og = tt._ogrenilen()
@@ -440,11 +441,16 @@ def test_kahin_gizli_okumaz(tt, monkeypatch):
     d0 = yakalanan[0][0][0]
     h0 = np.flatnonzero(w.hucre_option == 0)
     np.testing.assert_allclose(d0, np.add.reduceat(taban[:, np.isin(hucre, h0)], np.arange(0, 84, 7)))
-    # option 0: ONL hücreleri talebin 3 katı, ε 3; fiziksel ε 1 -> ağırlıklı ε
+    # option 0: ONL hücreleri talebin 3 katı, ε 3; fiziksel ε 1 -> hücre çarpanlarının talep ağırlıklı
+    # ortalaması (ilk hafta kampanyasız); ortalama ε (2,0) çarpanı derin basamakta daha düşük kalırdı
     on = w.hucre_online[h0]
-    beklenen = (3.0 * 3.0 * on.sum() + 1.0 * 1.0 * (~on).sum()) / (3.0 * on.sum() + (~on).sum())
+    K = np.array(KADEMELER)
+    a_on, a_fiz = 3.0 * on.sum(), 1.0 * (~on).sum()
+    beklenen = (a_on * (1 - K) ** -3.0 + a_fiz * (1 - K) ** -1.0) / (a_on + a_fiz)
     carpan = yakalanan[0][0][4]
-    np.testing.assert_allclose(carpan[0], (1 - np.array(KADEMELER)) ** (-beklenen), rtol=1e-12)
+    np.testing.assert_allclose(carpan[0], beklenen, rtol=1e-12)
+    ort_eps = (a_on * 3.0 + a_fiz * 1.0) / (a_on + a_fiz)
+    assert (carpan[0, 1:] > (1 - K[1:]) ** -ort_eps).all()
 
 
 def test_kahin_girdisi_eksikse_hata(tt):
