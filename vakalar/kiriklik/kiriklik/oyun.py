@@ -34,10 +34,11 @@ yolun bütün planlarını önce kurar, bağlantıyı ve girdileri bırakır, so
 içeriği (`plan_icerigi`): kol, sezon, yol, ölçek, yolun Lumoda koşusunun anahtarı, karar kapanışının kod özeti
 (`karar_kod_ozeti`), PuLP sürümü (CBC çözümü sürüme bağlıdır; ek, bedelsiz). Karar kapanışı: kiriklik karar modülleri
 (`KARAR_MODULLERI`), `markdown` ogrenme / kaynak / sabitler, onların içe aktardığı `perakende_analitik` modüllerinin
-kapanışı (`allocation.motor.ortak_kapanisi`, koşu anahtarındaki gibi), `kahin`'de ayrıca `hakem.py`; içerik LF'e
-çevrilir (`simulasyon.vaka_kod_ozeti` gibi). `bilgi["girdi"] = {"yol": yol, "lumoda_anahtari": …}` (Ruling R7);
-kural planlarının puan tablosu yazılmaz, yerine `puan_sayisi` (Ruling R24). Önbellekten okunan planın girdisi
-istenen yol ve Lumoda anahtarı değilse ya da kimliği kayıtlıdan farklıysa `ValueError` (yol p'nin kararı yol 0
+kapanışı (`allocation.motor.ortak_kapanisi`, koşu anahtarındaki gibi), `kahin`'de ayrıca `hakem.py`; ve bu modülün
+planı biçimlendiren işlevlerinin kaynağı (`KARAR_FONKSIYONLARI`: kol bağlantısı, bilgi dönüşümü, karar girdisinin
+kurulumu); içerik LF'e çevrilir (`simulasyon.vaka_kod_ozeti` gibi). `bilgi["girdi"] = {"yol": yol, "lumoda_anahtari":
+…}` (Ruling R7); kural planlarının puan tablosu yazılmaz, yerine `puan_sayisi` (Ruling R24). Önbellekten okunan
+planın girdisi istenen yol ve Lumoda anahtarı değilse ya da kimliği kayıtlıdan farklıysa `ValueError` (yol p'nin kararı yol 0
 verisinden kurulmuş olamaz; Review Focus). Plan koşunun anahtarına kimliğiyle girer (`simulasyon` modül notu).
 
 **Ölçüm** (`olc`, `olcum_kaydi`). Önbellekte bulunan her ızgara koşusu için: `olcutler.korunum`; bir alanı False ise
@@ -46,8 +47,9 @@ süreler), `kosular[ad]` (ad, kol, sezon, yol, koşu anahtarı, Lumoda anahtarı
 gecerli, olcum, süreler ve tepe bellek). Ölçüm önbelleği (Beden ve Koli R14/R18, İndirim Takvimi kalıbı): koşu
 anahtarı, Lumoda anahtarı, plan kimliği ve ölçüm kodu (`OLCUM_OZETI`: `olcutler.py` ve onun içe aktardığı kiriklik
 modülleri, bu modülün `OLCUM_FONKSIYONLARI` kaynağı, `OLCUM_SURUMU`) aynıysa yeniden ölçülmez (`--zorla` ile ölçülür).
-Planı ya da koşusu önbellekte olmayan koşu atlanır; `olc` koşmaz ve plan kurmaz. Her ölçümden sonra `oyun.json`
-(geçici adla yazılıp yerine konur).
+Planı ya da koşusu (ya da yolun Lumoda'sı) önbellekte olmayan koşu atlanır; eski kaydı varsa `{gecerli: false, olcum:
+None, atlandi: neden}` ile değiştirilir (Lumoda kaydı da), eski ölçüm geçerli görünmez. `olc` koşmaz ve plan kurmaz.
+Her ölçümden sonra `oyun.json` (geçici adla yazılıp yerine konur).
 
 **İlerleme** `cikti/ilerleme.jsonl` (İlk Sevkiyat `oyun._ilerleme`): her plan, koşu, öğrenme ve ölçüm için bir satır
 (`tur`, süre, önbellekten mi, sürecin tepe belleği `surec_tepe_gb`; koşuda motorun süresi ve koşunun tepe belleği).
@@ -90,6 +92,10 @@ BLOKLAR = ("yol0", "ablasyon", "yollar")
 # Karar kapanışı (plan anahtarı): kolların karar kodu ve onun içe aktardığı İndirim Takvimi modülleri
 KARAR_MODULLERI = ("sabitler", "kaynak", "olcu", "uygunluk", "tahmin", "kural", "model", "plan")
 MARKDOWN_MODULLERI = ("ogrenme", "kaynak", "sabitler")
+# Bu modülde planı biçimlendiren kod (kol bağlantısı, bilgi dönüşümü, karar girdisinin kurulumu): kaynağı karar kod
+# özetine girer
+KARAR_FONKSIYONLARI = ("_plan_hesapla", "plan_kur", "_girdi", "kahin_fiyat_denetimi", "karar_veritabani",
+                       "Yol._baglanti", "Yol.karar_girdisi", "Yol.ogrenilen", "Yol.talep")
 # Ölçüm kodu: olcutler.py ve onun içe aktardığı kiriklik modülleri (testle eşit tutulur) + OLCUM_FONKSIYONLARI.
 # OLCUM_SURUMU: ölçümü değiştiren ama bu kapsamın dışında kalan her düzeltmede bir artırılır.
 OLCUM_MODULLERI = ("olcutler", "kaynak", "olcu", "plan", "sabitler")
@@ -250,14 +256,29 @@ def kod_ozeti(dosyalar: dict[str, Path]) -> str:
     return ozet.hexdigest()
 
 
-@functools.cache
-def _karar_kod_ozeti(kahin_mi: bool) -> str:
-    return kod_ozeti(karar_kod_dosyalari("kahin" if kahin_mi else "kural"))
+def _kaynak(ad: str) -> str:
+    """Bu modülün `ad` (`f` ya da `Sinif.f`) işlevinin kaynağı, çağrı anındaki nesneden (LF)."""
+    nesne = globals()[ad.split(".")[0]]
+    for parca in ad.split(".")[1:]:
+        nesne = vars(nesne)[parca]
+    nesne = getattr(nesne, "__wrapped__", nesne)                   # contextmanager
+    return inspect.getsource(nesne).replace("\r\n", "\n")
+
+
+def karar_metinleri(kol: str) -> dict[str, str]:
+    """Karar kod özetinin girdileri: `karar_kod_dosyalari`'nın içerikleri ve `KARAR_FONKSIYONLARI`'nın kaynağı (LF)."""
+    m = {ad: y.read_bytes().replace(b"\r\n", b"\n").decode("utf-8") for ad, y in karar_kod_dosyalari(kol).items()}
+    return m | {ad: _kaynak(ad) for ad in KARAR_FONKSIYONLARI}
 
 
 def karar_kod_ozeti(kol: str) -> str:
-    """Kolun karar kapanışının özeti (süreçte bir kez hesaplanır; kahin'de `hakem.py` da)."""
-    return _karar_kod_ozeti(kol == "kahin")
+    """Kolun karar kapanışının özeti (modül notu "Plan önbelleği"; kahin'de `hakem.py` da). Her çağrıda dosyalardan
+    ve işlevlerin kaynağından kurulur."""
+    m = karar_metinleri(kol)
+    h = hashlib.sha256()
+    for ad in sorted(m):
+        h.update(ad.encode("utf-8") + b"\0" + m[ad].encode("utf-8") + b"\0")
+    return h.hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -627,8 +648,12 @@ def _guncel(onceki: dict | None, anahtar: str, lumoda_anahtari: str, plan_kimlig
                              onceki.get("olcum_ozeti")) == (anahtar, lumoda_anahtari, plan_kimligi, kod)
 
 
-def _atla(o: Ortam, ad: str, neden: str) -> None:
-    _ilerleme(o, ad, 0.0, False, tur="olcum", atlandi=neden)
+def _atla(o: Ortam, kayitlar: dict, i: Is, neden: str) -> None:
+    """Atlanan koşu: ilerleme satırı; eski kaydı varsa geçersiz kayıtla değiştirilir (eski ölçüm kalmaz)."""
+    _ilerleme(o, i.ad, 0.0, False, tur="olcum", atlandi=neden)
+    if i.ad in kayitlar:
+        kayitlar[i.ad] = {"ad": i.ad, "kol": i.kol, "sezon": i.sezon, "yol": i.yol, "gecerli": False, "olcum": None,
+                          "atlandi": neden}
 
 
 def olc(zorla: bool = False, olcek: str = "tam", *, ortam: Ortam | None = None) -> dict:
@@ -643,7 +668,13 @@ def olc(zorla: bool = False, olcek: str = "tam", *, ortam: Ortam | None = None) 
     for p, isler in _yollara(izgara_listesi(o.olcek)).items():
         Y = Yol(p, o)
         if not Y.lumoda_var():
-            _atla(o, simulasyon.lumoda_adi(p), "Lumoda koşusu önbellekte yok")
+            neden = "Lumoda koşusu önbellekte yok"
+            _ilerleme(o, simulasyon.lumoda_adi(p), 0.0, False, tur="olcum", atlandi=neden)
+            if str(p) in lumodalar:
+                lumodalar[str(p)] = {"ad": simulasyon.lumoda_adi(p), "gecerli": False, "atlandi": neden}
+            for i in isler:
+                if i.kol != LUMODA:
+                    _atla(o, kosular, i, neden)
             continue
         lum = Y.lumoda
         lumodalar[str(p)] = {"ad": simulasyon.lumoda_adi(p), "anahtar": lum.meta["anahtar"],
@@ -655,11 +686,11 @@ def olc(zorla: bool = False, olcek: str = "tam", *, ortam: Ortam | None = None) 
                 continue
             pl = Y.plan(i.kol, i.sezon, kur=False)
             if pl is None:
-                _atla(o, i.ad, "plan önbellekte yok")
+                _atla(o, kosular, i, "plan önbellekte yok")
                 continue
             h = Y.kol_hazirligi(i, pl)
             if not simulasyon.onbellekte_mi(h, o.onbellek):
-                _atla(o, i.ad, "koşu önbellekte yok")
+                _atla(o, kosular, i, "koşu önbellekte yok")
                 continue
             kod = olcum_kodu()
             if not zorla and _guncel(kosular.get(i.ad), h.anahtar, lum.meta["anahtar"], pl.kimlik, kod):

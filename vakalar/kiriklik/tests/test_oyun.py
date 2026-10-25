@@ -180,6 +180,27 @@ def test_karar_kod_ozeti_kapsami(tmp_path):
     assert oyun.kod_ozeti(kopya) != taban
 
 
+def test_karar_kod_ozeti_oyunun_karar_kodunu_kapsar(monkeypatch):
+    """I1: planı biçimlendiren oyun kodu (`KARAR_FONKSIYONLARI`: kol bağlantısı, `plan_kur`'un bilgi dönüşümü, KÜÇÜK
+    yol 0'ın karar veritabanı, girdi kurulumu) karar kod özetine girer; `_plan_hesapla`'nın kaynağı değişince özet ve
+    plan anahtarı değişir."""
+    m = oyun.karar_metinleri("opt")
+    assert set(oyun.KARAR_FONKSIYONLARI) <= set(m)
+    assert {"_plan_hesapla", "plan_kur", "karar_veritabani", "kahin_fiyat_denetimi"} <= set(oyun.KARAR_FONKSIYONLARI)
+    assert set(oyun.karar_kod_dosyalari("opt")) <= set(m)
+    taban = oyun.karar_kod_ozeti("opt")
+    anahtar = oyun.plan_anahtari(oyun.plan_icerigi("opt", SEZON, 0, "kucuk", "a" * 64))
+
+    def _plan_hesapla(kol, sezon, girdiler):                    # kural_28'in penceresi değişmiş gibi
+        return oyun.kural.kural_plani(girdiler.karar_girdisi(sezon), pencereler=(14,), kol=kol)
+
+    monkeypatch.setattr(oyun, "_plan_hesapla", _plan_hesapla)
+    assert oyun.karar_kod_ozeti("opt") != taban
+    assert oyun.plan_anahtari(oyun.plan_icerigi("opt", SEZON, 0, "kucuk", "a" * 64)) != anahtar
+    monkeypatch.undo()
+    assert oyun.karar_kod_ozeti("opt") == taban
+
+
 def test_kahin_fiyat_sirasi():
     """Ruling R17: kahin girdisinde her hücrede fiyat_tam ≥ fiyat_ind ≥ 0; bozan hücreler adlarıyla `ValueError`."""
     t = pd.DataFrame({"magaza_id": ["M1", "M2", "M3"], "urun_id": ["U1", "U2", "U3"], "mu_tam": 1.0, "mu_ind": 1.0,
@@ -388,3 +409,41 @@ def test_kahin_girdisi_gercek_lumoda(izgara0, ortam):
         assert (kg["fiyat_ind"].to_numpy() <= ust + 1e-6).all()
         assert (kg["fiyat_tam"].to_numpy() > kg["fiyat_ind"].to_numpy()).mean() > 0.9
     Y.girdileri_birak()
+
+
+@pytest.mark.veri
+def test_atlanan_kosunun_eski_kaydi_gecersiz(izgara0, ortam):
+    """I2: kayıtlı ve geçerli bir koşunun planı önbellekten kalkarsa `olc` eski ölçümü bırakmaz: kayıt `gecerli: false`,
+    ölçüm yok, `atlandi` nedeni. Lumoda koşusu kalkarsa Lumoda kaydı ve o yolun kol kayıtları da öyle. Dosyalar geri
+    gelince yeniden ölçülür."""
+    ad = "kural_SS25"
+    assert oyun.olc(olcek="kucuk", ortam=ortam)["kosular"][ad]["gecerli"] is True
+    Y = oyun.Yol(0, ortam)
+    p = Y.plan("kural", "SS25", kur=False)
+    icerik = oyun.plan_icerigi("kural", "SS25", 0, "kucuk", Y.lumoda.meta["anahtar"])
+    js = next(ortam.planlar.glob(f"kural_SS25_y0_{oyun.plan_anahtari(icerik)[:20]}.json"))
+    sakli = js.with_name(js.name + ".sakli")
+    js.rename(sakli)
+    try:
+        r = oyun.olc(olcek="kucuk", ortam=ortam)["kosular"][ad]
+        assert r["gecerli"] is False and r["olcum"] is None and r["atlandi"] == "plan önbellekte yok"
+        disk = json.loads(ortam.oyun_yolu.read_text(encoding="utf-8"))["kosular"][ad]
+        assert disk["gecerli"] is False and disk["olcum"] is None
+    finally:
+        sakli.rename(js)
+    r = oyun.olc(olcek="kucuk", ortam=ortam)["kosular"][ad]
+    assert r["gecerli"] is True and r["plan_kimligi"] == p.kimlik and "atlandi" not in r
+
+    meta = motor._dizin(ortam.onbellek, "lumoda", Y.lumoda_hazirligi().anahtar) / "meta.json"
+    del Y
+    sakli = meta.with_name("meta.json.sakli")
+    meta.rename(sakli)
+    try:
+        k = oyun.olc(olcek="kucuk", ortam=ortam)
+        assert k["lumoda"]["0"]["gecerli"] is False and k["lumoda"]["0"]["atlandi"] == "Lumoda koşusu önbellekte yok"
+        yol0 = [r for r in k["kosular"].values() if r["yol"] == 0]
+        assert yol0 and all(r["gecerli"] is False and r["olcum"] is None for r in yol0)
+    finally:
+        sakli.rename(meta)
+    k = oyun.olc(olcek="kucuk", ortam=ortam)
+    assert "atlandi" not in k["lumoda"]["0"] and k["kosular"][ad]["gecerli"] is True
