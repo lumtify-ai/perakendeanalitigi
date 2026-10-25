@@ -197,3 +197,14 @@ def veri_con():
     c = kaynak.baglan(yol)
     yield c
     c.close()
+
+
+def pytest_collection_modifyitems(config, items):
+    """`yavas` işaretli testler (TAM koşu, ~4 dk, ~8 GB) yalnız `-m` ifadesi `yavas`ı anarsa koşar
+    (`-m "veri and yavas"`); öteki her çağrıda atlanır."""
+    if "yavas" in (config.getoption("markexpr") or ""):
+        return
+    atla = pytest.mark.skip(reason='yavas: -m "veri and yavas" ile koşulur')
+    for item in items:
+        if "yavas" in item.keywords:
+            item.add_marker(atla)

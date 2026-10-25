@@ -23,7 +23,8 @@ include = ["kiriklik*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-markers = ["veri: gercek v4 verisi gerektirir (yavas)"]
+markers = ["veri: gercek v4 verisi gerektirir (yavas)",
+           "yavas: TAM koşu (~4 dk, ~8 GB); varsayilanda atlanir, -m \"veri and yavas\" ile kosulur"]
 filterwarnings = ["ignore:.*generic.*unit:DeprecationWarning"]
 
 [build-system]
