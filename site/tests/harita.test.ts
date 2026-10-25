@@ -47,7 +47,7 @@ describe('HARITA', () => {
     ])
     expect(algoritmalar('transfer')).toEqual([
       { id: 'blok-transfer', ad: 'Blok transfer' },
-      { id: 'tekleme-transfer', ad: 'Tekleme transfer' },
+      { id: 'tekleme-transfer', ad: 'Kırıklık transferi (tekleme)' },
       { id: 'acma-kapama-transferi', ad: 'Mağaza açma-kapama transferi' },
     ])
     expect(algoritmalar('tedarik')).toEqual([

@@ -25,6 +25,12 @@ const ONDALIK: Record<string, number> = {
   markdown_mtl: 1,
   son_str: 1,
   tf_str: 1,
+  // Kırıklık Transferi: rapor net farkı milyon TL, dönüşleri yüzde olarak
+  // bir ondalıkla, kırık beden farkını tam sayı basar.
+  net_fark_mtl: 1,
+  kirik_beden_farki: 0,
+  saha_donus_yuzde: 1,
+  etki_donus_yuzde: 1,
 }
 
 /** Bir demo ölçütünün değerini Türkçe sayı biçimiyle basar. */

@@ -113,7 +113,7 @@ export const HARITA: Faz[] = [
         ad: 'Mağazalar arası transfer',
         algoritmalar: [
           { id: 'blok-transfer', ad: 'Blok transfer' },
-          { id: 'tekleme-transfer', ad: 'Tekleme transfer' },
+          { id: 'tekleme-transfer', ad: 'Kırıklık transferi (tekleme)' },
           { id: 'acma-kapama-transferi', ad: 'Mağaza açma-kapama transferi' },
         ],
       },

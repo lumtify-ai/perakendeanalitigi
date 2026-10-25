@@ -168,6 +168,33 @@ describe('sözlük', () => {
     expect(html).toContain('Sell-Through Rate')
   })
 
+  it('kırıklık dizilerinin terimleri sözlükte, kırıklık iki tanımı taşır', () => {
+    const html = oku('sozluk/index.html')
+    for (const madde of ['atil-stok', 'tekleme', 'asorti', 'std']) {
+      expect(html, madde).toContain(`id="${madde}"`)
+    }
+    expect(html).toContain('Net kırıklık')
+    expect(html).toContain('Brüt kırıklık')
+    expect(html).toContain('Blok Transfer dizisi alıcı seçerken daha dar bir tanımla çalışır')
+  })
+
+  it('yazısı olmayan kırıklık dizileri haritada soluk, sayfaları taslak', () => {
+    // Yazılar sonraki görevlerde gelir; o zamana dek algoritmalar yazılmadı
+    // görünür, dizi kapakları noindex basar ve site haritasına girmez.
+    for (const [yol, ad] of [
+      ['transfer/index.html', 'Kırıklık transferi (tekleme)'],
+      ['is-zekasi/index.html', 'Kırıklık ve atıl stok analizi'],
+    ]) {
+      expect(oku(yol), ad).toContain(
+        `algoritma--soluk"><span class="durum-noktasi durum-noktasi--soluk" aria-hidden="true">○</span><span class="algoritma-adi">${ad}</span>`,
+      )
+    }
+    for (const yol of ['transfer/kiriklik-transferi/', 'is-zekasi/kiriklik-atil-stok/']) {
+      expect(oku(`${yol}index.html`), yol).toContain(NOINDEX)
+      expect(oku('sitemap-0.xml'), yol).not.toContain(`/${yol}`)
+    }
+  })
+
   it('sözlük DefinedTermSet olarak işaretlenir', () => {
     expect(oku('sozluk/index.html')).toContain('DefinedTermSet')
   })
