@@ -447,3 +447,83 @@ def test_atlanan_kosunun_eski_kaydi_gecersiz(izgara0, ortam):
         sakli.rename(meta)
     k = oyun.olc(olcek="kucuk", ortam=ortam)
     assert "atlandi" not in k["lumoda"]["0"] and k["kosular"][ad]["gecerli"] is True
+
+
+# ---------------------------------------------------------------------------
+# Tahmin isabeti (Ruling R27)
+# ---------------------------------------------------------------------------
+
+
+def test_isabet_olcutleri():
+    """Evre başına Σ tahmin, Σ kahin, WAPE ve yanlılık; toplam iki evrenin toplamı; hücreler tutmazsa `ValueError`."""
+    h = {"magaza_id": ["M1", "M1", "M2"], "urun_id": ["U1", "U2", "U1"]}
+    t = pd.DataFrame(h | {"mu_tam": [2.0, 0.0, 1.0], "mu_ind": [1.0, 1.0, 0.0], "fiyat_tam": 1.0, "fiyat_ind": 1.0})
+    k = pd.DataFrame(h | {"mu_tam": [1.0, 1.0, 2.0], "mu_ind": [1.0, 0.0, 0.0], "fiyat_tam": 1.0, "fiyat_ind": 1.0})
+    r = oyun.isabet_olcutleri(t, k)
+    assert r["hucre"] == 3
+    assert r["mu_tam"] == {"tahmin": 3.0, "kahin": 4.0, "wape": 3.0 / 4.0, "yanlilik": -0.25}
+    assert r["mu_ind"] == {"tahmin": 2.0, "kahin": 1.0, "wape": 1.0, "yanlilik": 1.0}
+    assert r["toplam"]["tahmin"] == 5.0 and r["toplam"]["kahin"] == 5.0
+    assert r["toplam"]["wape"] == pytest.approx((1 + 0 + 1) / 5) and r["toplam"]["yanlilik"] == 0.0
+    sifir = oyun.isabet_olcutleri(t.assign(mu_ind=0.0), k.assign(mu_ind=0.0))["mu_ind"]
+    assert sifir["wape"] is None and sifir["yanlilik"] is None
+    with pytest.raises(ValueError, match="aynı hücreleri"):
+        oyun.isabet_olcutleri(t, k.iloc[::-1])
+
+
+def test_karar_kod_ozeti_degismedi(monkeypatch):
+    """Tahmin isabeti ölçüm tarafındadır: `OLCUM_FONKSIYONLARI`'nda, `KARAR_FONKSIYONLARI`'nda değil. Kaynağı
+    değişince ölçüm özeti değişir, karar kod özeti ve plan anahtarı değişmez (ızgaranın planları geçerli kalır)."""
+    for ad in ("tahmin_isabeti", "isabet_olcutleri"):
+        assert ad in oyun.OLCUM_FONKSIYONLARI and ad not in oyun.KARAR_FONKSIYONLARI
+    assert "_tahmin_olc" not in oyun.KARAR_FONKSIYONLARI
+    assert not any("tahmin_isabeti" in m or "isabet_olcutleri" in m for m in oyun.karar_metinleri("kahin").values())
+    taban = {k: oyun.karar_kod_ozeti(k) for k in ("kural", "kahin")}
+    anahtar = oyun.plan_anahtari(oyun.plan_icerigi("opt", SEZON, 0, "kucuk", "a" * 64))
+    olcum = oyun.olcum_ozeti(oyun.olcum_metinleri(), oyun.OLCUM_SURUMU)
+
+    def tahmin_isabeti(Y, sezon, opt_plani):                         # ölçüm kodu değişmiş gibi
+        return {}
+
+    monkeypatch.setattr(oyun, "tahmin_isabeti", tahmin_isabeti)
+    assert {k: oyun.karar_kod_ozeti(k) for k in ("kural", "kahin")} == taban
+    assert oyun.plan_anahtari(oyun.plan_icerigi("opt", SEZON, 0, "kucuk", "a" * 64)) == anahtar
+    assert oyun.olcum_ozeti(oyun.olcum_metinleri(), oyun.OLCUM_SURUMU) != olcum
+
+
+@pytest.mark.veri
+def test_tahmin_isabeti_kucuk(izgara0, ortam, monkeypatch):
+    """KÜÇÜK yol 0: `olc` iki sezonun tahmin isabetini `tahmin["0"][sezon]`'a yazar (Lumoda anahtarı, opt planının
+    kimliği, ölçüm ve kahin karar kodu); değer `tahmin_isabeti`'nin yeniden hesabıyla aynı; alıcı hücreleri bütün
+    hücrelerin alt kümesi; girdiler aynıysa yeniden hesaplanmaz, ölçüm kodu değişince hesaplanır. Lumoda'sı olmayan
+    yolların kaydı yok."""
+    _, kayit = izgara0
+    assert set(kayit["tahmin"]) == {"0"} and set(kayit["tahmin"]["0"]) == set(sabitler.TEST_SEZONLARI)
+    Y = oyun.Yol(0, ortam)
+    for sezon in sabitler.TEST_SEZONLARI:
+        r = kayit["tahmin"]["0"][sezon]
+        pl = Y.plan("opt", sezon, kur=False)
+        assert r["gecerli"] is True and r["plan_kimligi"] == pl.kimlik
+        assert r["lumoda_anahtari"] == Y.lumoda.meta["anahtar"] and r["olcum_ozeti"] == oyun.OLCUM_OZETI
+        assert r["karar_kodu"] == oyun.karar_kod_ozeti("kahin")
+        b, a = r["isabet"]["butun"], r["isabet"]["alici"]
+        assert b["hucre"] == len(Y.talep(sezon)) > a["hucre"] == r["isabet"]["alici_hucre"] > 0
+        for alan in oyun.ISABET_ALANLARI:
+            assert b[alan]["tahmin"] > 0 and b[alan]["kahin"] > 0 and b[alan]["wape"] >= 0
+            assert b[alan]["yanlilik"] == pytest.approx(b[alan]["tahmin"] / b[alan]["kahin"] - 1)
+            assert 0 < a[alan]["kahin"] < b[alan]["kahin"]
+        yeniden = json.loads(json.dumps(oyun.tahmin_isabeti(Y, sezon, pl)))
+        assert _ayni_olcum(yeniden, r["isabet"])
+    Y.girdileri_birak()
+    cagri = []
+    gercek = oyun.tahmin_isabeti
+    monkeypatch.setattr(oyun, "tahmin_isabeti", lambda Y_, z, p: cagri.append((Y_.yol, z)) or gercek(Y_, z, p))
+    oyun.olc(olcek="kucuk", ortam=ortam)
+    assert cagri == []
+    monkeypatch.setattr(oyun, "olcum_kodu", lambda: "baska")
+    k = oyun.olc(olcek="kucuk", ortam=ortam)
+    assert {c for c in cagri if c[0] == 0} == {(0, z) for z in sabitler.TEST_SEZONLARI} and len(cagri) == len(set(cagri))
+    assert {(int(p), z) for p, t in k["tahmin"].items() for z, x in t.items() if x["gecerli"]} == set(cagri)
+    assert all(x["olcum_ozeti"] == "baska" for x in k["tahmin"]["0"].values())
+    monkeypatch.undo()
+    oyun.olc(olcek="kucuk", ortam=ortam)                                   # özet geri döndü: yeniden hesap

@@ -49,7 +49,7 @@ anahtarı, Lumoda anahtarı, plan kimliği ve ölçüm kodu (`OLCUM_OZETI`: `olc
 modülleri, bu modülün `OLCUM_FONKSIYONLARI` kaynağı, `OLCUM_SURUMU`) aynıysa yeniden ölçülmez (`--zorla` ile ölçülür).
 Planı ya da koşusu (ya da yolun Lumoda'sı) önbellekte olmayan koşu atlanır; eski kaydı varsa `{gecerli: false, olcum:
 None, atlandi: neden}` ile değiştirilir (Lumoda kaydı da), eski ölçüm geçerli görünmez. `olc` koşmaz ve plan kurmaz.
-Her ölçümden sonra `oyun.json` (geçici adla yazılıp yerine konur).
+Her ölçümden sonra `oyun.json` (geçici adla yazılıp yerine konur). Tahmin isabeti `tahmin[yol]` (R27).
 
 **İlerleme** `cikti/ilerleme.jsonl` (İlk Sevkiyat `oyun._ilerleme`): her plan, koşu, öğrenme ve ölçüm için bir satır
 (`tur`, süre, önbellekten mi, sürecin tepe belleği `surec_tepe_gb`; koşuda motorun süresi ve koşunun tepe belleği).
@@ -99,7 +99,7 @@ KARAR_FONKSIYONLARI = ("_plan_hesapla", "plan_kur", "_girdi", "kahin_fiyat_denet
 # Ölçüm kodu: olcutler.py ve onun içe aktardığı kiriklik modülleri (testle eşit tutulur) + OLCUM_FONKSIYONLARI.
 # OLCUM_SURUMU: ölçümü değiştiren ama bu kapsamın dışında kalan her düzeltmede bir artırılır.
 OLCUM_MODULLERI = ("olcutler", "kaynak", "olcu", "plan", "sabitler")
-OLCUM_FONKSIYONLARI = ("olcum_kaydi",)
+OLCUM_FONKSIYONLARI = ("olcum_kaydi", "isabet_olcutleri", "tahmin_isabeti")
 OLCUM_SURUMU = 1
 
 
@@ -621,6 +621,73 @@ def olcum_kaydi(kol_kosusu, lumoda_kosusu, p: Plan, sezon: str) -> dict:
             "olcum": olcutler.olc(kol_kosusu, lumoda_kosusu, p, sezon) if gecerli else None}
 
 
+ISABET_ALANLARI = ("mu_tam", "mu_ind", "toplam")
+
+
+def isabet_olcutleri(tahmin_: pd.DataFrame, kahin: pd.DataFrame) -> dict:
+    """Aynı hücreler aynı sırada iki talep tablosu (`tahmin.KOLONLAR`): evre başına (`mu_tam`, `mu_ind`, ikisinin
+    toplamı) Σ tahmin, Σ kahin, WAPE = Σ |tahmin − kahin| ÷ Σ kahin ve yanlılık = (Σ tahmin − Σ kahin) ÷ Σ kahin
+    (Σ kahin 0 ise None); `hucre` hücre sayısı. Hücreler tutmazsa `ValueError`."""
+    a = tahmin_[["magaza_id", "urun_id"]].astype(str).to_numpy()
+    b = kahin[["magaza_id", "urun_id"]].astype(str).to_numpy()
+    if a.shape != b.shape or (a != b).any():
+        raise ValueError("isabet: tahmin ve kahin aynı hücreleri aynı sırada taşımalı")
+    sonuc: dict = {"hucre": int(len(a))}
+    for alan in ISABET_ALANLARI:
+        if alan == "toplam":
+            t = tahmin_["mu_tam"].to_numpy(dtype=float) + tahmin_["mu_ind"].to_numpy(dtype=float)
+            k = kahin["mu_tam"].to_numpy(dtype=float) + kahin["mu_ind"].to_numpy(dtype=float)
+        else:
+            t, k = tahmin_[alan].to_numpy(dtype=float), kahin[alan].to_numpy(dtype=float)
+        st, sk = float(t.sum()), float(k.sum())
+        sonuc[alan] = {"tahmin": st, "kahin": sk, "wape": float(np.abs(t - k).sum()) / sk if sk else None,
+                       "yanlilik": (st - sk) / sk if sk else None}
+    return sonuc
+
+
+def tahmin_isabeti(Y: "Yol", sezon: str, opt_plani: Plan) -> dict:
+    """Ruling R27: `tahmin.ufuk_talebi` (kolların gördüğü tahmin) ile `hakem.kahin_girdisi` (gerçek talep, aynı
+    hücreler) karşılaştırması, yolun karar girdisinde: `butun` tahminin bütün hücreleri, `alici` `opt` planının alıcı
+    hücreleri ((alici, urun_id); `isabet_olcutleri`). `alici_hucre` planın tekil alıcı hücre sayısı (hepsi tahminin
+    hücrelerindendir; değilse `ValueError`). Ölçüm tarafıdır: karar ve plan anahtarına girmez."""
+    if opt_plani.kol != "opt" or opt_plani.sezon != sezon:
+        raise ValueError(f"opt planı bekleniyordu ({sezon}): {opt_plani.kol}/{opt_plani.sezon}")
+    g, og, talep = Y.karar_girdisi(sezon), Y.ogrenilen(sezon), Y.talep(sezon)
+    kg = hakem.kahin_girdisi(Y.w, Y.lumoda, g, talep[["magaza_id", "urun_id"]], og.iade["magaza"])
+    alici = set(zip(opt_plani.hareketler["alici"].astype(str), opt_plani.hareketler["urun_id"].astype(str)))
+    anahtar = pd.Series(list(zip(talep["magaza_id"].astype(str), talep["urun_id"].astype(str))), dtype=object)
+    secili = anahtar.isin(alici).to_numpy()
+    if int(secili.sum()) != len(alici):
+        raise ValueError(f"opt planının {len(alici) - int(secili.sum())} alıcı hücresi tahminin hücrelerinde yok")
+    return {"butun": isabet_olcutleri(talep, kg), "alici": isabet_olcutleri(talep[secili], kg[secili]),
+            "alici_hucre": len(alici)}
+
+
+def _tahmin_olc(o: Ortam, kayit: dict, Y: "Yol", zorla: bool) -> None:
+    """Yolun iki sezonunun tahmin isabeti (`kayit["tahmin"][yol][sezon]`), girdileri değişmişse (Lumoda anahtarı,
+    `opt` planının kimliği, ölçüm kodu, kahin'in karar kodu); `opt` planı önbellekte değilse eski kayıt geçersiz."""
+    tah = kayit.setdefault("tahmin", {}).setdefault(str(Y.yol), {})
+    for sezon in sabitler.TEST_SEZONLARI:
+        pl = Y.plan("opt", sezon, kur=False)
+        if pl is None:
+            if sezon in tah:
+                tah[sezon] = {"gecerli": False, "isabet": None, "atlandi": "opt planı önbellekte yok"}
+            continue
+        anahtar = {"lumoda_anahtari": Y.lumoda.meta["anahtar"], "plan_kimligi": pl.kimlik,
+                   "olcum_ozeti": olcum_kodu(), "karar_kodu": karar_kod_ozeti("kahin")}
+        onceki = tah.get(sezon) or {}
+        if not zorla and onceki.get("gecerli") and all(onceki.get(a) == v for a, v in anahtar.items()):
+            continue
+        t0 = time.perf_counter()
+        isabet = tahmin_isabeti(Y, sezon, pl)
+        sn = time.perf_counter() - t0
+        tah[sezon] = json.loads(json.dumps({**anahtar, "gecerli": True, "isabet": isabet, "olcum_sn": round(sn, 1)},
+                                           default=_json_degeri))
+        al_oyun.json_yaz(o.oyun_yolu, kayit)
+        _ilerleme(o, f"y{Y.yol}_tahmin_{sezon}", sn, False, tur="tahmin")
+    Y.girdileri_birak()
+
+
 def olcum_metinleri() -> dict[str, str]:
     """Ölçüm özetinin girdileri (LF): `kiriklik/<m>.py` (`OLCUM_MODULLERI`) ve `OLCUM_FONKSIYONLARI` kaynağı."""
     m = {f"kiriklik/{ad}.py": (PAKET_KOKU / f"{ad}.py").read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
@@ -657,8 +724,8 @@ def _atla(o: Ortam, kayitlar: dict, i: Is, neden: str) -> None:
 
 
 def olc(zorla: bool = False, olcek: str = "tam", *, ortam: Ortam | None = None) -> dict:
-    """Önbellekte bulunan her ızgara koşusunu ölçer (modül notu "Ölçüm"); koşmaz, plan kurmaz. Dönüş `oyun.json`'un
-    içeriği."""
+    """Önbellekte bulunan her ızgara koşusunu ölçer (modül notu "Ölçüm"); koşmaz, plan kurmaz. Yol başına iki sezonun
+    tahmin isabeti `tahmin[yol][sezon]` (`_tahmin_olc`; Ruling R27). Dönüş `oyun.json`'un içeriği."""
     o = _ortam_al(olcek, ortam)
     kayit = al_oyun.json_oku(o.oyun_yolu)
     if kayit.get("olcek", o.olcek) != o.olcek:
@@ -675,6 +742,8 @@ def olc(zorla: bool = False, olcek: str = "tam", *, ortam: Ortam | None = None) 
             for i in isler:
                 if i.kol != LUMODA:
                     _atla(o, kosular, i, neden)
+            for sezon in list((kayit.get("tahmin") or {}).get(str(p), {})):
+                kayit["tahmin"][str(p)][sezon] = {"gecerli": False, "isabet": None, "atlandi": neden}
             continue
         lum = Y.lumoda
         lumodalar[str(p)] = {"ad": simulasyon.lumoda_adi(p), "anahtar": lum.meta["anahtar"],
@@ -709,6 +778,7 @@ def olc(zorla: bool = False, olcek: str = "tam", *, ortam: Ortam | None = None) 
             gc.collect()
             al_oyun.json_yaz(o.oyun_yolu, kayit)
             _ilerleme(o, i.ad, sn, True, tur="olcum", olculdu=True, gecerli=olcum["gecerli"])
+        _tahmin_olc(o, kayit, Y, zorla)
     al_oyun.json_yaz(o.oyun_yolu, kayit)
     return kayit
 
