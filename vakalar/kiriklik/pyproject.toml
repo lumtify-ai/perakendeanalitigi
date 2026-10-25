@@ -24,6 +24,7 @@ include = ["kiriklik*"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 markers = ["veri: gercek v4 verisi gerektirir (yavas)"]
+filterwarnings = ["ignore:.*generic.*unit:DeprecationWarning", "ignore:.*force_all_finite:FutureWarning"]
 
 [build-system]
 requires = ["setuptools>=68"]
