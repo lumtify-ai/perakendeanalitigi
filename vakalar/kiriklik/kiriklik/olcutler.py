@@ -77,8 +77,8 @@ depo fotoğrafı) idi; kısa koşunun son fotoğrafı ölü stok sayılmaz, iki 
 satırları düşülerek: (kolun `elle_transfer` adedi − planın karar günü gerçekten sevk edilen adedi) − Lumoda'nınki
 (`sezon`, `tum`; plan sezon kapsamındadır). Sevk edilen plan adedi (kaynak, hedef, urun_id) başına min(plan adedi,
 kolun karar günü `elle_transfer` adedi): kesilen ya da atılan plan satırı Lumoda'nın transferi sayılmaz (geçerli
-koşuda plan tam sevk edilir ve ikisi aynıdır); `gizli_kayip_farki` gizli gerçeğin `karsilanmayan`ı, sezon kapsamı × fiziksel mağazalar
-(`gizli_kayip_lumoda` Lumoda'nın düzeyi); `test_disi_ciro_farki` sezon kapsamı dışındaki bütün SKU'ların cirosu
+koşuda plan tam sevk edilir ve ikisi aynıdır); `gizli_kayip_farki` gizli gerçeğin `karsilanmayan`ı, sezon kapsamı ×
+fiziksel mağazalar (`gizli_kayip_lumoda` Lumoda'nın düzeyi); `test_disi_ciro_farki` sezon kapsamı dışındaki bütün SKU'ların cirosu
 (öteki sezonlar, Outlet line, Basic/NOS, Standart; `test_disi_ciro_lumoda`); `surekli_siparis_adet_farki` Basic/NOS
 sürekli tedarik siparişlerinin adedi (`siparis` tip `surekli`, sipariş tarihi [karar, çıkış + 84)).
 
