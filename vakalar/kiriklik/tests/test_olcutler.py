@@ -169,8 +169,9 @@ def _kayitlar(rpt=((1, 0, 10),)) -> dict:
             "ilk_dagitim": _df([(0, 1, 2)], ["gun", "indis", "deger"])}
 
 
-def _siparis(adet=10) -> pd.DataFrame:
-    return _df([("P1", "rpt", "A", "A-1", "2024-10-01", "2024-11-01", adet)],
+def _siparis(adet=10, ek=(), kimlik="P1") -> pd.DataFrame:
+    """Bir RPT siparişi (`kimlik`; adet `adet`) ve `ek` satırları (sürekli tedarik siparişleri gibi)."""
+    return _df([(kimlik, "rpt", "A", "A-1", "2024-10-01", "2024-11-01", adet), *ek],
                ["siparis_id", "tip", "option_id", "urun_id", "siparis_tarihi", "gerceklesen_teslim", "adet"],
                ["siparis_tarihi", "gerceklesen_teslim"])
 
@@ -487,6 +488,24 @@ def test_korunum_oyuncak(kol, lum):
     assert not k(sevkiyat=_sevkiyat(True) + [("2024-12-06", "2024-12-08", "DEPO", "S1", "B-1", 1, "replenishment",
                                               None)])["oncesi_birebir"]                    # karardan önce sevkiyat
     assert not k(kalite=[("P1", 0)])["siparis_birebir"]                                    # kalite kontrol
+
+
+def test_surekli_tedarik_tepkili():
+    """Basic/NOS sürekli tedarik (`tip == "surekli"`) motorun içinde zincir satışına tepki verir (yuva değildir): kolda
+    farklı bir sürekli sipariş ve onun kalite kontrolü korunumu bozmaz, yan etkide `surekli_siparis_adet_farki` olarak
+    görünür. `siparis_id` sıra numarasıdır (sürekli siparişler araya girince kayar): ilk ve RPT siparişleri içerikle
+    karşılaştırılır; RPT siparişinin içeriği ya da kalite kontrolü değişirse korunum bozulur."""
+    lum = _kosu(False, siparis=_siparis(kimlik="P2"), kalite=[("P2", 1)])
+    surekli = [("P1", "surekli", "N", "N-1", "2025-01-06", "2025-03-03", 5)]
+    kol = _kosu(True, siparis=_siparis(ek=surekli, kimlik="P2"), kalite=[("P2", 1), ("P1", 3)])
+    sonuc = olcutler.korunum(kol, lum, _plan(), KARAR)
+    assert all(sonuc.values()), sonuc
+    assert olcutler.olc(kol, lum, _plan(), SEZON)["yan_etki"]["surekli_siparis_adet_farki"] == 5
+    assert olcutler.olc(_kosu(True), _kosu(False), _plan(), SEZON)["yan_etki"]["surekli_siparis_adet_farki"] == 0
+    assert not olcutler.korunum(_kosu(True, siparis=_siparis(adet=11, ek=surekli, kimlik="P2"),
+                                      kalite=[("P2", 1), ("P1", 3)]), lum, _plan(), KARAR)["siparis_birebir"]
+    assert not olcutler.korunum(_kosu(True, siparis=_siparis(ek=surekli, kimlik="P2"),
+                                      kalite=[("P2", 2), ("P1", 3)]), lum, _plan(), KARAR)["siparis_birebir"]
 
 
 def _tembel(kosu: motor.Kosu, dizin: Path) -> motor.KosuKaydi:

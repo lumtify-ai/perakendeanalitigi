@@ -79,7 +79,8 @@ satırları düşülerek: (kolun `elle_transfer` adedi − planın karar günü 
 kolun karar günü `elle_transfer` adedi): kesilen ya da atılan plan satırı Lumoda'nın transferi sayılmaz (geçerli
 koşuda plan tam sevk edilir ve ikisi aynıdır); `gizli_kayip_farki` gizli gerçeğin `karsilanmayan`ı, sezon kapsamı × fiziksel mağazalar
 (`gizli_kayip_lumoda` Lumoda'nın düzeyi); `test_disi_ciro_farki` sezon kapsamı dışındaki bütün SKU'ların cirosu
-(öteki sezonlar, Outlet line, Basic/NOS, Standart; `test_disi_ciro_lumoda`).
+(öteki sezonlar, Outlet line, Basic/NOS, Standart; `test_disi_ciro_lumoda`); `surekli_siparis_adet_farki` Basic/NOS
+sürekli tedarik siparişlerinin adedi (`siparis` tip `surekli`, sipariş tarihi [karar, çıkış + 84)).
 
 **Plan** (planın kendisinden): `hareket`, `adet` (taşınan), `rota`, `option`, `alici_cift`, `alici_magaza`,
 `verici_cift`, `verici_magaza`; `tamamlanan_set` = karar sabahı stoğu + alınan ile her bedeni (asortinin beş bedeni)
@@ -94,7 +95,12 @@ kesitindedir); `alici_basina_verici_medyan` (alıcı çifti başına tekil veric
   hızlı yol).
 - `rpt_birebir`: `kayitlar["rpt"]` bütün koşu boyunca Lumoda'nınkiyle aynı (kısa ya da başka koşudan kurulmuş takvim
   bunu bozar). `fiyat_birebir`: `kayitlar["markdown"]` ve yayımlanan `fiyat` tablosu bütün koşu boyunca aynı.
-  `siparis_birebir`: `siparis` ve `kalite_kontrol` tabloları bütün koşu boyunca aynı (toplam arz).
+  `siparis_birebir`: ilk ve RPT siparişleri (`siparis`, tip `surekli` dışı) ve onların `kalite_kontrol` satırları
+  bütün koşu boyunca aynı (toplam arz). İçerikle karşılaştırılır (çoklu küme, `siparis_id` dışında; kalite kontrol
+  satırı siparişin sipariş düzeyindeki alanlarıyla eşlenir): `siparis_id` oluşma sırasının numarasıdır ve tepkili
+  sürekli siparişler araya girince kayar. Basic/NOS sürekli tedarik (`tip == "surekli"`) motorun içinde zincir
+  satışına tepki verir (yuva değildir, oynatılamaz; transfer ikameyle Basic/NOS satışını değiştirir): replenishment
+  gibi tepkili sayılır, farkı yan etkidedir (`surekli_siparis_adet_farki`).
 - `plan_kesilmedi`: karar gününün `elle_transfer` sevkiyat satırları (kaynak, hedef, urun_id, adet). Motor planı
   Lumoda'nın elle transferinden önce uygular (`politika` notu) ve Lumoda'nın o günkü kararı iki koşuda aynıdır
   (karar sabahına kadar dünya aynı). Bu yüzden kolun satırları = planın satırları (kesilmemişse) + Lumoda'nın
@@ -403,6 +409,34 @@ def _plan_kesilmedi(kol_satir: pd.DataFrame, lum_satir: pd.DataFrame, plan: Plan
     return all(a <= lum[x] for x, a in kalan.items())
 
 
+_SUREKLI = "surekli"
+
+
+def _siparisler(s: _Sql, ad: str) -> str:
+    """İlk ve RPT siparişlerinin satırları, `siparis_id` dışında (SQL alt sorgusu)."""
+    return f"(select * exclude (siparis_id) from {s.t(ad, 'siparis')} where cast(tip as varchar) <> '{_SUREKLI}')"
+
+
+def _kaliteler(s: _Sql, ad: str) -> str:
+    """İlk ve RPT siparişlerinin kalite kontrol satırları, siparişin sipariş düzeyindeki alanlarıyla (`siparis_id`,
+    `urun_id` ve `adet` dışında; SQL alt sorgusu)."""
+    return f"""(select * exclude (siparis_id) from {s.t(ad, 'kalite_kontrol')}
+                join (select distinct * exclude (urun_id, adet) from {s.t(ad, 'siparis')}
+                      where cast(tip as varchar) <> '{_SUREKLI}') using (siparis_id))"""
+
+
+def _coklu_esit(s: _Sql, a: str, b: str) -> bool:
+    if s.deger(f"select count(*) from {a}") != s.deger(f"select count(*) from {b}"):
+        return False
+    return s.deger(f"select count(*) from (select * from {a} except all select * from {b})") == 0
+
+
+def _arz_birebir(s: _Sql) -> bool:
+    """`siparis_birebir` (modül notu "Korunum"): ilk ve RPT siparişleri ve kalite kontrolleri içerikle aynı."""
+    return (_coklu_esit(s, _siparisler(s, "kol"), _siparisler(s, "lum"))
+            and _coklu_esit(s, _kaliteler(s, "kol"), _kaliteler(s, "lum")))
+
+
 def korunum(kol, lumoda, plan: Plan, karar: date) -> dict[str, bool]:
     """Koşunun geçerlilik koşulları (modül notu "Korunum"); `karar` planın sezonunun karar günü olmalı."""
     if karar != sabitler.KARAR.get(plan.sezon):
@@ -414,7 +448,7 @@ def korunum(kol, lumoda, plan: Plan, karar: date) -> dict[str, bool]:
                   and _birebir(s, "depo_stok", "<=", t) and _birebir(s, "sevkiyat", "<", t)
                   and _birebir(s, "gercek", "<", t))
         fiyat = _kayit_esit(kol.kayitlar.get("markdown"), lumoda.kayitlar.get("markdown")) and _birebir(s, "fiyat")
-        siparis = _birebir(s, "siparis") and _birebir(s, "kalite_kontrol")
+        siparis = _arz_birebir(s)
         kesilmedi = _plan_kesilmedi(_karar_gunu_elle(s, "kol", karar), _karar_gunu_elle(s, "lum", karar), plan)
     rpt = _kayit_esit(kol.kayitlar.get("rpt"), lumoda.kayitlar.get("rpt"))
     return dict(zip(KORUNUM_KOSULLARI, map(bool, (oncesi, rpt, fiyat, siparis, kesilmedi)), strict=True))
@@ -503,6 +537,14 @@ def _sevk_tip(s: _Sql, ad: str, k: _Kapsam) -> pd.DataFrame:
         group by 1, 2, 3""", _ts(k.karar), _ts(k.outlet_sonu))
 
 
+def _surekli_adet(s: _Sql, ad: str, k: _Kapsam) -> int:
+    """Basic/NOS sürekli tedarik siparişlerinin adedi, sipariş tarihi [karar, çıkış + 84)."""
+    return int(s.deger(f"""
+        select coalesce(sum(adet), 0)::bigint from {s.t(ad, "siparis")}
+        where cast(tip as varchar) = '{_SUREKLI}' and siparis_tarihi >= ? and siparis_tarihi < ?""",
+                       _ts(k.karar), _ts(k.outlet_sonu)))
+
+
 def _gizli_kayip(s: _Sql, ad: str, k: _Kapsam) -> int:
     """Gizli gerçeğin karşılanmayan talebi: sezon kapsamı × fiziksel mağazalar, [karar, çıkış + 84)."""
     return int(s.deger(f"""
@@ -526,6 +568,7 @@ class _Toplamlar:
                                          and k.kapsar_gun(g)}))
         self.sevk = _sevk_tip(s, ad, k)
         self.gizli_kayip = _gizli_kayip(s, ad, k)
+        self.surekli = _surekli_adet(s, ad, k)
 
 
 # ---------------------------------------------------------------------------
@@ -724,6 +767,7 @@ def _yan_etki(k: _Kapsam, kt: _Toplamlar, lt: _Toplamlar, h: pd.DataFrame, kol_e
         "gizli_kayip_lumoda": lt.gizli_kayip if tam else None,
         "test_disi_ciro_farki": None if test_disi is None else test_disi[0] - test_disi[1],
         "test_disi_ciro_lumoda": None if test_disi is None else test_disi[1],
+        "surekli_siparis_adet_farki": kt.surekli - lt.surekli if tam else None,
     }
 
 
