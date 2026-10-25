@@ -12,7 +12,9 @@ import numpy as np
 import pandas as pd
 
 KOLONLAR = ["option_id", "urun_id", "beden_sira", "verici", "alici", "adet"]
-_SIRA = ["option_id", "alici", "verici", "beden_sira"]
+# Hareketlerin kanonik satır sırası: kimliğin CSV'si ve motor satırlarının sırası (`simulasyon.transfer_plani`)
+# bu tek sabitten.
+SIRA = ["option_id", "alici", "verici", "beden_sira"]
 
 
 def _bos_hareket() -> pd.DataFrame:
@@ -44,11 +46,11 @@ class Plan:
             raise ValueError("hareket adedi pozitif olmalı")
         if (h.adet.to_numpy(dtype=float) != np.round(h.adet.to_numpy(dtype=float))).any():
             raise ValueError("hareket adedi tamsayı değerli olmalı")
-        if h.duplicated(_SIRA).any():
-            raise ValueError(f"hareket anahtarı {_SIRA} tekil olmalı")
+        if h.duplicated(SIRA).any():
+            raise ValueError(f"hareket anahtarı {SIRA} tekil olmalı")
         h = h[KOLONLAR].astype({"beden_sira": "int64", "adet": "int64"})      # savunma kopyası
         object.__setattr__(self, "hareketler", h)
-        csv = h.sort_values(_SIRA, kind="mergesort").to_csv(index=False, lineterminator="\n")
+        csv = h.sort_values(SIRA, kind="mergesort").to_csv(index=False, lineterminator="\n")
         object.__setattr__(self, "_kimlik",
                            hashlib.sha256(f"{self.kol}\n{self.sezon}\n{csv}".encode()).hexdigest())
 

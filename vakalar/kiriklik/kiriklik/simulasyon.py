@@ -27,9 +27,10 @@ yuvadan girer; RPT siparişleri ve fiyat kararları Lumoda koşusunun kaydının
 (`kayitlar["rpt"]` ve `kayitlar["markdown"]` Lumoda'nınkiyle aynıdır, testli) ve kollar arasındaki tek fark
 transferdir. Replenishment ve Lumoda'nın bölge müdürü transferleri tepkili kalır.
 
-Plan koşusunda `parametreler` `sezon` (bir test sezonu) ve `kol` taşır; `karar_gun`, o sezonun karar gününün
-gün indisi olmalıdır (`karar_gun(sezon)`). Karar kodundaki (kural, model, tahmin, uygunluk) bir değişiklik
-anahtara **planın kimliğiyle** girer (`KirikTransfer.parametreler()`); bu yüzden o modüllerin baytı anahtarda
+Plan koşusunda `parametreler` tam olarak `sezon` (bir test sezonu) ve `kol` taşır (`yol` dışında başka anahtar
+yok), planın (`TransferPlani.sezon`, `.kol`) değerleriyle aynı; Lumoda koşusunda yalnız `yol` olabilir. `karar_gun`,
+o sezonun karar gününün gün indisi olmalıdır (`karar_gun(sezon)`). Karar kodundaki (kural, model, tahmin,
+uygunluk) bir değişiklik anahtara **planın kimliğiyle** girer (`KirikTransfer.parametreler()`); bu yüzden o modüllerin baytı anahtarda
 yoktur.
 
 **Önbellek** `onbellek` (varsayılan `cikti/kosular/`) altında `<ad>_<anahtar[:20]>`, İlk Sevkiyat motorunun
@@ -68,6 +69,7 @@ from perakende_veri.v4.politika import Politikalar
 from perakende_veri.v4.takvim import gun_indisi
 
 from kiriklik import kaynak, sabitler
+from kiriklik.plan import SIRA as PLAN_SIRASI
 from kiriklik.plan import Plan
 from kiriklik.politika import KirikTransfer, TransferPlani
 
@@ -79,7 +81,6 @@ KOSU_DIZINI = PAKET_KOKU.parent / "cikti" / "kosular"
 SIMULASYON_MODULLERI = ("__init__", "politika", "simulasyon")
 KOSU_DISI = ("sabitler", "kaynak", "olcu", "uygunluk", "tahmin", "kural", "model", "plan",
              "hakem", "olcutler", "oyun", "hikaye")
-_PLAN_SIRASI = ["option_id", "alici", "verici", "beden_sira"]       # `plan.Plan.kimlik`'in satır sırası
 
 
 # ---------------------------------------------------------------------------
@@ -131,11 +132,11 @@ def karar_gun(sezon: str) -> int:
 
 def transfer_plani(plan: Plan, w) -> TransferPlani:
     """`Plan.hareketler`'i dünyanın satır indislerine çevirir: verici → `kaynak`, alıcı → `hedef` (`w.magazalar`
-    satır indisi), urun_id → `sku` (`w.urunler` satır indisi), `adet`; kimlik = `plan.kimlik`. Satırlar planın
-    kimliğindeki sırada (option_id, alici, verici, beden_sira) dizilir: aynı plan, girdi sırasından bağımsız,
-    aynı koşuyu verir (motor aynı kaynaktan satırları sırayla tüketir). Dünyada olmayan mağaza ya da ürün
-    `ValueError`."""
-    h = plan.hareketler.sort_values(_PLAN_SIRASI, kind="mergesort")
+    satır indisi), urun_id → `sku` (`w.urunler` satır indisi), `adet`; kimlik, sezon ve kol planınkiler. Satırlar
+    planın kimliğindeki sırada (`plan.SIRA`: option_id, alici, verici, beden_sira) dizilir: aynı plan, girdi
+    sırasından bağımsız, aynı koşuyu verir (motor aynı kaynaktan satırları sırayla tüketir). Dünyada olmayan
+    mağaza ya da ürün `ValueError`."""
+    h = plan.hareketler.sort_values(PLAN_SIRASI, kind="mergesort")
     mag = pd.Index(w.magazalar["magaza_id"].astype(str))
     urun = pd.Index(w.urunler["urun_id"].astype(str))
     if mag.has_duplicates or urun.has_duplicates:
@@ -149,7 +150,7 @@ def transfer_plani(plan: Plan, w) -> TransferPlani:
             eksik = sorted(set(kimlikler.astype(str)[indis < 0]))[:5]
             raise ValueError(f"plan `{ad}` dünyada yok: {eksik}")
     return TransferPlani(kaynak=kaynak_, hedef=hedef, sku=sku, adet=h["adet"].to_numpy(dtype=np.int64),
-                         kimlik=plan.kimlik)
+                         kimlik=plan.kimlik, sezon=plan.sezon, kol=plan.kol)
 
 
 # ---------------------------------------------------------------------------
@@ -182,12 +183,19 @@ def _plan_kontrol(plan: TransferPlani, takvim: motor.Takvim | None, karar: int |
         raise ValueError("plan koşusu takvim ister (K6, K23): takvim=takvim(lumoda_kosusu)")
     if karar is None:
         raise ValueError("plan koşusu karar_gun ister: karar_gun=karar_gun(sezon)")
+    fazla = set(parametreler) - {"yol", "sezon", "kol"}
+    if fazla:
+        raise ValueError(f"plan koşusunun parametreler'i yalnız sezon, kol (ve yol) taşır; fazla: {sorted(fazla)}")
     sezon = parametreler.get("sezon")
     if sezon not in sabitler.TEST_SEZONLARI:
         raise ValueError(f"plan koşusu `parametreler['sezon']` {sabitler.TEST_SEZONLARI}'dan biri olmalı: {sezon!r}")
     kol = parametreler.get("kol")
     if not isinstance(kol, str) or not kol:
         raise ValueError(f"plan koşusu `parametreler['kol']` (kolun adı) ister: {kol!r}")
+    for ad in ("sezon", "kol"):
+        if getattr(plan, ad) != parametreler[ad]:
+            raise ValueError(f"planın {ad} değeri {getattr(plan, ad)!r}, koşunun parametreler['{ad}'] "
+                             f"{parametreler[ad]!r}")
     if int(karar) != _sezon_karar_gunu(sezon):
         raise ValueError(f"karar_gun {karar}, {sezon} karar gününe ({_sezon_karar_gunu(sezon)}) eşit olmalı")
     if gun_sayisi is not None and int(gun_sayisi) <= int(karar):
@@ -217,6 +225,8 @@ def hazirla(ad: str, yol: int = 0, olcek: str = "tam", *, plan: TransferPlani | 
         raise ValueError(f"parametreler['yol'] ({parametreler['yol']}) yol={yol} ile çelişiyor")
     if plan is None and (takvim is not None or karar_gun is not None):
         raise ValueError("Lumoda koşusu (plan yok) takvim ve karar_gun almaz")
+    if plan is None and not set(parametreler) <= {"yol"}:
+        raise ValueError(f"Lumoda koşusunun parametreler'i yalnız yol taşır: {sorted(parametreler)}")
     w = motor.dunya(olcek)
     verilen = {}
     if plan is not None:
@@ -347,10 +357,16 @@ def karar_veritabani(lumoda_kosusu, yol: int) -> Iterator[tuple[duckdb.DuckDBPyC
             g = kaynak.karar_girdisi(con, sezon); og = tahmin.ogrenilen(con, sezon, onbellek, kaynak_kimligi=kimlik)
 
     Yol 0: yayımlanan v4 dosyasına salt okunur bağlantı (`kaynak.baglan()`), kimlik `None` (öğrenme dosya
-    kimliğini kendisi bulur); `lumoda_kosusu` kullanılmaz. Yol p > 0: yolun Lumoda koşusunun yayımlanan biçimi
+    kimliğini kendisi bulur); `lumoda_kosusu` okunmaz, verilmişse yol 0'ın Lumoda koşusu olmalıdır (`None` da
+    kabul). Yol p > 0: yolun Lumoda koşusunun yayımlanan biçimi
     (`yayimlanan`, 18 tablo) `%TEMP%` altında geçici bir DuckDB dosyasına tablo tablo yazılır (her DataFrame
     yazılınca bırakılır), kimlik Lumoda koşusunun anahtarıdır; çıkışta bağlantı kapanır, dosya silinir."""
     yol = int(yol)
+    if lumoda_kosusu is not None or yol != 0:
+        _lumoda_mi(lumoda_kosusu)
+        kosu_yolu = int(lumoda_kosusu.meta["parametreler"]["yol"])
+        if kosu_yolu != yol:
+            raise ValueError(f"Lumoda koşusu yol {kosu_yolu}'ın, istenen yol {yol}")
     if yol == 0:
         con = kaynak.baglan()
         try:
@@ -358,10 +374,6 @@ def karar_veritabani(lumoda_kosusu, yol: int) -> Iterator[tuple[duckdb.DuckDBPyC
         finally:
             con.close()
         return
-    _lumoda_mi(lumoda_kosusu)
-    kosu_yolu = int(lumoda_kosusu.meta["parametreler"]["yol"])
-    if kosu_yolu != yol:
-        raise ValueError(f"Lumoda koşusu yol {kosu_yolu}'ın, istenen yol {yol}")
     with tempfile.TemporaryDirectory(prefix="kiriklik_yol_") as dizin:
         t = yayimlanan(lumoda_kosusu)
         con = duckdb.connect(str(Path(dizin) / f"y{yol}_yayimlanan.duckdb"))

@@ -36,13 +36,16 @@ def _salt_okunur(a) -> np.ndarray:
 class TransferPlani:
     """Bir planın motor satırları: `kaynak`, `hedef` mağaza satır indisi (`w.magazalar`), `sku` SKU satır
     indisi (`w.urunler`), `adet`; hepsi int64, aynı uzunlukta, salt okunur kopya. `kimlik` kaynak
-    `Plan.kimlik`'idir (anahtara girer). Satır sırası motorun uyguladığı sıradır."""
+    `Plan.kimlik`'idir (anahtara girer); `sezon` ve `kol` kaynak planınkiler (`simulasyon.hazirla` koşunun
+    `parametreler`'iyle karşılaştırır). Satır sırası motorun uyguladığı sıradır."""
 
     kaynak: np.ndarray
     hedef: np.ndarray
     sku: np.ndarray
     adet: np.ndarray
     kimlik: str
+    sezon: str
+    kol: str
 
     def __post_init__(self):
         for ad in ("kaynak", "hedef", "sku", "adet"):
@@ -52,6 +55,9 @@ class TransferPlani:
             raise ValueError(f"kaynak, hedef, sku, adet aynı uzunlukta olmalı: {sorted(n)}")
         if not isinstance(self.kimlik, str) or not self.kimlik:
             raise ValueError("kimlik boş olmayan metin olmalı (kaynak `Plan.kimlik`)")
+        for ad in ("sezon", "kol"):
+            if not isinstance(getattr(self, ad), str) or not getattr(self, ad):
+                raise ValueError(f"{ad} boş olmayan metin olmalı (kaynak `Plan.{ad}`)")
 
     def __len__(self) -> int:
         return len(self.kaynak)

@@ -26,6 +26,7 @@ SEZON = "AW24"
 PAKET = Path(kiriklik.__file__).resolve().parent
 KARAR_GUNU = simulasyon.karar_gun(SEZON)
 GUN_SAYISI = KARAR_GUNU + 8
+_SK = {"sezon": SEZON, "kol": "kural"}
 
 
 # ---------------------------------------------------------------------------
@@ -55,7 +56,7 @@ class _Temel:
 
 
 def _plan_satirlari() -> TransferPlani:
-    return TransferPlani(kaynak=[1, 1], hedef=[2, 3], sku=[10, 11], adet=[4, 5], kimlik="p" * 64)
+    return TransferPlani(kaynak=[1, 1], hedef=[2, 3], sku=[10, 11], adet=[4, 5], kimlik="p" * 64, **_SK)
 
 
 def _g(gun: int):
@@ -86,7 +87,7 @@ def test_plan_satirlari_once():
 
 
 def test_bos_plan_temeli_degistirmez():
-    kol = KirikTransfer(_Temel(), TransferPlani([], [], [], [], kimlik="b" * 64), karar_gun=100)
+    kol = KirikTransfer(_Temel(), TransferPlani([], [], [], [], kimlik="b" * 64, **_SK), karar_gun=100)
     assert _satirlar(kol(_g(100))) == [(7, 8, 9, 1), (7, 6, 5, 2)]
 
 
@@ -104,15 +105,18 @@ def test_parametreler_plan_kimligi():
 def test_transfer_plani_yapisi():
     """int64, salt okunur kopya; uzunluklar eşit; kimlik boş olamaz."""
     kaynak_ = np.array([1, 2], dtype=np.int32)
-    p = TransferPlani(kaynak_, [3, 4], [5, 6], [7, 8], kimlik="k")
+    p = TransferPlani(kaynak_, [3, 4], [5, 6], [7, 8], kimlik="k", **_SK)
     assert all(a.dtype == np.int64 and not a.flags.writeable for a in (p.kaynak, p.hedef, p.sku, p.adet))
     kaynak_[0] = 99
     assert p.kaynak.tolist() == [1, 2]                                 # savunma kopyası
     assert len(p) == 2
     with pytest.raises(ValueError, match="aynı uzunlukta"):
-        TransferPlani([1], [2, 3], [4], [5], kimlik="k")
+        TransferPlani([1], [2, 3], [4], [5], kimlik="k", **_SK)
     with pytest.raises(ValueError, match="kimlik"):
-        TransferPlani([], [], [], [], kimlik="")
+        TransferPlani([], [], [], [], kimlik="", **_SK)
+    for ad in ("sezon", "kol"):
+        with pytest.raises(ValueError, match=ad):
+            TransferPlani([], [], [], [], kimlik="k", **{**_SK, ad: ""})
 
 
 # ---------------------------------------------------------------------------
@@ -139,7 +143,8 @@ def test_transfer_plani_esler_ve_sirayi_sabitler():
                 ("O1", "U2", 2, "M002", "M003", 4), ("O2", "U1", 1, "M003", "M002", 7)]
     p = Plan(kol="kural", sezon=SEZON, hareketler=_hareketler(*satirlar))
     tp = simulasyon.transfer_plani(p, w)
-    assert tp.kimlik == p.kimlik
+    assert tp.kimlik == p.kimlik and (tp.sezon, tp.kol) == (SEZON, "kural")
+    assert simulasyon.PLAN_SIRASI is plan_modulu.SIRA == ["option_id", "alici", "verici", "beden_sira"]
     # sıra: (option_id, alici, verici, beden_sira)
     assert _satirlar(Transferler(tp.kaynak, tp.hedef, tp.sku, tp.adet)) == [
         (1, 0, 0, 1), (0, 2, 2, 2), (1, 2, 1, 4), (2, 1, 0, 7)]
@@ -232,13 +237,13 @@ def _oyuncak_plan_kucuk(w, satir=2) -> TransferPlani:
         if len(k) == satir:
             break
     assert len(k) == satir
-    return TransferPlani(k, h, s, [1] * satir, kimlik="oyuncak-" + "0" * 56)
+    return TransferPlani(k, h, s, [1] * satir, kimlik="oyuncak-" + "0" * 56, **_SK)
 
 
 def _hazirla(w, plan=None, kimlik=None, karar=KARAR_GUNU, sezon=SEZON, kol="kural", **ek):
     tp = _oyuncak_plan_kucuk(w) if plan is None else plan
-    if kimlik is not None:
-        tp = TransferPlani(tp.kaynak, tp.hedef, tp.sku, tp.adet, kimlik=kimlik)
+    tp = TransferPlani(tp.kaynak, tp.hedef, tp.sku, tp.adet, kimlik=tp.kimlik if kimlik is None else kimlik,
+                       sezon=sezon, kol=kol)                             # plan koşunun sezonu ve kolundan
     tk = motor.Takvim(rpt={1036: {0: 10}}, markdown={}, option_sayisi=len(w.optionlar)).sabitle()
     return simulasyon.hazirla("k", 0, plan=tp, takvim=ek.pop("takvim", tk), karar_gun=karar,
                               parametreler={"sezon": sezon, "kol": kol}, **KUCUK, **ek)
@@ -282,7 +287,7 @@ def test_anahtar_plan_degisince_degisir(w):
               _hazirla(w, sezon="SS25", karar=simulasyon.karar_gun("SS25")), _hazirla(w, gun_sayisi=GUN_SAYISI)]
     assert len({temel.anahtar} | {x.anahtar for x in farkli}) == 6
     # kimlik aynı, satırlar farklı: anahtar aynı (kimlik içeriğin sözü; satırlar kimlikten türetilir)
-    bos = TransferPlani([], [], [], [], kimlik="oyuncak-" + "0" * 56)
+    bos = TransferPlani([], [], [], [], kimlik="oyuncak-" + "0" * 56, **_SK)
     assert _hazirla(w, plan=bos).anahtar == temel.anahtar
 
 
@@ -330,9 +335,21 @@ def test_hazirla_dogrulamalari(w):
     with pytest.raises(ValueError, match="option sayısı"):
         h(takvim=motor.Takvim(rpt={}, markdown={}, option_sayisi=3))
     with pytest.raises(ValueError, match="dünya dışı"):
-        h(plan=TransferPlani([0], [10_000], [0], [1], kimlik="k"))
+        h(plan=TransferPlani([0], [10_000], [0], [1], kimlik="k", **_SK))
     with pytest.raises(ValueError, match="pozitif"):
-        h(plan=TransferPlani([0], [1], [0], [0], kimlik="k"))
+        h(plan=TransferPlani([0], [1], [0], [0], kimlik="k", **_SK))
+    # parametreler anahtar kümesi sıkı: plan koşusunda tam {sezon, kol} (+ yol), Lumoda'da yalnız yol
+    with pytest.raises(ValueError, match="parametreler"):
+        h(parametreler={**par, "esik": 2})
+    h(parametreler={**par, "yol": 0})
+    with pytest.raises(ValueError, match="parametreler"):
+        simulasyon.hazirla("lumoda", 0, parametreler={"sezon": SEZON}, **KUCUK)
+    simulasyon.hazirla("lumoda", 0, parametreler={"yol": 0}, **KUCUK)
+    # planın sezonu ve kolu koşunun parametreleriyle aynı olmalı
+    for ad, deger in (("sezon", "SS25"), ("kol", "opt")):
+        yanlis = TransferPlani(tp.kaynak, tp.hedef, tp.sku, tp.adet, kimlik=tp.kimlik, **{**_SK, ad: deger})
+        with pytest.raises(ValueError, match=f"planın {ad}"):
+            h(plan=yanlis)
     with pytest.raises(ValueError, match="yol"):
         h(parametreler={**par, "yol": 2})
     with pytest.raises(ValueError, match="ölçek"):
@@ -502,6 +519,18 @@ def test_karar_veritabani_kucuk(lumoda):
             pass
 
 
+def test_karar_veritabani_yol_sifir_lumoda_denetimi():
+    """Yol 0'da `lumoda_kosusu` verilmişse yol 0'ın Lumoda koşusu olmalı (bağlanmadan önce sınanır)."""
+    kol = SimpleNamespace(meta={"turler": {"rpt": "x"}, "parametreler": {"yol": 0}})
+    with pytest.raises(ValueError, match="Lumoda koşusu"):
+        with simulasyon.karar_veritabani(kol, 0):
+            pass
+    y2 = SimpleNamespace(meta={"turler": {}, "parametreler": {"yol": 2}})
+    with pytest.raises(ValueError, match="yol 2"):
+        with simulasyon.karar_veritabani(y2, 0):
+            pass
+
+
 @pytest.mark.veri
 def test_karar_veritabani_yayimlanan_yol_sifir(veri_con):
     """Yol 0: yayımlanan v4 dosyası, salt okunur; kimlik None (öğrenme dosya kimliğini kendisi bulur)."""
@@ -510,6 +539,9 @@ def test_karar_veritabani_yayimlanan_yol_sifir(veri_con):
         assert con.execute("select count(*) from satis").fetchone()[0] > 0
         with pytest.raises(Exception, match="read-only|read only|Cannot execute"):
             con.execute("create table x as select 1")
+    lum0 = SimpleNamespace(meta={"turler": {}, "parametreler": {"yol": 0}})
+    with simulasyon.karar_veritabani(lum0, 0) as (con, kimlik):              # yol 0'ın Lumoda'sı kabul
+        assert kimlik is None and con.execute("select count(*) from magaza").fetchone()[0] > 0
 
 
 # ---------------------------------------------------------------------------
