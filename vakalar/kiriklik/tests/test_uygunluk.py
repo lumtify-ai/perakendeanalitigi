@@ -24,7 +24,7 @@ def _girdi(satirlar, magazalar=None) -> kaynak.KararGirdisi:
     bos = pd.DataFrame()
     return kaynak.KararGirdisi(sezon="AW24", karar=date(2024, 12, 9), indirim=date(2025, 1, 2),
                                cikis=date(2025, 2, 24), hucre=hucre, satis=bos, stoklu=bos, magaza=magaza,
-                               optionlar=bos)
+                               optionlar=bos, takvim=bos, black_friday=bos)
 
 
 def _cift(magaza, option, stoklar, depo=(0,) * 5, acik=(0,) * 5):

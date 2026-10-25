@@ -163,6 +163,23 @@ def test_optionlar(con):
     assert g.optionlar.lansman_tarihi.iloc[0] == pd.Timestamp("2024-08-19")
 
 
+def test_takvim_ve_black_friday_kesilmez(con):
+    """Plan bilgisi: `takvim` karardan sonrasını da taşır; `black_friday` yalnız `tip = 'black_friday'` satırları."""
+    g = kaynak.karar_girdisi(con, "AW24")
+    assert list(g.takvim.columns) == ["tarih", "tatil_mi"] and g.takvim.tarih.max() > pd.Timestamp(g.karar)
+    assert g.takvim[g.takvim.tatil_mi].tarih.dt.strftime("%Y-%m-%d").tolist() == ["2024-11-29", "2025-01-01"]
+    assert list(g.black_friday.columns) == ["baslangic", "bitis", "oran"]
+    assert g.black_friday.baslangic.dt.strftime("%Y-%m-%d").tolist() == ["2024-11-29"]
+    assert g.black_friday.oran.tolist() == [0.3]
+
+
+@pytest.mark.parametrize("tablo", ["takvim", "kampanya"])
+def test_eksik_plan_tablosu_acik_hata(con, tablo):
+    con.execute(f"drop table {tablo}")
+    with pytest.raises(ValueError, match=tablo):
+        kaynak.karar_girdisi(con, "AW24")
+
+
 def test_girdi_degistirilemez(con):
     g = kaynak.karar_girdisi(con, "AW24")
     with pytest.raises(AttributeError):

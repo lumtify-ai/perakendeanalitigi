@@ -33,10 +33,10 @@ def _og(eps=0.0, hafta_gunu=None, ozel_gun=None, islem=0.0, iade=0.0, yasam=None
                      iade={"magaza": iade, "online": 0.0}, islem=islem)
 
 
-def _girdi(magazalar, satis, stoklu, stoklar=None, uygun=None) -> kaynak.KararGirdisi:
+def _girdi(magazalar, satis, stoklu, stoklar=None, uygun=None, tatil=(), bf=()) -> kaynak.KararGirdisi:
     """Tek option (`O1`, 5 beden, liste 100). `magazalar`: mağaza kimlikleri; `stoklar`: {magaza: 5'li stok}
     (verilmeyen mağaza kırık: ikinci beden 0, ötekiler 1); `satis`: (magaza, sıra, gün farkı, adet);
-    `stoklu`: (magaza, sıra, karardan önce gün farkı, stoklu gün)."""
+    `stoklu`: (magaza, sıra, karardan önce gün farkı, stoklu gün); `tatil`: tatil günleri; `bf`: (başlangıç, bitiş, oran)."""
     stoklar = stoklar or {}
     satir = []
     for m in magazalar:
@@ -55,8 +55,13 @@ def _girdi(magazalar, satis, stoklu, stoklar=None, uygun=None) -> kaynak.KararGi
     opt = pd.DataFrame([("O1", "Tişört", "Üst Giyim", 1, pd.Timestamp("2024-08-19"), 100.0, 40.0)],
                        columns=["option_id", "alt_kategori", "ust_kategori", "dalga", "lansman_tarihi",
                                 "liste_fiyati", "alis_fiyati"])
+    gunler = pd.date_range("2024-10-01", "2025-03-31")
+    takvim = pd.DataFrame({"tarih": gunler, "tatil_mi": gunler.isin([pd.Timestamp(t) for t in tatil])})
+    black_friday = pd.DataFrame([(pd.Timestamp(b), pd.Timestamp(e), o) for b, e, o in bf],
+                                columns=["baslangic", "bitis", "oran"])
     return kaynak.KararGirdisi(sezon="AW24", karar=KARAR, indirim=INDIRIM, cikis=CIKIS, hucre=hucre,
-                               satis=sat, stoklu=sto, magaza=mag, optionlar=opt)
+                               satis=sat, stoklu=sto, magaza=mag, optionlar=opt, takvim=takvim,
+                               black_friday=black_friday)
 
 
 def _foto(magaza, bedenler, gun=7, fotolar=(21, 14, 7, 0)):
@@ -152,27 +157,55 @@ def test_indirim_fiyati_yuzde_otuz():
 
 
 def test_gun_carpanlari_gun_gun():
-    """Hafta günü, yaşam eğrisi ve indirim başlangıcı özel günü, takvim günü günü hesaplanır."""
+    """Hafta günü, yaşam eğrisi, tatil, Black Friday (cuma, devam, fiyat) ve indirim başlangıcı, takvim günü günü."""
     hg = {("magaza", w): v for w, v in enumerate((0.9, 0.9, 0.9, 1.0, 1.2, 1.6, 1.4))}
+    ozel = {"indirim_baslangici": 1.3, "tatil": 0.7, "black_friday": 1.8, "black_friday_devami": 1.1}
     yasam = pd.DataFrame({"sezon_tipi": "AW", "duzey": "alt_kategori", "grup": "Tişört", "dalga": 1,
                           "hafta": np.arange(30), "carpan": np.linspace(1.0, 0.4, 30), "kaynak": "alt_kategori"})
-    og = _og(eps=1.0, hafta_gunu=hg, ozel_gun={"indirim_baslangici": 1.3}, yasam=yasam)
+    og = _og(eps=1.0, hafta_gunu=hg, ozel_gun=ozel, yasam=yasam)
     sat = [("M1", i, 5, 4) for i in range(1, 6)]
-    g = _girdi(("M1",), sat, _foto("M1", range(1, 6)))
+    # BF cumada başlar (2024-11-29), pencerededir; tatil: BF cuması ve 2025-01-01 (ufukta, evre 1'in son günü)
+    g = _girdi(("M1",), sat, _foto("M1", range(1, 6)), tatil=("2024-11-29", "2025-01-01"),
+               bf=(("2024-11-29", "2024-12-02", 0.3),))
     t = tahmin.ufuk_talebi(g, og)
 
     lansman = pd.Timestamp("2024-08-19")
     egri = np.linspace(1.0, 0.4, 30)
+    bf_gunler = pd.date_range("2024-11-29", "2024-12-02")
 
-    def f(gun: pd.Timestamp, ozel=1.0) -> float:
-        return hg[("magaza", gun.weekday())] * egri[min((gun - lansman).days // 7, 29)] * ozel
+    def f(gun: pd.Timestamp, indirim: bool = False) -> float:
+        tur = (ozel["black_friday"] if gun.weekday() == 4 else ozel["black_friday_devami"]) if gun in bf_gunler             else ozel["tatil"] if gun == pd.Timestamp("2025-01-01")             else ozel["indirim_baslangici"] if pd.Timestamp("2025-01-02") <= gun < pd.Timestamp("2025-01-09") else 1.0
+        oran = max(0.3 if gun in bf_gunler else 0.0, 0.30 if indirim else 0.0)
+        return hg[("magaza", gun.weekday())] * egri[min((gun - lansman).days // 7, 29)] * tur / (1 - oran)
 
     pencere = np.mean([f(pd.Timestamp(KARAR) - timedelta(days=k)) for k in range(1, 29)])
     s1 = sum(f(d) for d in pd.date_range("2024-12-12", "2025-01-01"))
-    s2 = sum(f(d, 1.3 if d < pd.Timestamp("2025-01-09") else 1.0) for d in pd.date_range("2025-01-02", "2025-02-23"))
+    s2 = sum(f(d, True) for d in pd.date_range("2025-01-02", "2025-02-23"))
     r = 20 / 28
     assert t.mu_tam.sum() == pytest.approx(r / pencere * s1)
-    assert t.mu_ind.sum() == pytest.approx(r / pencere * s2 * 0.7 ** -1.0)
+    assert t.mu_ind.sum() == pytest.approx(r / pencere * s2)
+
+
+def test_black_friday_haftasi_tabani_sisirmez():
+    """Aynı satış, Black Friday penceredeyse (takvim bilinirse) daha düşük taban hız verir; BF yoksa fark yoktur."""
+    og = _og(eps=1.5, ozel_gun={"black_friday": 1.8, "black_friday_devami": 1.1})
+    sat = [("M1", i, 5, 4) for i in range(1, 6)]
+    sto = _foto("M1", range(1, 6))
+    bf = (("2024-11-29", "2024-12-02", 0.3),)
+    bf_var = tahmin.ufuk_talebi(_girdi(("M1",), sat, sto, bf=bf), og).mu_tam.sum()
+    bf_yok = tahmin.ufuk_talebi(_girdi(("M1",), sat, sto), og).mu_tam.sum()
+    assert bf_var < bf_yok
+    # ortalama karakter: 24 gün 1,0; BF cuması 1,8 × 0,7^-1,5; devam 3 gün 1,1 × 0,7^-1,5
+    bf_f = 0.7 ** -1.5
+    beklenen = (1.0 * 24 + 1.8 * bf_f + 3 * 1.1 * bf_f) / 28
+    assert bf_var / bf_yok == pytest.approx(1 / beklenen)
+
+
+def test_takvim_kapsamiyorsa_hata():
+    g = _girdi(("M1",), [], [])
+    kisa = kaynak.KararGirdisi(**{**g.__dict__, "takvim": g.takvim[g.takvim.tarih < "2025-01-15"]})
+    with pytest.raises(ValueError, match="takvim"):
+        tahmin.ufuk_talebi(kisa, _og())
 
 
 def test_yalniz_uygun_option_ve_magaza():
@@ -189,6 +222,16 @@ def test_yalniz_uygun_option_ve_magaza():
     assert set(t.magaza_id) == {"M1", "M2", "M3"} and len(t) == 15
     g = _girdi(("M1", "M2"), sat, sto, uygun={"M2": False})       # aday M1; uygun olmayan M2 hücreleri çıkmaz
     assert set(tahmin.ufuk_talebi(g, _og()).magaza_id) == {"M1"}
+
+
+def test_stoksuz_option_magazasi_hucre_degil():
+    """Option'dan karar günü hiç stoğu olmayan mağaza (alıcı da verici de olamaz) çıkmaz; kanıtı yine de hıza girer."""
+    sat = [("M1", i, 5, 4) for i in range(1, 6)] + [("M4", i, 5, 4) for i in range(1, 6)]         + [("M2", 1, 40, 3)]                                           # M2: sezon satışı var, pencerede kanıt yok
+    sto = _foto("M1", range(1, 6)) + _foto("M4", range(1, 6))
+    g = _girdi(("M1", "M2", "M4"), sat, sto, {"M2": (1,) * 5, "M4": (0,) * 5})
+    t = tahmin.ufuk_talebi(g, _og())
+    assert set(t.magaza_id) == {"M1", "M2"} and len(t) == 10
+    assert _hucre(t, "M2", 1).mu_tam > 0                               # stoklu mağaza yedek hızla talep alır
 
 
 def test_bos_cikti_semasi():
@@ -261,7 +304,7 @@ def test_oyuncak_dunya_hucre_ve_talep():
     g = kaynak.karar_girdisi(c, "AW24")
     t = tahmin.ufuk_talebi(g, _og_oyuncak())
     c.close()
-    assert set(t.magaza_id) == {"S1", "S2", "S6"} and len(t) == 15       # uygun mağazalar × 5 beden
+    assert set(t.magaza_id) == {"S1", "S2"} and len(t) == 10             # S6 uygun ama option'dan stoğu yok
     assert (t.mu_tam >= 0).all() and t[t.magaza_id == "S1"].mu_tam.sum() > 0
 
 
@@ -322,16 +365,13 @@ def test_karar_modulu_ice_aktarma_ve_ad_kilidi():
 # ---------------------------------------------------------------- gerçek veri (YAVAŞ)
 
 
-@pytest.fixture(scope="module")
-def og_aw24(veri_con):
-    """AW24 öğrenilenleri; önbellek `cikti/ogrenme` (git dışı). İlk koşu ~10-15 dk."""
-    return tahmin.ogrenilen(veri_con, "AW24", onbellek=CIKTI / "ogrenme")
-
-
-@pytest.fixture(scope="module")
-def talep_aw24(veri_con, og_aw24):
-    g = kaynak.karar_girdisi(veri_con, "AW24")
-    return g, tahmin.ufuk_talebi(g, og_aw24)
+@pytest.fixture(scope="module", params=sabitler.TEST_SEZONLARI)
+def talep(request, veri_con):
+    """(girdi, öğrenilen, ufuk talebi) her test sezonu için; önbellek `cikti/ogrenme` (git dışı).
+    İlk koşu: AW24 ~5 dk, SS25 ~8 dk; önbellekle ~20 sn."""
+    g = kaynak.karar_girdisi(veri_con, request.param)
+    og = tahmin.ogrenilen(veri_con, request.param, onbellek=CIKTI / "ogrenme")
+    return g, og, tahmin.ufuk_talebi(g, og)
 
 
 # `markdown.ogrenme` (salt okunur kardeş vaka) pandas 2.3 + numpy 2.5 "generic unit" uyarısı verir; yalnız bu iki
@@ -341,26 +381,28 @@ UYARI = pytest.mark.filterwarnings("ignore:.*generic.*unit:DeprecationWarning")
 
 @pytest.mark.veri
 @UYARI
-def test_ufuk_sema_ve_isaretler(talep_aw24, og_aw24):
-    g, t = talep_aw24
+def test_ufuk_sema_ve_isaretler(talep):
+    g, og, t = talep
     assert list(t.columns) == tahmin.KOLONLAR and len(t) > 0
     assert np.isfinite(t[["mu_tam", "mu_ind", "fiyat_tam", "fiyat_ind"]].to_numpy()).all()
     assert (t.mu_tam >= 0).all() and (t.mu_ind >= 0).all() and (t.fiyat_ind < t.fiyat_tam).all()
-    assert og_aw24.bitis == g.karar
+    assert og.bitis == g.karar
     h = g.hucre.merge(t[["magaza_id", "urun_id", "mu_tam"]], on=["magaza_id", "urun_id"])
-    kirik = h[(h.stok == 0) & (h.mu_tam > 0)]
-    assert len(kirik) > 0                                          # kırık beden hücreleri pozitif talep taşır
+    assert len(h) == len(t)
+    # R10: her (mağaza, option) çiftinde option stoğu var; kırık beden hücreleri pozitif talep taşır
+    assert (h.groupby(["magaza_id", "option_id"]).stok.transform("sum") > 0).all()
+    assert len(h[(h.stok == 0) & (h.mu_tam > 0)]) > 0
 
 
 @pytest.mark.veri
 @UYARI
-@pytest.mark.xfail(strict=True, reason="Ruling bekliyor: oran 2,85 (mu_tam kısıtsız talep, satış stokla kısıtlı; "
-                   "sınır gevşetilmedi), task-5-report.md")
-def test_ufuk_toplami_makul(veri_con, talep_aw24):
-    """Σ mu_tam, hücrelerin yayımlanan fiziksel brüt satışının [karar + 3, indirim) toplamının 0,5-2 katı."""
-    g, t = talep_aw24
-    hucre = t[["magaza_id", "urun_id"]].drop_duplicates()
-    veri_con.register("_hucre", hucre)
+def test_ufuk_toplami_makul(veri_con, talep):
+    """R9: stoklu hücrelerde Σ min(mu_tam, stok) ÷ yayımlanan brüt fiziksel satış [karar + 3, indirim) ∈ [0,8; 1,25].
+    (Satış stokla kısıtlıdır; talep kısıtsızdır, o yüzden mu stokla kırpılarak kıyaslanır.)"""
+    g, _, t = talep
+    h = g.hucre.merge(t[["magaza_id", "urun_id", "mu_tam"]], on=["magaza_id", "urun_id"])
+    h = h[h.stok > 0]
+    veri_con.register("_hucre", h[["magaza_id", "urun_id"]])
     gercek = veri_con.execute("""
         select coalesce(sum(adet), 0) from (select distinct * from satis) s
         join _hucre h using (magaza_id, urun_id)
@@ -368,6 +410,7 @@ def test_ufuk_toplami_makul(veri_con, talep_aw24):
                               [pd.Timestamp(g.karar) + timedelta(days=sabitler.VARIS_GUN),
                                pd.Timestamp(g.indirim)]).fetchone()[0]
     veri_con.unregister("_hucre")
-    oran = t.mu_tam.sum() / gercek
-    print(f"\nufuk toplami: Σ mu_tam = {t.mu_tam.sum():.1f}, yayımlanan satış = {gercek}, oran = {oran:.3f}")
-    assert 0.5 <= oran <= 2.0, oran
+    oran = np.minimum(h.mu_tam, h.stok).sum() / gercek
+    print(f"\n{g.sezon}: Σ min(mu_tam, stok) = {np.minimum(h.mu_tam, h.stok).sum():.1f}, "
+          f"satış = {gercek}, oran = {oran:.3f}; Σ mu_tam = {h.mu_tam.sum():.1f}")
+    assert 0.8 <= oran <= 1.25, (g.sezon, oran)

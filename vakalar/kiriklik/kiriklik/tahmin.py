@@ -7,9 +7,10 @@
 yani karardan sonraki satır öğrenmeye girmez): ε̂ kampanya, hafta günü, özel gün, beden payı, yaşam eğrisi, işlem
 indirimi, iade. Öğrenme gerçek veride dakikalar sürer; `onbellek` verilirse günlük tablo ve ortak çarpanlar orada tutulur.
 
-**Hücreler.** Uygun aday kırık çifti (`uygunluk.adaylar(g).uygun`) olan her option'ın, `uygun` mağazalardaki bütün
-SKU satırları (`g.hucre`): kırık bedenin kendi satışı sıfır olsa da hücre vardır. Bunlar olası alıcı ve vericilerin
-hepsidir.
+**Hücreler (R10).** Uygun aday kırık çifti (`uygunluk.adaylar(g).uygun`) olan her option'ın, o option'dan karar günü
+stoğu olan (`g.hucre` option × mağaza toplamı > 0) `uygun` mağazalardaki bütün SKU satırları: kırık bedenin kendi
+satışı ve stoğu sıfır olsa da hücre vardır. Option'ı hiç stoklamayan mağaza ne alıcı ne verici olabilir, çıkmaz. Hız
+ve zincir payı yine bütün uygun mağazaların kanıtından kurulur (satıp tükenmiş mağaza kanıt verir), süzme en sondadır.
 
 **Taban hız.** Option × mağaza düzeyinde, stoklu gün düzeltmeli, karardan önceki son 28 günde
 
@@ -25,10 +26,12 @@ oranı kadar büyüktür (pay eşitse zincir hızına eşit; sezonda hiç satı�
 sayısı (1/n) değil ortalama mağazanın payıdır: option'ı yalnız birkaç mağaza satıyorsa 1/n ölçeği yedek hızı mağaza
 sayısı kadar şişirir.
 
-**Gün çarpanı.** `hafta_gunu("magaza", haftanın günü) × yaşam(lansmandan hafta) × özel gün`. Hız penceresinin
-günlük `hafta_gunu × yaşam` ortalamasına bölünür, ufuk günlerine yeniden uygulanır (yaşam oranı =
-I(gelecek hafta) ÷ I(pencerenin haftaları): `markdown.tahmin` gün gün bölmesiyle aynı fikir). Özel gün olarak
-yalnız indirim başlangıcı (indirim gününden itibaren 7 gün) uygulanır; bu `g.indirim`den bilinir.
+**Gün çarpanı (R12).** Günlük karakter = `hafta_gunu("magaza", haftanın günü) × özel gün × yaşam(lansmandan hafta) ×
+(1 − kampanya)^(−ε̂_kampanya)`; özel gün türü tek ve `perakende_analitik.carpanlar.ozel_turleri` önceliğiyle (Black
+Friday cuması, Black Friday devamı, tatil, indirim başlangıcı). Tatiller `g.takvim`, Black Friday dönemi ve oranı
+`g.black_friday`dan (ikisi açık plan bilgisidir, karardan sonrası kesilmez). Hız, pencerenin 28 günlük karakter
+ortalamasına bölünür (Black Friday haftası tabanı şişirmez; `markdown.tahmin` gün gün bölmesinin aynısı), ufuk günlerinde
+karakterle çarpılır (yaşam oranı = I(gün) ÷ pencere ortalaması). `takvim` pencereyi ve ufku kapsamıyorsa `ValueError`.
 
 **Ufuk.** Evre 1 [karar + VARIS_GUN, indirim) tam fiyat; evre 2 [indirim, çıkış) indirimli: indirim günü
 `INDIRIM_ORANI` (Lumoda'nın açık politikası, en az %30), talep `(1 − 0,30)^(−ε̂_kampanya[üst kategori])` ile
@@ -36,9 +39,9 @@ yalnız indirim başlangıcı (indirim gününden itibaren 7 gün) uygulanır; b
 
     fiyat_tam = liste × (1 − işlem) × (1 − iade["magaza"])        fiyat_ind = liste × 0,70 × (1 − iade["magaza"])
 
-**Bilinen sadeleştirmeler.** (1) Kampanyalar (Black Friday dahil) yok sayılır; hız penceresindeki kampanya
-satışı hızı şişirebilir. (2) Tatil ve Black Friday özel günleri uygulanmaz: `KararGirdisi` takvimi taşımaz, bu yüzden ne
-pencerede ne ufukta ayrılır. (3) Evre 2'de talep tek ε̂ ile ölçeklenir (option'ın üst kategorisi). (4) Ufuk
+**Bilinen sadeleştirmeler.** (1) Black Friday dışındaki kampanyalar (kategori, ikinci ürün; bölge ve kategori kapsamlı)
+yok sayılır; hız penceresine girerlerse hızı biraz şişirebilirler. (2) Black Friday'in fiyat etkisi yalnız kapsamsız
+tek oranla uygulanır. (3) Evre 2'de talep tek ε̂ ile ölçeklenir (option'ın üst kategorisi). (4) Ufuk
 Poisson ortalamasıdır; dağılım optimizasyonun işi. (5) Talep stoktan bağımsızdır (stoksuz hücre de talep taşır): Σ mu,
 stokla kısıtlı yayımlanan satıştan büyüktür; kıyas `min(mu, stok)` ile yapılmalıdır.
 
@@ -62,6 +65,7 @@ from kiriklik.kaynak import KararGirdisi
 HIZ_PENCERE_GUN = 28        # taban hız penceresi (gün)
 HIZ_ESIGI = 7.0             # bir (option, mağaza) hızı için en az Σ stoklu gün × pay (option-gün eşdeğeri)
 INDIRIM_ORANI = 0.30        # indirim gününden sonraki oran (Lumoda'nın açık politikası: en az %30)
+_CUMA = 4
 KANAL = "magaza"            # fiziksel mağaza kanalı (hafta günü ve iade tablolarının anahtarı)
 KOLONLAR = ["magaza_id", "urun_id", "mu_tam", "mu_ind", "fiyat_tam", "fiyat_ind"]
 
@@ -152,33 +156,71 @@ def _hizlar(h: pd.DataFrame) -> pd.Series:
     return r.reindex(pd.MultiIndex.from_frame(h[["option_id", "magaza_id"]])).set_axis(h.index)
 
 
-def _option_carpanlari(g: KararGirdisi, og: Ogrenilen, opt: pd.Series) -> tuple[float, float, float, float]:
-    """(F_pencere, S1, S2, ε): pencerenin günlük `hafta_gunu × yaşam` ortalaması, evre 1 ve evre 2'nin
-    toplam gün çarpanı (evre 2 özel gün dahil, fiyat hariç) ve option'ın ε̂_kampanya'sı."""
+def _gun_tablolari(g: KararGirdisi, og: Ogrenilen) -> dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """Pencere, evre 1 ve evre 2 için (günler, hafta günü × özel gün çarpanı, Black Friday kampanya oranı).
+
+    Özel gün türü tek ve öncelikli (`perakende_analitik.carpanlar.ozel_turleri` ile aynı): Black Friday dönemindeki
+    cuma `black_friday`, dönemin öteki günleri `black_friday_devami`, öteki tatiller `tatil`, indirim gününden itibaren
+    7 gün `indirim_baslangici`. Kampanya oranı yalnız Black Friday'in (kapsamsız, bütün option ve mağazalar)."""
+    karar, indirim = g.karar, g.indirim
+    gunler = {"pencere": _gunler(karar - timedelta(days=HIZ_PENCERE_GUN), karar),
+              "evre1": _gunler(karar + timedelta(days=sabitler.VARIS_GUN), indirim),
+              "evre2": _gunler(indirim, g.cikis)}
+    takvim = g.takvim["tarih"].to_numpy().astype("datetime64[D]")
+    ilk, son = min(d[0] for d in gunler.values() if len(d)), max(d[-1] for d in gunler.values() if len(d))
+    if len(takvim) == 0 or takvim.min() > ilk or takvim.max() < son:
+        raise ValueError(f"takvim [{ilk}, {son}] günlerini kapsamıyor (karar girdisi `takvim` tablosuyla kurulmalı)")
+    tatil_gunleri = takvim[g.takvim["tatil_mi"].to_numpy(bool)]
+    hg_tablo = np.array([float(og.hafta_gunu.get((KANAL, w), 1.0)) for w in range(7)])
+    ozel = {t: float(og.ozel_gun.get(t, 1.0)) for t in ("black_friday", "black_friday_devami", "tatil",
+                                                           "indirim_baslangici")}
+    sonuc = {}
+    for ad, d in gunler.items():
+        hafta_gunu = _hafta_gunu(d)
+        oran, bf = np.zeros(len(d)), np.zeros(len(d), dtype=bool)
+        for b in g.black_friday.itertuples(index=False):
+            ic = (d >= np.datetime64(pd.Timestamp(b.baslangic).date(), "D"))                 & (d <= np.datetime64(pd.Timestamp(b.bitis).date(), "D"))
+            bf |= ic
+            oran[ic] = np.maximum(oran[ic], float(b.oran))
+        ib = (d >= np.datetime64(indirim, "D")) & (d < np.datetime64(indirim, "D") + np.timedelta64(7, "D"))
+        turler = (("black_friday", bf & (hafta_gunu == _CUMA)), ("black_friday_devami", bf),
+                  ("tatil", np.isin(d, tatil_gunleri)), ("indirim_baslangici", ib))
+        f, alindi = np.ones(len(d)), np.zeros(len(d), dtype=bool)
+        for tur, maske in turler:
+            maske = maske & ~alindi
+            f[maske] *= ozel[tur]
+            alindi |= maske
+        sonuc[ad] = (d, hg_tablo[hafta_gunu] * f, oran)
+    return sonuc
+
+
+def _option_carpanlari(g: KararGirdisi, og: Ogrenilen, opt: pd.Series,
+                       gun: dict) -> tuple[float, float, float]:
+    """(F_pencere, S1, S2): pencerenin günlük karakter ortalaması ve evre 1 ile evre 2'nin toplam karakteri. Günlük
+    karakter = hafta günü × özel gün × yaşam × (1 − max(kampanya, indirim))^(−ε̂_kampanya); evre 2'de indirim
+    oranı `INDIRIM_ORANI`."""
     egri = og.yasam_egrisi(opt["alt_kategori"], opt["ust_kategori"], opt["dalga"])
+    eps = og.eps(opt["ust_kategori"], "kampanya")
     lansman = None if pd.isna(opt["lansman_tarihi"]) else np.datetime64(pd.Timestamp(opt["lansman_tarihi"]).date(), "D")
 
-    def carpan(gunler: np.ndarray) -> np.ndarray:
-        hg = np.array([float(og.hafta_gunu.get((KANAL, int(w)), 1.0)) for w in range(7)])[_hafta_gunu(gunler)]
+    def karakter(ad: str, indirimli: bool) -> np.ndarray:
+        d, f, oran = gun[ad]
+        if indirimli:
+            oran = np.maximum(oran, INDIRIM_ORANI)
+        f = f * (1.0 - oran) ** (-eps)
         if lansman is None:
-            return hg
-        hafta = (gunler - lansman).astype("timedelta64[D]").astype(np.int64) // 7
-        return hg * yasam_orani(egri, hafta)
+            return f
+        hafta = (d - lansman).astype("timedelta64[D]").astype(np.int64) // 7
+        return f * yasam_orani(egri, hafta)
 
-    karar, indirim = g.karar, g.indirim
-    pencere = carpan(_gunler(karar - timedelta(days=HIZ_PENCERE_GUN), karar))
-    g1 = _gunler(karar + timedelta(days=sabitler.VARIS_GUN), indirim)
-    g2 = _gunler(indirim, g.cikis)
-    ozel = np.where((g2 - np.datetime64(indirim, "D")).astype(np.int64) < 7,
-                    float(og.ozel_gun.get("indirim_baslangici", 1.0)), 1.0)
-    return (float(pencere.mean()) if len(pencere) else 1.0, float(carpan(g1).sum()), float((carpan(g2) * ozel).sum()),
-            og.eps(opt["ust_kategori"], "kampanya"))
+    pencere = karakter("pencere", False)
+    return float(pencere.mean()), float(karakter("evre1", False).sum()), float(karakter("evre2", True).sum())
 
 
 def ufuk_talebi(g: KararGirdisi, og: Ogrenilen) -> pd.DataFrame:
     """Hücre (mağaza × SKU) başına ufuk talebi ve net fiyatlar: [magaza_id, urun_id, mu_tam, mu_ind, fiyat_tam,
-    fiyat_ind] (modül docstring'i); satır sırası `g.hucre`nin. Uygun adayı olmayan option ya da uygun olmayan
-    mağaza çıkmaz."""
+    fiyat_ind] (modül docstring'i); satır sırası `g.hucre`nin. Yalnız uygun adayı olan option'ların, karar günü
+    o option'dan stoğu olan uygun mağazalardaki hücreleri çıkar."""
     if og.test_sezonu != g.sezon:
         raise ValueError(f"öğrenilen sezon {og.test_sezonu!r}, karar girdisi {g.sezon!r}")
     if pd.Timestamp(og.bitis) > pd.Timestamp(g.karar):
@@ -191,19 +233,22 @@ def ufuk_talebi(g: KararGirdisi, og: Ogrenilen) -> pd.DataFrame:
         return _bos()
     hucre = hucre.reset_index(drop=True)
 
+    # Hız, zincir hızı ve pay stoksuz (satıp tükenmiş) mağazaların kanıtını da kullanır; çıktı sonra süzülür.
     h = pd.concat([hucre[["option_id", "magaza_id"]], _kanit(g, hucre)], axis=1)
     h["pay"] = _beden_payi(hucre, og.beden_payi)
     r = _hizlar(h).to_numpy(float)
 
+    gun = _gun_tablolari(g, og)
     optionlar = g.optionlar.set_index("option_id")
-    carp = {o: _option_carpanlari(g, og, optionlar.loc[o]) for o in hucre["option_id"].unique()}
-    oc = np.array([carp[o] for o in hucre["option_id"]])        # [N, 4]: F, S1, S2, ε
+    carp = {o: _option_carpanlari(g, og, optionlar.loc[o], gun) for o in hucre["option_id"].unique()}
+    oc = np.array([carp[o] for o in hucre["option_id"]])        # [N, 3]: F, S1, S2
     taban = np.divide(r * h["pay"].to_numpy(), oc[:, 0], out=np.zeros(len(hucre)), where=oc[:, 0] > 0)
-    fiyat_carpani = (1.0 - INDIRIM_ORANI) ** (-oc[:, 3])
     iade = float(og.iade.get(KANAL, 0.0))
     liste = hucre["liste_fiyati"].to_numpy(float)
-    return pd.DataFrame({
+    t = pd.DataFrame({
         "magaza_id": hucre["magaza_id"].to_numpy(), "urun_id": hucre["urun_id"].to_numpy(),
-        "mu_tam": taban * oc[:, 1], "mu_ind": taban * oc[:, 2] * fiyat_carpani,
+        "mu_tam": taban * oc[:, 1], "mu_ind": taban * oc[:, 2],
         "fiyat_tam": liste * (1.0 - og.islem) * (1.0 - iade),
         "fiyat_ind": liste * (1.0 - INDIRIM_ORANI) * (1.0 - iade)})[KOLONLAR]
+    stoklu_cift = hucre.groupby(["option_id", "magaza_id"])["stok"].transform("sum").to_numpy() > 0
+    return t[stoklu_cift].reset_index(drop=True)

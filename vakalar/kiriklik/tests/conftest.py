@@ -11,6 +11,9 @@
 Option'lar: `AW24-a` (Collection, Kadın Harf, 5 beden), `AW24-s` (Collection, Standart, tek beden),
 `AW24-o` (Outlet line), `SS25-a` (öteki test sezonu). Yalnız `AW24-a` kapsamdadır.
 
+`takvim` günlük (tatil: 2024-11-29, 2025-01-01); `kampanya`: Black Friday 2024-11-29..12-02 (%30) ve
+karardan sonrası bir kategori kampanyası.
+
 **`AW24-a-2` (ikinci beden) siparişleri** (karar gününe göre): A açık ve indirimden önce teslim
 planlı (10, sayılır); B planı indirimden sonra (sayılmaz); C karardan önce teslim edilmiş (sayılmaz); D
 siparişi karardan sonra verilmiş (sayılmaz); E karar günü teslim edilmiş (7, sayılır: `>= karar`); F
@@ -43,6 +46,8 @@ SEMA = {
               "indirim_tutari": "float64", "kampanya_id": _S},
     "sezon": {"sezon_kodu": _S, "dalga": "int64", "lansman_tarihi": _T, "indirim_baslangic": _T,
               "cikis_tarihi": _T},
+    "takvim": {"tarih": _T, "tatil_mi": "bool"},
+    "kampanya": {"kampanya_id": _S, "tip": _S, "baslangic": _T, "bitis": _T, "oran": "float64"},
     "siparis": {"siparis_id": _S, "tip": _S, "option_id": _S, "urun_id": _S, "tedarikci_id": _S,
                 "siparis_tarihi": _T, "planlanan_teslim": _T, "gerceklesen_teslim": _T, "adet": "int32"},
 }
@@ -138,6 +143,12 @@ def _siparis() -> list[tuple]:
         ("G", "rpt", "SS25-a", urun_id("SS25-a", 2), "T1", "2024-11-01", "2024-12-20", None, 400)]
 
 
+def _takvim() -> list[tuple]:
+    """2024-11-01 .. 2025-03-01 günlük; tatil: Black Friday cuması (2024-11-29) ve 2025-01-01."""
+    return [(g, g in (pd.Timestamp("2024-11-29"), pd.Timestamp("2025-01-01")))
+            for g in pd.date_range("2024-11-01", "2025-03-01")]
+
+
 def oyuncak_tablolar() -> dict[str, pd.DataFrame]:
     return {
         "magaza": _doldur("magaza", _MAGAZALAR),
@@ -149,6 +160,9 @@ def oyuncak_tablolar() -> dict[str, pd.DataFrame]:
         "sezon": _doldur("sezon", [("AW24", 1, "2024-08-19", "2025-01-02", "2025-02-24"),
                                    ("SS25", 1, "2025-02-10", "2025-06-30", "2025-08-25")]),
         "siparis": _doldur("siparis", _siparis()),
+        "takvim": _doldur("takvim", _takvim()),
+        "kampanya": _doldur("kampanya", [("BF2024", "black_friday", "2024-11-29", "2024-12-02", 0.3),
+                                         ("KAT2025_07", "kategori", "2025-01-12", "2025-01-24", 0.4)]),
     }
 
 

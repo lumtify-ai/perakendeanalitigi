@@ -45,7 +45,11 @@ class KararGirdisi:
     `tarih < karar`); `stoklu` [magaza_id, urun_id, tarih, stoklu_gun] (pazartesi fotoğrafları `<= karar`);
     `magaza` [magaza_id, ad, sehir, bolge, tip, uygun]; `optionlar` [option_id, alt_kategori, ust_kategori,
     dalga, lansman_tarihi, liste_fiyati, alis_fiyati]. `depo` ve `acik_siparis` SKU düzeyindedir (depo mağazaya
-    bölünmez); her mağaza satırında aynı değer tekrarlanır, toplamları mağaza sayısıyla katlanır."""
+    bölünmez); her mağaza satırında aynı değer tekrarlanır, toplamları mağaza sayısıyla katlanır.
+
+    `takvim` [tarih, tatil_mi] ve `black_friday` [baslangic, bitis, oran] açık plan bilgisidir (resmî tatiller ve
+    Black Friday dönemleri önceden bilinir): karar gününden sonrası kesilmez. `black_friday` yayımlanan `kampanya`
+    tablosunun `tip = 'black_friday'` satırlarıdır (öteki kampanyalar girdiye alınmaz)."""
     sezon: str
     karar: date
     indirim: date
@@ -55,6 +59,8 @@ class KararGirdisi:
     stoklu: pd.DataFrame
     magaza: pd.DataFrame
     optionlar: pd.DataFrame
+    takvim: pd.DataFrame
+    black_friday: pd.DataFrame
 
 
 def sezon_dates(con: duckdb.DuckDBPyConnection, sezon: str) -> tuple[date, date]:
@@ -86,10 +92,20 @@ def _on_ek(tipler: tuple[str, ...]) -> tuple[str, list]:
     return sql, [None, sabitler.LINE, sabitler.STANDART_BEDEN_SETI, *tipler]
 
 
+def _tablo_kontrol(con: duckdb.DuckDBPyConnection, tablolar: tuple[str, ...]) -> None:
+    """Bağlantıda olmayan yayımlanan tablo için açık `ValueError` (örn. yol p'nin geçici DuckDB'si eksik kurulmuşsa)."""
+    var = {r[0] for r in con.execute("select table_name from information_schema.tables").fetchall()}
+    eksik = [t for t in tablolar if t not in var]
+    if eksik:
+        raise ValueError(f"karar girdisi için bağlantıda yayımlanan tablo yok: {eksik}")
+
+
 def karar_girdisi(con: duckdb.DuckDBPyConnection, sezon: str) -> KararGirdisi:
-    """`sezon`un karar günü girdisi. Karar günü `sabitler.KARAR`'dan; test sezonu dışı `ValueError`."""
+    """`sezon`un karar günü girdisi. Karar günü `sabitler.KARAR`'dan; test sezonu dışı `ValueError`, bağlantıda
+    `takvim` ya da `kampanya` tablosu yoksa `ValueError`."""
     if sezon not in sabitler.KARAR:
         raise ValueError(f"test sezonu değil: {sezon!r} (geçerli: {sabitler.TEST_SEZONLARI})")
+    _tablo_kontrol(con, ("takvim", "kampanya"))
     karar = sabitler.KARAR[sezon]
     indirim, cikis = sezon_dates(con, sezon)
     on_ek, par = _on_ek(sabitler.FIZIKSEL_TIPLER)
@@ -152,5 +168,10 @@ def karar_girdisi(con: duckdb.DuckDBPyConnection, sezon: str) -> KararGirdisi:
         group by u.option_id
         order by u.option_id""")
 
+    takvim = con.execute("select tarih, tatil_mi from takvim order by tarih").fetchdf()
+    black_friday = con.execute("select baslangic, bitis, oran from kampanya where tip = 'black_friday' "
+                               "order by baslangic").fetchdf()
+
     return KararGirdisi(sezon=sezon, karar=karar, indirim=indirim, cikis=cikis, hucre=hucre, satis=satis,
-                        stoklu=stoklu, magaza=magaza, optionlar=optionlar)
+                        stoklu=stoklu, magaza=magaza, optionlar=optionlar, takvim=takvim,
+                        black_friday=black_friday)
