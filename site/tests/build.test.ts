@@ -178,21 +178,35 @@ describe('sözlük', () => {
     expect(html).toContain('Blok Transfer dizisi alıcı seçerken daha dar bir tanımla çalışır')
   })
 
-  it('yazısı olmayan kırıklık dizileri haritada soluk, sayfaları taslak', () => {
-    // Yazılar sonraki görevlerde gelir; o zamana dek algoritmalar yazılmadı
-    // görünür, dizi kapakları noindex basar ve site haritasına girmez.
-    for (const [yol, ad] of [
-      ['transfer/index.html', 'Kırıklık transferi (tekleme)'],
-      ['is-zekasi/index.html', 'Kırıklık ve atıl stok analizi'],
-    ]) {
-      expect(oku(yol), ad).toContain(
-        `algoritma--soluk"><span class="durum-noktasi durum-noktasi--soluk" aria-hidden="true">○</span><span class="algoritma-adi">${ad}</span>`,
-      )
+  it('yazısı olmayan kırıklık transferi haritada soluk, sayfası taslak', () => {
+    // Transfer dizisinin yazıları sonraki görevlerde gelir; o zamana dek
+    // algoritma yazılmadı görünür, dizi kapağı noindex basar ve site
+    // haritasına girmez.
+    expect(oku('transfer/index.html')).toContain(
+      'algoritma--soluk"><span class="durum-noktasi durum-noktasi--soluk" aria-hidden="true">○</span><span class="algoritma-adi">Kırıklık transferi (tekleme)</span>',
+    )
+    expect(oku('transfer/kiriklik-transferi/index.html')).toContain(NOINDEX)
+    expect(oku('sitemap-0.xml')).not.toContain('/transfer/kiriklik-transferi/')
+  })
+
+  it('kavram dizisi Kırıklık ve Atıl Stok yayında, hikâyesiz ve sonuçsuz', () => {
+    // Ruling R32: kavram dizisi hikâye ve sonuç yazısı istemez; iki anlatım
+    // yazısıyla yayımlanır, haritada yazıldı görünür, site haritasına girer.
+    expect(oku('is-zekasi/index.html')).toContain(
+      'algoritma--aktif"><span class="durum-noktasi durum-noktasi--aktif" aria-hidden="true">●</span><span class="algoritma-adi">Kırıklık ve atıl stok analizi</span>',
+    )
+    const kapak = oku('is-zekasi/kiriklik-atil-stok/index.html')
+    expect(kapak).not.toContain(NOINDEX)
+    for (const yazi of ['kiriklik-nedir', 'atil-stok-nedir']) {
+      const yol = `/is-zekasi/kiriklik-atil-stok/${yazi}/`
+      expect(kapak, yazi).toContain(`href="${yol}"`)
+      expect(oku(`is-zekasi/kiriklik-atil-stok/${yazi}/index.html`), yazi).not.toContain(NOINDEX)
+      expect(oku('sitemap-0.xml'), yazi).toContain(yol)
     }
-    for (const yol of ['transfer/kiriklik-transferi/', 'is-zekasi/kiriklik-atil-stok/']) {
-      expect(oku(`${yol}index.html`), yol).toContain(NOINDEX)
-      expect(oku('sitemap-0.xml'), yol).not.toContain(`/${yol}`)
-    }
+    // Blok Transfer'in dar tanım notu genel tanıma bağlanır (R-PF2).
+    expect(oku('transfer/blok-transfer/karar-nasil-verilir/index.html')).toContain(
+      'href="/is-zekasi/kiriklik-atil-stok/kiriklik-nedir/"',
+    )
   })
 
   it('sözlük DefinedTermSet olarak işaretlenir', () => {

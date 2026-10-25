@@ -2,6 +2,7 @@
 baslik: Kırıklık ve Atıl Stok
 alan: is-zekasi
 algoritmalar: [kiriklik-atil-stok]
+kavram: true
 ozet: >-
   Bir option'ın beden setinin ne zaman bozulduğunu, bir stoğun ne zaman satmaz
   sayılacağını nasıl söyleriz? Bu dizi iki ölçüyü baştan kurar: kırıklık beden

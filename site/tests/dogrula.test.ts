@@ -82,6 +82,39 @@ describe('hepsiniDogrula', () => {
     expect(hatalar.join('\n')).toMatch(/sonuc/i)
   })
 
+  it('kavram dizisi hikâye ve sonuç istemez', () => {
+    const diziler: DiziGirdi[] = [
+      { id: 'transfer/blok-transfer', data: { alan: 'transfer', algoritmalar: ['blok-transfer'], kavram: true } },
+    ]
+    const yazilar = [
+      yazi('transfer/blok-transfer/a', 'anlatici', 1),
+      yazi('transfer/blok-transfer/b', 'anlatici', 2),
+    ]
+    expect(hepsiniDogrula(yazilar, diziler, ALANLAR, TERIMLER)).toEqual([])
+  })
+
+  it('kavram dizisinde öteki kurallar sürer', () => {
+    const diziler: DiziGirdi[] = [
+      { id: 'transfer/blok-transfer', data: { alan: 'transfer', algoritmalar: ['blok-transfer'], kavram: true } },
+    ]
+    const yazilar = [
+      yazi('transfer/blok-transfer/a', 'anlatici', 1),
+      yazi('transfer/blok-transfer/b', 'anlatici', 3),
+    ]
+    const hatalar = hepsiniDogrula(yazilar, diziler, ALANLAR, TERIMLER)
+    expect(hatalar.join('\n')).toMatch(/kesintisiz/i)
+  })
+
+  it('kavram olmayan dizi hikâye ve sonuçsuz geçmez', () => {
+    const yazilar = [
+      yazi('transfer/blok-transfer/a', 'anlatici', 1),
+      yazi('transfer/blok-transfer/b', 'anlatici', 2),
+    ]
+    const hatalar = hepsiniDogrula(yazilar, DIZILER, ALANLAR, TERIMLER)
+    expect(hatalar.join('\n')).toMatch(/hikaye/i)
+    expect(hatalar.join('\n')).toMatch(/sonuc/i)
+  })
+
   it('sözlükte olmayan terimi yakalar', () => {
     const yazilar = tamDizi()
     yazilar[0].body = 'Mağazanın <T k="raf-omru">raf ömrü</T> yüksekti.'

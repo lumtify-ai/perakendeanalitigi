@@ -29,6 +29,9 @@ const dizi = defineCollection({
     // edilen algoritmalar hiçbir yerde listelenmez (spec §0.1 madde 7).
     algoritmalar: z.array(z.string()).min(1),
     demo: z.boolean().default(false),
+    // Kavram dizisi: bir ölçüyü tanımlayan anlatım yazıları; hikâye ve sonuç
+    // yazısı istemez (src/lib/dogrula.ts · diziIcerigiDogrula, Ruling R32).
+    kavram: z.boolean().default(false),
   }),
 })
 
