@@ -6,6 +6,5 @@ esanlam:
   - kırıklık transferi
 ---
 
-Tekleme, farklı mağazalarda tek tek kalmış bedenleri, o bedenlerin seti
-tamamlayacağı mağazada toplamaktır. Böylece bir mağazada kırık duran set
-bütünlenir.
+Tekleme, farklı mağazalarda tek tek kalmış bedenleri, setini tamamlayabilecekleri
+mağazada toplamaktır. Böylece seti bozulmuş mağazada set tamamlanır.
