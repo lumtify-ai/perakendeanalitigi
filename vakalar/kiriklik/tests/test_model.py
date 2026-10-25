@@ -209,6 +209,13 @@ def test_kaba_kuvvetle_ayni(set_kosulu, verici_yalniz_kirik):
     assert b["lp_siniri"] >= en_iyi - 1e-6
     assert b["gap_lp"] == pytest.approx((b["lp_siniri"] - b["amac"]) / b["lp_siniri"], abs=1e-9)
     assert en_iyi - deger <= b["gap_lp"] * b["lp_siniri"] + 1e-6
+    # R18: set koşulunda kesmeli kök sınırı da; sinir = min(lp, kök), set koşulsuz sinir = lp
+    if set_kosulu:
+        assert b["kok_siniri"] is not None and b["sinir"] == min(b["lp_siniri"], b["kok_siniri"])
+    else:
+        assert b["kok_siniri"] is None and b["sinir"] == b["lp_siniri"] and b["gap"] == b["gap_lp"]
+    assert b["sinir"] >= en_iyi - 1e-6
+    assert b["gap"] == pytest.approx(max(0.0, b["sinir"] - b["amac"]) / b["sinir"], abs=1e-9)
     assert b["rota_daraltilmis"] <= b["rota_aday"]
 
 
@@ -339,11 +346,12 @@ def test_plan_ve_bilgi():
     assert [t.kind for t in p.hareketler.dtypes] == ["O", "O", "i", "O", "O", "i"]
     assert (p.hareketler.urun_id == p.hareketler.option_id + "-" + p.hareketler.beden_sira.astype(str)).all()
     for k in ("durum", "amac", "lp_siniri", "gap_lp", "sinir", "gap", "degisken_sayisi", "kisit_sayisi",
-              "rota_aday", "rota_daraltilmis", "kurma_sn", "lp_sn", "mip_sn", "sure_sn", "rota_sayisi",
+              "rota_aday", "rota_daraltilmis", "kurma_sn", "lp_sn", "kok_sn", "mip_sn", "sure_sn",
+              "kok_siniri", "cbc_sinir", "cbc_gap", "rota_sayisi",
               "tamamlanan_alicilar", "set_kosulu", "verici_yalniz_kirik"):
         assert k in p.bilgi, k
     assert p.bilgi["rota_sayisi"] == len(plan.rotalar(p.hareketler))
-    assert p.bilgi["gap"] == pytest.approx(0.0, abs=sabitler.GAP_REL)
+    assert p.bilgi["cbc_gap"] == pytest.approx(0.0, abs=sabitler.GAP_REL)
 
 
 def test_talep_eksik_hucre_hata():
@@ -379,9 +387,11 @@ def _veri_cozumu(veri_con, sezon, set_kosulu):
     h = p.hareketler
     b = p.bilgi
     print(f"\n{sezon} {p.kol}: durum {b['durum']}, LP {b['lp_siniri']:.1f}, amaç {b['amac']:.1f}, "
-          f"gap_lp {b['gap_lp']:.5f}, CBC sınır {b['sinir']}, CBC gap {b['gap']}, rota {b['rota_aday']}/"
+          f"gap_lp {b['gap_lp']:.5f}, kök {b['kok_siniri']}, sınır {b['sinir']:.1f}, gap {b['gap']:.5f}, "
+          f"CBC daraltılmış sınır {b['cbc_sinir']} gap {b['cbc_gap']}, rota {b['rota_aday']}/"
           f"{b['rota_daraltilmis']}, değişken {b['degisken_sayisi']}/{b['lp_degisken_sayisi']}, "
-          f"süre {sure:.1f} sn (kurma {b['kurma_sn']:.1f}, LP {b['lp_sn']:.1f}, MIP {b['mip_sn']:.1f}); "
+          f"süre {sure:.1f} sn (kurma {b['kurma_sn']:.1f}, LP {b['lp_sn']:.1f}, kök {b['kok_sn']:.1f}, "
+          f"MIP {b['mip_sn']:.1f}); "
           f"hareket {len(h)}, adet {int(h.adet.sum())}, plan rotası {b['rota_sayisi']}, "
           f"alıcı {b['alici_sayisi']}, tamamlanan {len(b['tamamlanan_alicilar'])}")
     return g, p
@@ -410,7 +420,7 @@ def _tutarli(g, p, set_kosulu):
 def test_opt_aw24_cozulur(veri_con, set_kosulu):
     g, p = _veri_cozumu(veri_con, "AW24", set_kosulu)
     assert p.bilgi["durum"] in ("optimal", "dugum_siniri")          # R16
-    assert p.bilgi["gap_lp"] <= 0.05
+    assert p.bilgi["gap"] <= 0.05                                  # R18
     _tutarli(g, p, set_kosulu)
 
 
@@ -419,5 +429,5 @@ def test_opt_aw24_cozulur(veri_con, set_kosulu):
 def test_opt_ss25_cozulur(veri_con, set_kosulu):
     g, p = _veri_cozumu(veri_con, "SS25", set_kosulu)
     assert p.bilgi["durum"] in ("optimal", "dugum_siniri")          # R16
-    assert p.bilgi["gap_lp"] <= 0.05
+    assert p.bilgi["gap"] <= 0.05                                  # R18
     _tutarli(g, p, set_kosulu)

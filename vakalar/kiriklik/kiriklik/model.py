@@ -39,8 +39,10 @@ raporu). İki evre: (1) bütün programın LP gevşetmesi; amacı geçerli üst 
 tamsayılı program: yalnız LP'de açık rotalar (y_LP > 1e-6) ve set koşulunda yalnız LP'de açık alıcılar
 (z_LP > 1e-6); kalan mağazaların rol değişkenleri yerinde. CBC seri (PuLP 3.3.2'nin CBC 2.10.3'ü; `threads`
 verilmez, Blok Transfer dersi), `CBC_SECENEKLERI`, `gapRel = GAP_REL`, düğüm sınırı `DUGUM_SINIRI`, süre sınırı
-yok (aynı girdi aynı plan). Daraltma optimumu kaçırabilir; kaybı `gap_lp = (lp_siniri − amaç) ÷ |lp_siniri|`
-sınırlar. Durum "optimal" (daraltılmış programda gapRel içinde), "dugum_siniri" (düğüm sınırında en iyi çözüm),
+yok (aynı girdi aynı plan). Daraltma optimumu kaçırabilir; kaybı `gap = (sinir − amaç) ÷ |sinir|` sınırlar.
+`sinir` set koşulsuz `lp_siniri`dir; set koşulunda LP gevşek olduğu için (tamamla ya da hiç) bütün programın
+kesmeli kök düğüm sınırı da hesaplanır (Ruling R18; düğüm sınırı 0, aynı seçenekler) ve `sinir = min(lp_siniri,
+kok_siniri)`. Durum "optimal" (daraltılmış programda gapRel içinde), "dugum_siniri" (düğüm sınırında en iyi çözüm),
 "cozumsuz" (tamsayı çözüm yok: boş plan).
 """
 
@@ -140,8 +142,8 @@ class _Degerler:
 
 
 def _bilgi_bos(set_kosulu, verici_yalniz_kirik, paket, kalinti_orani, sure) -> dict:
-    return {"cozum": "model", "durum": "optimal", "amac": 0.0, "lp_siniri": 0.0, "gap_lp": 0.0, "sinir": 0.0,
-            "gap": 0.0, "degisken_sayisi": 0, "ikili_sayisi": 0, "kisit_sayisi": 0, "lp_degisken_sayisi": 0,
+    return {"cozum": "model", "durum": "optimal", "amac": 0.0, "lp_siniri": 0.0, "gap_lp": 0.0, "kok_siniri": None,
+            "sinir": 0.0, "gap": 0.0, "cbc_sinir": 0.0, "cbc_gap": 0.0, "kok_sn": 0.0, "degisken_sayisi": 0, "ikili_sayisi": 0, "kisit_sayisi": 0, "lp_degisken_sayisi": 0,
             "lp_kisit_sayisi": 0, "yay_sayisi": 0, "yay_daraltilmis": 0, "rota_aday": 0, "rota_daraltilmis": 0,
             "kurma_sn": sure, "lp_sn": 0.0, "mip_sn": 0.0, "sure_sn": sure,
             "rota_sayisi": 0, "alici_sayisi": 0, "tamamlanan_alicilar": [], "set_kosulu": set_kosulu,
@@ -155,9 +157,10 @@ def coz(g: KararGirdisi, talep: pd.DataFrame, kalinti_orani: float, paket: Paket
     """Sezonun bütün option'ları üzerinden tek program (modül belgesi). `talep` [magaza_id, urun_id, mu_tam,
     mu_ind, fiyat_tam, fiyat_ind] alıcı ve verici hücrelerini kapsamalı (eksikse `ValueError`); kalıntı değeri
     hücrenin `kalinti_orani × liste_fiyati`'dır. `bilgi` (R16): durum ("optimal" | "dugum_siniri" | "cozumsuz"),
-    amac (planın TL değeri, hareketlerden), lp_siniri, gap_lp, sinir ve gap (daraltılmış programın CBC sınırı ve
-    boşluğu), değişken / ikili / kısıt sayısı (daraltılmış; lp_* bütün program), yay ve rota sayıları (rota_aday
-    bütün, rota_daraltilmis), evre süreleri (kurma_sn, lp_sn, mip_sn, sure_sn), plandaki rota ve alıcı sayısı,
+    amac (planın TL değeri, hareketlerden), lp_siniri, gap_lp, kok_siniri (yalnız set koşulunda), sinir ve gap
+    (R18: bütün programın en iyi sınırı ve ona göre boşluk), cbc_sinir ve cbc_gap (daraltılmış programın), değişken /
+    ikili / kısıt sayısı (daraltılmış; lp_* bütün program), yay ve rota sayıları (rota_aday bütün,
+    rota_daraltilmis), evre süreleri (kurma_sn, lp_sn, kok_sn, mip_sn, sure_sn), plandaki rota ve alıcı sayısı,
     tamamlanan alıcılar ([option_id, magaza_id])."""
     t0 = time.perf_counter()
     ad = uygunluk.adaylar(g)
@@ -229,6 +232,13 @@ def coz(g: KararGirdisi, talep: pd.DataFrame, kalinti_orani: float, paket: Paket
     acik_alici = {k for k, zr in z.items() if (zr.value() or 0.0) > _LP_ESIGI}
     lp_sn = time.perf_counter() - t1
 
+    # evre 1b (R18): set koşulunda LP gevşek (tamamla ya da hiç); bütün programın kesmeli kök düğüm sınırı
+    kok_siniri, kok_sn = None, 0.0
+    if set_kosulu:
+        t3 = time.perf_counter()
+        _, kok_siniri = _cbc(pr, dugum=0)
+        kok_sn = time.perf_counter() - t3
+
     # evre 2: daraltılmış program (LP'de açık rotalar; set koşulunda LP'de açık alıcılar)
     daralt = [yy for yy in yaylar
               if (yy[0], yy[1]) in acik_rota and (not set_kosulu or (yy[1], yy[2]) in acik_alici)]
@@ -237,19 +247,11 @@ def coz(g: KararGirdisi, talep: pd.DataFrame, kalinti_orani: float, paket: Paket
     t2 = time.perf_counter()
     if daralt:
         pr, x, _, _, ikili = _kur(daralt, alici, verici, stok, birim, paket, set_kosulu)
-        tanitici, log_yolu = tempfile.mkstemp(prefix="kiriklik_cbc_", suffix=".log")
-        os.close(tanitici)
-        try:
-            pr.solve(pulp.COIN_CMD(path=_CBC, msg=False, gapRel=sabitler.GAP_REL, maxNodes=sabitler.DUGUM_SINIRI,
-                                   options=list(sabitler.CBC_SECENEKLERI), logPath=log_yolu))
-            with open(log_yolu, encoding="utf-8", errors="replace") as f:
-                sinir = son_sinir(f.read())
-        finally:
-            os.remove(log_yolu)
-        durum = _DURUMLAR.get(pr.sol_status, "cozumsuz")
+        sol_status, cbc_sinir = _cbc(pr, dugum=sabitler.DUGUM_SINIRI)
+        durum = _DURUMLAR.get(sol_status, "cozumsuz")
         degisken, kisit = pr.numVariables(), pr.numConstraints()
     else:                                                            # LP hiçbir rotayı açmadı: boş plan en iyisi
-        durum, x, ikili, degisken, kisit, sinir = "optimal", [], 0, 0, 0, 0.0
+        durum, x, ikili, degisken, kisit, cbc_sinir = "optimal", [], 0, 0, 0, 0.0
     mip_sn = time.perf_counter() - t2
 
     satirlar = []
@@ -264,24 +266,46 @@ def coz(g: KararGirdisi, talep: pd.DataFrame, kalinti_orani: float, paket: Paket
     else:
         h = plan.bos(kol, g.sezon, {}).hareketler
     plan_amaci = _plan_amaci(h, stok, deger, birim, paket)
-    gap = None
-    if sinir is not None:
-        gap = (sinir - plan_amaci) / max(abs(plan_amaci), 1e-9) if sinir - plan_amaci > 1e-6 else 0.0
-    gap_lp = (lp_siniri - plan_amaci) / max(abs(lp_siniri), 1e-9) if lp_siniri - plan_amaci > 1e-6 else 0.0
+    cbc_gap = None
+    if cbc_sinir is not None:
+        cbc_gap = ((cbc_sinir - plan_amaci) / max(abs(plan_amaci), 1e-9)
+                   if cbc_sinir - plan_amaci > 1e-6 else 0.0)
+    sinir = lp_siniri if kok_siniri is None else min(lp_siniri, kok_siniri)
+    gap_lp, gap = (_bosluk(lp_siniri, plan_amaci), _bosluk(sinir, plan_amaci))
 
     gelen = h.groupby(["alici", "option_id", "beden_sira"]).adet.sum().to_dict()
     tamamlanan = [[o, a] for o, a in sorted(set(zip(h.option_id, h.alici)))
                   if all(stok.get((a, o, s), 0) + gelen.get((a, o, s), 0) >= 1 for s in _SIRALAR)]
     bilgi = _bilgi_bos(set_kosulu, verici_yalniz_kirik, paket, kalinti_orani, 0.0)
     bilgi.update({
-        "durum": durum, "amac": plan_amaci, "lp_siniri": lp_siniri, "gap_lp": gap_lp, "sinir": sinir, "gap": gap,
+        "durum": durum, "amac": plan_amaci, "lp_siniri": lp_siniri, "gap_lp": gap_lp, "kok_siniri": kok_siniri,
+        "sinir": sinir, "gap": gap, "cbc_sinir": cbc_sinir, "cbc_gap": cbc_gap,
         "degisken_sayisi": degisken, "ikili_sayisi": ikili, "kisit_sayisi": kisit,
         "lp_degisken_sayisi": lp_degisken, "lp_kisit_sayisi": lp_kisit, "yay_sayisi": len(yaylar),
         "yay_daraltilmis": len(daralt), "rota_aday": rota_aday, "rota_daraltilmis": len(acik_rota),
         "rota_sayisi": len(set(zip(h.verici, h.alici))), "alici_sayisi": len(set(zip(h.option_id, h.alici))),
-        "tamamlanan_alicilar": tamamlanan, "kurma_sn": kurma_sn, "lp_sn": lp_sn, "mip_sn": mip_sn,
-        "sure_sn": time.perf_counter() - t0})
+        "tamamlanan_alicilar": tamamlanan, "kurma_sn": kurma_sn, "lp_sn": lp_sn, "kok_sn": kok_sn,
+        "mip_sn": mip_sn, "sure_sn": time.perf_counter() - t0})
     return plan.Plan(kol=kol, sezon=g.sezon, hareketler=h, bilgi=bilgi)
+
+
+def _bosluk(sinir: float, amac: float) -> float:
+    """(sınır − amaç) ÷ |sınır| (sınır amacın altındaysa ya da eşitse 0)."""
+    return (sinir - amac) / max(abs(sinir), 1e-9) if sinir - amac > 1e-6 else 0.0
+
+
+def _cbc(pr: pulp.LpProblem, dugum: int) -> tuple[int, float | None]:
+    """Seri CBC (`CBC_SECENEKLERI`, `gapRel = GAP_REL`, düğüm sınırı `dugum`, süre sınırı yok): (PuLP çözüm durumu,
+    CBC logundan en iyi sınır)."""
+    tanitici, log_yolu = tempfile.mkstemp(prefix="kiriklik_cbc_", suffix=".log")
+    os.close(tanitici)
+    try:
+        pr.solve(pulp.COIN_CMD(path=_CBC, msg=False, gapRel=sabitler.GAP_REL, maxNodes=dugum,
+                               options=list(sabitler.CBC_SECENEKLERI), logPath=log_yolu))
+        with open(log_yolu, encoding="utf-8", errors="replace") as f:
+            return pr.sol_status, son_sinir(f.read())
+    finally:
+        os.remove(log_yolu)
 
 
 def _tamamlanabilir(yaylar: list, alici: dict, stok: dict) -> list:
