@@ -14,6 +14,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pulp
 import pytest
 
 from kiriklik import kaynak, model, plan, sabitler, tahmin, uygunluk
@@ -354,6 +355,52 @@ def test_plan_ve_bilgi():
     assert p.bilgi["cbc_gap"] == pytest.approx(0.0, abs=sabitler.GAP_REL)
 
 
+def test_artan_marjinal_deger_hata():
+    # R17: kalıntı (20 TL) indirim fiyatının üstündeyse v artar, artım değişkenleri sırayla dolmaz → ValueError
+    g = _dunya({("A", "O1"): (1, 0, 2, 1, 1), ("B", "O1"): (1, 2, 2, 1, 1)})
+    t = _talep(g, {("A", "O1"): (0.5, 0.5)}).assign(fiyat_tam=10.0, fiyat_ind=5.0)
+    with pytest.raises(ValueError, match="artıyor"):
+        _coz(g, t)
+
+
+@pytest.mark.parametrize("set_kosulu", [False, True])
+def test_cozumsuz_bos_plan(monkeypatch, set_kosulu):
+    # CBC tamsayı çözüm bulamazsa (kök de bulamazsa) boş plan, durum "cozumsuz"; sınır LP'ye düşer
+    monkeypatch.setattr(model, "_cbc", lambda pr, dugum, secenekler, gap_rel: (pulp.LpSolutionNoSolutionFound, None))
+    g = _dunya(_KABA)
+    p = _coz(g, _talep(g, _KABA_MU), set_kosulu, set_kosulu)
+    b = p.bilgi
+    assert p.hareketler.empty and b["durum"] == "cozumsuz" and b["amac"] == 0.0
+    assert b["sinir"] == b["lp_siniri"] and b["kok_siniri_yok"] is set_kosulu
+
+
+def test_kok_cozumu_daha_iyiyse_plan_odur(monkeypatch):
+    # daraltılmış program çözümsüz kalırsa kökün bütün programdaki çözümü plan olur (R19)
+    gercek = model._cbc
+
+    def sahte(pr, dugum, secenekler, gap_rel):
+        return gercek(pr, dugum, secenekler, gap_rel) if dugum == 0 else (pulp.LpSolutionNoSolutionFound, None)
+
+    monkeypatch.setattr(model, "_cbc", sahte)
+    g = _dunya(_KABA)
+    t = _talep(g, _KABA_MU)
+    p = _coz(g, t, True, True)
+    b = p.bilgi
+    assert b["kaynak"] == "kok" and b["durum"] == "dugum_siniri" and b["daraltilmis_durum"] == "cozumsuz"
+    assert not p.hareketler.empty and b["amac"] == pytest.approx(_Degerleyici(g, t).amac(p.hareketler), abs=1e-6)
+    assert b["amac"] == b["kok_amaci"] <= _kaba_kuvvet(g, t, True, True) + 1e-6
+    assert _coz(g, t, True, True).bilgi["kaynak"] in ("kok", "daraltilmis")
+
+
+@pytest.mark.parametrize("set_kosulu", [False, True])
+def test_ayni_girdi_ayni_plan(set_kosulu):
+    g = _dunya(_KABA)
+    t = _talep(g, _KABA_MU)
+    p, q = _coz(g, t, set_kosulu, set_kosulu), _coz(g, t, set_kosulu, set_kosulu)
+    assert p.kimlik == q.kimlik and not p.hareketler.empty
+    assert p.bilgi["amac"] == q.bilgi["amac"]
+
+
 def test_talep_eksik_hucre_hata():
     g = _dunya({("A", "O1"): (1, 0, 2, 1, 1), ("B", "O1"): (1, 2, 2, 1, 1)})
     t = _talep(g, {})
@@ -386,7 +433,8 @@ def _veri_cozumu(veri_con, sezon, set_kosulu):
     sure = time.perf_counter() - t0
     h = p.hareketler
     b = p.bilgi
-    print(f"\n{sezon} {p.kol}: durum {b['durum']}, LP {b['lp_siniri']:.1f}, amaç {b['amac']:.1f}, "
+    print(f"\n{sezon} {p.kol}: durum {b['durum']}, kaynak {b['kaynak']}, LP {b['lp_siniri']:.1f}, "
+          f"amaç {b['amac']:.1f}, "
           f"gap_lp {b['gap_lp']:.5f}, kök {b['kok_siniri']}, sınır {b['sinir']:.1f}, gap {b['gap']:.5f}, "
           f"CBC daraltılmış sınır {b['cbc_sinir']} gap {b['cbc_gap']}, rota {b['rota_aday']}/"
           f"{b['rota_daraltilmis']}, değişken {b['degisken_sayisi']}/{b['lp_degisken_sayisi']}, "

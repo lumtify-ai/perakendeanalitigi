@@ -128,7 +128,7 @@ def kural_plani(g: KararGirdisi, pencereler: tuple = PENCERELER, kol: str = "kur
                    .reset_index(drop=True))
     else:
         hareket = plan.bos(kol, g.sezon, {}).hareketler
-    bilgi = {"pencereler": [w if w == "std" else int(w) for w in pencereler],"cozum": "kural", "tamamlanan_alicilar": tamamlanan,
-             "atlanan_alicilar": atlanan,
+    bilgi = {"pencereler": [w if w == "std" else int(w) for w in pencereler], "cozum": "kural",
+             "tamamlanan_alicilar": tamamlanan, "atlanan_alicilar": atlanan,
              "puanlar": puan_tablosu.to_dict("records")}
     return plan.Plan(kol=kol, sezon=g.sezon, hareketler=hareket, bilgi=bilgi)

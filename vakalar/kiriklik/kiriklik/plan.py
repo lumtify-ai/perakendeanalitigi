@@ -46,7 +46,8 @@ class Plan:
             raise ValueError("hareket adedi tamsayı değerli olmalı")
         if h.duplicated(_SIRA).any():
             raise ValueError(f"hareket anahtarı {_SIRA} tekil olmalı")
-        h = h[KOLONLAR].astype({"beden_sira": "int64", "adet": "int64"})
+        h = h[KOLONLAR].astype({"beden_sira": "int64", "adet": "int64"})      # savunma kopyası
+        object.__setattr__(self, "hareketler", h)
         csv = h.sort_values(_SIRA, kind="mergesort").to_csv(index=False, lineterminator="\n")
         object.__setattr__(self, "_kimlik",
                            hashlib.sha256(f"{self.kol}\n{self.sezon}\n{csv}".encode()).hexdigest())

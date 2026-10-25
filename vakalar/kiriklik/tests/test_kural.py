@@ -92,10 +92,14 @@ def test_plan_anahtari_tekil_ve_adet_tamsayi():
         plan.Plan(kol="kural", sezon="AW24", hareketler=cift, bilgi={})
     with pytest.raises(ValueError, match="tamsayı"):
         plan.Plan(kol="kural", sezon="AW24", hareketler=h.assign(adet=[2.0, 1.5, 1.0]), bilgi={})
-    # tamsayı değerli float kabul edilir; kimlik kurulurken bir kez hesaplanır
-    p = plan.Plan(kol="kural", sezon="AW24", hareketler=h.assign(adet=[2.0, 1.0, 1.0]), bilgi={})
+    # tamsayı değerli float kabul edilir, int64 saklanır; plan girdinin savunma kopyasını tutar; kimlik bir kez
+    girdi = h.assign(adet=[2.0, 1.0, 1.0])
+    p = plan.Plan(kol="kural", sezon="AW24", hareketler=girdi, bilgi={})
+    assert p.hareketler.adet.dtype == "int64" and p.hareketler is not girdi
+    girdi.loc[0, "adet"] = 7.0
+    assert p.hareketler.adet.tolist() == [2, 1, 1]
     k = p.kimlik
-    p.hareketler.loc[0, "adet"] = 5.0
+    p.hareketler.loc[0, "adet"] = 5
     assert p.kimlik == k == _plan_ornek().kimlik
 
 
