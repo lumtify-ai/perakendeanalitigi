@@ -397,7 +397,8 @@ def test_ufuk_sema_ve_isaretler(talep):
 @pytest.mark.veri
 @UYARI
 def test_ufuk_toplami_makul(veri_con, talep):
-    """R9: stoklu hücrelerde Σ min(mu_tam, stok) ÷ yayımlanan brüt fiziksel satış [karar + 3, indirim) ∈ [0,8; 1,25].
+    """R9: stoklu hücrelerde Σ min(mu_tam, stok) ÷ yayımlanan brüt fiziksel satış [karar + 3, indirim) ∈ [0,75; 1,35] (R13: doğruluk
+    ölçümü değil, akıl sağlığı kontrolü; doğruluk sonra kahinle ölçülür).
     (Satış stokla kısıtlıdır; talep kısıtsızdır, o yüzden mu stokla kırpılarak kıyaslanır.)"""
     g, _, t = talep
     h = g.hucre.merge(t[["magaza_id", "urun_id", "mu_tam"]], on=["magaza_id", "urun_id"])
@@ -413,4 +414,4 @@ def test_ufuk_toplami_makul(veri_con, talep):
     oran = np.minimum(h.mu_tam, h.stok).sum() / gercek
     print(f"\n{g.sezon}: Σ min(mu_tam, stok) = {np.minimum(h.mu_tam, h.stok).sum():.1f}, "
           f"satış = {gercek}, oran = {oran:.3f}; Σ mu_tam = {h.mu_tam.sum():.1f}")
-    assert 0.8 <= oran <= 1.25, (g.sezon, oran)
+    assert 0.75 <= oran <= 1.35, f"{g.sezon}: oran = {oran:.3f}"

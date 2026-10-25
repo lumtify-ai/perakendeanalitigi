@@ -45,6 +45,9 @@ tek oranla uygulanır. (3) Evre 2'de talep tek ε̂ ile ölçeklenir (option'ın
 Poisson ortalamasıdır; dağılım optimizasyonun işi. (5) Talep stoktan bağımsızdır (stoksuz hücre de talep taşır): Σ mu,
 stokla kısıtlı yayımlanan satıştan büyüktür; kıyas `min(mu, stok)` ile yapılmalıdır.
 
+**Bilinen sapma.** Gerçek veride stoklu hücrelerde Σ min(mu_tam, stok) ÷ yayımlanan satış AW24'te 1,00, SS25'te 1,27:
+SS25 stoklu hücreleri yaklaşık %27 fazla tahmin eder (neden ölçülmedi). Veri testi bunu [0,75; 1,35] içinde sınar.
+
 Karar anı kilidi iki yerde: `kaynak.karar_girdisi` karardan sonrasını kesmiştir; bu modül de pencereyi
 `[karar − 28, karar)` (satış) ve `(karar − 28, karar]` (fotoğraf) ile kendisi kısar ve `og.bitis > karar` ise
 `ValueError` verir (karardan sonrasını görmüş bir öğrenme kullanılmaz).
