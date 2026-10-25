@@ -54,8 +54,10 @@ def puanlar(g: KararGirdisi, pencereler: tuple = PENCERELER) -> pd.DataFrame:
         s["tarih"] = pd.to_datetime(s.tarih)
         s = s[s.tarih < karar]
         s = s.merge(g.hucre[["urun_id", "option_id"]].drop_duplicates("urun_id"), on="urun_id")
+    if "std" in pencereler and "lansman_tarihi" not in g.optionlar:
+        raise KeyError("std penceresi için optionlar'da lansman_tarihi gerekir")
     lansman = (pd.to_datetime(g.optionlar.set_index("option_id").lansman_tarihi)
-               if "lansman_tarihi" in g.optionlar else pd.Series(dtype="datetime64[ns]"))
+               if "std" in pencereler else None)
     siralar = []
     for w in pencereler:
         if w == "std":
@@ -126,7 +128,7 @@ def kural_plani(g: KararGirdisi, pencereler: tuple = PENCERELER, kol: str = "kur
                    .reset_index(drop=True))
     else:
         hareket = plan.bos(kol, g.sezon, {}).hareketler
-    bilgi = {"pencereler": list(pencereler), "cozum": "kural", "tamamlanan_alicilar": tamamlanan,
+    bilgi = {"pencereler": [w if w == "std" else int(w) for w in pencereler],"cozum": "kural", "tamamlanan_alicilar": tamamlanan,
              "atlanan_alicilar": atlanan,
              "puanlar": puan_tablosu.to_dict("records")}
     return plan.Plan(kol=kol, sezon=g.sezon, hareketler=hareket, bilgi=bilgi)

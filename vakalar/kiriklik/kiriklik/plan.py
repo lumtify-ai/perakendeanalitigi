@@ -8,6 +8,7 @@ gerçeği tanımaz.
 import hashlib
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
 
 KOLONLAR = ["option_id", "urun_id", "beden_sira", "verici", "alici", "adet"]
@@ -25,27 +26,37 @@ class Plan:
     """Bir kolun bir sezondaki transfer planı.
 
     `hareketler` [option_id, urun_id, beden_sira, verici, alici, adet]: magaza_id'lerle, satırlar
-    (option_id, alici, verici, beden_sira) sırasında, adet > 0 (sıra zorlanmaz: `kimlik` sıradan bağımsızdır).
+    (option_id, alici, verici, beden_sira) sırasında, adet > 0 ve tamsayı değerli (sıra zorlanmaz: `kimlik`
+    sıradan bağımsızdır); (option_id, alici, verici, beden_sira) anahtarı tekildir.
     `bilgi` kola özel kayıttır (puanlar, çözüm durumu, gap, girdi kaynağı); kimliğe girmez.
     """
     kol: str
     sezon: str
     hareketler: pd.DataFrame
     bilgi: dict = field(default_factory=dict)
+    _kimlik: str = field(init=False, repr=False)
 
     def __post_init__(self):
-        if list(self.hareketler.columns) != KOLONLAR:
-            raise ValueError(f"hareketler sütunları {KOLONLAR} olmalı: {list(self.hareketler.columns)}")
-        if (self.hareketler.adet <= 0).any():
+        h = self.hareketler
+        if list(h.columns) != KOLONLAR:
+            raise ValueError(f"hareketler sütunları {KOLONLAR} olmalı: {list(h.columns)}")
+        if (h.adet <= 0).any():
             raise ValueError("hareket adedi pozitif olmalı")
+        if (h.adet.to_numpy(dtype=float) != np.round(h.adet.to_numpy(dtype=float))).any():
+            raise ValueError("hareket adedi tamsayı değerli olmalı")
+        if h.duplicated(_SIRA).any():
+            raise ValueError(f"hareket anahtarı {_SIRA} tekil olmalı")
+        h = h[KOLONLAR].astype({"beden_sira": "int64", "adet": "int64"})
+        csv = h.sort_values(_SIRA, kind="mergesort").to_csv(index=False, lineterminator="\n")
+        object.__setattr__(self, "_kimlik",
+                           hashlib.sha256(f"{self.kol}\n{self.sezon}\n{csv}".encode()).hexdigest())
 
     @property
     def kimlik(self) -> str:
         """sha256: kol + sezon + `hareketler`'in kanonik CSV'si (satırlar (option_id, alici, verici,
-        beden_sira) sıralı, sabit sütun sırası, tamsayı adet). Girdi satır sırasından bağımsızdır."""
-        h = self.hareketler[KOLONLAR].astype({"beden_sira": "int64", "adet": "int64"})
-        csv = h.sort_values(_SIRA, kind="mergesort").to_csv(index=False, lineterminator="\n")
-        return hashlib.sha256(f"{self.kol}\n{self.sezon}\n{csv}".encode()).hexdigest()
+        beden_sira) sıralı, sabit sütun sırası, tamsayı adet). Girdi satır sırasından bağımsızdır. Kurulurken
+        bir kez hesaplanır (plan değişmez kabul edilir)."""
+        return self._kimlik
 
 
 def bos(kol: str, sezon: str, bilgi: dict) -> Plan:

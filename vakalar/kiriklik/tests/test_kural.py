@@ -5,6 +5,7 @@ Dünya: karar günü 2024-12-09, asorti 1-2-2-1-1. Puan yalnız satıştan gelir
 3 gün önce o kadar adet satış verilir (mağazanın sırası = satışının sırası)."""
 
 import ast
+import json
 import time
 from datetime import date, timedelta
 from pathlib import Path
@@ -84,6 +85,20 @@ def test_plan_sema_dogrulanir():
         plan.Plan(kol="kural", sezon="AW24", hareketler=h.assign(adet=[2, 0, 1]), bilgi={})
 
 
+def test_plan_anahtari_tekil_ve_adet_tamsayi():
+    h = _plan_ornek().hareketler
+    cift = pd.concat([h, h.iloc[[0]]], ignore_index=True)          # (O1, A, B, 2) iki kez
+    with pytest.raises(ValueError, match="tekil"):
+        plan.Plan(kol="kural", sezon="AW24", hareketler=cift, bilgi={})
+    with pytest.raises(ValueError, match="tamsayı"):
+        plan.Plan(kol="kural", sezon="AW24", hareketler=h.assign(adet=[2.0, 1.5, 1.0]), bilgi={})
+    # tamsayı değerli float kabul edilir; kimlik kurulurken bir kez hesaplanır
+    p = plan.Plan(kol="kural", sezon="AW24", hareketler=h.assign(adet=[2.0, 1.0, 1.0]), bilgi={})
+    k = p.kimlik
+    p.hareketler.loc[0, "adet"] = 5.0
+    assert p.kimlik == k == _plan_ornek().kimlik
+
+
 def test_bos_plan_ve_rotalar():
     b = plan.bos("kural", "AW24", {"not": "x"})
     assert b.hareketler.empty and list(b.hareketler.columns) == KOLONLAR and b.bilgi == {"not": "x"}
@@ -129,6 +144,22 @@ def test_puan_std_lansmandan_baslar_ve_satissizlar_en_alta():
     t = kural.puanlar(g2)
     assert list(t.columns) == ["magaza_id", "option_id", "puan"] and len(t) == 4
     assert t.set_index("magaza_id").puan.to_dict() == {"A": 3.75, "B": 2.75, "C": 1.875, "D": 1.625}
+
+
+def test_puan_std_lansmansiz_optionlar_hata():
+    g = _dunya(_cift("A", "O1", (1, 0, 2, 1, 1)) + _cift("B", "O1", (1, 2, 2, 1, 1)), _satis(A=1))
+    g = kaynak.KararGirdisi(**{**g.__dict__, "optionlar": g.optionlar.drop(columns=["lansman_tarihi"])})
+    with pytest.raises(KeyError, match="lansman_tarihi"):
+        kural.puanlar(g)
+    assert kural.puanlar(g, (7, 28)).puan.notna().all()                  # std'siz pencereler lansmana bakmaz
+
+
+def test_bilgi_pencereleri_json_uyumlu():
+    g = _dunya(_cift("A", "O1", (1, 0, 2, 1, 1)) + _cift("B", "O1", (1, 2, 2, 1, 1)), _satis(A=1))
+    p = kural.kural_plani(g, ("std", np.int64(7), 28))
+    assert p.bilgi["pencereler"] == ["std", 7, 28]
+    assert [type(w) for w in p.bilgi["pencereler"]] == [str, int, int]
+    json.dumps(p.bilgi["pencereler"])
 
 
 def test_puan_gecersiz_pencere():
