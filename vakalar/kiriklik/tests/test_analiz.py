@@ -35,3 +35,20 @@ def test_analiz_kesif_sayilari(veri_con):
     s = analiz.sezon_blogu(veri_con, "AW24")
     assert {a: s["referans"]["butun"][a] for a in analiz.OZET_ALANLARI} == {a: h["ozet"][a] for a in analiz.OZET_ALANLARI}
     assert s["referans"]["hafta"] == -3 and len(s["haftalik"]) == 27
+
+
+def test_beden_sirasi_ozetle_esit():
+    """Beden sırası tablosunun toplamları aynı fotoğrafın `olcu.ozet`'ine eşittir; değilse `ValueError` (tanım tek)."""
+    import pandas as pd
+
+    from kiriklik import olcu
+    foto = pd.DataFrame([("M1", "O1", i + 1, a) for i, a in enumerate((1, 0, 0, 1, 1))]
+                        + [("M2", "O1", i + 1, a) for i, a in enumerate((1, 1, 2, 1, 1))]
+                        + [("M3", "O1", i + 1, 0) for i in range(5)],
+                        columns=["magaza_id", "option_id", "beden_sira", "stok"])
+    oz = olcu.ozet(olcu.cift_tablosu(foto))
+    t = analiz.beden_sirasi(foto, oz)
+    assert [x["kirik_cift"] for x in t] == [0, 1, 1, 0, 0] and [x["eksik_adet"] for x in t] == [0, 3, 2, 0, 0]
+    assert t[1]["pay"] == 0.5
+    with pytest.raises(ValueError, match="olcu.ozet"):
+        analiz.beden_sirasi(foto, oz | {"eksik_adet": oz["eksik_adet"] + 1})

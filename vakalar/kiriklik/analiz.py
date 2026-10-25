@@ -29,8 +29,8 @@ dağılımı (çift ve adet): "kırık setin kalan bedenleri atıllaşıyor mu".
 
 **Referans pazartesisi** (`referans`): indirim − 28'den sonraki ilk pazartesi (dahil); test sezonlarında karar günüdür
 (`sabitler.KARAR`, denetlenir), önceki sezonlarda aynı konumdaki pazartesi. O fotoğrafta beden sırasına göre
-(`beden_sirasi`: sıra başına sıfır stoklu çift sayısı ve stoklu çiftlerdeki payı, eksik adet) ve mağaza tipine göre
-kırıklık.
+(`beden_sirasi`: sıra başına sıfır stoklu çift sayısı ve stoklu çiftlerdeki payı, eksik adet; toplamları `olcu.ozet`'le
+zorla eşit) ve mağaza tipine göre kırıklık.
 
 **Uygunluk hunisi** (`huni`, yalnız test sezonları, karar anı `kaynak.karar_girdisi`): stoklu çift → kırık → eksik
 bedenlerin hiçbirinin depoda stoğu yok → açık siparişi de yok (K18) → mağaza uygun (K4). İlk üç basamak
@@ -177,8 +177,10 @@ def _hucre(foto: pd.DataFrame) -> pd.DataFrame:
     return foto[["magaza_id", "option_id", "beden_sira", "stok"]]
 
 
-def beden_sirasi(foto: pd.DataFrame) -> list[dict]:
-    """Stoklu çiftlerde beden sırası başına: sıfır stoklu (kırık) çift, stoklu çiftlerdeki payı, eksik adet."""
+def beden_sirasi(foto: pd.DataFrame, oz: dict) -> list[dict]:
+    """Stoklu çiftlerde beden sırası başına: sıfır stoklu (kırık) çift, stoklu çiftlerdeki payı, eksik adet. Tanım
+    `olcu.cift_tablosu`'nundur; burada sıraya ayrılır ve aynı fotoğrafın `olcu.ozet`'iyle (`oz`) eşitliği zorlanır:
+    çift sayısı = stoklu çift, Σ sıra kırık çift = kırık beden, Σ sıra eksik adet = eksik adet (yoksa `ValueError`)."""
     st = (foto.pivot_table(index=["magaza_id", "option_id"], columns="beden_sira", values="stok", aggfunc="sum",
                            fill_value=0).reindex(columns=[1, 2, 3, 4, 5], fill_value=0))
     st = st[st.sum(axis=1) > 0]
@@ -188,6 +190,9 @@ def beden_sirasi(foto: pd.DataFrame) -> list[dict]:
         k = int((st[i] == 0).sum())
         out.append({"beden_sira": i, "asorti": int(a), "kirik_cift": k, "pay": k / n if n else 0.0,
                     "eksik_adet": int(np.maximum(0, a - st[i].to_numpy()).sum())})
+    if (n, sum(x["kirik_cift"] for x in out), sum(x["eksik_adet"] for x in out)) != (
+            oz["stoklu_cift"], oz["kirik_beden"], oz["eksik_adet"]):
+        raise ValueError("beden sırası tablosu olcu.ozet ile tutmuyor (stoklu çift, kırık beden, eksik adet)")
     return out
 
 
@@ -252,7 +257,7 @@ def sezon_blogu(con, sezon: str) -> dict:
         haftalik.append(satir)
         if t == gunler["referans"]:
             referans = {"tarih": t.isoformat(), "hafta": satir["hafta"], "butun": satir["butun"],
-                        "tip": satir["tip"], "beden_sirasi": beden_sirasi(f)}
+                        "tip": satir["tip"], "beden_sirasi": beden_sirasi(f, satir["butun"])}
     if referans is None:
         raise ValueError(f"{sezon}: referans pazartesisi {gunler['referans']} sezonun haftalarında yok")
     return {"gunler": {a: d.isoformat() for a, d in gunler.items()},

@@ -197,6 +197,14 @@ def yuzde(x) -> str:
     return f"{yd(x2, 2)} ({yd(tek_ondalik(x2), 1)})"
 
 
+def puan_farki(a, b) -> str:
+    """b − a yüzde puanı (a, b oran 0–1): basılan iki ondalıklı yüzdelerin farkı ve onun bir kez yuvarlanmışı."""
+    if _yok(a) or _yok(b):
+        return "—"
+    x2 = fark(100 * float(a), 100 * float(b), 2)
+    return f"{isaretli(x2, 2)} puan ({isaretli(tek_ondalik(x2), 1)})"
+
+
 def bin_tl(x) -> str:
     return "—" if _yok(x) else f"{s(float(x) / 1e3, 0)} bin TL"
 
@@ -534,12 +542,12 @@ def veri_bolumu(v, ek) -> None:
               f"{s(k['option_deposuz'])}")
         print(f"  option başına medyan {s(k['option_basina_stoklu_medyan'], 0)} stoklu, "
               f"{s(k['option_basina_kirik_medyan'], 0)} kırık çift; son 28 günde {s(k['son28_esik'])}+ adet satan çift "
-              f"{s(k['son28_esik_ustu'])} ({y(oran(k['son28_esik_ustu'], oz['stoklu_cift']))})")
+              f"{s(k['son28_esik_ustu'])} ({yuzde(oran(k['son28_esik_ustu'], oz['stoklu_cift']))})")
 
 
 def _kirik_satiri(oz: dict) -> list[str]:
-    return [s(oz["stoklu_cift"]), s(oz["kirik_cift"]), y(oz["kirik_cift_oran"]), s(oz["kirik_beden"]),
-            y(oz["net_oran"]), s(oz["eksik_adet"]), y(oz["brut_oran"]), s(oz["dar_kirik_cift"])]
+    return [s(oz["stoklu_cift"]), s(oz["kirik_cift"]), yuzde(oz["kirik_cift_oran"]), s(oz["kirik_beden"]),
+            yuzde(oz["net_oran"]), s(oz["eksik_adet"]), yuzde(oz["brut_oran"]), s(oz["dar_kirik_cift"])]
 
 
 KIRIK_BASLIK = ["stoklu çift", "kırık çift", "pay", "kırık beden", "net", "eksik adet", "brüt", "dar tanımla kırık"]
@@ -556,28 +564,28 @@ def kiriklik_bolumu(v, ek) -> None:
         r = b["referans"]
         alt(f"{SEZON_ADLARI[z]}: referans pazartesisi (indirime {s(b['indirime_gun'])} gün, hafta {hk(r['hafta'])})")
         oz = r["butun"]
-        print(f"  {s(oz['kirik_cift'])} / {s(oz['stoklu_cift'])} çift kırık ({y(oz['kirik_cift_oran'])}); "
-              f"{s(oz['kirik_beden'])} kırık beden, net {y(oz['net_oran'])}, brüt {y(oz['brut_oran'])} "
+        print(f"  {s(oz['kirik_cift'])} / {s(oz['stoklu_cift'])} çift kırık ({yuzde(oz['kirik_cift_oran'])}); "
+              f"{s(oz['kirik_beden'])} kırık beden, net {yuzde(oz['net_oran'])}, brüt {yuzde(oz['brut_oran'])} "
               f"({s(oz['eksik_adet'])} eksik adet); dar tanımla {s(oz['dar_kirik_cift'])} çift "
-              f"(dar ÷ net {y(oran(oz['dar_kirik_cift'], oz['kirik_cift']))}, fark "
+              f"(dar ÷ net {yuzde(oran(oz['dar_kirik_cift'], oz['kirik_cift']))}, fark "
               f"{s(oz['kirik_cift'] - oz['dar_kirik_cift'])} çift)")
         for t in sabitler.FIZIKSEL_TIPLER:
             x = r["tip"][t]
-            print(f"  {t}: {s(x['kirik_cift'])} / {s(x['stoklu_cift'])} çift kırık ({y(x['kirik_cift_oran'])}), net "
-                  f"{y(x['net_oran'])}, brüt {y(x['brut_oran'])}")
+            print(f"  {t}: {s(x['kirik_cift'])} / {s(x['stoklu_cift'])} çift kırık ({yuzde(x['kirik_cift_oran'])}), net "
+                  f"{yuzde(x['net_oran'])}, brüt {yuzde(x['brut_oran'])}")
         print("  beden sırasına göre (sıra · asorti · sıfır stoklu çift · stoklu çiftlerde payı · eksik adet): " + "; ".join(
-            f"{x['beden_sira']} · {x['asorti']} · {s(x['kirik_cift'])} · {y(x['pay'])} · {s(x['eksik_adet'])}"
+            f"{x['beden_sira']} · {x['asorti']} · {s(x['kirik_cift'])} · {yuzde(x['pay'])} · {s(x['eksik_adet'])}"
             for x in r["beden_sirasi"]))
         _tablo(["hafta", *KIRIK_BASLIK, "AVM net", "Cadde net"],
-               [[hk(w["hafta"]), *_kirik_satiri(w["butun"]), y(w["tip"]["AVM"]["net_oran"]),
-                 y(w["tip"]["Cadde"]["net_oran"])] for w in b["haftalik"]])
+               [[hk(w["hafta"]), *_kirik_satiri(w["butun"]), yuzde(w["tip"]["AVM"]["net_oran"]),
+                 yuzde(w["tip"]["Cadde"]["net_oran"])] for w in b["haftalik"]])
         en = max(b["haftalik"], key=lambda w: (w["butun"]["kirik_beden"], -w["hafta"]))
         print(f"  en çok kırık beden hafta {hk(en['hafta'])}: {s(en['butun']['kirik_beden'])} (net "
-              f"{y(en['butun']['net_oran'])})")
+              f"{yuzde(en['butun']['net_oran'])})")
     for z, onceki in a["onceki"].items():
         r, q = a["sezon"][z]["referans"]["butun"], a["sezon"][onceki]["referans"]["butun"]
         print(f"  {z} − {onceki} referans pazartesisinde: kırık çift {isaretli(r['kirik_cift'] - q['kirik_cift'])}, net "
-              f"{isaretli(fark(100 * q['net_oran'], 100 * r['net_oran'], 1), 1)} puan")
+              f"{yuzde(r['net_oran'])} − {yuzde(q['net_oran'])} = {puan_farki(q['net_oran'], r['net_oran'])}")
 
 
 def _atil_hucre(x: dict) -> str:
@@ -598,14 +606,14 @@ def atil_bolumu(v, ek) -> None:
                [[hk(w["hafta"]), _atil_hucre(w["atil"]["cift"][f"x{x0}"]["satmayan"]),
                  *(_atil_hucre(w["atil"]["cift"][f"x{x}"]["atil"]) for x in sabitler.ATIL_DUYARLILIK),
                  s(w["atil"]["cift"][f"x{x0}"]["yeni"]["n"]), s(w["atil"]["sku"]["satmayan"]["adet"]),
-                 s(w["atil"]["sku"]["atil"]["adet"]), y(_atil_payi(w["atil"]["kirik_atil"]["kirik"])),
-                 y(_atil_payi(w["atil"]["kirik_atil"]["tam"]))] for w in b["haftalik"]])
+                 s(w["atil"]["sku"]["atil"]["adet"]), yuzde(_atil_payi(w["atil"]["kirik_atil"]["kirik"])),
+                 yuzde(_atil_payi(w["atil"]["kirik_atil"]["tam"]))] for w in b["haftalik"]])
         r = next(w for w in b["haftalik"] if w["hafta"] == b["referans"]["hafta"])
         ka = r["atil"]["kirik_atil"]
         print(f"  referans pazartesisi (hafta {hk(r['hafta'])}): atıl ya da satmayan payı kırık çiftlerde "
-              f"{y(_atil_payi(ka['kirik']))} ({s(ka['kirik']['atil']['n'] + ka['kirik']['satmayan']['n'])} çift, "
+              f"{yuzde(_atil_payi(ka['kirik']))} ({s(ka['kirik']['atil']['n'] + ka['kirik']['satmayan']['n'])} çift, "
               f"{s(ka['kirik']['atil']['adet'] + ka['kirik']['satmayan']['adet'])} adet), tam çiftlerde "
-              f"{y(_atil_payi(ka['tam']))}")
+              f"{yuzde(_atil_payi(ka['tam']))}")
 
 
 def _atil_payi(k: dict) -> float | None:
@@ -622,7 +630,7 @@ def uygunluk_bolumu(v, ek) -> None:
         b = h["basamaklar"]
         alt(f"{SEZON_ADLARI[z]}: karar sabahı")
         _tablo(["basamak", "çift", "önceki basamağın payı", "option"],
-               [[HUNI_ADLARI[x["ad"]], s(x["cift"]), "—" if i == 0 else y(oran(x["cift"], b[i - 1]["cift"])),
+               [[HUNI_ADLARI[x["ad"]], s(x["cift"]), "—" if i == 0 else yuzde(oran(x["cift"], b[i - 1]["cift"])),
                  s(x["option"])] for i, x in enumerate(b)])
         n = h["neden"]
         print(f"  eleme nedenleri (öncelik: mağaza, depo, açık sipariş): depoda var {s(n['depoda_var'])}, açık sipariş "
@@ -640,9 +648,8 @@ def uygunluk_bolumu(v, ek) -> None:
 
 
 def _cozucu(bilgi: dict) -> str:
-    gap = bilgi.get("gap")
-    return (f"durum {bilgi.get('durum', '—')}, kaynak {bilgi.get('kaynak', '—')}, gap {y(gap, 2)} (optimuma en çok "
-            f"{y(gap, 1)} uzak)")
+    return (f"durum {bilgi.get('durum', '—')}, kaynak {bilgi.get('kaynak', '—')}, gap {yuzde(bilgi.get('gap'))} (optimuma "
+            "en çok bu kadar uzak; gap yoksa —)")
 
 
 def plan_bolumu(v, ek) -> None:
@@ -666,9 +673,13 @@ def plan_bolumu(v, ek) -> None:
                 ek.append((f"PLAN {kol} {z}: tamamlanan alıcı = ölçülen alıcı çifti", t == p["alici_cift"]))
             else:
                 print(f"  {kol} {z}: {_cozucu(b)}")
-    gap = {kol: max((P(v, kol, z, p).get("gap") or 0.0) for z in SEZONLAR for p in oyun.YOLLAR)
-           for kol in ("opt", "opt_set", "kahin")}
-    print("  çözücü, bütün yollar ve iki sezon: en büyük gap " + ", ".join(f"{k} {y(g, 2)}" for k, g in gap.items()))
+    parca = []
+    for kol in ("opt", "opt_set", "kahin"):
+        gg = [P(v, kol, z, p).get("gap") for z in SEZONLAR for p in oyun.YOLLAR]
+        yok = sum(_yok(g) for g in gg)
+        parca.append(f"{kol} {yuzde(max(g for g in gg if not _yok(g)))}" if not yok
+                     else f"{kol} — (gap yok: {s(yok)} koşu)")
+    print("  çözücü, bütün yollar ve iki sezon: en büyük gap " + ", ".join(parca))
     k, o_ = (topla(OO(v, kol, TOPLAM), lambda o: o["plan"]["rota"]) for kol in ("kural", "opt"))
     ka, oa = (topla(OO(v, kol, TOPLAM), lambda o: o["plan"]["adet"]) for kol in ("kural", "opt"))
     print(f"  beklenti (K13) opt daha az ama daha dolu rota kurar: {tutuyor(o_ < k and oa / o_ > ka / k)} (iki sezon: "
@@ -692,7 +703,7 @@ def _kesit_tablosu(o: dict) -> None:
     _tablo(["kesit (kırık beden / kırık çift farkı)", *KAPSAM_ADLARI.values()], satirlar)
     lum = o["kiriklik"]["indirim_oncesi"]["kapsamlar"]["butun"]["lumoda"]
     print(f"  Lumoda indirimden önceki son pazartesi, bütün stok: {s(lum['kirik_beden'])} kırık beden, "
-          f"{s(lum['kirik_cift'])} kırık çift (net {y(lum['net_oran'])})")
+          f"{s(lum['kirik_cift'])} kırık çift (net {yuzde(lum['net_oran'])})")
 
 
 def _yol0_ozet(v, kol: str, sezon: str) -> None:
@@ -848,8 +859,8 @@ def satisa_donus_bolumu(v, ek) -> None:
 def para_bolumu(v, ek) -> None:
     print("Ciro farkı satis.tutar (net TL, iade dahil), bütün mağaza ve kanallar, karar → çıkış + 84; arz kollarda aynı "
           "olduğu için katkı farkıdır. Maliyet = toplama × adet + kargo × rota + yıpranma × alış değeri; net = ciro farkı "
-          "− maliyet. Paketler (adet başı TL, rota başı TL, yıpranma oranı): " + "; ".join(
-              f"{PAKET_ADLARI[p]} {s(k.toplama_birim_tl, 1)} / {s(k.kargo_rota_tl, 1)} / {y(k.yipranma_orani, 0)}"
+          "− maliyet. Paketler (adet başı TL, rota başı TL, yıpranma oranı 0–1): " + "; ".join(
+              f"{PAKET_ADLARI[p]} {s(k.toplama_birim_tl, 1)} / {s(k.kargo_rota_tl, 1)} / {s(k.yipranma_orani, 2)}"
               for p, k in sabitler.MALIYET_PAKETLERI.items()))
     for kol in YOL0_KOLLARI:
         for z in (*SEZONLAR, TOPLAM):
@@ -1008,6 +1019,10 @@ def demo_bolumu(v, ek) -> None:
         ek.append(("DEMO: sitedeki dosya bütçe içinde", v.demo_bayt is not None and v.demo_bayt < senaryolar.BUTCE))
 
 
+def _ayni(a, b, tol: float = 1e-9) -> bool:
+    return (_yok(a) and _yok(b)) or (not _yok(a) and not _yok(b) and abs(float(a) - float(b)) <= tol)
+
+
 def korunum_bolumu(v, ek) -> None:
     for i in oyun.izgara_listesi(v.olcek):
         if i.kol == LUMODA or i.ad not in v.gecerli:
@@ -1018,6 +1033,12 @@ def korunum_bolumu(v, ek) -> None:
         ek.append((f"{i.ad}: ölçümün sezonu", r["olcum"].get("sezon") == i.sezon))
         ek.append((f"{i.ad}: planın girdisi yolun Lumoda'sı", (v.planlar[i.ad]["bilgi"] or {}).get("girdi")
                    == {"yol": i.yol, "lumoda_anahtari": r["lumoda_anahtari"]}))
+        o = r["olcum"]
+        sd, t, h = o["satisa_donus"], _sd_toplam([o]), senaryolar.ham([o], sabitler.KARAR_PAKETI)
+        ek.append((f"{i.ad}: yeniden türetilen satışa dönüş oranları = olcutler'in ölçtüğü (rapor ve demo)",
+                   all(_ayni(a, b) for a, b in ((t["saha_indirime"], sd["saha_indirime"]),
+                                                (t["saha_cikisa"], sd["saha_cikisa"]), (t["etki_oran"], sd["etki_oran"]),
+                                                (h["saha_donus"], sd["saha_cikisa"]), (h["etki_donus"], sd["etki_oran"])))))
     ek.append(("ızgaranın bütün koşuları geçerli ve ölçülmüş",
                v.taslak or len(v.gecerli) + len(v.lumoda) == len(oyun.izgara_listesi(v.olcek))))
     if v.analiz is not None and v.olcek == "tam":
@@ -1031,7 +1052,8 @@ def korunum_bolumu(v, ek) -> None:
                                                          "eksik_adet"))))
     n = korunum(ek)
     print(f"  {s(n)} denetim tuttu: {s(len(v.gecerli))} koşunun korunumu ({', '.join(KORUNUM_KOSULLARI)}), ölçümün "
-          "sezonu, planın girdisi; plan önbelleği bugünkü karar koduyla; uygunluk hunisi; hikâye sahnesi; demo kartları.")
+          "sezonu, planın girdisi, yeniden türetilen satışa dönüş oranları; plan önbelleği bugünkü karar koduyla; uygunluk "
+          "hunisi; hikâye sahnesi; demo kartları.")
     print(f"  oyun.json kayıtları bugünkü ölçüm koduyla ({v.olcum_kodu[:12]}); analiz.json "
           f"{(v.analiz or {}).get('kod', '—')[:12]}; hikaye.json {(v.hikaye or {}).get('kod', '—')[:12]}.")
 

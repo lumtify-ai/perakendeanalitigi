@@ -69,6 +69,18 @@ def test_fark_kurali(tmp_path):
     assert len(yuzdeler) > 20
     for iki, bir in yuzdeler:
         assert rapor.s(rapor.tek_ondalik(float(iki.replace(",", "."))), 1) == bir
+    # analizin bölümleri: her yüzde iki ondalık + parantezde bir ondalık; yalnız bir ondalıklı yüzde kalmaz
+    cift = re.compile(r"−?%[\d.]+,\d\d \(−?%[\d.]+,\d\)")
+    for ad in ("VERİ", "KIRIKLIK", "ATIL", "UYGUNLUK"):
+        b_ = _bolum(m, ad)
+        assert cift.search(b_), ad
+        assert not re.search(r"%[\d.]+,\d(?!\d)", cift.sub("", b_)), ad
+    # önceki sezon farkı: düzeyler iki ondalık, fark iki ondalıklı düzeylerin farkı ve onun bir kez yuvarlanmışı
+    satir = next(x for x in _bolum(m, "KIRIKLIK").splitlines() if "AW24 − AW23" in x)
+    d = re.search(r"net %([\d,]+) \(%[\d,]+\) − %([\d,]+) \(%[\d,]+\) = ([+−]?\d+,\d\d) puan \(([+−]?\d+,\d)\)", satir)
+    sayi = [float(x.replace("−", "-").replace(",", ".")) for x in d.groups()]
+    assert sayi[2] == pytest.approx(round(sayi[0] - sayi[1], 2)) and rapor.s(rapor.tek_ondalik(sayi[2]), 1) ==         d.group(4).lstrip("+")
+    assert rapor.puan_farki(0.40044, 0.40154) == "+0,11 puan (+0,1)"      # bir ondalıklı düzeyler %40,0 / %40,2 değil
     # AYRIŞIM: opt − opt_set farkı basılan iki ondalıklı düzeylerden
     g = sahte_rapor.girdiler()["oyun"]["kosular"]
     a_, b_ = (g[f"{k}_AW24"]["olcum"]["para"]["net"]["orta"] for k in ("opt_set", "opt"))
@@ -268,3 +280,27 @@ def test_beklentiler_hesaplanan_degerden(tmp_path):
             k["kapsamlar"]["butun"]["fark"]["kirik_beden"] -= 1_000
     m2 = _metin(tmp_path / "b", g)
     assert "set koşulu kazancı azaltır, kırık bedeni daha çok azaltır: TUTUYOR" in _bolum(m2, "AYRIŞIM")
+
+
+def test_gap_olmayan_kosu_yok_basilir(tmp_path):
+    """Planın gap'i ölçülmemişse (None) rapor "%0,00" değil "—" basar ve kaç koşuda olmadığını söyler."""
+    r = sahte_rapor.girdiler()["oyun"]["kosular"]["opt_SS25"]
+    pj = sahte_rapor.plan_json(r, sahte_rapor.KARAR_KODLARI["opt"])
+    pj["bilgi"]["gap"] = None
+    v = rapor.hazirla(**sahte_rapor.yaz(tmp_path, planlar={"opt_SS25": pj}))
+    kod, m = rapor.tamponla(lambda: rapor.govde(v))
+    assert kod == 0
+    p = _bolum(m, "PLAN")
+    assert "opt SS25: durum optimal, kaynak daraltilmis, gap —" in p and "opt — (gap yok: 1 koşu)" in p
+    assert "opt_set %1,70 (%1,7)" in p
+
+
+def test_yeniden_turetilen_oranlar_olculenle_ayni(tmp_path, capsys):
+    """İki sezon toplamı için Σ pay ÷ Σ payda ile yeniden türetilen satışa dönüş oranları, tek sezonda olcutler'in
+    ölçtüğü alanla aynı olmalı (KORUNUM); değilse stdout boş, çıkış 1."""
+    for alan in ("saha_indirime", "saha_cikisa", "etki_oran"):
+        g = sahte_rapor.girdiler()
+        g["oyun"]["kosular"]["y2_opt_set_SS25"]["olcum"]["satisa_donus"][alan] += 1e-6
+        v = rapor.hazirla(**sahte_rapor.yaz(tmp_path / alan, g))
+        assert rapor.tamponla(lambda: rapor.govde(v)) == (1, "")
+        assert "y2_opt_set_SS25: yeniden türetilen satışa dönüş" in capsys.readouterr().err
