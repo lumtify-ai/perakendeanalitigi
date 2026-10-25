@@ -1,0 +1,167 @@
+---
+baslik: Atıl Stok Nedir
+tip: anlatici
+sira: 2
+ozet: >-
+  Rafta duran malın satmadığını ne zaman söyleriz? Satmayan ve atıl stok, 28
+  günlük pencere ve eşik. Eşiği değiştirmek atıl listesini nasıl büyütüyor ve
+  atıl stok seti bozulmuş option'larda neden daha sık görülüyor?
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import T from '../../../../components/T.astro'
+
+Bir ürün bir mağazada haftalardır satmıyorsa, onu ne zaman "satmıyor" diye
+işaretleriz? Bir hafta mı beklemeli, bir ay mı? Bu sürede bir adet satmışsa
+satmış mı sayılır? Bu yazının sorusu bu: rafta duran malın satmadığını ne
+zaman söyleriz ve bu kararı veren eşik neyi değiştirir?
+
+Satmayan mal rafta yer kaplar; parası çoktan ödenmiştir ama geri dönmez.
+Başka bir mağazada satabilecek bir mal burada beklerken sezon da ilerler. Bu
+yüzden zincirler bu malı erkenden tanımak ister: başka mağazaya taşımak,
+indirmek ya da bilerek beklemek için. Tanımak için de iki karar vermek
+gerekir. Ne kadar geriye bakılacak ve o sürede kaç satış az sayılacak?
+
+## Pencere: 28 gün
+
+Lumoda'da son 28 güne bakıyoruz. Dört hafta, haftanın her gününü dört kez
+içerir. Tek bir sakin hafta ya da tek bir kalabalık cumartesi sonucu tek
+başına belirlemez.
+
+Pencerenin boyu bir uzlaşmadır. Kısaldıkça liste gürültülenir: iki sakin
+haftada satmayan her ürün listeye girer, bir sonraki hafta da çıkar.
+Uzadıkça liste geç kalır: bir ürünün satmadığını anlamak iki ay sürerse,
+sezonun o ürünle bir şey yapılabilecek kısmı da büyük ölçüde geçmiş olur.
+Dört hafta bu ikisinin arasında duruyor.
+
+Pencerenin bir de ön koşulu var: yalnız en az pencere kadar süredir rafta
+olan mal sayılır. Geçen hafta gelmiş bir ürünün az satması bir şey
+söylemez, satması için zamanı olmamıştır. Yeni gelen ürün bu ölçüye girmez.
+
+## Satmayan ve atıl
+
+Bu pencerede iki ayrı sınıf var. **Satmayan stok**, bu sürede hiç satmamış
+maldır. <T k="atil-stok">Atıl stok</T> ise satmış ama çok az satmıştır: en az
+bir adet, en çok bir eşik kadar. Eşiği şirket koyar. Lumoda'da option ile
+mağaza düzeyinde eşiği iki aldık: pencerede bir ya da iki adet satan çift
+atıl sayılıyor. Çift, bir option'ın bir mağazadaki stoğu demek.
+
+İkisini ayrı tutuyoruz, çünkü farklı soru sorarlar. Hiç satmayan malda soru
+"bu ürün bu mağazada satılabilir mi?" sorusudur. Az satan malda talep var,
+ama stoğu eritmeye yetmiyor.
+
+İkisi de <T k="olu-stok">ölü stok</T> değildir. Ölü stok, sezon da outlet de
+bittikten sonra kalan, bir daha satılmayacak maldır. Satmayan ve atıl stok
+sezonun içinde, hâlâ bir şey yapılabilecekken görünür.
+
+Aynı ölçü iki düzeyde alınır. Çift düzeyinde option'ın bütün bedenleri
+birlikte sayılır. Beden düzeyinde her beden ayrı sayılır, çünkü bir option
+satarken bedenlerinden biri hiç satmıyor olabilir. Beden düzeyinde eşiği bir
+aldık: pencerede tek adet satan beden atıl.
+
+## Lumoda'da bir pazartesi
+
+Kış sezonunda, indirime üç hafta kala, çift düzeyinde tablo şöyle. Atıl
+satırları eşiğin üç ayrı değeri için. Her satır kendi sınıfını sayıyor:
+eşik iki satırında bir ya da iki adet satan çiftler var, hiç satmayanlar
+yok.
+
+| Sınıf | Çift | Mağaza stoğu (adet) | Alış değeri |
+|---|---:|---:|---:|
+| Satmayan | 80 | 1.196 | 387 bin TL |
+| Atıl, eşik bir | 115 | 2.410 | 827 bin TL |
+| Atıl, eşik iki | 241 | 5.533 | 1.883 bin TL |
+| Atıl, eşik üç | 389 | 10.073 | 3.500 bin TL |
+
+Lumoda'nın kullandığı eşikte, yani ikide, atıl çiftlerin mağaza stoğu hiç
+satmayan çiftlerinkinin dört katından fazla. Asıl yük, satan ama yavaş satan
+çiftlerde.
+
+## Eşik neyi değiştirir
+
+Eşiği bir adet yukarı çekmek küçük bir karar gibi görünür. Tablo öyle
+olmadığını söylüyor. Eşik birden üçe çıkınca atıl çift sayısı üç katından
+fazla, bu çiftlerin mağaza stoğu dört katından fazla büyüyor.
+
+— Doğru eşik hangisi? diyor Pelin.
+
+— Bu sayıların hiçbiri onu söylemez, diyor Pars. Eşik bir karar. Atıl
+listesiyle ne yapılacaksa ona göre konur: listeye kim bakacak, haftada kaç
+çifte bakabiliyor, o malı taşımak ya da indirmek ne kadara mal oluyor.
+Eşiği yükselttikçe liste uzar ve listeye giren her yeni çift bir öncekinden
+daha çok satan bir çifttir.
+
+## Beden düzeyinde
+
+Aynı pazartesi beden düzeyinde satmayan stok 20.351 adet, atıl stok 24.403
+adet. Çift düzeyinde hiç satmayan stok yalnız 1.196 adetti. Aradaki farkın
+büyük kısmı, option'ı satan ama kendisi satmayan bedenler.
+
+Bir örnekle düşünelim. Bir kazak bir mağazada dört haftada beş adet satmış,
+hepsi ikinci ve üçüncü bedenden. Birinci bedenin rafta duran iki adedi bu
+sürede hiç satmamış. Çift düzeyinde kazak satıyor, listeye girmez. Beden
+düzeyinde birinci beden satmayan stok. Ürün toplamda iş görüyor, ama
+bedenlerinden biri rafta bekliyor. Yalnız çift düzeyine bakan bir rapor bu
+malı görmez.
+
+## Sezon boyunca
+
+Sezonun ilk haftalarında liste boş, çünkü mal henüz pencere kadar süredir
+rafta değil. Sonra atıl stok sezonla birlikte büyüyor. Kış
+sezonunda eşik ikiyken indirime sekiz hafta kala 85 çift atıl. İndirim haftasında bu sayı 471,
+indirimden yedi hafta sonra 803. Satmayan çiftler de aynı haftalarda 8'den
+183'e, oradan 486'ya çıkıyor.
+
+İndirim bu büyümeyi durdurmuyor. Sezonun sonuna doğru rafta kalan çiftlerin
+giderek daha büyük bir kısmı ya az satıyor ya hiç satmıyor.
+
+## Kırıklıkla birlikte
+
+Atıl stok ile <T k="kiriklik">kırıklık</T> aynı option'da sık sık birlikte
+görülüyor. Kış sezonunda, indirime üç hafta kala, en az bir bedeninin stoğu
+sıfır olan çiftlerin %11,4'ü atıl ya da satmayan. Bütün bedenleri rafta olan
+çiftlerde bu pay %5,0. Seti bozulmuş çiftlerde atıl ya da satmayan
+stok iki kattan daha sık görülüyor.
+
+Bu bir sezonun tesadüfü değil. Yaz sezonunda aynı noktada paylar %6,9 ve
+%3,2. Bir önceki kış %13,5 ve %8,1. Üç sezonda da seti bozulmuş çiftler önde.
+İndirimden yedi hafta sonra, kış sezonunda, seti bozulmuş çiftlerin %45,8'i
+atıl ya da satmayan.
+
+Ama bu sayılar hangisinin hangisine yol açtığını söylemez. Seti bozulan
+option'ın satışı düşebilir: eksik bedeni arayan müşteri boş çıkar ve o
+bedenin talebi kayıtlara hiç girmez. Tersi de olur: bir option'ın satan
+bedenleri biter, geride satmayan bedenler kalır ve set de zaten bu yüzden
+bozulmuştur. İki yol da aynı tabloyu verir.
+
+Bu yüzden şöyle okuyoruz: kırıklık ile atıl stok birlikte görülüyor. Seti
+bozulmuş ve atıl bir çiftin eksik bedenini tamamlamak onu yeniden satar mı,
+yoksa kalan bedenleri başka bir mağazada mı daha çok iş görür? Bu soruyu
+bu iki ölçü tek başına cevaplamaz. [Kırıklık
+Transferi](/transfer/kiriklik-transferi/) dizisi ona aynı malla, aynı müşteri
+akışıyla bakıyor.
+
+## Sizin verinizde zor olan
+
+Eşik her yerde aynı şeyi söylemez. Çok satan büyük bir mağazada dört haftada
+iki adet satmak, küçük bir mağazada iki adet satmakla aynı şey değildir. Kategori de
+değiştirir: bir mont ile bir tişört aynı hızda satmaz. Bütün zincire tek
+eşik koymak, büyük mağazanın yavaş malını gizler, küçük mağazanınkini
+büyütür. Eşiği adetle değil, mağazanın ya da kategorinin kendi hızına göre
+koymak bu sorunu azaltır. Ama o zaman da hızın hangi dönemden, hangi
+mallardan ölçüleceği yeni bir karar olur.
+
+Rafta kaç gün durduğu bilgisi çoğu ERP'de yoktur. Lumoda'da her hareket
+kayıtlı olduğu için malın mağazaya ne zaman girdiği biliniyor. Gerçek bir
+zincirde stok tablosu bugün ne olduğunu söyler, ne zamandan beri orada
+olduğunu değil. Transferle gelen mal bu sayacı sıfırlar mı? Başka bir
+mağazada bir ay satmamış bir beden, yeni mağazasında yeni mi sayılır?
+
+İade ve sayım düzeltmeleri satışla karışabilir. Sayımda eksik çıkan bir beden
+stoktan satış gibi düşülürse, hiç satmayan mal satıyor görünür. Bir iade
+satıştan düşülmezse, aslında satmamış bir mal satmış sayılır.
+
+Son olarak sezonun hangi haftasında olduğunuz. Sezonun ilk aylarında dört hafta
+hiç satmayan bir ürün bir alarmdır. Sezon sonunda, indirimden hemen önce, aynı
+sayı olağan olabilir. Aynı eşik sezonun iki ucunda iki farklı şey söyler.
