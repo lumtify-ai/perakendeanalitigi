@@ -68,12 +68,16 @@ ciro farkı (sezon, toplam) − maliyet[paket].
 `cikista_kalan` çıkış − 7 fotoğrafında mağaza stoğu (`stok`, fotoğraftaki bütün mağazalar) ve depo stoğu
 (`depo_stok`): `magaza_adet`, `depo_adet`, `adet`, `liste` (× liste fiyatı), `alis` (× alış fiyatı); yoldaki mal
 girmez. `outlete_giden` `sevkiyat` tip `outlet_akisi` [karar, çıkış + 84): `adet`, `liste`, `alis`. `olu_stok`
-depo stoğu min(çıkış + 120, kapsamın son depo fotoğrafı) gününde: `adet`, `alis`.
+depo stoğu çıkış + 120 gününde (iki koşuda aynı gün; depo fotoğrafı günlüktür): `adet`, `alis`. Koşu o günü
+kapsamıyorsa `None`. İndirim Takvimi'nden tek sapma bu kapsanma kuralıdır: orada gün min(çıkış + 120, koşunun son
+depo fotoğrafı) idi; kısa koşunun son fotoğrafı ölü stok sayılmaz, iki koşu farklı günlerde ölçülmez.
 
 **Yan etki** [karar, çıkış + 84), kol − lumoda: `replenishment_adet_farki` (`sevkiyat` tip `replenishment`;
 `sezon` kapsamı ve `tum` bütün SKU'lar); `elle_transfer_adet_farki` Lumoda'nın bölge müdürü transferi, planın kendi
-satırları düşülerek: (kolun `elle_transfer` adedi − Σ plan adedi) − Lumoda'nınki (`sezon`, `tum`; plan sezon
-kapsamındadır); `gizli_kayip_farki` gizli gerçeğin `karsilanmayan`ı, sezon kapsamı × fiziksel mağazalar
+satırları düşülerek: (kolun `elle_transfer` adedi − planın karar günü gerçekten sevk edilen adedi) − Lumoda'nınki
+(`sezon`, `tum`; plan sezon kapsamındadır). Sevk edilen plan adedi (kaynak, hedef, urun_id) başına min(plan adedi,
+kolun karar günü `elle_transfer` adedi): kesilen ya da atılan plan satırı Lumoda'nın transferi sayılmaz (geçerli
+koşuda plan tam sevk edilir ve ikisi aynıdır); `gizli_kayip_farki` gizli gerçeğin `karsilanmayan`ı, sezon kapsamı × fiziksel mağazalar
 (`gizli_kayip_lumoda` Lumoda'nın düzeyi); `test_disi_ciro_farki` sezon kapsamı dışındaki bütün SKU'ların cirosu
 (öteki sezonlar, Outlet line, Basic/NOS, Standart; `test_disi_ciro_lumoda`).
 
@@ -338,6 +342,8 @@ class _Kapsam:
         self.karar = sabitler.KARAR[sezon]
         self.outlet_sonu = self.cikis + timedelta(days=OUTLET_GUN)
         self.son = _son_gun(kosu)
+        olu = self.cikis + timedelta(days=OLU_STOK_GUN)
+        self.olu_gun = olu if self.kapsar_gun(olu) else None             # iki koşuda tek gün (modül notu "Stok")
         self.kesit = {"karar": self.karar,
                       "varis_sonrasi": _sonraki_pazartesi(self.karar + timedelta(days=7)),
                       "indirim_oncesi": _sondaki_pazartesi(self.indirim - timedelta(days=1)),
@@ -486,12 +492,6 @@ def _depo(s: _Sql, ad: str, gunler: list[date]) -> pd.DataFrame:
     return df
 
 
-def _son_depo_gunu(s: _Sql, ad: str) -> date | None:
-    v = s.deger(f"""select max(t.tarih) from {s.t(ad, "depo_stok")} t
-                    join sku s on cast(t.urun_id as varchar) = s.urun_id""")
-    return None if v is None or pd.isna(v) else pd.Timestamp(v).date()
-
-
 def _sevk_tip(s: _Sql, ad: str, k: _Kapsam) -> pd.DataFrame:
     """[karar, çıkış + 84) sevkiyat: tip × kapsam (sezon kapsamı SKU'su mu) × option → adet, liste ve alış değeri."""
     return s.df(f"""
@@ -522,10 +522,7 @@ class _Toplamlar:
         self.hucre = _hucre_satis(s, ad, k, hucre)
         gunler = [g for g in (*k.kesit.values(),) if k.kapsar_gun(g)]
         self.foto = _fotograflar(s, ad, sorted(set(gunler)))
-        self.son_depo = _son_depo_gunu(s, ad)
-        olu = None if self.son_depo is None else min(k.cikis + timedelta(days=OLU_STOK_GUN), self.son_depo)
-        self.olu_gun = olu
-        self.depo = _depo(s, ad, sorted({g for g in (k.kesit["cikis_oncesi"], olu) if g is not None
+        self.depo = _depo(s, ad, sorted({g for g in (k.kesit["cikis_oncesi"], k.olu_gun) if g is not None
                                          and k.kapsar_gun(g)}))
         self.sevk = _sevk_tip(s, ad, k)
         self.gizli_kayip = _gizli_kayip(s, ad, k)
@@ -676,9 +673,9 @@ def _stok(k: _Kapsam, kt: _Toplamlar, lt: _Toplamlar, h: pd.DataFrame) -> dict:
         return {"adet": int(x["adet"].sum()), "liste": float(x["liste"].sum()), "alis": float(x["alis"].sum())}
 
     def olu(t: _Toplamlar, opt) -> dict | None:
-        if t.olu_gun is None or t.olu_gun < k.cikis:
+        if k.olu_gun is None:
             return None
-        d = deger(t.depo[t.depo["tarih"] == t.olu_gun], opt)
+        d = deger(t.depo[t.depo["tarih"] == k.olu_gun], opt)
         return {"adet": int(d["adet"].sum()), "alis": float((d["adet"] * d["alis"]).sum())}
 
     def uc(f, opt):
@@ -689,14 +686,24 @@ def _stok(k: _Kapsam, kt: _Toplamlar, lt: _Toplamlar, h: pd.DataFrame) -> dict:
 
     bolum = {ad: {"cikista_kalan": uc(cikista, opt), "outlete_giden": uc(outlete, opt), "olu_stok": uc(olu, opt)}
              for ad, opt in kapsamlar.items()}
-    olu_gun = lt.olu_gun if lt.olu_gun is not None and lt.olu_gun >= k.cikis else None
-    bolum["tarihler"] = {"cikis_fotografi": _iso(foto) if k.kapsar_gun(foto) else None, "olu_stok": _iso(olu_gun)}
+    bolum["tarihler"] = {"cikis_fotografi": _iso(foto) if k.kapsar_gun(foto) else None, "olu_stok": _iso(k.olu_gun)}
     return bolum
 
 
-def _yan_etki(k: _Kapsam, kt: _Toplamlar, lt: _Toplamlar, h: pd.DataFrame) -> dict:
+def _sevk_edilen_plan_adedi(h: pd.DataFrame, kol_elle: pd.DataFrame) -> int:
+    """Planın karar günü gerçekten sevk edilen adedi: (verici, alıcı, urun_id) başına min(plan adedi, kolun karar günü
+    `elle_transfer` adedi) (modül notu "Yan etki")."""
+    anahtar = ["kaynak", "hedef", "urun_id"]
+    p = (h.rename(columns={"verici": "kaynak", "alici": "hedef"})[anahtar + ["adet"]]
+         .groupby(anahtar, as_index=False)["adet"].sum())
+    e = kol_elle[anahtar + ["adet"]].groupby(anahtar, as_index=False)["adet"].sum().rename(columns={"adet": "sevk"})
+    m = p.merge(e, on=anahtar, how="left").fillna({"sevk": 0})
+    return int(np.minimum(m["adet"].to_numpy(dtype=np.int64), m["sevk"].to_numpy(dtype=np.int64)).sum())
+
+
+def _yan_etki(k: _Kapsam, kt: _Toplamlar, lt: _Toplamlar, h: pd.DataFrame, kol_elle: pd.DataFrame) -> dict:
     tam = k.kapsar(k.outlet_sonu)
-    plan_adet = int(h["adet"].sum())
+    plan_adet = _sevk_edilen_plan_adedi(h, kol_elle)
 
     def sevk(t: _Toplamlar, tip: str, kapsam: bool) -> int:
         x = t.sevk[t.sevk["tip"] == tip]
@@ -763,7 +770,8 @@ def olc(kol, lumoda, plan: Plan, sezon: str) -> dict:
     with _sql(kol=kol, lum=lumoda) as s:
         s.kaydet("sku", k.sku)
         s.kaydet("mag", k.mag.assign(fiziksel=k.mag["tip"].isin(sabitler.FIZIKSEL_TIPLER)))
-        alici_h = _varislar(h, _karar_gunu_elle(s, "kol", k.karar))
+        kol_elle = _karar_gunu_elle(s, "kol", k.karar)
+        alici_h = _varislar(h, kol_elle)
         verici_h = pd.DataFrame({"magaza_id": h["verici"].astype(object), "urun_id": h["urun_id"].astype(object)}
                                 ).drop_duplicates().reset_index(drop=True)
         hucre = pd.concat([alici_h[["magaza_id", "urun_id", "varis"]],
@@ -779,7 +787,7 @@ def olc(kol, lumoda, plan: Plan, sezon: str) -> dict:
         "satisa_donus": _satisa_donus(k, kt, lt, h, alici_h, verici_h),
         "para": _para(k, kt, lt, h),
         "stok": _stok(k, kt, lt, h),
-        "yan_etki": _yan_etki(k, kt, lt, h),
+        "yan_etki": _yan_etki(k, kt, lt, h, kol_elle),
         "plan": _plan_ozeti(k, kt, plan),
     }
     return _jsonla(sonuc)

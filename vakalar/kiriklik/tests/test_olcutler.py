@@ -120,8 +120,9 @@ def _stok(kol: bool) -> list[tuple]:
 
 
 def _depo(kol: bool) -> list[tuple]:
-    return [("2024-12-09", "A-1", 5), ("2025-02-17", "A-1", 5), ("2025-04-01", "A-1", 3 if kol else 4),
-            ("2025-04-01", "Z-1", 9)]
+    """Ölü stok günü çıkış + 120 = 2025-06-24; 2025-08-01 kapsamın son depo fotoğrafıdır (ölü stok sayılmaz)."""
+    return [("2024-12-09", "A-1", 5), ("2025-02-17", "A-1", 5), ("2025-06-24", "A-1", 3 if kol else 4),
+            ("2025-06-24", "Z-1", 9), ("2025-08-01", "A-1", 1)]
 
 
 PLAN_SATIRLARI = [  # option_id, urun_id, beden_sira, verici, alici, adet
@@ -174,19 +175,19 @@ def _siparis(adet=10) -> pd.DataFrame:
                ["siparis_tarihi", "gerceklesen_teslim"])
 
 
-def _kosu(kol: bool, plan: Plan | None = None, *, satis=None, stok=None, sevkiyat=None, kayitlar=None,
-          fiyat_orani=0.3, siparis=None, gercek=None, meta_ek=None) -> motor.Kosu:
+def _kosu(kol: bool, plan: Plan | None = None, *, satis=None, stok=None, depo=None, sevkiyat=None, kayitlar=None,
+          fiyat_orani=0.3, siparis=None, kalite=None, gercek=None, meta_ek=None) -> motor.Kosu:
     satis = _ORTAK_SATIS + (_KOL_SATIS if kol else _LUMODA_SATIS) if satis is None else satis
     tablolar = {
         "urun": _urun(), "magaza": _magaza(), "sezon": _sezon(),
         "satis": _df(satis, SATIS, ["tarih"]),
         "stok": _df(_stok(kol) if stok is None else stok, STOK, ["tarih"]),
-        "depo_stok": _df(_depo(kol), DEPO, ["tarih"]),
+        "depo_stok": _df(_depo(kol) if depo is None else depo, DEPO, ["tarih"]),
         "sevkiyat": _df(_sevkiyat(kol) if sevkiyat is None else sevkiyat, SEVK, ["tarih", "varis_tarihi"]),
         "fiyat": _df([("2024-12-30", "A", "normal", fiyat_orani)], ["hafta_baslangic", "option_id", "hat",
                                                                       "indirim_orani"], ["hafta_baslangic"]),
         "siparis": _siparis() if siparis is None else siparis,
-        "kalite_kontrol": _df([("P1", 1)], ["siparis_id", "hatali"]),
+        "kalite_kontrol": _df([("P1", 1)] if kalite is None else kalite, ["siparis_id", "hatali"]),
     }
     for ad in ("satis", "stok", "sevkiyat"):
         tablolar[ad] = tablolar[ad].sort_values(["tarih"], kind="stable").reset_index(drop=True)
@@ -337,7 +338,7 @@ def test_kiriklik_kapsamlari(olcum):
 
 def test_stok_cikista_kalan_outlet_olu(olcum):
     """Çıkışta kalan = çıkış − 7 fotoğrafında mağaza (bütün mağaza tipleri, İndirim Takvimi tanımı) + depo; outlet'e
-    giden `sevkiyat` tip `outlet_akisi`; ölü stok = min(çıkış + 120, son depo fotoğrafı) gününde depo."""
+    giden `sevkiyat` tip `outlet_akisi`; ölü stok = çıkış + 120 gününde depo (son depo fotoğrafı değil)."""
     s = olcum["stok"]["sezon"]
     assert s["cikista_kalan"]["lumoda"] == {"magaza_adet": 3, "depo_adet": 5, "adet": 8, "liste": 4000.0,
                                             "alis": 1600.0}
@@ -345,7 +346,18 @@ def test_stok_cikista_kalan_outlet_olu(olcum):
     assert s["outlete_giden"]["lumoda"]["adet"] == 1 and s["outlete_giden"]["fark"] == {
         "adet": -1, "liste": -500.0, "alis": -200.0}
     assert s["olu_stok"]["lumoda"]["adet"] == 4 and s["olu_stok"]["fark"] == {"adet": -1, "alis": -200.0}
-    assert olcum["stok"]["tarihler"] == {"cikis_fotografi": "2025-02-17", "olu_stok": "2025-04-01"}
+    assert olcum["stok"]["tarihler"] == {"cikis_fotografi": "2025-02-17", "olu_stok": "2025-06-24"}
+
+
+def test_olu_stok_gunu_kapsanmazsa_none():
+    """Koşu çıkış + 120'yi kapsamıyorsa ölü stok ölçülmez (iki koşuda None, tarih None); kısa koşunun son depo
+    fotoğrafına düşülmez. Çıkış − 7 fotoğrafı kapsandığı için çıkışta kalan ölçülür."""
+    son = (pd.Timestamp("2025-05-31") - pd.Timestamp("2022-07-04")).days + 1      # 2025-05-31 dahil
+    o = olcutler.olc(_kosu(True, meta_ek={"gun_sayisi": son}), _kosu(False, meta_ek={"gun_sayisi": son}),
+                     _plan(), SEZON)
+    s = o["stok"]["sezon"]
+    assert s["olu_stok"] is None and o["stok"]["tarihler"]["olu_stok"] is None
+    assert s["cikista_kalan"]["lumoda"]["adet"] == 8
 
 
 def test_yan_etki(olcum):
@@ -358,6 +370,15 @@ def test_yan_etki(olcum):
     assert y["gizli_kayip_farki"] == -3 and y["gizli_kayip_lumoda"] == 3
     assert y["test_disi_ciro_farki"] == pytest.approx(300.0)
     assert y["test_disi_ciro_lumoda"] == pytest.approx(1200.0)
+
+
+def test_elle_transfer_farki_sevk_edilen_plan_adediyle():
+    """Lumoda'nın elle transfer farkından planın karar günü gerçekten sevk edilen satırları düşülür (planlanan adet
+    değil): A-2 satırı 2 yerine 1 sevk edilirse kolun elle transferi 1 azalır ve düşülen de 1 azalır; fark yine −1
+    (Lumoda'nın kendi elle transferinin farkı)."""
+    kesik = [("S2", "S1", "A-2", 1)] + _plan_sevki(_plan())[1:] + _LUMODA_ELLE
+    o = olcutler.olc(_kosu(True, sevkiyat=_sevkiyat(True, kesik)), _kosu(False), _plan(), SEZON)
+    assert o["yan_etki"]["elle_transfer_adet_farki"] == {"sezon": -1, "tum": -1}
 
 
 def test_plan_ozeti(olcum):
@@ -462,6 +483,10 @@ def test_korunum_oyuncak(kol, lum):
     md["markdown"] = _df([(1, 0, 0, 0.5)], ["gun", "indis", "sutun", "deger"])
     assert not k(kayitlar=md)["fiyat_birebir"]
     assert not k(siparis=_siparis(adet=11))["siparis_birebir"]
+    assert not k(depo=_depo(True) + [("2024-12-09", "B-1", 2)])["oncesi_birebir"]         # karar sabahı depo
+    assert not k(sevkiyat=_sevkiyat(True) + [("2024-12-06", "2024-12-08", "DEPO", "S1", "B-1", 1, "replenishment",
+                                              None)])["oncesi_birebir"]                    # karardan önce sevkiyat
+    assert not k(kalite=[("P1", 0)])["siparis_birebir"]                                    # kalite kontrol
 
 
 def _tembel(kosu: motor.Kosu, dizin: Path) -> motor.KosuKaydi:
