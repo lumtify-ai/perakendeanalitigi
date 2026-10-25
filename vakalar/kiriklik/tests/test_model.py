@@ -204,6 +204,12 @@ def test_kaba_kuvvetle_ayni(set_kosulu, verici_yalniz_kirik):
     assert en_iyi * (1 - sabitler.GAP_REL) - 1e-6 <= deger <= en_iyi + 1e-6
     assert p.bilgi["durum"] == "optimal"
     assert p.bilgi["sinir"] >= p.bilgi["amac"] - 1e-6
+    # R16: LP gevşetmesi geçerli üst sınır; daraltmanın kaybını gap_lp sınırlar
+    b = p.bilgi
+    assert b["lp_siniri"] >= en_iyi - 1e-6
+    assert b["gap_lp"] == pytest.approx((b["lp_siniri"] - b["amac"]) / b["lp_siniri"], abs=1e-9)
+    assert en_iyi - deger <= b["gap_lp"] * b["lp_siniri"] + 1e-6
+    assert b["rota_daraltilmis"] <= b["rota_aday"]
 
 
 def test_kaba_kuvvet_kosullari_bagliyor():
@@ -332,7 +338,8 @@ def test_plan_ve_bilgi():
     assert list(p.hareketler.columns) == plan.KOLONLAR
     assert [t.kind for t in p.hareketler.dtypes] == ["O", "O", "i", "O", "O", "i"]
     assert (p.hareketler.urun_id == p.hareketler.option_id + "-" + p.hareketler.beden_sira.astype(str)).all()
-    for k in ("durum", "amac", "sinir", "gap", "degisken_sayisi", "kisit_sayisi", "sure_sn", "rota_sayisi",
+    for k in ("durum", "amac", "lp_siniri", "gap_lp", "sinir", "gap", "degisken_sayisi", "kisit_sayisi",
+              "rota_aday", "rota_daraltilmis", "kurma_sn", "lp_sn", "mip_sn", "sure_sn", "rota_sayisi",
               "tamamlanan_alicilar", "set_kosulu", "verici_yalniz_kirik"):
         assert k in p.bilgi, k
     assert p.bilgi["rota_sayisi"] == len(plan.rotalar(p.hareketler))
@@ -370,11 +377,13 @@ def _veri_cozumu(veri_con, sezon, set_kosulu):
                   set_kosulu=set_kosulu, verici_yalniz_kirik=set_kosulu, kol="opt_set" if set_kosulu else "opt")
     sure = time.perf_counter() - t0
     h = p.hareketler
-    print(f"\n{sezon} {p.kol}: durum {p.bilgi['durum']}, amaç {p.bilgi['amac']:.1f}, sınır {p.bilgi['sinir']}, "
-          f"gap {p.bilgi['gap']}, değişken {p.bilgi['degisken_sayisi']}, kısıt {p.bilgi['kisit_sayisi']}, "
-          f"süre {sure:.1f} sn; hareket {len(h)}, adet {int(h.adet.sum())}, rota {p.bilgi['rota_sayisi']}, "
-          f"alıcı {h[['option_id', 'alici']].drop_duplicates().shape[0]}, "
-          f"tamamlanan {len(p.bilgi['tamamlanan_alicilar'])}")
+    b = p.bilgi
+    print(f"\n{sezon} {p.kol}: durum {b['durum']}, LP {b['lp_siniri']:.1f}, amaç {b['amac']:.1f}, "
+          f"gap_lp {b['gap_lp']:.5f}, CBC sınır {b['sinir']}, CBC gap {b['gap']}, rota {b['rota_aday']}/"
+          f"{b['rota_daraltilmis']}, değişken {b['degisken_sayisi']}/{b['lp_degisken_sayisi']}, "
+          f"süre {sure:.1f} sn (kurma {b['kurma_sn']:.1f}, LP {b['lp_sn']:.1f}, MIP {b['mip_sn']:.1f}); "
+          f"hareket {len(h)}, adet {int(h.adet.sum())}, plan rotası {b['rota_sayisi']}, "
+          f"alıcı {b['alici_sayisi']}, tamamlanan {len(b['tamamlanan_alicilar'])}")
     return g, p
 
 
@@ -396,26 +405,19 @@ def _tutarli(g, p, set_kosulu):
         assert len(p.bilgi["tamamlanan_alicilar"]) == h[["option_id", "alici"]].drop_duplicates().shape[0]
 
 
-# Görev 7 raporu: GAP_REL ve DUGUM_SINIRI ile süre sınırsız CBC gerçek programda saatler sürüyor (5 dakikada
-# opt %0,44, opt_set'te olurlu çözüm yok ya da %17 boşluk). Çözücü politikası yürütücü kararını bekliyor.
-_COZUCU_BEKLIYOR = pytest.mark.skip(reason="çözücü politikası yürütücü kararını bekliyor (Görev 7 raporu)")
-
-
 @pytest.mark.veri
-@_COZUCU_BEKLIYOR
 @pytest.mark.parametrize("set_kosulu", [False, True])
 def test_opt_aw24_cozulur(veri_con, set_kosulu):
     g, p = _veri_cozumu(veri_con, "AW24", set_kosulu)
-    assert p.bilgi["durum"] in ("optimal", "limit")
-    assert p.bilgi["gap"] is not None and p.bilgi["amac"] > 0 and not p.hareketler.empty
+    assert p.bilgi["durum"] in ("optimal", "dugum_siniri")          # R16
+    assert p.bilgi["gap_lp"] <= 0.05
     _tutarli(g, p, set_kosulu)
 
 
 @pytest.mark.veri
-@_COZUCU_BEKLIYOR
 @pytest.mark.parametrize("set_kosulu", [False, True])
 def test_opt_ss25_cozulur(veri_con, set_kosulu):
     g, p = _veri_cozumu(veri_con, "SS25", set_kosulu)
-    assert p.bilgi["durum"] in ("optimal", "limit")
-    assert p.bilgi["amac"] > 0 and not p.hareketler.empty
+    assert p.bilgi["durum"] in ("optimal", "dugum_siniri")          # R16
+    assert p.bilgi["gap_lp"] <= 0.05
     _tutarli(g, p, set_kosulu)

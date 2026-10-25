@@ -53,6 +53,9 @@ KARAR_PAKETI = "orta"        # `opt` ailesi bu paketle karar verir; ölçüm ü�
 # Tahminde varış varsayımı (gün): transferin alıcıya vardığı gün karar gününden sonra bu kadar gündür.
 VARIS_GUN = 3
 
-# Programlar (tasarım §0/19): kanıtlı optimuma varmazsa gapRel ile durur, düğüm sınırı yalnız güvenlik içindir.
-GAP_REL = 0.0005
+# Programlar (tasarım §0/19, Ruling R16): LP gevşetmesinde açık rotalarla daraltılmış program gapRel ile durur
+# (%0,5); düğüm sınırı yalnız güvenlik içindir, süre sınırı yok. CBC seçenekleri (Görev 7 ölçümü): kök kesme
+# geçişi bir, olurlu çözüm sezgileri (proximity, RINS, DINS) açık.
+GAP_REL = 0.005
 DUGUM_SINIRI = 200_000
+CBC_SECENEKLERI = ("passC 1", "proximity on", "rins on", "dins on")

@@ -17,7 +17,8 @@ def test_degerler():
     assert (sabitler.ATIL_PENCERE_GUN, sabitler.ATIL_ESIK_OPTION, sabitler.ATIL_ESIK_SKU) == (28, 2, 1)
     assert sabitler.ATIL_DUYARLILIK == (1, 2, 3)
     assert sabitler.VARIS_GUN == 3
-    assert sabitler.GAP_REL == 0.0005 and sabitler.DUGUM_SINIRI == 200_000
+    assert sabitler.GAP_REL == 0.005 and sabitler.DUGUM_SINIRI == 200_000
+    assert sabitler.CBC_SECENEKLERI == ("passC 1", "proximity on", "rins on", "dins on")
 
 
 def test_maliyet_paketleri():
