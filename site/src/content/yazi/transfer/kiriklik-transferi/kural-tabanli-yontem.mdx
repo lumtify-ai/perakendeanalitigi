@@ -1,0 +1,172 @@
+---
+baslik: Kural Tabanlı Yöntem
+tip: anlatici
+sira: 3
+ozet: >-
+  Bir uzmanın kuralı kırıklık transferini nasıl yapar, nerede durur? En iyi
+  satandan başlar, seti bozulmuş mağazadan alır, ilk tamamlanamayan sette durur.
+  Rotalar tek adet kalır, kırık bedenin azalması da uzun sürmez.
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import T from '../../../../components/T.astro'
+
+Bu yazıda bir uzmanın kuralının bu işi nasıl yaptığını ve nerede durduğunu
+soruyoruz. Ali pudra montu elle çözmüştü. Ama kış karar sabahı aday 819 çift,
+yaz karar sabahı 651 çift. Bu iş elle yapılmaz; bir kural gerekir. Önce kuralı
+yazıya dökeceğiz, sonra iki sezonda ne yaptığına bakacağız.
+
+## Kural
+
+— Basit, diyor Ali. Bir ürünü sezonda en iyi satan mağazadan başlarım; eksik
+bedenleri depoda da yolda da yoksa alıcı odur. Malı aynı üründe seti zaten
+bozulmuş, en az satan mağazalardan alırım, tam seti bozmam. Bir mağaza o üründe
+bir kez verir. Alıcının her bedeni en az bire çıkamayacaksa hiç dokunmam: set ya
+tamamlanır ya olduğu gibi kalır.
+
+"En iyi satan"ın ölçüsü dört pencere: sezon başından bugüne satış, yani
+<T k="std">STD</T>, ve son 7, 14, 28 gün. Her pencerede mağazalar o
+<T k="option">option</T> içinde sıralanıyor, puan sıraların ortalaması; ağırlıklar
+eşit. STD uzun soluğu, kısa pencereler bugünü gösterir. Vericiler, yani havuz, o
+option'ın seti bozulmuş ve henüz işaretlenmemiş öteki mağazaları. Set tamamlanıyorsa
+bedenler <T k="asorti">asorti</T> adedine kadar, arz yettiğince dolduruluyor. Verici
+yalnız alıcının eksik bedenlerinden veriyor ve gerekirse o bedenin bütün stoğunu
+veriyor. Kural maliyete bakmıyor.
+
+Kodun özü birkaç satır. Aşağıdaki parça `vakalar/kiriklik/` altındaki çalışan
+koddan, tek bir option için sadeleştirildi.
+
+```python
+# kiriklik/kural.py, kural_plani (sadeleştirildi, tek option için)
+for alici in sorted(uygun_adaylar, key=puan, reverse=True):  # en iyi satandan
+    if alici in isaretli:                                    # verici olduysa alıcı olamaz
+        continue
+    havuz = [m for m in sorted(kirik_ciftler, key=puan)      # en az satandan
+             if m not in isaretli and m != alici]
+    arz = havuzun_stogu(havuz, ihtiyac[alici])
+    if not (arz[kirik_bedenler(alici)] >= 1).all():          # her kırık beden en az bire
+        atlanan.append(alici)                                # dokunulmaz
+        continue
+    verenler = doldur(alici, havuz)                          # asorti adedine kadar
+    isaretli |= {alici} | verenler                           # verici bu option'da bir kez verir
+```
+
+Bu kural kötü bir kural değil. Tam seti korumak, seti bozulmuş mağazadan almak,
+tamamlanmayacak sete mal yollamamak sahada makul seçimlerdir. Şimdi bu seçimlerin
+ne yaptığına bakalım.
+
+## Kural ne yaptı
+
+| | Kış | Yaz |
+|---|---:|---:|
+| Tamamlanan alıcı | 213 | 158 |
+| Atlanan alıcı | 335 | 299 |
+| Hareket | 446 | 330 |
+| Taşınan adet | 549 | 418 |
+| Rota | 312 | 241 |
+
+İki şey göze çarpıyor. Atlanan alıcı tamamlanandan çok. Taşınan adet de rotalara
+ince bir tabaka gibi yayılıyor.
+
+## Neden bu kadar alıcı atlanıyor
+
+— Bu kadar alıcıyı neden tamamlayamıyoruz? diyor Pelin. Mal mı yok?
+
+— Mal var, doğru beden yok, diyor Pars. Bir alıcının kırık bir bedeni havuzda
+hiçbir yerde kalmamışsa alıcı atlanır. Ama havuzda o bedenin kalmaması, sıradaki
+bütün adaylarda da o bedenin sıfır olması demek, çünkü onlar da havuzun içinde.
+
+Yani bir option'da ilk atlanan alıcıdan sonra hiçbir alıcı tamamlanamaz. Tamamlatan
+bedenin arzı bitmiştir. Kural en iyi satandan başlıyor, ilk tamamlanamayan sette
+duruyor. Atlanan alıcıların çoğu ayrı ayrı şansı olan mağazalar değil, o noktadan
+sonra sırada kalanlar.
+
+Pudra mont bunu gösteriyor. Kural o montta üç alıcı tamamladı; İstanbul 17 üçüncüsü.
+Sıradaki aday atlandı, ondan sonrakiler de. Sahadaki bir allocator buna "bu ürünü
+daha fazla toparlayamıyoruz" der.
+
+Bu, kuralın doğal sınırı. Set koşulunun ve "verici bir kez verir"in sonucu. Bir
+mağaza L ve XL'i aynı anda verebilir, ama aynı option'da başka bir alıcıya bir
+daha vermez. Bu seçim bir mağazanın kalan malının birkaç yöne dağılmasını önlüyor,
+karşılığında daha az alıcı tamamlanıyor.
+
+## Tek adetlik rotalar
+
+Hikâyede beş mağazadan beş adet gelmişti. Bu olağan değil: alıcı başına verici
+sayısının medyanı kışın 1, yazın 1,5. Pudra mont yine de bir konuda tipik: rota
+başına adetin medyanı iki sezonda da 1.
+
+Sebep kuralın kurulumunda. Vericiyi her option kendi içinde, kendi puan sırasıyla
+seçiyor. Bir mağaza çiftinin zaten rotası var mı diye bakmıyor. Bu yüzden kamyonlar
+toplanmıyor. Geçen yazıda sorduğumuz soru burada kendini gösteriyor; parasını
+altıncı yazıda göreceğiz.
+
+## Kırık beden ne oldu
+
+Ölçüm iki kesitte, bütün stokta. Kırık beden sayısının Lumoda'nın aynı gününe göre
+farkına bakıyoruz.
+
+Varıştan sonraki ilk pazartesi kışın −73, yazın −31. Vericilerde ise kırık beden
+artıyor: kışın +34, yazın +50. Beklenen bir şey bu; verici bir bedenin bütün
+stoğunu verince o beden orada sıfıra iniyor. Kural tam seti koruduğu için yeni
+kırık çift açmıyor, ama seti zaten bozulmuş mağazada eksiği büyütüyor.
+
+İndirimden önceki son pazartesi fark kışın −26, yazın −27. Lumoda'da kışın o
+pazartesi 4.011 kırık beden var. Kışın etkinin çoğu indirime gelmeden erimiş, yazın
+baştan küçüktü. İstanbul 17'de gördüğümüz bu: mal satılınca set yeniden bozuluyor.
+
+Sahanın göreceği sayı ise çok daha parlak. Alınan malın satışa dönüşü kışın
+indirime kadar %90,7, çıkışa kadar %97,1; yazın %95,0 ve %98,8. Çıkış, malın sezon
+mağazalarından toplandığı gün. Bu sayılar yalnız alıcıya bakıyor. Veli'nin sorusunun
+cevabı bunlarda yok; altıncı yazı onu ayırıyor.
+
+## Sansür tuzağı
+
+Kurala baştan bir itiraz vardı. Seti bozulmuş mağazanın son günleri düşük görünür:
+bedeni rafta yok ki satsın. Buna <T k="sansurlu-talep">sansürlü talep</T> diyoruz.
+Kuralın puanında kısa pencereler olduğu için, seti çoktan bozulmuş iyi bir mağazayı
+gözden kaçırması beklenir.
+
+Pudra montta bunun bir örneği var. İstanbul 18 sezon başından beri o montu İstanbul
+17'den çok satmış. Ama elinde yalnız XXL kaldığı için son haftada hemen hiç
+satamamış. Puanı düşmüş, kural onu verici yapmış. Yalnız son günlere bakan bir kural
+bu hataya daha da açık olmalı.
+
+Bunu sınadık. Aynı kuralı, puanı yalnız son 28 gün olacak şekilde koştuk. Beklediğimiz
+olmadı. İki kural neredeyse aynı sonucu veriyor. Tamamlanan alıcı sayısı hemen hemen
+aynı. İndirimden önceki son pazartesi kırık beden farkı, iki sezonun
+toplamında ve bütün stokta, yalnız 28 güne bakan kuralda −59, asıl kuralda −53. Ciro farkından transfer maliyetini düşünce, orta bir maliyet varsayımıyla ikisi
+de iki sezonda 0,0 M TL.
+
+Yani pencerenin seçimi burada çok az şey değiştiriyor; tek tek mağazalarda yanıltsa
+da toplamda ağırlığı küçük. Nedenini ayrıca sınamadık. Bu karşılaştırma tek bir
+simülasyon koşusundan, yayımlanan dünyadan; başka talep senaryolarında denemedik.
+Genel bir hüküm değil, ama bu koşuda puanın ince ayarıyla uğraşmaya değmediğini
+söylüyor. Kuralın sınırı puanında değil, geri kalanında: rotaya
+bakmıyor, tam setten almıyor, vericinin kaybını tartmıyor.
+
+## Sizin verinizde zor olan
+
+Kuralı sahada kim uygulayacak? Bir allocator için bu, indirim listesi hazırlanırken
+sezonda bir kez yapılan bir iş. Girdisi dört ayrı yerde durur: kırık bedenler mağaza
+stoğunda, depo başka bir raporda, açık sipariş tedarik tarafında, STD ve son günler
+satış raporunda. Hepsini birleştiren rapor yoksa kural bir tabloda elle işletilir ve
+ilk yoğun haftada bırakılır.
+
+Yetki de ayrı bir soru. Ali'nin alıcısı için mal Veli'nin mağazasından çıkıyor. Kural
+bunu bir satırda yazar, sahada ise iki allocator'ın arasındaki bir konuşmadır. Kimin
+onayıyla, kimin hedefinden düşerek?
+
+STD sezon ortasında gelen ürünlerde yanıltır. Aynı option bir mağazaya ilk dalgayla,
+ötekine ikinci dalgayla gittiyse STD'leri eşit sayıda günü karşılaştırmaz. Geç alan
+mağaza daha az satmış görünür. Doğrusu satışı stoklu güne bölmektir, ama bu bilgi
+çoğu sistemde hazır değildir.
+
+Stok kaydı da kuralın zayıf yeridir. Kural bedenin vericide durduğunu kayıttan okur.
+Kayıp bir beden için talimat yazılır, mağaza malı bulamaz, alıcının seti yarım kalır.
+"Ya tamamlanır ya dokunulmaz" ilkesi ancak kayıt doğruysa tutar. Üstelik kuralın
+fotoğrafı bir sabah çekilir; talimat mağazaya ulaşana kadar o beden satılmış olabilir.
+
+Kural "en iyi satan" diyor, ama L'si olmayan mağazanın L satışı yok. Bir sonraki yazıda
+bu soruyu açıyoruz: bu bedeni burada ne kadar satarız?
