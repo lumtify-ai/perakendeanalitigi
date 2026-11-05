@@ -11,8 +11,8 @@
 Option'lar: `AW24-a` (Collection, Kadın Harf, 5 beden), `AW24-s` (Collection, Standart, tek beden),
 `AW24-o` (Outlet line), `SS25-a` (öteki test sezonu). Yalnız `AW24-a` kapsamdadır.
 
-`takvim` günlük (tatil: 2024-11-29, 2025-01-01); `kampanya`: Black Friday 2024-11-29..12-02 (%30) ve
-karardan sonrası bir kategori kampanyası.
+`takvim` günlük (tatil: 2024-11-29, 2025-01-01); `kampanya` (yayımlanan şemayla, kapsam sütunları dahil):
+Black Friday 2024-11-29..12-02 (%30, kapsamsız) ve karardan sonrası bir kategori kampanyası (Aksesuar, iki bölge).
 
 **`AW24-a-2` (ikinci beden) siparişleri** (karar gününe göre): A açık ve indirimden önce teslim
 planlı (10, sayılır); B planı indirimden sonra (sayılmaz); C karardan önce teslim edilmiş (sayılmaz); D
@@ -47,7 +47,8 @@ SEMA = {
     "sezon": {"sezon_kodu": _S, "dalga": "int64", "lansman_tarihi": _T, "indirim_baslangic": _T,
               "cikis_tarihi": _T},
     "takvim": {"tarih": _T, "tatil_mi": "bool"},
-    "kampanya": {"kampanya_id": _S, "tip": _S, "baslangic": _T, "bitis": _T, "oran": "float64"},
+    "kampanya": {"kampanya_id": _S, "tip": _S, "baslangic": _T, "bitis": _T, "kapsam_ust_kategori": _S,
+                 "kapsam_line": _S, "kapsam_bolge": _S, "oran": "float64"},
     "siparis": {"siparis_id": _S, "tip": _S, "option_id": _S, "urun_id": _S, "tedarikci_id": _S,
                 "siparis_tarihi": _T, "planlanan_teslim": _T, "gerceklesen_teslim": _T, "adet": "int32"},
 }
@@ -161,8 +162,9 @@ def oyuncak_tablolar() -> dict[str, pd.DataFrame]:
                                    ("SS25", 1, "2025-02-10", "2025-06-30", "2025-08-25")]),
         "siparis": _doldur("siparis", _siparis()),
         "takvim": _doldur("takvim", _takvim()),
-        "kampanya": _doldur("kampanya", [("BF2024", "black_friday", "2024-11-29", "2024-12-02", 0.3),
-                                         ("KAT2025_07", "kategori", "2025-01-12", "2025-01-24", 0.4)]),
+        "kampanya": _doldur("kampanya", [("BF2024", "black_friday", "2024-11-29", "2024-12-02", "", "", "", 0.3),
+                                         ("KAT2025_07", "kategori", "2025-01-12", "2025-01-24", "Aksesuar", "",
+                                          "Akdeniz,Ege", 0.4)]),
     }
 
 

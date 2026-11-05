@@ -33,10 +33,17 @@ def _og(eps=0.0, hafta_gunu=None, ozel_gun=None, islem=0.0, iade=0.0, yasam=None
                      iade={"magaza": iade, "online": 0.0}, islem=islem)
 
 
-def _girdi(magazalar, satis, stoklu, stoklar=None, uygun=None, tatil=(), bf=()) -> kaynak.KararGirdisi:
-    """Tek option (`O1`, 5 beden, liste 100). `magazalar`: mağaza kimlikleri; `stoklar`: {magaza: 5'li stok}
-    (verilmeyen mağaza kırık: ikinci beden 0, ötekiler 1); `satis`: (magaza, sıra, gün farkı, adet);
-    `stoklu`: (magaza, sıra, karardan önce gün farkı, stoklu gün); `tatil`: tatil günleri; `bf`: (başlangıç, bitiş, oran)."""
+KAMPANYA_KOLONLARI = ["kampanya_id", "tip", "baslangic", "bitis", "kapsam_ust_kategori", "kapsam_line",
+                      "kapsam_bolge", "oran"]
+
+
+def _girdi(magazalar, satis, stoklu, stoklar=None, uygun=None, tatil=(), bf=(), kampanya=(),
+           bolgeler=None) -> kaynak.KararGirdisi:
+    """Tek option (`O1`, Üst Giyim, 5 beden, liste 100). `magazalar`: mağaza kimlikleri; `stoklar`: {magaza: 5'li
+    stok} (verilmeyen mağaza kırık: ikinci beden 0, ötekiler 1); `satis`: (magaza, sıra, gün farkı, adet);
+    `stoklu`: (magaza, sıra, karardan önce gün farkı, stoklu gün); `tatil`: tatil günleri; `bf`: Black Friday
+    (başlangıç, bitiş, oran), kapsamsız; `kampanya`: (tip, başlangıç, bitiş, üst kategori, line, bölge, oran);
+    `bolgeler`: {magaza: bölge} (verilmeyen `Y`)."""
     stoklar = stoklar or {}
     satir = []
     for m in magazalar:
@@ -49,19 +56,20 @@ def _girdi(magazalar, satis, stoklu, stoklar=None, uygun=None, tatil=(), bf=()) 
                        columns=["magaza_id", "urun_id", "tarih", "adet", "tutar"])
     sto = pd.DataFrame([(m, f"O1-{i}", karar - timedelta(days=d), n) for m, i, d, n in stoklu],
                        columns=["magaza_id", "urun_id", "tarih", "stoklu_gun"])
-    uygun = uygun or {}
-    mag = pd.DataFrame({"magaza_id": list(magazalar), "ad": list(magazalar), "sehir": "X", "bolge": "Y",
+    uygun, bolgeler = uygun or {}, bolgeler or {}
+    mag = pd.DataFrame({"magaza_id": list(magazalar), "ad": list(magazalar), "sehir": "X",
+                        "bolge": [bolgeler.get(m, "Y") for m in magazalar],
                         "tip": "AVM", "uygun": [uygun.get(m, True) for m in magazalar]})
     opt = pd.DataFrame([("O1", "Tişört", "Üst Giyim", 1, pd.Timestamp("2024-08-19"), 100.0, 40.0)],
                        columns=["option_id", "alt_kategori", "ust_kategori", "dalga", "lansman_tarihi",
                                 "liste_fiyati", "alis_fiyati"])
     gunler = pd.date_range("2024-10-01", "2025-03-31")
     takvim = pd.DataFrame({"tarih": gunler, "tatil_mi": gunler.isin([pd.Timestamp(t) for t in tatil])})
-    black_friday = pd.DataFrame([(pd.Timestamp(b), pd.Timestamp(e), o) for b, e, o in bf],
-                                columns=["baslangic", "bitis", "oran"])
+    satirlar = [("black_friday", b, e, "", "", "", o) for b, e, o in bf] + list(kampanya)
+    kamp = pd.DataFrame([(f"K{i}", t, pd.Timestamp(b), pd.Timestamp(e), u, ln, bo, o)
+                         for i, (t, b, e, u, ln, bo, o) in enumerate(satirlar)], columns=KAMPANYA_KOLONLARI)
     return kaynak.KararGirdisi(sezon="AW24", karar=KARAR, indirim=INDIRIM, cikis=CIKIS, hucre=hucre,
-                               satis=sat, stoklu=sto, magaza=mag, optionlar=opt, takvim=takvim,
-                               black_friday=black_friday)
+                               satis=sat, stoklu=sto, magaza=mag, optionlar=opt, takvim=takvim, kampanya=kamp)
 
 
 def _foto(magaza, bedenler, gun=7, fotolar=(21, 14, 7, 0)):
@@ -199,6 +207,79 @@ def test_black_friday_haftasi_tabani_sisirmez():
     bf_f = 0.7 ** -1.5
     beklenen = (1.0 * 24 + 1.8 * bf_f + 3 * 1.1 * bf_f) / 28
     assert bf_var / bf_yok == pytest.approx(1 / beklenen)
+
+
+def _kampanya(tip, bas, bit, ust="", line="", bolge="", oran=0.0):
+    return (tip, str(bas), str(bit), ust, line, bolge, oran)
+
+
+def test_kampanya_tabani_sisirmez():
+    """R33: penceredeki kampanya, kapsamı (bölge, üst kategori, line) çifti tutuyorsa çiftin tabanını kampanyasız
+    karşı-olgunun üstüne çıkarmaz; kapsam dışı kampanya (başka bölge, başka üst kategori, Basic/NOS line'ı) o çiftte
+    arındırılmaz. M1 (bölge Y) kampanya günlerinde iki kat satar ((1 − 0,5)^(−1) = 2), M2 (bölge Z) hep birer."""
+    og = _og(eps=1.0)
+    gunler, kampanyali = range(1, 29), range(11, 21)                     # 10 kampanya günü: karar − 20 .. karar − 11
+    sat = [("M1", i, d, 2 if d in kampanyali else 1) for i in range(1, 6) for d in gunler] \
+        + [("M2", i, d, 1) for i in range(1, 6) for d in gunler]
+    sto = _foto("M1", range(1, 6)) + _foto("M2", range(1, 6))
+    bas, bit = KARAR - timedelta(days=20), KARAR - timedelta(days=11)
+
+    def toplam(*kampanya) -> pd.Series:
+        g = _girdi(("M1", "M2"), sat, sto, kampanya=kampanya, bolgeler={"M2": "Z"})
+        return tahmin.ufuk_talebi(g, og).groupby("magaza_id").mu_tam.sum()
+
+    karsi_olgu = 5 * EVRE1_GUN                                           # günde 1 adet × 5 beden
+    t = toplam(_kampanya("kategori", bas, bit, "Üst Giyim,Dış Giyim", "Collection", "X,Y", 0.5))
+    assert t["M1"] == pytest.approx(karsi_olgu) and t["M2"] == pytest.approx(karsi_olgu)
+    t = toplam(_kampanya("ikinci_urun", bas, bit, oran=0.5))             # kapsamsız: M2'yi de arındırır
+    assert t["M1"] == pytest.approx(karsi_olgu) and t["M2"] == pytest.approx(karsi_olgu / (38 / 28))
+    sisik = karsi_olgu * 38 / 28                                         # arındırılmamış: 18 × 1 + 10 × 2 adet / 28 gün
+    for disarida in (_kampanya("kategori", bas, bit, "", "", "Z", 0.5),
+                     _kampanya("kategori", bas, bit, "Alt Giyim", "", "", 0.5),
+                     _kampanya("kategori", bas, bit, "", "Basic,NOS", "", 0.5)):
+        assert toplam(disarida)["M1"] == pytest.approx(sisik), disarida
+    assert toplam()["M1"] == pytest.approx(sisik)
+
+
+def test_ufukta_kampanya_uygulanir():
+    """R33: ufukta kampanya takvimi uygulanır. Evre 1'de günün oranı kampanya (o gün kampanya fiyatından satar, işlem
+    indirimi yok); evre 2'de max(%30, kampanya) (motorun `oran_talep = max(md, kampanya)`); fiyatlar evrenin günlük
+    talebiyle ağırlıklı. Kapsam dışı kampanya (başka bölge) ve evre 2'de %30'un altındaki kampanya etkisizdir."""
+    eps, islem, iade = 1.5, 0.02, 0.05
+    sat = [("M1", i, 5, 4) for i in range(1, 6)]
+    kampanya = (_kampanya("kategori", "2024-12-15", "2024-12-18", "Üst Giyim", "Collection", "Y", 0.4),
+                _kampanya("kategori", "2024-12-15", "2024-12-18", "", "", "Z", 0.6),
+                _kampanya("ikinci_urun", "2025-01-10", "2025-01-14", oran=0.25),
+                _kampanya("kategori", "2025-02-01", "2025-02-05", "Üst Giyim", "", "", 0.5))
+    g = _girdi(("M1",), sat, _foto("M1", range(1, 6)), kampanya=kampanya)
+    t = tahmin.ufuk_talebi(g, _og(eps=eps, islem=islem, iade=iade))
+    r = 20 / 28
+    k1, k2, k3 = 0.6 ** -eps, 0.7 ** -eps, 0.5 ** -eps                   # %40, %30 (indirim), %50
+    s1, s2 = 17 + 4 * k1, 48 * k2 + 5 * k3
+    assert t.mu_tam.sum() == pytest.approx(r * s1) and t.mu_ind.sum() == pytest.approx(r * s2)
+    fiyat_tam = 100.0 * (17 * (1 - islem) + 4 * k1 * 0.6) / s1 * (1 - iade)
+    fiyat_ind = 100.0 * (48 * k2 * 0.7 + 5 * k3 * 0.5) / s2 * (1 - iade)
+    assert t.fiyat_tam.to_numpy() == pytest.approx(np.full(5, fiyat_tam))
+    assert t.fiyat_ind.to_numpy() == pytest.approx(np.full(5, fiyat_ind))
+    assert (t.fiyat_ind < t.fiyat_tam).all()
+
+
+def test_kampanya_oranlari_kapsam_kurali():
+    """Boş kapsam bütün çiftler; virgüllü liste üyelik; bölge kapsamı Online'ı dışarıda bırakır; eşit gün sınırları
+    dahil; çakışan kampanyalarda en yüksek oran."""
+    k = pd.DataFrame([("A", "kategori", "2025-01-02", "2025-01-03", "Üst Giyim", "Collection", "Y,Z", 0.3),
+                      ("B", "ikinci_urun", "2025-01-03", "2025-01-04", "", "", "", 0.25),
+                      ("C", "kategori", "2025-01-01", "2025-01-05", "", "Basic,NOS", "", 0.4)],
+                     columns=KAMPANYA_KOLONLARI)
+    k["baslangic"], k["bitis"] = pd.to_datetime(k["baslangic"]), pd.to_datetime(k["bitis"])
+    gunler = np.arange(np.datetime64("2025-01-01"), np.datetime64("2025-01-06"))
+    oran = tahmin.kampanya_oranlari(k, bolge=["Y", "Y", "W", "Y"], tip=["AVM", "Online", "Cadde", "Cadde"],
+                                    ust_kategori=["Üst Giyim", "Üst Giyim", "Üst Giyim", "Alt Giyim"],
+                                    line=["Collection", "Collection", "Collection", "NOS"], gunler=gunler)
+    np.testing.assert_array_equal(oran, [[0, 0.3, 0.3, 0.25, 0],          # A ve B (eşit gün sınırları dahil)
+                                         [0, 0, 0.25, 0.25, 0],           # Online: bölgeli A yok
+                                         [0, 0, 0.25, 0.25, 0],           # bölge W: A yok
+                                         [0.4, 0.4, 0.4, 0.4, 0.4]])      # NOS: C (en yüksek)
 
 
 def test_takvim_kapsamiyorsa_hata():
@@ -363,6 +444,52 @@ def test_karar_modulu_ice_aktarma_ve_ad_kilidi():
 
 
 # ---------------------------------------------------------------- gerçek veri (YAVAŞ)
+
+
+@pytest.fixture(scope="module")
+def kucuk_dunya():
+    from allocation import motor
+    return motor.dunya("kucuk")
+
+
+@pytest.mark.veri
+@pytest.mark.parametrize("sezon", sabitler.TEST_SEZONLARI)
+def test_kampanya_eslemesi_v4_ile_ayni(kucuk_dunya, sezon):
+    """R33: KÜÇÜK dünyada kararın (mağaza, option, gün) kampanya oranı (`tahmin.kampanya_oranlari`, yayımlanan
+    `kampanya` tablosundan; `tablolar` onu `dunya.kampanya`'nın kopyası olarak yayımlar) motorun oranıyla aynı: bütün
+    mağazalar (Online dahil) × bütün option'lar (bütün line'lar) × [karar − 28, karar + 85) (taban penceresi ve ufuk).
+    (1) dünyanın kendi takvimi `w.kampanya_takvimi(d)`; (2) kapsam çeşitliliği için eklenmiş kampanyalarla motorun
+    `kampanya_orani` işlevi."""
+    from perakende_veri.v4.kampanya import kampanya_orani
+    from perakende_veri.v4.takvim import gun_indisi
+    w = kucuk_dunya
+    karar = sabitler.KARAR[sezon]
+    gunler = np.arange(np.datetime64(karar - timedelta(days=28), "D"), np.datetime64(karar + timedelta(days=85), "D"))
+    gun_no = [gun_indisi(pd.Timestamp(d).date()) for d in gunler]
+    M, O = len(w.magazalar), len(w.optionlar)
+    mm, oo = (a.ravel() for a in np.meshgrid(np.arange(M), np.arange(O), indexing="ij"))
+    cift = dict(bolge=w.magazalar["bolge"].astype(str).to_numpy()[mm], tip=w.magazalar["tip"].astype(str).to_numpy()[mm],
+                ust_kategori=w.optionlar["ust_kategori"].astype(str).to_numpy()[oo],
+                line=w.optionlar["line"].astype(str).to_numpy()[oo])
+
+    bizim = tahmin.kampanya_oranlari(w.kampanya, gunler=gunler, **cift)
+    motorun = np.stack([w.kampanya_takvimi(d)[mm, oo] for d in gun_no], axis=1)
+    np.testing.assert_array_equal(bizim, motorun)
+    assert (motorun > 0).any()
+
+    bolgeler = sorted(w.magazalar.loc[w.magazalar.tip != "Online", "bolge"].astype(str).unique())
+    bas = pd.Timestamp(karar)
+    ek = pd.DataFrame({
+        "kampanya_id": ["E1", "E2", "E3"], "tip": ["kategori", "kategori", "ikinci_urun"],
+        "baslangic": [bas - pd.Timedelta(days=20), bas + pd.Timedelta(days=5), bas + pd.Timedelta(days=40)],
+        "bitis": [bas - pd.Timedelta(days=10), bas + pd.Timedelta(days=12), bas + pd.Timedelta(days=49)],
+        "kapsam_ust_kategori": ["Üst Giyim,Alt Giyim", "Dış Giyim", ""], "kapsam_line": ["Collection", "Basic,NOS", ""],
+        "kapsam_bolge": [",".join(bolgeler[:2]), bolgeler[-1], ""], "oran": [0.4, 0.3, 0.25]})
+    k = pd.concat([w.kampanya, ek], ignore_index=True)
+    bizim = tahmin.kampanya_oranlari(k, gunler=gunler, **cift)
+    motorun = np.stack([kampanya_orani(k, d, w.magazalar, w.optionlar)[mm, oo] for d in gun_no], axis=1)
+    np.testing.assert_array_equal(bizim, motorun)
+    assert len(np.unique(motorun)) >= 4 and (motorun.min(axis=0) < motorun.max(axis=0)).any()   # çiftler ayrışır
 
 
 @pytest.fixture(scope="module", params=sabitler.TEST_SEZONLARI)

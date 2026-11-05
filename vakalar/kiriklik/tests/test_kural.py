@@ -40,7 +40,7 @@ def _dunya(satirlar, satis=(), magazalar=None, lansman="2024-08-19") -> kaynak.K
     opt["lansman_tarihi"] = pd.Timestamp(lansman)
     return kaynak.KararGirdisi(sezon="AW24", karar=KARAR, indirim=date(2025, 1, 2), cikis=date(2025, 2, 24),
                                hucre=hucre, satis=s, stoklu=pd.DataFrame(), magaza=magaza, optionlar=opt,
-                               takvim=pd.DataFrame(), black_friday=pd.DataFrame())
+                               takvim=pd.DataFrame(), kampanya=pd.DataFrame())
 
 
 def _satis(**adetler):

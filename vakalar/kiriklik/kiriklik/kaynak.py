@@ -47,9 +47,10 @@ class KararGirdisi:
     dalga, lansman_tarihi, liste_fiyati, alis_fiyati]. `depo` ve `acik_siparis` SKU düzeyindedir (depo mağazaya
     bölünmez); her mağaza satırında aynı değer tekrarlanır, toplamları mağaza sayısıyla katlanır.
 
-    `takvim` [tarih, tatil_mi] ve `black_friday` [baslangic, bitis, oran] açık plan bilgisidir (resmî tatiller ve
-    Black Friday dönemleri önceden bilinir): karar gününden sonrası kesilmez. `black_friday` yayımlanan `kampanya`
-    tablosunun `tip = 'black_friday'` satırlarıdır (öteki kampanyalar girdiye alınmaz)."""
+    `takvim` [tarih, tatil_mi] ve `kampanya` [kampanya_id, tip, baslangic, bitis, kapsam_ust_kategori, kapsam_line,
+    kapsam_bolge, oran] açık plan bilgisidir (resmî tatiller ve kampanya takvimi önceden bilinir): karar gününden
+    sonrası kesilmez. `kampanya` yayımlanan `kampanya` tablosunun bütün satırlarıdır (Black Friday, kategori, ikinci
+    ürün; Ruling R33), kapsam sütunlarıyla; kapsamın (mağaza, option) çiftine eşlenmesi `tahmin.kampanya_oranlari`."""
     sezon: str
     karar: date
     indirim: date
@@ -60,7 +61,7 @@ class KararGirdisi:
     magaza: pd.DataFrame
     optionlar: pd.DataFrame
     takvim: pd.DataFrame
-    black_friday: pd.DataFrame
+    kampanya: pd.DataFrame
 
 
 def sezon_dates(con: duckdb.DuckDBPyConnection, sezon: str) -> tuple[date, date]:
@@ -169,9 +170,11 @@ def karar_girdisi(con: duckdb.DuckDBPyConnection, sezon: str) -> KararGirdisi:
         order by u.option_id""")
 
     takvim = con.execute("select tarih, tatil_mi from takvim order by tarih").fetchdf()
-    black_friday = con.execute("select baslangic, bitis, oran from kampanya where tip = 'black_friday' "
-                               "order by baslangic").fetchdf()
+    kampanya = con.execute("""
+        select kampanya_id, tip, baslangic, bitis, coalesce(kapsam_ust_kategori, '') as kapsam_ust_kategori,
+               coalesce(kapsam_line, '') as kapsam_line, coalesce(kapsam_bolge, '') as kapsam_bolge, oran
+        from kampanya order by baslangic, kampanya_id""").fetchdf()
 
     return KararGirdisi(sezon=sezon, karar=karar, indirim=indirim, cikis=cikis, hucre=hucre, satis=satis,
                         stoklu=stoklu, magaza=magaza, optionlar=optionlar, takvim=takvim,
-                        black_friday=black_friday)
+                        kampanya=kampanya)

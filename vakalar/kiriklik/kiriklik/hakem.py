@@ -21,8 +21,7 @@ okunur; dünyada karşılığı olmayan ya da fiziksel olmayan hücre `ValueErro
     λ_gün = w.lam.gun(d)[hücre] · (1 − oran)^(−ε_hücre),        oran = max(markdown, kampanya)
 
 `oran_talep`in motordaki tanımıdır; `markdown` kaydedilmiş normal hat durumu, `kampanya` dünyanın kampanya
-takvimi (`w.kampanya_takvimi(d)[mağaza, option]`; tahminin yok saydığı kategori ve bölge kampanyaları da dahil,
-çünkü gerçek fiyat yolu onları içerir). `mu_tam`, `mu_ind` evrelerin Σ λ_gün'üdür: Poisson ortalaması, stoktan
+takvimi (`w.kampanya_takvimi(d)[mağaza, option]`; tahmin de aynı takvimi açık `kampanya` tablosundan kurar, R33). `mu_tam`, `mu_ind` evrelerin Σ λ_gün'üdür: Poisson ortalaması, stoktan
 bağımsız (tahminle aynı sözleşme).
 
 **Fiyat yolu.** Markdown yuvası her çağrıda bütün durumu `[O, 3]` döndürür ve motor bunu bir sonraki çağrıya kadar

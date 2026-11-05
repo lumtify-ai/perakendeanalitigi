@@ -43,7 +43,7 @@ def _dunya(stoklar: dict, magazalar: dict | None = None) -> kaynak.KararGirdisi:
     opt["lansman_tarihi"] = pd.Timestamp("2024-08-19")
     return kaynak.KararGirdisi(sezon="AW24", karar=KARAR, indirim=date(2025, 1, 2), cikis=date(2025, 2, 24),
                                hucre=hucre, satis=pd.DataFrame(), stoklu=pd.DataFrame(), magaza=magaza,
-                               optionlar=opt, takvim=pd.DataFrame(), black_friday=pd.DataFrame())
+                               optionlar=opt, takvim=pd.DataFrame(), kampanya=pd.DataFrame())
 
 
 def _talep(g, mu: dict) -> pd.DataFrame:

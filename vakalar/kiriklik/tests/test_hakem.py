@@ -59,7 +59,7 @@ def sahne(w):
     g = kaynak.KararGirdisi(sezon="AW24", karar=_tarih(karar), indirim=_tarih(ind), cikis=_tarih(cik),
                             hucre=pd.DataFrame(), satis=pd.DataFrame(), stoklu=pd.DataFrame(),
                             magaza=pd.DataFrame(), optionlar=pd.DataFrame(), takvim=pd.DataFrame(),
-                            black_friday=pd.DataFrame())
+                            kampanya=pd.DataFrame())
     hucreler = pd.DataFrame({"magaza_id": w.magazalar["magaza_id"].astype(str).to_numpy()[np.asarray(w.hucre_magaza)[hucre]],
                              "urun_id": w.urunler["urun_id"].astype(str).to_numpy()[np.asarray(w.hucre_sku)[hucre]]})
     return {"o": o, "ind": ind, "cik": cik, "karar": karar, "hucre": hucre, "g": g, "hucreler": hucreler}
@@ -231,7 +231,7 @@ def test_kahin_bos_hucreler_bos_cikti():
     g = kaynak.KararGirdisi(sezon="AW24", karar=date(2024, 12, 9), indirim=date(2025, 1, 2), cikis=date(2025, 2, 24),
                             hucre=pd.DataFrame(), satis=pd.DataFrame(), stoklu=pd.DataFrame(),
                             magaza=pd.DataFrame(), optionlar=pd.DataFrame(), takvim=pd.DataFrame(),
-                            black_friday=pd.DataFrame())
+                            kampanya=pd.DataFrame())
     t = hakem.kahin_girdisi(None, None, g, pd.DataFrame({"magaza_id": [], "urun_id": []}), IADE)
     assert list(t.columns) == tahmin.KOLONLAR and len(t) == 0
 
