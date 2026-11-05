@@ -5,7 +5,7 @@ sira: 4
 ozet: >-
   Rafta hiç olmayan bir bedenin ne kadar satacağını nasıl bilirsiniz? Option'ın
   hızı stoklu güne göre düzeltilir, beden payıyla bedene dağıtılır. Tahmin
-  gerçek talebin epey üstünde çıkıyor; yine de talebi bilmek kararı neredeyse
+  gerçek talebin epey üstünde çıkıyor; yine de talebi bilmek sonucu neredeyse
   değiştirmiyor.
 yazar: Sabri Suyunu
 durum: yayinda
@@ -44,24 +44,24 @@ hiç satışı olmayan L'nin de bir hızı oluyor. Kırık bedenin kendi satış
 ama payı vardır.
 
 Bir mağazada bu ürünün kanıtı çok azsa o mağazanın hızı zincirin hızına düşüyor
-ve mağazanın sezondaki satış payı kadar büyütülüyor.
+ve mağazanın sezondaki satış payına göre ölçekleniyor.
 
 ## Hızı temizlemek ve ileri taşımak
 
 Son 28 gün sıradan günlerden oluşmaz. Kışın pencerenin içinde Black Friday var,
 yazın bütün mağazaları kapsayan kampanyalar. O günlerin satışı hızı şişirir.
 Kampanya takvimi açık bilgi; hangi gün, hangi kapsamda, hangi oran olduğu belli.
-Satış bu yüzden günlerin karakterine bölünüyor: haftanın günü, özel gün,
+Satış bu yüzden o günlerin etkisinden arındırılıyor: haftanın günü, özel gün,
 kampanya ve ürünün yaşı. Elde sıradan bir günün hızı kalıyor.
 
-Sonra bu hız gelecek günlerin karakteriyle çarpılıyor, iki dönem için: karardan
+Sonra aynı etkiler gelecek günler için geri ekleniyor, iki dönem için: karardan
 indirime ve indirimden çıkışa. Ürünün yaşını <T k="yasam-egrisi">yaşam
 eğrisi</T> söylüyor: aynı alt kategorinin kapanmış sezonlarda lansmandan sonra
 hafta hafta nasıl düştüğü. İndirim dönemi için bir varsayım gerekiyor, çünkü
 gerçek fiyat yolu önceden bilinmiyor. Lumoda'nın açık kuralı indirim gününde en
 az %30 olduğu için tahmin o dönemi %30 indirimle sayıyor; kampanya daha derinse
-kampanyayla. Bu indirimin ne kadar sattıracağını da kampanyalardan ölçülen <T k="fiyat-esnekligi">fiyat
-esnekliği</T> söylüyor.
+kampanyayla. Bu indirimin ne kadar sattıracağını da kampanyalardan ölçülen
+<T k="fiyat-esnekligi">fiyat esnekliği</T> söylüyor.
 
 Sonuçta her hücre, yani her mağaza ve beden için iki sayı çıkıyor: tam fiyat
 döneminde beklenen talep ve indirim döneminde beklenen talep. Tahmin karardan
@@ -84,9 +84,9 @@ hücreleri.
 
 — Seçtiğimiz hücrelerin talebini kışın neredeyse iki katı görüyoruz, diyor Ali.
 
-Tabloda üç şey var. Tahmin her yerde yukarıda. Kış yazdan, indirim dönemi de tam
-fiyat döneminden çok daha kötü. Modelin seçtiği hücreler de ortalamadan kötü.
-Üçünün de bir nedeni var.
+Tabloda üç şey var. Tahmin her yerde yukarıda. Kış yazdan çok daha kötü; kışın
+indirim dönemi tam fiyat döneminin iki katı sapıyor, yazın ikisi yakın. Modelin
+seçtiği hücreler de ortalamadan kötü. Üçünün de bir nedeni var.
 
 ## Satış talep değildir
 
@@ -105,7 +105,7 @@ Fark yaşam eğrisinde büyüyor. Sezon ilerledikçe kardeş ürünler tükeniyo
 ikame, rafta kalanlara yığılıyor. Eğri bu satıştan öğrenildiği için kalan
 ürünlerin talebi olduğundan yavaş düşüyor görünüyor. Bu kazak ve montta çok
 belirgin, yaz ürünlerinde çok daha az. Kışın tahminin daha kötü olması bundan.
-Ufuk uzadıkça hata biriktiği için indirim dönemi de tam fiyat döneminden kötü.
+Kışın ufuk uzadıkça hata biriktiği için indirim dönemi de tam fiyat döneminden kötü.
 
 Son satırın nedeni başka. Model değeri yüksek görünen hücreyi seçiyor. Değeri
 yüksek görünen hücre de biraz, fazla tahmin edilmiş hücredir. Kış için %96,5 ve
@@ -135,18 +135,22 @@ TL. İki ondalıkta +2,42 ve +2,36. Taşıdıkları mal da yakın: kışın 2.14
 — Bu karar "kaç adet satılır" diye sormuyor, diyor Pars. "Bu adet burada mı,
 orada mı daha değerli" diye soruyor.
 
-İki nedeni var. Birincisi, alıcıya en çok asorti kadar mal giriyor, yani bedene
-bir ya da iki adet. Modelin seçtiği hücrelerde gerçek talep, ortalamada on adedin
-üstünde. Tahmin onun iki katı olsa da ilk iki adedin satılacağı cevabı
-değişmiyor. İkincisi, transfer aynı ürünün mağazaları arasında yapılıyor. Yaşam
-eğrisinin hatası alıcıda da vericide de aynı olduğu için terazinin iki kefesi
-birlikte kalkıyor.
+İki olası nedeni var; ayrı ayrı ölçmedik. Birincisi, alıcıya en çok asorti kadar
+mal giriyor, yani bedene bir ya da iki adet. Modelin seçtiği hücrelerde gerçek
+talep, karardan çıkışa kadar ortalamada on adedin üstünde. Tahmin onun iki katı
+olsa da ilk iki adedin satılacağı cevabı değişmiyor. İkincisi, transfer aynı
+ürünün mağazaları arasında yapılıyor. Yaşam eğrisi o ürünün bütün mağazalarında
+ortak, eğrinin hatası iki kefeyi birlikte kaldırıyor. Bütün hata böyle değil:
+tablonun son satırı seçilen hücrelerin daha çok şiştiğini gösteriyor.
 
 Yani kararı bozacak olan tahminin düzeyi değil, hücrelerin birbirine göre sırası.
 Kahinle aynı paraya varmak, o sıranın büyük ölçüde doğru kaldığını düşündürüyor.
+Planlara bakınca da bunu görüyoruz: kahinle modelin mal gönderdiği alıcı bedenler
+neredeyse aynı. Asıl ayrıldıkları yer verici ve rota; hareketlerin yaklaşık üçte
+ikisi ortak.
 
-Bu genel bir ruhsat değil. Sipariş adedi gibi düzeyin kendisini soran bir kararda
-aynı hata pahalıya patlar. Sonuç da tek bir müşteri akışının; öbür akışları son
+Bunu her karara genellemeyin; sipariş adedi gibi düzeyin kendisini soran bir
+kararda aynı hata pahalıya patlayabilir. Sonuç da tek bir müşteri akışının; öbür akışları son
 yazıda topluyoruz.
 
 ## Sizin verinizde zor olan
