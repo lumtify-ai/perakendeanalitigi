@@ -5,17 +5,18 @@ sira: 3
 ozet: >-
   Bir uzmanın kuralı kırıklık transferini nasıl yapar, nerede durur? En iyi
   satandan başlar, seti bozulmuş mağazadan alır, ilk tamamlanamayan sette durur.
-  Rotalar tek adet kalır, kırık bedenin azalması da uzun sürmez.
+  Rotalar tek adet kalır, kırık bedendeki azalma da indirime kadar erir.
 yazar: Sabri Suyunu
 durum: yayinda
 ---
 
 import T from '../../../../components/T.astro'
 
-Bu yazıda bir uzmanın kuralının bu işi nasıl yaptığını ve nerede durduğunu
-soruyoruz. Ali pudra montu elle çözmüştü. Ama kış karar sabahı aday 819 çift,
-yaz karar sabahı 651 çift. Bu iş elle yapılmaz; bir kural gerekir. Önce kuralı
-yazıya dökeceğiz, sonra iki sezonda ne yaptığına bakacağız.
+Bu yazıda bir allocator'ın yıllar içinde oturmuş kuralının bu işi nasıl yaptığını
+ve nerede durduğunu soruyoruz. Ali pudra montu elle çözmüştü. Ama kış karar sabahı
+aday 819 çift, yaz karar sabahı 651 çift. Bu iş elle yapılmaz; bir kural gerekir.
+Önce kuralı yazıya dökeceğiz, sonra iki sezonda ne yaptığına bakacağız. Bundan
+sonra ona uzmanın kuralı diyeceğiz.
 
 ## Kural
 
@@ -28,11 +29,9 @@ tamamlanır ya olduğu gibi kalır.
 "En iyi satan"ın ölçüsü dört pencere: sezon başından bugüne satış, yani
 <T k="std">STD</T>, ve son 7, 14, 28 gün. Her pencerede mağazalar o
 <T k="option">option</T> içinde sıralanıyor, puan sıraların ortalaması; ağırlıklar
-eşit. STD uzun soluğu, kısa pencereler bugünü gösterir. Vericiler, yani havuz, o
-option'ın seti bozulmuş ve henüz işaretlenmemiş öteki mağazaları. Set tamamlanıyorsa
-bedenler <T k="asorti">asorti</T> adedine kadar, arz yettiğince dolduruluyor. Verici
-yalnız alıcının eksik bedenlerinden veriyor ve gerekirse o bedenin bütün stoğunu
-veriyor. Kural maliyete bakmıyor.
+eşit. STD uzun soluğu, kısa pencereler bugünü gösterir. Set tamamlanıyorsa bedenler
+<T k="asorti">asorti</T> adedine kadar, arz yettiğince dolduruluyor; verici gerekirse
+bir bedenin bütün stoğunu veriyor. Kural maliyete bakmıyor.
 
 Kodun özü birkaç satır. Aşağıdaki parça `vakalar/kiriklik/` altındaki çalışan
 koddan, tek bir option için sadeleştirildi.
@@ -60,22 +59,23 @@ ne yaptığına bakalım.
 
 | | Kış | Yaz |
 |---|---:|---:|
-| Tamamlanan alıcı | 213 | 158 |
+| Planda tamamlanan alıcı | 213 | 158 |
 | Atlanan alıcı | 335 | 299 |
 | Hareket | 446 | 330 |
 | Taşınan adet | 549 | 418 |
 | Rota | 312 | 241 |
 
 İki şey göze çarpıyor. Atlanan alıcı tamamlanandan çok. Taşınan adet de rotalara
-ince bir tabaka gibi yayılıyor.
+yayılıyor: rota başına bir iki adet düşüyor.
 
 ## Neden bu kadar alıcı atlanıyor
 
 — Bu kadar alıcıyı neden tamamlayamıyoruz? diyor Pelin. Mal mı yok?
 
-— Mal var, doğru beden yok, diyor Pars. Bir alıcının kırık bir bedeni havuzda
-hiçbir yerde kalmamışsa alıcı atlanır. Ama havuzda o bedenin kalmaması, sıradaki
-bütün adaylarda da o bedenin sıfır olması demek, çünkü onlar da havuzun içinde.
+— Mal var, doğru beden yok, diyor Pars. Verici olabilecek mağazalara havuz diyelim.
+Bir alıcının kırık bir bedeni havuzda hiçbir yerde kalmamışsa alıcı atlanır. Ama
+havuzda o bedenin kalmaması, sıradaki bütün adaylarda da o bedenin sıfır olması
+demek, çünkü onlar da havuzun içinde.
 
 Yani bir option'da ilk atlanan alıcıdan sonra hiçbir alıcı tamamlanamaz. Tamamlatan
 bedenin arzı bitmiştir. Kural en iyi satandan başlıyor, ilk tamamlanamayan sette
@@ -98,17 +98,17 @@ sayısının medyanı kışın 1, yazın 1,5. Pudra mont yine de bir konuda tipi
 başına adetin medyanı iki sezonda da 1.
 
 Sebep kuralın kurulumunda. Vericiyi her option kendi içinde, kendi puan sırasıyla
-seçiyor. Bir mağaza çiftinin zaten rotası var mı diye bakmıyor. Bu yüzden kamyonlar
-toplanmıyor. Geçen yazıda sorduğumuz soru burada kendini gösteriyor; parasını
-altıncı yazıda göreceğiz.
+seçiyor. Bir verici ile alıcı arasında zaten rota var mı diye bakmıyor. Bu yüzden
+kamyonlar toplanmıyor. Geçen yazıdaki kamyon sorusu burada kendini gösteriyor;
+parasını altıncı yazıda göreceğiz.
 
 ## Kırık beden ne oldu
 
-Ölçüm iki kesitte, bütün stokta. Kırık beden sayısının Lumoda'nın aynı gününe göre
-farkına bakıyoruz.
+İki pazartesiye bakıyoruz ve bütün stoğu sayıyoruz: kırık beden sayısı, kırıklık
+transferi yapılmayan Lumoda'nın aynı günkü sayısından ne kadar farklı?
 
-Varıştan sonraki ilk pazartesi kışın −73, yazın −31. Vericilerde ise kırık beden
-artıyor: kışın +34, yazın +50. Beklenen bir şey bu; verici bir bedenin bütün
+Varıştan sonraki ilk pazartesi kışın fark −73. Vericilerde ise kırık beden artıyor:
+kışın +34. Beklenen bir şey bu; verici bir bedenin bütün
 stoğunu verince o beden orada sıfıra iniyor. Kural tam seti koruduğu için yeni
 kırık çift açmıyor, ama seti zaten bozulmuş mağazada eksiği büyütüyor.
 
@@ -116,9 +116,15 @@ kırık çift açmıyor, ama seti zaten bozulmuş mağazada eksiği büyütüyor
 pazartesi 4.011 kırık beden var. Kışın etkinin çoğu indirime gelmeden erimiş, yazın
 baştan küçüktü. İstanbul 17'de gördüğümüz bu: mal satılınca set yeniden bozuluyor.
 
-Sahanın göreceği sayı ise çok daha parlak. Alınan malın satışa dönüşü kışın
-indirime kadar %90,7, çıkışa kadar %97,1; yazın %95,0 ve %98,8. Çıkış, malın sezon
-mağazalarından toplandığı gün. Bu sayılar yalnız alıcıya bakıyor. Veli'nin sorusunun
+Bu farkı okurken bir şeyi bilmek gerekiyor. Stoğu tamamen biten çift kırık sayımından
+çıkar, çünkü o mağazada artık ürün yoktur. Kuralın −26'sı ve −27'si oradan geliyor.
+Ürünün iki dünyada da durduğu mağazalarda kırık beden kışın 14, yazın 18 artıyor.
+Yani indirim gününe gelirken sayı setler düzeldiği için düşük değil, bir kısım çift
+sayımdan çıktığı için düşük.
+
+Sahanın göreceği sayı ise çok daha parlak. Alınan malın satışa dönüşü kışın indirime
+kadar %90,7, çıkışa kadar %97,1. Çıkış, malın sezon mağazalarından toplandığı gün.
+Bu sayılar yalnız alıcıya bakıyor. Veli'nin sorusunun
 cevabı bunlarda yok; altıncı yazı onu ayırıyor.
 
 ## Sansür tuzağı
@@ -134,17 +140,22 @@ satamamış. Puanı düşmüş, kural onu verici yapmış. Yalnız son günlere 
 bu hataya daha da açık olmalı.
 
 Bunu sınadık. Aynı kuralı, puanı yalnız son 28 gün olacak şekilde koştuk. Beklediğimiz
-olmadı. İki kural neredeyse aynı sonucu veriyor. Tamamlanan alıcı sayısı hemen hemen
-aynı. İndirimden önceki son pazartesi kırık beden farkı, iki sezonun
-toplamında ve bütün stokta, yalnız 28 güne bakan kuralda −59, asıl kuralda −53. Ciro farkından transfer maliyetini düşünce, orta bir maliyet varsayımıyla ikisi
-de iki sezonda 0,0 M TL.
+olmadı. Planda tamamlanan alıcı sayısı hemen hemen aynı. İndirimden önceki son
+pazartesi kırık beden farkı, iki sezonun toplamında ve bütün stokta, yalnız 28 güne
+bakan kuralda −59, asıl kuralda −53. Ciro farkından transfer maliyetini düşünce, orta
+bir maliyet varsayımıyla ikisi de iki sezonda sıfıra yakın (0,0 M TL). Taşınan adet
+başına gerçek ek satışta yalnız 28 güne bakan kural biraz önde bile: %22,8'e %17,8.
+Beklediğimiz tuzak bu koşuda işlemedi.
 
-Yani pencerenin seçimi burada çok az şey değiştiriyor; tek tek mağazalarda yanıltsa
-da toplamda ağırlığı küçük. Nedenini ayrıca sınamadık. Bu karşılaştırma tek bir
-simülasyon koşusundan, yayımlanan dünyadan; başka talep senaryolarında denemedik.
-Genel bir hüküm değil, ama bu koşuda puanın ince ayarıyla uğraşmaya değmediğini
-söylüyor. Kuralın sınırı puanında değil, geri kalanında: rotaya
-bakmıyor, tam setten almıyor, vericinin kaybını tartmıyor.
+Yani pencerenin seçimi burada az şey değiştiriyor; tek tek mağazalarda yanıltsa da
+toplamda ağırlığı küçük. Nedenini ayrıca sınamadık. Bu karşılaştırma tek bir simülasyon
+koşusundan, yayımlanan dünyadan; başka talep senaryolarında denemedik. Genel bir hüküm
+değil, ama bu koşuda puanın ince ayarıyla uğraşmaya değmediğini söylüyor.
+
+Kuralın sınırı puanında değil: rotaya bakmıyor, vericinin kaybını tartmıyor. Seti
+tamamlamak ve tam seti korumak ise sınır değil, bu işin tanımı. Beşinci yazıda aynı
+iki koşulu bir optimizasyona veriyoruz: rotaya ve vericiye de bakınca sonuç ne kadar
+değişiyor?
 
 ## Sizin verinizde zor olan
 

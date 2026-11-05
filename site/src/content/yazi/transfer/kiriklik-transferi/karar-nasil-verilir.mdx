@@ -27,10 +27,10 @@ mağaza gerekiyor. İstanbul 17 o montu en iyi satan mağazalardan biriydi. Zor
 olan şu: kırık bedenin o mağazada satışı görünmez, çünkü rafta yoktu. Bedeni
 olmayan mağazanın o bedeni ne kadar satacağını kestirmek dördüncü yazının konusu.
 
-**Kimden.** Beden bir yerden geliyor. Gittiği yer kazanırken geldiği yer
-kaybedebilir. Lumoda'da tipik bir <T k="option">option</T> 23 mağazada stoklu
+**Kimden.** Bedeni alan mağazaya alıcı, veren mağazaya verici diyelim. Beden bir
+yerden geliyor. Alıcı kazanırken verici kaybedebilir. Lumoda'da tipik bir <T k="option">option</T> 23 mağazada stoklu
 duruyor, bunların 10'unda en az bir kırık beden var. Aday çok, ama hepsi aynı
-değil. Tam setten bir beden almak orada yeni bir kırık beden açar. Seti zaten
+değil. Tam setin bir bedeninden son adedi almak orada yeni bir kırık beden açar. Seti zaten
 bozulmuş mağazadan almak daha az göze batar, ama o mağaza kalan bedenini
 satıyor olabilir.
 
@@ -39,7 +39,7 @@ Ali iki L istedi, çünkü <T k="asorti">asorti</T> iki diyor. M ise kırık de�
 bir tane vardı; o da asortiye tamamlandı. Bu dizide hedef asorti adedi, başarı
 ölçüsü ise kırık beden sayısı. Yarım kalan set de bir seçenek mi, yoksa set ya
 tamamlanmalı ya hiç dokunulmamalı mı? Bu soru ilk bakışta ayrıntı gibi duruyor;
-beşinci yazıda ayrı bir kol olarak ölçeceğiz.
+beşinci yazıda bunu ayrıca koşup ölçeceğiz.
 
 ## Ne zaman
 
@@ -67,8 +67,7 @@ da mal da aynı; değişen yalnız transfer. İndirimin kendi kararını
 
 ## Kim girmez
 
-Kırık bedeni olan her mağaza transfer adayı değil. Bir option'ın bir mağazadaki
-stoğuna kısaca çift diyoruz; ayrıntısı
+Bir option'ın bir mağazadaki stoğuna kısaca çift diyoruz; ayrıntısı
 [Kırıklık Nedir](/is-zekasi/kiriklik-atil-stok/kiriklik-nedir/) yazısında.
 Karar sabahı zincire bakınca huni şöyle daralıyor:
 
@@ -109,7 +108,7 @@ satılır mıydı?
 — Satmayan mağazadan alırız, olur biter, diyor Ali.
 
 — Bu dönemde satmayan mağaza az, diyor Pars. Kış karar sabahı 4.051 çiftin
-3.510'u son 28 günde altı ya da daha çok adet satmış; yazın 4.258 çiftin
+3.510'u son 28 günde haftada bir adetten fazla satmış; yazın 4.258 çiftin
 3.938'i.
 
 Yani bu ürünler neredeyse her yerde satıyor (kışın %86,7, yazın %92,5). Malı
@@ -124,19 +123,20 @@ durumda transfer yeni bir satış yaratmaz; aynı adedin tam fiyatla mı indirim
 satılacağını değiştirir. Bir adedin değeri, nerede satıldığı kadar ne zaman
 satıldığına da bağlı.
 
-## Tek rota, iki adet
+## Tek rota, tek adet
 
 Üçüncü kefe en kolay görünen kefe. Kargoyu adet başına değil, rota başına
-düşünün: rota, bir verici ile bir alıcı mağaza çiftidir, kamyon kalkar ya kalkmaz.
+düşünün: rota, bir verici mağazadan bir alıcı mağazaya giden hattır, kamyon kalkar
+ya kalkmaz.
 
 [Blok Transfer](/transfer/blok-transfer/) dizisinde sahanın bir sezgisi vardı:
 minimum koli, "iki adet için kamyon kaldırılmaz". Pudra montta ise beş rotanın
 her birinde tek adet var. Bu sezgiyi harfiyen uygularsanız Ali'nin planı hiç
 kurulmaz.
 
-Buradan "tek adetlik rota yanlıştır" çıkmaz. Rota mağaza çiftine aittir, ürüne
-değil. Bursa 2'den İstanbul 17'ye başka option'lar da gidiyorsa kamyon zaten
-kalkıyor, mont ona biniyor. Asıl çıkan şu: karar ürün ürün verildiğinde her
+Buradan "tek adetlik rota yanlıştır" çıkmaz. Rota iki mağaza arasındadır, ürüne
+ait değildir. Bursa 2'den İstanbul 17'ye başka option'lar da gidiyorsa kamyon zaten
+kalkıyor, mont ona biniyor. Asıl sonuç şu: karar ürün ürün verildiğinde her
 option kendi tek adetlik rotasını açar ve kimse kamyonları toplamaz. Maliyete
 bakan bir karar, malı aynı rotalarda toplamaya çalışır. Üçüncü yazının kuralı
 buna bakmıyor, beşinci yazının modeli bakıyor; farkı orada göreceğiz.
@@ -160,8 +160,8 @@ Bu ayrımı görmezseniz huni, gerçekte adayı olan çifti eler.
 kalan mağazalar baştan dışarıda. Gerçek bir zincirde kapanış kararı allocator'a
 her zaman zamanında ulaşmaz. Seti tamamladığınız mağaza iki ay sonra kapanabilir.
 
-**Yolda süre.** Lumoda'da Van'dan İstanbul'a mal ertesi gün varıyor. Gerçek yol
-bundan uzun, mal yolda satmaz. Sonra mağazada kabul edilmesi ve rafa çıkması
+**Yolda süre.** Lumoda'da mal bir ile dört gün arasında varıyor; Van'dan İstanbul'a
+dört gün. Gerçek yol çoğu zaman bundan uzun, mal yolda satmaz. Sonra mağazada kabul edilmesi ve rafa çıkması
 gerekir. Kalan üç haftanın kaçı bu işlere gider, o da hesaba girmeli.
 
 **İndirim listesinin kilidi.** Pelin'in listesini kim, ne zaman kilitliyor?
