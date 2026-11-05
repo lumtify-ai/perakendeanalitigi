@@ -39,3 +39,4 @@ dist/
 
 # Üretilen Worker türleri (npx wrangler types worker/worker-configuration.d.ts)
 site/worker/worker-configuration.d.ts
+site/.wrangler/
