@@ -1,0 +1,174 @@
+---
+baslik: Satış Potansiyeli
+tip: anlatici
+sira: 4
+ozet: >-
+  Rafta hiç olmayan bir bedenin ne kadar satacağını nasıl bilirsiniz? Option'ın
+  hızı stoklu güne göre düzeltilir, beden payıyla bedene dağıtılır. Tahmin
+  gerçek talebin epey üstünde çıkıyor; yine de talebi bilmek kararı neredeyse
+  değiştirmiyor.
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import T from '../../../../components/T.astro'
+
+Bir bedeni, rafta hiç olmayan bir mağazada ne kadar satarsınız? Bu yazının
+sorusu bu. Geçen yazıdaki uzmanın kuralı bu soruyu sormuyordu; mağazaları
+sattıklarına göre sıralıyor, en iyisini alıcı yapıyordu. Sıralamak için bu
+yeter. Ama sonraki yazıda kuracağımız model her adedin kaç para edeceğini
+bilmek zorunda. Bunun için bir tahmin lazım: bir mağaza bir bedeni rafta
+bulundursaydı, önümüzdeki haftalarda kaç adet satardı? Buna satış potansiyeli
+diyoruz.
+
+## Satışı olmayan beden
+
+— İstanbul 17'de pudra montun L'si rafta yok, diyor Pelin. Yoksa satışı da
+yok. Bu bedenin hızını neyle ölçeceğiz?
+
+— Bedenle ölçmeyeceğiz, diyor Pars. Montun hızını ölçeceğiz, sonra bedene
+böleceğiz.
+
+Hız <T k="option">option</T> ve mağaza düzeyinde ölçülüyor: karardan önceki son
+28 günde o mağaza o montun bütün bedenlerinden kaç adet sattı? Bunu takvim
+gününe bölmek yanlış olur. L, XL ve XXL rafta yokken mont yavaşlamış görünür;
+oysa müşteri gelmiş, bedenini bulamamış, bu da hiçbir yere yazılmamıştır. Buna
+<T k="sansurlu-talep">sansürlü talep</T> diyoruz. Bu yüzden payda takvim günü
+değil, stoklu gün. Her bedenin rafta durduğu günler o bedenin payıyla tartılıp
+toplanıyor. Yalnız S ile M'nin rafta durduğu bir gün tam gün sayılmıyor, S ile
+M'nin payı kadar gün sayılıyor.
+
+Beden payı, talebin bedenlere nasıl bölündüğünü söylüyor. Mağazaya özgü kanıt
+varsa ondan, yoksa zincirden geliyor. Montun hızını L'nin payıyla çarpınca,
+hiç satışı olmayan L'nin de bir hızı oluyor. Kırık bedenin kendi satışı yoktur,
+ama payı vardır.
+
+Bir mağazada bu ürünün kanıtı çok azsa o mağazanın hızı zincirin hızına düşüyor
+ve mağazanın sezondaki satış payı kadar büyütülüyor.
+
+## Hızı temizlemek ve ileri taşımak
+
+Son 28 gün sıradan günlerden oluşmaz. Kışın pencerenin içinde Black Friday var,
+yazın bütün mağazaları kapsayan kampanyalar. O günlerin satışı hızı şişirir.
+Kampanya takvimi açık bilgi; hangi gün, hangi kapsamda, hangi oran olduğu belli.
+Satış bu yüzden günlerin karakterine bölünüyor: haftanın günü, özel gün,
+kampanya ve ürünün yaşı. Elde sıradan bir günün hızı kalıyor.
+
+Sonra bu hız gelecek günlerin karakteriyle çarpılıyor, iki dönem için: karardan
+indirime ve indirimden çıkışa. Ürünün yaşını <T k="yasam-egrisi">yaşam
+eğrisi</T> söylüyor: aynı alt kategorinin kapanmış sezonlarda lansmandan sonra
+hafta hafta nasıl düştüğü. İndirim dönemi için bir varsayım gerekiyor, çünkü
+gerçek fiyat yolu önceden bilinmiyor. Lumoda'nın açık kuralı indirim gününde en
+az %30 olduğu için tahmin o dönemi %30 indirimle sayıyor; kampanya daha derinse
+kampanyayla. Bu indirimin ne kadar sattıracağını da kampanyalardan ölçülen <T k="fiyat-esnekligi">fiyat
+esnekliği</T> söylüyor.
+
+Sonuçta her hücre, yani her mağaza ve beden için iki sayı çıkıyor: tam fiyat
+döneminde beklenen talep ve indirim döneminde beklenen talep. Tahmin karardan
+sonraki hiçbir satırı görmüyor. Modelin bu ürün hakkında bildiği bu kadar.
+
+## Hakem ne diyor
+
+Lumoda sentetik bir zincir ve verinin kurgusunda her hücrenin gerçek talebi
+yazılı. Tahmin ona ulaşamıyor, biz ölçüm için ulaşabiliyoruz. Aynı hücrelerde
+iki toplamı yan yana koyunca şu çıkıyor. Yüzdeler, tahmin toplamının gerçek talep
+toplamını ne kadar aştığını gösteriyor; hücreler, kararın dokunabileceği ürünlerin
+hücreleri.
+
+| Tahmin, gerçek talebin ne kadar üstünde | Kış | Yaz |
+|---|---:|---:|
+| Bütün hücreler, tam fiyat dönemi | %33,0 | %14,4 |
+| Bütün hücreler, indirim dönemi | %66,5 | %17,7 |
+| Bütün hücreler, toplam | %55,7 | %16,5 |
+| Optimizasyonun alıcı hücreleri, toplam | %96,5 | %27,3 |
+
+— Seçtiğimiz hücrelerin talebini kışın neredeyse iki katı görüyoruz, diyor Ali.
+
+Tabloda üç şey var. Tahmin her yerde yukarıda. Kış yazdan, indirim dönemi de tam
+fiyat döneminden çok daha kötü. Modelin seçtiği hücreler de ortalamadan kötü.
+Üçünün de bir nedeni var.
+
+## Satış talep değildir
+
+— Bir mont bitince müşteri ne yapıyor? diyor Pars.
+
+— Bazen çıkıp gidiyor, diyor Veli. Bazen yanındaki montu alıyor.
+
+— Kayıtta o yandaki mont iyi satmış görünür.
+
+Buna <T k="ikame">ikame</T> diyoruz. Yayımlanan satış, ürünün kendi müşterisini
+ikameyle geleninden ayırmıyor. Bizim ölçtüğümüz hız bu yüzden "stoklu hücre ne
+satıyor" sorusunun cevabı. Hakemin elindeki gerçek talep ise "bu hücrenin kendi
+müşterisi ne kadar". İkisi aynı şey değil.
+
+Fark yaşam eğrisinde büyüyor. Sezon ilerledikçe kardeş ürünler tükeniyor ve
+ikame, rafta kalanlara yığılıyor. Eğri bu satıştan öğrenildiği için kalan
+ürünlerin talebi olduğundan yavaş düşüyor görünüyor. Bu kazak ve montta çok
+belirgin, yaz ürünlerinde çok daha az. Kışın tahminin daha kötü olması bundan.
+Ufuk uzadıkça hata biriktiği için indirim dönemi de tam fiyat döneminden kötü.
+
+Son satırın nedeni başka. Model değeri yüksek görünen hücreyi seçiyor. Değeri
+yüksek görünen hücre de biraz, fazla tahmin edilmiş hücredir. Kış için %96,5 ve
+yaz için %27,3 bundan. En iyi görünenin gerçekte o kadar iyi çıkmaması, seçim
+yapmanın doğal bedeli.
+
+Bu sapmayı bilerek düzeltmedik. Kardeş ürünlerin tükenme payından kabaca
+kestirilebilir, ama bu vakada yapmadık ve sınır olarak bıraktık. Bir bedeli daha
+var: kırık bedeni tamamlayan transfer tükenmeyi, dolayısıyla ikameyi de azaltır.
+Tahmin bunu görmez ve transferin değerini biraz fazla sayar. Bu yüzden modelin
+kendi söylediği kazanca güvenmiyoruz; kazancı hakem ölçüyor.
+
+## Yanlış düzey, doğru sıra
+
+Asıl soru şu: tahmin bu kadar yukarıdaysa kararı ne kadar bozuyor?
+
+Bunu ölçmek için modelin bir kopyasını koşturduk. Aynı kurallar, aynı maliyet;
+yalnız girdisi tahmin değil, verinin kurgusundaki gerçek talep ve gerçekleşen
+fiyat yolu. Ona kahin diyoruz. Kahin en iyi plan demek değil; aynı modelin doğru
+girdiyle verdiği cevap. İki sezonda net kazanç, yani Lumoda'ya göre ciro
+farkı eksi transfer maliyeti: kahinde +2,4 M TL, tahminle kurulan planda +2,4 M
+TL. İki ondalıkta +2,42 ve +2,36. Taşıdıkları mal da yakın: kışın 2.145 ve
+2.117 adet.
+
+— Talebi iki katı görüp aynı parayı mı kazanıyoruz? diyor Pelin.
+
+— Bu karar "kaç adet satılır" diye sormuyor, diyor Pars. "Bu adet burada mı,
+orada mı daha değerli" diye soruyor.
+
+İki nedeni var. Birincisi, alıcıya en çok asorti kadar mal giriyor, yani bedene
+bir ya da iki adet. Modelin seçtiği hücrelerde gerçek talep, ortalamada on adedin
+üstünde. Tahmin onun iki katı olsa da ilk iki adedin satılacağı cevabı
+değişmiyor. İkincisi, transfer aynı ürünün mağazaları arasında yapılıyor. Yaşam
+eğrisinin hatası alıcıda da vericide de aynı olduğu için terazinin iki kefesi
+birlikte kalkıyor.
+
+Yani kararı bozacak olan tahminin düzeyi değil, hücrelerin birbirine göre sırası.
+Kahinle aynı paraya varmak, o sıranın büyük ölçüde doğru kaldığını düşündürüyor.
+
+Bu genel bir ruhsat değil. Sipariş adedi gibi düzeyin kendisini soran bir kararda
+aynı hata pahalıya patlar. Sonuç da tek bir müşteri akışının; öbür akışları son
+yazıda topluyoruz.
+
+## Sizin verinizde zor olan
+
+**İkameyi ayırmak.** Satış kaydınız, ürünün kendi müşterisiyle yanındaki bittiği
+için gelen müşteriyi ayırmaz. Lumoda'da en azından ne kadar yanıldığımızı
+görebildik. Sizin verinizde bu fark gözle görülmez; ancak kardeş ürünler
+tükendikçe kalanların hızının nasıl değiştiğine bakarak kestirirsiniz.
+
+**Kampanya takvimi.** Burada kampanya tablosu tam: hangi gün, hangi kapsam, hangi
+oran. Çoğu zincirde bu bilgi dağınıktır, bölgesel kampanyalar ve mağaza
+inisiyatifleri eksik kalır. Takvimde olmayan kampanya hızı şişirir ve tahmin onu
+iyi satış diye okur.
+
+**Stoklu gün.** Bu yazının bütün hesabı "bu beden o gün rafta mıydı" sorusuna
+dayanıyor. Her mağaza, her beden, her gün için bu kayıt çoğu ERP'de yoktur;
+hareketlerden geriye doğru kurmak gerekir. Kuramazsanız kırık beden az talep
+görmüş görünür.
+
+**Hakemin olmaması.** Kahin sizde yok. Geçmiş bir sezonu tahmin edip sonraki
+satışla karşılaştırabilirsiniz, ama o satış da ikameli ve sansürlüdür. Düzey
+hatasını da sıra hatasını da doğrudan göremezsiniz.
+
+Tahmin elimizde. Sonraki yazıda onu her adedin değerine çeviriyor ve kararı bir
+optimizasyon modeline veriyoruz.

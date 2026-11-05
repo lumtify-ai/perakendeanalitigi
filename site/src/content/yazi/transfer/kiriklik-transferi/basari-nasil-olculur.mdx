@@ -1,0 +1,190 @@
+---
+baslik: Başarı Nasıl Ölçülür
+tip: sonuc
+sira: 6
+ozet: >-
+  Kırıklık transferi işe yaradı mı, nasıl anlarsınız? Saha alınan malın neredeyse
+  tamamının sattığını görür; ama o satışların çoğu vericiden kaybolan ya da
+  outlet'te zaten olacak satıştır. Değer dolu rotalarda ve doğru vericide.
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import Lumtify from '../../../../components/Lumtify.astro'
+import T from '../../../../components/T.astro'
+
+Kırıklık transferi işe yaradı mı, nasıl anlarsınız? Bu yazının sorusu bu. İlk yazıda
+İstanbul 17'ye beş adet gitmiş, indirime kadar beşi de satmıştı. Sahada bu başarıdır.
+Veli'nin sorusu ise açıkta kalmıştı: "Benim mağazalarımdan gidenler orada satmayacak
+mıydı?" Bu yazıda iki ölçüye bakıyoruz, kırıklık ve satışa dönüş; sonra da o soruyu
+cevaplıyoruz.
+
+## Hakem
+
+Bu cevabı verebilmemizin nedeni, aynı sezonu iki kez yaşayabilmemiz. Gerçek hayatta
+sezon bir kez yaşanır. Lumoda ise sentetik bir zincir ve verisini ben ürettim. Her kol
+sezonu baştan oynuyor: aynı müşteri akışı, aynı mal, aynı fiyat kararları. Tek fark
+transfer. Taban çizgisi, kırıklık transferi yapmayan Lumoda.
+
+## Birinci ölçü: kırıklık
+
+Bütün stokta kırık beden sayısının Lumoda'ya göre farkına, kış sezonunda üç pazartesi
+bakalım. Serbest optimizasyon varıştan sonraki ilk pazartesi −583, indirimden önceki
+son pazartesi −169, çıkıştan önceki pazartesi −84. Uzmanın kuralı aynı kesitlerde −73,
+−26 ve −68. Kuralın son kesiti oynak; yazın aynı fark neredeyse sıfır, üstüne yorum
+kurmuyorum.
+
+Etki eriyor. Nedeni basit: gelen mal satılınca set yeniden bozuluyor. İlk yazıdaki
+pudra montta da öyle olmuştu; indirimden önceki pazartesi İstanbul 17'de yine
+yalnız S kalmıştı.
+
+— Yani başarılı transfer kırıklığı geri getiriyor, diyor Pelin.
+
+— Getiriyor, diyor Pars. Kırıklık bu işin hedefi gibi duruyor ama iyi bir ölçü değil.
+Mal satılmasa kırıklık daha iyi görünürdü.
+
+Ölçek de küçük. Lumoda indirimden önceki son pazartesi kışın 4.011 kırık bedenle
+giriyor. Serbest optimizasyonun farkı bunun birkaç yüzdesi, kuralınki yüzde birin
+altında. Kırıklık transferi zincirin kırıklığını çözen bir iş değil.
+
+## İkinci ölçü: satışa dönüş
+
+Satışa dönüşü iki türlü ölçebilirsiniz. Saha ölçüsü: alıcıya gelen adetlerin, çıkışa
+kadar alıcıda satılan payı. Sahanın görebildiği tek ölçü bu. Gerçek etki: o ürünün
+bütün mağaza ve kanallarındaki net satış farkının taşınan adede oranı. Bunu yalnız aynı
+sezonu ikinci kez yaşayınca görebilirsiniz.
+
+| İki sezon | Saha ölçüsü | Gerçek etki |
+|---|---:|---:|
+| Uzmanın kuralı | %97,8 | %17,8 |
+| Optimizasyon, set koşullu | %96,2 | %51,0 |
+| Optimizasyon, serbest | %95,4 | %60,9 |
+| Kahin | %95,2 | %61,3 |
+
+Sahadan bakınca dört kol aynı, hatta kural önde. Gerçek etkiye bakınca kural çok
+geride. Kuralın farkını açalım. Saha, alıcıda çıkışa kadar 946 adet satış görüyor.
+Gerçek etki +172 adet.
+
+Aradaki farkın ilk parçası verici. Transfer alıcıda +1.122 adet satış kazandırıyor,
+vericide −581 adet kaybettiriyor. İkinci parçası outlet. Dönem dönem bakınca tam fiyat
+döneminde +487 adet, indirimde küçük bir artı, outlet'te −327 adet. Sezonda kurtarılan
+satışın büyük kısmı, zaten outlet'te satılacak malın satışı.
+
+Bu tamamen kötü haber değil. Outlet'te ucuza gidecek adet tam fiyata satılıyor, adet
+az artsa da para artıyor. Ama "aldığımız malın neredeyse tamamı sattı" cümlesi bu
+hesabı göstermiyor.
+
+Serbest optimizasyonda tablo başka: alıcıda +4.006 adet, vericide −410 adet. Dört
+kata yakın mal taşıyor, vericide kuraldan daha az kaybediyor. Dizinin bulgusu bu.
+Kırıklık transferinin değeri tek adetlik rotalarda değil, dolu rotalarda ve vericiyi
+doğru seçmekte.
+
+## Para
+
+Net, Lumoda'ya göre ciro farkı eksi transfer maliyeti. Maliyeti üç paketle hesapladık.
+Kural iki sezonda düşük pakette +0,1 M TL, ortada 0,0, yüksekte −0,2. Kışın
+maliyetinin neredeyse tamamı kargo, çünkü bir iki adet için rota açıyor.
+Serbest optimizasyon +2,5, +2,4 ve +2,1 M TL. Set koşullu kol ikisinin arasında, üç
+pakette de artıda.
+
+Bir kalem bu hesabın dışında. Serbest optimizasyonda kışın kapsam dışındaki ürünlerin
+ciro farkı −0,2 M TL. Nedeni büyük olasılıkla <T k="ikame">ikame</T>: eksik beden
+tamamlanınca o müşteri yandaki ürüne geçmiyor. Bu fark nete girmiyor; girseydi kazanç
+biraz küçülürdü. Karşılanmayan talep de aynı sezonda 2.086 adet azalıyor, Lumoda'nın
+düzeyinin yaklaşık %1'i. Zincirin kaybettiği satışın büyük kısmı yerinde duruyor.
+
+Bütün bunlar tek bir müşteri akışının. Aynı dünyada dört akış daha koşturduk.
+{/* YOLLAR */}
+
+## Ne bekliyorduk
+
+Bu sonuçları koşmadan önce dört beklenti yazmıştık.
+
+**Satışa dönüş düşük çıkar: tutmadı.** Sezon sonu olduğu için alınan malın Blok
+Transfer'deki kadar satmayacağını bekliyorduk. Kuralda alınan mal indirime kadar
+%92,6 sattı, çıkışa kadarki oranı tabloda. Nedeni, alınan bedenin o mağazada sıfır olması ve
+indirim öncesi haftaların hâlâ yoğun geçmesi. [Blok
+Transfer'de](/transfer/blok-transfer/basari-nasil-olculur/) alıcı tarafındaki oran
+belirgin biçimde düşüktü, ama ölçüler aynı değil: orada taşınan malın karşılanmamış
+talebe denk gelen payını sayıyorduk, burada alıcının satışını. Asıl sınır saha oranında
+değil, gerçek etkide.
+
+**Maliyete bakmayan kural yüksek pakette eksiye düşer: tuttu.** Yukarıda.
+
+**Optimizasyon daha az ama daha dolu rota kurar: tuttu.** Geçen yazıda gördük.
+
+**Set koşulu kazancı azaltır ama kırık bedeni daha çok azaltır: yarısı tuttu.** Kazancı
+azaltıyor. Kırık bedeni ise daha az azaltıyor; indirim öncesi iki sezonda serbest
+modelde −272, set koşulluda −89. Çünkü serbest model daha çok mal taşıyor ve daha çok
+set tamamlıyor.
+
+## Bu ölçümler nerede yetersiz?
+
+- **Bu dünyada sergileme etkisi yok.** Bir setin eksik bedeni, kalan bedenlerin satışını
+  düşürmüyor. Oysa bu işin sahadaki ilk gerekçesi sergileme: müşteri bütün bedenleri
+  bir arada görsün. O gerekçeyi burada ölçmedik. Gerçek bir zincirde kırıklığın da,
+  tam seti bozmanın da bedeli daha büyük olabilir; serbest modelin tam setten mal
+  çekmesi burada olduğundan ucuz görünüyor.
+- **Hakem gerçek değil.** Gerçek talebi ben verdim.
+- **Tek karar sabahı.** Sezon başına bir kez, indirime üç hafta kala karar verdik.
+  Birkaç dalga, başka bir sonuç verebilir.
+- **Fiyat ve RPT sabit.** Bütün kollarda Lumoda'nın kararları. Transfer ve indirim
+  birbirinin seçeneği olduğu hâlde burada sıra sabit: önce transfer, sonra aynı indirim.
+- **Mağaza sınırsız.** Alıcının raf yeri ve ekibi modelde sınırsız.
+- **Tek dünya, iki sezon.** Başka müşteri akışları müşteriyi değiştiriyor; ürünler, alım ve
+  mağazalar aynı.
+
+## Sizin verinizde zor olan
+
+En zoru hakemin olmaması. Sezon bir kez yaşanır ve sahanın elindeki rapor alıcının
+raporudur. Vericiyi ölçmeden her transfer başarılı görünür.
+
+Vericinin kayıp satışını ancak bir kontrol grubuyla görürsünüz. Transfer yapılmayan
+benzer mağazalar ya da benzer ürünler seçip vericinin sonraki satışını onlarla
+karşılaştırmak gerekir. Bunun için de transfer kararını bir kısım üründe bilerek
+vermemeyi göze almak gerekir. Sezon sonunda, bütçe baskısı altında bunu yapan az.
+
+Sergileme etkisini ölçmek daha da zor. Aynı ürün aynı mağazada tam setle ve eksik setle
+rafta nasıl satıyor? Set bozulan ürün zaten iyi satmış üründür, bozulma haftaları da
+sezonun yorulduğu haftalardır. Karşılaştırma kolayca kendi kendini doğrular. Ayrı bir
+deney kurmadan bu sayıyı bulamazsınız.
+
+## Baştaki soru
+
+Veli'nin sorusuna dönelim: benim mağazalarımdan gidenler orada satmayacak mıydı?
+
+Diyarbakır 1'deki son L için tek başına bir cevap veremem; tek bir bedende şans büyük.
+Toplamda cevap şu: bir kısmı satacaktı. Kuralda alıcıda kazanılan iki satışa karşılık
+vericide bir satış kayboluyor. Üstüne kurtarılan satışın önemli bir kısmı outlet'in satışı. Saha bunu
+göremiyor, çünkü alıcıya bakıyor. Ali de haklıydı: tamamlanan beden tam fiyattan satıyor.
+İkisi aynı sayının iki yüzü.
+
+Altı yazı sonra elimizde şunlar var. Uzmanın kuralı sahada çok iyi görünüyor, parada
+kargosunu ancak ödüyor. Optimizasyon daha çok para kazanıyor, ama kazancın büyüğü
+işin tanımını gevşetmekten geliyor. Talebi bilmek bu karara az şey katıyor. Değer, dolu
+rotada ve doğru vericide.
+
+Bu konuyu neden sevdiğimi ilk yazıda söylemiştim: transferi başarılı gösteren sayı
+sahanın gözünün önünde, başarısız gösterecek sayı hiçbir raporda yok. Dizinin sonunda
+bir şey ekleyeyim. Kırıklık transferi kötü bir iş değil; ama başarısını alıcıya bakarak
+söyleyemezsiniz. Mal gittiği yerde satılır, çıktığı yerde eksilir. 🙂
+
+<Lumtify>
+
+Bu dizinin hesabı yayımlanabilir olması için sadeleştirildi. Lumoda'nın dünyasında
+eksik beden kalan bedenlerin satışını düşürmüyor, kargo her rotada aynı ve mağazanın
+kabul gücü sınırsız; kolları aynı malla, aynı müşteri akışında yarıştırabildik. Gerçek
+bir zincirde kargo tarifesi hat hat değişir, ikame ve stoklu gün kayıtlarda ayrı durmaz
+ve bir transferin vericide neye mal olduğunu söyleyecek bir hakem yoktur: sezon bir kez
+yaşanır. Karar ise indirime üç hafta kala, yüzlerce option için verilir.
+
+<Fragment slot="son">
+
+Satış potansiyelini kendi satış ve stok kaydınızdan kurar, gerçek kargo tarifenizle ve
+mağaza kapasitenizle rotaları doldurur, bugünkü kuralınızı taban çizgisi alıp vericinin
+kaybını da sayan bir ölçümle karşılaştırır. Böylece hangi bedenin hangi mağazaya gideceğini
+ve bunun net ne getireceğini sezgiyle değil, ölçümle söyler.
+
+</Fragment>
+
+</Lumtify>
