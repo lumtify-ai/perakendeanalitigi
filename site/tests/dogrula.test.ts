@@ -25,6 +25,11 @@ const ALANLAR: AlanGirdi[] = [
 ]
 const TERIMLER = ['cover', 'option']
 
+const KAVRAM_DIZISI: DiziGirdi[] = [
+  { id: 'is-zekasi/x', data: { alan: 'is-zekasi', algoritmalar: ['kiriklik-atil-stok'], kavram: true } },
+]
+const KAVRAM_ALANLARI: AlanGirdi[] = [{ id: 'is-zekasi', body: 'İş zekası bir kavramdir.' }]
+
 function tamDizi(): YaziGirdi[] {
   return [
     yazi('transfer/blok-transfer/a', 'hikaye', 1),
@@ -83,25 +88,19 @@ describe('hepsiniDogrula', () => {
   })
 
   it('kavram dizisi hikâye ve sonuç istemez', () => {
-    const diziler: DiziGirdi[] = [
-      { id: 'transfer/blok-transfer', data: { alan: 'transfer', algoritmalar: ['blok-transfer'], kavram: true } },
-    ]
     const yazilar = [
-      yazi('transfer/blok-transfer/a', 'anlatici', 1),
-      yazi('transfer/blok-transfer/b', 'anlatici', 2),
+      yazi('is-zekasi/x/a', 'anlatici', 1),
+      yazi('is-zekasi/x/b', 'anlatici', 2),
     ]
-    expect(hepsiniDogrula(yazilar, diziler, ALANLAR, TERIMLER)).toEqual([])
+    expect(hepsiniDogrula(yazilar, KAVRAM_DIZISI, KAVRAM_ALANLARI, TERIMLER)).toEqual([])
   })
 
   it('kavram dizisinde öteki kurallar sürer', () => {
-    const diziler: DiziGirdi[] = [
-      { id: 'transfer/blok-transfer', data: { alan: 'transfer', algoritmalar: ['blok-transfer'], kavram: true } },
-    ]
     const yazilar = [
-      yazi('transfer/blok-transfer/a', 'anlatici', 1),
-      yazi('transfer/blok-transfer/b', 'anlatici', 3),
+      yazi('is-zekasi/x/a', 'anlatici', 1),
+      yazi('is-zekasi/x/b', 'anlatici', 3),
     ]
-    const hatalar = hepsiniDogrula(yazilar, diziler, ALANLAR, TERIMLER)
+    const hatalar = hepsiniDogrula(yazilar, KAVRAM_DIZISI, KAVRAM_ALANLARI, TERIMLER)
     expect(hatalar.join('\n')).toMatch(/kesintisiz/i)
   })
 
