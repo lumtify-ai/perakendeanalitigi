@@ -10,15 +10,28 @@
   //   [MISSING_EXPORT] "renderForPrerender" is not exported by "astro/app"
   //
   // Site tamamen statik; SSR adaptörüne ihtiyacı yok ve olmamalı. Bu dosya
-  // duruyorken wrangler hiçbir şey tahmin etmez, yalnızca dist/'i yükler.
+  // duruyorken wrangler hiçbir şey tahmin etmez: dist/'i ve sayaç Worker'ını yükler.
   // SİLİNMEMELİ.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "perakendeanalitigi",
   "compatibility_date": "2026-09-03",
 
-  // Sunucu kodu yok: `main` bilerek tanımsız. Worker yalnızca varlık sunar.
+  // Tek sunucu kodu ziyaret sayacı (2026-11-05). Sayfalar statik kalır: Worker
+  // yalnız `/sayac.gif` için çalışır, başka hiçbir istek ona uğramaz.
+  "main": "worker/index.ts",
+  "observability": {
+    "enabled": true,
+    "traces": { "enabled": true }
+  },
+  // Veri kümesi ilk yazmada kendiliğinden oluşur; üç ay saklanır.
+  "analytics_engine_datasets": [
+    { "binding": "SAYAC", "dataset": "perakende_sayac" }
+  ],
+
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/sayac.gif"],
 
     // Varsayilan `none`, olmayan adrese govdesiz bir 404 dondurur; canlida
     // olculdu, 0 bayt geliyordu ve 404.html hic sunulmuyordu (2026-09-03).

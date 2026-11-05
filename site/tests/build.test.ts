@@ -124,6 +124,18 @@ describe('dağıtım yapılandırması', () => {
     expect(Object.keys(hepsi)).not.toContain('@astrojs/cloudflare')
   })
 
+  it('Worker yalnız sayaç adresinde önce çalışır', () => {
+    // Sayfalar statik kalmalı: Worker her isteğe girerse süre, kota ve
+    // arıza yüzeyi bütün siteye yayılır. Dosya JSONC olduğu için metne bakılır.
+    const yapilandirma = readFileSync(KOK + 'wrangler.jsonc', 'utf-8')
+    expect(yapilandirma).toMatch(/"run_worker_first":\s*\[\s*"\/sayac\.gif"\s*\]/)
+    expect(yapilandirma).toMatch(/"main":\s*"worker\/index\.ts"/)
+  })
+
+  it('sayaç gerçek bir dosyayla gölgelenmez', () => {
+    expect(existsSync(DIST + 'sayac.gif')).toBe(false)
+  })
+
   it('wrangler sürümü sabitlenmiş', () => {
     // `npx wrangler deploy` yoksa en güncelini indirir; 4.128.0'daki
     // auto-config davranışı tam da böyle, biz hiçbir şey değiştirmeden geldi.
@@ -820,6 +832,15 @@ describe('site geneli vaatler', () => {
     expect(sayfalar.map(({ yol }) => yol)).toContain(
       'transfer/blok-transfer/sonuclar/index.html',
     )
+  })
+
+  it('her sayfada tam bir sayaç görseli var', () => {
+    // Ölçüm JavaScript'siz bu görselle yapılıyor; hangi sayfada yoksa o sayfa
+    // ziyaret raporunda sıfır görünür, bu da okunmuyor sanılmasına yol açar.
+    const suclular = tumSayfalar()
+      .filter(({ html }) => (html.match(/<img[^>]*src="\/sayac\.gif"/g) ?? []).length !== 1)
+      .map(({ yol }) => yol)
+    expect(suclular).toEqual([])
   })
 
   it('hiçbir sayfada JavaScript yok', () => {

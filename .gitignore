@@ -36,3 +36,6 @@ dist/
 # github.com/lumtify-ai/perakendeanalitigi-docs
 # Buraya klonlanır ama bu depoya girmez.
 /docs/
+
+# Üretilen Worker türleri (npx wrangler types worker/worker-configuration.d.ts)
+site/worker/worker-configuration.d.ts

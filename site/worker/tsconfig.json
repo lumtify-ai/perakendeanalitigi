@@ -1,0 +1,15 @@
+{
+  // Worker kodunun tür denetimi. Tür dosyası üretilir, depoya girmez:
+  //   npx wrangler types worker/worker-configuration.d.ts
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["esnext"],
+    "types": [],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["index.ts", "worker-configuration.d.ts"]
+}
