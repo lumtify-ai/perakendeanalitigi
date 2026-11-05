@@ -20,9 +20,19 @@ KÜÇÜK'ü her zaman taslak basar).
 
 **Sahne** (`sahne`): option (model adı, renk, alt kategori, liste fiyatı), alıcı (ad, şehir), vericiler (ad, şehir,
 adet, bedenler), karar sabahı alıcının beden stoğu ve kırık bedenleri (depo stoğuyla), alınan adet (bedene göre),
-varış (karardan gün), alıcının indirim gününe kadar satışı `[karar, indirim)` pozitif adet: alınan SKU'larda ve
-option'ın bütün bedenlerinde, kural koşusunda ve Lumoda'da (aynı hücreler), sahanın ölçüsüyle Σ min(varıştan
+en erken ve en geç varış (karardan gün), alıcının indirim gününe kadar satışı `[karar, indirim)` pozitif adet: alınan
+SKU'larda ve option'ın bütün bedenlerinde, kural koşusunda ve Lumoda'da (aynı hücreler), sahanın ölçüsüyle Σ min(varıştan
 indirime satış, alınan); indirim öncesi fotoğrafta alıcı çiftin bedenleri iki koşuda (kırık mı).
+
+**Verici başına** (Ruling R38; `varis_gunleri`, `lumoda_ilk_satis`): `varis_gun` kolun karar günü `elle_transfer` satırından
+(verici → alıcı, bu option'ın SKU'ları; karardan gün); `lumoda` verilen her beden için Lumoda koşusunda o vericinin o
+hücresinin `[karar, çıkış)` pozitif satış adedi, ilk satışın karardan günü ve o günün birim fiyatı: transfer yapılmasaydı o
+beden vericide satacak mıydı.
+
+**Sahne bütçesi** (`sahne_butcesi`, `butce`): kol − Lumoda, `[karar, çıkış)` net adet ve TL (iade dahil), aynı hücreler:
+`alici` alıcının aldığı SKU'lar, `vericiler` her vericinin verdiği SKU'lar, `net` ikisinin toplamı. **Kargo** (`rota_kargosu`,
+`kargo`): sahnenin verici rotaları × rota başı kargo, düşük ve orta maliyet; rotanın başka option taşıyıp taşımadığına
+bakılmaz (rota tamamen bu sahneye yazılır).
 
 `kod`: bu dosya, vakanın simülasyon kodu özeti ve ölçüm kodu özeti; rapor eski kaydı reddeder.
 """
@@ -43,7 +53,7 @@ from kiriklik import olcu, olcutler, oyun, sabitler, simulasyon
 SEZON = "AW24"
 KOL = "kural"
 YOL = 0
-KAYIT_SURUMU = 1
+KAYIT_SURUMU = 2
 ISTANBUL = "İstanbul"
 SEVIYELER = (("tam", 3, "istanbul"), ("iki_verici", 2, "istanbul"), ("sehir_disi", 2, "sehir"))
 KUCUK_SEVIYESI = ("kucuk_yedek", 1, "sehir")
@@ -143,6 +153,54 @@ def _satis_gunlu(s, ad: str, hucre: pd.DataFrame, son: date) -> pd.DataFrame:
         {"adet": 0}).astype({"adet": np.int64})
 
 
+def _satis_satirlari(s, ad: str, hucre: pd.DataFrame, bas: date, son: date) -> pd.DataFrame:
+    """`hucre` [magaza_id, urun_id] satırlarının [bas, son) ham satışı: [magaza_id, urun_id, tarih, adet, tutar]."""
+    s.kaydet("hk_sahne", hucre[["magaza_id", "urun_id"]].drop_duplicates())
+    return s.df(f"""
+        select h.magaza_id, h.urun_id, t.tarih, cast(t.adet as bigint) as adet, t.tutar
+        from hk_sahne h join {s.t(ad, "satis")} t
+          on cast(t.magaza_id as varchar) = h.magaza_id and cast(t.urun_id as varchar) = h.urun_id
+        where t.tarih >= ? and t.tarih < ?
+        order by t.tarih""", pd.Timestamp(bas), pd.Timestamp(son))
+
+
+def varis_gunleri(elle: pd.DataFrame, alici: str, skular, karar: date) -> dict[str, int]:
+    """Verici → bu alıcıya, bu SKU'lardaki satırlarının en erken varışı (karardan gün); `elle` karar gününün
+    `elle_transfer` satırları [kaynak, hedef, urun_id, varis_tarihi]."""
+    x = elle[(elle["hedef"].astype(str) == alici) & elle["urun_id"].astype(str).isin(list(skular))]
+    en_erken = x.groupby(x["kaynak"].astype(str))["varis_tarihi"].min()
+    return {str(v): int((pd.Timestamp(t).date() - karar).days) for v, t in en_erken.items()}
+
+
+def lumoda_ilk_satis(satirlar: pd.DataFrame, magaza: str, urun_id: str, karar: date) -> dict:
+    """Hücrenin pozitif satış adedi, ilk satışın karardan günü ve o günün birim fiyatı (satış yoksa adet 0, ikisi None)."""
+    t = satirlar[(satirlar["magaza_id"] == magaza) & (satirlar["urun_id"] == urun_id) & (satirlar["adet"] > 0)]
+    if t.empty:
+        return {"adet": 0, "ilk_gun": None, "ilk_fiyat": None}
+    ilk = t["tarih"].min()
+    g = t[t["tarih"] == ilk]
+    return {"adet": int(t["adet"].sum()), "ilk_gun": int((pd.Timestamp(ilk).date() - karar).days),
+            "ilk_fiyat": float(g["tutar"].sum() / g["adet"].sum())}
+
+
+def sahne_butcesi(kol: pd.DataFrame, lumoda: pd.DataFrame, alici: pd.DataFrame, verici: pd.DataFrame) -> dict:
+    """Kol − Lumoda net adet ve TL, yalnız verilen hücreler [magaza_id, urun_id] (modül notu "Sahne bütçesi")."""
+    def fark(hucre: pd.DataFrame) -> dict:
+        def topla(t: pd.DataFrame) -> tuple[int, float]:
+            x = t.merge(hucre[["magaza_id", "urun_id"]].drop_duplicates(), on=["magaza_id", "urun_id"])
+            return int(x["adet"].sum()), float(x["tutar"].sum())
+        (a, b), (c, d) = topla(kol), topla(lumoda)
+        return {"adet": a - c, "tl": b - d}
+
+    al, ve = fark(alici), fark(verici)
+    return {"alici": al, "vericiler": ve, "net": {"adet": al["adet"] + ve["adet"], "tl": al["tl"] + ve["tl"]}}
+
+
+def rota_kargosu(rota: int) -> dict[str, float]:
+    """Rota sayısı × rota başı kargo, düşük ve orta maliyet."""
+    return {p: int(rota) * sabitler.MALIYET_PAKETLERI[p].kargo_rota_tl for p in ("dusuk", "orta")}
+
+
 def _bedenler(st: pd.DataFrame, sku: pd.DataFrame, magaza: str, option: str) -> dict[int, int]:
     """Çiftin beden sırası → stok (fotoğrafta satırı olmayan beden 0)."""
     o = sku[sku["option_id"] == option]
@@ -202,7 +260,8 @@ def adaylar(g: dict) -> tuple[pd.DataFrame, dict]:
     if len(t):
         t = t.sort_values(["alinan", "option_id", "alici"], ascending=[False, True, True], kind="mergesort")
     return t.reset_index(drop=True), {"k": k, "h": h, "mag": mag, "urun": urun, "karar_st": karar_st, "depo": depo,
-                                      "oncesi": oncesi, "varis": varis, "satis": satis, "saha": saha}
+                                      "oncesi": oncesi, "varis": varis, "satis": satis, "saha": saha, "elle": elle,
+                                      "kol": kol, "lumoda": lum}
 
 
 def suz(t: pd.DataFrame, seviye: tuple) -> pd.DataFrame:
@@ -243,13 +302,23 @@ def sahne(alici: str, option: str, b: dict) -> dict:
     st = _bedenler(b["karar_st"], k.sku, alici, option)
     sku = k.sku[k.sku["option_id"] == option].set_index("beden_sira")["urun_id"]
     kirik = [s for s, a in st.items() if a == 0]
+    alinan_sku = sorted(set(x["urun_id"]))
+    alici_h = pd.DataFrame({"magaza_id": alici, "urun_id": alinan_sku})
+    verici_h = pd.DataFrame({"magaza_id": x["verici"].to_numpy(), "urun_id": x["urun_id"].to_numpy()}).drop_duplicates()
+    with olcutler._sql(kol=b["kol"], lum=b["lumoda"]) as s_:
+        kol_s = _satis_satirlari(s_, "kol", pd.concat([alici_h, verici_h]), k.karar, k.cikis)
+        lum_s = _satis_satirlari(s_, "lum", pd.concat([alici_h, verici_h]), k.karar, k.cikis)
+    varislar = varis_gunleri(b["elle"], alici, alinan_sku, k.karar)
     vericiler = []
     for v, y in x.groupby("verici", sort=False):
+        satirlar = y.sort_values("beden_sira")
         vericiler.append({"magaza_id": v, "ad": mag.loc[v, "ad"], "sehir": mag.loc[v, "sehir"],
                           "adet": int(y["adet"].sum()),
-                          "bedenler": {ad[int(r.beden_sira)]: int(r.adet) for r in y.sort_values("beden_sira").itertuples()}})
+                          "bedenler": {ad[int(r.beden_sira)]: int(r.adet) for r in satirlar.itertuples()},
+                          "varis_gun": varislar[v],
+                          "lumoda": {ad[int(r.beden_sira)]: lumoda_ilk_satis(lum_s, v, r.urun_id, k.karar)
+                                     for r in satirlar.itertuples()}})
     vericiler.sort(key=lambda r: (-r["adet"], r["magaza_id"]))
-    alinan_sku = sorted(set(x["urun_id"]))
     var = b["varis"][(b["varis"]["magaza_id"] == alici) & b["varis"]["urun_id"].isin(alinan_sku)]
     saha = b["saha"].merge(var[["magaza_id", "urun_id", "alinan"]], on=["magaza_id", "urun_id"])
 
@@ -263,7 +332,6 @@ def sahne(alici: str, option: str, b: dict) -> dict:
                 "kirik_bedenler": [ad[s] for s, a in bd.items() if a == 0], "stok": int(sum(bd.values()))}
 
     tum = list(sku.to_numpy())
-    varis_gun = None if var["varis"].isna().all() else int((var["varis"].min().date() - k.karar).days)
     return {
         "option": {"option_id": option, "model_adi": str(u["model_adi"]), "renk": str(u["renk"]),
                    "alt_kategori": str(u["alt_kategori"]), "liste_fiyati": float(u["liste_fiyati"])},
@@ -274,7 +342,10 @@ def sahne(alici: str, option: str, b: dict) -> dict:
                   "kirik_depo": {ad[s]: int(b["depo"].get(sku[s], 0)) for s in kirik}},
         "alinan": int(x["adet"].sum()),
         "alinan_bedenler": {ad[int(s)]: int(a) for s, a in x.groupby("beden_sira")["adet"].sum().items()},
-        "varis_gun": varis_gun,
+        "en_erken_varis_gun": min(r["varis_gun"] for r in vericiler),
+        "en_gec_varis_gun": max(r["varis_gun"] for r in vericiler),
+        "butce": sahne_butcesi(kol_s, lum_s, alici_h, verici_h),
+        "kargo": {"rota": len(vericiler), **rota_kargosu(len(vericiler))},
         "satis_indirime": {"kural": {"alinan_sku": satis_("kol", alinan_sku), "option": satis_("kol", tum)},
                            "lumoda": {"alinan_sku": satis_("lumoda", alinan_sku), "option": satis_("lumoda", tum)}},
         "saha_indirime": int(np.minimum(saha["adet"], saha["alinan"]).sum()),

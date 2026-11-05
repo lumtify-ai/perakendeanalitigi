@@ -39,7 +39,11 @@ kendisi). Fiziksel mağazalar, sezon kapsamının SKU'ları. Kapsamlar: `transfe
 `transfer_edilen_verici` (verici çiftleri), `transfer_edilen` (ikisinin birleşimi), `butun` (sezon kapsamının bütün
 çiftleri). Her biri için kolun ve Lumoda'nın `ozet`i ve mutlak sayıların farkı (kol − lumoda): `kirik_beden`,
 `kirik_cift`, `stoklu_cift`, `eksik_adet`. Stoğu sıfıra inen çift paydadan çıkar (`olcu.ozet` notu); mutlak sayılar
-bu yüzden oranların yanındadır.
+bu yüzden oranların yanındadır. Stoğu biten çift kırık sayımından da çıktığı için kırık beden farkı `ayrisim` ile üçe
+ayrılır (`kiriklik_ayrisimi`): `ortak` iki koşuda da stoklu çiftlerde kol − Lumoda; `kolda_biten` yalnız Lumoda'da stoklu
+çiftlerin (kolda stoğu bitmiş) katkısı (eksi; Lumoda'daki kırık bedenleri sayımdan düşer); `lumodada_biten` yalnız kolda
+stoklu çiftlerin katkısı (artı); `kolda_biten_cift`, `lumodada_biten_cift` çift sayıları. Üçünün toplamı `fark.kirik_beden`
+olmak zorundadır (değilse `ValueError`).
 
 **Satışa dönüş** (K11; satış = `satis` tablosu, `adet` net: iade satırı negatif):
 - *Saha ölçüsü* (yalnız kol koşusu; sahada görülebilen tek ölçü): alıcı hücre başına `alinan` = planın o hücreye
@@ -86,7 +90,11 @@ sürekli tedarik siparişlerinin adedi (`siparis` tip `surekli`, sipariş tarihi
 `verici_cift`, `verici_magaza`; `tamamlanan_set` = karar sabahı stoğu + alınan ile her bedeni (asortinin beş bedeni)
 ≥ 1 olan alıcı çifti sayısı (varıştaki durum; yoldaki günlerin satışı düşülmez, gerçekleşen durum `varis_sonrasi`
 kesitindedir); `alici_basina_verici_medyan` (alıcı çifti başına tekil verici sayısının medyanı),
-`rota_basina_adet_medyan` (plan boşsa `None`); `cozucu` `plan.bilgi`'den `durum`, `gap`, `kaynak` (varsa).
+`rota_basina_adet_medyan` (plan boşsa `None`); `cozucu` `plan.bilgi`'den `durum`, `gap`, `kaynak` (varsa). Malın kaynağı
+(`plan_kaynagi`; karar sabahı fotoğrafından): `tam_setten_adet` ve `tam_setten_pay` kırığı olmayan verici çiftlerden
+alınan adet ve taşınanın payı (plan boşsa pay `None`), `tam_set_verici_cift`; `verici_hucre` dokunulan verici hücre
+(verici, urun_id), `sifirlanan_hucre` verdikten sonra karar sabahı stoğu sıfıra inenler, `tam_set_verici_hucre` ve
+`tam_sette_sifirlanan_hucre` aynıları tam set vericilerde; `rota_tek_adet` tam bir adet taşıyan rota.
 
 **Korunum** (K6; hepsi True değilse koşu geçersizdir, ölçülmez):
 - `oncesi_birebir`: `satis` (tarih < karar), `stok` ve `depo_stok` fotoğrafları (tarih ≤ karar: fotoğraf günün
@@ -580,33 +588,53 @@ def _ciftler(h: pd.DataFrame, rol: str) -> set[tuple[str, str]]:
     return set(zip(h[rol].astype(str), h["option_id"].astype(str), strict=True))
 
 
+def _foto_ciftleri(k: _Kapsam, foto: pd.DataFrame, gun: date) -> pd.DataFrame:
+    """`gun` fotoğrafının fiziksel mağazalardaki stoklu çiftleri (`olcu.cift_tablosu`)."""
+    f = foto[(foto["tarih"] == gun) & foto["magaza_id"].isin(k.fiziksel)]
+    f = f.merge(k.sku[["urun_id", "option_id", "beden_sira"]], on="urun_id")
+    return olcu.cift_tablosu(pd.DataFrame({"magaza_id": f["magaza_id"], "option_id": f["option_id"],
+                                           "beden_sira": f["beden_sira"].astype(np.int64),
+                                           "stok": f["adet"].astype(np.int64)}))
+
+
+def kiriklik_ayrisimi(kol_cift: pd.DataFrame, lum_cift: pd.DataFrame) -> dict:
+    """Kırık beden farkının (kol − Lumoda) üçe ayrışımı (modül notu "Kırıklık"); girdiler `olcu.cift_tablosu` çıktısı,
+    aynı kapsamda. Üçün toplamı farka eşit değilse `ValueError`."""
+    a = ["magaza_id", "option_id", "kirik_beden"]
+    m = lum_cift[a].merge(kol_cift[a], on=a[:2], how="outer", suffixes=("_lum", "_kol"), indicator=True)
+    iki, yalniz_lum, yalniz_kol = (m[m["_merge"] == x] for x in ("both", "left_only", "right_only"))
+    sonuc = {"ortak": int((iki["kirik_beden_kol"] - iki["kirik_beden_lum"]).sum()),
+             "kolda_biten": -int(yalniz_lum["kirik_beden_lum"].sum()),
+             "lumodada_biten": int(yalniz_kol["kirik_beden_kol"].sum()),
+             "kolda_biten_cift": len(yalniz_lum), "lumodada_biten_cift": len(yalniz_kol)}
+    fark = int(kol_cift["kirik_beden"].sum()) - int(lum_cift["kirik_beden"].sum())
+    if sonuc["ortak"] + sonuc["kolda_biten"] + sonuc["lumodada_biten"] != fark:
+        raise ValueError(f"kırık beden ayrışımı farka eşit değil: {sonuc}, fark {fark}")
+    return sonuc
+
+
 def _kiriklik(k: _Kapsam, kt: _Toplamlar, lt: _Toplamlar, h: pd.DataFrame) -> dict:
     alici, verici = _ciftler(h, "alici"), _ciftler(h, "verici")
     kapsam_ciftleri = {"transfer_edilen_alici": alici, "transfer_edilen_verici": verici,
                        "transfer_edilen": alici | verici, "butun": None}
 
-    def ozetler(foto: pd.DataFrame, gun: date) -> dict:
-        f = foto[(foto["tarih"] == gun) & foto["magaza_id"].isin(k.fiziksel)]
-        f = f.merge(k.sku[["urun_id", "option_id", "beden_sira"]], on="urun_id")
-        hucre = pd.DataFrame({"magaza_id": f["magaza_id"], "option_id": f["option_id"],
-                              "beden_sira": f["beden_sira"].astype(np.int64), "stok": f["adet"].astype(np.int64)})
-        cift = olcu.cift_tablosu(hucre)
+    def kapsam_tablolari(foto: pd.DataFrame, gun: date) -> dict:
+        cift = _foto_ciftleri(k, foto, gun)
         anahtar = pd.Series(list(zip(cift["magaza_id"].astype(str), cift["option_id"].astype(str), strict=True)),
                             dtype=object)
-        sonuc = {}
-        for ad, ciftler in kapsam_ciftleri.items():
-            c = cift if ciftler is None else cift[anahtar.isin(ciftler).to_numpy()]
-            sonuc[ad] = olcu.ozet(c)
-        return sonuc
+        return {ad: cift if ciftler is None else cift[anahtar.isin(ciftler).to_numpy()]
+                for ad, ciftler in kapsam_ciftleri.items()}
 
     bolum = {}
     for ad, gun in k.kesit.items():
         if not k.kapsar_gun(gun):
             bolum[ad] = {"tarih": _iso(gun), "kapsamlar": None}
             continue
-        ko, lo = ozetler(kt.foto, gun), ozetler(lt.foto, gun)
+        tk, tl = kapsam_tablolari(kt.foto, gun), kapsam_tablolari(lt.foto, gun)
+        ko, lo = {a: olcu.ozet(c) for a, c in tk.items()}, {a: olcu.ozet(c) for a, c in tl.items()}
         bolum[ad] = {"tarih": _iso(gun), "kapsamlar": {
-            kap: {"kol": ko[kap], "lumoda": lo[kap], "fark": {m: ko[kap][m] - lo[kap][m] for m in MUTLAK}}
+            kap: {"kol": ko[kap], "lumoda": lo[kap], "fark": {m: ko[kap][m] - lo[kap][m] for m in MUTLAK},
+                  "ayrisim": kiriklik_ayrisimi(tk[kap], tl[kap])}
             for kap in KAPSAMLAR}}
     return bolum
 
@@ -771,6 +799,27 @@ def _yan_etki(k: _Kapsam, kt: _Toplamlar, lt: _Toplamlar, h: pd.DataFrame, kol_e
     }
 
 
+def plan_kaynagi(h: pd.DataFrame, karar_cift: pd.DataFrame, karar_stok: pd.DataFrame) -> dict:
+    """Malın kaynağı (modül notu "Plan"). `h` planın hareketleri; `karar_cift` karar sabahının stoklu çiftleri
+    (`olcu.cift_tablosu`); `karar_stok` karar sabahı hücre stoğu [magaza_id, urun_id, adet]. Tabloda olmayan verici çifti
+    tam set sayılmaz."""
+    tam = set(zip(karar_cift.loc[~karar_cift["kirik"], "magaza_id"].astype(str),
+                  karar_cift.loc[~karar_cift["kirik"], "option_id"].astype(str), strict=True))
+    v = h.groupby(["verici", "option_id", "urun_id"], as_index=False)["adet"].sum()
+    v["tam"] = [(m, o) in tam for m, o in zip(v["verici"], v["option_id"], strict=True)]
+    st = karar_stok[["magaza_id", "urun_id", "adet"]].rename(columns={"magaza_id": "verici", "adet": "stok"})
+    v = v.merge(st.groupby(["verici", "urun_id"], as_index=False)["stok"].sum(), on=["verici", "urun_id"],
+                how="left").fillna({"stok": 0})
+    sifir = (v["stok"] - v["adet"] <= 0).to_numpy(dtype=bool)
+    tam_mi = v["tam"].to_numpy(dtype=bool)
+    adet, tam_adet = int(v["adet"].sum()), int(v.loc[tam_mi, "adet"].sum())
+    r = rotalar(h)
+    return {"tam_setten_adet": tam_adet, "tam_setten_pay": tam_adet / adet if adet else None,
+            "tam_set_verici_cift": int(v.loc[tam_mi, ["verici", "option_id"]].drop_duplicates().shape[0]),
+            "verici_hucre": len(v), "sifirlanan_hucre": int(sifir.sum()), "tam_set_verici_hucre": int(tam_mi.sum()),
+            "tam_sette_sifirlanan_hucre": int((sifir & tam_mi).sum()), "rota_tek_adet": int((r["adet"] == 1).sum())}
+
+
 def _plan_ozeti(k: _Kapsam, kt: _Toplamlar, plan: Plan) -> dict:
     h = plan.hareketler.astype({"option_id": str, "urun_id": str, "verici": str, "alici": str})
     r = rotalar(h)
@@ -797,6 +846,7 @@ def _plan_ozeti(k: _Kapsam, kt: _Toplamlar, plan: Plan) -> dict:
         "alici_basina_verici_medyan": float(np.median(alicilar.to_numpy())) if len(alicilar) else None,
         "rota_basina_adet_medyan": float(np.median(r["adet"].to_numpy())) if len(r) else None,
         "cozucu": {a: plan.bilgi[a] for a in COZUCU_ALANLARI if a in plan.bilgi},
+        **plan_kaynagi(h, _foto_ciftleri(k, kt.foto, k.karar), foto),
     }
 
 

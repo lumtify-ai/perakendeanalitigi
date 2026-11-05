@@ -632,3 +632,64 @@ def test_kucuk_olcum(k_lum, onbellek):
     sifir = olcutler.olc(k_lum, k_lum, plan_modulu.bos("lumoda", SEZON, {}), SEZON)
     assert sifir["kiriklik"]["varis_sonrasi"]["kapsamlar"]["butun"]["fark"] == {
         "kirik_beden": 0, "kirik_cift": 0, "stoklu_cift": 0, "eksik_adet": 0}
+
+
+# ---------------------------------------------------------------------------
+# Kırık beden ayrışımı ve malın kaynağı (Ruling R37)
+# ---------------------------------------------------------------------------
+
+
+def _cift(*satirlar) -> pd.DataFrame:
+    """(mağaza, option, beden stokları) satırları → `olcu.cift_tablosu`."""
+    return olcu.cift_tablosu(pd.DataFrame(
+        [(m, o, i + 1, a) for m, o, st in satirlar for i, a in enumerate(st)],
+        columns=["magaza_id", "option_id", "beden_sira", "stok"]))
+
+
+def test_kirik_ayrisimi_ucu_farka_esit():
+    """M1 iki dünyada stoklu (kırık beden 2 → 0: −2); M2 kolda tükenmiş (Lumoda'da 3 kırık beden: −3); M3 Lumoda'da
+    tükenmiş (kolda 1 kırık beden: +1). Toplam −4 = kırık beden farkı. Tükenen çift kırık sayımından çıkar."""
+    lum = _cift(("M1", "A", (1, 0, 0, 1, 1)), ("M2", "A", (0, 0, 0, 1, 1)), ("M3", "A", (0, 0, 0, 0, 0)))
+    kol = _cift(("M1", "A", (1, 1, 1, 1, 1)), ("M2", "A", (0, 0, 0, 0, 0)), ("M3", "A", (1, 1, 1, 1, 0)))
+    a = olcutler.kiriklik_ayrisimi(kol, lum)
+    assert a == {"ortak": -2, "kolda_biten": -3, "lumodada_biten": 1, "kolda_biten_cift": 1, "lumodada_biten_cift": 1}
+    assert a["ortak"] + a["kolda_biten"] + a["lumodada_biten"] == int(kol.kirik_beden.sum()) - int(lum.kirik_beden.sum())
+    bos = olcutler.kiriklik_ayrisimi(lum.iloc[:0], lum.iloc[:0])
+    assert bos == {"ortak": 0, "kolda_biten": 0, "lumodada_biten": 0, "kolda_biten_cift": 0, "lumodada_biten_cift": 0}
+
+
+def test_olcum_kirik_ayrisimi(olcum):
+    """Varış sonrası kesit, bütün stok: S1-A −2, S2-A +1, S1-B −1, S3-B 0 ortak (−2); S3-A ve S2-B kolda tükenmiş (4 + 4
+    kırık beden sayımdan düşer: −8); fark −10. Her kesit ve kapsamda üçün toplamı farka eşit."""
+    b = olcum["kiriklik"]["varis_sonrasi"]["kapsamlar"]["butun"]
+    assert b["fark"]["kirik_beden"] == -10
+    assert b["ayrisim"] == {"ortak": -2, "kolda_biten": -8, "lumodada_biten": 0, "kolda_biten_cift": 2,
+                            "lumodada_biten_cift": 0}
+    for kes in olcum["kiriklik"].values():
+        for k in (kes["kapsamlar"] or {}).values():
+            a = k["ayrisim"]
+            assert a["ortak"] + a["kolda_biten"] + a["lumodada_biten"] == k["fark"]["kirik_beden"]
+
+
+def test_plan_kaynagi_tam_set_payi():
+    """Karar sabahı S3-B tam set (1,2,2,1,1), S2-A kırık. Tam setten 3 adet (B-2 ikisi de: sıfıra iner; B-3 biri: inmez),
+    kırıktan 1 adet (A-1 son adet: sıfıra iner). Pay 3/4; 2 verici çift, 1'i tam set; 3 hücre, 2'si sıfırlanır, tam sette
+    2 hücre, 1'i; rotalar S3→S1 (3 adet), S2→S1 (1 adet): tek adetlik rota 1. Boş plan: pay None."""
+    h = pd.DataFrame([("B", "B-2", 2, "S3", "S1", 2), ("B", "B-3", 3, "S3", "S1", 1), ("A", "A-1", 1, "S2", "S1", 1)],
+                     columns=plan_modulu.KOLONLAR)
+    cift = _cift(("S3", "B", (1, 2, 2, 1, 1)), ("S2", "A", (1, 2, 0, 1, 1)))
+    stok = pd.DataFrame([("S3", "B-2", 2), ("S3", "B-3", 2), ("S2", "A-1", 1)], columns=["magaza_id", "urun_id", "adet"])
+    assert olcutler.plan_kaynagi(h, cift, stok) == {
+        "tam_setten_adet": 3, "tam_setten_pay": 0.75, "tam_set_verici_cift": 1, "verici_hucre": 3, "sifirlanan_hucre": 2,
+        "tam_set_verici_hucre": 2, "tam_sette_sifirlanan_hucre": 1, "rota_tek_adet": 1}
+    b = olcutler.plan_kaynagi(h.iloc[:0], cift, stok)
+    assert b["tam_setten_pay"] is None and b["tam_setten_adet"] == 0 and b["verici_hucre"] == 0 and b["rota_tek_adet"] == 0
+
+
+def test_olcum_plan_kaynagi(olcum):
+    """Oyuncak planın üç vericisi de kırık çift: tam setten 0; A-2 (S2'de 2), A-3 (S3'te 1) ve B-2 (S2'de 1) verdikten
+    sonra sıfır; S3→S1 rotası tek adet, S2→S1 üç adet."""
+    p = olcum["plan"]
+    assert (p["tam_setten_adet"], p["tam_setten_pay"], p["tam_set_verici_cift"]) == (0, 0.0, 0)
+    assert (p["verici_hucre"], p["sifirlanan_hucre"], p["tam_set_verici_hucre"]) == (3, 3, 0)
+    assert p["tam_sette_sifirlanan_hucre"] == 0 and p["rota_tek_adet"] == 1

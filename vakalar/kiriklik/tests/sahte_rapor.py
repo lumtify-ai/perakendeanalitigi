@@ -10,9 +10,12 @@ import copy
 import json
 from pathlib import Path
 
+import pandas as pd
+
 import rapor
 import senaryolar
 from kiriklik import oyun, sabitler
+from kiriklik.plan import Plan
 
 OLCUM = "o" * 64
 ANALIZ = "a" * 64
@@ -53,8 +56,11 @@ def _ozet(stoklu: int, kirik_cift: int, kirik_beden: int, eksik: int) -> dict:
 def _kapsam(stoklu: int, kirik_beden: int, azalis: int) -> dict:
     lum = _ozet(stoklu, kirik_beden // 2, kirik_beden, int(kirik_beden * 1.4))
     kol = _ozet(stoklu, (kirik_beden - azalis) // 2, kirik_beden - azalis, int((kirik_beden - azalis) * 1.4))
-    return {"kol": kol, "lumoda": lum, "fark": {m: kol[m] - lum[m] for m in
-                                                ("kirik_beden", "kirik_cift", "stoklu_cift", "eksik_adet")}}
+    fark = {m: kol[m] - lum[m] for m in ("kirik_beden", "kirik_cift", "stoklu_cift", "eksik_adet")}
+    biten, gelen = -(abs(azalis) // 3), 7 if azalis else 0        # üçlü farka eşit (olcutler.kiriklik_ayrisimi)
+    return {"kol": kol, "lumoda": lum, "fark": fark,
+            "ayrisim": {"ortak": fark["kirik_beden"] - biten - gelen, "kolda_biten": biten, "lumodada_biten": gelen,
+                        "kolda_biten_cift": abs(biten) // 2, "lumodada_biten_cift": 3 if azalis else 0}}
 
 
 def _pencereli(t: float, i: float, o: float) -> dict:
@@ -113,8 +119,27 @@ def olcum(kol: str, sezon: str, yol: int = 0) -> dict:
         "plan": {"hareket": int(adet * 0.8), "adet": adet, "rota": rota, "option": 80, "alici_cift": 200,
                  "alici_magaza": 60, "verici_cift": 500, "verici_magaza": 66, "tamamlanan_set": 190,
                  "alici_basina_verici_medyan": 2.0, "rota_basina_adet_medyan": adet / rota,
-                 "cozucu": {} if kol.startswith("kural") else {"durum": "optimal", "gap": 0.011, "kaynak": "daraltilmis"}},
+                 "cozucu": {} if kol.startswith("kural") else {"durum": "optimal", "gap": 0.011, "kaynak": "daraltilmis"},
+                 **plan_kaynagi(kol, adet, rota)},
     }
+
+
+def plan_kaynagi(kol: str, adet: int, rota: int) -> dict:
+    """`olcutler.plan_kaynagi` şeması: kural ailesi kırık setlerden, opt ailesi çoğunlukla tam setlerden alır."""
+    tam = 0 if kol.startswith("kural") else int(adet * 0.9)
+    return {"tam_setten_adet": tam, "tam_setten_pay": tam / adet, "tam_set_verici_cift": 0 if not tam else 350,
+            "verici_hucre": 690, "sifirlanan_hucre": 300 if not tam else 4, "tam_set_verici_hucre": 0 if not tam else 600,
+            "tam_sette_sifirlanan_hucre": 0 if not tam else 2, "rota_tek_adet": rota // 2}
+
+
+HAREKET = ["option_id", "urun_id", "beden_sira", "verici", "alici", "adet"]
+ORTUSME = {("opt", "AW24"): [("O", "O-1", 1, "V1", "A", 3), ("O", "O-2", 2, "V2", "A", 1)],
+           ("kahin", "AW24"): [("O", "O-1", 1, "V2", "A", 2), ("O", "O-2", 2, "V2", "A", 1), ("O", "O-1", 1, "V1", "B", 2)],
+           ("opt", "SS25"): [("P", "P-1", 1, "V1", "A", 2)], ("kahin", "SS25"): [("P", "P-1", 1, "V1", "A", 2)]}
+
+
+def ortusme_plani(kol: str, sezon: str) -> Plan:
+    return Plan(kol=kol, sezon=sezon, hareketler=pd.DataFrame(ORTUSME[(kol, sezon)], columns=HAREKET))
 
 
 def plan_bilgisi(kol: str) -> dict:
@@ -145,7 +170,8 @@ def oyun_kaydi() -> dict:
             continue
         kosular[i.ad] = {"ad": i.ad, "kol": i.kol, "sezon": i.sezon, "yol": i.yol, "anahtar": anahtar(i.ad),
                          "lumoda_anahtari": anahtar(oyun.kosu_adi(oyun.LUMODA, None, i.yol)),
-                         "plan_kimligi": kimlik(i.ad), "olcum_ozeti": OLCUM,
+                         "plan_kimligi": ortusme_plani(i.kol, i.sezon).kimlik if (i.kol, i.sezon) in ORTUSME and i.yol == 0
+                         else kimlik(i.ad), "olcum_ozeti": OLCUM,
                          "korunum": dict.fromkeys(rapor.KORUNUM_KOSULLARI, True), "gecerli": True,
                          "olcum": olcum(i.kol, i.sezon, i.yol)}
     tahmin = {str(p): {z: {"lumoda_anahtari": lumoda[str(p)]["anahtar"],
@@ -206,12 +232,20 @@ def hikaye_kaydi(o: dict) -> dict:
             "sahne": {"option": {"option_id": "MDL0442-HAK", "model_adi": "Kaşe Kaban", "renk": "Haki",
                                  "alt_kategori": "Kaban", "liste_fiyati": 2_499.99},
                       "alici": {"magaza_id": "M005", "ad": "İstanbul 5", "sehir": "İstanbul"},
-                      "vericiler": [{"magaza_id": f"M04{i}", "ad": f"Konya {i}", "sehir": "Konya", "adet": 2 if i < 2 else 1,
-                                     "bedenler": {"M": 1, "L": 1} if i < 2 else {"M": 1}} for i in range(4)],
+                      "vericiler": [{"magaza_id": f"M04{i}", "ad": f"Konya {i}", "sehir": "Konya", "adet": 2 if i == 0 else 1,
+                                     "bedenler": {0: {"M": 1, "L": 1}, 1: {"L": 1}}.get(i, {"M": 1}),
+                                     "varis_gun": (1, 1, 2, 4, 4)[i],
+                                     "lumoda": ({"L": {"adet": 1, "ilk_gun": 3, "ilk_fiyat": 1629.99},
+                                                 "M": {"adet": 0, "ilk_gun": None, "ilk_fiyat": None}} if i == 0
+                                                else {"M": {"adet": 2, "ilk_gun": 30, "ilk_fiyat": 1140.99}})}
+                                    for i in range(5)],
                       "karar": {"bedenler": {"XS": 1, "S": 1, "M": 0, "L": 0, "XL": 1},
                                 "asorti": {"XS": 1, "S": 2, "M": 2, "L": 1, "XL": 1}, "kirik_bedenler": ["M", "L"],
                                 "kirik_depo": {"M": 0, "L": 0}},
-                      "alinan": 6, "alinan_bedenler": {"M": 4, "L": 2}, "varis_gun": 2,
+                      "alinan": 6, "alinan_bedenler": {"M": 4, "L": 2}, "en_erken_varis_gun": 1, "en_gec_varis_gun": 4,
+                      "butce": {"alici": {"adet": 5, "tl": 8150.2}, "vericiler": {"adet": -5, "tl": -6683.1},
+                                "net": {"adet": 0, "tl": 1467.1}, },
+                      "kargo": {"rota": 5, "dusuk": 1500.0, "orta": 2500.0},
                       "satis_indirime": {"kural": {"alinan_sku": 4, "option": 6}, "lumoda": {"alinan_sku": 0, "option": 2}},
                       "saha_indirime": 4,
                       "indirim_oncesi": {"kural": {"bedenler": {"XS": 1, "S": 1, "M": 1, "L": 0, "XL": 1}, "kirik": True,
@@ -257,8 +291,10 @@ def yaz(tmp_path: Path, g: dict | None = None, *, demo: bool = True, metalar: di
         (d / "meta.json").write_text(json.dumps(m), encoding="utf-8")
     for r in o["kosular"].values():
         pj = (planlar or {}).get(r["ad"]) or plan_json(r, KARAR_KODLARI[r["kol"]])
-        (plan_dizini / f"{r['kol']}_{r['sezon']}_y{r['yol']}_{pj['anahtar'][:20]}.json").write_text(
-            json.dumps(pj, ensure_ascii=False), encoding="utf-8")
+        kok = plan_dizini / f"{r['kol']}_{r['sezon']}_y{r['yol']}_{pj['anahtar'][:20]}"
+        kok.with_suffix(".json").write_text(json.dumps(pj, ensure_ascii=False), encoding="utf-8")
+        if r["yol"] == 0 and (r["kol"], r["sezon"]) in ORTUSME:
+            ortusme_plani(r["kol"], r["sezon"]).hareketler.to_parquet(kok.with_suffix(".parquet"), index=False)
     demo_yol = Path(tmp_path) / f"{senaryolar.DIZI}.json"
     if demo:
         senaryolar.yaz(senaryolar.uret(o), demo_yol)

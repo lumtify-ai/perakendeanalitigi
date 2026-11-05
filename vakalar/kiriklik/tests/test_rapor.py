@@ -7,6 +7,7 @@ import copy
 import json
 import re
 
+import pandas as pd
 import pytest
 
 import rapor
@@ -216,6 +217,20 @@ def test_plan_bugunku_karar_koduyla_degil(tmp_path, monkeypatch, capsys):
                 planlar={"y4_kahin_SS25": sahte_rapor.plan_json(r, "eski" * 16)})
 
 
+def test_ayni_kimlikli_eski_plan_yanilmaz(tmp_path):
+    """Aynı hareketli plan eski karar koduyla da önbellekte durabilir (kimlik aynı, anahtar farklı; ad sırasında önce gelse
+    de): bugünkü kodla kurulmuş dosya varken eski sayılmaz; yalnız eski dosya varsa eski sayılır."""
+    k = sahte_rapor.yaz(tmp_path)
+    r = sahte_rapor.girdiler()["oyun"]["kosular"]["kural_AW24"]
+    bugunku = next(k["planlar"].glob("kural_AW24_y0_*.json"))
+    eski = json.dumps(sahte_rapor.plan_json(r, "eski" * 16), ensure_ascii=False)
+    (k["planlar"] / "kural_AW24_y0_00000000000000000000.json").write_text(eski, encoding="utf-8")
+    assert "kural_AW24" in rapor.hazirla(**k).gecerli
+    bugunku.unlink()
+    with pytest.raises(rapor.Eksik, match="kural_AW24 planı bugünkü karar koduyla kurulmamış"):
+        rapor.hazirla(**k)
+
+
 def test_tahmin_isabeti_eski(tmp_path, monkeypatch, capsys):
     g = sahte_rapor.girdiler()
     g["oyun"]["tahmin"]["0"]["SS25"]["plan_kimligi"] = "baska"
@@ -278,6 +293,7 @@ def test_beklentiler_hesaplanan_degerden(tmp_path):
     for z in ("AW24", "SS25"):
         for k in g["oyun"]["kosular"][f"opt_set_{z}"]["olcum"]["kiriklik"].values():
             k["kapsamlar"]["butun"]["fark"]["kirik_beden"] -= 1_000
+            k["kapsamlar"]["butun"]["ayrisim"]["ortak"] -= 1_000
     m2 = _metin(tmp_path / "b", g)
     assert "set koşulu kazancı azaltır, kırık bedeni daha çok azaltır: TUTUYOR" in _bolum(m2, "AYRIŞIM")
 
@@ -304,3 +320,107 @@ def test_yeniden_turetilen_oranlar_olculenle_ayni(tmp_path, capsys):
         v = rapor.hazirla(**sahte_rapor.yaz(tmp_path / alan, g))
         assert rapor.tamponla(lambda: rapor.govde(v)) == (1, "")
         assert "y2_opt_set_SS25: yeniden türetilen satışa dönüş" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------- Görev 14 ek ölçüler (R37, R38)
+
+
+def test_plan_ortusmesi_oyuncak():
+    """Adet ağırlıklı ortak pay iki plana göre ayrı: a 4 adet, b 5 adet. Alıcı hücre (A, U1): a 3, b 2; (A, U2): a 1, b 1;
+    (B, U1): yalnız b 2. Ortak 2 + 1 = 3 → a'nın 3/4'ü, b'nin 3/5'i. Hareket ve rota ayrı anahtarlar; boş plan None."""
+    k = ["option_id", "urun_id", "beden_sira", "verici", "alici", "adet"]
+    a = pd.DataFrame([("O", "U1", 1, "V1", "A", 3), ("O", "U2", 2, "V2", "A", 1)], columns=k)
+    b = pd.DataFrame([("O", "U1", 1, "V2", "A", 2), ("O", "U2", 2, "V2", "A", 1), ("O", "U1", 1, "V1", "B", 2)], columns=k)
+    o = rapor.plan_ortusmesi(a, b)
+    assert o["alici_hucre"]["ortak_adet"] == 3 and o["alici_hucre"]["pay_a"] == 0.75 and o["alici_hucre"]["pay_b"] == 0.6
+    # verici hücre: (V1, U1) a 3 b 2; (V2, U2) 1, 1; (V2, U1) yalnız b 2 → 3
+    assert o["verici_hucre"]["ortak_adet"] == 3
+    # hareket: yalnız (V2, A, U2) ortak → 1
+    assert o["hareket"]["ortak_adet"] == 1 and o["hareket"]["pay_a"] == 0.25 and o["hareket"]["pay_b"] == 0.2
+    # rota: (V1, A) yalnız a 3; (V2, A) a 1, b 3; (V1, B) yalnız b 2 → ortak adet 1, ortak rota 1, a 2, b 2
+    assert o["rota"]["ortak_adet"] == 1 and (o["rota"]["tekil_ortak"], o["rota"]["tekil_a"], o["rota"]["tekil_b"]) == (1, 2, 2)
+    bos = rapor.plan_ortusmesi(a.iloc[:0], b)["rota"]
+    assert bos["pay_a"] is None and bos["ortak_adet"] == 0 and bos["tekil_ortak"] == 0
+
+
+def test_rapor_kirik_ayrisimi_satirlari(tmp_path):
+    """YOL 0: kol × sezon, iki kesit, iki kapsam; üçlü farka eşit ve iki sezon `ortak` toplamı. Sayılar Türkçe."""
+    g = sahte_rapor.girdiler()
+    m = _metin(tmp_path, g)
+    y0 = _bolum(m, "YOL 0")
+    o = {z: g["oyun"]["kosular"][f"kural_{z}"]["olcum"]["kiriklik"]["indirim_oncesi"]["kapsamlar"]["butun"]
+         for z in ("AW24", "SS25")}
+    a = o["AW24"]["ayrisim"]
+    assert (f"indirimden önceki son pazartesi, bütün stok: fark {rapor.isaretli(o['AW24']['fark']['kirik_beden'])} = ortak "
+            f"{rapor.isaretli(a['ortak'])}, kolda biten {rapor.isaretli(a['kolda_biten'])}") in y0
+    assert y0.count("varıştan sonraki ilk pazartesi, transfer edilen çiftler: fark") == 10
+    ortak = o["AW24"]["ayrisim"]["ortak"] + o["SS25"]["ayrisim"]["ortak"]
+    assert f"kural · iki sezon ortak (iki dünyada stoklu çiftlerde kırık beden farkı): indirimden önceki son pazartesi, bütün stok {rapor.isaretli(ortak)}" in y0
+
+
+def test_rapor_plan_kaynagi_satirlari(tmp_path):
+    """PLAN: tam setten adet ve payı, tam set verici çift, dokunulan ve sıfırlanan hücre, tek adetlik rota, kol × sezon."""
+    g = sahte_rapor.girdiler()
+    p = g["oyun"]["kosular"]["opt_AW24"]["olcum"]["plan"]
+    pl = _bolum(_metin(tmp_path, g), "PLAN")
+    assert (f"opt AW24 malın kaynağı: tam setten {rapor.s(p['tam_setten_adet'])} / {rapor.s(p['adet'])} adet, "
+            f"{rapor.yuzde(p['tam_setten_pay'])}; tam set verici çift {rapor.s(p['tam_set_verici_cift'])} / "
+            f"{rapor.s(p['verici_cift'])}") in pl
+    assert f"tek adetlik rota {rapor.s(p['rota_tek_adet'])} / {rapor.s(p['rota'])}" in pl
+    assert pl.count("malın kaynağı:") == 10
+
+
+def test_rapor_kahin_ortusmesi_plan_onbelleginden(tmp_path):
+    """AYRIŞIM S7: opt ile kahin planlarının örtüşmesi plan önbelleğinden (adet ağırlıklı pay ve ortak rota), iki sezon."""
+    k = sahte_rapor.yaz(tmp_path)
+    v = rapor.hazirla(**k)
+    a = v.hareketler["opt_AW24"], v.hareketler["kahin_AW24"]
+    o = rapor.plan_ortusmesi(*a)
+    kod, m = rapor.tamponla(lambda: rapor.govde(v))
+    ay = _bolum(m, "AYRIŞIM")
+    assert kod == 0 and ay.count("plan örtüşmesi") == 2
+    assert f"alıcı hücre opt'un {rapor.yuzde(o['alici_hucre']['pay_a'])}, kahin'in {rapor.yuzde(o['alici_hucre']['pay_b'])}" in ay
+    assert (f"ortak rota {rapor.s(o['rota']['tekil_ortak'])} (opt {rapor.s(o['rota']['tekil_a'])}, kahin "
+            f"{rapor.s(o['rota']['tekil_b'])})") in ay
+
+
+def test_ortusme_plani_kimligi_tutmazsa_reddedilir(tmp_path, monkeypatch, capsys):
+    """Örtüşmenin okuduğu hareket dosyası planın kimliğini vermiyorsa ya da yoksa: `Eksik`, stdout boş, çıkış 1."""
+    k = sahte_rapor.yaz(tmp_path)
+    pq = next(k["planlar"].glob("kahin_SS25_y0_*.parquet"))
+    pd.read_parquet(pq).assign(adet=9).to_parquet(pq, index=False)
+    with pytest.raises(rapor.Eksik, match="kahin_SS25 planının hareketleri kimliğiyle tutmuyor"):
+        rapor.hazirla(**k)
+    pq.unlink()
+    with pytest.raises(rapor.Eksik, match="kahin_SS25 planının hareket dosyası yok"):
+        rapor.hazirla(**k)
+
+
+def test_rapor_hikaye_yeni_olculer(tmp_path):
+    """HİKÂYE: verici başına varış, "en erken varış … en geç varış", Lumoda'da verilen bedenin satışı (fiyat Türkçe), sahne
+    bütçesi ve rotaların kargosu; net basılan düzeylerin toplamı."""
+    h = _bolum(_metin(tmp_path), "HİKÂYE")
+    assert "en erken varış karardan 1 gün sonra, en geç varış karardan 4 gün sonra" in h
+    assert "varış karardan 4 gün sonra" in h and "varış karardan 1 gün sonra;" not in h
+    assert "Lumoda'da L 1 adet satıyor, ilk satış karardan 3 gün sonra, 1.629,99 TL; M satmıyor" in h
+    assert ("sahne bütçesi (kol − Lumoda, aynı hücreler, karardan çıkışa): alıcı +5 adet, +8.150 TL; vericiler −5 adet, "
+            "−6.683 TL; net 0 adet, +1.467 TL") in h
+    assert "kargo: 5 rota, düşük maliyet 1.500 TL, orta maliyet 2.500 TL" in h
+
+
+@pytest.mark.parametrize("boz,mesaj", [
+    (lambda g: g["oyun"]["kosular"]["kural_AW24"]["olcum"]["kiriklik"]["indirim_oncesi"]["kapsamlar"]["butun"]["ayrisim"]
+     .__setitem__("ortak", 1), "kural_AW24: kırık beden ayrışımı"),
+    (lambda g: g["oyun"]["kosular"]["opt_SS25"]["olcum"]["plan"].__setitem__("tam_setten_adet", 10 ** 6),
+     "opt_SS25: malın kaynağı"),
+    (lambda g: g["hikaye"]["sahne"]["butce"]["net"].__setitem__("tl", 1.0), "HİKÂYE: sahne bütçesi"),
+    (lambda g: g["hikaye"]["sahne"]["vericiler"][0].__setitem__("varis_gun", 9), "HİKÂYE: en erken ve en geç varış"),
+    (lambda g: g["hikaye"]["sahne"]["kargo"].__setitem__("orta", 1.0), "HİKÂYE: kargo"),
+], ids=["ayrisim", "kaynak", "butce", "varis", "kargo"])
+def test_yeni_olcu_denetimleri(tmp_path, capsys, boz, mesaj):
+    g = sahte_rapor.girdiler()
+    boz(g)
+    v = rapor.hazirla(**sahte_rapor.yaz(tmp_path, g))
+    assert rapor.tamponla(lambda: rapor.govde(v)) == (1, "")
+    y = capsys.readouterr()
+    assert y.out == "" and mesaj in y.err

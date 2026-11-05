@@ -25,17 +25,19 @@ bölümde `beklenti (K13) …: TUTUYOR | TUTMUYOR` satırıdır.
                     mağaza tipi ve beden sırası; dört sezon (AW23, SS24 önceki aynı tip sezonlar)
     ATIL            haftalık satmayan ve atıl stok (option × mağaza x ∈ {1, 2, 3}; SKU x = 1); kırık çiftlerin atıl payı
     UYGUNLUK        karar anının hunisi: stoklu → kırık → depoda yok → açık sipariş yok → mağaza uygun
-    PLAN            yol 0, kol × sezon: hareket, adet, rota, alıcı, verici, tamamlanan set; kural: tamamlanan ve atlanan
-                    alıcı; opt ailesi: çözücü durumu, kaynağı, gap
-    YOL 0           kol × sezon: kırık beden farkı (kesit × kapsam), satışa dönüş, ciro farkı (pencere), net (paket),
-                    brüt kâr, stok; iki sezon özeti (demonun sayıları)
+    PLAN            yol 0, kol × sezon: hareket, adet, rota, alıcı, verici, tamamlanan set; malın kaynağı (tam setten
+                    adet, sıfırlanan hücre, tek adetlik rota); kural: tamamlanan ve atlanan alıcı; opt ailesi: çözücü
+                    durumu, kaynağı, gap
+    YOL 0           kol × sezon: kırık beden farkı (kesit × kapsam) ve ayrışımı (ortak, kolda biten, Lumoda'da biten),
+                    satışa dönüş, ciro farkı (pencere), net (paket), brüt kâr, stok; iki sezon özeti (demonun sayıları)
     YOLLAR          5 talep yolu: net (orta) ve kırık beden farkı, k/5 yolda önde, medyan
-    AYRIŞIM         S3 opt − opt_set, S4 kural − kural_28, S7 kahin − opt (net orta, kırık beden farkı)
+    AYRIŞIM         S3 opt − opt_set, S4 kural − kural_28, S7 kahin − opt (net orta, kırık beden farkı); opt ile
+                    kahin planlarının örtüşmesi (plan önbelleğinden)
     SATIŞA DÖNÜŞ    saha ölçüsü ile gerçek etki, pencereler, vericide kayıp (S1, S5, S6)
     PARA            ciro farkı, brüt kâr, maliyet ve net üç paketle (S2)
     TAHMİN          tahminin kahinin gerçek talebine göre isabeti (Ruling R27): Σ talep, WAPE, yanlılık
     YAN ETKİ        replenishment, elle transfer, gizli kayıp, test dışı ciro, sürekli sipariş
-    HİKÂYE          sahne (S8)
+    HİKÂYE          sahne (S8): verici başına varış ve Lumoda'daki satış, sahne bütçesi, rotaların kargosu
     DEMO            27 bileşim, site dosyası
     KORUNUM         raporun iç tutarlılığı
 
@@ -43,7 +45,8 @@ Rapor önce tampona yazılır; bir iç denetim tutmazsa ya da bir girdi eksik ya
 mesaj stderr'e, çıkış kodu 1 (`Eksik`). Eski ya da eksik: ızgaranın bir koşusu (47) `oyun.json`'da yok, geçersiz
 (korunum tutmadı ya da atlandı), bugünkü ölçüm koduyla ya da yolunun bugünkü Lumoda koşusuyla ölçülmemiş; koşunun
 önbellek dizini yok ya da `meta.json`'u bugünkü vaka ve İlk Sevkiyat kodu, veri, kütüphane sürümleriyle değil; planı
-plan önbelleğinde kimliğiyle yok ya da bugünkü karar koduyla kurulmamış; tahmin isabeti kaydı (yol × sezon) eski;
+plan önbelleğinde kimliğiyle yok ya da bugünkü karar koduyla kurulmamış ya da (opt ve kahin, yol 0) hareket dosyası yok
+veya kimliğini vermiyor; tahmin isabeti kaydı (yol × sezon) eski;
 `analiz.json` bugünkü kodla ya da bugünkü v4 dosyasından değil; `hikaye.json` bugünkü kodla ya da bu `oyun.json`'un
 koşularından değil; demo dosyası yok ya da `senaryolar.uret()` ile aynı değil. `--taslak` eksik girdiye dayanan
 bölümleri "[eksik: …]" diye geçer ve sonda listeler (çıkış 2; bu çıktı yazılara kaynak olamaz); `--kucuk` KÜÇÜK
@@ -70,9 +73,11 @@ from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 import analiz
+import pandas as pd
 import senaryolar
 from allocation import motor
 from kiriklik import hikaye, olcutler, oyun, sabitler, simulasyon
+from kiriklik.plan import Plan
 
 SEZONLAR = sabitler.TEST_SEZONLARI                  # AW24 ana sahne önce
 TOPLAM = "toplam"
@@ -93,6 +98,11 @@ KIMLIK_ALANLARI = {"vaka": "vaka kod özeti", "kod": "İlk Sevkiyat kod özeti",
                    "surumler": "kütüphane sürümleri"}
 HUNI_ADLARI = {"stoklu": "stoklu çift", "kirik": "kırık", "depoda_yok": "eksik bedenler depoda yok",
                "acik_siparis_yok": "açık siparişi de yok", "magaza_uygun": "mağaza uygun"}
+AYRISIM_KESITLERI = ("indirim_oncesi", "varis_sonrasi")
+AYRISIM_KAPSAMLARI = ("butun", "transfer_edilen")
+ORTUSME_KOLLARI = ("opt", "kahin")                  # yol 0 planları plan önbelleğinden okunur (AYRIŞIM S7)
+ORTUSME_ANAHTARLARI = {"alici_hucre": (["alici", "urun_id"], "alıcı hücre"), "verici_hucre": (["verici", "urun_id"], "verici hücre"),
+                       "hareket": (["verici", "alici", "urun_id"], "hareket"), "rota": (["verici", "alici"], "rota")}
 AYRISIMLAR = ((3, "opt", "opt_set", "set koşulunun bedeli"), (4, "kural", "kural_28", "STD'nin son 28 güne göre değeri"),
               (7, "kahin", "opt", "talebi ve fiyat yolunu bilmenin değeri"))
 
@@ -291,6 +301,7 @@ class Veri:
     gecerli: set = field(default_factory=set)            # geçerli kol koşularının adları
     lumoda: set = field(default_factory=set)             # geçerli Lumoda koşularının yolları
     planlar: dict = field(default_factory=dict)          # koşu adı → plan JSON'u
+    hareketler: dict = field(default_factory=dict)       # koşu adı → planın hareketleri (ORTUSME_KOLLARI, yol 0)
     tahmin: set = field(default_factory=set)             # geçerli (yol, sezon) tahmin isabeti kayıtları
     eksik: list = field(default_factory=list)
     olcum_kodu: str = ""
@@ -321,12 +332,17 @@ def _meta_sorunu(onbellek: Path, ad: str, anahtar: str, kimlik: dict) -> str | N
     return None
 
 
-def _plan_bul(planlar: Path, r: dict) -> dict | None:
+def _plan_bul(planlar: Path, r: dict, karar_kodu: str) -> dict | None:
+    """Kaydın kimliğiyle plan JSON'u; aynı hareketli plan eski karar koduyla da önbellekte durabilir (kimlik aynı, anahtar
+    farklı): bugünkü kodla kurulmuş olan yeğlenir, yoksa ilki (`_plan_sorunu` eskiliğini söyler)."""
+    bulunan = None
     for yol in sorted(Path(planlar).glob(f"{r['kol']}_{r['sezon']}_y{r['yol']}_*.json")):
         d = json.loads(yol.read_text(encoding="utf-8"))
         if d.get("kimlik") == r.get("plan_kimligi"):
-            return d
-    return None
+            if (d.get("icerik") or {}).get("kod") == karar_kodu:
+                return d
+            bulunan = bulunan or d
+    return bulunan
 
 
 def _plan_sorunu(pj: dict | None, r: dict, karar_kodu: str, olcek: str) -> str | None:
@@ -345,11 +361,23 @@ def _plan_sorunu(pj: dict | None, r: dict, karar_kodu: str, olcek: str) -> str |
     return None
 
 
+def _hareket_oku(planlar: Path, r: dict, pj: dict) -> tuple[pd.DataFrame | None, str | None]:
+    """Planın hareketleri plan önbelleğinden (dünya yüklenmez); dosya yoksa ya da planın kimliğini vermiyorsa sorun."""
+    pq = Path(planlar) / f"{r['kol']}_{r['sezon']}_y{r['yol']}_{pj['anahtar'][:20]}.parquet"
+    if not pq.is_file():
+        return None, f"plan önbelleği: {r['ad']} planının hareket dosyası yok ({pq.name})"
+    h = pd.read_parquet(pq)
+    if Plan(kol=r["kol"], sezon=r["sezon"], hareketler=h).kimlik != pj.get("kimlik"):
+        return None, f"plan önbelleği: {r['ad']} planının hareketleri kimliğiyle tutmuyor"
+    return h, None
+
+
 def kosular_denetimi(o: dict, olcek: str, kod: str, onbellek: Path, planlar: Path, karar: dict, kimlik: dict
-                     ) -> tuple[set, set, dict, list]:
-    """Izgaranın 47 koşusu (modül notu): geçerli kol koşuları, geçerli Lumoda yolları, plan JSON'ları, sorunlar."""
+                     ) -> tuple[set, set, dict, dict, list]:
+    """Izgaranın 47 koşusu (modül notu): geçerli kol koşuları, geçerli Lumoda yolları, plan JSON'ları, örtüşmenin plan
+    hareketleri, sorunlar."""
     lumoda, kosular = o.get("lumoda") or {}, o.get("kosular") or {}
-    gec, lum_ok, pjs, sorun = set(), set(), {}, []
+    gec, lum_ok, pjs, hareket, sorun = set(), set(), {}, {}, []
     for i in oyun.izgara_listesi(olcek):
         if i.kol == LUMODA:
             e = lumoda.get(str(i.yol)) or {}
@@ -375,13 +403,19 @@ def kosular_denetimi(o: dict, olcek: str, kod: str, onbellek: Path, planlar: Pat
         elif m := _meta_sorunu(onbellek, i.ad, r.get("anahtar") or "", kimlik):
             sorun.append(m)
         else:
-            pj = _plan_bul(planlar, r)
+            pj = _plan_bul(planlar, r, karar[i.kol])
             if m := _plan_sorunu(pj, r, karar[i.kol], olcek):
                 sorun.append(m)
-            else:
-                gec.add(i.ad)
-                pjs[i.ad] = pj
-    return gec, lum_ok, pjs, sorun
+                continue
+            if i.kol in ORTUSME_KOLLARI and i.yol == 0:
+                h, m = _hareket_oku(planlar, r, pj)
+                if m:
+                    sorun.append(m)
+                    continue
+                hareket[i.ad] = h
+            gec.add(i.ad)
+            pjs[i.ad] = pj
+    return gec, lum_ok, pjs, hareket, sorun
 
 
 def tahmin_denetimi(o: dict, kod: str, karar_kahin: str) -> tuple[set, list]:
@@ -426,7 +460,7 @@ def hazirla(*, kucuk: bool = False, taslak: bool = False, cikti: Path | None = N
     sorun = []
     if o.get("olcek") != olcek:
         sorun.append(f"oyun.json {o.get('olcek')} ölçeğinde (beklenen {olcek})")
-    gec, lum_ok, pjs, ek = kosular_denetimi(o, olcek, kod, onbellek, planlar, karar, kimlik)
+    gec, lum_ok, pjs, hareket, ek = kosular_denetimi(o, olcek, kod, onbellek, planlar, karar, kimlik)
     sorun += ek
     tah, ek = tahmin_denetimi(o, kod, karar["kahin"])
     sorun += ek
@@ -458,7 +492,7 @@ def hazirla(*, kucuk: bool = False, taslak: bool = False, cikti: Path | None = N
         raise Eksik(*sorun)
     return Veri(oyun=o, analiz=a, hikaye=h, demo_dosya=demo, olcek=olcek, taslak=taslak or kucuk,
                 demo_bayt=demo_yol.stat().st_size if demo is not None else None, gecerli=gec, lumoda=lum_ok,
-                planlar=pjs, tahmin=tah, eksik=sorun, olcum_kodu=kod)
+                planlar=pjs, hareketler=hareket, tahmin=tah, eksik=sorun, olcum_kodu=kod)
 
 
 # ---------------------------------------------------------------------------
@@ -665,6 +699,14 @@ def plan_bolumu(v, ek) -> None:
             "verici mağaza", "tamamlanan set", "alıcı başına verici (medyan)", "rota başına adet (medyan)"], satirlar)
     for kol in YOL0_KOLLARI:
         for z in SEZONLAR:
+            p = O(v, kol, z)["plan"]
+            print(f"  {kol} {z} malın kaynağı: tam setten {s(p['tam_setten_adet'])} / {s(p['adet'])} adet, "
+                  f"{yuzde(p['tam_setten_pay'])}; tam set verici çift {s(p['tam_set_verici_cift'])} / {s(p['verici_cift'])}; "
+                  f"dokunulan verici hücre {s(p['verici_hucre'])}, verdikten sonra sıfıra inen {s(p['sifirlanan_hucre'])}; "
+                  f"tam sette hücre {s(p['tam_set_verici_hucre'])}, sıfıra inen {s(p['tam_sette_sifirlanan_hucre'])}; "
+                  f"tek adetlik rota {s(p['rota_tek_adet'])} / {s(p['rota'])}")
+    for kol in YOL0_KOLLARI:
+        for z in SEZONLAR:
             b, p = P(v, kol, z), O(v, kol, z)["plan"]
             if kol.startswith("kural"):
                 t, at = len(b.get("tamamlanan_alicilar") or []), len(b.get("atlanan_alicilar") or [])
@@ -706,6 +748,25 @@ def _kesit_tablosu(o: dict) -> None:
           f"{s(lum['kirik_cift'])} kırık çift (net {yuzde(lum['net_oran'])})")
 
 
+def _kirik_ayrisimi(o: dict) -> None:
+    """Kırık beden farkının ayrışımı (`olcutler.kiriklik_ayrisimi`): stoğu biten çift kırık sayımından çıkar."""
+    for kes in AYRISIM_KESITLERI:
+        k = o["kiriklik"][kes]["kapsamlar"]
+        for kap in AYRISIM_KAPSAMLARI if k is not None else ():
+            a = k[kap]["ayrisim"]
+            print(f"  {KESIT_ADLARI[kes]}, {KAPSAM_ADLARI[kap]}: fark {isaretli(k[kap]['fark']['kirik_beden'])} = ortak "
+                  f"{isaretli(a['ortak'])}, kolda biten {isaretli(a['kolda_biten'])} ({s(a['kolda_biten_cift'])} çift), "
+                  f"Lumoda'da biten {isaretli(a['lumodada_biten'])} ({s(a['lumodada_biten_cift'])} çift)")
+
+
+def _ortak_toplami(v, kol: str) -> None:
+    oo = OO(v, kol, TOPLAM)
+    print(f"  {kol} · iki sezon ortak (iki dünyada stoklu çiftlerde kırık beden farkı): " + ", ".join(
+        f"{KESIT_ADLARI[kes]}, {KAPSAM_ADLARI[kap]} "
+        f"{isaretli(sum(o['kiriklik'][kes]['kapsamlar'][kap]['ayrisim']['ortak'] for o in oo))}"
+        for kes in AYRISIM_KESITLERI for kap in AYRISIM_KAPSAMLARI))
+
+
 def _yol0_ozet(v, kol: str, sezon: str) -> None:
     oo = OO(v, kol, sezon)
     h = {p: senaryolar.ham(oo, p) for p in PAKETLER}
@@ -722,6 +783,7 @@ def yol0_bolumu(v, ek) -> None:
             o = O(v, kol, z)
             alt(f"{kol} · {SEZON_ADLARI[z]}")
             _kesit_tablosu(o)
+            _kirik_ayrisimi(o)
             sd, pa = o["satisa_donus"], o["para"]
             print(f"  satışa dönüş: alınan {s(sd['alinan_adet'])}; indirime kadar {s(sd['indirime_satilan'])}, "
                   f"{yuzde(sd['saha_indirime'])}; çıkışa kadar {s(sd['cikisa_satilan'])}, {yuzde(sd['saha_cikisa'])}; "
@@ -736,6 +798,7 @@ def yol0_bolumu(v, ek) -> None:
     alt("iki sezon (demonun sayıları)")
     for kol in YOL0_KOLLARI:
         _yol0_ozet(v, kol, TOPLAM)
+        _ortak_toplami(v, kol)
 
 
 # ---------------------------------------------------------------------------
@@ -769,6 +832,25 @@ def _ayrisim(v, a: str, b: str, z: str, yol: int = 0) -> tuple[float, int, float
     return fark(mtl(nb), mtl(na), 2), kb, na, nb
 
 
+def plan_ortusmesi(a: pd.DataFrame, b: pd.DataFrame) -> dict:
+    """İki planın örtüşmesi (`plan.KOLONLAR`), anahtar başına (`ORTUSME_ANAHTARLARI`): `ortak_adet` = Σ min(a'nın adedi, b'nin
+    adedi), `pay_a`, `pay_b` onun iki planın adedine oranı (boş plan None), `tekil_ortak`, `tekil_a`, `tekil_b` anahtar sayıları."""
+    out = {}
+    for ad, (anahtar, _) in ORTUSME_ANAHTARLARI.items():
+        x, y = a.groupby(anahtar)["adet"].sum(), b.groupby(anahtar)["adet"].sum()
+        j = pd.concat([x.rename("a"), y.rename("b")], axis=1).fillna(0)
+        ortak = int(j.min(axis=1).sum())
+        out[ad] = {"ortak_adet": ortak, "pay_a": ortak / int(x.sum()) if len(x) else None,
+                   "pay_b": ortak / int(y.sum()) if len(y) else None, "tekil_ortak": int(((j["a"] > 0) & (j["b"] > 0)).sum()),
+                   "tekil_a": len(x), "tekil_b": len(y)}
+    return out
+
+
+def _hareketler(v, kol: str, sezon: str) -> pd.DataFrame:
+    K(v, kol, sezon)
+    return v.hareketler[oyun.kosu_adi(kol, sezon, 0)]
+
+
 def ayrisim_bolumu(v, ek) -> None:
     print("İki kol arasındaki fark (a − b): net (orta paket) basılan iki ondalıklı düzeylerin farkı; kırık beden "
           "farkı a'nın kırık beden farkı − b'ninki (indirimden önceki son pazartesi, bütün stok; eksi = a daha çok "
@@ -786,6 +868,12 @@ def ayrisim_bolumu(v, ek) -> None:
             print(f"  bütün yollar ve iki sezon (10 koşu çifti): net {a} önde {sum(x[0] > 0 for x in yollar)}/10, "
                   f"medyan {_m2(yuv(statistics.median(x[0] for x in yollar), 2))}; kırık beden {a} daha çok azaltıyor "
                   f"{sum(x[1] < 0 for x in yollar)}/10")
+    for z in SEZONLAR:
+        o_ = plan_ortusmesi(_hareketler(v, "opt", z), _hareketler(v, "kahin", z))
+        print(f"  plan örtüşmesi {SEZON_ADLARI[z]} (opt ile kahin, yol 0, adet ağırlıklı ortak pay): " + "; ".join(
+            f"{ad} opt'un {yuzde(o_[k]['pay_a'])}, kahin'in {yuzde(o_[k]['pay_b'])}"
+            for k, (_, ad) in ORTUSME_ANAHTARLARI.items())
+            + f"; ortak rota {s(o_['rota']['tekil_ortak'])} (opt {s(o_['rota']['tekil_a'])}, kahin {s(o_['rota']['tekil_b'])})")
     d3, kb3 = cevap[(3, TOPLAM)]
     print(f"  beklenti (K13) set koşulu kazancı azaltır, kırık bedeni daha çok azaltır: {tutuyor(d3 > 0 and kb3 > 0)} "
           f"(opt − opt_set iki sezon: net {_m2(d3)}, kırık beden {isaretli(kb3)})")
@@ -938,6 +1026,13 @@ def yan_etki_bolumu(v, ek) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _verici_satisi(beden: str, l: dict) -> str:
+    if not l["adet"]:
+        return f"{beden} satmıyor"
+    return (f"{beden} {s(l['adet'])} adet satıyor, ilk satış karardan {s(l['ilk_gun'])} gün sonra, "
+            f"{s(l['ilk_fiyat'], 2)} TL")
+
+
 def hikaye_bolumu(v, ek) -> None:
     h = H(v)
     sa = h["sahne"]
@@ -953,11 +1048,19 @@ def hikaye_bolumu(v, ek) -> None:
         f"{b} {s(a)}" for b, a in sa["karar"]["kirik_depo"].items()) + ")")
     for x in sa["vericiler"]:
         print(f"  verici {x['ad']} ({x['sehir']}): {s(x['adet'])} adet (" + ", ".join(
-            f"{b} {s(a)}" for b, a in x["bedenler"].items()) + ")")
+            f"{b} {s(a)}" for b, a in x["bedenler"].items()) + f"), varış karardan {s(x['varis_gun'])} gün sonra, "
+            "transfer olmayan Lumoda'da " + "; ".join(_verici_satisi(b, l) for b, l in x["lumoda"].items()))
     ist_disi = sum(x["sehir"] != hikaye.ISTANBUL for x in sa["vericiler"])
     print(f"  verici {s(len(sa['vericiler']))} (İstanbul dışında {s(ist_disi)}); alınan {s(sa['alinan'])} adet (" + ", ".join(
-        f"{b} {s(a)}" for b, a in sa["alinan_bedenler"].items()) + f"); varış karardan {s(sa['varis_gun'])} gün sonra; "
+        f"{b} {s(a)}" for b, a in sa["alinan_bedenler"].items()) + f"); en erken varış karardan "
+        f"{s(sa['en_erken_varis_gun'])} gün sonra, en geç varış karardan {s(sa['en_gec_varis_gun'])} gün sonra; "
         f"indirime {s(sa['indirime_gun'])} gün")
+    bu, ka = sa["butce"], sa["kargo"]
+    a_, v_ = yuv(bu["alici"]["tl"], 0), yuv(bu["vericiler"]["tl"], 0)
+    print(f"  sahne bütçesi (kol − Lumoda, aynı hücreler, karardan çıkışa): alıcı {isaretli(bu['alici']['adet'])} adet, "
+          f"{isaretli(a_)} TL; vericiler {isaretli(bu['vericiler']['adet'])} adet, {isaretli(v_)} TL; net "
+          f"{isaretli(bu['net']['adet'])} adet, {isaretli(a_ + v_)} TL")
+    print(f"  kargo: {s(ka['rota'])} rota, düşük maliyet {s(ka['dusuk'])} TL, orta maliyet {s(ka['orta'])} TL")
     si = sa["satis_indirime"]
     print(f"  indirim gününe kadar alıcının satışı (pozitif adet): kural kolunda alınan bedenlerde "
           f"{s(si['kural']['alinan_sku'])}, option'da {s(si['kural']['option'])}; Lumoda'da aynı hücrelerde "
@@ -975,6 +1078,15 @@ def hikaye_bolumu(v, ek) -> None:
                sum(x["adet"] for x in sa["vericiler"]) == sa["alinan"] == sum(sa["alinan_bedenler"].values())))
     ek.append(("HİKÂYE: kırık bedenlerin depo stoğu sıfır", all(a == 0 for a in sa["karar"]["kirik_depo"].values())))
     ek.append(("HİKÂYE: Lumoda'da indirime kırık giriyor", io_["lumoda"]["kirik"] is True))
+    gg = [x["varis_gun"] for x in sa["vericiler"]]
+    ek.append(("HİKÂYE: en erken ve en geç varış = verici varışları",
+               (min(gg), max(gg)) == (sa["en_erken_varis_gun"], sa["en_gec_varis_gun"])))
+    ek.append(("HİKÂYE: sahne bütçesi net = alıcı + vericiler",
+               bu["net"]["adet"] == bu["alici"]["adet"] + bu["vericiler"]["adet"]
+               and _ayni(bu["net"]["tl"], bu["alici"]["tl"] + bu["vericiler"]["tl"], 1e-6)))
+    ek.append(("HİKÂYE: kargo = verici rotaları × rota başı",
+               ka["rota"] == len(sa["vericiler"]) and all(_ayni(ka[p], ka["rota"] * sabitler.MALIYET_PAKETLERI[p].kargo_rota_tl)
+                                                         for p in ("dusuk", "orta"))))
     soru(8, f"hikâye sahnesi: {al['ad']} ({al['sehir']}), {o['model_adi']}: kırık bedenler "
             f"{', '.join(sa['karar']['kirik_bedenler'])} (depoda yok) {s(len(sa['vericiler']))} vericiden "
             f"{s(sa['alinan'])} adetle tamamlanıyor; indirime "
@@ -1034,6 +1146,17 @@ def korunum_bolumu(v, ek) -> None:
         ek.append((f"{i.ad}: planın girdisi yolun Lumoda'sı", (v.planlar[i.ad]["bilgi"] or {}).get("girdi")
                    == {"yol": i.yol, "lumoda_anahtari": r["lumoda_anahtari"]}))
         o = r["olcum"]
+        ek.append((f"{i.ad}: kırık beden ayrışımı ortak + kolda biten + Lumoda'da biten = fark",
+                   all(k["ayrisim"]["ortak"] + k["ayrisim"]["kolda_biten"] + k["ayrisim"]["lumodada_biten"]
+                       == k["fark"]["kirik_beden"]
+                       for kes in o["kiriklik"].values() for k in (kes["kapsamlar"] or {}).values())))
+        pl = o["plan"]
+        ek.append((f"{i.ad}: malın kaynağı plan özetiyle tutarlı (tam set ≤ toplam, sıfırlanan ≤ dokunulan, tek adetlik rota ≤ rota)",
+                   pl["tam_setten_adet"] <= pl["adet"] and _ayni(pl["tam_setten_pay"], oran(pl["tam_setten_adet"], pl["adet"]))
+                   and pl["tam_set_verici_cift"] <= pl["verici_cift"]
+                   and pl["tam_sette_sifirlanan_hucre"] <= pl["sifirlanan_hucre"] <= pl["verici_hucre"]
+                   and pl["tam_sette_sifirlanan_hucre"] <= pl["tam_set_verici_hucre"] <= pl["verici_hucre"]
+                   and pl["rota_tek_adet"] <= pl["rota"]))
         sd, t, h = o["satisa_donus"], _sd_toplam([o]), senaryolar.ham([o], sabitler.KARAR_PAKETI)
         ek.append((f"{i.ad}: yeniden türetilen satışa dönüş oranları = olcutler'in ölçtüğü (rapor ve demo)",
                    all(_ayni(a, b) for a, b in ((t["saha_indirime"], sd["saha_indirime"]),
@@ -1052,7 +1175,7 @@ def korunum_bolumu(v, ek) -> None:
                                                          "eksik_adet"))))
     n = korunum(ek)
     print(f"  {s(n)} denetim tuttu: {s(len(v.gecerli))} koşunun korunumu ({', '.join(KORUNUM_KOSULLARI)}), ölçümün "
-          "sezonu, planın girdisi, yeniden türetilen satışa dönüş oranları; plan önbelleği bugünkü karar koduyla; uygunluk "
+          "sezonu, planın girdisi, kırık beden ayrışımı, malın kaynağı, yeniden türetilen satışa dönüş oranları; plan önbelleği bugünkü karar koduyla; uygunluk "
           "hunisi; hikâye sahnesi; demo kartları.")
     print(f"  oyun.json kayıtları bugünkü ölçüm koduyla ({v.olcum_kodu[:12]}); analiz.json "
           f"{(v.analiz or {}).get('kod', '—')[:12]}; hikaye.json {(v.hikaye or {}).get('kod', '—')[:12]}.")
