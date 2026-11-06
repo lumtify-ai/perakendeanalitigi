@@ -16,6 +16,8 @@ Sonuçlar → Kilit → Sınırlar.
 
 ## Kurulum
 
+Python 3.12 gerekir (sabitlenen `numpy` ve `scipy` sürümleri, `rapor.py`'nin f-string'leri).
+
     cd vakalar/kiriklik
     python -m venv .venv
     .venv/Scripts/pip install numpy==2.5.4 pandas==2.3.3 duckdb==1.5.6 pyarrow==26.0.0 \
@@ -56,23 +58,26 @@ Komutlar `vakalar/kiriklik` içinden, bu sırayla; Windows konsolunda `PYTHONIOE
 arka planda koşar; yarıda kalan ızgara önbellekten sürer. Izgara 47 TAM koşudur (Lumoda 5, yol 0'da sekiz kol koşusu,
 ablasyon 2, yollar 1–4 için 32).
 
-    # 1. planlar (isteğe bağlı: ızgara da kurar): yolun Lumoda koşusu önbellekte olmalı; simüle etmez
-    .venv/Scripts/python -m kiriklik.oyun planlar --blok yol0
-    .venv/Scripts/python -m kiriklik.oyun planlar --blok yollar --yol 2     # --yol P ile tek yol
-    # 2. ızgara: Lumoda, planlar ve kol koşuları (ölçmez)
+    # 1. ızgara: Lumoda, planlar ve kol koşuları (ölçmez)
     .venv/Scripts/python -m kiriklik.oyun izgara --blok yol0        # Lumoda + {kural, opt, opt_set, kahin} × 2 sezon
     .venv/Scripts/python -m kiriklik.oyun izgara --blok ablasyon    # kural_28 × 2 sezon (yol 0)
     .venv/Scripts/python -m kiriklik.oyun izgara --blok yollar      # yol 1–4: Lumoda + 8 kol koşusu; --yol P ile tek yol
-    # 3. ölçüm: önbellekteki bütün koşuları bugünkü ölçüm koduyla ölçer; koşmaz, plan kurmaz
+    # 2. ölçüm: önbellekteki bütün koşuları bugünkü ölçüm koduyla ölçer; koşmaz, plan kurmaz
     .venv/Scripts/python -m kiriklik.oyun olc                       # --zorla: ölçüm kodu aynı olsa da yeniden ölç
-    # 4. koşusuz veri analizi (VERİ, KIRIKLIK, ATIL, UYGUNLUK): cikti/analiz.json
+    # 3. koşusuz veri analizi (VERİ, KIRIKLIK, ATIL, UYGUNLUK): cikti/analiz.json
     .venv/Scripts/python analiz.py
-    # 5. hikâye sahnesi: cikti/hikaye.json
+    # 4. hikâye sahnesi: cikti/hikaye.json
     .venv/Scripts/python -m kiriklik.hikaye
-    # 6. demo dosyası: site/src/data/senaryolar/kiriklik-transferi.json
+    # 5. demo dosyası: site/src/data/senaryolar/kiriklik-transferi.json
     .venv/Scripts/python senaryolar.py
-    # 7. rapor: yazıların bütün sayıları
+    # 6. rapor: yazıların bütün sayıları
     .venv/Scripts/python rapor.py > cikti/rapor.txt
+
+Planları ızgaradan ayrı bir süreçte kurmak için (simüle etmez; yolun Lumoda koşusu önbellekte olmalı, yani ızgaranın
+Lumoda adımından sonra; yoksa `ValueError`):
+
+    .venv/Scripts/python -m kiriklik.oyun planlar --blok yol0
+    .venv/Scripts/python -m kiriklik.oyun planlar --blok yollar --yol 2     # --yol P ile tek yol
 
 `--blok hepsi` üç bloğu sırayla koşar. Bir yolun planları önce kurulur (`opt`, `opt_set` ve `kahin` bir optimizasyon
 çözer), sonra kol koşuları sırayla koşar; plan önbelleğinde bulunan yeniden kurulmaz. Yol p > 0'ın planı o yolun
@@ -89,9 +94,10 @@ dizini). Paralel süreçler bu yüzden aynı anda başlatılır; başka bir koş
 da KÜÇÜK ızgara dahil) başlatılmaz, yazılmakta olan koşuyu silebilir. KÜÇÜK denemeleri ayrı bir `onbellek`le ya da
 ızgara bittikten sonra koşun.
 
-**KÜÇÜK ölçek** (geliştirme): `oyun planlar|izgara|olc --olcek KUCUK`, `analiz.py --olcek KUCUK`,
-`python -m kiriklik.hikaye --olcek KUCUK`, `senaryolar.py --kucuk`, `rapor.py --kucuk` (çıktılar `cikti/kucuk/`;
-rapor her zaman taslaktır, yazılara kaynak olamaz).
+**KÜÇÜK ölçek** (geliştirme): `oyun planlar|izgara|olc --olcek KUCUK`, `python -m kiriklik.hikaye --olcek KUCUK`,
+`senaryolar.py --kucuk`, `rapor.py --kucuk` (çıktılar `cikti/kucuk/`; rapor her zaman taslaktır, yazılara kaynak
+olamaz). `analiz.py`'nin KÜÇÜK'ü yoktur: yayımlanan v4'ü okur, koşuya bağlı değildir; KÜÇÜK raporda analiz bölümleri
+eksik geçer.
 
 **Rapor** (`rapor.py`) veriyi okumaz, simülasyon koşmaz: `oyun.json`, `analiz.json`, `hikaye.json` ve demo dosyasını
 basar. Bir girdi eksik ya da eskiyse ya da bir korunum denetimi bozulursa stdout boş kalır, mesaj stderr'e gider,
@@ -184,7 +190,10 @@ adlar.
   eksidir; **Lumoda'da biten** yalnız kolda stoklu çiftlerin katkısı, artıdır.
 - **Satmayan stok**: son 28 günde satışı 0; **atıl stok**: 28 günde 1 ile x arası satış (x = 2 option × mağaza
   düzeyinde, 1 SKU düzeyinde; rapor x ∈ {1, 2, 3} basar). İkisi ayrık sınıflardır ve yalnız en az 28 gündür rafta olan
-  çift ya da hücre için tanımlıdır (rafta daha kısa olan `yeni` sayılır). Ölçü adet ve alış değeridir (R31).
+  çift ya da hücre için tanımlıdır (rafta daha kısa olan `yeni` sayılır). Ölçü adet ve alış değeridir (R31). Çiftin
+  satışı option'ın bütün bedenlerinden sayılır, pencerede satıp tükenen beden dahil; SKU düzeyinde hücrenin kendi
+  satışı. Yalnız kalan bedenlerin satışıyla oran raporda ayrı, adı açık bir satırdır; kırık ile tam çift onunla
+  kıyaslanmaz (R39).
 - **Doldurulamaz beden ve uygun alıcı.** Karar anında deposu da, indirimden önce teslim planlı açık siparişi de sıfır
   olan SKU doldurulamaz (replenishment kapatamaz). Çift kırık, bütün kırık bedenleri doldurulamaz, option Collection,
   mağaza fiziksel (AVM/Cadde), açık ve kapanış kararsızsa uygun alıcı adayıdır.
@@ -242,7 +251,8 @@ durumunu taşır, rapor basar (R16, R18, R19).
 Sayılar `cikti/rapor.txt`'tedir; bu dosya sayı vermez. Bölümler sırasıyla: VERİ, KIRIKLIK, ATIL, UYGUNLUK (koşusuz,
 `analiz.py`); PLAN; YOL 0; YOLLAR; AYRIŞIM; SATIŞA DÖNÜŞ; PARA; TAHMİN; YAN ETKİ; HİKÂYE; DEMO; KORUNUM. Başlık
 soruları raporda tek satırdır (`SORU n · …`): SORU 1, 5, 6 SATIŞA DÖNÜŞ'te; SORU 2 PARA'da; SORU 3, 4, 7 AYRIŞIM'da;
-SORU 8 HİKÂYE'de. Nedensel beklentiler `beklenti (K13) …: TUTUYOR | TUTMUYOR` satırıdır. YOLLAR beş yolda farkın
+SORU 8 HİKÂYE'de. Nedensel beklentiler `beklenti (K13) …: TUTUYOR | TUTMUYOR` satırıdır; yalnız "Blok Transfer'den
+düşük satışa dönüş" rapor satırı değildir, iki dizinin ölçüsü aynı olmadığı için karşılaştırması yazıdadır. YOLLAR beş yolda farkın
 işaretini ve medyanını basar. Tutmayan beklentiler spec §8'de ve yazılarda söylenir.
 
 ## Kilit

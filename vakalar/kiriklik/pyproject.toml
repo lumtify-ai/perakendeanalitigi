@@ -2,7 +2,7 @@
 name = "kiriklik-vaka"
 version = "0.1.0"
 description = "Kiriklik transferi (tekleme) vakasi (v4): kirik beden setlerinin kalan bedenlerini sezon sonundan once toplamak, v4 motorunda ayni malla kol kiyasi"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 # Kaynak baglantisi ve temiz gorunumler ortak pakette (vakalar/ortak/pyproject.toml);
 # kurulum: pip install -e ../ortak, sonra --no-deps -e ../../veri, ../allocation, ../kumeleme, ../markdown,
 # sonra -e ".[dev]" (README).
