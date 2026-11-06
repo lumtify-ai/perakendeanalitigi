@@ -64,7 +64,7 @@ describe('demoDegeri', () => {
       'utf8',
     )
     for (const [olcut, etiket] of [
-      ['net_fark_mtl', 'Net fark (M TL)'],
+      ['net_fark_mtl', 'Net fark (milyon TL)'],
       ['kirik_beden_farki', 'Kırık beden farkı'],
       ['saha_donus_yuzde', 'Alınanın satışa dönüşü (%)'],
       ['etki_donus_yuzde', 'Gerçek ek satış (%)'],

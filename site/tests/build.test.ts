@@ -175,7 +175,9 @@ describe('sözlük', () => {
     }
     expect(html).toContain('Net kırıklık')
     expect(html).toContain('Brüt kırıklık')
-    expect(html).toContain('Blok Transfer dizisi alıcı seçerken daha dar bir tanımla çalışır')
+    expect(html).toContain('yüzde 40')
+    expect(html).toContain('4/7')
+    expect(html).toContain('Blok Transfer dizisi alıcı seçerken daha dar bir tanımla çalışır: ara bedenlerden biri sıfırsa set kırık sayılır.')
   })
 
   it('kırıklık transferi yayında: haritada etkin, altı yazısı sırayla, kapak ve yazılar dizinlenir', () => {
@@ -207,7 +209,7 @@ describe('sözlük', () => {
   it('kırıklık transferi: hikâye kadroyla açılır, kadran beşinci yazıda, köprü yalnız sonda', () => {
     const KOK = 'transfer/kiriklik-transferi/'
     expect(oku(KOK + 'tek-kalan-bedenler/index.html')).toContain('kadro-kutusu')
-    expect(oku(KOK + 'transferi-kurmak/index.html')).toContain('Net fark (M TL)')
+    expect(oku(KOK + 'transferi-kurmak/index.html')).toContain('Net fark (milyon TL)')
     const son = oku(KOK + 'basari-nasil-olculur/index.html')
     expect(son.split('lumtify-koprusu').length - 1, 'köprü tam bir kez').toBe(1)
     const kopru = son.slice(son.indexOf('lumtify-koprusu'), son.indexOf('</aside>', son.indexOf('lumtify-koprusu')))

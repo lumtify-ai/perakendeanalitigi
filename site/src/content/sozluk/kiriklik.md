@@ -18,4 +18,4 @@ Kırıklık tespiti beden **etiketine** değil setteki **sıraya** bakar;
 pantolonda "M" diye bir beden yoktur ama üçüncü kademe vardır.
 
 Blok Transfer dizisi alıcı seçerken daha dar bir tanımla çalışır: ara
-bedenlerden biri sıfırsa.
+bedenlerden biri sıfırsa set kırık sayılır.
