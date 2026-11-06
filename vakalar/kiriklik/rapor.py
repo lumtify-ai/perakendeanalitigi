@@ -18,7 +18,8 @@ Rapor takvim tarihi ve yıl basmaz (günler karar gününe ya da indirime göre 
 
 Bölümler (`BOLUMLER`, bu sırayla). Başlık sorularının (tasarım K13) her biri ilgili bölümde tek bir `SORU n · …`
 satırıdır (cevap basılan değerlerden; yön sözcükleri hesaplanan değerden). Nedensel beklentiler (K13) bulundukları
-bölümde `beklenti (K13) …: TUTUYOR | TUTMUYOR` satırıdır.
+bölümde `beklenti (K13) …: TUTUYOR | TUTMUYOR` satırıdır; yalnız "Blok Transfer'den düşük satışa dönüş" satır değildir,
+iki dizinin ölçüsü aynı olmadığı için karşılaştırması yazıdadır.
 
     VERİ            yayımlanan v4, karar sabahları: option, mağaza, SKU, depo, stoklu çift, satış (keşif olguları)
     KIRIKLIK        İş Zekası: haftalık kırık beden ve kırık çift, net ve brüt, dar tanım; referans pazartesisinde
@@ -648,6 +649,9 @@ def atil_bolumu(v, ek) -> None:
               f"{yuzde(_atil_payi(ka['kirik']))} ({s(ka['kirik']['atil']['n'] + ka['kirik']['satmayan']['n'])} çift, "
               f"{s(ka['kirik']['atil']['adet'] + ka['kirik']['satmayan']['adet'])} adet), tam çiftlerde "
               f"{yuzde(_atil_payi(ka['tam']))}")
+        kk = r["atil"]["kirik_atil_kalan"]
+        print(f"  aynı pazartesi, yalnız kalan bedenlerin satışıyla (ölçüm tuzağı, kıyas değil: kırık çiftin tükenen bedeni "
+              f"düşer): kırık çiftlerde {yuzde(_atil_payi(kk['kirik']))}, tam çiftlerde {yuzde(_atil_payi(kk['tam']))}")
 
 
 def _atil_payi(k: dict) -> float | None:
@@ -930,8 +934,11 @@ def satisa_donus_bolumu(v, ek) -> None:
     e = t["etki_adet"]
     pay = {p: oran(e[p], e["toplam"]) for p in ("tam", "indirim", "outlet")}
     cf = {p: topla(OO(v, "kural", TOPLAM), lambda x, p=p: x["para"]["ciro"]["sezon"]["fark"][p]) for p in PENCERE_ADLARI}
+    # pay yalnız üç pencere aynı işaretliyse anlamlı: karışık işaretli toplamın payı %100'ü aşar
+    pen = [e[p] for p in ("tam", "indirim", "outlet")]
+    ayni = min(pen) >= 0 or max(pen) <= 0
     soru(5, "kurtarılan satış (kural, iki sezon, bütün kanallar): " + ", ".join(
-        f"{p} {isaretli(e[p])} adet, payı {yuzde(pay[p])}" for p in ("tam", "indirim", "outlet"))
+        f"{p} {isaretli(e[p])} adet" + (f", payı {yuzde(pay[p])}" if ayni else "") for p in ("tam", "indirim", "outlet"))
         + f" = {isaretli(e['toplam'])} adet; ciro farkı tam fiyat {para(cf['tam'])}, indirim {para(cf['indirim'])}, "
         f"outlet {para(cf['outlet'])}")
     soru(6, f"sahanın görmediği (kural, iki sezon): saha alıcıda çıkışa kadar {s(t['cikisa_satilan'])} adet satış "
@@ -964,6 +971,12 @@ def para_bolumu(v, ek) -> None:
                 m = oo[0]["para"]["maliyet"]["orta"]
                 print(f"    orta paket maliyetin bileşenleri: toplama {para(m['toplama'])}, kargo {para(m['kargo'])}, "
                       f"yıpranma {para(m['yipranma'])}")
+    alt("net, test dışı ciro dahil (orta paket; test dışı ciro nete girmez, YAN ETKİ)")
+    for kol in YOL0_KOLLARI:
+        for z in (*SEZONLAR, TOPLAM):
+            oo = OO(v, kol, z)
+            n, d = net(oo, "orta"), topla(oo, lambda o: o["yan_etki"]["test_disi_ciro_farki"])
+            print(f"  {kol} · {SEZON_ADLARI[z]}: net {para(n)}, test dışı ciro {para(d)}, toplam {para(n + d)}")
     yk = yuv(mtl(net(OO(v, "kural", TOPLAM), "yuksek")), 2)
     print(f"  beklenti (K13) maliyete bakmayan kural yüksek pakette net eksiye düşer: {tutuyor(yk < 0)} (kural iki sezon "
           f"yüksek paket net {_m2(yk)})")

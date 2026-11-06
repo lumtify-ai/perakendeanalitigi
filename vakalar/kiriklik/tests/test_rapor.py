@@ -424,3 +424,41 @@ def test_yeni_olcu_denetimleri(tmp_path, capsys, boz, mesaj):
     assert rapor.tamponla(lambda: rapor.govde(v)) == (1, "")
     y = capsys.readouterr()
     assert y.out == "" and mesaj in y.err
+
+
+# --------------------------------------------------------------------------- final dalga
+
+def _satir(metin: str, ad: str, iceren: str) -> str:
+    return next(x for x in _bolum(metin, ad).splitlines() if iceren in x)
+
+
+def test_atil_kalan_bedenler_ayri_ve_adi_acik(tmp_path):
+    """R39: ana satır bütün bedenlerin satışıyla (`kirik_atil`); stoklu bedenlerin satışı ayrı, etiketli satırdır."""
+    g = sahte_rapor.girdiler()
+    for b in g["analiz"]["sezon"].values():
+        for w in b["haftalik"]:
+            w["atil"]["kirik_atil_kalan"]["kirik"]["satmayan"]["n"] = 1_800       # (1800 + 500) / 5300 = %43,40
+    m = _metin(tmp_path, g)
+    assert m.count("yalnız kalan bedenlerin satışıyla") == 4
+    assert "%43,40" in _satir(m, "ATIL", "yalnız kalan bedenlerin satışıyla")
+    assert "%43,40" not in _satir(m, "ATIL", "referans pazartesisi")
+
+
+def test_soru5_pay_yalniz_ayni_isaretliyse(tmp_path):
+    """Karışık işaretli toplamın payı anlamsız (%100'ü aşar): pay yalnız üç pencere aynı işaretliyse basılır."""
+    assert "payı %" in _satir(_metin(tmp_path / "a"), "SATIŞA DÖNÜŞ", "SORU 5")
+    g = sahte_rapor.girdiler()
+    for z in ("AW24", "SS25"):                      # toplam aynı kalır (korunum): outlet eksiye döner
+        e = g["oyun"]["kosular"][f"kural_{z}"]["olcum"]["satisa_donus"]["etki_adet"]
+        e["tam"], e["outlet"] = e["tam"] + 100_000, e["outlet"] - 100_000
+    s = _satir(_metin(tmp_path / "b", g), "SATIŞA DÖNÜŞ", "SORU 5")
+    assert "outlet −" in s and "payı" not in s
+
+
+def test_para_test_disi_ciro_dahil_net(tmp_path):
+    """PARA: orta paket neti + test dışı ciro, tek satır; yazının "hesaba girseydi" cümlesi okur çıkarması olmasın."""
+    g = sahte_rapor.girdiler()
+    o = g["oyun"]["kosular"]["kural_AW24"]["olcum"]
+    o["para"]["net"]["orta"], o["yan_etki"]["test_disi_ciro_farki"] = 40_000.0, -50_000.0
+    s = _satir(_metin(tmp_path, g), "PARA", "kural · AW24 (kış): net ")
+    assert "net +0,04 M TL (0,0), test dışı ciro −0,05 M TL (−0,1), toplam −0,01 M TL (0,0)" in s

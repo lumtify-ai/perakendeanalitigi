@@ -189,7 +189,8 @@ def _hafta(h: int, stoklu: int, kirik_beden: int) -> dict:
     return {"tarih": f"2024-12-{9 + h:02d}" if h >= 0 else "2024-11-25", "hafta": h, "hafta_lansman": 16 + h,
             "butun": oz, "tip": {"AVM": oz, "Cadde": oz},
             "atil": {"cift": {f"x{x}": copy.deepcopy(atil) for x in sabitler.ATIL_DUYARLILIK}, "sku": copy.deepcopy(atil),
-                     "kirik_atil": {"kirik": copy.deepcopy(atil), "tam": copy.deepcopy(atil)}}}
+                     "kirik_atil": {"kirik": copy.deepcopy(atil), "tam": copy.deepcopy(atil)},
+                     "kirik_atil_kalan": {"kirik": copy.deepcopy(atil), "tam": copy.deepcopy(atil)}}}
 
 
 def analiz_kaydi() -> dict:
