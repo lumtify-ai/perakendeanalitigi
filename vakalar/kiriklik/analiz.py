@@ -23,9 +23,13 @@ düşmez; mükerrer kopya düşer: `select distinct`, Ruling R1). Rafta süresi 
 pozitif ilk pazartesi fotoğrafı (yayımlanan veride raf açılışının gözlenen karşılığı; Lumoda'nın elle transfer
 kuralının "en az 28 gündür rafta" koşulu); 28 günden azsa `yeni` (ne atıl ne satmayan). Option × mağaza düzeyinde
 x ∈ `ATIL_DUYARLILIK` için atıl (1 ≤ satış ≤ x) ve satmayan (satış 0; x'ten bağımsız): çift sayısı, mağaza stoğu
-(`adet`) ve alış değeri (`alis` = Σ adet × alış fiyatı). SKU düzeyinde x = `ATIL_ESIK_SKU`: stoğu pozitif hücreler.
-Kırıklıkla kesişim (`kirik_atil`): kırık ve tam (kırık olmayan) çiftlerin x = `ATIL_ESIK_OPTION` sınıflarına
-dağılımı (çift ve adet): "kırık setin kalan bedenleri atıllaşıyor mu".
+(`adet`) ve alış değeri (`alis` = Σ adet × alış fiyatı). Çiftin satışı (mağaza, option) pencere toplamıdır, bütün
+bedenlerden (`huni`'nin son 28 gün satışıyla aynı; Ruling R39): pencerede satıp tükenen beden çiftin satışında kalır.
+Stoğu sıfır çift çıkmaz; adet ve değer stoklu hücrelerden. SKU düzeyinde x = `ATIL_ESIK_SKU`: stoğu pozitif hücreler,
+her biri kendi satışıyla. Kırıklıkla kesişim (`kirik_atil`): kırık ve tam (kırık olmayan) çiftlerin
+x = `ATIL_ESIK_OPTION` sınıflarına dağılımı (çift ve adet). `kirik_atil_kalan` aynı dağılımı yalnız stoklu bedenlerin
+satışıyla sayar ("kalan bedenlerin satışı"): kırık çiftin tükenen bedenini düşürdüğü için kırık ile tam kıyasına
+yaramaz, ölçüm tuzağının büyüklüğü olarak basılır.
 
 **Referans pazartesisi** (`referans`): indirim − 28'den sonraki ilk pazartesi (dahil); test sezonlarında karar günüdür
 (`sabitler.KARAR`, denetlenir), önceki sezonlarda aynı konumdaki pazartesi. O fotoğrafta beden sırasına göre
@@ -151,11 +155,12 @@ def fotograflar(con, sezon: str, gunler: list[date]) -> pd.DataFrame:
 
 
 def haftalik_satis(con, sezon: str, bas: date, son: date) -> pd.DataFrame:
-    """Hücre × pazartesi haftası pozitif satış [bas, son): [hafta, magaza_id, urun_id, adet] (mükerrer kopya düşer)."""
+    """Hücre × pazartesi haftası pozitif satış [bas, son): [hafta, magaza_id, urun_id, option_id, adet] (mükerrer kopya
+    düşer)."""
     on, par = _on_ek(sezon)
     df = con.execute(f"""{on}
         select cast(date_trunc('week', t.tarih) as date) as hafta, t.magaza_id::varchar as magaza_id,
-               t.urun_id::varchar as urun_id, sum(t.adet)::bigint as adet
+               t.urun_id::varchar as urun_id, s.option_id::varchar as option_id, sum(t.adet)::bigint as adet
         from (select distinct * from satis where tarih >= ? and tarih < ? and adet > 0) t
         join sku s using (urun_id) join mag m using (magaza_id)
         group by all""", [*par, bas, son]).fetchdf()
@@ -210,13 +215,16 @@ def atil_haftasi(foto: pd.DataFrame, satis: pd.DataFrame, ilk_cift: pd.Series, i
     """`t` pazartesisinin atıl ve satmayan stoğu (modül notu)."""
     pencere = satis[(satis["hafta"] >= t - timedelta(days=sabitler.ATIL_PENCERE_GUN)) & (satis["hafta"] < t)]
     hucre_satis = pencere.groupby(["magaza_id", "urun_id"])["adet"].sum()
+    cift_satis = pencere.groupby(["magaza_id", "option_id"])["adet"].sum()
     f = foto[foto["stok"] > 0].copy()
     f["satis"] = hucre_satis.reindex(pd.MultiIndex.from_frame(f[["magaza_id", "urun_id"]])).fillna(0).to_numpy()
     f["deger"] = f["stok"] * f["alis"]
-    # option × mağaza
+    # option × mağaza: adet ve değer stoklu hücrelerden, satış bütün bedenlerden (R39)
     c = f.groupby(["magaza_id", "option_id"], as_index=False).agg(stok=("stok", "sum"), deger=("deger", "sum"),
-                                                                    satis=("satis", "sum"))
-    ilk = ilk_cift.reindex(pd.MultiIndex.from_frame(c[["magaza_id", "option_id"]])).to_numpy()
+                                                                    kalan_satis=("satis", "sum"))
+    cift_ix = pd.MultiIndex.from_frame(c[["magaza_id", "option_id"]])
+    c["satis"] = cift_satis.reindex(cift_ix).fillna(0).to_numpy()
+    ilk = ilk_cift.reindex(cift_ix).to_numpy()
     rafta = np.array([(t - d).days for d in ilk], dtype=np.int64)
     siniflar = {f"x{x}": olcu.atil_sinifi(c["satis"].to_numpy(), rafta, esik=x) for x in sabitler.ATIL_DUYARLILIK}
     cift_ = _atil_satiri(siniflar, c["stok"].to_numpy(), c["deger"].to_numpy())
@@ -230,11 +238,13 @@ def atil_haftasi(foto: pd.DataFrame, satis: pd.DataFrame, ilk_cift: pd.Series, i
     if k["kirik"].isna().any():
         raise ValueError("atıl çift kırıklık tablosunda yok")
     s = siniflar[f"x{sabitler.ATIL_ESIK_OPTION}"]
+    s_kalan = olcu.atil_sinifi(c["kalan_satis"].to_numpy(), rafta, esik=sabitler.ATIL_ESIK_OPTION)
     kir = k["kirik"].to_numpy(dtype=bool)
-    kesisim = {}
+    kesisim, kesisim_kalan = {}, {}
     for ad, m in (("kirik", kir), ("tam", ~kir)):
         kesisim[ad] = _atil_satiri({"x": s[m]}, c["stok"].to_numpy()[m], c["deger"].to_numpy()[m])["x"]
-    return {"cift": cift_, "sku": sku, "kirik_atil": kesisim}
+        kesisim_kalan[ad] = _atil_satiri({"x": s_kalan[m]}, c["stok"].to_numpy()[m], c["deger"].to_numpy()[m])["x"]
+    return {"cift": cift_, "sku": sku, "kirik_atil": kesisim, "kirik_atil_kalan": kesisim_kalan}
 
 
 def sezon_blogu(con, sezon: str) -> dict:
