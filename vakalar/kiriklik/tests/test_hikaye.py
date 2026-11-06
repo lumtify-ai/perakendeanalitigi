@@ -1,5 +1,5 @@
 """`kiriklik.hikaye`: sahnenin yeni ölçüleri (Ruling R38) oyuncak tablolarla: verici başına varış günü, Lumoda'da verilen
-bedenin vericideki satışı, sahne bütçesi, rotaların kargosu. Uçtan uca sahne KÜÇÜK koşularla el ile
+bedenin vericideki satışı, sahne bütçesi, rotaların kargosu; aday süzgeci ve seviye gevşetme. Uçtan uca sahne KÜÇÜK koşularla el ile
 (`python -m kiriklik.hikaye --olcek KUCUK`), TAM denetleyicide."""
 
 from datetime import date
@@ -55,3 +55,41 @@ def test_sahne_butcesi_ayni_hucreler():
 def test_rotalarin_kargosu():
     """Rota sayısı × rota başı kargo: düşük ve orta maliyet (`sabitler.MALIYET_PAKETLERI`)."""
     assert hikaye.rota_kargosu(5) == {"dusuk": 1500.0, "orta": 2500.0}
+
+
+def _aday(alici, sehir, ist_disi, sehir_disi, depo_bos=True, lumoda_kirik=True, option="O1", alinan=5) -> dict:
+    return {"alici": alici, "option_id": option, "alinan": alinan, "sehir": sehir, "verici": 3,
+            "verici_istanbul_disi": ist_disi, "verici_sehir_disi": sehir_disi, "kirik_beden": 2, "depo_bos": depo_bos,
+            "lumoda_kirik": lumoda_kirik}
+
+
+def test_suz_kosullari():
+    """Depoda yok ve Lumoda'da da kırık şart; `istanbul` süzgeci alıcı İstanbul + İstanbul dışı verici, `sehir` süzgeci
+    alıcının şehri dışından verici sayar."""
+    t = pd.DataFrame([_aday("A", "İstanbul", 3, 3), _aday("B", "İstanbul", 3, 3, depo_bos=False),
+                      _aday("C", "İstanbul", 3, 3, lumoda_kirik=False), _aday("D", "İstanbul", 2, 3),
+                      _aday("E", "Ankara", 3, 3), _aday("F", "Ankara", 1, 1)])
+    assert list(hikaye.suz(t, ("tam", 3, "istanbul"))["alici"]) == ["A"]
+    assert list(hikaye.suz(t, ("iki_verici", 2, "istanbul"))["alici"]) == ["A", "D"]
+    assert list(hikaye.suz(t, ("sehir_disi", 2, "sehir"))["alici"]) == ["A", "D", "E"]
+    assert hikaye.suz(t.iloc[:0], ("tam", 3, "istanbul")).empty
+
+
+@pytest.mark.parametrize("satirlar, seviye, alici", [
+    ([_aday("A", "İstanbul", 3, 3), _aday("B", "İstanbul", 2, 2)], "tam", ["A"]),
+    ([_aday("B", "İstanbul", 2, 2), _aday("C", "Ankara", 2, 2)], "iki_verici", ["B"]),
+    ([_aday("C", "Ankara", 2, 2), _aday("D", "İstanbul", 1, 1)], "sehir_disi", ["C"]),
+])
+def test_sec_ilk_bos_olmayan_seviye(satirlar, seviye, alici):
+    """Seviye yalnız üstündekiler boşsa gevşer."""
+    ad, a = hikaye.sec(pd.DataFrame(satirlar))
+    assert ad == seviye and list(a["alici"]) == alici
+
+
+def test_sec_aday_yoksa_eksik_kucuk_yedek_yalniz_kucukte():
+    """TAM'da hiçbir seviye tutmazsa `Eksik` (sahne uydurulmaz); tek verici yedeği yalnız KÜÇÜK ölçekte."""
+    t = pd.DataFrame([_aday("D", "Ankara", 1, 1)])
+    with pytest.raises(hikaye.Eksik):
+        hikaye.sec(t)
+    ad, a = hikaye.sec(t, "kucuk")
+    assert ad == "kucuk_yedek" and list(a["alici"]) == ["D"]

@@ -7,13 +7,16 @@ gizli alanları okumaz.
     SIMULASYON   __init__, politika, simulasyon                                 (koşu anahtarına giren vaka kodu)
     OLCUM        hakem, olcutler, oyun, hikaye                                  (gizli gerçeğe dokunabilir)
 
-Henüz yazılmamış adlar (`olcutler`, `oyun`, `hikaye`) listede durur; dosya paketlere eklendiği anda kendiliğinden
-kilitlenir. Yeni bir modül önce bir listeye konur (`test_her_modul_siniflandirilmis`).
+Yeni bir modül önce bir listeye konur (`test_her_modul_siniflandirilmis`).
 
 **KARAR kilidi** (AST). Yasak içe aktarım: `perakende_veri`, `allocation.motor`, `allocation.politika`, kiriklik'in
 KARAR dışındaki her modülü (`hakem`, `simulasyon`, `politika`, `olcutler`, `oyun`, `hikaye` ve bilinmeyenler), dinamik
 içe aktarma (`import_module`, `__import__`). Yasak ad (ad, öznitelik, argüman, anahtar kelime ya da sabit dizge):
 `lam`, `esneklik*`, `gercek*`, `gizli_*`.
+
+**Kapanış kilidi** (taze süreçte `sys.modules`). AST yalnız bu paketin dosyalarını görür; karar modülleri başka pakete
+(`markdown.ogrenme`, ortak paket) dayanır. Bütün karar modülleri içe aktarılınca `perakende_veri`, `allocation`,
+ölçüm ve simülasyon modülleri yüklenmemiş olmalı.
 
 **`politika` kilidi.** Yuva türünü `perakende_veri.v4.politika`'dan alır, `perakende_veri`'den başka hiçbir şey almaz;
 `allocation`'a, ölçüm modüllerine ve karar kodunun hiçbirine dokunmaz.
@@ -24,6 +27,8 @@ Statik taramanın yakalamadıkları (kod incelemesine kalır): `vars(...)`, `__d
 
 import ast
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -113,14 +118,13 @@ def mevcut() -> set[str]:
 
 
 def test_her_modul_siniflandirilmis():
-    """Her mevcut modül tam bir kümede; kümeler ayrık; henüz yazılmamış adlar serbest."""
+    """Her mevcut modül tam bir kümede; kümeler ayrık; listedeki her ad dosya olarak var."""
     assert not (KARAR & SIMULASYON or KARAR & OLCUM or SIMULASYON & OLCUM)
     siniflandirilmis = KARAR | SIMULASYON | OLCUM
     assert mevcut() <= siniflandirilmis, f"sınıflandırılmamış modül: {sorted(mevcut() - siniflandirilmis)}"
     for ad in mevcut():
         assert sum(ad in k for k in (KARAR, SIMULASYON, OLCUM)) == 1, ad
-    assert {"sabitler", "kaynak", "olcu", "uygunluk", "tahmin", "kural", "model", "plan", "politika", "simulasyon",
-            "hakem"} <= mevcut()
+    assert siniflandirilmis - {"__init__"} <= mevcut() and "__init__" in mevcut()
 
 
 def test_simulasyon_listeleri_siniflandirmayla_ayni():
@@ -138,8 +142,6 @@ def test_simulasyon_listeleri_siniflandirmayla_ayni():
 @pytest.mark.parametrize("ad", sorted(KARAR))
 def test_karar_modulu_ice_aktarma_kilidi(ad):
     yol = PAKET / f"{ad}.py"
-    if not yol.exists():
-        pytest.skip(f"{ad}.py henüz yok")
     alinan = ice_aktarimlar(yol)
     yasak = [a for a in alinan if any(_altinda(a, y) for y in YASAK_ICE_AKTARIM)]
     assert not yasak, f"{ad}.py yasak içe aktarım: {yasak}"
@@ -151,9 +153,21 @@ def test_karar_modulu_ice_aktarma_kilidi(ad):
 @pytest.mark.parametrize("ad", sorted(KARAR))
 def test_karar_modulu_gizli_ad_kilidi(ad):
     yol = PAKET / f"{ad}.py"
-    if not yol.exists():
-        pytest.skip(f"{ad}.py henüz yok")
     assert not [a for a in okunan_adlar(yol) if _yasak_ad(a) or GIZLI_DIZGE.match(a)], ad
+
+
+def test_karar_kapanisi_taze_surecte():
+    """Karar modüllerinin bütün içe aktarım kapanışı (başka paketler dahil), taze bir süreçte: gizli gerçeğe ve ölçüm
+    tarafına giden modül yüklenmez. Kapanışın kendisi de sınanır: `markdown.ogrenme` yüklenmiş olmalı."""
+    kod = (f"import importlib, sys; [importlib.import_module('kiriklik.' + m) for m in {sorted(KARAR)!r}]; "
+           "print(' '.join(sorted(sys.modules)))")
+    r = subprocess.run([sys.executable, "-c", kod], capture_output=True, encoding="utf-8", cwd=PAKET.parent, check=True)
+    yuklu = set(r.stdout.split())
+    assert "markdown.ogrenme" in yuklu and f"{PAKET_ADI}.model" in yuklu
+    kok = ("perakende_veri", "allocation", "markdown.degerlendir",
+           *(f"{PAKET_ADI}.{m}" for m in (SIMULASYON | OLCUM) - {"__init__"}))
+    yasak = sorted(a for a in yuklu if any(_altinda(a, k) for k in kok))
+    assert not yasak, f"karar kapanışında yasak modül: {yasak}"
 
 
 def test_kilit_ihlali_yakalar(tmp_path):
