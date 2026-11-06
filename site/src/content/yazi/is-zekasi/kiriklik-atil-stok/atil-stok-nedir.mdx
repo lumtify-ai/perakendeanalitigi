@@ -5,7 +5,7 @@ sira: 2
 ozet: >-
   Rafta duran malın satmadığını ne zaman söyleriz? Satmayan ve atıl stok, 28
   günlük pencere ve eşik. Eşiği değiştirmek atıl listesini nasıl büyütüyor ve
-  atıl stok seti bozulmuş option'larda ne kadar daha sık görülüyor?
+  seti bozulmuş option'lar gerçekten daha mı çok atıl kalıyor?
 yazar: Sabri Suyunu
 durum: yayinda
 ---
@@ -68,20 +68,20 @@ yok.
 
 | Sınıf | Çift | Mağaza stoğu (adet) | Alış değeri |
 |---|---:|---:|---:|
-| Satmayan | 80 | 1.196 | 387 bin TL |
-| Atıl, eşik bir | 115 | 2.410 | 827 bin TL |
-| Atıl, eşik iki | 241 | 5.533 | 1.883 bin TL |
-| Atıl, eşik üç | 389 | 10.073 | 3.500 bin TL |
+| Satmayan | 47 | 993 | 317 bin TL |
+| Atıl, eşik bir | 69 | 2.107 | 697 bin TL |
+| Atıl, eşik iki | 164 | 5.036 | 1.657 bin TL |
+| Atıl, eşik üç | 269 | 9.033 | 3.021 bin TL |
 
 Lumoda'nın kullandığı eşikte, yani ikide, atıl çiftlerin mağaza stoğu hiç
-satmayan çiftlerinkinin dört katından fazla. Asıl yük, satan ama yavaş satan
+satmayan çiftlerinkinin beş katı kadar. Asıl yük, satan ama yavaş satan
 çiftlerde.
 
 ## Eşik neyi değiştirir
 
 Eşiği bir adet yukarı çekmek küçük bir karar gibi görünür. Tablo öyle
-olmadığını söylüyor. Eşik birden üçe çıkınca atıl çift sayısı üç katından
-fazlasına, bu çiftlerin mağaza stoğu dört katından fazlasına çıkıyor.
+olmadığını söylüyor. Eşik birden üçe çıkınca atıl çift sayısı neredeyse dört
+katına, bu çiftlerin mağaza stoğu dört katından fazlasına çıkıyor.
 
 — Doğru eşik hangisi? diyor Pelin.
 
@@ -94,7 +94,7 @@ daha çok satan bir çifttir.
 ## Beden düzeyinde
 
 Aynı pazartesi beden düzeyinde satmayan stok 20.351 adet, atıl stok 24.403
-adet. Çift düzeyinde hiç satmayan stok yalnız 1.196 adetti. Aradaki farkın
+adet. Çift düzeyinde hiç satmayan stok yalnız 993 adetti. Aradaki farkın
 büyük kısmı, option satarken kendisi satmayan bedenler.
 
 Bir örnekle düşünelim. Bir kazak bir mağazada dört haftada beş adet satmış,
@@ -108,36 +108,43 @@ malı görmez.
 
 Sezonun ilk haftalarında liste boş, çünkü mal henüz pencere kadar süredir
 rafta değil. Sonra atıl stok sezonla birlikte büyüyor. Kış
-sezonunda eşik ikiyken indirime sekiz hafta kala 85 çift atıl. İndirim haftasında bu sayı 471,
-indirimden yedi hafta sonra 803. Satmayan çiftler de aynı haftalarda 8'den
-183'e, oradan 486'ya çıkıyor.
+sezonunda eşik ikiyken indirime sekiz hafta kala 52 çift atıl. İndirim haftasında bu sayı 358,
+indirimden yedi hafta sonra 705. Satmayan çiftler de aynı haftalarda 4'ten
+119'a, oradan 341'e çıkıyor.
 
 İndirim bu büyümeyi durdurmuyor. Sezonun sonuna doğru rafta kalan çiftlerin
 giderek daha büyük bir kısmı ya az satıyor ya hiç satmıyor.
 
 ## Kırıklıkla birlikte
 
-Atıl stok ile <T k="kiriklik">kırıklık</T> aynı option'da sık sık birlikte
-görülüyor. Kış sezonunda, indirime üç hafta kala, en az bir bedeninin stoğu
-sıfır olan çiftlerin %11,4'ü atıl ya da satmayan. Bütün bedenleri rafta olan
-çiftlerde bu pay %5,0. Seti bozulmuş çiftlerde atıl ya da satmayan
-stok iki kattan daha sık görülüyor.
+Akla ilk gelen soru şu: seti bozulmuş çift daha mı çok atıl kalır? Eksik bedeni
+arayan müşteri mağazadan boş çıkıyorsa öyle beklersiniz.
 
-Bu bir sezonun tesadüfü değil. Yaz sezonunda aynı noktada paylar %6,9 ve
-%3,2. Bir önceki kış %13,5 ve %8,1. Üç sezonda da seti bozulmuş çiftler önde.
-İndirimden yedi hafta sonra, kış sezonunda, seti bozulmuş çiftlerin %45,8'i
-atıl ya da satmayan.
+Lumoda'da karar sabahı bu görünmüyor. Kış sezonunda, indirime üç hafta kala, en
+az bir bedeninin stoğu sıfır olan çiftlerin %5,5'i atıl ya da satmayan. Bütün
+bedenleri rafta olan çiftlerde bu pay %5,0. Yaz sezonunda aynı noktada paylar
+%2,0 ve %3,2. Bir önceki kış %7,4 ve %8,1, bir önceki yaz %6,8 ve %5,1. Fark
+küçük, yönü de sezondan sezona değişiyor. <T k="kiriklik">Kırık</T> çift çoğu
+zaman satmış çifttir: bedeni satıldığı için eksilmiştir.
 
-Ama bu sayılar hangisinin hangisine yol açtığını söylemez. Seti bozulan
-option'ın satışı düşebilir: eksik bedeni arayan müşteri boş çıkar ve o
-bedenin talebi kayıtlara hiç girmez. Tersi de olur: bir option'ın satan
-bedenleri biter, geride satmayan bedenler kalır ve set de zaten bu yüzden
-bozulmuştur. İki yol da aynı tabloyu verir.
+İndirimden sonraki haftalarda seti bozulmuş çiftler dört sezonda da birkaç puan
+öne geçiyor: kışın üç hafta sonra %18,6 ve %14,6. Yedi hafta sonra bu fark
+kışın yine kapanıyor: %33,3 ve %32,7.
 
-Bu yüzden şöyle okuyoruz: kırıklık ile atıl stok birlikte görülüyor. Seti
-bozulmuş ve atıl bir çiftin eksik bedenini tamamlamak satışını geri getirir mi,
-yoksa kalan bedenleri başka bir mağazada mı daha çok iş görür? Bu soruyu
-bu iki ölçü tek başına cevaplamaz. [Kırıklık
+Burada kolay düşülen bir tuzak var. Çiftin satışını yalnız rafta kalan
+bedenlerden sayarsanız fark varmış gibi görünür: kışın aynı sabah seti bozulmuş
+çiftlerin payı %11,4'e çıkar. Oysa kazağın iki bedeni bu dört haftada satıp
+bittiyse o satışlar hesaptan düşmüş, kazak satmıyor görünmüştür. Bütün bedenleri
+rafta olan çiftte düşecek beden yoktur. İki grup aynı ölçüyle ölçülmemiş olur.
+
+Bu paylar eksik bedenin satışa zarar vermediğini de söylemez. Müşteri aradığı
+bedeni bulamayıp çıkmış olabilir; o talep kayıtlara hiç girmez ve çift yine
+eşiğin üstünde kalır. Atıl listesi bunu görmez.
+
+Bu yüzden şöyle okuyoruz: kırık set listesi ile atıl listesi iki ayrı listedir,
+biri ötekinin yerine geçmez. Seti bozulmuş bir çiftin eksik bedenini tamamlamak
+satışını artırır mı, yoksa kalan bedenleri başka bir mağazada mı daha çok iş
+görür? Bu soruyu bu iki ölçü tek başına cevaplamaz. [Kırıklık
 Transferi](/transfer/kiriklik-transferi/) dizisi bu soruya, uzmanın kuralını ve
 optimizasyonu hiç transfer yapmamayla aynı malla karşılaştırarak bakıyor.
 
