@@ -164,7 +164,8 @@ def test_karar_kapanisi_taze_surecte():
     r = subprocess.run([sys.executable, "-c", kod], capture_output=True, encoding="utf-8", cwd=PAKET.parent, check=True)
     yuklu = set(r.stdout.split())
     assert "markdown.ogrenme" in yuklu and f"{PAKET_ADI}.model" in yuklu
-    kok = ("perakende_veri", "allocation", "markdown.degerlendir",
+    kok = ("perakende_veri", "allocation",
+           *(f"markdown.{m}" for m in ("hakem", "hikaye", "olcutler", "oyun", "politika", "politika_ablasyon", "simulasyon")),
            *(f"{PAKET_ADI}.{m}" for m in (SIMULASYON | OLCUM) - {"__init__"}))
     yasak = sorted(a for a in yuklu if any(_altinda(a, k) for k in kok))
     assert not yasak, f"karar kapanışında yasak modül: {yasak}"
