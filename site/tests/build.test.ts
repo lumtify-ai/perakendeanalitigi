@@ -177,7 +177,8 @@ describe('sözlük', () => {
     expect(html).toContain('Brüt kırıklık')
     expect(html).toContain('yüzde 40')
     expect(html).toContain('4/7')
-    expect(html).toContain('Blok Transfer dizisi alıcı seçerken daha dar bir tanımla çalışır: ara bedenlerden biri sıfırsa set kırık sayılır.')
+    expect(html).toContain('Blok Transfer dizisi alıcı seçerken daha dar bir tanımla çalışır')
+    expect(html).toContain('biri sıfırsa set kırık sayılır.')
   })
 
   it('kırıklık transferi yayında: haritada etkin, altı yazısı sırayla, kapak ve yazılar dizinlenir', () => {
