@@ -46,6 +46,33 @@ describe('demoDegeri', () => {
     expect(demoDegeri('katki_farki_mtl', -0)).toBe('0,0')
   })
 
+  it('kırıklık transferi ölçütlerini raporun basamağıyla basar', () => {
+    // Net fark ve iki dönüş yüzdesi bir ondalıkla (3 "3,0" olarak), kırık
+    // beden farkı tam sayı olarak basılır; yuvarlanınca sıfır eksi görünmez.
+    expect(demoDegeri('net_fark_mtl', 3)).toBe('3,0')
+    expect(demoDegeri('net_fark_mtl', -0.04)).toBe('0,0')
+    expect(demoDegeri('saha_donus_yuzde', 41)).toBe('41,0')
+    expect(demoDegeri('etki_donus_yuzde', 12.34)).toBe('12,3')
+    expect(demoDegeri('kirik_beden_farki', 1234)).toBe('1.234')
+    expect(demoDegeri('kirik_beden_farki', 1234.4)).toBe('1.234')
+  })
+
+  it('Demo.astro kırıklık transferi ölçütlerine etiket verir', () => {
+    // Etiket eksikse okuyucu 'net_fark_mtl' gibi ham anahtarı görürdü.
+    const kaynak = readFileSync(
+      fileURLToPath(new URL('../src/components/Demo.astro', import.meta.url)),
+      'utf8',
+    )
+    for (const [olcut, etiket] of [
+      ['net_fark_mtl', 'Net fark (milyon TL)'],
+      ['kirik_beden_farki', 'Kırık beden farkı'],
+      ['saha_donus_yuzde', 'Alınanın satışa dönüşü (%)'],
+      ['etki_donus_yuzde', 'Gerçek ek satış (%)'],
+    ]) {
+      expect(kaynak, olcut).toContain(`${olcut}: '${etiket}'`)
+    }
+  })
+
   it('sözlükte olmayan ölçütü eskisi gibi basar', () => {
     for (const [olcut, deger] of [
       ['en_kucuk_kume', 7],

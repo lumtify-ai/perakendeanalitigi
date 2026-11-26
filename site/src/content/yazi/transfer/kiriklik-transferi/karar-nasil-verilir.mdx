@@ -1,0 +1,174 @@
+---
+baslik: Bu Karar Nasıl Verilir
+tip: anlatici
+sira: 2
+ozet: >-
+  Bir kırık bedeni hangi mağazadan hangi mağazaya, ne zaman taşırsınız; bu karar
+  ne zaman hiç verilmemeli? Kime, kimden, ne kadar; transfer mi indirim mi;
+  depoda varsa neden transfer yok ve tek adetlik rota neden pahalı?
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import T from '../../../../components/T.astro'
+
+Bu yazıda şunu soruyoruz: sezon sonuna doğru bir kırık bedeni hangi mağazadan
+hangi mağazaya, ne zaman taşırsınız ve bu karar ne zaman hiç verilmemeli?
+Pudra mont için cevap kolay görünüyordu: beş adet geldi, beşi de satıldı. Ama
+Veli'nin sorusu hâlâ masada. Önce kararı parçalarına ayıralım, sonra hangi
+mağazaların bu karara hiç girmemesi gerektiğine bakalım.
+
+## Üç karar
+
+Pars tahtaya üç kelime yazıyor: kime, kimden, ne kadar.
+
+**Kime.** Kırık bedeni olan her mağaza aday değil. Beden geldiğinde onu satacak
+mağaza gerekiyor. İstanbul 17 o montu en iyi satan mağazalardan biriydi. Zor
+olan şu: kırık bedenin o mağazada satışı görünmez, çünkü rafta yoktu. Bedeni
+olmayan mağazanın o bedeni ne kadar satacağını kestirmek dördüncü yazının konusu.
+
+**Kimden.** Bedeni alan mağazaya alıcı, veren mağazaya verici diyelim. Beden bir
+yerden geliyor. Alıcı kazanırken verici kaybedebilir. Lumoda'da tipik bir <T k="option">option</T> 23 mağazada stoklu
+duruyor, bunların 10'unda en az bir kırık beden var. Aday çok, ama hepsi aynı
+değil. Tam setin bir bedeninden son adedi almak orada yeni bir kırık beden açar. Seti zaten
+bozulmuş mağazadan almak daha az göze batar, ama o mağaza kalan bedenini
+satıyor olabilir.
+
+**Ne kadar.** İstanbul 17'de L kırıktı, bir L getirmek kırık bedeni kapatırdı.
+Ali iki L istedi, çünkü <T k="asorti">asorti</T> iki diyor. M ise kırık değildi,
+bir tane vardı; o da asortiye tamamlandı. Bu dizide hedef asorti adedi, başarı
+ölçüsü ise kırık beden sayısı. Yarım kalan set de bir seçenek mi, yoksa set ya
+tamamlanmalı ya hiç dokunulmamalı mı? Bu soru ilk bakışta ayrıntı gibi duruyor;
+beşinci yazıda bunu ayrıca koşup ölçeceğiz.
+
+## Ne zaman
+
+Kırık bedeni kapatmanın en kolay yolu depodan göndermektir. Sezonun büyük
+bölümünde bunu <T k="replenishment">replenishment</T> yapar. Transfer ancak
+depo o bedeni kapatamaz hâle gelince söz konusu olur. Bu da sezon sonuna doğru
+olur.
+
+Çok erken karar verirseniz depo hâlâ besliyordur, vericinin satışı da hâlâ
+canlıdır. Çok geç verirseniz gelen malın satacak günü kalmaz. Bu dizide sezonda
+tek bir karar veriyoruz, indirimden önceki son dört hafta içindeki ilk pazartesi
+sabahı: kışın indirime 24 gün, yazın 28 gün kala.
+
+— Zaten indirime giriyor, demiştim, diyor Pelin. Hâlâ öyle düşünüyorum.
+
+— Bu haklı bir itiraz, diyor Pars. O mont için iki yol var. İndirim, elde kalan
+S'leri fiyatla eritir ama L getirmez. Transfer L'yi getirir, ama kargosunu ve
+verici mağazanın kaybını da getirir.
+
+Seti bozulmuş bir ürün için ikisi birbirinin seçeneğidir. Bu dizide sıra sabit:
+önce transfer, sonra indirim. Çünkü indirim geldikten sonra transferin
+kazandıracağı tam fiyatlı satış kalmaz. Bütün karşılaştırmalarda indirim kararları
+da mal da aynı; değişen yalnız transfer. İndirimin kendi kararını
+[İndirim Takvimi](/indirim/indirim-takvimi/) dizisi anlatıyor.
+
+## Kim girmez
+
+Bir option'ın bir mağazadaki stoğuna kısaca çift diyoruz; ayrıntısı
+[Kırıklık Nedir](/is-zekasi/kiriklik-atil-stok/kiriklik-nedir/) yazısında.
+Karar sabahı zincire bakınca huni şöyle daralıyor:
+
+| Çift sayısı | Kış | Yaz |
+|---|---:|---:|
+| Stoklu çift | 4.051 | 4.258 |
+| En az bir bedeni kırık | 1.873 | 1.985 |
+| Kırık bedenlerin hiçbiri depoda yok | 1.126 | 931 |
+| İndirimden önce açık siparişi de yok | 819 | 651 |
+
+Setlerin neredeyse yarısında en az bir beden yok. Ama kışın 1.873 kırık çiftin 747'sinde
+kırık bedenlerden en az biri depoda duruyor, yazın 1.985 çiftin 1.054'ünde.
+
+— Depoda varsa niye almıyoruz? diyor Ali.
+
+— Çünkü o malı replenishment zaten gönderir, diyor Pars. Her pazartesi çalışıyor.
+Depoda duran bedeni başka mağazadan çekmek, bir mağazayı boşuna boşaltmaktır.
+
+Sonraki basamak daha az akla gelir. Kışın 307, yazın 280 çiftte kırık beden
+depoda yok, ama tedarikçiden indirimden önce gelecek bir açık sipariş var. Mal
+gelince replenishment o mağazaya da gönderecek. Transfer yaptıysanız aynı bedeni
+iki kez taşımış olursunuz.
+
+Geriye kışın 819 çift kalıyor, 115 option'da; yazın 651 çift, 90 option'da.
+Kararın asıl konusu bunlar. Cevabın ilk yarısı da burada: bedeni depo ya da
+tedarikçi kapatacaksa transfer kararı hiç verilmemeli.
+
+## Terazi
+
+Kalan çiftlerde her adedin üç kefesi var: alıcıda kazanılan satış, vericide
+kaybedilen satış ve kargo. Bu yazıda kefelere para koymuyoruz. Yalnız nasıl
+okunacağına bakıyoruz.
+
+Bursa 2'den gelen L, İstanbul 17'de satıldı. Birinci kefe dolu ve saha yalnız
+onu görür. İkinci kefenin sorusu Veli'nin sorusudur: o L Bursa 2'de kalsaydı
+satılır mıydı?
+
+— Satmayan mağazadan alırız, olur biter, diyor Ali.
+
+— Bu dönemde satmayan mağaza az, diyor Pars. Kış karar sabahı 4.051 çiftin
+3.510'u son 28 günde haftada bir adetten fazla satmış; yazın 4.258 çiftin
+3.938'i.
+
+Yani bu ürünler neredeyse her yerde satıyor (kışın %86,7, yazın %92,5). Malı
+<T k="atil-stok">atıl stoktan</T> alıp satan mağazaya taşımak hoş bir resim, ama
+bu pencerede az rastlanır: karar sabahı kırık çiftlerin kışın yalnız %5,5'i, yazın
+%2,0'ı atıl ya da hiç satmıyor. Çoğu zaman satan bir mağazadan daha çok satacak
+bir mağazaya taşıyorsunuz. Kazanç, iki satışın farkıdır.
+
+Bir ayrıntı daha var. Satılmayan mal yok olmaz: indirimde ya da outlet'te
+gider. O L, İstanbul 17'ye gitmeseydi belki Bursa 2'de indirim gününde satılacaktı. Bu
+durumda transfer yeni bir satış yaratmaz; aynı adedin tam fiyatla mı indirimle mi
+satılacağını değiştirir. Bir adedin değeri, nerede satıldığı kadar ne zaman
+satıldığına da bağlı.
+
+## Tek rota, tek adet
+
+Üçüncü kefe en kolay görünen kefe. Kargoyu adet başına değil, rota başına
+düşünün: rota, bir verici mağazadan bir alıcı mağazaya giden hattır, kamyon kalkar
+ya kalkmaz.
+
+[Blok Transfer](/transfer/blok-transfer/) dizisinde sahanın bir sezgisi vardı:
+minimum koli, "iki adet için kamyon kaldırılmaz". Pudra montta ise beş rotanın
+her birinde tek adet var. Bu sezgiyi harfiyen uygularsanız Ali'nin planı hiç
+kurulmaz.
+
+Buradan "tek adetlik rota yanlıştır" çıkmaz. Rota iki mağaza arasındadır, ürüne
+ait değildir. Bursa 2'den İstanbul 17'ye başka option'lar da gidiyorsa kamyon zaten
+kalkıyor, mont ona biniyor. Asıl sonuç şu: karar ürün ürün verildiğinde her
+option kendi tek adetlik rotasını açar ve kimse kamyonları toplamaz. Maliyete
+bakan bir karar, malı aynı rotalarda toplamaya çalışır. Üçüncü yazının kuralı
+buna bakmıyor, beşinci yazının modeli bakıyor; farkı orada göreceğiz.
+
+Cevabı toparlayalım. Bir transfer ancak şu dört koşulda
+konuşulmalı: bedeni depo ve tedarikçi kapatamıyor, alıcı o bedeni satacak, verici
+aynı bedeni o kadar satmayacak, kamyonun faturası bu farkı yemiyor.
+
+## Sizin verinizde zor olan
+
+**Açık sipariş.** Huninin bir basamağı buna bağlı. Lumoda'da planlanan teslim
+tarihi yayımlanan bir sütun. Gerçekte o tarih çoğu zaman kâğıt üstündedir ve
+tedarikçi ile planlama ayrı dosyalarda tutar. Geç gelen mal, transferi haklı
+çıkarır; erken gelen mal boşa çıkarır. Bunu karar sabahı bilemezsiniz.
+
+**Depodaki rezervasyon.** "Depoda var" her zaman "gönderilebilir" demek değildir.
+Online siparişe, ilk dağıtıma ya da başka bir plana ayrılmış mal stokta görünür.
+Bu ayrımı görmezseniz huni, gerçekte adayı olan çifti eler.
+
+**Mağaza kapanışı.** Lumoda'da 74 fiziksel mağazanın 69'u açık ve kapanış kararsız;
+kalan mağazalar baştan dışarıda. Gerçek bir zincirde kapanış kararı allocator'a
+her zaman zamanında ulaşmaz. Seti tamamladığınız mağaza iki ay sonra kapanabilir.
+
+**Yolda süre.** Lumoda'da mal bir ile dört gün arasında varıyor; Van'dan İstanbul'a
+dört gün. Gerçek yol çoğu zaman bundan uzun, mal yolda satmaz. Sonra mağazada kabul edilmesi ve rafa çıkması
+gerekir. Kalan üç haftanın kaçı bu işlere gider, o da hesaba girmeli.
+
+**İndirim listesinin kilidi.** Pelin'in listesini kim, ne zaman kilitliyor?
+Liste kilitlendikten sonra verilen transfer kararı indirimi değiştiremez, ancak
+onun üstüne eklenir. Bu takvim çoğu zincirde hiçbir sistemde
+yazmaz; bir toplantıda konuşulur. Transfer kararının geç kalıp kalmadığını önce
+oradan öğrenirsiniz.
+
+Sonraki yazıda Ali'nin pudra montta elle yaptığını kurala döküp bütün zincire
+uyguluyoruz. Kural nasıl çalışıyor, nerede duruyor?

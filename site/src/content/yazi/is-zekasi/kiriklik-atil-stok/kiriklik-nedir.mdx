@@ -1,0 +1,180 @@
+---
+baslik: Kırıklık Nedir
+tip: anlatici
+sira: 1
+ozet: >-
+  Bir option'ın beden seti ne zaman bozulmuş sayılır ve bunu tek bir sayıyla
+  nasıl söyleriz? Kırık beden, net ve brüt kırıklık, eksik adet. Lumoda'da
+  kırıklık sezon boyunca nasıl büyüyor ve oran neden tek başına yanıltabiliyor?
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import T from '../../../../components/T.astro'
+
+Bir ürünün bedenleri mağazada azalmaya başladığında, o ürünün setinin
+bozulduğunu ne zaman söyleriz? Rafta hâlâ üç bedeni duran bir kazak satışa
+hazır mıdır, yoksa artık eksik midir? Bu yazının sorusu bu: bir
+<T k="option">option</T>'ın beden setinin bozulduğunu nasıl ölçeriz ve o
+ölçüye bakınca neyi görmeliyiz?
+
+Müşteri rafta ürünü değil, kendi bedenini arar. Bir kazağın beş bedeni
+varsa ve M bitmişse, kazak rafta durur ama M giyen müşteri için yoktur.
+Kazağın satışı düşer. Düşen satış kazağın beğenilmemesinden değil, bedenin
+olmamasından gelir. Bu duruma <T k="kiriklik">kırıklık</T> diyoruz: bir
+option'ın beden setinin bozulması.
+
+Ölçmek için önce setin nasıl olması gerektiğini bilmek gerekir. Bir option
+mağazaya bedenlerine belli bir oranla dağıtılarak gelir. Bu orana
+<T k="asorti">asorti</T> denir. Lumoda'da beş bedenli her setin asortisi
+1-2-2-1-1: birinci bedenden bir, ikinci ve üçüncü bedenden ikişer, dördüncü
+ve beşinci bedenden birer adet. Kırıklık, mağazadaki stoğun bu asortiden ne
+kadar uzaklaştığını söyler.
+
+## Kırık beden
+
+En basit soru şu: asortide olan bedenlerden hangisinin mağazada stoğu
+sıfır? Stoğu sıfır olan bedene **kırık beden** diyoruz. Bir beden azalmış ama
+bitmemişse o beden kırık değildir; set yalnız incelmiştir.
+
+Bir option'ın bir mağazadaki stoğuna çift diyelim. "Kırık" kelimesini yalnız
+biten beden için kullanıyoruz; kırık bedeni olan çifte de **kırık çift**
+diyoruz. Stoğu tamamen sıfır olan çift hesaba girmez. O mağazada ürün artık yoktur; seti bozulmuş bir
+ürün değil, bitmiş bir üründür.
+
+## Net ve brüt
+
+Kırıklık iki ayrı oranla ölçülür. İki mağazada aynı option'a bakalım.
+Sütunlar beden sırası.
+
+| | 1 | 2 | 3 | 4 | 5 | Kırık beden | Net | Eksik adet | Brüt |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Asorti | 1 | 2 | 2 | 1 | 1 | | | | |
+| Birinci mağaza | 1 | 0 | 0 | 1 | 1 | 2 | %40 | 4 | 4/7 |
+| İkinci mağaza | 1 | 1 | 2 | 1 | 1 | 0 | %0 | 1 | 1/7 |
+
+**Net kırıklık** kırık bedenlerin beden sayısına oranıdır. Birinci mağazada
+beş bedenden ikisi kırık, net kırıklık %40. İkinci mağazada hiçbir beden
+sıfır değil, net kırıklık sıfır. Net kırıklık müşterinin gördüğünü ölçer:
+bedenini bulamayan müşteri için o ürün yoktur. Bu yazıdaki ana ölçü bu.
+
+**Brüt kırıklık** asortiye göre eksik adedin asorti toplamına oranıdır.
+Asorti toplamı yedi adet. Birinci mağazada ikinci ve üçüncü bedenden ikişer
+adet eksik: dört eksik adet, brüt 4/7. İkinci mağazada ikinci bedenden bir
+adet eksik: brüt 1/7.
+
+— İkinci mağazanın seti de mi bozuk? diyor Pelin.
+
+— Bozuk değil, diyor Pars. Bütün bedenler rafta, ikinci bedenden yalnız bir
+adet az. Brüt buna eksik adet der. Biz o bedene kırık demiyoruz.
+
+Brüt, rafın asortiye dönmesi için kaç adet gerektiğini söyler. Net ise o mal
+gelene kadar hangi bedenlerin müşteriyi boş çevireceğini. İkisi çoğu zaman
+yakın çıkar. Ayrıldıkları yer, ikinci mağazadaki gibi incelmiş ama
+bozulmamış setlerdir.
+
+Zincirin geneli için de aynı iki oran kullanılır. Bütün çiftlerin kırık
+bedenleri toplanır ve bütün çiftlerin beden sayısına bölünür. Eksik adet de
+aynı yoldan, bütün çiftlerin asorti toplamına bölünür.
+
+## Lumoda'da bir pazartesi
+
+Lumoda'da bu ölçüyü her pazartesi sabahı, mağaza stoğunun o anki
+fotoğrafından alıyoruz. Kış sezonunda, indirime üç hafta kala, fiziksel
+mağazalarda 4.051 stoklu çift var. Bunların 1.873'ü kırık çift, yani
+%46,2'si. Toplam 4.090 kırık beden var, net kırıklık %20,2. Brüt kırıklık
+%21,1: asortiye göre 5.969 adet eksik.
+
+Yani setlerin neredeyse yarısında en az bir beden yok, ama bedenlerin
+yalnız beşte biri yok. Kırık bir çiftin ortalama iki bedeni eksik.
+
+Yaz sezonunda, indirime dört hafta kala, tablo neredeyse aynı: çiftlerin
+%46,6'sı kırık. Bir önceki kış indirime üç hafta kala kırık çiftlerin payı %50,2'ydi;
+bu kış %46,2, biraz daha iyi.
+
+Mağaza tipine göre fark daha büyük: cadde mağazalarında çiftlerin %55,8'i
+kırık, AVM'lerde %43,1'i.
+
+## Hangi beden önce biter
+
+"Ara bedenler biter, uçlar kalır" sık duyulan bir sezgidir. Lumoda'da bu
+sezgi tutmuyor. Aynı pazartesi birinci bedenin stoğu çiftlerin %23,1'inde,
+beşinci bedeninki %22,2'sinde sıfır. Ortadaki üçüncü beden ise yalnız
+%16,5'inde.
+
+Bunun bir sebebi asorti. Uç bedenler mağazaya ikinci ve üçüncü bedenin yarısı
+kadar adetle gelir; aynı hızla erirlerse önce onlar sıfıra iner. Eksik adede
+bakınca sıralama dönüyor: en çok eksik ikinci bedende (1.706 adet) ve üçüncü
+bedende (1.601 adet). İkinci ya da üçüncü beden sıfıra inince iki adet eksik
+yazar, uçtaki bir adet.
+
+Bu, kırıklığın dar bir tanımının neyi kaçırdığını da gösteriyor. [Blok
+Transfer](/transfer/blok-transfer/) dizisi alıcı mağaza ararken bir çifti
+ancak ara bedenlerinden biri, yani ikinci, üçüncü ya da dördüncü bedeni
+sıfırsa kırık çift sayıyor. Bu tanımla aynı pazartesi 1.407 çift kırık, bu
+yazının tanımının %75,1'i. Aradaki 466 çiftin hepsi yalnız uç bedeni kırık
+olan çiftler. Lumoda'da uç bedenler daha sık bittiği için bu fark küçük değil.
+
+## Sezon boyunca
+
+Kırıklık tek bir pazartesinin sayısı değil, sezon boyunca büyüyen bir
+şeydir. Kış sezonunda kırık çiftlerin payı indirime on dört hafta kala
+%16,0. Dokuz hafta kala %31,8'e, üç hafta kala %46,2'ye çıkıyor. İndirim
+haftasında %48,8, indirimden yedi hafta sonra %62,1. O noktada çiftlerin
+beşte üçünden fazlası kırık, net kırıklık %29,1 ve 4.633 kırık beden var.
+Bütün sezonun en yüksek sayısı bu.
+
+Ama bu eğri hep yukarı gitmiyor. İndirime on üç hafta kala kırık çiftlerin
+payı %12,8'e düşüyor, oysa aynı hafta kırık beden sayısı 356'dan 631'e
+çıkıyor. Setler kendiliğinden tamamlanmadı; mağazalara yeni bir ürün dalgası
+geldi. Stoklu çift sayısı bir haftada iki katına çıktı ve yeni gelen tam
+setler paydayı büyüttü. İndirime sekiz hafta kala aynı şey bir kez daha
+oluyor: yeni dalga geliyor, oran düşüyor, kırık beden sayısı artmaya devam
+ediyor.
+
+— Yani oran düştü diye sevinmemek lazım, diyor Ali.
+
+— Orana tek başına bakmamak lazım, diyor Pars. Payda değişince oran da
+değişir. Yeni gelen tam setler oranı düşürür ama tek bir bedeni tamamlamaz.
+O yüzden oranın yanında kırık beden sayısına da bakarız.
+
+## Kırıklığın ne kadarı depodan kapanır
+
+Kırık bir bedeni kapatmanın en kolay yolu depodan göndermektir. Bu
+<T k="replenishment">replenishment</T>'ın işi. Kış sezonunda, indirime üç
+hafta kala, kırık çiftlerin 747'sinde kırık bedenlerden en az biri depoda
+var. Kalan 1.126 çiftte kırık bedenlerin hiçbiri depoda yok. Bunların
+307'sinde bu bedenlerden birine indirimden önce gelecek bir açık sipariş
+var.
+
+Geriye 819 çift kalıyor. Bu çiftlerin kırıklığı indirimden önce ne depodan ne
+tedarikçiden kapanacak. Onu ancak başka bir mağazada duran mal
+kapatabilir. Hangi bedenin hangi mağazadan alınacağı [Kırıklık Transferi](/transfer/kiriklik-transferi/)
+dizisinin konusu.
+
+## Sizin verinizde zor olan
+
+Lumoda'da tek bir asorti var: her beş bedenli set 1-2-2-1-1. Gerçek bir
+zincirde asorti ürüne, kategoriye, bazen de mağazaya göre değişir. Bir kısmı
+tedarikçinin paketinden gelir, bir kısmı mağazaya özel bir plandan. Olması
+gereken seti bilmeden ne kırık bedeni ne de eksik adedi hesaplayabilirsiniz.
+Asorti çoğu zaman bir sistemde değil, bir planlamacının dosyasında durur.
+
+Beden sırası da etiketle aynı şey değildir. Kazakta S, M, L vardır;
+pantolonda bel ölçüsü, ayakkabıda numara. Pantolonda "M" diye bir beden
+yoktur ama üçüncü kademe vardır. Kırıklığı bütün kategorilerde aynı ölçüyle
+okumak için her beden setini bir sıraya oturtmak gerekir. Bu eşleme çoğu
+zaman elle yapılır ve zamanla bozulur.
+
+Stoğun fotoğrafını ne zaman çektiğiniz de sonucu değiştirir. Lumoda'da
+fotoğraf her pazartesi sabahı çekiliyor. Gerçek bir zincirde
+sabahki kırıklık ile akşamki kırıklık farklıdır. Yoldaki mal da ayrı bir
+soru: depodan çıkmış ama mağazaya ulaşmamış beden kırık mıdır?
+
+En zoru hayalet stok: sistemin rafta gördüğü ama rafta olmayan mal.
+Kaybolmuş ya da yanlış yere konmuş bir beden sistemde bir adet görünür. O
+beden kırık sayılmaz, müşteri ise onu bulamaz. Hayalet stok kırıklığı
+olduğundan küçük gösterir. Eksiye düşmüş stok tersini yapar: sistem bedeni
+sıfır ya da eksi görür, oysa rafta mal olabilir; kırıklık olduğundan büyük
+görünür. Bunları hiçbir rapor kendiliğinden söylemez, ancak sayımda ortaya
+çıkar.

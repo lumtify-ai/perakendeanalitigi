@@ -1,0 +1,428 @@
+{
+ "surum": "97634bf4b113",
+ "parametreler": [
+  {
+   "ad": "kol",
+   "etiket": "Karar kuralı",
+   "degerler": [
+    "kural",
+    "opt_set",
+    "opt"
+   ],
+   "deger_etiketleri": {
+    "kural": "uzmanın kuralı",
+    "opt_set": "optimizasyon, set tamamlanır",
+    "opt": "optimizasyon, serbest"
+   }
+  },
+  {
+   "ad": "paket",
+   "etiket": "Transfer maliyeti",
+   "degerler": [
+    "dusuk",
+    "orta",
+    "yuksek"
+   ],
+   "deger_etiketleri": {
+    "dusuk": "düşük maliyet",
+    "orta": "orta maliyet",
+    "yuksek": "yüksek maliyet"
+   }
+  },
+  {
+   "ad": "sezon",
+   "etiket": "Sezon",
+   "degerler": [
+    "kis",
+    "yaz",
+    "toplam"
+   ],
+   "deger_etiketleri": {
+    "kis": "kış sezonu",
+    "yaz": "yaz sezonu",
+    "toplam": "iki sezon"
+   }
+  }
+ ],
+ "ikizler": {},
+ "sonuclar": {
+  "kural|dusuk|kis": {
+   "ozet": {
+    "net_fark_mtl": 0.1,
+    "kirik_beden_farki": -26,
+    "saha_donus_yuzde": 97.1,
+    "etki_donus_yuzde": 19.1
+   },
+   "satirlar": [
+    {
+     "kosu": "kural_AW24"
+    }
+   ]
+  },
+  "kural|dusuk|yaz": {
+   "ozet": {
+    "net_fark_mtl": 0.0,
+    "kirik_beden_farki": -27,
+    "saha_donus_yuzde": 98.8,
+    "etki_donus_yuzde": 16.0
+   },
+   "satirlar": [
+    {
+     "kosu": "kural_SS25"
+    }
+   ]
+  },
+  "kural|dusuk|toplam": {
+   "ozet": {
+    "net_fark_mtl": 0.1,
+    "kirik_beden_farki": -53,
+    "saha_donus_yuzde": 97.8,
+    "etki_donus_yuzde": 17.8
+   },
+   "satirlar": [
+    {
+     "kosu": "kural_AW24"
+    },
+    {
+     "kosu": "kural_SS25"
+    }
+   ]
+  },
+  "kural|orta|kis": {
+   "ozet": {
+    "net_fark_mtl": 0.0,
+    "kirik_beden_farki": -26,
+    "saha_donus_yuzde": 97.1,
+    "etki_donus_yuzde": 19.1
+   },
+   "satirlar": [
+    {
+     "kosu": "kural_AW24"
+    }
+   ]
+  },
+  "kural|orta|yaz": {
+   "ozet": {
+    "net_fark_mtl": -0.0,
+    "kirik_beden_farki": -27,
+    "saha_donus_yuzde": 98.8,
+    "etki_donus_yuzde": 16.0
+   },
+   "satirlar": [
+    {
+     "kosu": "kural_SS25"
+    }
+   ]
+  },
+  "kural|orta|toplam": {
+   "ozet": {
+    "net_fark_mtl": 0.0,
+    "kirik_beden_farki": -53,
+    "saha_donus_yuzde": 97.8,
+    "etki_donus_yuzde": 17.8
+   },
+   "satirlar": [
+    {
+     "kosu": "kural_AW24"
+    },
+    {
+     "kosu": "kural_SS25"
+    }
+   ]
+  },
+  "kural|yuksek|kis": {
+   "ozet": {
+    "net_fark_mtl": -0.1,
+    "kirik_beden_farki": -26,
+    "saha_donus_yuzde": 97.1,
+    "etki_donus_yuzde": 19.1
+   },
+   "satirlar": [
+    {
+     "kosu": "kural_AW24"
+    }
+   ]
+  },
+  "kural|yuksek|yaz": {
+   "ozet": {
+    "net_fark_mtl": -0.1,
+    "kirik_beden_farki": -27,
+    "saha_donus_yuzde": 98.8,
+    "etki_donus_yuzde": 16.0
+   },
+   "satirlar": [
+    {
+     "kosu": "kural_SS25"
+    }
+   ]
+  },
+  "kural|yuksek|toplam": {
+   "ozet": {
+    "net_fark_mtl": -0.2,
+    "kirik_beden_farki": -53,
+    "saha_donus_yuzde": 97.8,
+    "etki_donus_yuzde": 17.8
+   },
+   "satirlar": [
+    {
+     "kosu": "kural_AW24"
+    },
+    {
+     "kosu": "kural_SS25"
+    }
+   ]
+  },
+  "opt_set|dusuk|kis": {
+   "ozet": {
+    "net_fark_mtl": 0.7,
+    "kirik_beden_farki": -56,
+    "saha_donus_yuzde": 95.4,
+    "etki_donus_yuzde": 52.2
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_set_AW24"
+    }
+   ]
+  },
+  "opt_set|dusuk|yaz": {
+   "ozet": {
+    "net_fark_mtl": 0.2,
+    "kirik_beden_farki": -33,
+    "saha_donus_yuzde": 97.4,
+    "etki_donus_yuzde": 49.1
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_set_SS25"
+    }
+   ]
+  },
+  "opt_set|dusuk|toplam": {
+   "ozet": {
+    "net_fark_mtl": 1.0,
+    "kirik_beden_farki": -89,
+    "saha_donus_yuzde": 96.2,
+    "etki_donus_yuzde": 51.0
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_set_AW24"
+    },
+    {
+     "kosu": "opt_set_SS25"
+    }
+   ]
+  },
+  "opt_set|orta|kis": {
+   "ozet": {
+    "net_fark_mtl": 0.7,
+    "kirik_beden_farki": -56,
+    "saha_donus_yuzde": 95.4,
+    "etki_donus_yuzde": 52.2
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_set_AW24"
+    }
+   ]
+  },
+  "opt_set|orta|yaz": {
+   "ozet": {
+    "net_fark_mtl": 0.2,
+    "kirik_beden_farki": -33,
+    "saha_donus_yuzde": 97.4,
+    "etki_donus_yuzde": 49.1
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_set_SS25"
+    }
+   ]
+  },
+  "opt_set|orta|toplam": {
+   "ozet": {
+    "net_fark_mtl": 0.9,
+    "kirik_beden_farki": -89,
+    "saha_donus_yuzde": 96.2,
+    "etki_donus_yuzde": 51.0
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_set_AW24"
+    },
+    {
+     "kosu": "opt_set_SS25"
+    }
+   ]
+  },
+  "opt_set|yuksek|kis": {
+   "ozet": {
+    "net_fark_mtl": 0.5,
+    "kirik_beden_farki": -56,
+    "saha_donus_yuzde": 95.4,
+    "etki_donus_yuzde": 52.2
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_set_AW24"
+    }
+   ]
+  },
+  "opt_set|yuksek|yaz": {
+   "ozet": {
+    "net_fark_mtl": 0.1,
+    "kirik_beden_farki": -33,
+    "saha_donus_yuzde": 97.4,
+    "etki_donus_yuzde": 49.1
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_set_SS25"
+    }
+   ]
+  },
+  "opt_set|yuksek|toplam": {
+   "ozet": {
+    "net_fark_mtl": 0.6,
+    "kirik_beden_farki": -89,
+    "saha_donus_yuzde": 96.2,
+    "etki_donus_yuzde": 51.0
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_set_AW24"
+    },
+    {
+     "kosu": "opt_set_SS25"
+    }
+   ]
+  },
+  "opt|dusuk|kis": {
+   "ozet": {
+    "net_fark_mtl": 1.6,
+    "kirik_beden_farki": -169,
+    "saha_donus_yuzde": 94.9,
+    "etki_donus_yuzde": 68.1
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_AW24"
+    }
+   ]
+  },
+  "opt|dusuk|yaz": {
+   "ozet": {
+    "net_fark_mtl": 0.9,
+    "kirik_beden_farki": -103,
+    "saha_donus_yuzde": 96.1,
+    "etki_donus_yuzde": 51.4
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_SS25"
+    }
+   ]
+  },
+  "opt|dusuk|toplam": {
+   "ozet": {
+    "net_fark_mtl": 2.5,
+    "kirik_beden_farki": -272,
+    "saha_donus_yuzde": 95.4,
+    "etki_donus_yuzde": 60.9
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_AW24"
+    },
+    {
+     "kosu": "opt_SS25"
+    }
+   ]
+  },
+  "opt|orta|kis": {
+   "ozet": {
+    "net_fark_mtl": 1.6,
+    "kirik_beden_farki": -169,
+    "saha_donus_yuzde": 94.9,
+    "etki_donus_yuzde": 68.1
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_AW24"
+    }
+   ]
+  },
+  "opt|orta|yaz": {
+   "ozet": {
+    "net_fark_mtl": 0.8,
+    "kirik_beden_farki": -103,
+    "saha_donus_yuzde": 96.1,
+    "etki_donus_yuzde": 51.4
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_SS25"
+    }
+   ]
+  },
+  "opt|orta|toplam": {
+   "ozet": {
+    "net_fark_mtl": 2.4,
+    "kirik_beden_farki": -272,
+    "saha_donus_yuzde": 95.4,
+    "etki_donus_yuzde": 60.9
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_AW24"
+    },
+    {
+     "kosu": "opt_SS25"
+    }
+   ]
+  },
+  "opt|yuksek|kis": {
+   "ozet": {
+    "net_fark_mtl": 1.4,
+    "kirik_beden_farki": -169,
+    "saha_donus_yuzde": 94.9,
+    "etki_donus_yuzde": 68.1
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_AW24"
+    }
+   ]
+  },
+  "opt|yuksek|yaz": {
+   "ozet": {
+    "net_fark_mtl": 0.7,
+    "kirik_beden_farki": -103,
+    "saha_donus_yuzde": 96.1,
+    "etki_donus_yuzde": 51.4
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_SS25"
+    }
+   ]
+  },
+  "opt|yuksek|toplam": {
+   "ozet": {
+    "net_fark_mtl": 2.1,
+    "kirik_beden_farki": -272,
+    "saha_donus_yuzde": 95.4,
+    "etki_donus_yuzde": 60.9
+   },
+   "satirlar": [
+    {
+     "kosu": "opt_AW24"
+    },
+    {
+     "kosu": "opt_SS25"
+    }
+   ]
+  }
+ }
+}

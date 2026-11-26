@@ -1,0 +1,181 @@
+---
+baslik: Transferi Kurmak
+tip: anlatici
+sira: 5
+ozet: >-
+  Aynı kararı bir optimizasyon modeline verirsek ne değişir? Her adedin değeri
+  tartılıyor, kargo rota başına ödeniyor, mal aynı rotalarda toplanıyor. Seti
+  tamamlayan model kuralın işini daha iyi yapıyor; serbest model ise kırıklık
+  transferinden epey uzaklaşıyor.
+yazar: Sabri Suyunu
+durum: yayinda
+---
+
+import Demo from '../../../../components/Demo.astro'
+import T from '../../../../components/T.astro'
+
+Aynı kırıklık kararını bir optimizasyon modeline verirseniz ne değişir? Bu yazının
+sorusu bu. Optimizasyon dediğimiz şey, her olası hareketin kazancını ve kaybını aynı
+terazide tartan ve toplamı en yüksek planı arayan bir hesap. Uzmanın kuralı
+sıralıyordu: en iyi satan alıcı, en az satan verici, set ya tamamlanır ya dokunulmaz.
+Model ise geçen yazıdaki tahminden her adedin parasını çıkarıyor ve kuralın sormadığı
+soruyu soruyor: bu adet burada mı, orada mı daha değerli, aradaki fark kamyonu öder mi?
+
+## Bir adedin değeri
+
+— Bir adedin değeri ne demek? diyor Pelin. Mont mont işte.
+
+— İstanbul 17'ye giden ilk L'yi düşün, diyor Pars. Önce tam fiyatla satılma ihtimali
+var. Orada satılmazsa indirimde satılabilir. Orada da satılmazsa outlet'e gider ve
+küçük bir kalıntı değeri bırakır. Değeri bu üçünün ağırlıklı toplamı.
+
+Geçen yazının iki tahmini bu ihtimalleri veriyor. D1 tam fiyat dönemindeki talep, D2
+indirim dönemindeki talep olsun. Bir hücredeki k'ıncı adedin değeri şu:
+
+```text
+v(k) = tam fiyat  × P(D1 ≥ k)
+     + ind. fiyat × [P(D1 + D2 ≥ k) − P(D1 ≥ k)]
+     + kalıntı    × [1 − P(D1 + D2 ≥ k)]
+```
+
+Adet arttıkça satılma ihtimali düşer, değer azalır. Bu iki yönlü çalışıyor. Alıcıya
+giden ilk adet en değerlisi. Vericide ise ilk çıkan adet en ucuzu, çünkü rafta satılma
+ihtimali en düşük adet o; stok azaldıkça çıkan her adet daha pahalıya geliyor. Bu
+yüzden model, talebine göre stoğu fazla mağazadan almayı seviyor.
+
+## Terazi
+
+Terazinin üçüncü kefesi maliyet. Adet başı toplama, rota başı kargo ve alış değerinin
+bir oranı kadar yıpranma. Orta varsayımda 10 TL, 500 TL ve %5; model bu varsayımla
+karar veriyor. Düşük varsayım bunun yarısına yakın, yüksek varsayım neredeyse iki katı. Amaç tek
+satır: alıcıda kazanılan değer, eksi vericide kaybedilen değer, eksi maliyet. Bir adet
+ancak alıcıda kazandırdığı değer, vericide kaybettirdiği değer ile maliyetin toplamını
+aşıyorsa yola çıkıyor.
+
+Modelin de sınırları var. Alıcı adayları kuralınkilerle aynı. Mal
+yalnız asortinin altındaki bedene giriyor, alıcının son stoğu asortiyi geçmiyor. Bir
+mağaza aynı <T k="option">option</T>'da hem alıcı hem verici olamıyor.
+
+Kuraldan farkı başka yerde. Kural maliyete bakmıyor, vericiyi seti zaten bozulmuş
+mağazalarla sınırlıyor, verici bir option'da bir kez veriyor. Bunlar sahada makul
+seçimler. Model maliyete bakıyor ve bu sınırların hiçbirini taşımıyor.
+
+— Tam seti bozmak? diyor Ali. Kuralın en önemli yasağı oydu.
+
+— Model onu yasak olarak değil, bedel olarak görüyor, diyor Pars. Bedeli görünce de
+bir bedenin son adedine pek dokunmuyor, stoğu kalın olandan alıyor. Sergilemenin bedeli o hesapta yok; onu son
+yazıda konuşacağız.
+
+## Rota bir kez ödenir
+
+Rota, bir verici ile bir alıcı mağaza arasındaki hat. Kamyon bir kez gider; kaç option taşırsa
+taşısın kargo bir kez ödenir. Bu yüzden option'lar tek tek çözülemiyor, sezonun bütün
+option'ları tek programda. Kamyon zaten gidiyorsa ikinci ürünün kargosu sıfır, o
+yüzden model malı aynı rotalarda topluyor. Rota dolduğunda hesap da değişiyor: tek
+başına kargoyu ödeyemeyecek küçük kazançlar, aynı kamyonda kârlı hâle geliyor.
+
+Kış sezonunda kural rota başına medyan 1 adet taşıyor, serbest bırakılan model 7 adet;
+adet ve rota toplamları aşağıdaki tabloda. Kuralda 67 mağaza verici, modelde 37.
+
+— Dört kata yakın mal, daha az kamyon, diyor Veli. Verici mağaza sayısı da neredeyse
+yarıya iniyor.
+
+## Set koşulu
+
+Serbest model seti tamamlamak zorunda değil ve malı çoğunlukla tam setlerden alıyor:
+kışın %90,0'ını, yazın %82,3'ünü. Ama seti nadiren bozuyor; kışın tam setlerde
+dokunduğu 690 bedenden yalnız 4'ünü sıfırlıyor, gerisinde kalın stoğu inceltiyor. Bu
+artık tek kalan bedenleri toplama işi değil; kırıklık transferinden epey uzaklaşıyor.
+
+Bu yüzden kırıklık transferinin tanımına sadık ikinci bir sürüm koşturduk: aynı terazi,
+üstüne kuralın iki koşulu. Alıcı ya tamamlanır ya hiç almaz; verici yalnız seti
+bozulmuş mağaza olabilir. Yarışan her sürüme kol diyoruz; kuralla asıl karşılaştırma bu kol. Serbest model ise fikrin
+nereye kadar gidebileceğini gösteriyor; iki koşulun fiyatı net kazançta iki sezonda
+1,5 M TL.
+
+Beklemediğimiz bir şey daha var. Kışın serbest model 757 alıcıya, yani
+mağaza ve option çiftine mal gönderiyor ve 714'ünün seti tamamlanıyor. Set koşullu
+kolda bu sayı 328. Tamamlamak zorunda olmayan model daha çok set tamamlıyor.
+
+Nedeni büyük olasılıkla arz: seti tam mağazalara dokunamayan kol taşıyacak mal
+bulamıyor. Ama bu kol iki koşulu birlikte taşıyor ve onları ayrı koşmadık; hangisinin
+ne kadar pahalı olduğunu bu sayılardan ayıramıyoruz.
+
+## Optimuma ne kadar yakın
+
+Program büyük; bütününü çözmeye kalkınca makul sürede bitmiyor. Çözüm iki adımda. Önce programın gevşetilmiş
+hâli: bir rotanın yarım açılabildiği, çözmesi kolay bir hâl. Bu hâlin planı
+uygulanamaz, ama hiçbir gerçek planın geçemeyeceği bir üst sınır verir. Sonra yalnız
+gevşetmenin açtığı rotalarla gerçek program çözülür.
+
+Bu daraltma en iyi planı kaçırabilir. Ne kadar kaçırdığını üst sınırla kıyaslayarak
+biliyoruz: serbest model kışın optimuma en çok %1,3, yazın %1,8 uzak; set koşullu
+kol da aynı büyüklükte. Öbür müşteri akışlarında bu uzaklık en çok %2,9. Bu uzaklık modelin kendi
+hesabında, yani tahmine göre. Tahmine göre en iyi plana yakınız; gerçekte en iyi plana
+ne kadar yakın olduğumuzu ise yalnız hakem söyleyebilir.
+
+## Sonuç
+
+Yarış şöyle kurulu: aynı müşteri akışı, aynı mal, aynı fiyat kararları; kollar
+arasındaki tek fark transfer. Taban çizgisi kırıklık transferi yapmayan Lumoda. Net,
+Lumoda'ya göre ciro farkı eksi transfer maliyeti.
+
+| Kol | Adet | Rota | Net (M TL) |
+|---|---:|---:|---:|
+| Uzmanın kuralı | 549 | 312 | 0,0 |
+| Optimizasyon, set koşullu | 1.068 | 325 | +0,9 |
+| Optimizasyon, serbest | 2.117 | 273 | +2,4 |
+| Kahin | 2.145 | 250 | +2,4 |
+
+Adet ve rota kış sezonunun planı; net iki sezonun, orta maliyetle. Kahin, talebi ve
+fiyat yolunu bilen aynı model.
+
+Bu tabloya bakıp "model kuralı 2,4 milyon farkla yendi" demeyin. Kuralın çoğu tek adetlik rotaları kargoyu
+ancak ödüyor; bu, maliyete bakmayan bir kuralın doğal sonucu. Adil karşılaştırma ilk
+iki satır: aynı işi, yani seti tamamlamayı model daha iyi yapıyor. Üçüncü satır o işin
+kazananı değil; işin tanımı gevşeyince nereye kadar gidilebildiğinin ölçüsü. Üstelik bu
+dünyada malı tam setten almanın bedeli yalnız vericinin kaybettiği ciro.
+
+Kahin ise serbest modelin biraz önünde. Geçen yazıda gördüğümüz gibi talebi bilmek sonucu
+az değiştiriyor. Serbest modelin kazancı büyük olasılıkla vericiden ve rotanın dolmasından geliyor; bunu
+ayrıca ayrıştırmadık.
+
+Tablo tek bir müşteri akışının. Aynı dünyada dört akış daha koşturduk. Sıra beşinde de aynı:
+iki sezonda net medyanı kuralda +0,04 M TL, set koşullu kolda +0,76, serbest modelde
++2,37, kahinde +2,44 M TL. Hepsi beş akışın beşinde Lumoda'nın önünde; ama kuralın artısı
+kargosunu ancak ödeyen küçük bir artı. Ayrıntısı son yazıda.
+
+## Kadranı kendiniz çevirin
+
+Aşağıda bir karar kuralı, bir transfer maliyeti ve bir sezon seçiyorsunuz. Kartlar net
+farkı, indirimden önceki son pazartesi bütün stokta kırık beden farkını, alınan malın
+alıcıda satışa dönüşünü ve taşınan adet başına gerçek ek satışı gösteriyor. Son iki
+kartın farkı son yazının konusu.
+
+Kuralı önce düşük, sonra yüksek maliyete alın; net eksiye geçiyor. Planlar maliyet
+varsayımıyla değişmiyor: kural maliyete bakmıyor, modeller orta varsayımla kuruldu;
+yalnız ölçümde uygulanan maliyet değişiyor. Kahin kadranda yok.
+
+<Demo dizi="kiriklik-transferi" />
+
+## Sizin verinizde zor olan
+
+**Rotanın gerçek maliyeti.** Burada her rota aynı fiyat. Gerçek bir zincirde
+Diyarbakır'dan İstanbul'a giden koli ile İstanbul içindeki koli aynı parayı tutmaz;
+zaten giden hat üstündeki koli neredeyse bedavadır, tek başına açılan hat pahalıdır.
+Modelin rota toplama davranışı tamamen bu tarifeye bağlı.
+
+**Mağazanın kabul gücü.** Modelde alıcı mağazanın gelen malı karşılayacak raf yeri ve
+ekibi sınırsız. İndirime üç hafta kala bir mağazaya aynı sabah onlarca ürün
+düşürmek kâğıtta ucuz, mağazada değil.
+
+**Ekip gücü.** Verici mağaza bedeni raftan ayıklayacak, sayacak, paketleyecek. Toplama
+maliyetini adet başı bir sayı yazdık. Sezon sonunun yoğun haftasında asıl kısıt para
+değil, o işi yapacak insan olabilir. Plan az mağazaya indiği için kolay görünüyor; bu
+mağazaların ne kadar yük taşıyabildiğini model bilmiyor.
+
+**Planın kayıp hesabı.** Model vericinin kaybını tahminden görüyor. Sizde o tahminin
+yanlış olduğunu gösterecek bir hakem yok; plan kâğıtta her zaman iyi görünür.
+
+Bütün kollar elimizde. Son yazıda hepsini aynı masaya koyuyoruz: kırıklık ne kadar
+azaldı, satışa ne kadar döndü ve Veli'nin ilk yazıdaki sorusunun cevabı ne?

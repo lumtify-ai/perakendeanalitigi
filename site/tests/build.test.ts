@@ -180,6 +180,81 @@ describe('sözlük', () => {
     expect(html).toContain('Sell-Through Rate')
   })
 
+  it('kırıklık dizilerinin terimleri sözlükte, kırıklık iki tanımı taşır', () => {
+    const html = oku('sozluk/index.html')
+    for (const madde of ['atil-stok', 'tekleme', 'asorti', 'std']) {
+      expect(html, madde).toContain(`id="${madde}"`)
+    }
+    expect(html).toContain('Net kırıklık')
+    expect(html).toContain('Brüt kırıklık')
+    expect(html).toContain('yüzde 40')
+    expect(html).toContain('4/7')
+    expect(html).toContain('Blok Transfer dizisi alıcı seçerken daha dar bir tanımla çalışır')
+    expect(html).toContain('biri sıfırsa set kırık sayılır.')
+  })
+
+  it('kırıklık transferi yayında: haritada etkin, altı yazısı sırayla, kapak ve yazılar dizinlenir', () => {
+    // Sonuç yazısı gelince dizi yayımlanmış sayılır: algoritma yazılmış
+    // görünür, kapak noindex basmaz, altı yazı ve demo site haritasına girer.
+    expect(oku('transfer/index.html')).toContain(
+      'algoritma--aktif"><span class="durum-noktasi durum-noktasi--aktif" aria-hidden="true">●</span><span class="algoritma-adi">Kırıklık transferi (tekleme)</span>',
+    )
+    const kapak = oku('transfer/kiriklik-transferi/index.html')
+    expect(kapak).not.toContain(NOINDEX)
+    const site = oku('sitemap-0.xml')
+    const yazilar = [
+      'tek-kalan-bedenler',
+      'karar-nasil-verilir',
+      'kural-tabanli-yontem',
+      'satis-potansiyeli',
+      'transferi-kurmak',
+      'basari-nasil-olculur',
+    ]
+    const yerler = yazilar.map((yazi) => kapak.indexOf(`href="/transfer/kiriklik-transferi/${yazi}/"`))
+    expect(yerler.every((y) => y > -1), 'kapak altı yazıya bağlanır').toBe(true)
+    expect([...yerler].sort((a, b) => a - b), 'kapak yazıları sırayla listeler').toEqual(yerler)
+    for (const yazi of yazilar) {
+      expect(oku(`transfer/kiriklik-transferi/${yazi}/index.html`), yazi).not.toContain(NOINDEX)
+      expect(site, yazi).toContain(`/transfer/kiriklik-transferi/${yazi}/`)
+    }
+  })
+
+  it('kırıklık transferi: hikâye kadroyla açılır, kadran beşinci yazıda, köprü yalnız sonda', () => {
+    const KOK = 'transfer/kiriklik-transferi/'
+    expect(oku(KOK + 'tek-kalan-bedenler/index.html')).toContain('kadro-kutusu')
+    expect(oku(KOK + 'transferi-kurmak/index.html')).toContain('Net fark (milyon TL)')
+    const son = oku(KOK + 'basari-nasil-olculur/index.html')
+    expect(son.split('lumtify-koprusu').length - 1, 'köprü tam bir kez').toBe(1)
+    const kopru = son.slice(son.indexOf('lumtify-koprusu'), son.indexOf('</aside>', son.indexOf('lumtify-koprusu')))
+    expect(kopru).toContain('eksik beden kalan bedenlerin satışını düşürmüyor')
+    expect(kopru).toContain('vericinin')
+    expect(kopru).toContain('Let Us Make Trade Intelligent For You')
+    expect(son).toContain('sergileme etkisi yok')
+    for (const yazi of ['tek-kalan-bedenler', 'karar-nasil-verilir', 'kural-tabanli-yontem', 'satis-potansiyeli', 'transferi-kurmak']) {
+      expect(oku(`${KOK}${yazi}/index.html`), yazi).not.toContain('lumtify-koprusu')
+    }
+  })
+
+  it('kavram dizisi Kırıklık ve Atıl Stok yayında, hikâyesiz ve sonuçsuz', () => {
+    // Ruling R32: kavram dizisi hikâye ve sonuç yazısı istemez; iki anlatım
+    // yazısıyla yayımlanır, haritada yazıldı görünür, site haritasına girer.
+    expect(oku('is-zekasi/index.html')).toContain(
+      'algoritma--aktif"><span class="durum-noktasi durum-noktasi--aktif" aria-hidden="true">●</span><span class="algoritma-adi">Kırıklık ve atıl stok analizi</span>',
+    )
+    const kapak = oku('is-zekasi/kiriklik-atil-stok/index.html')
+    expect(kapak).not.toContain(NOINDEX)
+    for (const yazi of ['kiriklik-nedir', 'atil-stok-nedir']) {
+      const yol = `/is-zekasi/kiriklik-atil-stok/${yazi}/`
+      expect(kapak, yazi).toContain(`href="${yol}"`)
+      expect(oku(`is-zekasi/kiriklik-atil-stok/${yazi}/index.html`), yazi).not.toContain(NOINDEX)
+      expect(oku('sitemap-0.xml'), yazi).toContain(yol)
+    }
+    // Blok Transfer'in dar tanım notu genel tanıma bağlanır (R-PF2).
+    expect(oku('transfer/blok-transfer/karar-nasil-verilir/index.html')).toContain(
+      'href="/is-zekasi/kiriklik-atil-stok/kiriklik-nedir/"',
+    )
+  })
+
   it('sözlük DefinedTermSet olarak işaretlenir', () => {
     expect(oku('sozluk/index.html')).toContain('DefinedTermSet')
   })
@@ -882,6 +957,7 @@ describe('site geneli vaatler', () => {
       'magaza-kumeleme/magaza-gruplama/basari-nasil-olculur/index.html',
       'assortment/beden-koli/basari-nasil-olculur/index.html',
       'indirim/indirim-takvimi/basari-nasil-olculur/index.html',
+      'transfer/kiriklik-transferi/basari-nasil-olculur/index.html',
     ]
 
     const gecenler = tumSayfalar().filter(({ html }) => html.includes('lumtify-koprusu'))

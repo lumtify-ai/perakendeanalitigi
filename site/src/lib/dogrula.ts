@@ -16,7 +16,7 @@ export type YaziGirdi = {
 
 export type DiziGirdi = {
   id: string
-  data: { alan: string; algoritmalar?: string[] }
+  data: { alan: string; algoritmalar?: string[]; kavram?: boolean }
 }
 
 /** Alan koleksiyonunun bir girdisi. Gövde, alan sayfası kuralları için okunur. */
@@ -122,11 +122,18 @@ function siralariDogrula(yazilar: YaziGirdi[]): string[] {
   return hatalar
 }
 
-/** Her dizide en az bir hikâye ve bir sonuç yazısı var mı? */
+/**
+ * Her dizide en az bir hikâye ve bir sonuç yazısı var mı?
+ *
+ * Kavram dizisi (`kavram: true`, ör. İş Zekası'nın Kırıklık ve Atıl Stok'u)
+ * bir ölçüyü tanımlayan anlatım yazılarından oluşur; giriş ve çıkış kapısı
+ * istemez. Öteki kurallar ona da uygulanır (Ruling R32).
+ */
 function diziIcerigiDogrula(yazilar: YaziGirdi[], diziler: DiziGirdi[]): string[] {
   const hatalar: string[] = []
 
   for (const dizi of diziler) {
+    if (dizi.data.kavram === true) continue
     const uyeler = yazilar.filter((y) => y.id.startsWith(`${dizi.id}/`))
     if (uyeler.length === 0) continue
 

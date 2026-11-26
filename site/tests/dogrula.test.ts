@@ -25,6 +25,11 @@ const ALANLAR: AlanGirdi[] = [
 ]
 const TERIMLER = ['cover', 'option']
 
+const KAVRAM_DIZISI: DiziGirdi[] = [
+  { id: 'is-zekasi/x', data: { alan: 'is-zekasi', algoritmalar: ['kiriklik-atil-stok'], kavram: true } },
+]
+const KAVRAM_ALANLARI: AlanGirdi[] = [{ id: 'is-zekasi', body: 'İş zekası bir kavramdir.' }]
+
 function tamDizi(): YaziGirdi[] {
   return [
     yazi('transfer/blok-transfer/a', 'hikaye', 1),
@@ -79,6 +84,33 @@ describe('hepsiniDogrula', () => {
       yazi('transfer/blok-transfer/b', 'teknik', 2),
     ]
     const hatalar = hepsiniDogrula(yazilar, DIZILER, ALANLAR, TERIMLER)
+    expect(hatalar.join('\n')).toMatch(/sonuc/i)
+  })
+
+  it('kavram dizisi hikâye ve sonuç istemez', () => {
+    const yazilar = [
+      yazi('is-zekasi/x/a', 'anlatici', 1),
+      yazi('is-zekasi/x/b', 'anlatici', 2),
+    ]
+    expect(hepsiniDogrula(yazilar, KAVRAM_DIZISI, KAVRAM_ALANLARI, TERIMLER)).toEqual([])
+  })
+
+  it('kavram dizisinde öteki kurallar sürer', () => {
+    const yazilar = [
+      yazi('is-zekasi/x/a', 'anlatici', 1),
+      yazi('is-zekasi/x/b', 'anlatici', 3),
+    ]
+    const hatalar = hepsiniDogrula(yazilar, KAVRAM_DIZISI, KAVRAM_ALANLARI, TERIMLER)
+    expect(hatalar.join('\n')).toMatch(/kesintisiz/i)
+  })
+
+  it('kavram olmayan dizi hikâye ve sonuçsuz geçmez', () => {
+    const yazilar = [
+      yazi('transfer/blok-transfer/a', 'anlatici', 1),
+      yazi('transfer/blok-transfer/b', 'anlatici', 2),
+    ]
+    const hatalar = hepsiniDogrula(yazilar, DIZILER, ALANLAR, TERIMLER)
+    expect(hatalar.join('\n')).toMatch(/hikaye/i)
     expect(hatalar.join('\n')).toMatch(/sonuc/i)
   })
 
